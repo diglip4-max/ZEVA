@@ -117,7 +117,7 @@ interface ClinicInfo {
 }
 
 // Widget types for drag and drop
-type WidgetType = 
+type WidgetType =
   | 'packages-offers'
   | 'primary-stats'
   | 'secondary-stats'
@@ -222,10 +222,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [navigationItemsLoaded, setNavigationItemsLoaded] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
-  
+ 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showCalendar, setShowCalendar] = useState<boolean>(false);
-  
+ 
   // Close calendar when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -240,7 +240,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showCalendar]);
-  
+ 
   // Calendar functions
   const getDaysInMonth = (date: Date): number => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
@@ -263,18 +263,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const selectDate = (day: number) => {
     const newDate = new Date(selectedDate);
     newDate.setDate(day);
-    
+   
     // Check if selected date is in the future
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Reset time for comparison
     const selectedDateTime = new Date(newDate);
     selectedDateTime.setHours(0, 0, 0, 0);
-    
+   
     if (selectedDateTime > today) {
       // Don't allow future dates
       return;
     }
-    
+   
     setSelectedDate(newDate);
     setShowCalendar(false);
   };
@@ -373,7 +373,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     return DEFAULT_WIDGETS;
   });
   const [activeId, setActiveId] = useState<string | null>(null);
-  
+ 
   // Individual stat card state
   const STAT_CARDS_STORAGE_KEY = 'clinic-dashboard-stat-cards-v3';
   const [statCards, setStatCards] = useState<{ primary: StatCard[]; secondary: StatCard[] }>(() => {
@@ -416,7 +416,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const [cardHistory, setCardHistory] = useState<Array<{ primary: StatCard[]; secondary: StatCard[] }>>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [gridSize] = useState<'compact' | 'normal' | 'spacious'>('normal');
-  
+ 
   // Chart components state
   const CHARTS_STORAGE_KEY = 'clinic-dashboard-charts-v2';
   const [chartComponents, setChartComponents] = useState<{
@@ -462,7 +462,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     };
   });
   const [activeChartId, setActiveChartId] = useState<string | null>(null);
-  
+ 
   // Stats sections state
   const STATS_SECTIONS_STORAGE_KEY = 'clinic-dashboard-stats-sections';
   const [statsSections, setStatsSections] = useState<StatsSection[]>(() => {
@@ -487,7 +487,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     ];
   });
   const [activeStatsSectionId, setActiveStatsSectionId] = useState<string | null>(null);
-  
+ 
   // Package/Offer cards state
   const PACKAGE_OFFER_STORAGE_KEY = 'clinic-dashboard-package-offer';
   const [packageOfferCards, setPackageOfferCards] = useState<PackageOfferCard[]>(() => {
@@ -510,7 +510,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     ];
   });
   const [activePackageOfferId, setActivePackageOfferId] = useState<string | null>(null);
-  
+ 
   // Sensors for drag and drop
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -522,7 +522,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-  
+ 
   // Card sensors (more sensitive for individual cards) - with constraint to ignore widget-level drags
   const cardSensors = useSensors(
     useSensor(PointerSensor, {
@@ -551,7 +551,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     '⚙️': <Settings className="w-5 h-5" />,
     '📈': <TrendingUp className="w-5 h-5" />,
     '🔒': <Lock className="w-5 h-5" />,
-    
+   
     // Sidebar specific keys
     'home': <Home className="w-5 h-5" />,
     'dashboard': <LayoutDashboard className="w-5 h-5" />,
@@ -584,7 +584,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     'security': <Shield className="w-5 h-5" />,
     'permissions': <Lock className="w-5 h-5" />,
     'access': <UserCheck className="w-5 h-5" />,
-    
+   
     // Legacy/String keys
     'star': <Star className="w-5 h-5" />,
     'mail': <Mail className="w-5 h-5" />,
@@ -631,7 +631,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
       };
 
       navigationItems.forEach(processItem);
-      
+     
       if (actions.length > 0) {
         setQuickActions(actions);
       } else {
@@ -802,7 +802,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
 
                 if (modulePermission) {
                   const actions = modulePermission.actions || {};
-                  
+                 
                   // Check if "all" is true, which grants all permissions
                   const moduleAll = actions.all === true || actions.all === 'true' || String(actions.all).toLowerCase() === 'true';
                   const moduleCreate = actions.create === true || actions.create === 'true' || String(actions.create).toLowerCase() === 'true';
@@ -887,7 +887,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
 
         if (res.data?.success && res.data.permissions) {
           const actions = res.data.permissions.actions || {};
-          
+         
           // Helper to convert value to boolean
           const toBool = (value: any): boolean => {
             if (value === true || value === false) return value;
@@ -897,12 +897,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
             }
             return Boolean(value);
           };
-          
+         
           const canAll = toBool(actions.all);
           const canRead = toBool(actions.read);
           const canUpdate = toBool(actions.update);
           const canCreate = toBool(actions.create);
-          
+         
           console.log("📊 Dashboard permissions check:", {
             module: res.data.permissions.module,
             rawActions: actions,
@@ -918,23 +918,23 @@ const ClinicDashboard: NextPageWithLayout = () => {
               canCreate: canAll || canCreate,
             }
           });
-          
+         
           const finalCanRead = canAll || canRead;
           const finalCanUpdate = canAll || canUpdate;
           const finalCanCreate = canAll || canCreate;
-          
+         
           console.log("🔐 Setting moduleAccess:", {
             canRead: finalCanRead,
             canUpdate: finalCanUpdate,
             canCreate: finalCanCreate,
           });
-          
+         
           setModuleAccess({
             canRead: finalCanRead,
             canUpdate: finalCanUpdate,
             canCreate: finalCanCreate,
           });
-          
+         
           // Reset accessDenied if permission is granted
           if (finalCanRead) {
             console.log("✅ Access granted - setting accessDenied to false");
@@ -966,7 +966,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   // Reset accessDenied when permissions are granted
   useEffect(() => {
     if (!permissionsLoaded) return;
-    
+   
     // Check read permission for all roles
     if (!moduleAccess.canRead) {
       console.log("❌ Setting accessDenied to true - read permission denied");
@@ -974,7 +974,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
       setAccessMessage('You do not have read permission for the clinic dashboard.');
       return;
     }
-    
+   
     // If read permission is granted, allow access
     console.log("✅ Resetting accessDenied to false - read permission granted");
     setAccessDenied(false);
@@ -983,11 +983,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
   // Fetch sidebar navigation items (which already have permissions applied)
   useEffect(() => {
     if (!permissionsLoaded) return;
-    
+   
     // Only check access for agent and doctorStaff roles
     if (['agent', 'doctorStaff'].includes(userRole || '')) {
       console.log("🔍 Checking access for role:", userRole, "canRead:", moduleAccess.canRead);
-      
+     
       if (!moduleAccess.canRead) {
         console.log("❌ Access denied - moduleAccess.canRead is false");
       setAccessDenied(true);
@@ -1007,18 +1007,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
     const fetchNavigationItems = async (): Promise<void> => {
       try {
         // Check for multiple token types (clinicToken, userToken, agentToken, etc.)
-        const token = 
-          localStorage.getItem('clinicToken') || 
+        const token =
+          localStorage.getItem('clinicToken') ||
           sessionStorage.getItem('clinicToken') ||
-          localStorage.getItem('userToken') || 
+          localStorage.getItem('userToken') ||
           sessionStorage.getItem('userToken') ||
-          localStorage.getItem('agentToken') || 
+          localStorage.getItem('agentToken') ||
           sessionStorage.getItem('agentToken') ||
-          localStorage.getItem('doctorToken') || 
+          localStorage.getItem('doctorToken') ||
           sessionStorage.getItem('doctorToken') ||
-          localStorage.getItem('adminToken') || 
+          localStorage.getItem('adminToken') ||
           sessionStorage.getItem('adminToken');
-          
+         
         if (!token) {
           setNavigationItemsLoaded(true);
           return;
@@ -1067,7 +1067,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   // Fetch all available modules (to show restricted ones)
   useEffect(() => {
     if (!permissionsLoaded) return;
-    
+   
     // Only check access for agent and doctorStaff roles
     if (['agent', 'doctorStaff'].includes(userRole || '')) {
       if (!moduleAccess.canRead) {
@@ -1086,18 +1086,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
     const fetchAllModules = async (): Promise<void> => {
       try {
         // Check for multiple token types (clinicToken, userToken, agentToken, etc.)
-        const token = 
-          localStorage.getItem('clinicToken') || 
+        const token =
+          localStorage.getItem('clinicToken') ||
           sessionStorage.getItem('clinicToken') ||
-          localStorage.getItem('userToken') || 
+          localStorage.getItem('userToken') ||
           sessionStorage.getItem('userToken') ||
-          localStorage.getItem('agentToken') || 
+          localStorage.getItem('agentToken') ||
           sessionStorage.getItem('agentToken') ||
-          localStorage.getItem('doctorToken') || 
+          localStorage.getItem('doctorToken') ||
           sessionStorage.getItem('doctorToken') ||
-          localStorage.getItem('adminToken') || 
+          localStorage.getItem('adminToken') ||
           sessionStorage.getItem('adminToken');
-          
+         
         if (!token) return;
 
         const res = await axios.get<{ success: boolean; data: NavigationItem[] }>('/api/navigation/get-by-role?role=clinic', {
@@ -1156,7 +1156,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
         if (data.success && data.stats) {
           dashboardStatsData = data.stats;
           setStats(data.stats);
-          
+         
           // Map dashboardStats API data to module keys
           // Common module key patterns
           statsMap['clinic_reviews'] = {
@@ -1577,7 +1577,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     }
     return modulesWithPermission.some(key => key === 'clinic_jobs' || key === 'jobs');
   }, [modulesWithPermission, navigationItemsLoaded, userRole]);
-  
+ 
   const hasBlogsPermission = useMemo(() => {
     // For clinic/doctor roles, always allow (don't wait for navigationItems)
     if (userRole === 'clinic' || userRole === 'doctor' || !userRole) {
@@ -1589,7 +1589,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     }
     return modulesWithPermission.some(key => key === 'clinic_blogs' || key === 'blogs');
   }, [modulesWithPermission, navigationItemsLoaded, userRole]);
-  
+ 
   const hasApplicationsPermission = useMemo(() => {
     // For clinic/doctor roles, always allow (don't wait for navigationItems)
     if (userRole === 'clinic' || userRole === 'doctor' || !userRole) {
@@ -1629,7 +1629,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     const subscribedModules = navigationItems.length; // Use navigationItems.length as they already have permissions
     const restrictedCount = restrictedModules.length;
     const subscriptionPercentage = totalModules > 0 ? Math.round((subscribedModules / totalModules) * 100) : 0;
-    
+   
     return {
       totalModules,
       subscribedModules,
@@ -1642,7 +1642,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const getModuleValue = useCallback((item: NavigationItem): number => {
     // First try to get from moduleStats
     const moduleStat = moduleStats[item.moduleKey];
-    
+   
     if (moduleStat?.value !== undefined && moduleStat.value !== null) {
       if (typeof moduleStat.value === 'number') {
         return moduleStat.value;
@@ -1651,10 +1651,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
         return isNaN(parsed) ? 0 : parsed;
       }
     }
-    
+   
     // Fallback: Map moduleKey to stats directly
     const moduleKeyLower = item.moduleKey.toLowerCase();
-    
+   
     // Direct moduleKey matching (most reliable)
     if (moduleKeyLower.includes('review') || moduleKeyLower === 'reviews' || moduleKeyLower === 'clinic_reviews') {
       return stats.totalReviews || 0;
@@ -1678,7 +1678,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
       // For health center, we might want to show clinic count or 1 if exists
       return 1; // Or you can fetch actual clinic count
     }
-    
+   
     // For modules like create_agent, create_lead, assignedLead - use moduleStats or default
     return moduleStat?.value as number || 0;
   }, [moduleStats, stats]);
@@ -1690,7 +1690,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const modulesChartData = useMemo(() => {
     // Use totalJobs from stats API (more accurate than moduleStats)
     const jobsCount = stats.totalJobs || 0;
-    
+   
     return [
       { name: 'Appointments', value: stats.totalAppointments || 0 },
       { name: 'Leads', value: stats.totalLeads || 0 },
@@ -1770,13 +1770,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
   // Unified drag and drop handler - handles both widget-level and item-level drags
   const handleUnifiedDragStart = (event: DragStartEvent) => {
     const id = event.active.id as string;
-    
+   
     // Check if it's a widget-level drag
     if (widgets.find(w => w.id === id)) {
       setActiveId(id);
       return;
     }
-    
+   
     // Otherwise it's an item-level drag - handle in item handlers
     if ([...statCards.primary, ...statCards.secondary].find(c => c.id === id)) {
       handleCardDragStart(event);
@@ -1794,36 +1794,36 @@ const ClinicDashboard: NextPageWithLayout = () => {
     // Check if it's a widget-level drag
     if (widgets.find(w => w.id === activeId)) {
       setActiveId(null);
-      
+     
       if (over && active.id !== over.id) {
         setWidgets((items) => {
           const oldIndex = items.findIndex((item) => item.id === active.id);
           const newIndex = items.findIndex((item) => item.id === over.id);
-          
+         
           if (oldIndex === -1 || newIndex === -1) return items;
-          
+         
           // Use arrayMove for proper swapping
           const newItems = arrayMove(items, oldIndex, newIndex);
           // Update order numbers
           const reordered = newItems.map((item, index) => ({ ...item, order: index }));
-          
+         
           // Save to localStorage
           if (typeof window !== 'undefined') {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(reordered));
           }
-          
+         
           return reordered;
         });
       }
       return;
     }
-    
+   
     // Otherwise it's an item-level drag - handle in unified item handler
     if (!over) return;
-    
+   
     const overId = over.id as string;
     if (activeId === overId) return;
-    
+   
     handleUnifiedItemDragEnd(activeId, overId);
   };
 
@@ -1937,9 +1937,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
         const gridCards = [...prev[grid]];
         const oldIndex = gridCards.findIndex(c => c.id === activeId);
         const newIndex = gridCards.findIndex(c => c.id === overId);
-        
+       
         if (oldIndex === -1 || newIndex === -1) return prev;
-        
+       
         const newCards = arrayMove(gridCards, oldIndex, newIndex);
         return {
           ...prev,
@@ -1953,24 +1953,24 @@ const ClinicDashboard: NextPageWithLayout = () => {
         const targetGrid = overCard.gridType;
         const sourceCards = [...prev[sourceGrid]];
         const targetCards = [...prev[targetGrid]];
-        
+       
         const sourceIndex = sourceCards.findIndex(c => c.id === activeId);
         const targetIndex = targetCards.findIndex(c => c.id === overId);
-        
+       
         if (sourceIndex === -1 || targetIndex === -1) return prev;
-        
+       
         // Remove both cards from their grids
         const [movedCard] = sourceCards.splice(sourceIndex, 1);
         const [targetCard] = targetCards.splice(targetIndex, 1);
-        
+       
         // Swap: moved card goes to target position, target card goes to source position
         movedCard.gridType = targetGrid;
         targetCard.gridType = sourceGrid;
-        
+       
         // Insert at the correct positions (true swap)
         targetCards.splice(targetIndex, 0, movedCard);
         sourceCards.splice(sourceIndex, 0, targetCard);
-        
+       
         return {
           ...prev,
           [sourceGrid]: sourceCards.map((card, index) => ({ ...card, order: index })),
@@ -1983,10 +1983,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const toggleCardVisibility = (cardId: string) => {
     saveCardHistory();
     setStatCards((prev) => ({
-      primary: prev.primary.map(card => 
+      primary: prev.primary.map(card =>
         card.id === cardId ? { ...card, visible: !card.visible } : card
       ),
-      secondary: prev.secondary.map(card => 
+      secondary: prev.secondary.map(card =>
         card.id === cardId ? { ...card, visible: !card.visible } : card
       ),
     }));
@@ -2037,33 +2037,33 @@ const ClinicDashboard: NextPageWithLayout = () => {
         const targetSection = overChart.section;
         const sourceCharts = [...prev[sourceSection]];
         const targetCharts = [...prev[targetSection]];
-        
+       
         const sourceIndex = sourceCharts.findIndex(c => c.id === activeId);
         const targetIndex = targetCharts.findIndex(c => c.id === overId);
-        
+       
         // Remove both charts from their sections
         const [movedChart] = sourceCharts.splice(sourceIndex, 1);
         const [targetChart] = targetCharts.splice(targetIndex, 1);
-        
+       
         // Swap: moved chart goes to target position, target chart goes to source position
         movedChart.section = targetSection;
         targetChart.section = sourceSection;
-        
+       
         // Insert at the correct positions
         targetCharts.splice(targetIndex, 0, movedChart);
         sourceCharts.splice(sourceIndex, 0, targetChart);
-        
+       
         const updated = {
           ...prev,
           [sourceSection]: sourceCharts.map((chart, index) => ({ ...chart, order: index })),
           [targetSection]: targetCharts.map((chart, index) => ({ ...chart, order: index })),
         };
-        
+       
         // Save to localStorage
         if (typeof window !== 'undefined') {
           localStorage.setItem(CHARTS_STORAGE_KEY, JSON.stringify(updated));
         }
-        
+       
         return updated;
       });
     }
@@ -2099,18 +2099,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
     setPackageOfferCards((items) => {
       const oldIndex = items.findIndex(item => item.id === activeId);
       const newIndex = items.findIndex(item => item.id === overId);
-      
+     
       if (oldIndex === -1 || newIndex === -1) return items;
-      
+     
       // Use arrayMove for proper swapping
       const newItems = arrayMove(items, oldIndex, newIndex);
       const updated = newItems.map((item, index) => ({ ...item, order: index }));
-      
+     
       // Save to localStorage
       if (typeof window !== 'undefined') {
         localStorage.setItem(PACKAGE_OFFER_STORAGE_KEY, JSON.stringify(updated));
       }
-      
+     
       return updated;
     });
   };
@@ -2186,7 +2186,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
         saveCardHistory();
         const activeGrid = activeStatCard.gridType;
         const overGrid = overStatCard.gridType;
-        
+       
         if (activeGrid === overGrid) {
           // Same grid - reorder within grid
           setStatCards((prev) => {
@@ -2204,22 +2204,22 @@ const ClinicDashboard: NextPageWithLayout = () => {
           setStatCards((prev) => {
             const sourceCards = [...prev[activeGrid]];
             const targetCards = [...prev[overGrid]];
-            
+           
             const sourceIndex = sourceCards.findIndex(c => c.id === activeId);
             const targetIndex = targetCards.findIndex(c => c.id === overId);
-            
+           
             // Remove both cards
             const [movedCard] = sourceCards.splice(sourceIndex, 1);
             const [targetCard] = targetCards.splice(targetIndex, 1);
-            
+           
             // Swap: moved card goes to target position, target card goes to source position
             movedCard.gridType = overGrid;
             targetCard.gridType = activeGrid;
-            
+           
             // Insert at correct positions
             targetCards.splice(targetIndex, 0, movedCard);
             sourceCards.splice(sourceIndex, 0, targetCard);
-            
+           
             return {
               ...prev,
               [activeGrid]: sourceCards.map((card, index) => ({ ...card, order: index })),
@@ -2243,7 +2243,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
         // Convert both items - true bidirectional swap
         const convertedPackage = statToPackageCard(activeStatCard, packageOfferCards[packageIndex].order);
         const convertedStat = packageToStatCard(overPackageCard, statGrid, activeStatCard.order);
-        
+       
         // Swap: stat card position gets package (converted), package position gets stat (converted)
         setStatCards((prev) => {
           const gridCards = [...prev[statGrid]];
@@ -2349,18 +2349,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
     setStatsSections((items) => {
       const oldIndex = items.findIndex((item) => item.id === activeId);
       const newIndex = items.findIndex((item) => item.id === overId);
-      
+     
       if (oldIndex === -1 || newIndex === -1) return items;
-      
+     
       // Use arrayMove for proper swapping
       const newItems = arrayMove(items, oldIndex, newIndex);
       const reordered = newItems.map((item, index) => ({ ...item, order: index }));
-      
+     
       // Save to localStorage
       if (typeof window !== 'undefined') {
         localStorage.setItem(STATS_SECTIONS_STORAGE_KEY, JSON.stringify(reordered));
       }
-      
+     
       return reordered;
     });
   };
@@ -2435,7 +2435,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
       const hasDailyPatients = prev.secondary.some(c => c.moduleKey === 'daily_patients');
       const hasDailyApplications = prev.secondary.some(c => c.moduleKey === 'daily_applications');
       const hasDailyReviews = prev.secondary.some(c => c.moduleKey === 'daily_reviews');
-      
+     
       // Also hide unwanted cards as per user request
       const unwantedKeys = ['modules', 'subscription'];
       const needsHiding = prev.primary.some(c => c.moduleKey && unwantedKeys.includes(c.moduleKey) && c.visible);
@@ -2449,7 +2449,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
       if (!hasJobs) {
         newPrimary.push({ id: 'p6', label: 'Total Jobs', value: 0, icon: 'briefcase', moduleKey: 'jobs', gridType: 'primary' as const, order: newPrimary.length, visible: true });
       }
-      
+     
       const updatedPrimary = newPrimary.map(card => {
         if (card.moduleKey && unwantedKeys.includes(card.moduleKey)) {
           return { ...card, visible: false };
@@ -2730,9 +2730,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       axisLine={{ stroke: '#d1d5db' }}
                       tickLine={{ stroke: '#d1d5db' }}
                     />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#fff', 
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#fff',
                         border: '1px solid #e5e7eb',
                         borderRadius: '6px',
                         fontSize: '11px'
@@ -2924,12 +2924,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
     };
 
     const paddingClass = gridSize === 'compact' ? 'p-3' : gridSize === 'spacious' ? 'p-6' : 'p-4';
-        
+       
     // Check if this is a Today's Data card
     const isTodayCard = card.moduleKey?.startsWith('daily_');
     const cardBackground = isTodayCard ? 'bg-teal-100' : 'bg-white';
     const containerBackground = 'bg-white';
-    
+   
     return (
       <div
         ref={setNodeRef}
@@ -3061,7 +3061,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
 
             {/* Date Picker Center */}
             <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
-              <button 
+              <button
                 onClick={() => {
                   const today = new Date();
                   setSelectedDate(today);
@@ -3072,7 +3072,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 Today
               </button>
               <div className="relative">
-                <div 
+                <div
                   className="flex items-center gap-0 px-3 py-1 cursor-pointer hover:bg-gray-50 rounded-md transition-colors"
                   onClick={() => setShowCalendar(!showCalendar)}
                 >
@@ -3080,7 +3080,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                     {selectedDate.toLocaleDateString('en-GB').replace(/\//g, '-')}
                   </span>
                 </div>
-                
+               
                 {/* Calendar Dropdown */}
                 {showCalendar && (
                   <div className="absolute z-50 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-64 calendar-container">
@@ -3226,7 +3226,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
             {/* Decorative Background Elements */}
             <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-indigo-200/30 to-teal-200/30 rounded-full blur-xl -mr-10 -mt-10"></div>
             <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-pink-200/30 to-teal-200/30 rounded-full blur-lg -ml-8 -mb-8"></div>
-            
+           
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -3242,7 +3242,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   <span className="text-[10px] font-semibold text-indigo-700">ACTIVE</span>
                 </div>
               </div>
-              
+             
               <div className="mb-3">
                 <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-teal-600 mb-1">
                   {stats.totalPackages || 0}
@@ -3252,7 +3252,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   <span>Available packages</span>
                 </div>
               </div>
-              
+             
               <div className="pt-3 border-t border-indigo-200/50">
                 <div className="text-[10px] text-gray-600">
                   <span className="font-semibold text-gray-900">Status:</span> Active
@@ -3269,7 +3269,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
             {/* Decorative Background Elements */}
             <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-amber-400/30 to-amber-300/30 rounded-full blur-xl -mr-10 -mt-10"></div>
             <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-amber-200/30 to-amber-300/30 rounded-full blur-lg -ml-8 -mb-8"></div>
-            
+           
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -3285,7 +3285,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   <span className="text-[10px] font-semibold text-amber-800">ACTIVE</span>
                 </div>
               </div>
-              
+             
               <div className="mb-3">
                 <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-700 to-amber-800 mb-1">
                   {stats.totalOffers || 0}
@@ -3295,7 +3295,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   <span>Active offers</span>
                 </div>
               </div>
-              
+             
               <div className="pt-3 border-t border-amber-400/50">
                 <div className="text-[10px] text-gray-700">
                   <span className="font-semibold text-gray-900">Status:</span> Active
@@ -3309,7 +3309,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                 })}
         </div>
                         );
-                      
+                     
                       case 'primary-stats':
                         const primaryCards = statCards.primary.sort((a, b) => a.order - b.order);
                         const gapClass = gridSize === 'compact' ? 'gap-1.5' : gridSize === 'spacious' ? 'gap-4' : 'gap-3';
@@ -3320,7 +3320,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                 ))}
             </div>
                         );
-                      
+                     
                       case 'secondary-stats':
                         const secondaryCards = statCards.secondary.sort((a, b) => a.order - b.order);
                         const dailyCards = secondaryCards.filter(card => card.moduleKey?.startsWith('daily_'));
@@ -3352,7 +3352,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                 )}
                               </div>
                         );
-                      
+                     
                       case 'quick-actions':
                         return (
             <div>
@@ -3384,7 +3384,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   })}
                 </div>
               </div>
-              
+             
               {/* Appointment Status Bar Chart */}
               <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
                 <h3 className="text-sm font-semibold text-teal-800 mb-4">Appointment Status Overview</h3>
@@ -3395,8 +3395,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="name" 
+                      <XAxis
+                        dataKey="name"
                         angle={-45}
                         textAnchor="end"
                         height={60}
@@ -3404,19 +3404,19 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         tick={{ fontSize: 10 }}
                       />
                       <YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip 
+                      <Tooltip
                         formatter={(value) => [value, 'Count']}
                         labelStyle={{ fontWeight: 'bold' }}
                       />
-                      <Bar 
-                        dataKey="value" 
+                      <Bar
+                        dataKey="value"
                         fill="#0d9488"
                         radius={[4, 4, 0, 0]}
                         minPointSize={2}
                       >
-                        <LabelList 
-                          dataKey="value" 
-                          position="top" 
+                        <LabelList
+                          dataKey="value"
+                          position="top"
                           style={{ fontSize: 10, fill: '#374151' }}
                           formatter={(value) => {
                             if (typeof value === 'number' && value > 0) {
@@ -3450,8 +3450,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis 
-                          dataKey="name" 
+                        <XAxis
+                          dataKey="name"
                           angle={-45}
                           textAnchor="end"
                           height={60}
@@ -3459,18 +3459,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
                           tick={{ fontSize: 10 }}
                         />
                         <YAxis tick={{ fontSize: 10 }} />
-                        <Tooltip 
+                        <Tooltip
                           formatter={(value) => [value, 'Count']}
                           labelStyle={{ fontWeight: 'bold' }}
                         />
-                        <Bar 
-                          dataKey="value" 
+                        <Bar
+                          dataKey="value"
                           fill="#0d9488"
                           radius={[4, 4, 0, 0]}
                         >
-                          <LabelList 
-                            dataKey="value" 
-                            position="top" 
+                          <LabelList
+                            dataKey="value"
+                            position="top"
                             style={{ fontSize: 10, fill: '#374151' }}
                           />
                         </Bar>
@@ -3497,14 +3497,14 @@ const ClinicDashboard: NextPageWithLayout = () => {
                           label={false}
                           outerRadius={55}
                           fill="#8884d8"
-                          dataKey="value" 
+                          dataKey="value"
                         >
                           {leadStatusData.map((_entry, index) => (
                             <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
                           ))}
                         </Pie>
                         <Tooltip />
-                        <Legend 
+                        <Legend
                           wrapperStyle={{ fontSize: '10px', paddingTop: '15px' }}
                           iconType="circle"
                           formatter={(value: any, entry: any) => {
@@ -3544,7 +3544,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                           ))}
                         </Pie>
                         <Tooltip />
-                        <Legend 
+                        <Legend
                           wrapperStyle={{ fontSize: '10px', paddingTop: '15px' }}
                           iconType="circle"
                           formatter={(value: any, entry: any) => {
@@ -3584,7 +3584,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                                   ))}
                                                 </Pie>
                                                 <Tooltip />
-                                                <Legend 
+                                                <Legend
                                                   wrapperStyle={{ fontSize: '10px', paddingTop: '15px' }}
                                                   iconType="circle"
                                                   formatter={(value: any, entry: any) => {
@@ -3605,7 +3605,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                 })}
             </div>
                         );
-                      
+                     
                       case 'analytics-overview':
                         if (!((stats.totalEnquiries > 0 || stats.totalReviews > 0 || (stats.totalAppointments || 0) > 0 || (stats.totalLeads || 0) > 0 || (stats.totalOffers || 0) > 0 || (stats.totalPatients || 0) > 0 || (stats.totalRooms || 0) > 0) || modulesChartData.length > 0 || statsChartData.length > 0)) {
                           return null;
@@ -3636,9 +3636,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         domain={[0, 'auto']}
                         type="number"
                     />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#fff', 
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#fff',
                         border: '1px solid #e5e7eb',
                         borderRadius: '6px',
                         fontSize: '11px'
@@ -3686,18 +3686,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       tickLine={{ stroke: '#d1d5db' }}
                       domain={[0, 'auto']}
                     />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#fff', 
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#fff',
                         border: '1px solid #e5e7eb',
                         borderRadius: '6px',
                         fontSize: '11px'
                       }}
                     />
-                    <Line 
-                      type="monotone" 
-                      dataKey="value" 
-                      stroke="#22c55e" 
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#22c55e"
                       strokeWidth={2}
                       dot={{ fill: '#22c55e', r: 4 }}
                       activeDot={{ r: 6 }}
@@ -3709,12 +3709,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
             <div className="h-80">
               <h3 className="text-base font-semibold text-teal-800 mb-4">Active vs Inactive</h3>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart 
+                <BarChart
                   data={[
                     { name: 'Active', value: navigationItems.length, status: 'Active' },
                     { name: 'Inactive', value: restrictedModules.length, status: 'Inactive' },
                     { name: 'Total', value: allModules.length, status: 'Total' }
-                  ]} 
+                  ]}
                   margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -3729,9 +3729,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
                     axisLine={{ stroke: '#d1d5db' }}
                     tickLine={{ stroke: '#d1d5db' }}
                   />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#fff', 
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#fff',
                       border: '1px solid #e5e7eb',
                       borderRadius: '6px',
                       fontSize: '11px'
@@ -3791,7 +3791,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 <span className="text-2xl font-bold text-green-700">{navigationItems.length}</span>
               </div>
               <div className="w-full bg-green-100 rounded-full h-3 overflow-hidden">
-                <div 
+                <div
                   className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-500 shadow-sm"
                   style={{ width: `${subscriptionSummary.subscriptionPercentage}%` }}
                 ></div>
@@ -3815,7 +3815,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 <span className="text-2xl font-bold text-teal-700">{subscriptionSummary.subscriptionPercentage}%</span>
               </div>
               <div className="w-full bg-teal-100 rounded-full h-3 overflow-hidden">
-                <div 
+                <div
                   className="bg-gradient-to-r from-teal-500 to-indigo-500 h-3 rounded-full transition-all duration-500 shadow-sm"
                   style={{ width: `${subscriptionSummary.subscriptionPercentage}%` }}
                 ></div>
@@ -3837,7 +3837,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 <span className="text-2xl font-bold text-gray-600">{subscriptionSummary.restrictedCount}</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                <div 
+                <div
                   className="bg-gradient-to-r from-gray-400 to-slate-400 h-3 rounded-full transition-all duration-500"
                   style={{ width: `${100 - subscriptionSummary.subscriptionPercentage}%` }}
                 ></div>
@@ -3880,7 +3880,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
           </div>
         </div>
                         );
-                      
+                     
                       case 'additional-stats':
                         if (!permissionsLoaded) return null;
                         const sortedStatsSections = statsSections.sort((a, b) => a.order - b.order);
@@ -3938,7 +3938,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                             </DragOverlay>
                           </DndContext>
                         );
-                      
+                     
                       default:
                         return null;
                     }
@@ -3971,7 +3971,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       );
                     }
                   }
-                  
+                 
                   // Item-level drag overlays
                   if (activeCardId) {
                     const allCards = [...statCards.primary, ...statCards.secondary];
@@ -4037,3 +4037,2460 @@ const ProtectedDashboard: NextPageWithLayout = withClinicAuth(ClinicDashboard);
 ProtectedDashboard.getLayout = ClinicDashboard.getLayout;
 
 export default ProtectedDashboard;
+
+interface TreatmentManagerProps {
+  label: string;
+  icon: React.ReactNode;
+  items: Array<{
+    mainTreatment: string;
+    mainTreatmentSlug: string;
+    subTreatments: Array<{
+      name: string;
+      slug: string;
+      price?: number;
+    }>;
+  }>;
+  newItem: string;
+  setNewItem: (value: string) => void;
+  onAdd: () => void;
+  onRemove: (index: number) => void;
+  availableTreatments: Treatment[];
+  showCustomInput: boolean;
+  setShowCustomInput: (value: boolean) => void;
+  onAddFromDropdown: (treatmentName: string) => void;
+  onUpdateTreatment: (index: number, treatment: {
+    mainTreatment: string;
+    mainTreatmentSlug: string;
+    subTreatments: Array<{
+      name: string;
+      slug: string;
+      price?: number;
+    }>;
+  }) => void;
+  // Add this missing prop
+  setAvailableTreatments: (treatments: Treatment[]) => void;
+}
+const TreatmentManager = ({
+  label,
+  icon,
+  items,
+  newItem,
+  setNewItem,
+  onAdd,
+  onRemove,
+  availableTreatments,
+  showCustomInput,
+  setShowCustomInput,
+  onAddFromDropdown,
+  onUpdateTreatment,
+  setAvailableTreatments, // Now properly typed and available
+}: TreatmentManagerProps) => {
+  const [customSubTreatment, setCustomSubTreatment] = useState<string>("");
+  const [customSubTreatmentPrice, setCustomSubTreatmentPrice] =
+    useState<string>("");
+  const [showSubTreatmentInput, setShowSubTreatmentInput] = useState<
+    number | null
+  >(null);
+  const [showCustomSubTreatmentInput, setShowCustomSubTreatmentInput] =
+    useState<number | null>(null);
+
+      const handleAddSubTreatment = async (mainTreatmentIndex: number) => {
+    if (customSubTreatment.trim()) {
+      const currentTreatment = items[mainTreatmentIndex];
+      const trimmedSubTreatment = customSubTreatment.trim();
+      const normalizedSubTreatment = trimmedSubTreatment.toLowerCase();
+     
+      // Check for duplicate sub-treatments locally (case-insensitive)
+      const isDuplicateLocal = currentTreatment.subTreatments?.some((st) =>
+        st.name?.toLowerCase().trim() === normalizedSubTreatment
+      );
+     
+      if (isDuplicateLocal) {
+        toast.error(`Sub-treatment "${trimmedSubTreatment}" already exists`);
+        return;
+      }
+
+      // Create newSubTreatment before try block so it's accessible in fallback
+      const newSubTreatment = {
+        name: trimmedSubTreatment,
+        slug: trimmedSubTreatment.toLowerCase().replace(/\s+/g, "-"),
+        price: Number(customSubTreatmentPrice) || 0,
+      };
+
+      // Try to save to database
+      try {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
+          toast.error("You are not authenticated");
+          return;
+        }
+       
+        // Check if subtreatment already exists in database
+        const treatmentsResponse = await axios.get("/api/doctor/getTreatment", {
+          headers: authHeaders,
+        });
+        const allTreatments = treatmentsResponse.data.treatments || [];
+        const mainTreatmentInDb = allTreatments.find((t: Treatment) =>
+          t.name?.toLowerCase().trim() === currentTreatment.mainTreatment.toLowerCase().trim()
+        );
+       
+        if (mainTreatmentInDb) {
+          const existsInDatabase = mainTreatmentInDb.subcategories?.some((sub: any) =>
+            sub.name?.toLowerCase().trim() === normalizedSubTreatment
+          );
+         
+          if (existsInDatabase) {
+            toast.error("Added treatment is already present");
+            setCustomSubTreatment("");
+            setCustomSubTreatmentPrice("");
+            setShowCustomSubTreatmentInput(null);
+            return;
+          }
+        }
+       
+        await axios.post(
+          "/api/doctor/add-custom-treatment",
+          {
+            mainTreatment: currentTreatment.mainTreatment,
+            subTreatments: [newSubTreatment],
+          },
+          {
+            headers: authHeaders,
+          }
+        );
+
+        // Refresh available treatments
+        const updatedTreatmentsResponse = await axios.get("/api/doctor/getTreatment", {
+          headers: authHeaders,
+        });
+        setAvailableTreatments(updatedTreatmentsResponse.data.treatments || []);
+        toast.success("Sub-treatment added to database");
+       
+        const updatedTreatment = {
+          ...currentTreatment,
+          subTreatments: [
+            ...(currentTreatment.subTreatments || []),
+            newSubTreatment,
+          ],
+        };
+        onUpdateTreatment(mainTreatmentIndex, updatedTreatment);
+        toast.success(`Sub-treatment "${trimmedSubTreatment}" added`);
+        setCustomSubTreatment("");
+        setCustomSubTreatmentPrice("");
+        setShowSubTreatmentInput(null);
+        setShowCustomSubTreatmentInput(null);
+        return; // Return early on success to avoid executing fallback code
+      } catch (error: any) {
+        console.error("Error adding custom sub-treatment to database:", error);
+        if (error.response?.status === 409) {
+          toast.error("Added treatment is already present");
+          setCustomSubTreatment("");
+          setCustomSubTreatmentPrice("");
+          setShowCustomSubTreatmentInput(null);
+          return;
+        }
+        toast.error("Failed to save sub-treatment to database, but added locally");
+        // Continue with local addition even if database call fails
+      }
+
+      // Fallback: Add locally if database call failed
+      const updatedTreatment = {
+        ...currentTreatment,
+        subTreatments: [
+          ...(currentTreatment.subTreatments || []),
+          newSubTreatment,
+        ],
+      };
+
+      onUpdateTreatment(mainTreatmentIndex, updatedTreatment);
+      toast.success(`Sub-treatment "${trimmedSubTreatment}" added`);
+      setCustomSubTreatment("");
+      setCustomSubTreatmentPrice("");
+      setShowSubTreatmentInput(null);
+      setShowCustomSubTreatmentInput(null);
+    } else {
+      toast.error("Please enter a sub-treatment name");
+    }
+  };
+
+  const handleRemoveSubTreatment = (
+    mainTreatmentIndex: number,
+    subTreatmentIndex: number
+  ) => {
+    const currentTreatment = items[mainTreatmentIndex];
+    const subTreatmentName = currentTreatment.subTreatments[subTreatmentIndex]?.name;
+    const updatedSubTreatments = currentTreatment.subTreatments.filter(
+      (_, index) => index !== subTreatmentIndex
+    );
+
+    const updatedTreatment = {
+      ...currentTreatment,
+      subTreatments: updatedSubTreatments,
+    };
+
+    onUpdateTreatment(mainTreatmentIndex, updatedTreatment);
+    toast.success(`Sub-treatment "${subTreatmentName}" removed`)
+  };
+
+  const handleAddFromAvailableSubTreatments = (
+    mainTreatmentIndex: number,
+    subTreatmentName: string
+  ) => {
+    const currentTreatment = items[mainTreatmentIndex];
+   
+    // Normalize for comparison: lowercase and trim
+    const normalizedSubTreatmentName = subTreatmentName.toLowerCase().trim();
+   
+    // Check if sub-treatment already exists (case-insensitive)
+    const isDuplicate = currentTreatment.subTreatments?.some(st =>
+      st.name?.toLowerCase().trim() === normalizedSubTreatmentName
+    );
+   
+    if (isDuplicate) {
+      toast.error(`Sub-treatment "${subTreatmentName}" already exists`);
+      return;
+    }
+   
+    const newSubTreatment = {
+      name: subTreatmentName,
+      slug: subTreatmentName.toLowerCase().replace(/\s+/g, "-"),
+    };
+
+    const updatedTreatment = {
+      ...currentTreatment,
+      subTreatments: [
+        ...(currentTreatment.subTreatments || []),
+        newSubTreatment,
+      ],
+    };
+
+    onUpdateTreatment(mainTreatmentIndex, updatedTreatment);
+    toast.success(`Sub-treatment "${subTreatmentName}" added`);
+  };
+
+  return (
+    <div className="space-y-4">
+      <label className="flex items-center gap-3 text-sm font-semibold text-teal-800 sm:text-base">
+        {icon}
+        {label}
+      </label>
+
+      {/* Treatment Selection */}
+      <div className="space-y-3">
+        {!showCustomInput ? (
+          <div className="relative">
+            <select
+              onChange={(e) => {
+                if (e.target.value === "custom") {
+                  setShowCustomInput(true);
+                } else if (e.target.value) {
+                  const selectedTreatment = availableTreatments.find(
+                    (t: Treatment) => t._id === e.target.value
+                  );
+                  if (selectedTreatment) {
+                    onAddFromDropdown(selectedTreatment.name);
+                  }
+                }
+              }}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] text-teal-800 transition-all duration-200 text-sm sm:text-base"
+              value=""
+            >
+              <option value="">Select a treatment</option>
+              {availableTreatments?.map((treatment: Treatment) => (
+                <option key={treatment._id} value={treatment._id}>
+                  {treatment.name}
+                </option>
+              ))}
+              <option value="custom">+ Add Custom Treatment</option>
+            </select>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <input
+              type="text"
+              value={newItem}
+              onChange={(e) => setNewItem(e.target.value)}
+              className="flex-1 px-4 py-3 border border-gray-200 rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] placeholder-teal-400 text-teal-800 transition-all duration-200 text-sm sm:text-base"
+              placeholder="Enter custom treatment name"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  onAdd();
+                }
+              }}
+            />
+            <div className="flex gap-2 sm:gap-3">
+              <button
+                onClick={onAdd}
+                className="flex-1 sm:flex-initial px-4 py-3 bg-[#2D9AA5] text-white rounded-xl hover:bg-[#238891] active:bg-[#1f7177] transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="sm:hidden">Add</span>
+              </button>
+              <button
+                onClick={() => {
+                  setShowCustomInput(false);
+                  setNewItem("");
+                }}
+                className="flex-1 sm:flex-initial px-4 py-3 bg-teal-100 text-teal-600 rounded-xl hover:bg-teal-200 active:bg-teal-300 transition-all duration-200 shadow-sm flex items-center justify-center gap-2"
+              >
+                <X className="w-4 h-4" />
+                <span className="sm:hidden">Cancel</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Selected Treatments */}
+      <div className="space-y-4">
+        {items?.map(
+          (
+            item: {
+              mainTreatment: string;
+              subTreatments?: Array<{
+                name: string;
+                slug: string;
+                price?: number;
+              }>;
+            },
+            index: number
+          ) => {
+            const selectedTreatment = availableTreatments.find(
+              (t) => t.name === item.mainTreatment
+            );
+
+            return (
+              <div
+                key={index}
+                className="bg-white border border-gray-100 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-200"
+              >
+                <div className="flex items-start justify-between mb-4 gap-3">
+                  <h3 className="font-semibold text-teal-800 text-sm sm:text-base leading-tight">
+                    {item.mainTreatment}
+                  </h3>
+                  <button
+                    onClick={() => onRemove(index)}
+                    className="text-red-400 hover:text-red-600 active:text-red-700 transition-colors duration-200 p-1 rounded-lg hover:bg-red-50"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Sub-treatment Section */}
+                <div className="space-y-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-sm font-medium text-teal-600">
+                      Sub-treatments
+                    </span>
+                    <button
+                      onClick={() => setShowSubTreatmentInput(index)}
+                      className="self-start sm:self-auto px-3 py-2 bg-[#2D9AA5]/10 text-[#2D9AA5] rounded-lg text-xs font-medium hover:bg-[#2D9AA5]/20 active:bg-[#2D9AA5]/30 transition-all duration-200"
+                    >
+                      + Add Sub-treatment
+                    </button>
+                  </div>
+
+                  {/* Sub-treatment Input */}
+                  {showSubTreatmentInput === index && (
+                    <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                      <div className="flex flex-col gap-3 sm:flex-row">
+                        <select
+                          onChange={(e) => {
+                            if (e.target.value === "custom") {
+                              setShowCustomSubTreatmentInput(index);
+                              setCustomSubTreatment("");
+                            } else if (e.target.value) {
+                              handleAddFromAvailableSubTreatments(
+                                index,
+                                e.target.value
+                              );
+                            }
+                          }}
+                          className="text-black flex-1 px-3 py-2 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] text-sm transition-all duration-200"
+                          value=""
+                        >
+                          <option value="">Select sub-treatment</option>
+                          {selectedTreatment?.subcategories?.map((sub) => (
+                            <option key={sub.slug} value={sub.name}>
+                              {sub.name}
+                            </option>
+                          ))}
+                          <option value="custom">
+                            + Add Custom Sub-treatment
+                          </option>
+                        </select>
+                      </div>
+
+                      {showCustomSubTreatmentInput === index && (
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                          <input
+                            type="text"
+                            value={customSubTreatment}
+                            onChange={(e) =>
+                              setCustomSubTreatment(e.target.value)
+                            }
+                            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] text-sm placeholder-teal-400 transition-all duration-200"
+                            placeholder="Custom sub-treatment name"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleAddSubTreatment(index);
+                              }
+                            }}
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            value={customSubTreatmentPrice}
+                            onChange={(e) => {
+                              setCustomSubTreatmentPrice(e.target.value);
+                            }}
+                            className="w-32 px-3 py-2 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] text-sm placeholder-teal-400 transition-all duration-200"
+                            placeholder="Price"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleAddSubTreatment(index);
+                              }
+                            }}
+                          />
+                          <button
+                            onClick={() => handleAddSubTreatment(index)}
+                            className="px-4 py-2 bg-[#2D9AA5] text-white rounded-lg text-sm font-medium hover:bg-[#238891] active:bg-[#1f7177] transition-all duration-200 shadow-sm"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="flex justify-end">
+                        <button
+                          onClick={() => {
+                            setShowSubTreatmentInput(null);
+                            setShowCustomSubTreatmentInput(null);
+                            setCustomSubTreatment("");
+                            setCustomSubTreatmentPrice("");
+                          }}
+                          className="px-4 py-2 bg-teal-200 text-teal-600 rounded-lg text-sm font-medium hover:bg-teal-300 active:bg-teal-400 transition-all duration-200"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Existing Sub-treatments */}
+                  {item.subTreatments && item.subTreatments.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {item.subTreatments.map((subTreatment, subIndex) => (
+                        <span
+                          key={subIndex}
+                          className="inline-flex items-center gap-2 px-3 py-2 bg-[#2D9AA5]/10 text-[#2D9AA5] text-sm rounded-full border border-[#2D9AA5]/20 hover:bg-[#2D9AA5]/20 transition-all duration-200"
+                        >
+                          <span className="font-medium">
+                            {subTreatment.name}
+                          </span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={subTreatment.price ?? 0}
+                            onChange={(e) => {
+                              const updatedSubTreatments =
+                                item.subTreatments!.map((st, i) =>
+                                  i === subIndex
+                                    ? { ...st, price: Number(e.target.value) }
+                                    : st
+                                );
+                              onUpdateTreatment(index, {
+                                mainTreatment: item.mainTreatment,
+                                mainTreatmentSlug: item.mainTreatment.toLowerCase().replace(/\s+/g, "-"),
+                                subTreatments: updatedSubTreatments,
+                              });
+                            }}
+                            className="w-20 px-2 py-1 border border-gray-300 rounded text-xs ml-2"
+                            placeholder="Price"
+                          />
+                          <button
+                            onClick={() =>
+                              handleRemoveSubTreatment(index, subIndex)
+                            }
+                            className="text-[#2D9AA5]/60 hover:text-red-500 active:text-red-600 transition-colors duration-200 p-0.5 rounded-full hover:bg-white/50"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          }
+        )}
+      </div>
+    </div>
+  );
+};
+
+interface ClinicCardProps {
+  clinic: Clinic;
+  onEdit: (clinic: Clinic) => void;
+  getImagePath: (photoPath: string) => string;
+  canUpdate: boolean;
+  stats?: ClinicStats;
+  statsLoading?: boolean;
+}
+const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoading }: ClinicCardProps) => {
+  // Calculate stats from clinic data if not provided
+  const totalTreatments = stats?.totalTreatments || clinic.treatments?.length || 0;
+  const totalServices = stats?.totalServices || clinic.servicesName?.length || 0;
+  const totalSubTreatments = stats?.totalSubTreatments || clinic.treatments?.reduce(
+    (sum, t) => sum + (t.subTreatments?.length || 0),
+    0
+  ) || 0;
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      {/* Profile Header Section with Image in Corner - Compact */}
+      <div className="p-3 sm:p-4 border-b border-gray-200">
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+        {/* Clinic Image - Top Left Corner */}
+        <div className="relative flex-shrink-0">
+          <div className="relative w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 rounded-lg overflow-hidden border-2 border-gray-200 shadow-sm bg-gray-50">
+            {(() => {
+              // Get the last photo (most recently uploaded profile picture) instead of first
+              const photosArray = clinic.photos || [];
+              const latestPhoto = photosArray.length > 0 ? photosArray[photosArray.length - 1] : null;
+             
+              if (!latestPhoto) {
+                return (
+                  <div key="no-photo" className="w-full h-full bg-teal-100 flex items-center justify-center">
+                    <Camera className="w-8 h-8 sm:w-10 sm:h-10 text-teal-400" />
+                  </div>
+                );
+              }
+             
+              const imageSrc = getImagePath(latestPhoto);
+             
+              // Validate the URL before passing to Image component
+              if (!imageSrc || imageSrc === '') {
+                return (
+                  <div key="invalid-src" className="w-full h-full bg-teal-100 flex items-center justify-center">
+                    <Camera className="w-8 h-8 sm:w-10 sm:h-10 text-teal-400" />
+                  </div>
+                );
+              }
+             
+              // Use regular img tag for data URIs to avoid Next.js Image validation issues
+              if (imageSrc.startsWith('data:')) {
+                return (
+                  <img
+                    key="data-uri-image"
+                    src={imageSrc}
+                    alt={clinic.name || 'Clinic photo'}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const img = e.currentTarget as HTMLImageElement;
+                      img.onerror = null;
+                      img.src = PLACEHOLDER_DATA_URI;
+                    }}
+                  />
+                );
+              }
+             
+              return (
+                <Image
+                  key="profile-image"
+                  src={imageSrc}
+                  className="w-full h-full object-cover"
+                  alt={clinic.name || 'Clinic photo'}
+                  width={160}
+                  height={160}
+                  unoptimized={true}
+                  onError={(e) => {
+                    const img = e.currentTarget as HTMLImageElement;
+                    (img as any).onerror = null;
+                    img.src = PLACEHOLDER_DATA_URI;
+                  }}
+                />
+              );
+            })()}
+          </div>
+          {canUpdate && (
+            <button
+              onClick={() => onEdit(clinic)}
+              className="absolute -bottom-1 -right-1 bg-teal-800 text-white p-1.5 rounded-full hover:bg-teal-900 shadow-md hover:shadow-lg transition-all border-2 border-white"
+              title="Edit Profile"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Clinic Info - Next to Image */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-teal-900 mb-1.5 break-words">
+                {clinic.name}
+              </h2>
+              <div className="flex items-start gap-1.5 text-teal-700 text-xs sm:text-sm">
+                <MapPin className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-teal-500" />
+                <span className="break-words">{clinic.address}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* Content - Compact */}
+    <div className="p-3 sm:p-4">
+      {/* Statistics Section */}
+      <div className="mb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <BarChart3 className="w-4 h-4 text-teal-700" />
+          <h3 className="text-base sm:text-lg font-bold text-teal-900">Statistics Overview</h3>
+        </div>
+        <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
+          <StatCard
+            icon={<Star className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />}
+            label="Reviews"
+            value={stats?.totalReviews || 0}
+            color="text-yellow-600"
+            bgColor="bg-yellow-50"
+            borderColor="border-yellow-200"
+            loading={statsLoading}
+          />
+          <StatCard
+            icon={<Mail className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />}
+            label="Enquiries"
+            value={stats?.totalEnquiries || 0}
+            color="text-teal-600"
+            bgColor="bg-gray-50"
+            borderColor="border-gray-200"
+            loading={statsLoading}
+          />
+          <StatCard
+            icon={<Star className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />}
+            label="Rating"
+            value={stats?.averageRating && stats.averageRating > 0 ? stats.averageRating.toFixed(1) : "N/A"}
+            color="text-green-600"
+            bgColor="bg-green-50"
+            borderColor="border-green-200"
+            loading={statsLoading}
+          />
+          <StatCard
+            icon={<Heart className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />}
+            label="Treatments"
+            value={totalTreatments}
+            color="text-rose-600"
+            bgColor="bg-rose-50"
+            borderColor="border-rose-200"
+            loading={false}
+          />
+          <StatCard
+            icon={<Leaf className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />}
+            label="Services"
+            value={totalServices}
+            color="text-emerald-600"
+            bgColor="bg-emerald-50"
+            borderColor="border-emerald-200"
+            loading={false}
+          />
+          <StatCard
+            icon={<Activity className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />}
+            label="Sub-Treatments"
+            value={totalSubTreatments}
+            color="text-purple-600"
+            bgColor="bg-purple-50"
+            borderColor="border-purple-200"
+            loading={false}
+          />
+        </div>
+      </div>
+
+      {/* Info Cards - Compact */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-3">
+        <div className="flex items-center gap-2 p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="w-8 h-8 bg-teal-800 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+            د.إ
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] sm:text-xs font-semibold text-teal-600 mb-0.5">Consultation Fee</div>
+            <div className="text-xs sm:text-sm font-bold text-teal-900 truncate">
+              {clinic.pricing || "Contact for pricing"}
+            </div>
+          </div>
+        </div>
+       
+        <div className="flex items-center gap-2 p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="w-8 h-8 bg-teal-800 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Clock className="w-4 h-4 text-white" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] sm:text-xs font-semibold text-teal-600 mb-0.5">Timings</div>
+            <div className="text-xs sm:text-sm font-bold text-teal-900 truncate">
+              {clinic.timings || "Contact for timings"}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Services - Compact */}
+      {clinic.servicesName?.length > 0 && (
+        <div className="mb-3">
+          <h3 className="text-xs font-semibold text-teal-700 mb-1.5 flex items-center gap-1.5">
+            <Leaf className="w-3.5 h-3.5 text-green-600" />
+            Services
+          </h3>
+          <div className="flex flex-wrap gap-1.5">
+            {clinic.servicesName.map((service, idx) => (
+              <span
+                key={idx}
+                className="px-2 py-1 bg-teal-100 text-teal-700 rounded-md text-[10px] sm:text-xs font-medium border border-gray-200"
+              >
+                {service}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Treatments - Compact */}
+      {clinic.treatments?.length > 0 && (
+        <div className="mb-3">
+          <h3 className="text-xs font-semibold text-teal-700 mb-2 flex items-center gap-1.5">
+            <Heart className="w-3.5 h-3.5 text-rose-600" />
+            Treatments
+          </h3>
+          <div className="space-y-2">
+            {clinic.treatments.map((treatment, idx) => (
+              <div key={idx} className="border border-gray-200 rounded-lg p-2.5 bg-gray-50">
+                <span className="px-2 py-1 bg-teal-800 text-white rounded-md text-[10px] sm:text-xs font-semibold inline-block mb-1.5">
+                  {treatment.mainTreatment}
+                </span>
+                {treatment.subTreatments &&
+                  treatment.subTreatments.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {treatment.subTreatments.map((subTreatment, subIdx) => (
+                        <span
+                          key={subIdx}
+                          className="px-2 py-1 bg-white text-teal-700 rounded-md text-[10px] sm:text-xs font-medium border border-gray-200"
+                        >
+                          {subTreatment.name}
+                          {typeof subTreatment.price === "number" &&
+                            subTreatment.price > 0 && (
+                              <>
+                                {" "}
+                                -{" "}
+                                <span className="text-teal-800 font-bold">
+                                  د.إ{subTreatment.price}
+                                </span>
+                              </>
+                            )}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Footer - Compact */}
+      <div className="pt-2 border-t border-gray-200">
+        <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-teal-600">
+          <Calendar className="w-3 h-3" />
+          <span className="font-medium">
+            Established{" "}
+            {new Date(clinic.createdAt).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+            })}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+  );
+};
+
+// Statistics Card Component
+interface StatCardProps {
+  icon: React.ReactNode;
+  label: string;
+  value: number | string;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+  loading?: boolean;
+}
+
+const StatCard = ({ icon, label, value, color, bgColor, borderColor, loading }: StatCardProps) => (
+  <div className={`bg-white rounded-lg p-2 sm:p-3 border ${borderColor} ${bgColor} shadow-sm hover:shadow-md transition-all`}>
+    <div className={`flex items-center gap-2 sm:gap-2.5 mb-1 sm:mb-1.5 ${color}`}>
+      <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 flex-shrink-0">{icon}</div>
+      <span className="text-[10px] sm:text-xs font-semibold text-teal-700 truncate">{label}</span>
+    </div>
+    {loading ? (
+      <div className="flex items-center gap-1.5">
+        <div className="animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-gray-800"></div>
+        <span className="text-[10px] sm:text-xs text-teal-500">Loading...</span>
+      </div>
+    ) : (
+      <p className="text-base sm:text-lg md:text-xl font-bold text-teal-900">{value}</p>
+    )}
+  </div>
+);
+
+function ClinicManagementDashboard() {
+  const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingClinicId, setEditingClinicId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Clinic>>({});
+  const [newService, setNewService] = useState("");
+  const [newTreatment, setNewTreatment] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState<number>(0);
+  const [updating, setUpdating] = useState(false);
+  const [availableTreatments, setAvailableTreatments] = useState<Treatment[]>(
+    []
+  );
+  const [showCustomTreatmentInput, setShowCustomTreatmentInput] =
+    useState(false);
+  const [geocodingStatus, setGeocodingStatus] = useState<string>("");
+  const addressDebounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const [_photoError, setPhotoError] = useState("");
+ 
+  // Permission state
+  const [permissions, setPermissions] = useState({
+    canRead: false,
+    canUpdate: false,
+    canDelete: false,
+  });
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+
+  // Statistics state
+  const [clinicStats, setClinicStats] = useState<ClinicStats>({
+    totalReviews: 0,
+    totalEnquiries: 0,
+    averageRating: 0,
+    totalTreatments: 0,
+    totalServices: 0,
+    totalSubTreatments: 0,
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  const getImagePath = (photoPath: string | undefined | null): string => {
+    // Handle null, undefined, or empty string
+    if (!photoPath || typeof photoPath !== 'string' || photoPath.trim() === '') {
+      return PLACEHOLDER_DATA_URI;
+    }
+   
+    const trimmedPath = photoPath.trim();
+   
+    // If it's already a valid HTTP/HTTPS URL, return it
+    if (trimmedPath.startsWith("http://") || trimmedPath.startsWith("https://")) {
+      try {
+        new URL(trimmedPath);
+        return trimmedPath;
+      } catch {
+        return PLACEHOLDER_DATA_URI;
+      }
+    }
+   
+    // If it starts with /, validate it's a proper path
+    if (trimmedPath.startsWith("/")) {
+      // Remove any query strings or fragments that might cause issues
+      const cleanPath = trimmedPath.split('?')[0].split('#')[0];
+      return cleanPath;
+    }
+   
+    // Handle paths with uploads/clinic/
+    if (trimmedPath.includes("uploads/clinic/")) {
+      const filename = trimmedPath.split("uploads/clinic/").pop();
+      if (filename && filename.trim() !== '') {
+        // Clean the filename
+        const cleanFilename = filename.split('?')[0].split('#')[0].trim();
+        return `/uploads/clinic/${cleanFilename}`;
+      }
+    }
+   
+    // Default: prepend /uploads/clinic/ but validate the path
+    const cleanPath = trimmedPath.split('?')[0].split('#')[0].trim();
+    if (cleanPath === '' || cleanPath.includes('..')) {
+      return PLACEHOLDER_DATA_URI;
+    }
+   
+    return `/uploads/clinic/${cleanPath}`;
+  };
+
+  // Helper to get user role from token
+  const getUserRole = (): string | null => {
+    if (typeof window === "undefined") return null;
+    try {
+      for (const key of TOKEN_PRIORITY) {
+        const token = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+        if (token) {
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            return payload.role || null;
+          } catch (e) {
+            continue;
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error getting user role:", error);
+    }
+    return null;
+  };
+
+  // Fetch permissions
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      try {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
+          setPermissions({
+            canRead: false,
+            canUpdate: false,
+            canDelete: false,
+          });
+          setPermissionsLoaded(true);
+          return;
+        }
+
+        const userRole = getUserRole();
+       
+        // For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
+        if (userRole === "clinic" || userRole === "doctor") {
+          try {
+            const res = await axios.get("/api/clinic/sidebar-permissions", {
+              headers: authHeaders,
+            });
+           
+            if (res.data.success) {
+              // Check if permissions array exists and is not null
+              // If permissions is null, admin hasn't set any restrictions yet - allow full access (backward compatibility)
+              if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
+                // No admin restrictions set yet - default to full access for backward compatibility
+          setPermissions({
+            canRead: true,
+            canUpdate: true,
+            canDelete: true,
+          });
+              } else {
+                // Admin has set permissions - check the clinic_health_center module
+                const modulePermission = res.data.permissions.find((p: any) => {
+                  if (!p?.module) return false;
+                  // Check for clinic_health_center module
+                  if (p.module === "clinic_health_center") return true;
+                  if (p.module === "health_center") return true;
+                  return false;
+                });
+
+                if (modulePermission) {
+                  const actions = modulePermission.actions || {};
+                 
+                  // Check if "all" is true, which grants all permissions
+                  const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
+                  const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
+                  const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
+                  const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
+
+                  setPermissions({
+                    canRead: moduleAll || moduleRead,
+                    canUpdate: moduleAll || moduleUpdate,
+                    canDelete: moduleAll || moduleDelete,
+                  });
+                } else {
+                  // Module permission not found in the permissions array - default to read-only
+                  setPermissions({
+                    canRead: true, // Clinic/doctor can always read their own data
+                    canUpdate: false,
+                    canDelete: false,
+                  });
+                }
+              }
+            } else {
+              // API response doesn't have permissions, default to full access (backward compatibility)
+              setPermissions({
+                canRead: true,
+                canUpdate: true,
+                canDelete: true,
+              });
+            }
+          } catch (err: any) {
+            console.error("Error fetching clinic sidebar permissions:", err);
+            // On error, default to full access (backward compatibility)
+            setPermissions({
+              canRead: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+          }
+          setPermissionsLoaded(true);
+          return;
+        }
+
+        // For agents, staff, and doctorStaff, fetch from /api/agent/permissions
+        if (["agent", "staff", "doctorStaff"].includes(userRole || "")) {
+          let permissionsData = null;
+          try {
+            // Get agentId from token
+            const token = getStoredToken();
+            if (token) {
+              const payload = JSON.parse(atob(token.split('.')[1]));
+              const agentId = payload.userId || payload.id;
+             
+              if (agentId) {
+                const res = await axios.get(`/api/agent/permissions?agentId=${agentId}`, {
+                  headers: authHeaders,
+                });
+               
+                if (res.data.success && res.data.data) {
+                  permissionsData = res.data.data;
+                }
+              }
+            }
+          } catch (err: any) {
+            console.error("Error fetching agent permissions:", err);
+          }
+
+          if (permissionsData && permissionsData.permissions) {
+            const modulePermission = permissionsData.permissions.find((p: any) => {
+              if (!p?.module) return false;
+              if (p.module === "health_center") return true;
+              if (p.module === "clinic_health_center") return true;
+              if (p.module.startsWith("clinic_") && p.module.slice(7) === "health_center") {
+                return true;
+              }
+              return false;
+            });
+
+            if (modulePermission) {
+              const actions = modulePermission.actions || {};
+             
+              // Module-level "all" grants all permissions
+              const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
+              const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
+              const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
+              const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
+
+              setPermissions({
+                canRead: moduleAll || moduleRead,
+                canUpdate: moduleAll || moduleUpdate,
+                canDelete: moduleAll || moduleDelete,
+              });
+            } else {
+              // No permissions found for this module, default to false
+              setPermissions({
+                canRead: false,
+                canUpdate: false,
+                canDelete: false,
+              });
+            }
+          } else {
+            // API failed or no permissions data, default to false
+            setPermissions({
+              canRead: false,
+              canUpdate: false,
+              canDelete: false,
+            });
+          }
+        } else {
+          // Unknown role, default to false
+          setPermissions({
+            canRead: false,
+            canUpdate: false,
+            canDelete: false,
+          });
+        }
+        setPermissionsLoaded(true);
+      } catch (err: any) {
+        console.error("Error fetching permissions:", err);
+        // On error, default to false (no permissions)
+        setPermissions({
+          canRead: false,
+          canUpdate: false,
+          canDelete: false,
+        });
+        setPermissionsLoaded(true);
+      }
+    };
+
+    fetchPermissions();
+  }, []);
+
+  useEffect(() => {
+    const fetchClinics = async () => {
+      // Wait for permissions to load
+      if (!permissionsLoaded) return;
+
+      const userRole = getUserRole();
+     
+      // ✅ Check read permission for all roles (including clinic and doctor with admin-level permissions)
+      if (!permissions.canRead) {
+        setClinics([]);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
+          setLoading(false);
+          return;
+        }
+
+        // Use axios with error handling that prevents Next.js error overlay
+        const res = await axios.get("/api/clinics/myallClinic", {
+          headers: authHeaders,
+          // Suppress error overlay for 403 errors
+          validateStatus: (status) => status === 200 || status === 403,
+        });
+       
+        // Check if response is 403
+        if (res.status === 403) {
+          // Handle 403 silently - this is expected when permissions are not granted
+          // But only update permissions for agent/doctorStaff roles, not clinic/doctor
+          if (userRole !== "clinic" && userRole !== "doctor") {
+            setPermissions(prev => ({
+              ...prev,
+              canRead: false,
+            }));
+          }
+          setClinics([]);
+          setLoading(false);
+          return;
+        }
+       
+        setClinics(
+          Array.isArray(res.data.clinics) ? res.data.clinics : [res.data.clinic]
+        );
+      } catch (err: any) {
+        // Only catch non-403 errors here (validateStatus handles 403 above)
+        // For other errors (network, server errors, etc.), log and show message
+        console.error("Error fetching clinics:", err);
+        if (err.response?.status !== 403) {
+          toast.error("Failed to fetch clinic information. Please try again.");
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const fetchTreatments = async () => {
+      try {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) return;
+        const res = await axios.get("/api/doctor/getTreatment", {
+          headers: authHeaders,
+        });
+        setAvailableTreatments(res.data.treatments || []);
+      } catch (err) {
+        console.error("Error fetching treatments:", err);
+      }
+    };
+
+    fetchClinics();
+    fetchTreatments();
+  }, [permissionsLoaded, permissions.canRead]);
+
+  // Fetch clinic statistics
+  useEffect(() => {
+    const fetchClinicStats = async () => {
+      if (!permissionsLoaded) {
+        setStatsLoading(false);
+        return;
+      }
+
+      // ✅ Check read permission for all roles (including clinic and doctor with admin-level permissions)
+      if (!permissions.canRead) {
+        setStatsLoading(false);
+        return;
+      }
+
+      try {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
+          setStatsLoading(false);
+          return;
+        }
+
+        // Fetch dashboard stats
+        const statsRes = await axios.get("/api/clinics/dashboardStats", {
+          headers: authHeaders,
+        });
+
+        if (statsRes.data.success) {
+          const stats = statsRes.data.stats;
+         
+          // Calculate stats from clinic data
+          const currentClinic = clinics[0];
+          const totalTreatments = currentClinic?.treatments?.length || 0;
+          const totalServices = currentClinic?.servicesName?.length || 0;
+          const totalSubTreatments = currentClinic?.treatments?.reduce(
+            (sum: number, t: any) => sum + (t.subTreatments?.length || 0),
+            0
+          ) || 0;
+
+          // Fetch reviews for average rating
+          let averageRating = 0;
+          try {
+            const clinicId = currentClinic?._id;
+            if (typeof clinicId === "string" && clinicId.length === 24) {
+              const reviewsRes = await axios.get(`/api/clinics/reviews/${clinicId}`, {
+                headers: authHeaders,
+              });
+              if (reviewsRes.data?.success && reviewsRes.data?.data) {
+                averageRating = reviewsRes.data.data.averageRating || 0;
+              }
+            }
+          } catch (error) {
+            console.error("Error fetching reviews:", error);
+          }
+
+          setClinicStats({
+            totalReviews: stats.totalReviews || 0,
+            totalEnquiries: stats.totalEnquiries || 0,
+            averageRating: averageRating,
+            totalTreatments: totalTreatments,
+            totalServices: totalServices,
+            totalSubTreatments: totalSubTreatments,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching clinic stats:", error);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    if (clinics.length > 0) {
+      fetchClinicStats();
+    } else {
+      setStatsLoading(false);
+    }
+  }, [clinics, permissionsLoaded, permissions.canRead]);
+  useEffect(() => {
+    const count = editForm.photos?.length || 0;
+    if (count > 0) {
+      setCurrentPhotoIndex(count - 1);
+    } else {
+      setCurrentPhotoIndex(0);
+    }
+  }, [isEditing, editForm.photos]);
+
+  const handleEdit = (clinic: unknown) => {
+    // Check permission before allowing edit
+    if (!permissions.canUpdate) {
+      toast.error("You do not have permission to update clinic information");
+      return;
+    }
+
+    const flattenPhotos = (photos: unknown): string[] => {
+      if (!photos || !Array.isArray(photos)) return [];
+      const out: string[] = [];
+      (photos as unknown[]).forEach((p) => {
+        if (!p) return;
+        String(p)
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .forEach((s) => out.push(s));
+      });
+      return out;
+    };
+
+    setIsEditing(true);
+    setEditingClinicId((clinic as Clinic)._id);
+    setEditForm({
+      ...(clinic as Clinic),
+      treatments: (clinic as Clinic).treatments || [],
+      servicesName: (clinic as Clinic).servicesName || [],
+      photos: flattenPhotos((clinic as Clinic).photos),
+    });
+  };
+
+  const handleEditFromHeader = () => {
+    // Check permission before allowing edit
+    if (!permissions.canUpdate) {
+      toast.error("You do not have permission to update clinic information");
+      return;
+    }
+
+    if (clinics.length > 0) {
+      handleEdit(clinics[0]); // Edit the first clinic if available
+    }
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setEditingClinicId(null);
+    setEditForm({});
+    setSelectedFiles([]);
+    setNewService("");
+    setNewTreatment("");
+    setShowCustomTreatmentInput(false);
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setEditForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const addService = () => {
+    if (newService.trim() && editForm.servicesName) {
+      if (editForm.servicesName.includes(newService.trim())) {
+        toast.error("Service already exists");
+        return;
+      }
+      setEditForm((prev) => ({
+        ...prev,
+        servicesName: [...(prev.servicesName || []), newService.trim()],
+      }));
+      setNewService("");
+      toast.success("Service added successfully");
+    } else {
+      toast.error("Please enter a service name");
+    }
+  };
+
+  const removeService = (index: number) => {
+    const serviceName = editForm.servicesName?.[index];
+    setEditForm((prev) => ({
+      ...prev,
+      servicesName: prev.servicesName?.filter((_, i) => i !== index) || [],
+    }));
+    toast.success(`Service "${serviceName}" removed`);
+  };
+
+  const addTreatment = async () => {
+    const trimmed = newTreatment.trim();
+    console.log("Adding custom treatment:", trimmed);
+    console.log("Current treatments:", editForm.treatments);
+   
+    // Normalize for comparison: lowercase and trim
+    const normalizedTrimmed = trimmed.toLowerCase();
+   
+    // Check for duplicates locally (case-insensitive)
+    const isDuplicateLocal = editForm.treatments?.some((t) =>
+      t.mainTreatment?.toLowerCase().trim() === normalizedTrimmed
+    );
+   
+    if (trimmed && !isDuplicateLocal) {
+      try {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
+          toast.error("You are not authenticated");
+          return;
+        }
+       
+        // Check if treatment already exists in database
+        const treatmentsResponse = await axios.get("/api/doctor/getTreatment", {
+          headers: authHeaders,
+        });
+        const allTreatments = treatmentsResponse.data.treatments || [];
+        const existsInDatabase = allTreatments.some((t: Treatment) =>
+          t.name?.toLowerCase().trim() === normalizedTrimmed
+        );
+       
+        if (existsInDatabase) {
+          toast.error("Added treatment is already present");
+          setNewTreatment("");
+          setShowCustomTreatmentInput(false);
+          return;
+        }
+       
+        const response = await axios.post(
+          "/api/doctor/add-custom-treatment",
+          {
+            mainTreatment: trimmed,
+            subTreatments: [],
+          },
+          {
+            headers: authHeaders,
+          }
+        );
+
+        if (response.data.success) {
+          // Refresh available treatments
+          const updatedTreatmentsResponse = await axios.get("/api/doctor/getTreatment", {
+            headers: authHeaders,
+          });
+          setAvailableTreatments(updatedTreatmentsResponse.data.treatments || []);
+        }
+      } catch (error: any) {
+        console.error("Error adding custom treatment to database:", error);
+        if (error.response?.status === 409) {
+          toast.error("Added treatment is already present");
+          setNewTreatment("");
+          setShowCustomTreatmentInput(false);
+          return;
+        }
+        // Continue with local addition even if database call fails
+      }
+
+      setEditForm((prev) => {
+        const newTreatments = [
+          ...(prev.treatments || []),
+          {
+            mainTreatment: trimmed,
+            mainTreatmentSlug: trimmed.toLowerCase().replace(/\s+/g, "-"),
+            subTreatments: [],
+          },
+        ];
+        console.log("New treatments array after adding custom:", newTreatments);
+        return {
+          ...prev,
+          treatments: newTreatments,
+        };
+      });
+      toast.success(`Treatment "${trimmed}" added successfully`);
+    } else {
+      if (!trimmed) {
+        toast.error("Please enter a treatment name");
+      } else {
+        toast.error("Treatment already exists");
+      }
+    }
+    setNewTreatment("");
+    setShowCustomTreatmentInput(false);
+  };
+
+  const addTreatmentFromDropdown = (treatmentName: string) => {
+    console.log("Adding treatment from dropdown:", treatmentName);
+    console.log("Current treatments:", editForm.treatments);
+   
+    // Normalize for comparison: lowercase and trim
+    const normalizedTreatmentName = treatmentName.toLowerCase().trim();
+   
+    // Check for duplicates (case-insensitive)
+    const isDuplicate = editForm.treatments?.some((t) =>
+      t.mainTreatment?.toLowerCase().trim() === normalizedTreatmentName
+    );
+   
+    if (treatmentName && !isDuplicate) {
+      setEditForm((prev) => {
+        const newTreatments = [
+          ...(prev.treatments || []),
+          {
+            mainTreatment: treatmentName,
+            mainTreatmentSlug: treatmentName.toLowerCase().replace(/\s+/g, "-"),
+            subTreatments: [],
+          },
+        ];
+        console.log("New treatments array:", newTreatments);
+        return {
+          ...prev,
+          treatments: newTreatments,
+        };
+      });
+      toast.success(`Treatment "${treatmentName}" added successfully`);
+    } else {
+      toast.error("Treatment already exists");
+    }
+  };
+
+  const removeTreatment = (index: number) => {
+    const treatmentName = editForm.treatments?.[index]?.mainTreatment;
+    setEditForm((prev) => ({
+      ...prev,
+      treatments: prev.treatments?.filter((_, i) => i !== index) || [],
+    }));
+    toast.success(`Treatment "${treatmentName}" removed`);
+  };
+
+  const handleUpdateTreatment = (
+    index: number,
+    updatedTreatment: {
+      mainTreatment: string;
+      mainTreatmentSlug: string;
+      subTreatments: Array<{
+        name: string;
+        slug: string;
+        price?: number;
+      }>;
+    }
+  ) => {
+    setEditForm((prev) => ({
+      ...prev,
+      treatments:
+        prev.treatments?.map((treatment, i) =>
+          i === index ? updatedTreatment : treatment
+        ) || [],
+    }));
+  };
+
+  const handleUpdate = async () => {
+    if (!editingClinicId) return;
+
+    // Check permission before updating
+    if (!permissions.canUpdate) {
+      toast.error("You do not have permission to update clinic information");
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      const authHeaders = getAuthHeaders();
+      if (!authHeaders) {
+        toast.error("You are not authenticated");
+        return;
+      }
+      const formData = new FormData();
+
+      // Debug: Log the editForm data
+      console.log("EditForm data:", editForm);
+      console.log("Treatments to be sent:", editForm.treatments);
+
+      Object.keys(editForm).forEach((key) => {
+        if (
+          key === "servicesName" ||
+          key === "treatments" ||
+          key === "location"
+        ) {
+          formData.append(key, JSON.stringify(editForm[key as keyof Clinic]));
+        } else if (key === "photos") {
+        } else if (editForm[key as keyof Clinic] !== undefined) {
+          formData.append(key, String(editForm[key as keyof Clinic]));
+        }
+      });
+
+      formData.append("existingPhotos", JSON.stringify(editForm.photos || []));
+
+      // Append all selected files
+      selectedFiles.forEach((file) => {
+        formData.append("photos", file);
+      });
+
+      // Debug: Log the FormData contents
+      console.log("FormData entries:");
+      for (const [key, value] of formData.entries()) {
+        console.log(`FormData ${key}:`, value instanceof File ? `File: ${value.name} (${value.size} bytes)` : value);
+      }
+      console.log("Selected files count:", selectedFiles.length);
+
+      // Ensure axios properly handles FormData
+      const config = {
+        headers: {
+          ...authHeaders,
+          // Don't set Content-Type manually - axios will set it automatically with boundary
+        },
+        // Ensure axios treats this as FormData
+        transformRequest: (data: FormData | unknown) => {
+          if (data instanceof FormData) {
+            return data;
+          }
+          return data;
+        },
+      };
+
+      const response = await axios.put(`/api/clinics/${editingClinicId}`, formData, config);
+
+      if (response.data.success) {
+        setClinics((prev) =>
+          prev.map((clinic) =>
+            clinic._id === editingClinicId ? response.data.clinic : clinic
+          )
+        );
+        toast.success("Clinic profile updated successfully!");
+        handleCancel();
+      } else {
+        toast.error(response.data.message || "Failed to update clinic profile");
+      }
+    } catch (error: any) {
+      console.error("Error updating clinic:", error);
+      console.error("Error response:", error.response?.data);
+      console.error("Error details:", error.response?.data?.details);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || "Error updating clinic. Please try again.";
+      const errorDetails = error.response?.data?.details;
+      if (errorDetails) {
+        console.error("Validation errors:", errorDetails);
+      }
+      toast.error(errorMessage);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+
+  // Geocode address and update coordinates in editForm
+  const geocodeAddress = async (address: string) => {
+    if (!address.trim()) return;
+    setGeocodingStatus("Locating address...");
+    try {
+      const res = await axios.get("/api/clinics/geocode", {
+        params: { place: address },
+      });
+      if (
+        res.data &&
+        typeof res.data.lat === "number" &&
+        typeof res.data.lng === "number"
+      ) {
+        setEditForm((prev) => ({
+          ...prev,
+          location: {
+            type: "Point",
+            coordinates: [res.data.lng, res.data.lat],
+          },
+        }));
+        setGeocodingStatus("Address located on map!");
+        toast.success("Address geocoded successfully");
+        setTimeout(() => setGeocodingStatus(""), 2000);
+      } else {
+        setGeocodingStatus(
+          "Could not locate address. Please check the address."
+        );
+        toast.error("Could not locate address. Please check the address.");
+        setTimeout(() => setGeocodingStatus(""), 4000);
+      }
+    } catch {
+      setGeocodingStatus("Geocoding failed. Please check the address.");
+      toast.error("Geocoding failed. Please check the address.");
+      setTimeout(() => setGeocodingStatus(""), 4000);
+    }
+  };
+
+  // Enhanced address change handler with debounce and geocoding
+  const handleAddressChangeWithGeocode = (value: string) => {
+    handleInputChange("address", value);
+    if (addressDebounceTimer.current)
+      clearTimeout(addressDebounceTimer.current);
+    if (value.trim().length > 10) {
+      addressDebounceTimer.current = setTimeout(() => {
+        geocodeAddress(value);
+      }, 1000);
+    }
+  };
+
+  if (loading) return <Loader />;
+
+  // Show access denied if read permission is false
+  if (permissionsLoaded && !permissions.canRead) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Building2 className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-xl font-bold text-teal-900 mb-2">Access Denied</h2>
+          <p className="text-sm text-teal-700 mb-4">
+            You do not have permission to view clinic information.
+          </p>
+          <p className="text-xs text-teal-600">
+            Please contact your administrator to request access to the Manage Health Center module.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#fff',
+            color: '#374151',
+            border: '1px solid #e5e7eb',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            fontSize: '14px',
+            fontWeight: '500',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#fff',
+            },
+          },
+        }}
+      />
+      <div className="p-3 sm:p-4 lg:p-5 space-y-3 lg:space-y-4">
+        <Header
+          onEditClick={handleEditFromHeader}
+          hasClinic={clinics.length > 0}
+          isEditing={isEditing}
+          canUpdate={permissions.canUpdate}
+          clinicName={clinics[0]?.name}
+        />
+
+        {isEditing ? (
+          <div className="max-w-5xl mx-auto">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-5">
+              {/* Header - Compact */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-teal-800 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Edit3 className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg sm:text-xl font-bold text-teal-900">
+                      Edit Clinic Profile
+                    </h2>
+                    <p className="text-teal-600 text-xs">
+                      Update your clinic information
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleCancel}
+                  className="self-end sm:self-auto p-1.5 text-teal-500 hover:text-teal-700 hover:bg-teal-100 rounded-lg transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
+                {/* Left Column */}
+                <div className="space-y-3 sm:space-y-4">
+                  <FormInput
+                    label="Clinic Name"
+                    icon={<Building2 className="w-4 h-4" />}
+                    value={editForm.name || ""}
+                    onChange={(value: string) =>
+                      handleInputChange("name", value)
+                    }
+                    placeholder="Enter clinic name"
+                  />
+
+                  <FormInput
+                    label={
+                      <span className="flex items-center gap-2">
+                        Address
+                        {geocodingStatus && (
+                          <span className="text-[#2D9AA5] text-xs font-medium px-2 py-1 bg-[#2D9AA5]/10 rounded">
+                            {geocodingStatus}
+                          </span>
+                        )}
+                      </span>
+                    }
+                    icon={<MapPin className="w-4 h-4" />}
+                    value={editForm.address || ""}
+                    onChange={handleAddressChangeWithGeocode}
+                    type="textarea"
+                    placeholder="Enter complete address with state, city and place"
+                  />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <FormInput
+                      label="Consultation Fee"
+                      icon={
+                        <svg
+                          className="w-4 h-4"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <text
+                            x="2"
+                            y="16"
+                            fontSize="20"
+                            fontWeight="bold"
+                            fill="currentColor"
+                          >
+                            د.إ
+                          </text>
+                        </svg>
+                      }
+                      value={editForm.pricing || ""}
+                      onChange={(value: string) =>
+                        handleInputChange("pricing", value)
+                      }
+                      placeholder="د.إ500 - د.إ2000"
+                    />
+                    <FormInput
+                      label="Timings"
+                      icon={<Clock className="w-4 h-4" />}
+                      value={editForm.timings || ""}
+                      onChange={(value: string) =>
+                        handleInputChange("timings", value)
+                      }
+                      placeholder="9:00 AM - 8:00 PM"
+                    />
+                  </div>
+                </div>
+
+                {/* Right Column */}
+                <div className="space-y-3 sm:space-y-4">
+                  <TagManager
+                    label="Services"
+                    icon={<Leaf className="w-4 h-4" />}
+                    items={editForm.servicesName ?? []}
+                    newItem={newService}
+                    setNewItem={setNewService}
+                    onAdd={addService}
+                    onRemove={removeService}
+                    className="hidden"
+                  />
+
+                  <TreatmentManager
+                    label="Treatments"
+                    icon={<Heart className="w-4 h-4" />}
+                    items={editForm.treatments ?? []}
+                    newItem={newTreatment}
+                    setNewItem={setNewTreatment}
+                    onAdd={addTreatment}
+                    onRemove={removeTreatment}
+                    availableTreatments={availableTreatments}
+                    showCustomInput={showCustomTreatmentInput}
+                    setShowCustomInput={setShowCustomTreatmentInput}
+                    onAddFromDropdown={addTreatmentFromDropdown}
+                    onUpdateTreatment={handleUpdateTreatment}
+                    setAvailableTreatments={setAvailableTreatments}
+                  />
+
+                  {/* Photo Upload - Multiple Images */}
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-2 text-sm font-medium text-teal-700">
+                      <Camera className="w-4 h-4" />
+                      Health Center Photos (Multiple)
+                    </label>
+                    <div className="relative border-2 border-dashed border-gray-200 rounded-xl p-6 sm:p-8 text-center hover:border-[#2D9AA5]/50 hover:bg-[#2D9AA5]/5 transition-all">
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png"
+                        multiple
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files.length > 0) {
+                            const files = Array.from(e.target.files);
+                            const validFiles: File[] = [];
+                            const invalidFiles: string[] = [];
+                           
+                            files.forEach((file) => {
+                              // Check if file is JPG or PNG format
+                              const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
+                              const isJPG = fileExtension === 'jpg' || fileExtension === 'jpeg';
+                              const isPNG = fileExtension === 'png';
+                              const isValidFormat = isJPG || isPNG;
+                             
+                              if (!isValidFormat) {
+                                const extUpper = fileExtension.toUpperCase() || 'UNKNOWN';
+                                invalidFiles.push(`${file.name} (${extUpper})`);
+                              } else if (file.size > 1024 * 1024) {
+                                invalidFiles.push(`${file.name} (Size: ${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+                              } else {
+                                validFiles.push(file);
+                              }
+                            });
+                           
+                            // Show error popup for invalid files
+                            if (invalidFiles.length > 0) {
+                              const errorMsg = invalidFiles.length === 1
+                                ? `"${invalidFiles[0].split(' (')[0]}": Only JPG and PNG formats are allowed. File size must be less than 1MB.`
+                                : `${invalidFiles.length} file(s) invalid: Only JPG and PNG formats are allowed. File size must be less than 1MB.`;
+                             
+                              toast.error(errorMsg, { duration: 5000 });
+                              // Clear photoError to hide direct error display
+                              setPhotoError("");
+                            }
+                           
+                            // Add valid files
+                            if (validFiles.length > 0) {
+                              setSelectedFiles((prev) => [...prev, ...validFiles]);
+                              setPhotoError("");
+                              toast.success(`${validFiles.length} photo(s) added successfully`);
+                            }
+                           
+                            // Reset file input to allow selecting files again
+                            e.target.value = '';
+                          }
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <div className="w-12 h-12 bg-[#2D9AA5]/10 rounded-lg flex items-center justify-center mx-auto mb-3">
+                        <Camera className="w-6 h-6 text-[#2D9AA5]" />
+                      </div>
+                      <p className="text-teal-700 font-medium mb-1">
+                        Click to upload photos
+                      </p>
+                      <p className="text-teal-500 text-sm">
+                        JPG, PNG up to 1MB each (Multiple files allowed)
+                      </p>
+                     
+                      {/* Display selected files */}
+                      {selectedFiles.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                          <p className="text-sm font-medium text-teal-700">
+                            Selected Photos ({selectedFiles.length}):
+                          </p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {selectedFiles.map((file, index) => {
+                              const previewUrl = URL.createObjectURL(file);
+                              return (
+                                <div
+                                  key={index}
+                                  className="relative p-2 bg-[#2D9AA5]/10 rounded-lg border border-[#2D9AA5]/20"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+                                      toast.success("Photo removed");
+                                    }}
+                                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                                    title="Remove photo"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                  <img
+                                    src={previewUrl}
+                                    alt={file.name}
+                                    className="w-full h-24 object-cover rounded"
+                                    onLoad={() => URL.revokeObjectURL(previewUrl)}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      {editForm.photos && editForm.photos.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <p className="text-sm font-medium text-teal-700">
+                            All Photos:
+                          </p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {(editForm.photos || []).map((p, idx) => (
+                              <div
+                                key={idx}
+                                className="relative p-2 bg-[#2D9AA5]/10 rounded-lg border border-[#2D9AA5]/20"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditForm((prev) => {
+                                      const arr = prev.photos || [];
+                                      const updated = arr.filter((_, i) => i !== idx);
+                                      return { ...prev, photos: updated };
+                                    });
+                                    setCurrentPhotoIndex((prev) => {
+                                      const len = (editForm.photos?.length || 1) - 1;
+                                      if (len <= 0) return 0;
+                                      if (idx < prev) return prev - 1;
+                                      return Math.min(prev, len - 1);
+                                    });
+                                    toast.success("Photo removed");
+                                  }}
+                                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                                  title="Remove photo"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                                <img
+                                  src={getImagePath(p)}
+                                  alt={`Clinic photo ${idx + 1}`}
+                                  className="w-full h-24 object-cover rounded"
+                                  onError={(e) => {
+                                    const img = e.currentTarget as HTMLImageElement;
+                                    img.onerror = null;
+                                    img.src = PLACEHOLDER_DATA_URI;
+                                  }}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                     
+                      {/* Display existing photos from clinic */}
+                      {editForm.photos && editForm.photos.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                          <p className="text-sm font-medium text-teal-700">
+                            Current Photo:
+                          </p>
+                          <div className="relative group inline-block">
+                            {(() => {
+                              const photosArray = editForm.photos || [];
+                              const safeIndex = Math.min(Math.max(currentPhotoIndex, 0), photosArray.length - 1);
+                              const viewingPhoto = photosArray.length > 0 ? photosArray[safeIndex] : null;
+                             
+                              if (!viewingPhoto) {
+                                return (
+                                  <div className="relative w-full max-w-xs h-48 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center">
+                                    <Camera className="w-6 h-6 text-teal-400" />
+                                  </div>
+                                );
+                              }
+                             
+                              return (
+                                <div className="relative w-full max-w-xs h-48 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                                  <img
+                                    src={getImagePath(viewingPhoto)}
+                                    alt="Current clinic photo"
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      const img = e.currentTarget as HTMLImageElement;
+                                      img.onerror = null;
+                                      img.src = PLACEHOLDER_DATA_URI;
+                                    }}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setCurrentPhotoIndex((prev) => Math.max(prev - 1, 0));
+                                    }}
+                                    className="absolute top-1/2 -translate-y-1/2 left-2 bg-teal-800 text-white rounded-full p-2 hover:bg-teal-900 transition-colors opacity-0 group-hover:opacity-100 shadow-lg z-10 disabled:opacity-50"
+                                    title="Previous photo"
+                                    disabled={safeIndex <= 0}
+                                  >
+                                    <ChevronLeft className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setCurrentPhotoIndex((prev) => Math.min(prev + 1, photosArray.length - 1));
+                                    }}
+                                    className="absolute top-1/2 -translate-y-1/2 right-2 bg-teal-800 text-white rounded-full p-2 hover:bg-teal-900 transition-colors opacity-0 group-hover:opacity-100 shadow-lg z-10 disabled:opacity-50"
+                                    title="Next photo"
+                                    disabled={safeIndex >= photosArray.length - 1}
+                                  >
+                                    <ChevronRight className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditForm((prev) => {
+                                        const arr = prev.photos || [];
+                                        const idx = Math.min(Math.max(currentPhotoIndex, 0), arr.length - 1);
+                                        const updated = arr.filter((_, i) => i !== idx);
+                                        return { ...prev, photos: updated };
+                                      });
+                                      setCurrentPhotoIndex((prev) => {
+                                        const nextLen = (editForm.photos?.length || 1) - 1;
+                                        if (nextLen <= 0) return 0;
+                                        return Math.min(prev, nextLen - 1);
+                                      });
+                                      toast.success("Photo removed");
+                                    }}
+                                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100 shadow-lg z-10"
+                                    title="Remove photo"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      )}
+                     
+                      {/* Error messages are shown via toast popup only */}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons - Compact */}
+              <div className="flex flex-col sm:flex-row gap-2 pt-4 mt-4 border-t border-gray-200">
+                <button
+                  onClick={handleUpdate}
+                  disabled={updating}
+                  className="order-2 sm:order-1 px-4 py-2 bg-teal-800 text-white rounded-lg hover:bg-teal-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium transition-colors shadow-sm hover:shadow-md text-sm"
+                >
+                  {updating ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <span>Updating...</span>
+                    </>
+                  ) : (
+                    "Update Profile"
+                  )}
+                </button>
+                <button
+                  onClick={handleCancel}
+                  className="order-1 sm:order-2 px-4 py-2 bg-teal-100 text-teal-700 rounded-lg hover:bg-teal-200 font-medium transition-colors text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="w-full">
+            {/* Show permission denied message if no read permission (only for agent/doctorStaff, not clinic/doctor) */}
+            {(() => {
+              const userRole = getUserRole();
+              // Clinic and doctor roles always have access - don't show access denied
+              if (userRole === "clinic" || userRole === "doctor") {
+                return null;
+              }
+              // For other roles, check permissions
+              if (!permissions.canRead) {
+                return (
+                  <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
+                    <div className="text-center max-w-md mx-auto">
+                      <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                        <Building2 className="w-6 h-6 text-red-600" />
+                      </div>
+                      <h3 className="text-lg font-bold text-teal-900 mb-2">
+                        Access Denied
+                      </h3>
+                      <p className="text-sm text-teal-700 mb-3">
+                        You do not have permission to view clinic information.
+                      </p>
+                      <p className="text-xs text-teal-600">
+                        Please contact your administrator to request access to the Health Center Management module.
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+            {(() => {
+              const userRole = getUserRole();
+              // If clinic/doctor role, always show content (they have full access)
+              if (userRole === "clinic" || userRole === "doctor") {
+                // Show clinics or empty state
+                if (clinics.length === 0) {
+                  return (
+                    <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
+                      <div className="text-center max-w-md mx-auto">
+                        <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                          <Building2 className="w-6 h-6 text-teal-800" />
+                        </div>
+                        <h3 className="text-lg font-bold text-teal-900 mb-2">
+                          No Clinics Found
+                        </h3>
+                        <p className="text-sm text-gray-700">
+                          Start by adding your first clinic
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+                // Show clinics
+                return (
+                  <div className="w-full space-y-3 sm:space-y-4">
+                    {clinics.map((clinic) => (
+                      <ClinicCard
+                        key={clinic._id}
+                        clinic={clinic}
+                        onEdit={handleEdit}
+                        getImagePath={getImagePath}
+                        canUpdate={permissions.canUpdate}
+                        stats={clinicStats}
+                        statsLoading={statsLoading}
+                      />
+                    ))}
+                   
+                    {/* Statistics Charts Section - Compact */}
+                    {clinics.length > 0 && (
+                      <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                        <div className="flex items-center gap-2 mb-3">
+                          <TrendingUp className="w-5 h-5 text-teal-800" />
+                          <h2 className="text-lg sm:text-xl font-bold text-teal-800">Analytics & Insights</h2>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+                          {/* Bar Chart - Reviews vs Enquiries */}
+                          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                            <h3 className="text-xs font-semibold text-teal-700 mb-2">Reviews & Enquiries</h3>
+                            <ResponsiveContainer width="100%" height={180}>
+                              <BarChart data={[
+                                { name: 'Reviews', value: clinicStats.totalReviews },
+                                { name: 'Enquiries', value: clinicStats.totalEnquiries },
+                              ]}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis dataKey="name" stroke="#6b7280" fontSize={11} />
+                                <YAxis stroke="#6b7280" fontSize={11} />
+                                <Tooltip
+                                  contentStyle={{
+                                    backgroundColor: '#fff',
+                                    border: '1px solid #e5e7eb',
+                                    borderRadius: '6px',
+                                    fontSize: '11px'
+                                  }}
+                                />
+                                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                  <Cell fill="#115e59" />
+                                  <Cell fill="#4d8c88ff" />
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+
+                          {/* Column Chart - Services Distribution */}
+                          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                            <h3 className="text-xs font-semibold text-teal-700 mb-2">Services Distribution</h3>
+                            <ResponsiveContainer width="100%" height={180}>
+                              <BarChart
+                                data={[
+                                  { name: 'Treatments', value: clinicStats.totalTreatments },
+                                  { name: 'Services', value: clinicStats.totalServices },
+                                  { name: 'Sub-Treatments', value: clinicStats.totalSubTreatments },
+                                ]}
+                                margin={{ top: 10, right: 20, left: 10, bottom: 5 }}
+                              >
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis
+                                  dataKey="name"
+                                  stroke="#115e59"
+                                  fontSize={10}
+                                  tick={{ fill: '#4d8c88ff' }}
+                                  angle={-15}
+                                  textAnchor="end"
+                                  height={40}
+                                />
+                                <YAxis
+                                  stroke="#4d8c88ff"
+                                  fontSize={11}
+                                  tick={{ fill: '#4d8c88ff' }}
+                                />
+                                <Tooltip
+                                  contentStyle={{
+                                    backgroundColor: '#fff',
+                                    border: '1px solid #e5e7eb',
+                                    borderRadius: '6px',
+                                    fontSize: '11px'
+                                  }}
+                                />
+                                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                  <Cell fill="#115e59" />
+                                  <Cell fill="#4d8c88ff" />
+                                  <Cell fill="#8baeacff" />
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+
+                        {/* Summary Cards - Compact */}
+                        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mt-3 sm:mt-4">
+                          <SummaryCard
+                            title="Total Engagement"
+                            value={clinicStats.totalReviews + clinicStats.totalEnquiries}
+                            icon={<Users className="w-4 h-4" />}
+                            color="teal"
+                          />
+                          <SummaryCard
+                            title="Average Rating"
+                            value={clinicStats.averageRating > 0 ? `${clinicStats.averageRating.toFixed(1)} ⭐` : "No ratings"}
+                            icon={<Star className="w-4 h-4" />}
+                            color="yellow"
+                          />
+                          <SummaryCard
+                            title="Total Offerings"
+                            value={clinicStats.totalTreatments + clinicStats.totalServices}
+                            icon={<Heart className="w-4 h-4" />}
+                            color="rose"
+                          />
+                          <SummaryCard
+                            title="Activity Score"
+                            value={clinicStats.totalSubTreatments > 0 ? "Active" : "Setup"}
+                            icon={<Activity className="w-4 h-4" />}
+                            color="green"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              // For agent/doctorStaff, check permissions
+              if (!permissions.canRead) {
+                return null; // Already shown access denied above
+              }
+              // Show clinics or empty state for agent/doctorStaff
+              if (clinics.length === 0) {
+                return (
+                  <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
+                    <div className="text-center max-w-md mx-auto">
+                      <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                        <Building2 className="w-6 h-6 text-teal-800" />
+                      </div>
+                      <h3 className="text-lg font-bold text-teal-900 mb-2">
+                        No Clinics Found
+                      </h3>
+                      <p className="text-sm text-teal-700">
+                        Start by adding your first clinic
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+              // Show clinics for agent/doctorStaff
+              return (
+                <div className="w-full space-y-3 sm:space-y-4">
+                  {clinics.map((clinic) => (
+                    <ClinicCard
+                      key={clinic._id}
+                      clinic={clinic}
+                      onEdit={handleEdit}
+                      getImagePath={getImagePath}
+                      canUpdate={permissions.canUpdate}
+                      stats={clinicStats}
+                      statsLoading={statsLoading}
+                    />
+                  ))}
+                 
+                  {/* Statistics Charts Section - Compact */}
+                  {clinics.length > 0 && (
+                    <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                      <div className="flex items-center gap-2 mb-3">
+                        <TrendingUp className="w-5 h-5 text-teal-700" />
+                        <h2 className="text-lg sm:text-xl font-bold text-teal-900">Analytics & Insights</h2>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+                        {/* Bar Chart - Reviews vs Enquiries */}
+                        <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                          <h3 className="text-xs font-semibold text-teal-700 mb-2">Reviews & Enquiries</h3>
+                          <ResponsiveContainer width="100%" height={180}>
+                            <BarChart data={[
+                              { name: 'Reviews', value: clinicStats.totalReviews },
+                              { name: 'Enquiries', value: clinicStats.totalEnquiries },
+                            ]}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                              <XAxis dataKey="name" stroke="#115e59" fontSize={11} />
+                              <YAxis stroke="#86afacff" fontSize={11} />
+                              <Tooltip
+                                contentStyle={{
+                                  backgroundColor: '#fff',
+                                  border: '1px solid #e5e7eb',
+                                  borderRadius: '6px',
+                                  fontSize: '11px'
+                                }}
+                              />
+                              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                <Cell fill="#115e59" />
+                                <Cell fill="#79b5b1ff" />
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+
+                        {/* Column Chart - Services Distribution */}
+                        <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                          <h3 className="text-xs font-semibold text-teal-700 mb-2">Services Distribution</h3>
+                          <ResponsiveContainer width="100%" height={180}>
+                            <BarChart
+                              data={[
+                                { name: 'Treatments', value: clinicStats.totalTreatments },
+                                { name: 'Services', value: clinicStats.totalServices },
+                                { name: 'Sub-Treatments', value: clinicStats.totalSubTreatments },
+                              ]}
+                              margin={{ top: 10, right: 20, left: 10, bottom: 5 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                              <XAxis
+                                dataKey="name"
+                                stroke="#6b7280"
+                                fontSize={10}
+                                tick={{ fill: '#6b7280' }}
+                                angle={-15}
+                                textAnchor="end"
+                                height={40}
+                              />
+                              <YAxis
+                                stroke="#6b7280"
+                                fontSize={11}
+                                tick={{ fill: '#6b7280' }}
+                              />
+                              <Tooltip
+                                contentStyle={{
+                                  backgroundColor: '#fff',
+                                  border: '1px solid #e5e7eb',
+                                  borderRadius: '6px',
+                                  fontSize: '11px'
+                                }}
+                              />
+                              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                <Cell fill="#1f2937" />
+                                <Cell fill="#6b7280" />
+                                <Cell fill="#9ca3af" />
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+
+                      {/* Summary Cards - Compact */}
+                      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mt-3 sm:mt-4">
+                        <SummaryCard
+                          title="Total Engagement"
+                          value={clinicStats.totalReviews + clinicStats.totalEnquiries}
+                          icon={<Users className="w-4 h-4" />}
+                          color="teal"
+                        />
+                        <SummaryCard
+                          title="Average Rating"
+                          value={clinicStats.averageRating > 0 ? `${clinicStats.averageRating.toFixed(1)} ⭐` : "No ratings"}
+                          icon={<Star className="w-4 h-4" />}
+                          color="yellow"
+                        />
+                        <SummaryCard
+                          title="Total Offerings"
+                          value={clinicStats.totalTreatments + clinicStats.totalServices}
+                          icon={<Heart className="w-4 h-4" />}
+                          color="rose"
+                        />
+                        <SummaryCard
+                          title="Activity Score"
+                          value={clinicStats.totalSubTreatments > 0 ? "Active" : "Setup"}
+                          icon={<Activity className="w-4 h-4" />}
+                          color="green"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ClinicManagementDashboard.getLayout = function PageLayout(
+  page: React.ReactNode
+) {
+  return <ClinicLayout>{page}</ClinicLayout>;
+};
+
+
+// Summary Card Component
+interface SummaryCardProps {
+  title: string;
+  value: string | number;
+  icon: React.ReactNode;
+  color: "teal" | "yellow" | "rose" | "green";
+}
+
+const SummaryCard = ({ title, value, icon, color }: SummaryCardProps) => {
+  const colorClasses = {
+    teal: "bg-gray-50 border-gray-200 text-teal-800",
+    yellow: "bg-gray-50 border-gray-200 text-teal-800",
+    rose: "bg-gray-50 border-gray-200 text-teal-800",
+    green: "bg-gray-50 border-gray-200 text-teal-800",
+  };
+
+  const [_bgColor, borderColor, textColor] = colorClasses[color].split(' ');
+
+  return (
+    <div className={`bg-white rounded-lg p-2.5 sm:p-3 border ${borderColor} shadow-sm`}>
+      <div className={`flex items-center gap-1.5 mb-1.5 ${textColor}`}>
+        {icon}
+        <span className="text-[10px] sm:text-xs font-semibold text-teal-700 truncate">{title}</span>
+      </div>
+      <p className="text-base sm:text-lg font-bold text-teal-900">{value}</p>
+    </div>
+  );
+};
+

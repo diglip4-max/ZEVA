@@ -525,6 +525,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     );
   };
 
+  // Remove a selected treatment
+  const handleRemoveSelectedTreatment = (slug: string) => {
+    setSelectedTreatments((prev) => prev.filter((t) => t.treatmentSlug !== slug));
+  };
+
   // Handle package selection
   const handlePackageSelect = async (pkg: Package) => {
     setSelectedPackage(pkg);
@@ -1356,6 +1361,20 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           className="w-16 px-1.5 py-1 border border-blue-300 rounded text-xs font-semibold text-center focus:ring-1 focus:ring-blue-500 outline-none bg-white"
                         />
                         <span className="text-xs font-semibold text-gray-900 min-w-[60px]">Total: {treatment.totalPrice.toFixed(2)}</span>
+                        <button
+                          type="button"
+                          title="Remove treatment"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedTreatments((prev) =>
+                              prev.filter((t) => t.treatmentSlug !== treatment.treatmentSlug)
+                            );
+                          }}
+                          className="ml-2 p-0.5 rounded hover:bg-red-50 text-red-600 transition"
+                          aria-label="Remove selected treatment"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   ))}
