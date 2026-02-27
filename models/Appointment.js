@@ -83,6 +83,12 @@ const AppointmentSchema = new mongoose.Schema(
         required: false, // Format: "HH:MM" (24-hour)
       },
     },
+    serviceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Service",
+      default: null,
+      index: true,
+    },
   },
   { timestamps: true }
 );

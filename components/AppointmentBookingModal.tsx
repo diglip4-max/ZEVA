@@ -170,6 +170,9 @@ export default function AppointmentBookingModal({
   const [doctorDeptLoading, setDoctorDeptLoading] = useState(false);
   const [doctorDeptError, setDoctorDeptError] = useState("");
   const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [services, setServices] = useState<Array<{ _id: string; name: string }>>([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
+  const [selectedServiceId, setSelectedServiceId] = useState<string>("");
 
   // Whenever the selected slot changes (or modal reopens), sync the times
   useEffect(() => {
@@ -381,6 +384,31 @@ export default function AppointmentBookingModal({
     }
   }, [isOpen, selectedDoctorId]);
 
+  // Load clinic services for optional treatment selection
+  useEffect(() => {
+    const loadServices = async () => {
+      try {
+        setServicesLoading(true);
+        const res = await axios.get("/api/clinic/services", {
+          headers: getAuthHeaders(),
+        });
+        if (res.data.success) {
+          const list = Array.isArray(res.data.services) ? res.data.services : [];
+          setServices(list.map((s: any) => ({ _id: s._id, name: s.name })));
+        } else {
+          setServices([]);
+        }
+      } catch (e) {
+        setServices([]);
+      } finally {
+        setServicesLoading(false);
+      }
+    };
+    if (isOpen) {
+      loadServices();
+    }
+  }, [isOpen, getAuthHeaders]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -493,6 +521,7 @@ export default function AppointmentBookingModal({
           referral,
           emergency,
           notes,
+          serviceId: selectedServiceId || undefined,
           bookedFrom: valueToSend, // Use the determined value - ensure it's "room" or "doctor"
           customTimeSlots: customTimeSlots
             ? {
@@ -555,6 +584,7 @@ export default function AppointmentBookingModal({
     setReferral("No");
     setEmergency("no");
     setNotes("");
+    setSelectedServiceId("");
     setError("");
     setFieldErrors({});
   };
@@ -1314,6 +1344,26 @@ export default function AppointmentBookingModal({
               className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 placeholder-gray-400 dark:placeholder-gray-600 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm resize-none"
               placeholder="Add any additional notes or special instructions..."
             />
+          </div>
+
+          {/* Treatment Selection (Optional) */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
+              Treatment (Optional)
+            </label>
+            <select
+              value={selectedServiceId}
+              onChange={(e) => setSelectedServiceId(e.target.value)}
+              className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+              disabled={servicesLoading}
+            >
+              <option value="">Select a treatment (optional)</option>
+              {services.map((svc) => (
+                <option key={svc._id} value={svc._id}>
+                  {svc.name}
+                </option>
+              ))}
+            </select>
           </div>
         </form>
 

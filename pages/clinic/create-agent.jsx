@@ -77,7 +77,8 @@ const ManageAgentsPage = () => {
     contractType: "full"
     ,
     employeeVisaFrontUrl: "",
-    employeeVisaBackUrl: ""
+    employeeVisaBackUrl: "",
+    otherDocuments: []
   });
   const [uploadingIdDocFront, setUploadingIdDocFront] = useState(false);
   const [uploadingIdDocBack, setUploadingIdDocBack] = useState(false);
@@ -87,6 +88,7 @@ const ManageAgentsPage = () => {
   const [uploadingContractBack, setUploadingContractBack] = useState(false);
   const [uploadingEmployeeVisaFront, setUploadingEmployeeVisaFront] = useState(false);
   const [uploadingEmployeeVisaBack, setUploadingEmployeeVisaBack] = useState(false);
+  const [otherDocsUploading, setOtherDocsUploading] = useState({});
   const [completionMap, setCompletionMap] = useState({});
   const [agentProfiles, setAgentProfiles] = useState({});
   const [passwordAgent, setPasswordAgent] = useState(null);
@@ -482,7 +484,8 @@ const ManageAgentsPage = () => {
           contractBackUrl: p.contractBackUrl || "",
           contractType: p.contractType || "full",
           employeeVisaFrontUrl: p.employeeVisaFrontUrl || "",
-          employeeVisaBackUrl: p.employeeVisaBackUrl || ""
+          employeeVisaBackUrl: p.employeeVisaBackUrl || "",
+          otherDocuments: Array.isArray(p.otherDocuments) ? p.otherDocuments : []
         });
       }
     } catch {}
@@ -576,7 +579,10 @@ const ManageAgentsPage = () => {
           return isTarget ? base * mult : parseFloat(profileForm.targetAmount || "0");
         })(),
         employeeVisaFrontUrl: profileForm.employeeVisaFrontUrl,
-        employeeVisaBackUrl: profileForm.employeeVisaBackUrl
+        employeeVisaBackUrl: profileForm.employeeVisaBackUrl,
+        otherDocuments: Array.isArray(profileForm.otherDocuments)
+          ? profileForm.otherDocuments.filter(d => d && d.name && d.url).map(d => ({ name: d.name, url: d.url }))
+          : []
       };
       const res = await axios.patch("/api/lead-ms/get-agents", payload, { headers: authHeaders });
       if (res.data.success) {
@@ -1743,6 +1749,114 @@ const ManageAgentsPage = () => {
                       </label>
                     </div>
                   </div>
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-xs font-medium text-teal-900">Custom Documents</div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileForm(f => ({
+                            ...f,
+                            otherDocuments: [...(f.otherDocuments || []), { name: "", url: "" }]
+                          }));
+                        }}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-md hover:bg-gray-800"
+                      >
+                        + Add Document
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {(profileForm.otherDocuments || []).map((doc, idx) => (
+                        <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                          <div className="sm:col-span-4">
+                            <label className="block text-xs font-medium text-teal-700 mb-1.5">Document Name</label>
+                            <input
+                              type="text"
+                              value={doc.name || ""}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setProfileForm(f => {
+                                  const arr = [...(f.otherDocuments || [])];
+                                  arr[idx] = { ...arr[idx], name: val };
+                                  return { ...f, otherDocuments: arr };
+                                });
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                              placeholder="e.g. License, Address Proof"
+                            />
+                          </div>
+                          <div className="sm:col-span-6">
+                            <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload File</label>
+                            <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
+                              <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
+                                {otherDocsUploading[idx] ? (
+                                  <span className="animate-pulse text-teal-600">Uploading...</span>
+                                ) : (
+                                  <>
+                                    <Upload className="w-4 h-4 mr-2 text-teal-600" />
+                                    <span className="text-teal-600">Choose file</span>
+                                  </>
+                                )}
+                              </div>
+                              <input
+                                type="file"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    setOtherDocsUploading(s => ({ ...s, [idx]: true }));
+                                    uploadFile(
+                                      file,
+                                      (url) => {
+                                        setProfileForm(f => {
+                                          const arr = [...(f.otherDocuments || [])];
+                                          arr[idx] = { ...arr[idx], url };
+                                          return { ...f, otherDocuments: arr };
+                                        });
+                                      },
+                                      () => setOtherDocsUploading(s => ({ ...s, [idx]: false }))
+                                    );
+                                  }
+                                }}
+                              />
+                              <span className="text-xs text-gray-600 truncate">
+                                {doc.url ? getFileNameFromUrl(doc.url) : "No file chosen"}
+                              </span>
+                              {doc.url && /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(doc.url) && (
+                                <div className="mt-1">
+                                  <img
+                                    src={doc.url}
+                                    alt={doc.name || "Document preview"}
+                                    className="h-16 rounded border border-gray-200 object-contain"
+                                  />
+                                </div>
+                              )}
+                            </label>
+                          </div>
+                          <div className="sm:col-span-2 flex">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setProfileForm(f => {
+                                  const arr = [...(f.otherDocuments || [])];
+                                  arr.splice(idx, 1);
+                                  return { ...f, otherDocuments: arr };
+                                });
+                                setOtherDocsUploading(s => {
+                                  const n = { ...s };
+                                  delete n[idx];
+                                  return n;
+                                });
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs text-red-700 hover:bg-red-50"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Action Buttons */}
@@ -1979,6 +2093,21 @@ const ManageAgentsPage = () => {
                             </>
                           ) : '—'}
                         </div>
+                        {Array.isArray(viewProfile?.otherDocuments) && viewProfile.otherDocuments.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {viewProfile.otherDocuments.map((d, i) => (
+                              <div key={i} className="text-xs text-teal-700 dark:text-teal-300">
+                                <span className="font-semibold">{d.name || `Document ${i + 1}`}:</span>{' '}
+                                {d?.url ? (
+                                  <>
+                                    <a href={d.url} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
+                                    <span className="ml-2 text-[11px]">{getFileNameFromUrl(d.url)}</span>
+                                  </>
+                                ) : '—'}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {viewProfile?.employeeVisaFrontUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.employeeVisaFrontUrl) ? (
@@ -1998,6 +2127,21 @@ const ManageAgentsPage = () => {
                           <div className="flex items-center justify-center text-gray-400 text-sm">
                             No visa back image
                           </div>
+                        )}
+                        {Array.isArray(viewProfile?.otherDocuments) && viewProfile.otherDocuments.length > 0 && (
+                          <>
+                            {viewProfile.otherDocuments.map((d, i) => (
+                              d?.url && /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(d.url) ? (
+                                <div key={`odoc-${i}`} className="flex items-center justify-center">
+                                  <img
+                                    src={d.url}
+                                    alt={d.name || `Document ${i + 1}`}
+                                    className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm"
+                                  />
+                                </div>
+                              ) : null
+                            ))}
+                          </>
                         )}
                       </div>
                     </div>

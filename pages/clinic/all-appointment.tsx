@@ -42,6 +42,8 @@
     doctorEmail: string;
     roomId: string;
     roomName: string;
+    serviceId?: string;
+    serviceName?: string;
     status: string;
     followType: string;
     referral: string;

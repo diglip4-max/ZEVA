@@ -97,6 +97,8 @@ interface Appointment {
   referral: string;
   emergency: string;
   notes: string;
+  serviceId?: string | null;
+  serviceName?: string | null;
   bookedFrom?: "doctor" | "room"; // Track which column the appointment was booked from
   doctorTreatments?: Array<{
     mainTreatment: string;
@@ -3198,14 +3200,9 @@ useEffect(() => {
                                                       <span className="text-[13px] font-[600] text-black mb-[2px] block">
                                                         {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
                                                       </span>
-                                                      {item.apt.roomName && (
-                                                        <span className="text-[12px] font-[400] text-black opacity-[0.8] block">
-                                                          {item.apt.roomName}
-                                                        </span>
-                                                      )}
-                                                      {item.apt.doctorTreatments && item.apt.doctorTreatments.length > 0 && (
+                                                      {item.apt.serviceName && (
                                                         <span className="text-[12px] font-[500] text-black block truncate">
-                                                          {item.apt.doctorTreatments[0].mainTreatment}
+                                                          {item.apt.serviceName}
                                                         </span>
                                                       )}
                                                     </div>
@@ -3477,14 +3474,9 @@ useEffect(() => {
                                                       <span className="text-[13px] font-[600] text-black mb-[2px] block">
                                                         {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
                                                       </span>
-                                                      {item.apt.roomName && (
-                                                        <span className="text-[12px] font-[400] text-black opacity-[0.8] block">
-                                                          {item.apt.roomName}
-                                                        </span>
-                                                      )}
-                                                      {item.apt.doctorTreatments && item.apt.doctorTreatments.length > 0 && (
+                                                      {item.apt.serviceName && (
                                                         <span className="text-[12px] font-[500] text-black block truncate">
-                                                          {item.apt.doctorTreatments[0].mainTreatment}
+                                                          {item.apt.serviceName}
                                                         </span>
                                                       )}
                                                     </div>

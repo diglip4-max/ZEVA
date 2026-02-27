@@ -227,6 +227,11 @@ export default async function handler(req, res) {
           model: "Room",
           select: "name",
         })
+        .populate({
+          path: "serviceId",
+          model: "Service",
+          select: "name",
+        })
         .sort({ startDate: -1, fromTime: -1, createdAt: -1 })
         .skip(skip)
         .limit(limitNum)
@@ -282,6 +287,8 @@ export default async function handler(req, res) {
           doctorEmail: doctor.email || "",
           roomId: room._id?.toString() || "",
           roomName: room.name || "-",
+          serviceId: apt.serviceId?._id?.toString() || "",
+          serviceName: apt.serviceId?.name || "",
           status: apt.status,
           followType: apt.followType,
           referral: apt.referral || "direct",
@@ -320,4 +327,3 @@ export default async function handler(req, res) {
     });
   }
 }
-
