@@ -30,6 +30,8 @@ const ClinicSchema = new mongoose.Schema(
       index: true 
     },
     slugLocked: { type: Boolean, default: false }, // Lock slug once approved
+    otpWhatsAppNumber: { type: String, default: null },
+    otpEmail: { type: String, default: null },
   },
   { timestamps: true }
 );

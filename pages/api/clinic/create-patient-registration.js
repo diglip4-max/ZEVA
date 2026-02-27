@@ -402,7 +402,7 @@ export default async function handler(req, res) {
       // Do not fail the billing creation if commission creation fails
     }
 
-    // Doctor/Staff commission based on AgentProfile (supports flat and target-based)
+    // Doctor/Staff commission based on AgentProfile (supports flat, target-based, and after_deduction)
     try {
       if (paidNum > 0 && appointment?.doctorId) {
         // Use the commission calculator to determine commission
@@ -410,6 +410,9 @@ export default async function handler(req, res) {
           staffId: appointment.doctorId,
           clinicId: clinic._id,
           paidAmount: paidNum,
+          patientId: patientRegistration._id,
+          appointmentId: appointment._id,
+          currentBillingId: billing._id, // Pass the billing ID to exclude it from "last billing" query
         });
 
         if (commissionResult.shouldCreateCommission) {
@@ -434,6 +437,29 @@ export default async function handler(req, res) {
             commissionData.targetAmount = commissionResult.targetAmount || 0;
             commissionData.cumulativeAchieved = commissionResult.cumulativeAchieved || 0;
             commissionData.isAboveTarget = commissionResult.isAboveTarget || false;
+          }
+
+          // Add after_deduction specific fields if applicable
+          if (commissionResult.commissionType === "after_deduction") {
+            commissionData.totalExpenses = commissionResult.totalExpenses || 0;
+            commissionData.netAmount = commissionResult.netAmount || 0;
+            commissionData.expenseBreakdown = commissionResult.expenseBreakdown || [];
+            commissionData.complaintsCount = commissionResult.complaintsCount || 0;
+            commissionData.lastBillingDate = commissionResult.lastBillingDate || null;
+            commissionData.lastBillingInvoice = commissionResult.lastBillingInvoice || null;
+            commissionData.isFirstBilling = commissionResult.isFirstBilling || false;
+          }
+
+          // Add target_plus_expense specific fields if applicable
+          if (commissionResult.commissionType === "target_plus_expense") {
+            commissionData.targetAmount = commissionResult.targetAmount || 0;
+            commissionData.cumulativeAchieved = commissionResult.cumulativeAchieved || 0;
+            commissionData.isAboveTarget = commissionResult.isAboveTarget || false;
+            commissionData.amountAboveTarget = commissionResult.amountAboveTarget || 0;
+            commissionData.totalExpenses = commissionResult.totalExpenses || 0;
+            commissionData.netCommissionableAmount = commissionResult.netCommissionableAmount || 0;
+            commissionData.expenseBreakdown = commissionResult.expenseBreakdown || [];
+            commissionData.complaintsCount = commissionResult.complaintsCount || 0;
           }
 
           await Commission.create(commissionData);

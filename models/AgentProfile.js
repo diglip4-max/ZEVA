@@ -55,6 +55,12 @@ const AgentProfileSchema = new mongoose.Schema(
 
     employeeVisaFrontUrl: String,
     employeeVisaBackUrl: String,
+    otherDocuments: [
+      {
+        name: String,
+        url: String,
+      },
+    ],
   },
   { timestamps: true }
 );

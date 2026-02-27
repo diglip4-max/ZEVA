@@ -8,6 +8,12 @@ const ServiceSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    departmentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Department",
+      index: true,
+      default: null,
+    },
     name: {
       type: String,
       required: true,
@@ -21,6 +27,11 @@ const ServiceSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: 0,
+    },
+    clinicPrice: {
+      type: Number,
+      min: 0,
+      default: null,
     },
     durationMinutes: {
       type: Number,
@@ -40,7 +51,8 @@ const ServiceSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-ServiceSchema.index({ clinicId: 1, name: 1 }, { unique: true });
+ServiceSchema.index({ clinicId: 1, departmentId: 1, name: 1 }, { unique: true, partialFilterExpression: { name: { $exists: true } } });
+ServiceSchema.index({ clinicId: 1, departmentId: 1, serviceSlug: 1 }, { unique: true, partialFilterExpression: { serviceSlug: { $exists: true } } });
 
 delete mongoose.models.Service;
 export default mongoose.models.Service || mongoose.model("Service", ServiceSchema);

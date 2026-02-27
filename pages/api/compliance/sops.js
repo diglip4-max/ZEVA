@@ -2,6 +2,8 @@ import dbConnect from "../../../lib/database";
 import SOP from "../../../models/SOP";
 import Acknowledgment from "../../../models/Acknowledgment";
 import User from "../../../models/Users";
+import Notification from "../../../models/Notification";
+import { emitNotificationToUser } from "../push-notification/socketio";
 import { getUserFromReq } from '../lead-ms/auth';
 import { getClinicIdFromUser } from '../lead-ms/permissions-helper';
 
@@ -157,7 +159,7 @@ export default async function handler(req, res) {
       riskLevel,
       version,
       status,
-      documentUrl,
+      documentUrl: String(documentUrl || "").trim(),
       lastUpdated: new Date(),
       content,
       checklist,
@@ -208,7 +210,49 @@ export default async function handler(req, res) {
             upsert: true
           }
         }));
-        if (bulkOps.length) await Acknowledgment.bulkWrite(bulkOps, { ordered: false });
+        if (bulkOps.length) {
+          await Acknowledgment.bulkWrite(bulkOps, { ordered: false });
+          const staffIdList = users.map(u => u._id);
+          const getBaseUrl = () => {
+            if (process.env.NODE_ENV === "production") {
+              return process.env.NEXT_PUBLIC_BASE_URL || "https://zeva360.com";
+            }
+            return process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+          };
+          try {
+            await fetch(`${getBaseUrl()}/api/push-notification/socketio`).catch(() => {});
+          } catch {}
+          const ackDocs = await Acknowledgment.find({
+            clinicId,
+            documentType: "SOP",
+            documentId: item._id,
+            staffId: { $in: staffIdList }
+          }).select("_id staffId").lean();
+          const ackMap = ackDocs.reduce((acc, a) => {
+            acc[a.staffId.toString()] = a._id;
+            return acc;
+          }, {});
+          const message = `Acknowledgment assigned: SOP "${name}"`;
+          for (const u of users) {
+            try {
+              const notification = await Notification.create({
+                user: u._id,
+                message,
+                type: "acknowledgment",
+                relatedAcknowledgment: ackMap[u._id.toString()]
+              });
+              emitNotificationToUser(u._id, {
+                _id: notification._id,
+                user: u._id,
+                message,
+                isRead: false,
+                type: "acknowledgment",
+                relatedAcknowledgment: ackMap[u._id.toString()],
+                createdAt: new Date()
+              });
+            } catch (nerr) {}
+          }
+        }
       }
     } catch (ackErr) {
       // Do not fail SOP creation if ack assignment fails
@@ -221,6 +265,7 @@ export default async function handler(req, res) {
     const { id } = req.query;
     if (!id) return res.status(400).json({ success: false, message: "Missing id" });
     const update = { ...req.body, lastUpdated: new Date() };
+    if (typeof update.documentUrl === "string") update.documentUrl = update.documentUrl.trim();
     const updated = await SOP.findOneAndUpdate({ _id: id, clinicId }, update, { new: true });
     if (!updated) return res.status(404).json({ success: false, message: "Not found" });
     

@@ -17,6 +17,8 @@ interface Appointment {
   doctorEmail: string;
   roomId: string;
   roomName: string;
+  serviceId?: string | null;
+  serviceName?: string | null;
   status: string;
   followType: string;
   referral: string;
@@ -206,6 +208,26 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
               });
             }
           });
+
+          // Also include clinic Services as selectable treatments
+          try {
+            const servicesRes = await axios.get("/api/clinic/services", { headers });
+            if (servicesRes.data?.success && Array.isArray(servicesRes.data.services)) {
+              servicesRes.data.services.forEach((svc: any) => {
+                if (!svc || !svc.name) return;
+                allTreatments.push({
+                  name: svc.name,
+                  slug: svc.serviceSlug || svc._id, // unique key for selection
+                  price: Number(svc.price) || 0,
+                  type: "sub", // keep as 'sub' so existing filters include it
+                  mainTreatment: "Service",
+                  mainTreatmentSlug: "service",
+                });
+              });
+            }
+          } catch {
+            // Ignore services fetch errors and proceed with available treatments
+          }
 
           setTreatments(allTreatments);
         }
@@ -969,6 +991,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
               <span><span className="text-gray-600 dark:text-gray-600 font-medium">Email:</span> <span className="font-semibold text-gray-900 dark:text-gray-900">{formData.email || appointment?.patientEmail || "-"}</span></span> |
               <span><span className="text-gray-600 dark:text-gray-600 font-medium">Gender:</span> <span className="font-semibold text-gray-900 dark:text-gray-900">{formData.gender || appointment?.gender || "-"}</span></span> |
               <span><span className="text-gray-600 dark:text-gray-600 font-medium">EMR:</span> <span className="font-semibold text-gray-900 dark:text-gray-900">{formData.emrNumber || appointment?.emrNumber || "-"}</span></span>
+              {appointment?.serviceName ? (
+                <>
+                  <span className="mx-1 text-gray-400">|</span>
+                  <span><span className="text-gray-600 dark:text-gray-600 font-medium">Treatment:</span> <span className="font-semibold text-gray-900 dark:text-gray-900">{appointment.serviceName}</span></span>
+                </>
+              ) : null}
             </div>
             {(errors.firstName || errors.mobileNumber || errors.gender) && (
               <div className="mt-1 text-[10px] text-red-600 dark:text-red-700">

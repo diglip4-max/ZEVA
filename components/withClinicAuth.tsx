@@ -142,7 +142,7 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
 
           // Verify user role - allow clinic, agent, doctor, doctorStaff, and staff roles
           const userObj = JSON.parse(user);
-          const allowedRoles = ['clinic', 'agent', 'doctor', 'doctorStaff', 'staff'];
+          const allowedRoles = ['clinic', 'agent', 'doctor', 'doctorStaff', 'staff', 'admin'];
           if (allowedRoles.includes(userObj.role)) {
             setIsAuthorized(true);
           } else {
