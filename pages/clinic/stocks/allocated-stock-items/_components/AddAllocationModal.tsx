@@ -13,7 +13,6 @@ import {
   ChevronDown,
   CheckCircle,
   Package,
-  UserCircle,
   AlertCircle,
 } from "lucide-react";
 import { getAuthHeaders } from "@/lib/helper";
@@ -66,11 +65,19 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
   );
 
   const [locations, setLocations] = useState<StockLocation[]>([]);
+  const [defaultUserId, setDefaultUserId] = useState<string>("");
+  const [defaultLocationId, setDefaultLocationId] = useState<string>("");
+  const [defaultExpiryDate, setDefaultExpiryDate] = useState<string>(
+    new Date().toISOString().split("T")[0],
+  );
 
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [allocations, setAllocations] = useState<
-    Record<string, { userId: string; qty: number; locationId: string }[]>
+    Record<
+      string,
+      { userId: string; qty: number; locationId: string; expiryDate: string }[]
+    >
   >({});
 
   const headers = useMemo(() => getAuthHeaders() || {}, []);
@@ -140,6 +147,8 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
         });
         const pr: PurchaseRecord = res.data?.data;
         setSelectedRecord(pr);
+        setDefaultUserId(pr?.createdBy?._id || "");
+        setDefaultExpiryDate(new Date().toISOString().split("T")[0]);
         const q: Record<string, number> = {};
         (pr.items || []).forEach((it) => {
           const key = it._id || it.itemId || "";
@@ -275,7 +284,12 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
     setAllocations((prev) => {
       const next = { ...prev };
       const list = next[key] ? [...next[key]] : [];
-      list.push({ userId: "", qty: 0, locationId: "" });
+      const it =
+        selectedRecord?.items?.find((i) => (i._id || i.itemId) === key) || null;
+      const d = it?.expiryDate
+        ? new Date(it.expiryDate).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0];
+      list.push({ userId: "", qty: 0, locationId: "", expiryDate: d });
       next[key] = list;
       return next;
     });
@@ -293,7 +307,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
   const setAllocationField = (
     key: string,
     idx: number,
-    field: "userId" | "qty" | "locationId",
+    field: "userId" | "qty" | "locationId" | "expiryDate",
     value: string | number,
     maxQty?: number,
   ) => {
@@ -310,7 +324,11 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
           (sum, sp, i) => (i !== idx ? sum + (sp.qty || 0) : sum),
           0,
         );
-        const newTotal = totalOtherSplits + parseInt(newValue as string);
+        const newTotal =
+          totalOtherSplits +
+          (typeof newValue === "number"
+            ? newValue
+            : parseInt(newValue as string));
 
         if (newTotal > maxQty) {
           setQuantityErrors((prev) => ({
@@ -372,44 +390,65 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
       return;
     }
 
-    const invalidSplits = selectedItemIds.find((id) => {
+    // Validate split fields and auto-allocate remainder
+    for (const id of selectedItemIds) {
       const splits = allocations[id] || [];
-      if (!splits.length) return true;
       const total = splits.reduce((s, sp) => s + (sp.qty || 0), 0);
       const target = quantities[id] || 0;
-      return (
-        total !== target ||
-        splits.some((sp) => !sp.userId || !sp.locationId || sp.qty <= 0)
+      if (total > target) {
+        setError(
+          "Total allocated quantity exceeds selected allocation quantity for an item",
+        );
+        return;
+      }
+      const hasInvalid = splits.some(
+        (sp) => !sp.userId || !sp.locationId || !sp.expiryDate || sp.qty <= 0,
       );
-    });
-    if (invalidSplits) {
-      setError(
-        "Ensure each selected item has splits with users, locations, and quantities summing to the selected quantity",
-      );
-      return;
+      if (hasInvalid) {
+        setError(
+          "Each split must include user, location, expiry and a positive quantity",
+        );
+        return;
+      }
+      if (total < target) {
+        if (!defaultUserId || !defaultLocationId || !defaultExpiryDate) {
+          setError(
+            "Remaining quantity detected. Select default user, location and expiry to auto-allocate remainder.",
+          );
+          return;
+        }
+      }
     }
 
     try {
       setSubmitting(true);
       setError(null);
 
-      // Prepare allocatedStockItems array as per API expected format
       const allocatedStockItems: AllocatedStockItem[] = [];
       for (const id of selectedItemIds) {
         const item = selectedRecord.items?.find(
           (it) => (it._id || it.itemId) === id,
         );
-        const expiry = item?.expiryDate
-          ? new Date(item.expiryDate).toISOString()
-          : undefined;
+        const target = quantities[id] || 0;
         const splits = allocations[id] || [];
+        let total = 0;
         for (const sp of splits) {
           allocatedStockItems.push({
             item,
             quantity: sp.qty || 0,
             user: sp.userId,
             location: sp.locationId,
-            expiryDate: expiry,
+            expiryDate: sp.expiryDate,
+          });
+          total += sp.qty || 0;
+        }
+        if (total < target) {
+          allocatedStockItems.push({
+            item,
+            quantity: target - total,
+            user: defaultUserId,
+            location: defaultLocationId,
+            expiryDate: defaultExpiryDate,
           });
         }
       }
@@ -563,14 +602,58 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
 
           {selectedRecord && (
             <div className="space-y-4">
-              {/* Allocated To - Read-only like in EditGRNModal */}
-              <div className="space-y-2">
-                <label className="block text-sm font-bold text-gray-900">
-                  Allocated To
-                </label>
-                <div className="px-3 py-2.5 text-sm text-gray-600 bg-gray-50 border border-gray-300 rounded-lg flex items-center gap-2">
-                  <UserCircle className="w-4 h-4 text-gray-500" />
-                  {selectedRecord?.createdBy?.name || "Unknown"}
+              {/* Default Allocation (Used for remaining quantity) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-gray-900">
+                    Default User
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={defaultUserId}
+                      onChange={(e) => setDefaultUserId(e.target.value)}
+                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                    >
+                      <option value="">
+                        {selectedRecord?.createdBy?.name
+                          ? `Select user (default: ${selectedRecord.createdBy.name})`
+                          : "Select user"}
+                      </option>
+                      {userOptions.map((u: any) => (
+                        <option key={u._id} value={u._id}>
+                          {u.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-gray-900">
+                    Default Location
+                  </label>
+                  <select
+                    value={defaultLocationId}
+                    onChange={(e) => setDefaultLocationId(e.target.value)}
+                    className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                  >
+                    <option value="">Select location</option>
+                    {locations.map((l) => (
+                      <option key={l._id} value={l._id}>
+                        {l.location}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-gray-900">
+                    Default Expiry
+                  </label>
+                  <input
+                    type="date"
+                    value={defaultExpiryDate}
+                    onChange={(e) => setDefaultExpiryDate(e.target.value)}
+                    className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                  />
                 </div>
               </div>
 
@@ -622,9 +705,6 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
                         </th>
                         <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
                           Allocate Qty
-                        </th>
-                        <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                          Expiry Date
                         </th>
                         <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
                           Allocations
@@ -698,20 +778,6 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
                                 </div>
                               </td>
                               <td className="px-3 py-2">
-                                <input
-                                  type="date"
-                                  value={
-                                    it.expiryDate
-                                      ? new Date(it.expiryDate)
-                                          .toISOString()
-                                          .split("T")[0]
-                                      : ""
-                                  }
-                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50"
-                                  disabled
-                                />
-                              </td>
-                              <td className="px-3 py-2">
                                 <div className="space-y-3">
                                   {splits.map((sp, i) => (
                                     <div
@@ -763,6 +829,22 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
                                             </option>
                                           ))}
                                         </select>
+                                      </div>
+                                      <div className="min-w-[160px]">
+                                        <input
+                                          type="date"
+                                          value={sp.expiryDate}
+                                          onChange={(e) =>
+                                            setAllocationField(
+                                              key,
+                                              i,
+                                              "expiryDate",
+                                              e.target.value,
+                                            )
+                                          }
+                                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                                          disabled={!checked}
+                                        />
                                       </div>
                                       <div className="w-24">
                                         <input

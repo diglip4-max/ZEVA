@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { PlusCircle, X, Search, ChevronDown } from "lucide-react";
 import useClinicBranches from "@/hooks/useClinicBranches";
 import useSuppliers from "@/hooks/useSuppliers";
 import axios from "axios";
-import { getTokenByPath } from "@/lib/helper";
+import { getTokenByPath, handleUpload } from "@/lib/helper";
 
 interface AddPurchaseInvoiceModalProps {
   token: string;
@@ -31,13 +31,37 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
     supplierInvoiceNo: "",
     date: new Date().toISOString().split("T")[0],
     notes: "",
-    status: "New",
+    status: "Unpaid",
   });
 
   const [grns, setGrns] = useState<any[]>([]);
   const [selectedGrns, setSelectedGrns] = useState<string[]>([]);
   const [grnLoading, setGrnLoading] = useState(false);
   const [showEntries, setShowEntries] = useState("100");
+  const [attachment, setAttachment] = useState<File | null>(null);
+  const [attachmentUrl, setAttachmentUrl] = useState<string>("");
+  const [uploading, setUploading] = useState(false);
+  const [paidAmount, setPaidAmount] = useState<number>(0);
+  const [remainingAmount, setRemainingAmount] = useState<number>(0);
+  const payableAmount = useMemo(() => {
+    try {
+      const map = new Map<string, any>();
+      grns.forEach((g) => map.set(g._id, g));
+      let sum = 0;
+      selectedGrns.forEach((id) => {
+        const g = map.get(id);
+        if (!g) return;
+        let totalOfPurchaseOrder = 0;
+        g?.purchasedOrder?.items?.forEach((po: any) => {
+          totalOfPurchaseOrder += Number(po?.netPlusVat || 0);
+        });
+        sum += totalOfPurchaseOrder;
+      });
+      return Number(sum.toFixed(2));
+    } catch {
+      return 0;
+    }
+  }, [grns, selectedGrns]);
 
   const { suppliers, loading: suppliersLoading } = useSuppliers({
     search: supplierSearch,
@@ -62,7 +86,10 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
           headers: { Authorization: `Bearer ${t}` },
         });
         if (res.data?.success) {
-          setGrns(res.data?.data?.records || []);
+          const filteredGrns = (res.data?.data?.records || [])?.filter(
+            (f: any) => f?.status !== "Invoiced",
+          );
+          setGrns(filteredGrns || []);
         } else {
           setGrns([]);
         }
@@ -140,6 +167,24 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
     setError(null);
 
     try {
+      if (
+        (formData.status === "Paid" || formData.status === "Partly_Paid") &&
+        !attachmentUrl
+      ) {
+        setError("Please upload an attachment for Paid/Partly Paid status");
+        setLoading(false);
+        return;
+      }
+      if (
+        formData.status === "Paid" &&
+        Number(paidAmount || 0) !== payableAmount
+      ) {
+        setError(
+          "For Paid status, the paid amount must equal the payable amount",
+        );
+        setLoading(false);
+        return;
+      }
       const payload = {
         branch: formData.branch,
         supplier: formData.supplier,
@@ -149,6 +194,9 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
         date: formData.date,
         notes: formData.notes,
         status: formData.status,
+        attachmentUrl,
+        paidAmount,
+        remainingAmount,
       };
 
       const response = await fetch(`/api/stocks/purchase-invoices/add`, {
@@ -190,6 +238,10 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
     setIsSupplierDropdownOpen(false);
     setGrns([]);
     setError(null);
+    setAttachment(null);
+    setAttachmentUrl("");
+    setPaidAmount(0);
+    setRemainingAmount(0);
     onClose();
   };
 
@@ -408,6 +460,26 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
                     required
                   />
                 </div>
+                {/* Status */}
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-semibold text-gray-800">
+                    Status <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    disabled={loading}
+                    required
+                  >
+                    <option value="New">New</option>
+                    <option value="Partly_Paid">Partly Paid</option>
+                    <option value="Paid">Paid</option>
+                    <option value="Unpaid">Unpaid</option>
+                    <option value="Deleted">Deleted</option>
+                  </select>
+                </div>
 
                 {/* Notes */}
                 <div className="space-y-1.5">
@@ -523,66 +595,89 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
                             VAT
                           </th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            Net Plus VAT
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                             Status
                           </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {grns.map((grn) => (
-                          <tr
-                            key={grn._id}
-                            className={`hover:bg-gray-50 cursor-pointer ${
-                              selectedGrns.includes(grn._id)
-                                ? "bg-blue-50/50"
-                                : ""
-                            }`}
-                            onClick={() => toggleSelectGrn(grn._id)}
-                          >
-                            <td className="px-4 py-3">
-                              <input
-                                type="checkbox"
-                                checked={selectedGrns.includes(grn._id)}
-                                onChange={() => toggleSelectGrn(grn._id)}
-                                onClick={(e) => e.stopPropagation()}
-                                className="rounded border-gray-300 text-gray-800 focus:ring-gray-800/20"
-                              />
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                              {grn.grnNo || "N/A"}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {grn.date
-                                ? new Date(grn.date).toLocaleDateString("en-GB")
-                                : "N/A"}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {grn.purchaseOrder?.poNo || "N/A"}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {grn.total?.toFixed(2) || "0.00"}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {grn.discount?.toFixed(2) || "0.00"}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {grn.net?.toFixed(2) || "0.00"}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {grn.vat?.toFixed(2) || "0.00"}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span
-                                className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                  grn.status === "Completed"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-yellow-100 text-yellow-800"
-                                }`}
-                              >
-                                {grn.status || "New"}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                        {grns.map((grn) => {
+                          console.log({ grn });
+                          let total = 0;
+                          let discount = 0;
+                          let net = 0;
+                          let vat = 0;
+                          let netPlusVat = 0;
+                          for (let item of grn?.purchasedOrder?.items || []) {
+                            total += item?.totalPrice;
+                            discount += item?.discountAmount || 0;
+                            net += item?.netPrice || 0;
+                            vat += item?.vatAmount || 0;
+                            netPlusVat += item?.netPlusVat || 0;
+                          }
+                          return (
+                            <tr
+                              key={grn._id}
+                              className={`hover:bg-gray-50 cursor-pointer ${
+                                selectedGrns.includes(grn._id)
+                                  ? "bg-blue-50/50"
+                                  : ""
+                              }`}
+                              onClick={() => toggleSelectGrn(grn._id)}
+                            >
+                              <td className="px-4 py-3">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedGrns.includes(grn._id)}
+                                  onChange={() => toggleSelectGrn(grn._id)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="rounded border-gray-300 text-gray-800 focus:ring-gray-800/20"
+                                />
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                                {grn.grnNo || "N/A"}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {grn.grnDate
+                                  ? new Date(grn.grnDate).toLocaleDateString(
+                                      "en-GB",
+                                    )
+                                  : "N/A"}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {grn.purchasedOrder?.orderNo || "N/A"}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {total?.toFixed(2) || "0.00"}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {discount?.toFixed(2) || "0.00"}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {net?.toFixed(2) || "0.00"}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {vat?.toFixed(2) || "0.00"}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {netPlusVat?.toFixed(2) || "0.00"}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span
+                                  className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                    grn.status === "Completed"
+                                      ? "bg-green-100 text-green-800"
+                                      : "bg-yellow-100 text-yellow-800"
+                                  }`}
+                                >
+                                  {grn.status || "New"}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -601,6 +696,45 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Payment & Attachment Section */}
+            {(formData?.status === "Paid" ||
+              formData?.status === "Partly_Paid") &&
+              selectedGrns?.length > 0 && (
+                <div className="space-y-3 pt-4 border-t border-gray-200">
+                  <PaymentSection
+                    grns={grns}
+                    selectedGrns={selectedGrns}
+                    status={formData.status}
+                    uploading={uploading}
+                    attachment={attachment}
+                    attachmentUrl={attachmentUrl}
+                    onUploadStart={() => setUploading(true)}
+                    onUploadSuccess={(url: string) => {
+                      setUploading(false);
+                      setAttachmentUrl(url);
+                    }}
+                    onUploadError={(msg: string) => {
+                      setUploading(false);
+                      setError(msg);
+                    }}
+                    onAttachmentChange={(file: File | null) =>
+                      setAttachment(file)
+                    }
+                    paidAmount={paidAmount}
+                    remainingAmount={remainingAmount}
+                    onPaidAmountChange={(val: number) => setPaidAmount(val)}
+                    onRemainingAmountChange={(val: number) =>
+                      setRemainingAmount(val)
+                    }
+                    onRequireAttachment={() =>
+                      setError(
+                        "Please upload an attachment for Paid/Partly Paid status",
+                      )
+                    }
+                  />
+                </div>
+              )}
           </form>
         </div>
 
@@ -662,3 +796,185 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
 };
 
 export default AddPurchaseInvoiceModal;
+
+// Inline helper section for payment & attachment UI
+function PaymentSection(props: {
+  grns: any[];
+  selectedGrns: string[];
+  status: string;
+  uploading: boolean;
+  attachment: File | null;
+  attachmentUrl: string;
+  onUploadStart: () => void;
+  onUploadSuccess: (url: string) => void;
+  onUploadError: (msg: string) => void;
+  onAttachmentChange: (file: File | null) => void;
+  paidAmount: number;
+  remainingAmount: number;
+  onPaidAmountChange: (val: number) => void;
+  onRemainingAmountChange: (val: number) => void;
+  onRequireAttachment: () => void;
+}) {
+  const {
+    grns,
+    selectedGrns,
+    status,
+    uploading,
+    attachment,
+    attachmentUrl,
+    onUploadStart,
+    onUploadSuccess,
+    onUploadError,
+    onAttachmentChange,
+    paidAmount,
+    onPaidAmountChange,
+    onRemainingAmountChange,
+  } = props;
+
+  const payableAmount = useMemo(() => {
+    try {
+      const map = new Map<string, any>();
+      grns.forEach((g) => map.set(g._id, g));
+      let sum = 0;
+      selectedGrns.forEach((id) => {
+        const g = map.get(id);
+        if (!g) return;
+        let totalOfPurchaseOrder = 0;
+        g?.purchasedOrder?.items?.forEach((po: any) => {
+          totalOfPurchaseOrder += Number(po?.netPlusVat || 0);
+        });
+        sum += totalOfPurchaseOrder;
+      });
+      return Number(sum.toFixed(2));
+    } catch {
+      return 0;
+    }
+  }, [grns, selectedGrns]);
+
+  useEffect(() => {
+    if (status === "Paid") {
+      onPaidAmountChange(payableAmount);
+      onRemainingAmountChange(0);
+      return;
+    }
+    const clamped =
+      isNaN(paidAmount) || paidAmount < 0
+        ? 0
+        : paidAmount > payableAmount
+          ? payableAmount
+          : paidAmount;
+    onPaidAmountChange(clamped);
+    const remaining = payableAmount - clamped;
+    onRemainingAmountChange(remaining > 0 ? Number(remaining.toFixed(2)) : 0);
+  }, [payableAmount, status]);
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="sm:col-span-2">
+          <div className="px-3 py-2.5 text-sm text-gray-900 bg-gray-50 border border-gray-300 rounded-lg flex items-center justify-between">
+            <span className="font-semibold">Payable Amount</span>
+            <span className="font-bold">
+              {payableAmount.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+          </div>
+        </div>
+        {(status === "Paid" || status === "Partly_Paid") && (
+          <div className="space-y-1.5 sm:col-span-2">
+            <label className="block text-sm font-semibold text-gray-800">
+              Attachments (payment proofs, invoices)
+            </label>
+            <input
+              type="file"
+              onChange={async (e) => {
+                const file = (e.target.files && e.target.files[0]) || null;
+                onAttachmentChange(file);
+                if (file) {
+                  try {
+                    onUploadStart();
+                    const resData = await handleUpload(file);
+                    if (resData?.success && resData?.url) {
+                      onUploadSuccess(resData.url);
+                    } else {
+                      onUploadError("Failed to upload attachment");
+                    }
+                  } catch {
+                    onUploadError("Failed to upload attachment");
+                  }
+                } else {
+                  onUploadError("No file selected");
+                }
+              }}
+              className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+              disabled={uploading}
+              accept=".pdf,image/*"
+            />
+            {attachment && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                <div className="px-2 py-1 text-xs rounded border border-gray-200 bg-gray-50 text-gray-700 flex items-center gap-2">
+                  <span className="font-medium">{attachment.name}</span>
+                </div>
+              </div>
+            )}
+            {attachmentUrl && (
+              <div className="mt-2 text-xs">
+                <a
+                  href={attachmentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  View uploaded attachment
+                </a>
+              </div>
+            )}
+            {uploading && (
+              <div className="text-xs text-gray-500">Uploading...</div>
+            )}
+          </div>
+        )}
+        <div className="space-y-1.5">
+          <label className="block text-sm font-semibold text-gray-800">
+            Paid Amount
+          </label>
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            max={payableAmount}
+            value={status === "Paid" ? payableAmount : paidAmount}
+            onChange={(e) =>
+              onPaidAmountChange(
+                Math.min(
+                  payableAmount,
+                  Math.max(0, Number(e.target.value) || 0),
+                ),
+              )
+            }
+            className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+            disabled={status === "Paid"}
+            placeholder="0.00"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="block text-sm font-semibold text-gray-800">
+            Remaining Amount
+          </label>
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            value={status === "Paid" ? 0 : props.remainingAmount}
+            onChange={() => {}}
+            className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+            disabled
+            placeholder="0.00"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}

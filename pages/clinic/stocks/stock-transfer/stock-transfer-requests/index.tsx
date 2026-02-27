@@ -52,8 +52,8 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
     requestingBranch: "",
     transferType: "",
     stockTransferRequestNo: "",
-    fromDate: "",
-    toDate: "",
+    fromDate: new Date().toISOString().split("T")[0],
+    toDate: new Date().toISOString().split("T")[0],
     status: "",
   });
 

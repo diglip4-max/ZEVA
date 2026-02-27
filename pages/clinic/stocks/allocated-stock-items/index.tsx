@@ -159,7 +159,7 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
         const list: AllocatedItem[] = data?.records || [];
         setItems(list);
         setTotalResults(data?.totalRecords || list.length || 0);
-        setTotalPages(Math.ceil((data?.totalPages || list.length) / limit));
+        setTotalPages(data?.totalPages || 1);
         setPage(data?.currentPage || pageNum);
       }
     } catch (err: unknown) {

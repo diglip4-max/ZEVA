@@ -35,14 +35,13 @@ const EditStockTransferRequestModal: React.FC<Props> = ({
   onSuccess,
 }) => {
   const { clinicBranches } = useClinicBranches();
-  const { agents } = useAgents({ role: "agent" })?.state || {};
   const { agents: doctors } = useAgents({ role: "doctorStaff" })?.state || {};
   const { stockItems } = useStockItems();
   const token = getTokenByPath() || "";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const requestingEmployees = [...(agents || []), ...(doctors || [])];
+  const requestingEmployees = [...(doctors || [])];
 
   // Form state
   const [formData, setFormData] = useState({

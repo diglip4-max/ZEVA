@@ -3,6 +3,9 @@ import mongoose from "mongoose";
 import Clinic from "../../../../models/Clinic";
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
 import AllocatedStockItem from "../../../../models/stocks/AllocatedStockItem";
+import StockItem from "../../../../models/stocks/StockItem";
+import StockLocation from "../../../../models/stocks/StockLocation";
+import User from "../../../../models/Users";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -63,9 +66,10 @@ export default async function handler(req, res) {
     }
 
     const item = await AllocatedStockItem.findOne({ _id: id, clinicId })
-      .populate("stockItems")
-      .populate("user", "name role")
-      .populate("location")
+      .populate({ path: "item.itemId" })
+      .populate({ path: "user", select: "name role" })
+      .populate({ path: "allocatedBy", select: "name role" })
+      .populate({ path: "location" })
       .lean();
 
     if (!item) {
@@ -74,7 +78,9 @@ export default async function handler(req, res) {
         .json({ success: false, message: "Allocated stock item not found" });
     }
 
-    return res.status(200).json({ success: true, data: item });
+    const stockItem = item?.item?.itemId || item?.item || null;
+    const data = { ...item, stockItem };
+    return res.status(200).json({ success: true, data });
   } catch (err) {
     console.error("GET /api/stocks/allocated-stock-items/[id] error:", err);
     return res

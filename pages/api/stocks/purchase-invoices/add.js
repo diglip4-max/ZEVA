@@ -1,5 +1,6 @@
 import dbConnect from "../../../../lib/database";
 import Clinic from "../../../../models/Clinic";
+import GRN from "../../../../models/stocks/GRN";
 import PurchaseInvoice from "../../../../models/stocks/PurchaseInvoice";
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
 
@@ -77,6 +78,13 @@ export default async function handler(req, res) {
     });
 
     await invoice.save();
+
+    // update status of grns to invoiced
+    await GRN.updateMany(
+      { _id: { $in: grns } },
+      { $set: { status: "Invoiced" } },
+    );
+
     const saved = await PurchaseInvoice.findById(invoice._id)
       .populate("branch", "name")
       .populate("supplier", "name")
