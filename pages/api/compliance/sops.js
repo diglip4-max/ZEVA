@@ -185,9 +185,13 @@ export default async function handler(req, res) {
         const due = item.reviewDate || null;
         const deadline = item.acknowledgmentDeadline ? new Date(item.acknowledgmentDeadline) : null;
         const now = new Date();
-        
-        // FIXED: Status logic - if deadline exists and current time is AFTER deadline → "Overdue", otherwise → "Pending"
-        const initialStatus = deadline && now > deadline ? "Overdue" : "Pending";
+        // Overdue only if current time is AFTER the end of the review/deadline day
+        const initialStatus = (() => {
+          if (!deadline) return "Pending";
+          const eod = new Date(deadline);
+          eod.setHours(23, 59, 59, 999);
+          return now > eod ? "Overdue" : "Pending";
+        })();
         
         const bulkOps = users.map(u => ({
           updateOne: {

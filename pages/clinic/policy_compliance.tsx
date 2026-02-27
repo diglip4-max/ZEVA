@@ -157,6 +157,7 @@ function PolicyCompliance() {
   const [policyTypeDraft, setPolicyTypeDraft] = useState("");
   const [departments, setDepartments] = useState<Array<{ _id: string; name: string }>>([]);
   const [currentAck, setCurrentAck] = useState<AckItem | null>(null);
+  const [hideAckTabForStaff, setHideAckTabForStaff] = useState(false);
 
 
   const openViewer = (url?: string, title?: string, ack?: AckItem | null) => {
@@ -373,6 +374,29 @@ function PolicyCompliance() {
       sessionStorage.getItem("userToken")
     );
   };
+
+  useEffect(() => {
+    // Hide the Acknowledgment Tracker only in the agent/staff portal route
+    let hide = false;
+    if (typeof window !== "undefined") {
+      const path = window.location?.pathname || "";
+      hide = path.startsWith("/staff");
+      if (!hide) {
+        const hasClinic = !!localStorage.getItem("clinicToken") || !!sessionStorage.getItem("clinicToken");
+        const isStaff =
+          !!localStorage.getItem("agentToken") ||
+          !!sessionStorage.getItem("agentToken") ||
+          !!localStorage.getItem("userToken") ||
+          !!sessionStorage.getItem("userToken");
+        hide = !hasClinic && isStaff;
+      }
+    }
+    setHideAckTabForStaff(hide);
+    if (hide && activeTab === "ack") {
+      setActiveTab("sops");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const getAuthHeaders = (): HeadersInit => {
     const t = getAuthToken();
@@ -1939,6 +1963,7 @@ function PolicyCompliance() {
               <button onClick={() => setActiveTab("sops")} className={`rounded-lg px-3 py-1.5 text-xs ${activeTab === "sops" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>SOP Library</button>
               <button onClick={() => setActiveTab("policies")} className={`rounded-lg px-3 py-1.5 text-xs ${activeTab === "policies" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>Policy Center</button>
               <button onClick={() => setActiveTab("playbooks")} className={`rounded-lg px-3 py-1.5 text-xs ${activeTab === "playbooks" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>Process Playbooks</button>
+            {!hideAckTabForStaff && (
               <button onClick={() => setActiveTab("ack")} className={`rounded-lg px-3 py-1.5 text-xs ${activeTab === "ack" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>
                 <span>Acknowledgment Tracker</span>
                 {ackPending > 0 && (
@@ -1947,6 +1972,7 @@ function PolicyCompliance() {
                   </span>
                 )}
               </button>
+            )}
             </div>
 
             {activeTab === "playbooks" && (
@@ -1975,7 +2001,7 @@ function PolicyCompliance() {
               </div>
             )}
 
-            {activeTab === "ack" && (
+            {activeTab === "ack" && !hideAckTabForStaff && (
               <div className="mt-6 grid gap-3 sm:grid-cols-4">
                 <div className="rounded-xl border bg-blue-50 p-4">
                   <div className="flex items-center justify-between">
