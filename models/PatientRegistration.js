@@ -93,7 +93,10 @@ const patientRegistrationSchema = new mongoose.Schema(
     },
     membershipStartDate: { type: Date },
     membershipEndDate: { type: Date },
-    membershipId: { type: mongoose.Schema.Types.ObjectId, ref: "MembershipPlan" },
+    membershipId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "MembershipPlan",
+    },
     package: {
       type: String,
       enum: ["Yes", "No"],
@@ -107,46 +110,80 @@ const patientRegistrationSchema = new mongoose.Schema(
     paymentHistory: [paymentHistorySchema],
     memberships: [
       {
-        membershipId: { type: mongoose.Schema.Types.ObjectId, ref: "MembershipPlan" },
+        membershipId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "MembershipPlan",
+        },
         startDate: { type: Date },
         endDate: { type: Date },
-      }
+      },
     ],
     packages: [
       {
         packageId: { type: mongoose.Schema.Types.ObjectId, ref: "Package" },
         assignedDate: { type: Date, default: Date.now },
-      }
+      },
     ],
     membershipTransfers: [
       {
         type: { type: String, enum: ["in", "out"], required: true },
-        membershipId: { type: mongoose.Schema.Types.ObjectId, ref: "MembershipPlan", required: true },
+        membershipId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "MembershipPlan",
+          required: true,
+        },
         membershipName: { type: String, trim: true },
-        fromPatientId: { type: mongoose.Schema.Types.ObjectId, ref: "PatientRegistration" },
-        toPatientId: { type: mongoose.Schema.Types.ObjectId, ref: "PatientRegistration" },
+        fromPatientId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "PatientRegistration",
+        },
+        toPatientId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "PatientRegistration",
+        },
         startDate: { type: Date },
         endDate: { type: Date },
         transferredFreeConsultations: { type: Number, default: 0, min: 0 },
-        discountPercentageTransferred: { type: Number, default: 0, min: 0, max: 100 },
+        discountPercentageTransferred: {
+          type: Number,
+          default: 0,
+          min: 0,
+          max: 100,
+        },
         transferDate: { type: Date, default: Date.now },
-      }
+      },
     ],
     packageTransfers: [
       {
         type: { type: String, enum: ["in", "out"], required: true },
-        packageId: { type: mongoose.Schema.Types.ObjectId, ref: "Package", required: true },
+        packageId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Package",
+          required: true,
+        },
         packageName: { type: String, trim: true },
-        fromPatientId: { type: mongoose.Schema.Types.ObjectId, ref: "PatientRegistration" },
-        toPatientId: { type: mongoose.Schema.Types.ObjectId, ref: "PatientRegistration" },
+        fromPatientId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "PatientRegistration",
+        },
+        toPatientId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "PatientRegistration",
+        },
         transferredSessions: { type: Number, default: 0, min: 0 },
         transferDate: { type: Date, default: Date.now },
-      }
+      },
     ],
     hasTransferredOut: { type: Boolean, default: false },
     transferredOutMembershipPriority: { type: Boolean, default: false },
+
+    // map with lead
+    leadId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Lead",
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 /* ==============================
@@ -157,12 +194,8 @@ patientRegistrationSchema.pre("save", function (next) {
   this.coPayPercent = Number(this.coPayPercent ?? 0);
 
   if (this.insurance === "Yes") {
-    const coPayAmount =
-      (this.advanceGivenAmount * this.coPayPercent) / 100;
-    this.needToPay = Math.max(
-      0,
-      this.advanceGivenAmount - coPayAmount
-    );
+    const coPayAmount = (this.advanceGivenAmount * this.coPayPercent) / 100;
+    this.needToPay = Math.max(0, this.advanceGivenAmount - coPayAmount);
   } else {
     this.needToPay = 0;
   }
@@ -183,7 +216,4 @@ if (mongoose.models.PatientRegistration) {
   delete mongoose.models.PatientRegistration;
 }
 
-export default mongoose.model(
-  "PatientRegistration",
-  patientRegistrationSchema
-);
+export default mongoose.model("PatientRegistration", patientRegistrationSchema);

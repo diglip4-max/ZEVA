@@ -96,7 +96,7 @@ export default function AppointmentBookingModal({
 
   const [roomId, setRoomId] = useState<string>(defaultRoomId || "");
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>(
-    doctorId || "",
+    doctorId || ""
   );
   const [status, setStatus] = useState<string>("booked");
   // Use useRef to capture bookedFrom when modal opens - this ensures it doesn't change
@@ -108,7 +108,7 @@ export default function AppointmentBookingModal({
       // Use the prop value if available, otherwise default based on whether roomId or doctorId is set
       console.log(
         "Initializing currentBookedFrom - bookedFrom prop:",
-        bookedFrom,
+        bookedFrom
       );
       if (bookedFrom === "room" || bookedFrom === "doctor") {
         bookedFromRef.current = bookedFrom;
@@ -120,7 +120,7 @@ export default function AppointmentBookingModal({
       }
       bookedFromRef.current = "doctor";
       return "doctor";
-    },
+    }
   );
   const [patientSearch, setPatientSearch] = useState<string>("");
   const [searchResults, setSearchResults] = useState<Patient[]>([]);
@@ -138,7 +138,7 @@ export default function AppointmentBookingModal({
   });
   const [followType, setFollowType] = useState<string>("first time");
   const [startDate, setStartDate] = useState<string>(
-    defaultDate || new Date().toISOString().split("T")[0],
+    defaultDate || new Date().toISOString().split("T")[0]
   );
 
   const SLOT_INTERVAL_MINUTES = 15;
@@ -149,12 +149,15 @@ export default function AppointmentBookingModal({
     const totalMinutes = hour * 60 + min + SLOT_INTERVAL_MINUTES;
     const newHour = Math.floor(totalMinutes / 60);
     const newMin = totalMinutes % 60;
-    return `${String(newHour).padStart(2, "0")}:${String(newMin).padStart(2, "0")}`;
+    return `${String(newHour).padStart(2, "0")}:${String(newMin).padStart(
+      2,
+      "0"
+    )}`;
   };
 
   const [fromTime, setFromTime] = useState<string>(slotTime || "09:00");
   const [toTime, setToTime] = useState<string>(
-    slotTime ? calculateEndTime(slotTime) : calculateEndTime("09:00"),
+    slotTime ? calculateEndTime(slotTime) : calculateEndTime("09:00")
   );
   const [referral, setReferral] = useState<string>("No");
   const [emergency, setEmergency] = useState<string>("no");
@@ -170,7 +173,9 @@ export default function AppointmentBookingModal({
   const [doctorDeptLoading, setDoctorDeptLoading] = useState(false);
   const [doctorDeptError, setDoctorDeptError] = useState("");
   const [referrals, setReferrals] = useState<Referral[]>([]);
-  const [services, setServices] = useState<Array<{ _id: string; name: string }>>([]);
+  const [services, setServices] = useState<
+    Array<{ _id: string; name: string }>
+  >([]);
   const [servicesLoading, setServicesLoading] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
 
@@ -255,7 +260,7 @@ export default function AppointmentBookingModal({
 
   // Search patients - trigger on single character
   useEffect(() => {
-    if (patientSearch.trim().length >= 1) {
+    if (patientSearch?.trim()?.length >= 1) {
       // Show loading immediately when user types
       setSearching(true);
       const searchTimeout = setTimeout(() => {
@@ -272,10 +277,12 @@ export default function AppointmentBookingModal({
     try {
       setSearching(true);
       const res = await axios.get(
-        `/api/clinic/search-patients?search=${encodeURIComponent(patientSearch)}`,
+        `/api/clinic/search-patients?search=${encodeURIComponent(
+          patientSearch
+        )}`,
         {
           headers: getAuthHeaders(),
-        },
+        }
       );
       if (res.data.success) {
         setSearchResults(res.data.patients || []);
@@ -340,7 +347,7 @@ export default function AppointmentBookingModal({
         `/api/clinic/doctor-departments?doctorStaffId=${targetDoctorId}`,
         {
           headers: getAuthHeaders(),
-        },
+        }
       );
       if (res.data.success) {
         setDoctorDepartments(res.data.departments || []);
@@ -351,7 +358,7 @@ export default function AppointmentBookingModal({
     } catch (err: any) {
       console.error("Error loading doctor departments", err);
       setDoctorDeptError(
-        err.response?.data?.message || "Failed to load departments",
+        err.response?.data?.message || "Failed to load departments"
       );
       setDoctorDepartments([]);
     } finally {
@@ -393,7 +400,9 @@ export default function AppointmentBookingModal({
           headers: getAuthHeaders(),
         });
         if (res.data.success) {
-          const list = Array.isArray(res.data.services) ? res.data.services : [];
+          const list = Array.isArray(res.data.services)
+            ? res.data.services
+            : [];
           setServices(list.map((s: any) => ({ _id: s._id, name: s.name })));
         } else {
           setServices([]);
@@ -532,7 +541,7 @@ export default function AppointmentBookingModal({
         },
         {
           headers: getAuthHeaders(),
-        },
+        }
       );
 
       if (res.data.success) {
@@ -591,7 +600,7 @@ export default function AppointmentBookingModal({
 
   if (!isOpen) return null;
   const selectedDoctor = doctorStaff.find(
-    (doc) => doc._id === selectedDoctorId,
+    (doc) => doc._id === selectedDoctorId
   );
   const departmentNames =
     doctorDepartments.length > 0
@@ -602,13 +611,13 @@ export default function AppointmentBookingModal({
   // Note: Either doctorId OR roomId is required, not both
   const isFormValid = Boolean(
     selectedPatient &&
-    (roomId || selectedDoctorId) && // Require either room or doctor
-    status &&
-    followType &&
-    startDate &&
-    fromTime &&
-    toTime &&
-    !loading,
+      (roomId || selectedDoctorId) && // Require either room or doctor
+      status &&
+      followType &&
+      startDate &&
+      fromTime &&
+      toTime &&
+      !loading
   );
 
   return (
@@ -624,776 +633,783 @@ export default function AppointmentBookingModal({
         aria-modal="true"
         aria-labelledby="modal-title"
       >
-      <div
-        className="bg-white dark:bg-gray-50 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col transform transition-all duration-300 scale-100 opacity-100 animate-in slide-in-from-bottom-4 zoom-in-95"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="sticky top-0 bg-gray-800 dark:bg-gray-700 border-b border-gray-700 dark:border-gray-600 px-4 py-3 flex items-center justify-between z-10 shadow-lg">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-gray-700 dark:bg-gray-600 rounded-lg">
-              <Calendar className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <h2 id="modal-title" className="text-base font-bold text-white">
-                Book Appointment
-              </h2>
-              <p className="text-[10px] text-gray-300 mt-0.5">
-                Schedule a new appointment
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 hover:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 text-white hover:scale-110 active:scale-95"
-            aria-label="Close modal"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Form */}
-        <form
-          id="appointment-form"
-          onSubmit={handleSubmit}
-          noValidate
-          className="p-4 space-y-4 overflow-y-auto flex-1 pb-4"
+        <div
+          className="bg-white dark:bg-gray-50 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col transform transition-all duration-300 scale-100 opacity-100 animate-in slide-in-from-bottom-4 zoom-in-95"
+          onClick={(e) => e.stopPropagation()}
         >
-          {error && (
-            <div
-              className="bg-red-50 dark:bg-red-100 border-l-4 border-red-500 dark:border-red-600 rounded-lg p-4 flex items-start gap-3 text-red-700 dark:text-red-900 shadow-md animate-in slide-in-from-top-2 fade-in"
-              role="alert"
-            >
-              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 animate-pulse" />
-              <p className="text-xs font-medium">{error}</p>
-            </div>
-          )}
-
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">
-                  Selected Doctor:{" "}
-                  <span className="font-semibold text-gray-900 dark:text-gray-900">
-                    {selectedDoctor?.name || doctorName || "Select a doctor"}
-                  </span>
-                  {selectedDoctor && (
-                    <span className="ml-2 text-[10px] text-green-600 dark:text-green-700 font-medium">
-                      ✓ Verified
-                    </span>
-                  )}
+          {/* Header */}
+          <div className="sticky top-0 bg-gray-800 dark:bg-gray-700 border-b border-gray-700 dark:border-gray-600 px-4 py-3 flex items-center justify-between z-10 shadow-lg">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-gray-700 dark:bg-gray-600 rounded-lg">
+                <Calendar className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h2 id="modal-title" className="text-base font-bold text-white">
+                  Book Appointment
+                </h2>
+                <p className="text-[10px] text-gray-300 mt-0.5">
+                  Schedule a new appointment
                 </p>
-                {selectedDoctor?.email && (
-                  <p className="text-[10px] text-gray-600 dark:text-gray-700 truncate mt-0.5">
-                    {selectedDoctor.email}
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-1.5 hover:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 text-white hover:scale-110 active:scale-95"
+              aria-label="Close modal"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Form */}
+          <form
+            id="appointment-form"
+            onSubmit={handleSubmit}
+            noValidate
+            className="p-4 space-y-4 overflow-y-auto flex-1 pb-4"
+          >
+            {error && (
+              <div
+                className="bg-red-50 dark:bg-red-100 border-l-4 border-red-500 dark:border-red-600 rounded-lg p-4 flex items-start gap-3 text-red-700 dark:text-red-900 shadow-md animate-in slide-in-from-top-2 fade-in"
+                role="alert"
+              >
+                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 animate-pulse" />
+                <p className="text-xs font-medium">{error}</p>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">
+                    Selected Doctor:{" "}
+                    <span className="font-semibold text-gray-900 dark:text-gray-900">
+                      {selectedDoctor?.name || doctorName || "Select a doctor"}
+                    </span>
+                    {selectedDoctor && (
+                      <span className="ml-2 text-[10px] text-green-600 dark:text-green-700 font-medium">
+                        ✓ Verified
+                      </span>
+                    )}
+                  </p>
+                  {selectedDoctor?.email && (
+                    <p className="text-[10px] text-gray-600 dark:text-gray-700 truncate mt-0.5">
+                      {selectedDoctor.email}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="text-[10px] text-gray-700 dark:text-gray-800">
+                <p className="font-medium text-gray-900 dark:text-gray-900 mb-1.5 flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-gray-600 dark:text-gray-700" />
+                  Departments
+                </p>
+                {doctorDeptLoading ? (
+                  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-700">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span className="text-[10px]">Loading...</span>
+                  </div>
+                ) : doctorDeptError ? (
+                  <p className="text-red-600 dark:text-red-700 text-[10px]">
+                    {doctorDeptError}
+                  </p>
+                ) : departmentNames.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {departmentNames.map((name, idx) => (
+                      <span
+                        key={`${name}-${idx}`}
+                        className="text-[9px] font-medium text-gray-700 dark:text-gray-800"
+                      >
+                        {name}
+                        {idx < departmentNames.length - 1 ? "," : ""}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 dark:text-gray-600 text-[10px] italic">
+                    No departments assigned
                   </p>
                 )}
               </div>
             </div>
-            <div className="text-[10px] text-gray-700 dark:text-gray-800">
-              <p className="font-medium text-gray-900 dark:text-gray-900 mb-1.5 flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5 text-gray-600 dark:text-gray-700" />
-                Departments
-              </p>
-              {doctorDeptLoading ? (
-                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-700">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  <span className="text-[10px]">Loading...</span>
-                </div>
-              ) : doctorDeptError ? (
-                <p className="text-red-600 dark:text-red-700 text-[10px]">
-                  {doctorDeptError}
-                </p>
-              ) : departmentNames.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {departmentNames.map((name, idx) => (
-                    <span
-                      key={`${name}-${idx}`}
-                      className="text-[9px] font-medium text-gray-700 dark:text-gray-800"
-                    >
-                      {name}
-                      {idx < departmentNames.length - 1 ? "," : ""}
-                    </span>
+
+            {/* Room, Doctor, Status - 3 fields in one row */}
+            <div className="grid grid-cols-3 gap-4 pb-16 relative z-10">
+              {/* Room Field */}
+              <div>
+                <label
+                  htmlFor="room-select"
+                  className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5"
+                >
+                  Room <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="room-select"
+                  value={roomId}
+                  onChange={(e) => {
+                    setRoomId(e.target.value);
+                    if (fieldErrors.roomId) {
+                      setFieldErrors({ ...fieldErrors, roomId: "" });
+                    }
+                  }}
+                  className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
+                    fieldErrors.roomId
+                      ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300"
+                      : ""
+                  }`}
+                  style={{ zIndex: 1001, position: "relative" }}
+                  aria-invalid={!!fieldErrors.roomId}
+                  aria-describedby={
+                    fieldErrors.roomId ? "room-error" : undefined
+                  }
+                >
+                  <option value="">Select a room</option>
+                  {rooms.map((room) => (
+                    <option key={room._id} value={room._id}>
+                      {room.name}
+                    </option>
                   ))}
-                </div>
-              ) : (
-                <p className="text-gray-500 dark:text-gray-600 text-[10px] italic">
-                  No departments assigned
-                </p>
-              )}
-            </div>
-          </div>
+                </select>
+                {fieldErrors.roomId && (
+                  <p
+                    id="room-error"
+                    className="mt-1 text-[10px] text-red-600 dark:text-red-700"
+                    role="alert"
+                  >
+                    {fieldErrors.roomId}
+                  </p>
+                )}
+              </div>
 
-          {/* Room, Doctor, Status - 3 fields in one row */}
-          <div className="grid grid-cols-3 gap-4 pb-16 relative z-10">
-            {/* Room Field */}
+              {/* Doctor Field */}
+              <div>
+                <label
+                  htmlFor="doctor-select"
+                  className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5"
+                >
+                  Doctor <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="doctor-select"
+                  value={selectedDoctorId}
+                  onChange={(e) => {
+                    setSelectedDoctorId(e.target.value);
+                    if (fieldErrors.doctorId) {
+                      setFieldErrors({ ...fieldErrors, doctorId: "" });
+                    }
+                  }}
+                  className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
+                    fieldErrors.doctorId
+                      ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300"
+                      : ""
+                  }`}
+                  style={{ zIndex: 1000, position: "relative" }}
+                  aria-invalid={!!fieldErrors.doctorId}
+                  aria-describedby={
+                    fieldErrors.doctorId ? "doctor-error" : undefined
+                  }
+                >
+                  <option value="">Select a doctor</option>
+                  {doctorStaff.map((doctor) => (
+                    <option key={doctor._id} value={doctor._id}>
+                      {doctor.name}
+                    </option>
+                  ))}
+                </select>
+                {fieldErrors.doctorId && (
+                  <p
+                    id="doctor-error"
+                    className="mt-1 text-[10px] text-red-600 dark:text-red-700"
+                    role="alert"
+                  >
+                    {fieldErrors.doctorId}
+                  </p>
+                )}
+              </div>
+
+              {/* Status Field */}
+              <div>
+                <label
+                  htmlFor="status-select"
+                  className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5"
+                >
+                  Status <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="status-select"
+                  value={status}
+                  onChange={(e) => {
+                    setStatus(e.target.value);
+                    if (fieldErrors.status) {
+                      setFieldErrors({ ...fieldErrors, status: "" });
+                    }
+                  }}
+                  className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
+                    fieldErrors.status
+                      ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300"
+                      : ""
+                  }`}
+                  style={{ zIndex: 999, position: "relative" }}
+                  aria-invalid={!!fieldErrors.status}
+                  aria-describedby={
+                    fieldErrors.status ? "status-error" : undefined
+                  }
+                >
+                  {APPOINTMENT_STATUS_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                {fieldErrors.status && (
+                  <p
+                    id="status-error"
+                    className="mt-1 text-[10px] text-red-600 dark:text-red-700"
+                    role="alert"
+                  >
+                    {fieldErrors.status}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Search Patient */}
             <div>
               <label
-                htmlFor="room-select"
+                htmlFor="patient-search"
                 className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5"
               >
-                Room <span className="text-red-500">*</span>
+                Search Patient <span className="text-red-500">*</span>
               </label>
-              <select
-                id="room-select"
-                value={roomId}
-                onChange={(e) => {
-                  setRoomId(e.target.value);
-                  if (fieldErrors.roomId) {
-                    setFieldErrors({ ...fieldErrors, roomId: "" });
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-600" />
+                <input
+                  id="patient-search"
+                  type="text"
+                  value={patientSearch}
+                  onChange={(e) => {
+                    setPatientSearch(e.target.value);
+                    if (fieldErrors.patientId) {
+                      setFieldErrors({ ...fieldErrors, patientId: "" });
+                    }
+                  }}
+                  placeholder="Type to search patients (name, mobile, email, EMR)..."
+                  className={`w-full border rounded-lg pl-10 pr-10 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 placeholder-gray-400 dark:placeholder-gray-600 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
+                    fieldErrors.patientId
+                      ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300"
+                      : ""
+                  }`}
+                  aria-invalid={!!fieldErrors.patientId}
+                  aria-describedby={
+                    fieldErrors.patientId ? "patient-error" : undefined
                   }
-                }}
-                className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
-                  fieldErrors.roomId
-                    ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300"
-                    : ""
-                }`}
-                style={{ zIndex: 1001, position: "relative" }}
-                aria-invalid={!!fieldErrors.roomId}
-                aria-describedby={fieldErrors.roomId ? "room-error" : undefined}
-              >
-                <option value="">Select a room</option>
-                {rooms.map((room) => (
-                  <option key={room._id} value={room._id}>
-                    {room.name}
-                  </option>
-                ))}
-              </select>
-              {fieldErrors.roomId && (
+                />
+                {searching && (
+                  <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-600 animate-spin" />
+                )}
+              </div>
+              {fieldErrors.patientId && (
                 <p
-                  id="room-error"
+                  id="patient-error"
                   className="mt-1 text-[10px] text-red-600 dark:text-red-700"
                   role="alert"
                 >
-                  {fieldErrors.roomId}
+                  {fieldErrors.patientId}
                 </p>
               )}
-            </div>
 
-            {/* Doctor Field */}
-            <div>
-              <label
-                htmlFor="doctor-select"
-                className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5"
-              >
-                Doctor <span className="text-red-500">*</span>
-              </label>
-              <select
-                id="doctor-select"
-                value={selectedDoctorId}
-                onChange={(e) => {
-                  setSelectedDoctorId(e.target.value);
-                  if (fieldErrors.doctorId) {
-                    setFieldErrors({ ...fieldErrors, doctorId: "" });
-                  }
-                }}
-                className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
-                  fieldErrors.doctorId
-                    ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300"
-                    : ""
-                }`}
-                style={{ zIndex: 1000, position: "relative" }}
-                aria-invalid={!!fieldErrors.doctorId}
-                aria-describedby={
-                  fieldErrors.doctorId ? "doctor-error" : undefined
-                }
-              >
-                <option value="">Select a doctor</option>
-                {doctorStaff.map((doctor) => (
-                  <option key={doctor._id} value={doctor._id}>
-                    {doctor.name}
-                  </option>
-                ))}
-              </select>
-              {fieldErrors.doctorId && (
-                <p
-                  id="doctor-error"
-                  className="mt-1 text-[10px] text-red-600 dark:text-red-700"
-                  role="alert"
-                >
-                  {fieldErrors.doctorId}
-                </p>
-              )}
-            </div>
-
-            {/* Status Field */}
-            <div>
-              <label
-                htmlFor="status-select"
-                className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5"
-              >
-                Status <span className="text-red-500">*</span>
-              </label>
-              <select
-                id="status-select"
-                value={status}
-                onChange={(e) => {
-                  setStatus(e.target.value);
-                  if (fieldErrors.status) {
-                    setFieldErrors({ ...fieldErrors, status: "" });
-                  }
-                }}
-                className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
-                  fieldErrors.status
-                    ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300"
-                    : ""
-                }`}
-                style={{ zIndex: 999, position: "relative" }}
-                aria-invalid={!!fieldErrors.status}
-                aria-describedby={
-                  fieldErrors.status ? "status-error" : undefined
-                }
-              >
-                {APPOINTMENT_STATUS_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              {fieldErrors.status && (
-                <p
-                  id="status-error"
-                  className="mt-1 text-[10px] text-red-600 dark:text-red-700"
-                  role="alert"
-                >
-                  {fieldErrors.status}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Search Patient */}
-          <div>
-            <label
-              htmlFor="patient-search"
-              className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5"
-            >
-              Search Patient <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-600" />
-              <input
-                id="patient-search"
-                type="text"
-                value={patientSearch}
-                onChange={(e) => {
-                  setPatientSearch(e.target.value);
-                  if (fieldErrors.patientId) {
-                    setFieldErrors({ ...fieldErrors, patientId: "" });
-                  }
-                }}
-                placeholder="Type to search patients (name, mobile, email, EMR)..."
-                className={`w-full border rounded-lg pl-10 pr-10 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 placeholder-gray-400 dark:placeholder-gray-600 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
-                  fieldErrors.patientId
-                    ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300"
-                    : ""
-                }`}
-                aria-invalid={!!fieldErrors.patientId}
-                aria-describedby={
-                  fieldErrors.patientId ? "patient-error" : undefined
-                }
-              />
-              {searching && (
-                <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-600 animate-spin" />
-              )}
-            </div>
-            {fieldErrors.patientId && (
-              <p
-                id="patient-error"
-                className="mt-1 text-[10px] text-red-600 dark:text-red-700"
-                role="alert"
-              >
-                {fieldErrors.patientId}
-              </p>
-            )}
-
-            {/* Search Results - Compact & Attractive */}
-            {searchResults.length > 0 && (
-              <div className="mt-1.5 border border-purple-200 dark:border-purple-300 rounded-lg max-h-40 overflow-y-auto bg-gradient-to-b from-white to-purple-50/30 dark:from-gray-50 dark:to-purple-50/20 shadow-md animate-in slide-in-from-top-2 fade-in">
-                {searchResults
-                  .filter(
-                    (patient) =>
-                      !selectedPatient || patient._id !== selectedPatient._id,
-                  )
-                  .map((patient, idx) => (
-                    <div
-                      key={patient._id}
-                      onClick={() => {
-                        setSelectedPatient(patient);
-                        setPatientSearch(patient.fullName);
-                        setSearchResults([]);
-                      }}
-                      className="p-1.5 hover:bg-purple-100/50 dark:hover:bg-purple-200/30 cursor-pointer border-b border-purple-100 dark:border-purple-200 last:border-b-0 transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
-                      style={{ animationDelay: `${idx * 30}ms` }}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700 flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0 shadow-sm">
-                          {patient.fullName.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-[9px] text-gray-900 dark:text-gray-900 truncate leading-tight">
-                            {patient.fullName}
-                          </p>
-                          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                            <span className="text-[8px] text-gray-600 dark:text-gray-700 font-medium">
-                              {patient.mobileNumber}
-                            </span>
-                            {patient.email && (
-                              <>
-                                <span className="text-[7px] text-gray-400">
-                                  •
-                                </span>
-                                <span className="text-[8px] text-gray-600 dark:text-gray-700 truncate max-w-[120px]">
-                                  {patient.email}
-                                </span>
-                              </>
-                            )}
-                            {patient.emrNumber && (
-                              <>
-                                <span className="text-[7px] text-gray-400">
-                                  •
-                                </span>
-                                <span className="text-[8px] text-purple-600 dark:text-purple-700 font-semibold">
-                                  EMR: {patient.emrNumber}
-                                </span>
-                              </>
-                            )}
+              {/* Search Results - Compact & Attractive */}
+              {searchResults.length > 0 && (
+                <div className="mt-1.5 border border-purple-200 dark:border-purple-300 rounded-lg max-h-40 overflow-y-auto bg-gradient-to-b from-white to-purple-50/30 dark:from-gray-50 dark:to-purple-50/20 shadow-md animate-in slide-in-from-top-2 fade-in">
+                  {searchResults
+                    .filter(
+                      (patient) =>
+                        !selectedPatient || patient._id !== selectedPatient._id
+                    )
+                    .map((patient, idx) => (
+                      <div
+                        key={patient._id}
+                        onClick={() => {
+                          setSelectedPatient(patient);
+                          setPatientSearch(patient.fullName);
+                          setSearchResults([]);
+                        }}
+                        className="p-1.5 hover:bg-purple-100/50 dark:hover:bg-purple-200/30 cursor-pointer border-b border-purple-100 dark:border-purple-200 last:border-b-0 transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
+                        style={{ animationDelay: `${idx * 30}ms` }}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700 flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0 shadow-sm">
+                            {patient.fullName.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-[9px] text-gray-900 dark:text-gray-900 truncate leading-tight">
+                              {patient.fullName}
+                            </p>
+                            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                              <span className="text-[8px] text-gray-600 dark:text-gray-700 font-medium">
+                                {patient.mobileNumber}
+                              </span>
+                              {patient.email && (
+                                <>
+                                  <span className="text-[7px] text-gray-400">
+                                    •
+                                  </span>
+                                  <span className="text-[8px] text-gray-600 dark:text-gray-700 truncate max-w-[120px]">
+                                    {patient.email}
+                                  </span>
+                                </>
+                              )}
+                              {patient.emrNumber && (
+                                <>
+                                  <span className="text-[7px] text-gray-400">
+                                    •
+                                  </span>
+                                  <span className="text-[8px] text-purple-600 dark:text-purple-700 font-semibold">
+                                    EMR: {patient.emrNumber}
+                                  </span>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-              </div>
-            )}
+                    ))}
+                </div>
+              )}
 
-            {/* Selected Patient - Compact & Attractive */}
-            {selectedPatient && (
-              <div className="mt-1 p-1.5 bg-gradient-to-r from-purple-600 to-purple-500 dark:from-purple-700 dark:to-purple-600 rounded-md shadow-sm border border-purple-400 dark:border-purple-500">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-4 h-4 rounded-full bg-white/20 dark:bg-white/10 flex items-center justify-center text-white text-[8px] font-bold flex-shrink-0">
-                    {selectedPatient.fullName.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[9px] font-bold text-white truncate leading-tight">
-                      {selectedPatient.fullName}
-                    </p>
-                    <div className="flex items-center gap-0.5 mt-0.5 flex-wrap">
-                      <span className="text-[7px] text-white/90 font-medium">
-                        {selectedPatient.mobileNumber}
-                      </span>
-                      {selectedPatient.email && (
-                        <>
-                          <span className="text-[6px] text-white/70">•</span>
-                          <span className="text-[7px] text-white/90 truncate max-w-[90px]">
-                            {selectedPatient.email}
-                          </span>
-                        </>
-                      )}
+              {/* Selected Patient - Compact & Attractive */}
+              {selectedPatient && (
+                <div className="mt-1 p-1.5 bg-gradient-to-r from-purple-600 to-purple-500 dark:from-purple-700 dark:to-purple-600 rounded-md shadow-sm border border-purple-400 dark:border-purple-500">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-4 h-4 rounded-full bg-white/20 dark:bg-white/10 flex items-center justify-center text-white text-[8px] font-bold flex-shrink-0">
+                      {selectedPatient.fullName?.charAt(0).toUpperCase()}
                     </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[9px] font-bold text-white truncate leading-tight">
+                        {selectedPatient.fullName}
+                      </p>
+                      <div className="flex items-center gap-0.5 mt-0.5 flex-wrap">
+                        <span className="text-[7px] text-white/90 font-medium">
+                          {selectedPatient.mobileNumber}
+                        </span>
+                        {selectedPatient.email && (
+                          <>
+                            <span className="text-[6px] text-white/70">•</span>
+                            <span className="text-[7px] text-white/90 truncate max-w-[90px]">
+                              {selectedPatient.email}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedPatient(null);
+                        setPatientSearch("");
+                      }}
+                      className="flex-shrink-0 w-3.5 h-3.5 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+                      title="Clear selection"
+                    >
+                      <X className="w-2 h-2 text-white" />
+                    </button>
                   </div>
+                </div>
+              )}
+
+              {/* Add Patient Button */}
+              <button
+                type="button"
+                onClick={async () => {
+                  setShowAddPatient(!showAddPatient);
+                  // Auto-generate EMR number when showing the form
+                  if (!showAddPatient) {
+                    try {
+                      const res = await axios.get(
+                        "/api/clinic/next-emr-number",
+                        {
+                          headers: getAuthHeaders(),
+                        }
+                      );
+                      if (res.data.success && res.data.emrNumber) {
+                        setAddPatientForm((prev) => ({
+                          ...prev,
+                          emrNumber: res.data.emrNumber,
+                        }));
+                      }
+                    } catch (err: any) {
+                      console.error("Error fetching next EMR number:", err);
+                      // Continue without auto-generated EMR - user can enter manually
+                    }
+                  }
+                }}
+                className="mt-3 flex items-center gap-2 px-4 py-2 bg-gray-700 dark:bg-gray-600 hover:bg-gray-800 dark:hover:bg-gray-700 text-white rounded-lg text-xs font-semibold shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 active:scale-95"
+              >
+                <Plus className="w-4 h-4" />
+                Add New Patient
+              </button>
+            </div>
+
+            {/* Add Patient Form */}
+            {showAddPatient && (
+              <div className="border-2 border-gray-200 dark:border-gray-300 rounded-lg p-2.5 space-y-2 bg-gray-50 dark:bg-gray-100 shadow-md animate-in slide-in-from-top-2 fade-in">
+                <h3 className="text-[10px] font-medium text-gray-900 dark:text-gray-900">
+                  Add New Patient
+                </h3>
+                <div className="grid grid-cols-4 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
+                      EMR Number
+                    </label>
+                    <input
+                      type="text"
+                      value={addPatientForm.emrNumber}
+                      onChange={(e) =>
+                        setAddPatientForm({
+                          ...addPatientForm,
+                          emrNumber: e.target.value,
+                        })
+                      }
+                      className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
+                      First Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={addPatientForm.firstName}
+                      onChange={(e) =>
+                        setAddPatientForm({
+                          ...addPatientForm,
+                          firstName: e.target.value,
+                        })
+                      }
+                      className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
+                      Last Name
+                    </label>
+                    <input
+                      type="text"
+                      value={addPatientForm.lastName}
+                      onChange={(e) =>
+                        setAddPatientForm({
+                          ...addPatientForm,
+                          lastName: e.target.value,
+                        })
+                      }
+                      className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
+                      Gender
+                    </label>
+                    <select
+                      value={addPatientForm.gender}
+                      onChange={(e) =>
+                        setAddPatientForm({
+                          ...addPatientForm,
+                          gender: e.target.value,
+                        })
+                      }
+                      className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                    >
+                      <option value="">Select</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={addPatientForm.email}
+                      onChange={(e) =>
+                        setAddPatientForm({
+                          ...addPatientForm,
+                          email: e.target.value,
+                        })
+                      }
+                      className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
+                      Mobile Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={addPatientForm.mobileNumber}
+                      onChange={(e) =>
+                        setAddPatientForm({
+                          ...addPatientForm,
+                          mobileNumber: e.target.value,
+                        })
+                      }
+                      className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
+                      Referred By
+                    </label>
+                    <select
+                      value={addPatientForm.referredBy}
+                      onChange={(e) =>
+                        setAddPatientForm({
+                          ...addPatientForm,
+                          referredBy: e.target.value,
+                        })
+                      }
+                      className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                    >
+                      <option value="">Select referral</option>
+                      {referrals.map((ref) => (
+                        <option
+                          key={ref._id}
+                          value={`${ref.firstName} ${ref.lastName}`.trim()}
+                        >
+                          {[ref.firstName, ref.lastName]
+                            .filter(Boolean)
+                            .join(" ")}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
+                      Patient Type
+                    </label>
+                    <select
+                      value={addPatientForm.patientType}
+                      onChange={(e) =>
+                        setAddPatientForm({
+                          ...addPatientForm,
+                          patientType: e.target.value,
+                        })
+                      }
+                      className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                    >
+                      <option value="New">New</option>
+                      <option value="Old">Old</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex justify-center mt-2">
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedPatient(null);
-                      setPatientSearch("");
-                    }}
-                    className="flex-shrink-0 w-3.5 h-3.5 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
-                    title="Clear selection"
+                    type="button"
+                    onClick={handleAddPatient}
+                    disabled={addingPatient}
+                    className="bg-gray-700 dark:bg-gray-600 hover:bg-gray-800 dark:hover:bg-gray-700 text-white px-4 py-1.5 rounded-lg text-[10px] font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 disabled:hover:scale-100"
                   >
-                    <X className="w-2 h-2 text-white" />
+                    {addingPatient && (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    )}
+                    {addingPatient ? "Adding..." : "Add Patient"}
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Add Patient Button */}
-            <button
-              type="button"
-              onClick={async () => {
-                setShowAddPatient(!showAddPatient);
-                // Auto-generate EMR number when showing the form
-                if (!showAddPatient) {
-                  try {
-                    const res = await axios.get("/api/clinic/next-emr-number", {
-                      headers: getAuthHeaders(),
-                    });
-                    if (res.data.success && res.data.emrNumber) {
-                      setAddPatientForm((prev) => ({
-                        ...prev,
-                        emrNumber: res.data.emrNumber,
-                      }));
+            {/* Follow Type and Emergency - 2 fields in one row */}
+            <div className="grid grid-cols-2 gap-4 pb-16 relative z-10">
+              {/* Follow Type */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
+                  Follow Type <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={followType}
+                  onChange={(e) => {
+                    setFollowType(e.target.value);
+                    if (fieldErrors.followType) {
+                      setFieldErrors({ ...fieldErrors, followType: "" });
                     }
-                  } catch (err: any) {
-                    console.error("Error fetching next EMR number:", err);
-                    // Continue without auto-generated EMR - user can enter manually
-                  }
-                }
-              }}
-              className="mt-3 flex items-center gap-2 px-4 py-2 bg-gray-700 dark:bg-gray-600 hover:bg-gray-800 dark:hover:bg-gray-700 text-white rounded-lg text-xs font-semibold shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 active:scale-95"
-            >
-              <Plus className="w-4 h-4" />
-              Add New Patient
-            </button>
-          </div>
-
-          {/* Add Patient Form */}
-          {showAddPatient && (
-            <div className="border-2 border-gray-200 dark:border-gray-300 rounded-lg p-2.5 space-y-2 bg-gray-50 dark:bg-gray-100 shadow-md animate-in slide-in-from-top-2 fade-in">
-              <h3 className="text-[10px] font-medium text-gray-900 dark:text-gray-900">
-                Add New Patient
-              </h3>
-              <div className="grid grid-cols-4 gap-2">
-                <div>
-                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
-                    EMR Number
-                  </label>
-                  <input
-                    type="text"
-                    value={addPatientForm.emrNumber}
-                    onChange={(e) =>
-                      setAddPatientForm({
-                        ...addPatientForm,
-                        emrNumber: e.target.value,
-                      })
-                    }
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
-                    First Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={addPatientForm.firstName}
-                    onChange={(e) =>
-                      setAddPatientForm({
-                        ...addPatientForm,
-                        firstName: e.target.value,
-                      })
-                    }
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
-                    Last Name
-                  </label>
-                  <input
-                    type="text"
-                    value={addPatientForm.lastName}
-                    onChange={(e) =>
-                      setAddPatientForm({
-                        ...addPatientForm,
-                        lastName: e.target.value,
-                      })
-                    }
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
-                    Gender
-                  </label>
-                  <select
-                    value={addPatientForm.gender}
-                    onChange={(e) =>
-                      setAddPatientForm({
-                        ...addPatientForm,
-                        gender: e.target.value,
-                      })
-                    }
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
-                  >
-                    <option value="">Select</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={addPatientForm.email}
-                    onChange={(e) =>
-                      setAddPatientForm({
-                        ...addPatientForm,
-                        email: e.target.value,
-                      })
-                    }
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
-                    Mobile Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    value={addPatientForm.mobileNumber}
-                    onChange={(e) =>
-                      setAddPatientForm({
-                        ...addPatientForm,
-                        mobileNumber: e.target.value,
-                      })
-                    }
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
-                    Referred By
-                  </label>
-                  <select
-                    value={addPatientForm.referredBy}
-                    onChange={(e) =>
-                      setAddPatientForm({
-                        ...addPatientForm,
-                        referredBy: e.target.value,
-                      })
-                    }
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
-                  >
-                    <option value="">Select referral</option>
-                    {referrals.map((ref) => (
-                      <option
-                        key={ref._id}
-                        value={`${ref.firstName} ${ref.lastName}`.trim()}
-                      >
-                        {[ref.firstName, ref.lastName].filter(Boolean).join(" ")}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
-                    Patient Type
-                  </label>
-                  <select
-                    value={addPatientForm.patientType}
-                    onChange={(e) =>
-                      setAddPatientForm({
-                        ...addPatientForm,
-                        patientType: e.target.value,
-                      })
-                    }
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
-                  >
-                    <option value="New">New</option>
-                    <option value="Old">Old</option>
-                  </select>
-                </div>
-              </div>
-              <div className="flex justify-center mt-2">
-                <button
-                  type="button"
-                  onClick={handleAddPatient}
-                  disabled={addingPatient}
-                  className="bg-gray-700 dark:bg-gray-600 hover:bg-gray-800 dark:hover:bg-gray-700 text-white px-4 py-1.5 rounded-lg text-[10px] font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 disabled:hover:scale-100"
+                  }}
+                  className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
+                    fieldErrors.followType
+                      ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300"
+                      : ""
+                  }`}
+                  style={{ zIndex: 1001, position: "relative" }}
                 >
-                  {addingPatient && (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  )}
-                  {addingPatient ? "Adding..." : "Add Patient"}
-                </button>
+                  <option value="first time">First Time</option>
+                  <option value="follow up">Follow Up</option>
+                  <option value="repeat">Repeat</option>
+                </select>
+                {fieldErrors.followType && (
+                  <p className="mt-1 text-[10px] text-red-600 dark:text-red-700">
+                    {fieldErrors.followType}
+                  </p>
+                )}
+              </div>
+
+              {/* Emergency */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
+                  Emergency
+                </label>
+                <select
+                  value={emergency}
+                  onChange={(e) => setEmergency(e.target.value)}
+                  className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                  style={{ zIndex: 999, position: "relative" }}
+                >
+                  <option value="no">No</option>
+                  <option value="yes">Yes</option>
+                </select>
               </div>
             </div>
-          )}
 
-          {/* Follow Type and Emergency - 2 fields in one row */}
-          <div className="grid grid-cols-2 gap-4 pb-16 relative z-10">
-            {/* Follow Type */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
-                Follow Type <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={followType}
-                onChange={(e) => {
-                  setFollowType(e.target.value);
-                  if (fieldErrors.followType) {
-                    setFieldErrors({ ...fieldErrors, followType: "" });
-                  }
-                }}
-                className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
-                  fieldErrors.followType
-                    ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300"
-                    : ""
-                }`}
-                style={{ zIndex: 1001, position: "relative" }}
-              >
-                <option value="first time">First Time</option>
-                <option value="follow up">Follow Up</option>
-                <option value="repeat">Repeat</option>
-              </select>
-              {fieldErrors.followType && (
-                <p className="mt-1 text-[10px] text-red-600 dark:text-red-700">
-                  {fieldErrors.followType}
-                </p>
-              )}
+            {/* Date and Time Fields - 3 fields in one row */}
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
+                  Start Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    if (fieldErrors.startDate) {
+                      setFieldErrors({ ...fieldErrors, startDate: "" });
+                    }
+                  }}
+                  className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
+                    fieldErrors.startDate
+                      ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300"
+                      : ""
+                  }`}
+                />
+                {fieldErrors.startDate && (
+                  <p className="mt-1 text-[10px] text-red-600 dark:text-red-700">
+                    {fieldErrors.startDate}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
+                  From Time <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="time"
+                  value={fromTime}
+                  onChange={(e) => handleFromTimeChange(e.target.value)}
+                  className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
+                    fieldErrors.fromTime
+                      ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300"
+                      : ""
+                  }`}
+                />
+                {fieldErrors.fromTime && (
+                  <p className="mt-1 text-[10px] text-red-600 dark:text-red-700">
+                    {fieldErrors.fromTime}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
+                  To Time <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="time"
+                  value={toTime}
+                  onChange={(e) => {
+                    setToTime(e.target.value);
+                    if (fieldErrors.toTime) {
+                      setFieldErrors({ ...fieldErrors, toTime: "" });
+                    }
+                  }}
+                  className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
+                    fieldErrors.toTime
+                      ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300"
+                      : ""
+                  }`}
+                />
+                {fieldErrors.toTime && (
+                  <p className="mt-1 text-[10px] text-red-600 dark:text-red-700">
+                    {fieldErrors.toTime}
+                  </p>
+                )}
+              </div>
             </div>
 
-            {/* Emergency */}
+            {/* Notes */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5 flex items-center gap-2">
+                <span>Notes</span>
+                <span className="text-[10px] text-gray-500 dark:text-gray-600 font-normal">
+                  (Optional)
+                </span>
+              </label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 placeholder-gray-400 dark:placeholder-gray-600 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm resize-none"
+                placeholder="Add any additional notes or special instructions..."
+              />
+            </div>
+
+            {/* Treatment Selection (Optional) */}
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
-                Emergency
+                Treatment (Optional)
               </label>
               <select
-                value={emergency}
-                onChange={(e) => setEmergency(e.target.value)}
+                value={selectedServiceId}
+                onChange={(e) => setSelectedServiceId(e.target.value)}
                 className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
-                style={{ zIndex: 999, position: "relative" }}
+                disabled={servicesLoading}
               >
-                <option value="no">No</option>
-                <option value="yes">Yes</option>
+                <option value="">Select a treatment (optional)</option>
+                {services.map((svc) => (
+                  <option key={svc._id} value={svc._id}>
+                    {svc.name}
+                  </option>
+                ))}
               </select>
             </div>
-          </div>
+          </form>
 
-          {/* Date and Time Fields - 3 fields in one row */}
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
-                Start Date <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value);
-                  if (fieldErrors.startDate) {
-                    setFieldErrors({ ...fieldErrors, startDate: "" });
-                  }
-                }}
-                className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
-                  fieldErrors.startDate
-                    ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300"
-                    : ""
+          {/* Actions - Fixed at bottom outside form */}
+          <div className="sticky bottom-0 left-0 right-0 z-30 pt-3 pb-3 px-4 border-t border-gray-200 dark:border-gray-300 bg-white dark:bg-gray-50 shadow-[0_-4px_8px_-2px_rgba(0,0,0,0.1)] dark:shadow-[0_-4px_8px_-2px_rgba(0,0,0,0.2)]">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-400 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-900 bg-white dark:bg-gray-100 hover:bg-gray-50 dark:hover:bg-gray-200 hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-400 dark:focus:ring-gray-500 transition-all duration-200 hover:scale-105 active:scale-95 shadow-sm hover:shadow-md"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="appointment-form"
+                disabled={!isFormValid}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all duration-200 shadow-md ${
+                  isFormValid
+                    ? "bg-gray-800 dark:bg-gray-700 hover:bg-gray-900 dark:hover:bg-gray-800 text-white hover:scale-105 active:scale-95 hover:shadow-lg focus:ring-gray-500 cursor-pointer"
+                    : "bg-gray-400 dark:bg-gray-500 text-gray-200 dark:text-gray-300 cursor-not-allowed opacity-60 hover:scale-100 active:scale-100 shadow-none"
                 }`}
-              />
-              {fieldErrors.startDate && (
-                <p className="mt-1 text-[10px] text-red-600 dark:text-red-700">
-                  {fieldErrors.startDate}
-                </p>
-              )}
+              >
+                {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                {loading ? "Booking..." : "Book Appointment"}
+              </button>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
-                From Time <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="time"
-                value={fromTime}
-                onChange={(e) => handleFromTimeChange(e.target.value)}
-                className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
-                  fieldErrors.fromTime
-                    ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300"
-                    : ""
-                }`}
-              />
-              {fieldErrors.fromTime && (
-                <p className="mt-1 text-[10px] text-red-600 dark:text-red-700">
-                  {fieldErrors.fromTime}
-                </p>
-              )}
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
-                To Time <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="time"
-                value={toTime}
-                onChange={(e) => {
-                  setToTime(e.target.value);
-                  if (fieldErrors.toTime) {
-                    setFieldErrors({ ...fieldErrors, toTime: "" });
-                  }
-                }}
-                className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
-                  fieldErrors.toTime
-                    ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300"
-                    : ""
-                }`}
-              />
-              {fieldErrors.toTime && (
-                <p className="mt-1 text-[10px] text-red-600 dark:text-red-700">
-                  {fieldErrors.toTime}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5 flex items-center gap-2">
-              <span>Notes</span>
-              <span className="text-[10px] text-gray-500 dark:text-gray-600 font-normal">
-                (Optional)
-              </span>
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 placeholder-gray-400 dark:placeholder-gray-600 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm resize-none"
-              placeholder="Add any additional notes or special instructions..."
-            />
-          </div>
-
-          {/* Treatment Selection (Optional) */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
-              Treatment (Optional)
-            </label>
-            <select
-              value={selectedServiceId}
-              onChange={(e) => setSelectedServiceId(e.target.value)}
-              className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
-              disabled={servicesLoading}
-            >
-              <option value="">Select a treatment (optional)</option>
-              {services.map((svc) => (
-                <option key={svc._id} value={svc._id}>
-                  {svc.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </form>
-
-        {/* Actions - Fixed at bottom outside form */}
-        <div className="sticky bottom-0 left-0 right-0 z-30 pt-3 pb-3 px-4 border-t border-gray-200 dark:border-gray-300 bg-white dark:bg-gray-50 shadow-[0_-4px_8px_-2px_rgba(0,0,0,0.1)] dark:shadow-[0_-4px_8px_-2px_rgba(0,0,0,0.2)]">
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-400 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-900 bg-white dark:bg-gray-100 hover:bg-gray-50 dark:hover:bg-gray-200 hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-400 dark:focus:ring-gray-500 transition-all duration-200 hover:scale-105 active:scale-95 shadow-sm hover:shadow-md"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              form="appointment-form"
-              disabled={!isFormValid}
-              className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all duration-200 shadow-md ${
-                isFormValid
-                  ? "bg-gray-800 dark:bg-gray-700 hover:bg-gray-900 dark:hover:bg-gray-800 text-white hover:scale-105 active:scale-95 hover:shadow-lg focus:ring-gray-500 cursor-pointer"
-                  : "bg-gray-400 dark:bg-gray-500 text-gray-200 dark:text-gray-300 cursor-not-allowed opacity-60 hover:scale-100 active:scale-100 shadow-none"
-              }`}
-            >
-              {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              {loading ? "Booking..." : "Book Appointment"}
-            </button>
           </div>
         </div>
       </div>
-    </div>
-  </ModalPortal>
+    </ModalPortal>
   );
 }

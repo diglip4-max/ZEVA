@@ -4,9 +4,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import useClinicBranches from "@/hooks/useClinicBranches";
 import { getTokenByPath } from "@/lib/helper";
-import { Pencil, X, Plus, Trash2 } from "lucide-react";
-import useUoms from "@/hooks/useUoms";
-import useStockItems from "@/hooks/useStockItems";
+import { Pencil, X, Trash2 } from "lucide-react";
 import useAgents from "@/hooks/useAgents";
 
 interface Props {
@@ -18,6 +16,7 @@ interface Props {
 
 interface StockTransferItem {
   itemId?: string;
+  allocatedStockItemId?: string;
   code?: string;
   name: string;
   description: string;
@@ -35,14 +34,12 @@ const EditStockTransferRequestModal: React.FC<Props> = ({
   onSuccess,
 }) => {
   const { clinicBranches } = useClinicBranches();
-  const { agents } = useAgents({ role: "agent" })?.state || {};
   const { agents: doctors } = useAgents({ role: "doctorStaff" })?.state || {};
-  const { stockItems } = useStockItems();
   const token = getTokenByPath() || "";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const requestingEmployees = [...(agents || []), ...(doctors || [])];
+  const requestingEmployees = [...(doctors || [])];
 
   // Form state
   const [formData, setFormData] = useState({
@@ -57,22 +54,6 @@ const EditStockTransferRequestModal: React.FC<Props> = ({
 
   // Items state
   const [items, setItems] = useState<StockTransferItem[]>([]);
-
-  // Current item being added
-  const [currentItem, setCurrentItem] = useState<StockTransferItem>({
-    code: "",
-    itemId: "",
-    name: "",
-    description: "",
-    quantity: 1,
-    uom: "",
-    requestedQuantity: 1,
-  });
-
-  const { uoms, loading: uomsLoading } = useUoms({
-    token,
-    branchId: formData.requestingBranch || formData.fromBranch || "",
-  });
 
   useEffect(() => {
     if (record && isOpen) {
@@ -95,6 +76,9 @@ const EditStockTransferRequestModal: React.FC<Props> = ({
         setItems(
           record.items.map((item: any) => ({
             name: item.name || "",
+            itemId: item.itemId || "",
+            allocatedStockItemId: item.allocatedStockItemId || "",
+            code: item.code || "",
             description: item.description || "",
             quantity: item.quantity || 0,
             uom: item.uom || "",
@@ -106,17 +90,6 @@ const EditStockTransferRequestModal: React.FC<Props> = ({
       } else {
         setItems([]);
       }
-
-      // Reset current item
-      setCurrentItem({
-        code: "",
-        itemId: "",
-        name: "",
-        description: "",
-        quantity: 1,
-        uom: "",
-        requestedQuantity: 1,
-      });
     }
   }, [record, isOpen]);
 
@@ -134,65 +107,10 @@ const EditStockTransferRequestModal: React.FC<Props> = ({
     }));
   };
 
-  const handleCurrentItemChange = (
-    field: keyof StockTransferItem,
-    value: any,
-  ) => {
-    if (field === "itemId") {
-      const item = stockItems.find((i) => i._id === value);
-      const selectedUOM = uoms.find((u) => u?.name === item?.level0?.uom);
-      if (item) {
-        setCurrentItem((prev) => ({
-          ...prev,
-          code: item.code,
-          name: item.name,
-          uom: selectedUOM ? selectedUOM.name : "",
-        }));
-      }
-    }
-    setCurrentItem((prev) => ({
-      ...prev,
-      [field]: value,
-      ...(field === "quantity" ? { requestedQuantity: value } : {}),
-    }));
-  };
-
-  const addCurrentItem = () => {
-    if (!currentItem.name.trim()) {
-      setError("Please select an item");
-      return;
-    }
-
-    if (!currentItem.quantity || currentItem.quantity <= 0) {
-      setError("Please enter a valid quantity");
-      return;
-    }
-
-    if (!currentItem.uom?.trim()) {
-      setError("Please select a UOM");
-      return;
-    }
-
-    setItems([...items, { ...currentItem }]);
-    // Reset current item
-    setCurrentItem({
-      name: "",
-      description: "",
-      quantity: 1,
-      uom: "",
-      requestedQuantity: 1,
-    });
-    setError(null);
-  };
-
   const removeItem = (index: number) => {
     const updatedItems = [...items];
     updatedItems.splice(index, 1);
     setItems(updatedItems);
-  };
-
-  const resetItems = () => {
-    setItems([]);
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -244,18 +162,12 @@ const EditStockTransferRequestModal: React.FC<Props> = ({
 
   const handleClose = () => {
     setError(null);
-    setCurrentItem({
-      name: "",
-      description: "",
-      quantity: 1,
-      uom: "",
-      requestedQuantity: 1,
-    });
+
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="bg-gray-800 px-4 py-3 flex justify-between items-center">
@@ -318,8 +230,6 @@ const EditStockTransferRequestModal: React.FC<Props> = ({
                   disabled={loading}
                 >
                   <option value="New">New</option>
-                  <option value="Approved">Approved</option>
-                  <option value="Rejected">Rejected</option>
                   <option value="Transferred">Transferred</option>
                   <option value="Cancelled">Cancelled</option>
                   <option value="Deleted">Deleted</option>
@@ -432,128 +342,6 @@ const EditStockTransferRequestModal: React.FC<Props> = ({
                   <p className="text-xs text-gray-500 mt-1">
                     Edit items for this transfer request
                   </p>
-                </div>
-              </div>
-
-              {/* Item Form */}
-              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                  {/* Item Name */}
-                  <div className="sm:col-span-3 space-y-1">
-                    <label className="block text-xs font-bold text-gray-900">
-                      Item Name <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={currentItem.itemId || ""}
-                      onChange={(e) =>
-                        handleCurrentItemChange("itemId", e.target.value)
-                      }
-                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all h-10"
-                      disabled={loading}
-                      required
-                    >
-                      <option value="">Select a Item</option>
-                      {stockItems.map((item) => (
-                        <option key={item._id} value={item._id}>
-                          {item.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Description */}
-                  <div className="sm:col-span-3 space-y-1">
-                    <label className="block text-xs font-bold text-gray-900">
-                      Item Description
-                    </label>
-                    <input
-                      type="text"
-                      value={currentItem.description || ""}
-                      onChange={(e) =>
-                        handleCurrentItemChange("description", e.target.value)
-                      }
-                      placeholder="Description"
-                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all h-10"
-                      disabled={loading}
-                    />
-                  </div>
-
-                  {/* Quantity */}
-                  <div className="sm:col-span-2 space-y-1">
-                    <label className="block text-xs font-bold text-gray-900">
-                      Quantity <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={currentItem.quantity}
-                      onChange={(e) =>
-                        handleCurrentItemChange(
-                          "quantity",
-                          parseFloat(e.target.value) || 0,
-                        )
-                      }
-                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all h-10"
-                      placeholder="Qty"
-                      disabled={loading}
-                      required
-                    />
-                  </div>
-
-                  {/* UOM */}
-                  <div className="sm:col-span-2 space-y-1">
-                    <label className="block text-xs font-bold text-gray-900">
-                      UOM <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={currentItem.uom || ""}
-                      onChange={(e) =>
-                        handleCurrentItemChange("uom", e.target.value)
-                      }
-                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all h-10"
-                      disabled={loading}
-                      required
-                    >
-                      <option value="">Select UOM</option>
-                      {uomsLoading ? (
-                        <option value="">Loading UOMs...</option>
-                      ) : uoms.length > 0 ? (
-                        uoms.map((uom: any) => (
-                          <option key={uom._id} value={uom.name}>
-                            {uom.name}
-                          </option>
-                        ))
-                      ) : (
-                        <option value="">No UOMs available</option>
-                      )}
-                    </select>
-                  </div>
-
-                  {/* Add Item Button */}
-                  <div className="sm:col-span-12 flex justify-end gap-2 mt-2">
-                    <button
-                      type="button"
-                      onClick={resetItems}
-                      disabled={loading || items.length === 0}
-                      className="inline-flex items-center px-3 py-2.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-gray-800/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Reset Items
-                    </button>
-                    <button
-                      type="button"
-                      onClick={addCurrentItem}
-                      disabled={
-                        loading ||
-                        !currentItem.name?.trim() ||
-                        !currentItem.quantity ||
-                        !currentItem.uom?.trim()
-                      }
-                      className="px-3 py-2.5 border border-transparent text-xs font-medium rounded-lg text-white bg-gray-800 hover:bg-gray-900 focus:ring-2 focus:ring-gray-800/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add Item
-                    </button>
-                  </div>
                 </div>
               </div>
 

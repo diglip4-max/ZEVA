@@ -1,5 +1,7 @@
 import dbConnect from "../../../../../lib/database";
+import { reduceQuantity } from "../../../../../lib/stockUtils";
 import Clinic from "../../../../../models/Clinic";
+import AllocatedStockItem from "../../../../../models/stocks/AllocatedStockItem";
 import StockTransferRequest from "../../../../../models/stocks/StockTransferRequest";
 import { getUserFromReq, requireRole } from "../../../lead-ms/auth";
 
@@ -78,6 +80,9 @@ export default async function handler(req, res) {
       });
     }
 
+    const prevStatus = request.status;
+    const currentStatus = status || "";
+
     // Update fields
     if (transferType !== undefined) request.transferType = transferType;
     if (requestingBranch !== undefined) {
@@ -111,6 +116,82 @@ export default async function handler(req, res) {
 
     // Save
     await request.save();
+
+    // handle stock deduction and addition
+    if (prevStatus !== "Transferred" && currentStatus === "Transferred") {
+      // deduct stock from fromBranch
+      for (const item of request.items) {
+        const { itemId, allocatedStockItemId, quantity, uom } = item;
+
+        if (!allocatedStockItemId) {
+          return res.status(400).json({
+            success: false,
+            message: "Each item must have allocatedStockItemId",
+          });
+        }
+
+        const allocatedItem =
+          await AllocatedStockItem.findById(allocatedStockItemId);
+        if (!allocatedItem) {
+          return res.status(404).json({
+            success: false,
+            message: `Allocated stock item not found for itemId: ${itemId}`,
+          });
+        }
+
+        // reduce quantity from allocated item
+        const stockItemId = allocatedItem?.item?.itemId;
+        const remainedQtyByUom = await reduceQuantity(
+          allocatedItem.quantitiesByUom,
+          item.uom,
+          item.quantity,
+          stockItemId,
+        );
+        let reducedQtyByUom = [];
+        for (let i = 0; i < remainedQtyByUom.length; i++) {
+          reducedQtyByUom.push({
+            uom: remainedQtyByUom[i].uom,
+            quantity:
+              (allocatedItem.quantitiesByUom[i]?.quantity || 0) -
+              (remainedQtyByUom[i]?.quantity || 0),
+          });
+        }
+        console.log({
+          tq: allocatedItem.quantitiesByUom,
+          remainedQtyByUom,
+          reducedQtyByUom,
+        });
+
+        // update allocated item quantitiesByUom
+        allocatedItem.quantitiesByUom = remainedQtyByUom;
+        allocatedItem.status = "Partially_Used";
+
+        const checkFullyUsed = remainedQtyByUom.every(
+          (qty) => qty.quantity === 0,
+        );
+        if (checkFullyUsed) {
+          allocatedItem.status = "Used";
+        }
+        await allocatedItem.save();
+        console.log({ allocatedItem });
+
+        // create transfered allocated item
+        const newAllocatedItem = new AllocatedStockItem({
+          clinicId,
+          quantity: item.quantity,
+          status: "Allocated",
+          expiryDate: allocatedItem?.expiryDate,
+          quantitiesByUom: reducedQtyByUom,
+          location: allocatedItem?.location,
+          user: me?._id,
+          item: allocatedItem?.item,
+          quantitiesByUom: reducedQtyByUom,
+          allocatedBy: request?.requestingEmployee,
+        });
+        await newAllocatedItem.save();
+        console.log({ newAllocatedItem });
+      }
+    }
 
     // Populate and return
     const updatedRequest = await StockTransferRequest.findById(request._id)

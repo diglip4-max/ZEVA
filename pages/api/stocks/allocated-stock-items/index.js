@@ -142,6 +142,10 @@ export default async function handler(req, res) {
     const skip = (Number(page) - 1) * Number(limit);
 
     // Correct populate usage: pass path/select via objects and rely on schema refs
+    await AllocatedStockItem.updateMany(
+      { clinicId, expiryDate: { $lt: new Date() }, status: { $ne: "Expired" } },
+      { $set: { status: "Expired" } },
+    );
     const [items, total] = await Promise.all([
       AllocatedStockItem.find(query)
         .sort({ createdAt: -1 })
