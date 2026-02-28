@@ -551,24 +551,28 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
                               className={`hidden absolute ${idx >= displayData?.length - 2 ? "bottom-0 right-0" : "right-0"} z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-gray-200 ring-opacity-5 focus:outline-none`}
                             >
                               <div className="py-1" role="none">
-                                <button
-                                  onClick={() => {
-                                    handleEdit(r);
-                                    const menuEl = document.getElementById(
-                                      `menu-${r._id}`,
-                                    );
-                                    if (menuEl) {
-                                      menuEl.classList.remove("block");
-                                      menuEl.classList.add("hidden");
-                                    }
-                                  }}
-                                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                                >
-                                  <div className="flex items-center">
-                                    <PencilIcon className="h-4 w-4 mr-2" />
-                                    Edit
-                                  </div>
-                                </button>
+                                {!["Transferred", "Cancelled"].includes(
+                                  r.status || "",
+                                ) && (
+                                  <button
+                                    onClick={() => {
+                                      handleEdit(r);
+                                      const menuEl = document.getElementById(
+                                        `menu-${r._id}`,
+                                      );
+                                      if (menuEl) {
+                                        menuEl.classList.remove("block");
+                                        menuEl.classList.add("hidden");
+                                      }
+                                    }}
+                                    className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                  >
+                                    <div className="flex items-center">
+                                      <PencilIcon className="h-4 w-4 mr-2" />
+                                      Edit
+                                    </div>
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => {
                                     // Open print page in new tab

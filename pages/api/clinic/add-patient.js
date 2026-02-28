@@ -6,27 +6,44 @@ import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
 import { checkClinicPermission } from "../lead-ms/permissions-helper";
 import { checkAgentPermission } from "../agent/permissions-helper";
 import Clinic from "../../../models/Clinic";
+import Lead from "../../../models/Lead";
 
 export default async function handler(req, res) {
   await dbConnect();
 
   if (req.method !== "POST") {
     res.setHeader("Allow", ["POST"]);
-    return res.status(405).json({ success: false, message: "Method not allowed" });
+    return res
+      .status(405)
+      .json({ success: false, message: "Method not allowed" });
   }
 
   try {
     let user;
     try {
       user = await getAuthorizedStaffUser(req, {
-        allowedRoles: ["staff", "doctorStaff", "doctor", "clinic", "agent", "admin"],
+        allowedRoles: [
+          "staff",
+          "doctorStaff",
+          "doctor",
+          "clinic",
+          "agent",
+          "admin",
+        ],
       });
     } catch (err) {
-      return res.status(err.status || 401).json({ success: false, message: err.message || "Authentication error" });
+      return res.status(err.status || 401).json({
+        success: false,
+        message: err.message || "Authentication error",
+      });
     }
 
     // Role gate (same as patient-registration)
-    if (!["clinic", "staff", "admin", "agent", "doctorStaff", "doctor"].includes(user.role)) {
+    if (
+      !["clinic", "staff", "admin", "agent", "doctorStaff", "doctor"].includes(
+        user.role,
+      )
+    ) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
@@ -38,7 +55,7 @@ export default async function handler(req, res) {
           const { hasPermission, error } = await checkClinicPermission(
             clinic._id,
             "patient_registration",
-            "create"
+            "create",
           );
           if (!hasPermission) {
             return res.status(403).json({
@@ -51,7 +68,7 @@ export default async function handler(req, res) {
         const { hasPermission, error } = await checkAgentPermission(
           user._id,
           "patient_registration",
-          "create"
+          "create",
         );
         if (!hasPermission) {
           return res.status(403).json({
@@ -63,7 +80,7 @@ export default async function handler(req, res) {
         const { hasPermission, error } = await checkAgentPermission(
           user._id,
           "patient_registration",
-          "create"
+          "create",
         );
         if (!hasPermission) {
           return res.status(403).json({
@@ -87,15 +104,14 @@ export default async function handler(req, res) {
     } = req.body;
 
     const normalizedGender =
-      gender && String(gender).trim()
-        ? String(gender).trim()
-        : "Other";
+      gender && String(gender).trim() ? String(gender).trim() : "Other";
 
     // Validation aligned to PatientRegistration model
     if (!firstName || !mobileNumber) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields: firstName and mobileNumber are required",
+        message:
+          "Missing required fields: firstName and mobileNumber are required",
       });
     }
 
@@ -110,7 +126,8 @@ export default async function handler(req, res) {
           _id: existingPatient._id.toString(),
           firstName: existingPatient.firstName,
           lastName: existingPatient.lastName,
-          fullName: `${existingPatient.firstName || ""} ${existingPatient.lastName || ""}`.trim(),
+          fullName:
+            `${existingPatient.firstName || ""} ${existingPatient.lastName || ""}`.trim(),
           mobileNumber: existingPatient.mobileNumber,
           email: existingPatient.email,
           emrNumber: existingPatient.emrNumber,
@@ -148,7 +165,10 @@ export default async function handler(req, res) {
       try {
         const ref = await Referral.findById(referredById).lean();
         if (ref) {
-          referredByName = [ref.firstName, ref.lastName].filter(Boolean).join(" ").trim();
+          referredByName = [ref.firstName, ref.lastName]
+            .filter(Boolean)
+            .join(" ")
+            .trim();
           finalReferredById = ref._id;
         }
       } catch {}
@@ -168,7 +188,14 @@ export default async function handler(req, res) {
       referredById: finalReferredById,
       referredBy: referredByName,
       patientType: patientType || "New",
+      ...(req.body.leadId && { leadId: req.body.leadId }),
     });
+
+    if (req.body.leadId) {
+      await Lead.findByIdAndUpdate(req.body.leadId, {
+        patientId: newPatient._id,
+      });
+    }
 
     return res.status(201).json({
       success: true,
@@ -177,7 +204,8 @@ export default async function handler(req, res) {
         _id: newPatient._id.toString(),
         firstName: newPatient.firstName,
         lastName: newPatient.lastName,
-        fullName: `${newPatient.firstName || ""} ${newPatient.lastName || ""}`.trim(),
+        fullName:
+          `${newPatient.firstName || ""} ${newPatient.lastName || ""}`.trim(),
         mobileNumber: newPatient.mobileNumber,
         email: newPatient.email,
         emrNumber: newPatient.emrNumber,
@@ -199,4 +227,3 @@ export default async function handler(req, res) {
     });
   }
 }
-

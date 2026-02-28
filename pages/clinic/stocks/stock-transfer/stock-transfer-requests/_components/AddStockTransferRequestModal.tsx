@@ -5,8 +5,6 @@ import axios from "axios";
 import useClinicBranches from "@/hooks/useClinicBranches";
 import { getTokenByPath } from "@/lib/helper";
 import { PlusCircle, X, Plus, Trash2, ChevronDown } from "lucide-react";
-import useUoms from "@/hooks/useUoms";
-import useStockItems from "@/hooks/useStockItems";
 import useAgents from "@/hooks/useAgents";
 import useAllocatedItems from "@/hooks/useAllocatedItems";
 
@@ -19,6 +17,7 @@ interface Props {
 interface StockTransferItem {
   code?: string;
   itemId?: string;
+  allocatedStockItemId?: string;
   name: string;
   description: string;
   quantity: number;
@@ -35,7 +34,6 @@ const AddStockTransferRequestModal: React.FC<Props> = ({
 }) => {
   const { clinicBranches } = useClinicBranches();
   const { agents: doctors } = useAgents({ role: "doctorStaff" })?.state || {};
-  const { stockItems } = useStockItems();
   const token = getTokenByPath() || "";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,16 +62,12 @@ const AddStockTransferRequestModal: React.FC<Props> = ({
   const [currentItem, setCurrentItem] = useState<StockTransferItem>({
     code: "",
     itemId: "",
+    allocatedStockItemId: "",
     name: "",
     description: "",
     quantity: 1,
     uom: "",
     requestedQuantity: 1,
-  });
-
-  const { uoms, loading: uomsLoading } = useUoms({
-    token,
-    branchId: formData.requestingBranch || formData.fromBranch || "",
   });
 
   // fetch allocated stock items
@@ -129,18 +123,19 @@ const AddStockTransferRequestModal: React.FC<Props> = ({
     field: keyof StockTransferItem,
     value: any,
   ) => {
-    if (field === "itemId") {
-      const item = stockItems.find((i) => i._id === value);
-      const selectedUOM = uoms.find((u) => u?.name === item?.level0?.uom);
-      if (item) {
-        setCurrentItem((prev) => ({
-          ...prev,
-          code: item.code,
-          name: item.name,
-          uom: selectedUOM ? selectedUOM.name : "",
-        }));
-      }
-    }
+    // if (field === "itemId") {
+    //   const item = stockItems.find((i) => i._id === value);
+    //   const selectedUOM = uoms.find((u) => u?.name === item?.level0?.uom);
+    //   if (item) {
+    //     setCurrentItem((prev) => ({
+    //       ...prev,
+    //       code: item.code,
+    //       name: item.name,
+    //       uom: selectedUOM ? selectedUOM.name : "",
+    //       allocatedStockItemId: "",
+    //     }));
+    //   }
+    // }
     setCurrentItem((prev) => ({
       ...prev,
       [field]: value,
@@ -180,10 +175,6 @@ const AddStockTransferRequestModal: React.FC<Props> = ({
     const updatedItems = [...items];
     updatedItems.splice(index, 1);
     setItems(updatedItems);
-  };
-
-  const resetItems = () => {
-    setItems([]);
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -255,7 +246,10 @@ const AddStockTransferRequestModal: React.FC<Props> = ({
   };
 
   const selectedAllocatedItem: any =
-    allocatedItems.find((si: any) => si._id === currentItem.itemId) || null;
+    allocatedItems.find(
+      (si: any) => si._id === currentItem.allocatedStockItemId,
+    ) || null;
+
   const availableForSelectedUom: number =
     selectedAllocatedItem?.quantitiesByUom?.find(
       (q: any) => q?.uom === currentItem.uom,
@@ -267,7 +261,7 @@ const AddStockTransferRequestModal: React.FC<Props> = ({
     availableForSelectedUom > 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="bg-gray-800 px-4 py-3 flex justify-between items-center">
@@ -446,7 +440,8 @@ const AddStockTransferRequestModal: React.FC<Props> = ({
                             }
                           >
                             {allocatedItems.find(
-                              (si: any) => si._id === currentItem.itemId,
+                              (si: any) =>
+                                si._id === currentItem.allocatedStockItemId,
                             )?.item?.name || "Select an item"}
                           </span>
                           <ChevronDown
@@ -510,11 +505,14 @@ const AddStockTransferRequestModal: React.FC<Props> = ({
                                             setCurrentItem((prev) => ({
                                               ...prev,
                                               code: it.code || "",
-                                              itemId: si._id || "",
+                                              itemId: it?.itemId?._id || "",
+                                              allocatedStockItemId:
+                                                si._id || "",
                                               name: it.name || "",
                                               description: it.description || "",
                                               uom: it.uom || prev.uom || "",
                                             }));
+                                            console.log({ currentItem });
                                             setIsAllocatedDropdownOpen(false);
                                             setAllocatedSearch("");
                                           }}
@@ -561,10 +559,15 @@ const AddStockTransferRequestModal: React.FC<Props> = ({
                       <input
                         type="number"
                         min={1}
+                        max={availableForSelectedUom || undefined}
                         value={currentItem.quantity}
-                        onChange={(e) =>
-                          handleCurrentItemChange("quantity", e.target.value)
-                        }
+                        onChange={(e) => {
+                          const raw = Number(e.target.value) || 0;
+                          const max = availableForSelectedUom || 0;
+                          const clamped =
+                            max > 0 ? Math.min(raw, max) : Math.max(1, raw);
+                          handleCurrentItemChange("quantity", clamped);
+                        }}
                         placeholder="Qty"
                         className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 h-10"
                       />
@@ -593,15 +596,16 @@ const AddStockTransferRequestModal: React.FC<Props> = ({
                       >
                         <option value="">Select UOM</option>
                         {!allocatedItems?.find(
-                          (i) => i?._id === currentItem?.itemId,
+                          (i) => i?._id === currentItem?.allocatedStockItemId,
                         ) ? (
                           <option value="">Loading UOMs...</option>
                         ) : allocatedItems?.find(
-                            (i) => i?._id === currentItem?.itemId,
+                            (i) => i?._id === currentItem?.allocatedStockItemId,
                           ) && currentItem ? (
                           (
                             allocatedItems?.find(
-                              (i) => i?._id === currentItem?.itemId,
+                              (i) =>
+                                i?._id === currentItem?.allocatedStockItemId,
                             )?.quantitiesByUom || []
                           )?.map((i, index: number) => (
                             <option key={index.toString()} value={i.uom}>
@@ -645,121 +649,6 @@ const AddStockTransferRequestModal: React.FC<Props> = ({
                   </div>
                 </div>
                 {/* Item Form */}
-                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                    {/* Item Name */}
-                    <div className="sm:col-span-3 space-y-1">
-                      <label className="block text-xs font-bold text-gray-900">
-                        Item Name <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={currentItem.itemId || ""}
-                        onChange={(e) =>
-                          handleCurrentItemChange("itemId", e.target.value)
-                        }
-                        className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all h-10"
-                        required
-                      >
-                        <option value="">Select a Item</option>
-                        {stockItems?.map((item: any) => (
-                          <option key={item?._id} value={item?._id}>
-                            {item?.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Description */}
-                    <div className="sm:col-span-3 space-y-1">
-                      <label className="block text-xs font-bold text-gray-900">
-                        Item Description
-                      </label>
-                      <input
-                        type="text"
-                        value={currentItem.description || ""}
-                        onChange={(e) =>
-                          handleCurrentItemChange("description", e.target.value)
-                        }
-                        placeholder="Description"
-                        className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all h-10"
-                      />
-                    </div>
-
-                    {/* Quantity */}
-                    <div className="sm:col-span-2 space-y-1">
-                      <label className="block text-xs font-bold text-gray-900">
-                        Quantity <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={currentItem.quantity}
-                        onChange={(e) =>
-                          handleCurrentItemChange(
-                            "quantity",
-                            parseFloat(e.target.value) || 0,
-                          )
-                        }
-                        className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all h-10"
-                        placeholder="Qty"
-                        required
-                      />
-                    </div>
-
-                    {/* UOM */}
-                    <div className="sm:col-span-2 space-y-1">
-                      <label className="block text-xs font-bold text-gray-900">
-                        UOM <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={currentItem.uom || ""}
-                        onChange={(e) =>
-                          handleCurrentItemChange("uom", e.target.value)
-                        }
-                        className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all h-10"
-                        required
-                      >
-                        <option value="">Select UOM</option>
-                        {uomsLoading ? (
-                          <option value="">Loading UOMs...</option>
-                        ) : uoms.length > 0 ? (
-                          uoms.map((uom: any) => (
-                            <option key={uom._id} value={uom.name}>
-                              {uom.name}
-                            </option>
-                          ))
-                        ) : (
-                          <option value="">No UOMs available</option>
-                        )}
-                      </select>
-                    </div>
-
-                    {/* Add Item Button */}
-                    <div className="sm:col-span-12 flex justify-end gap-2 mt-2">
-                      <button
-                        type="button"
-                        onClick={resetItems}
-                        disabled={items.length === 0}
-                        className="inline-flex items-center px-3 py-2.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-gray-800/20 transition-all disabled:opacity-50"
-                      >
-                        Reset Items
-                      </button>
-                      <button
-                        type="button"
-                        onClick={addCurrentItem}
-                        disabled={
-                          !currentItem.name?.trim() ||
-                          !currentItem.quantity ||
-                          !currentItem.uom?.trim()
-                        }
-                        className="px-3 py-2.5 border border-transparent text-xs font-medium rounded-lg text-white bg-gray-800 hover:bg-gray-900 focus:ring-2 focus:ring-gray-800/20 transition-all disabled:opacity-50 flex items-center gap-2"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add Item
-                      </button>
-                    </div>
-                  </div>
-                </div>
 
                 {/* Items Table */}
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -837,12 +726,7 @@ const AddStockTransferRequestModal: React.FC<Props> = ({
                             >
                               Total Items:
                             </td>
-                            <td className="px-3 py-2 text-sm font-bold text-gray-900">
-                              {items.reduce(
-                                (sum, item) => sum + (item.quantity || 0),
-                                0,
-                              )}
-                            </td>
+
                             <td className="px-3 py-2 text-sm font-bold text-gray-900">
                               {items.length}
                             </td>

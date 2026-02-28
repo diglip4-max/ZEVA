@@ -56,6 +56,8 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
   const [selectedType, _setSelectedType] =
     useState<PurchaseRecordType>("Purchase_Order");
   const [records, setRecords] = useState<PurchaseRecord[]>([]);
+  const [fetchRecordsLoading, setFetchRecordsLoading] =
+    useState<boolean>(false);
   const [recordSearch, setRecordSearch] = useState("");
   const [isRecordDropdownOpen, setIsRecordDropdownOpen] = useState(false);
   const recordDropdownRef = useRef<HTMLDivElement>(null);
@@ -101,6 +103,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
     async (page = 1) => {
       if (!isOpen) return;
       try {
+        setFetchRecordsLoading(true);
         setError(null);
         const params = new URLSearchParams({
           page: page.toString(),
@@ -132,6 +135,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
         setError(message);
         setRecords([]);
       } finally {
+        setFetchRecordsLoading(false);
       }
     },
     [headers, selectedType, isOpen, recordSearch],
@@ -466,6 +470,8 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
         { headers },
       );
 
+      // set records to empty array
+      setRecords([]);
       onSuccess(res.data);
       resetAndClose();
     } catch (err: unknown) {
@@ -483,14 +489,6 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
       setSubmitting(false);
     }
   };
-
-  console.log({
-    submitting,
-    selectedRecord,
-    selectedItemIds,
-    computedQuantity,
-    hasQuantityErrors,
-  });
 
   if (!isOpen) return null;
 
@@ -570,7 +568,11 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
                   </div>
                 </div>
 
-                {filteredRecords.length === 0 ? (
+                {fetchRecordsLoading ? (
+                  <div className="p-4 text-center text-gray-500 text-sm">
+                    Loading...
+                  </div>
+                ) : filteredRecords.length === 0 ? (
                   <div className="p-4 text-center text-gray-500 text-sm">
                     No purchase orders found
                   </div>

@@ -42,12 +42,17 @@ const StockTransferRequestSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["New", "Transfered", "Cancelled", "Deleted"],
+      enum: ["New", "Transferred", "Cancelled", "Deleted"],
       default: "New",
     },
     items: [
       // requested items
       {
+        allocatedStockItemId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "AllocatedStockItem",
+          index: true,
+        },
         itemId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "StockItem",
