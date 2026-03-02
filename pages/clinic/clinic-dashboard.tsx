@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, User, Crown, Stethoscope, Building2, Package, Gift, DoorOpen, UserPlus, GripVertical, Eye, EyeOff, Save, RotateCcw, Edit2, X, Undo2, Redo2, ChevronLeft, ChevronRight, LayoutDashboard, Home, Tag, Percent, ShoppingCart, Receipt, DollarSign, Wallet, Shield, UserCheck, UserCog, UserCircle, Award } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, LineChart, Line, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
 import Stats from '../../components/Stats';
@@ -117,7 +117,7 @@ interface ClinicInfo {
 }
 
 // Widget types for drag and drop
-type WidgetType = 
+type WidgetType =
   | 'packages-offers'
   | 'primary-stats'
   | 'secondary-stats'
@@ -222,10 +222,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [navigationItemsLoaded, setNavigationItemsLoaded] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
-  
+ 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showCalendar, setShowCalendar] = useState<boolean>(false);
-  
+ 
   // Close calendar when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -240,7 +240,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showCalendar]);
-  
+ 
   // Calendar functions
   const getDaysInMonth = (date: Date): number => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
@@ -263,18 +263,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const selectDate = (day: number) => {
     const newDate = new Date(selectedDate);
     newDate.setDate(day);
-    
+   
     // Check if selected date is in the future
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Reset time for comparison
     const selectedDateTime = new Date(newDate);
     selectedDateTime.setHours(0, 0, 0, 0);
-    
+   
     if (selectedDateTime > today) {
       // Don't allow future dates
       return;
     }
-    
+   
     setSelectedDate(newDate);
     setShowCalendar(false);
   };
@@ -373,7 +373,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     return DEFAULT_WIDGETS;
   });
   const [activeId, setActiveId] = useState<string | null>(null);
-  
+ 
   // Individual stat card state
   const STAT_CARDS_STORAGE_KEY = 'clinic-dashboard-stat-cards-v3';
   const [statCards, setStatCards] = useState<{ primary: StatCard[]; secondary: StatCard[] }>(() => {
@@ -416,7 +416,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const [cardHistory, setCardHistory] = useState<Array<{ primary: StatCard[]; secondary: StatCard[] }>>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [gridSize] = useState<'compact' | 'normal' | 'spacious'>('normal');
-  
+ 
   // Chart components state
   const CHARTS_STORAGE_KEY = 'clinic-dashboard-charts-v2';
   const [chartComponents, setChartComponents] = useState<{
@@ -462,7 +462,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     };
   });
   const [activeChartId, setActiveChartId] = useState<string | null>(null);
-  
+ 
   // Stats sections state
   const STATS_SECTIONS_STORAGE_KEY = 'clinic-dashboard-stats-sections';
   const [statsSections, setStatsSections] = useState<StatsSection[]>(() => {
@@ -487,7 +487,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     ];
   });
   const [activeStatsSectionId, setActiveStatsSectionId] = useState<string | null>(null);
-  
+ 
   // Package/Offer cards state
   const PACKAGE_OFFER_STORAGE_KEY = 'clinic-dashboard-package-offer';
   const [packageOfferCards, setPackageOfferCards] = useState<PackageOfferCard[]>(() => {
@@ -510,7 +510,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     ];
   });
   const [activePackageOfferId, setActivePackageOfferId] = useState<string | null>(null);
-  
+ 
   // Sensors for drag and drop
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -522,7 +522,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-  
+ 
   // Card sensors (more sensitive for individual cards) - with constraint to ignore widget-level drags
   const cardSensors = useSensors(
     useSensor(PointerSensor, {
@@ -539,19 +539,19 @@ const ClinicDashboard: NextPageWithLayout = () => {
   // Icon mapping
   const iconMap: { [key: string]: React.ReactNode } = {
     // Standard keys
-    '📊': <BarChart3 className="w-5 h-5" />,
-    '👥': <Users className="w-5 h-5" />,
-    '📝': <FileText className="w-5 h-5" />,
-    '💼': <Briefcase className="w-5 h-5" />,
-    '💬': <MessageSquare className="w-5 h-5" />,
-    '📅': <Calendar className="w-5 h-5" />,
-    '💳': <CreditCard className="w-5 h-5" />,
-    '⭐': <Star className="w-5 h-5" />,
-    '📧': <Mail className="w-5 h-5" />,
-    '⚙️': <Settings className="w-5 h-5" />,
-    '📈': <TrendingUp className="w-5 h-5" />,
-    '🔒': <Lock className="w-5 h-5" />,
-    
+    '??': <BarChart3 className="w-5 h-5" />,
+    '??': <Users className="w-5 h-5" />,
+    '??': <FileText className="w-5 h-5" />,
+    '??': <Briefcase className="w-5 h-5" />,
+    '??': <MessageSquare className="w-5 h-5" />,
+    '??': <Calendar className="w-5 h-5" />,
+    '??': <CreditCard className="w-5 h-5" />,
+    '?': <Star className="w-5 h-5" />,
+    '??': <Mail className="w-5 h-5" />,
+    '??': <Settings className="w-5 h-5" />,
+    '??': <TrendingUp className="w-5 h-5" />,
+    '??': <Lock className="w-5 h-5" />,
+   
     // Sidebar specific keys
     'home': <Home className="w-5 h-5" />,
     'dashboard': <LayoutDashboard className="w-5 h-5" />,
@@ -584,7 +584,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     'security': <Shield className="w-5 h-5" />,
     'permissions': <Lock className="w-5 h-5" />,
     'access': <UserCheck className="w-5 h-5" />,
-    
+   
     // Legacy/String keys
     'star': <Star className="w-5 h-5" />,
     'mail': <Mail className="w-5 h-5" />,
@@ -631,7 +631,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
       };
 
       navigationItems.forEach(processItem);
-      
+     
       if (actions.length > 0) {
         setQuickActions(actions);
       } else {
@@ -754,7 +754,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
       const role = getUserRole();
       setUserRole(role);
 
-      // ✅ For admin role, grant full access (bypass permission checks)
+      // ? For admin role, grant full access (bypass permission checks)
       if (role === 'admin') {
         if (!isMounted) return;
         setModuleAccess({ canRead: true, canUpdate: true, canCreate: true });
@@ -763,7 +763,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
         return;
       }
 
-      // ✅ For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
+      // ? For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
       if (role === 'clinic' || role === 'doctor') {
         const fetchClinicPermissions = async () => {
           try {
@@ -802,7 +802,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
 
                 if (modulePermission) {
                   const actions = modulePermission.actions || {};
-                  
+                 
                   // Check if "all" is true, which grants all permissions
                   const moduleAll = actions.all === true || actions.all === 'true' || String(actions.all).toLowerCase() === 'true';
                   const moduleCreate = actions.create === true || actions.create === 'true' || String(actions.create).toLowerCase() === 'true';
@@ -870,7 +870,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
       try {
         const headers = getAuthHeaders();
         if (!headers.Authorization) {
-          console.warn("⚠️ No authorization token found");
+          console.warn("?? No authorization token found");
           setModuleAccess({ canRead: false, canUpdate: false, canCreate: false });
           setAccessDenied(true);
           setAccessMessage('Authentication required. Please log in again.');
@@ -883,11 +883,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
           { headers }
         );
 
-        console.log("🔍 Full API response:", JSON.stringify(res.data, null, 2));
+        console.log("?? Full API response:", JSON.stringify(res.data, null, 2));
 
         if (res.data?.success && res.data.permissions) {
           const actions = res.data.permissions.actions || {};
-          
+         
           // Helper to convert value to boolean
           const toBool = (value: any): boolean => {
             if (value === true || value === false) return value;
@@ -897,13 +897,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
             }
             return Boolean(value);
           };
-          
+         
           const canAll = toBool(actions.all);
           const canRead = toBool(actions.read);
           const canUpdate = toBool(actions.update);
           const canCreate = toBool(actions.create);
-          
-          console.log("📊 Dashboard permissions check:", {
+         
+          console.log("?? Dashboard permissions check:", {
             module: res.data.permissions.module,
             rawActions: actions,
             convertedActions: {
@@ -918,34 +918,34 @@ const ClinicDashboard: NextPageWithLayout = () => {
               canCreate: canAll || canCreate,
             }
           });
-          
+         
           const finalCanRead = canAll || canRead;
           const finalCanUpdate = canAll || canUpdate;
           const finalCanCreate = canAll || canCreate;
-          
-          console.log("🔐 Setting moduleAccess:", {
+         
+          console.log("?? Setting moduleAccess:", {
             canRead: finalCanRead,
             canUpdate: finalCanUpdate,
             canCreate: finalCanCreate,
           });
-          
+         
           setModuleAccess({
             canRead: finalCanRead,
             canUpdate: finalCanUpdate,
             canCreate: finalCanCreate,
           });
-          
+         
           // Reset accessDenied if permission is granted
           if (finalCanRead) {
-            console.log("✅ Access granted - setting accessDenied to false");
+            console.log("? Access granted - setting accessDenied to false");
             setAccessDenied(false);
         } else {
-            console.log("❌ Access denied - setting accessDenied to true");
+            console.log("? Access denied - setting accessDenied to true");
             setAccessDenied(true);
             setAccessMessage('You do not have read permission for the clinic dashboard.');
           }
         } else {
-          console.warn("⚠️ No permissions data received or success is false:", res.data);
+          console.warn("?? No permissions data received or success is false:", res.data);
           setModuleAccess({ canRead: false, canUpdate: false, canCreate: false });
           setAccessDenied(true);
           setAccessMessage('Unable to verify permissions. Access denied.');
@@ -966,37 +966,37 @@ const ClinicDashboard: NextPageWithLayout = () => {
   // Reset accessDenied when permissions are granted
   useEffect(() => {
     if (!permissionsLoaded) return;
-    
+   
     // Check read permission for all roles
     if (!moduleAccess.canRead) {
-      console.log("❌ Setting accessDenied to true - read permission denied");
+      console.log("? Setting accessDenied to true - read permission denied");
       setAccessDenied(true);
       setAccessMessage('You do not have read permission for the clinic dashboard.');
       return;
     }
-    
+   
     // If read permission is granted, allow access
-    console.log("✅ Resetting accessDenied to false - read permission granted");
+    console.log("? Resetting accessDenied to false - read permission granted");
     setAccessDenied(false);
   }, [permissionsLoaded, moduleAccess.canRead]);
 
   // Fetch sidebar navigation items (which already have permissions applied)
   useEffect(() => {
     if (!permissionsLoaded) return;
-    
+   
     // Only check access for agent and doctorStaff roles
     if (['agent', 'doctorStaff'].includes(userRole || '')) {
-      console.log("🔍 Checking access for role:", userRole, "canRead:", moduleAccess.canRead);
-      
+      console.log("?? Checking access for role:", userRole, "canRead:", moduleAccess.canRead);
+     
       if (!moduleAccess.canRead) {
-        console.log("❌ Access denied - moduleAccess.canRead is false");
+        console.log("? Access denied - moduleAccess.canRead is false");
       setAccessDenied(true);
         setAccessMessage('You do not have read permission for the clinic dashboard.');
       setLoading(false);
       setNavigationItemsLoaded(true);
       return;
       } else {
-        console.log("✅ Access granted - moduleAccess.canRead is true");
+        console.log("? Access granted - moduleAccess.canRead is true");
         setAccessDenied(false);
       }
     } else {
@@ -1007,18 +1007,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
     const fetchNavigationItems = async (): Promise<void> => {
       try {
         // Check for multiple token types (clinicToken, userToken, agentToken, etc.)
-        const token = 
-          localStorage.getItem('clinicToken') || 
+        const token =
+          localStorage.getItem('clinicToken') ||
           sessionStorage.getItem('clinicToken') ||
-          localStorage.getItem('userToken') || 
+          localStorage.getItem('userToken') ||
           sessionStorage.getItem('userToken') ||
-          localStorage.getItem('agentToken') || 
+          localStorage.getItem('agentToken') ||
           sessionStorage.getItem('agentToken') ||
-          localStorage.getItem('doctorToken') || 
+          localStorage.getItem('doctorToken') ||
           sessionStorage.getItem('doctorToken') ||
-          localStorage.getItem('adminToken') || 
+          localStorage.getItem('adminToken') ||
           sessionStorage.getItem('adminToken');
-          
+         
         if (!token) {
           setNavigationItemsLoaded(true);
           return;
@@ -1067,7 +1067,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   // Fetch all available modules (to show restricted ones)
   useEffect(() => {
     if (!permissionsLoaded) return;
-    
+   
     // Only check access for agent and doctorStaff roles
     if (['agent', 'doctorStaff'].includes(userRole || '')) {
       if (!moduleAccess.canRead) {
@@ -1086,18 +1086,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
     const fetchAllModules = async (): Promise<void> => {
       try {
         // Check for multiple token types (clinicToken, userToken, agentToken, etc.)
-        const token = 
-          localStorage.getItem('clinicToken') || 
+        const token =
+          localStorage.getItem('clinicToken') ||
           sessionStorage.getItem('clinicToken') ||
-          localStorage.getItem('userToken') || 
+          localStorage.getItem('userToken') ||
           sessionStorage.getItem('userToken') ||
-          localStorage.getItem('agentToken') || 
+          localStorage.getItem('agentToken') ||
           sessionStorage.getItem('agentToken') ||
-          localStorage.getItem('doctorToken') || 
+          localStorage.getItem('doctorToken') ||
           sessionStorage.getItem('doctorToken') ||
-          localStorage.getItem('adminToken') || 
+          localStorage.getItem('adminToken') ||
           sessionStorage.getItem('adminToken');
-          
+         
         if (!token) return;
 
         const res = await axios.get<{ success: boolean; data: NavigationItem[] }>('/api/navigation/get-by-role?role=clinic', {
@@ -1156,7 +1156,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
         if (data.success && data.stats) {
           dashboardStatsData = data.stats;
           setStats(data.stats);
-          
+         
           // Map dashboardStats API data to module keys
           // Common module key patterns
           statsMap['clinic_reviews'] = {
@@ -1577,7 +1577,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     }
     return modulesWithPermission.some(key => key === 'clinic_jobs' || key === 'jobs');
   }, [modulesWithPermission, navigationItemsLoaded, userRole]);
-  
+ 
   const hasBlogsPermission = useMemo(() => {
     // For clinic/doctor roles, always allow (don't wait for navigationItems)
     if (userRole === 'clinic' || userRole === 'doctor' || !userRole) {
@@ -1589,7 +1589,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     }
     return modulesWithPermission.some(key => key === 'clinic_blogs' || key === 'blogs');
   }, [modulesWithPermission, navigationItemsLoaded, userRole]);
-  
+ 
   const hasApplicationsPermission = useMemo(() => {
     // For clinic/doctor roles, always allow (don't wait for navigationItems)
     if (userRole === 'clinic' || userRole === 'doctor' || !userRole) {
@@ -1629,7 +1629,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     const subscribedModules = navigationItems.length; // Use navigationItems.length as they already have permissions
     const restrictedCount = restrictedModules.length;
     const subscriptionPercentage = totalModules > 0 ? Math.round((subscribedModules / totalModules) * 100) : 0;
-    
+   
     return {
       totalModules,
       subscribedModules,
@@ -1642,7 +1642,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const getModuleValue = useCallback((item: NavigationItem): number => {
     // First try to get from moduleStats
     const moduleStat = moduleStats[item.moduleKey];
-    
+   
     if (moduleStat?.value !== undefined && moduleStat.value !== null) {
       if (typeof moduleStat.value === 'number') {
         return moduleStat.value;
@@ -1651,10 +1651,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
         return isNaN(parsed) ? 0 : parsed;
       }
     }
-    
+   
     // Fallback: Map moduleKey to stats directly
     const moduleKeyLower = item.moduleKey.toLowerCase();
-    
+   
     // Direct moduleKey matching (most reliable)
     if (moduleKeyLower.includes('review') || moduleKeyLower === 'reviews' || moduleKeyLower === 'clinic_reviews') {
       return stats.totalReviews || 0;
@@ -1678,7 +1678,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
       // For health center, we might want to show clinic count or 1 if exists
       return 1; // Or you can fetch actual clinic count
     }
-    
+   
     // For modules like create_agent, create_lead, assignedLead - use moduleStats or default
     return moduleStat?.value as number || 0;
   }, [moduleStats, stats]);
@@ -1690,7 +1690,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const modulesChartData = useMemo(() => {
     // Use totalJobs from stats API (more accurate than moduleStats)
     const jobsCount = stats.totalJobs || 0;
-    
+   
     return [
       { name: 'Appointments', value: stats.totalAppointments || 0 },
       { name: 'Leads', value: stats.totalLeads || 0 },
@@ -1770,13 +1770,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
   // Unified drag and drop handler - handles both widget-level and item-level drags
   const handleUnifiedDragStart = (event: DragStartEvent) => {
     const id = event.active.id as string;
-    
+   
     // Check if it's a widget-level drag
     if (widgets.find(w => w.id === id)) {
       setActiveId(id);
       return;
     }
-    
+   
     // Otherwise it's an item-level drag - handle in item handlers
     if ([...statCards.primary, ...statCards.secondary].find(c => c.id === id)) {
       handleCardDragStart(event);
@@ -1794,36 +1794,36 @@ const ClinicDashboard: NextPageWithLayout = () => {
     // Check if it's a widget-level drag
     if (widgets.find(w => w.id === activeId)) {
       setActiveId(null);
-      
+     
       if (over && active.id !== over.id) {
         setWidgets((items) => {
           const oldIndex = items.findIndex((item) => item.id === active.id);
           const newIndex = items.findIndex((item) => item.id === over.id);
-          
+         
           if (oldIndex === -1 || newIndex === -1) return items;
-          
+         
           // Use arrayMove for proper swapping
           const newItems = arrayMove(items, oldIndex, newIndex);
           // Update order numbers
           const reordered = newItems.map((item, index) => ({ ...item, order: index }));
-          
+         
           // Save to localStorage
           if (typeof window !== 'undefined') {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(reordered));
           }
-          
+         
           return reordered;
         });
       }
       return;
     }
-    
+   
     // Otherwise it's an item-level drag - handle in unified item handler
     if (!over) return;
-    
+   
     const overId = over.id as string;
     if (activeId === overId) return;
-    
+   
     handleUnifiedItemDragEnd(activeId, overId);
   };
 
@@ -1937,9 +1937,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
         const gridCards = [...prev[grid]];
         const oldIndex = gridCards.findIndex(c => c.id === activeId);
         const newIndex = gridCards.findIndex(c => c.id === overId);
-        
+       
         if (oldIndex === -1 || newIndex === -1) return prev;
-        
+       
         const newCards = arrayMove(gridCards, oldIndex, newIndex);
         return {
           ...prev,
@@ -1953,24 +1953,24 @@ const ClinicDashboard: NextPageWithLayout = () => {
         const targetGrid = overCard.gridType;
         const sourceCards = [...prev[sourceGrid]];
         const targetCards = [...prev[targetGrid]];
-        
+       
         const sourceIndex = sourceCards.findIndex(c => c.id === activeId);
         const targetIndex = targetCards.findIndex(c => c.id === overId);
-        
+       
         if (sourceIndex === -1 || targetIndex === -1) return prev;
-        
+       
         // Remove both cards from their grids
         const [movedCard] = sourceCards.splice(sourceIndex, 1);
         const [targetCard] = targetCards.splice(targetIndex, 1);
-        
+       
         // Swap: moved card goes to target position, target card goes to source position
         movedCard.gridType = targetGrid;
         targetCard.gridType = sourceGrid;
-        
+       
         // Insert at the correct positions (true swap)
         targetCards.splice(targetIndex, 0, movedCard);
         sourceCards.splice(sourceIndex, 0, targetCard);
-        
+       
         return {
           ...prev,
           [sourceGrid]: sourceCards.map((card, index) => ({ ...card, order: index })),
@@ -1983,10 +1983,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const toggleCardVisibility = (cardId: string) => {
     saveCardHistory();
     setStatCards((prev) => ({
-      primary: prev.primary.map(card => 
+      primary: prev.primary.map(card =>
         card.id === cardId ? { ...card, visible: !card.visible } : card
       ),
-      secondary: prev.secondary.map(card => 
+      secondary: prev.secondary.map(card =>
         card.id === cardId ? { ...card, visible: !card.visible } : card
       ),
     }));
@@ -2037,33 +2037,33 @@ const ClinicDashboard: NextPageWithLayout = () => {
         const targetSection = overChart.section;
         const sourceCharts = [...prev[sourceSection]];
         const targetCharts = [...prev[targetSection]];
-        
+       
         const sourceIndex = sourceCharts.findIndex(c => c.id === activeId);
         const targetIndex = targetCharts.findIndex(c => c.id === overId);
-        
+       
         // Remove both charts from their sections
         const [movedChart] = sourceCharts.splice(sourceIndex, 1);
         const [targetChart] = targetCharts.splice(targetIndex, 1);
-        
+       
         // Swap: moved chart goes to target position, target chart goes to source position
         movedChart.section = targetSection;
         targetChart.section = sourceSection;
-        
+       
         // Insert at the correct positions
         targetCharts.splice(targetIndex, 0, movedChart);
         sourceCharts.splice(sourceIndex, 0, targetChart);
-        
+       
         const updated = {
           ...prev,
           [sourceSection]: sourceCharts.map((chart, index) => ({ ...chart, order: index })),
           [targetSection]: targetCharts.map((chart, index) => ({ ...chart, order: index })),
         };
-        
+       
         // Save to localStorage
         if (typeof window !== 'undefined') {
           localStorage.setItem(CHARTS_STORAGE_KEY, JSON.stringify(updated));
         }
-        
+       
         return updated;
       });
     }
@@ -2099,18 +2099,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
     setPackageOfferCards((items) => {
       const oldIndex = items.findIndex(item => item.id === activeId);
       const newIndex = items.findIndex(item => item.id === overId);
-      
+     
       if (oldIndex === -1 || newIndex === -1) return items;
-      
+     
       // Use arrayMove for proper swapping
       const newItems = arrayMove(items, oldIndex, newIndex);
       const updated = newItems.map((item, index) => ({ ...item, order: index }));
-      
+     
       // Save to localStorage
       if (typeof window !== 'undefined') {
         localStorage.setItem(PACKAGE_OFFER_STORAGE_KEY, JSON.stringify(updated));
       }
-      
+     
       return updated;
     });
   };
@@ -2186,7 +2186,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
         saveCardHistory();
         const activeGrid = activeStatCard.gridType;
         const overGrid = overStatCard.gridType;
-        
+       
         if (activeGrid === overGrid) {
           // Same grid - reorder within grid
           setStatCards((prev) => {
@@ -2204,22 +2204,22 @@ const ClinicDashboard: NextPageWithLayout = () => {
           setStatCards((prev) => {
             const sourceCards = [...prev[activeGrid]];
             const targetCards = [...prev[overGrid]];
-            
+           
             const sourceIndex = sourceCards.findIndex(c => c.id === activeId);
             const targetIndex = targetCards.findIndex(c => c.id === overId);
-            
+           
             // Remove both cards
             const [movedCard] = sourceCards.splice(sourceIndex, 1);
             const [targetCard] = targetCards.splice(targetIndex, 1);
-            
+           
             // Swap: moved card goes to target position, target card goes to source position
             movedCard.gridType = overGrid;
             targetCard.gridType = activeGrid;
-            
+           
             // Insert at correct positions
             targetCards.splice(targetIndex, 0, movedCard);
             sourceCards.splice(sourceIndex, 0, targetCard);
-            
+           
             return {
               ...prev,
               [activeGrid]: sourceCards.map((card, index) => ({ ...card, order: index })),
@@ -2243,7 +2243,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
         // Convert both items - true bidirectional swap
         const convertedPackage = statToPackageCard(activeStatCard, packageOfferCards[packageIndex].order);
         const convertedStat = packageToStatCard(overPackageCard, statGrid, activeStatCard.order);
-        
+       
         // Swap: stat card position gets package (converted), package position gets stat (converted)
         setStatCards((prev) => {
           const gridCards = [...prev[statGrid]];
@@ -2349,18 +2349,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
     setStatsSections((items) => {
       const oldIndex = items.findIndex((item) => item.id === activeId);
       const newIndex = items.findIndex((item) => item.id === overId);
-      
+     
       if (oldIndex === -1 || newIndex === -1) return items;
-      
+     
       // Use arrayMove for proper swapping
       const newItems = arrayMove(items, oldIndex, newIndex);
       const reordered = newItems.map((item, index) => ({ ...item, order: index }));
-      
+     
       // Save to localStorage
       if (typeof window !== 'undefined') {
         localStorage.setItem(STATS_SECTIONS_STORAGE_KEY, JSON.stringify(reordered));
       }
-      
+     
       return reordered;
     });
   };
@@ -2435,7 +2435,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
       const hasDailyPatients = prev.secondary.some(c => c.moduleKey === 'daily_patients');
       const hasDailyApplications = prev.secondary.some(c => c.moduleKey === 'daily_applications');
       const hasDailyReviews = prev.secondary.some(c => c.moduleKey === 'daily_reviews');
-      
+     
       // Also hide unwanted cards as per user request
       const unwantedKeys = ['modules', 'subscription'];
       const needsHiding = prev.primary.some(c => c.moduleKey && unwantedKeys.includes(c.moduleKey) && c.visible);
@@ -2449,7 +2449,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
       if (!hasJobs) {
         newPrimary.push({ id: 'p6', label: 'Total Jobs', value: 0, icon: 'briefcase', moduleKey: 'jobs', gridType: 'primary' as const, order: newPrimary.length, visible: true });
       }
-      
+     
       const updatedPrimary = newPrimary.map(card => {
         if (card.moduleKey && unwantedKeys.includes(card.moduleKey)) {
           return { ...card, visible: false };
@@ -2730,9 +2730,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       axisLine={{ stroke: '#d1d5db' }}
                       tickLine={{ stroke: '#d1d5db' }}
                     />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#fff', 
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#fff',
                         border: '1px solid #e5e7eb',
                         borderRadius: '6px',
                         fontSize: '11px'
@@ -2924,12 +2924,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
     };
 
     const paddingClass = gridSize === 'compact' ? 'p-3' : gridSize === 'spacious' ? 'p-6' : 'p-4';
-        
+       
     // Check if this is a Today's Data card
     const isTodayCard = card.moduleKey?.startsWith('daily_');
     const cardBackground = isTodayCard ? 'bg-teal-100' : 'bg-white';
     const containerBackground = 'bg-white';
-    
+   
     return (
       <div
         ref={setNodeRef}
@@ -3054,14 +3054,14 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   <User className="w-4 h-4" />
                   <span>{clinicInfo.ownerName || clinicUser?.name || 'N/A'}</span>
                 </div>
-                <span>•</span>
+                <span>�</span>
                 <span className="font-semibold">{formatTime(currentTime)}</span>
               </div>
             </div>
 
             {/* Date Picker Center */}
             <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
-              <button 
+              <button
                 onClick={() => {
                   const today = new Date();
                   setSelectedDate(today);
@@ -3072,7 +3072,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 Today
               </button>
               <div className="relative">
-                <div 
+                <div
                   className="flex items-center gap-0 px-3 py-1 cursor-pointer hover:bg-gray-50 rounded-md transition-colors"
                   onClick={() => setShowCalendar(!showCalendar)}
                 >
@@ -3080,7 +3080,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                     {selectedDate.toLocaleDateString('en-GB').replace(/\//g, '-')}
                   </span>
                 </div>
-                
+               
                 {/* Calendar Dropdown */}
                 {showCalendar && (
                   <div className="absolute z-50 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-64 calendar-container">
@@ -3226,7 +3226,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
             {/* Decorative Background Elements */}
             <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-indigo-200/30 to-teal-200/30 rounded-full blur-xl -mr-10 -mt-10"></div>
             <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-pink-200/30 to-teal-200/30 rounded-full blur-lg -ml-8 -mb-8"></div>
-            
+           
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -3242,7 +3242,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   <span className="text-[10px] font-semibold text-indigo-700">ACTIVE</span>
                 </div>
               </div>
-              
+             
               <div className="mb-3">
                 <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-teal-600 mb-1">
                   {stats.totalPackages || 0}
@@ -3252,7 +3252,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   <span>Available packages</span>
                 </div>
               </div>
-              
+             
               <div className="pt-3 border-t border-indigo-200/50">
                 <div className="text-[10px] text-gray-600">
                   <span className="font-semibold text-gray-900">Status:</span> Active
@@ -3269,7 +3269,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
             {/* Decorative Background Elements */}
             <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-amber-400/30 to-amber-300/30 rounded-full blur-xl -mr-10 -mt-10"></div>
             <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-amber-200/30 to-amber-300/30 rounded-full blur-lg -ml-8 -mb-8"></div>
-            
+           
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -3285,7 +3285,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   <span className="text-[10px] font-semibold text-amber-800">ACTIVE</span>
                 </div>
               </div>
-              
+             
               <div className="mb-3">
                 <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-700 to-amber-800 mb-1">
                   {stats.totalOffers || 0}
@@ -3295,7 +3295,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   <span>Active offers</span>
                 </div>
               </div>
-              
+             
               <div className="pt-3 border-t border-amber-400/50">
                 <div className="text-[10px] text-gray-700">
                   <span className="font-semibold text-gray-900">Status:</span> Active
@@ -3309,7 +3309,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                 })}
         </div>
                         );
-                      
+                     
                       case 'primary-stats':
                         const primaryCards = statCards.primary.sort((a, b) => a.order - b.order);
                         const gapClass = gridSize === 'compact' ? 'gap-1.5' : gridSize === 'spacious' ? 'gap-4' : 'gap-3';
@@ -3320,7 +3320,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                 ))}
             </div>
                         );
-                      
+                     
                       case 'secondary-stats':
                         const secondaryCards = statCards.secondary.sort((a, b) => a.order - b.order);
                         const dailyCards = secondaryCards.filter(card => card.moduleKey?.startsWith('daily_'));
@@ -3352,7 +3352,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                 )}
                               </div>
                         );
-                      
+                     
                       case 'quick-actions':
                         return (
             <div>
@@ -3384,7 +3384,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   })}
                 </div>
               </div>
-              
+             
               {/* Appointment Status Bar Chart */}
               <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
                 <h3 className="text-sm font-semibold text-teal-800 mb-4">Appointment Status Overview</h3>
@@ -3395,8 +3395,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="name" 
+                      <XAxis
+                        dataKey="name"
                         angle={-45}
                         textAnchor="end"
                         height={60}
@@ -3404,19 +3404,19 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         tick={{ fontSize: 10 }}
                       />
                       <YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip 
+                      <Tooltip
                         formatter={(value) => [value, 'Count']}
                         labelStyle={{ fontWeight: 'bold' }}
                       />
-                      <Bar 
-                        dataKey="value" 
+                      <Bar
+                        dataKey="value"
                         fill="#0d9488"
                         radius={[4, 4, 0, 0]}
                         minPointSize={2}
                       >
-                        <LabelList 
-                          dataKey="value" 
-                          position="top" 
+                        <LabelList
+                          dataKey="value"
+                          position="top"
                           style={{ fontSize: 10, fill: '#374151' }}
                           formatter={(value) => {
                             if (typeof value === 'number' && value > 0) {
@@ -3450,8 +3450,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis 
-                          dataKey="name" 
+                        <XAxis
+                          dataKey="name"
                           angle={-45}
                           textAnchor="end"
                           height={60}
@@ -3459,18 +3459,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
                           tick={{ fontSize: 10 }}
                         />
                         <YAxis tick={{ fontSize: 10 }} />
-                        <Tooltip 
+                        <Tooltip
                           formatter={(value) => [value, 'Count']}
                           labelStyle={{ fontWeight: 'bold' }}
                         />
-                        <Bar 
-                          dataKey="value" 
+                        <Bar
+                          dataKey="value"
                           fill="#0d9488"
                           radius={[4, 4, 0, 0]}
                         >
-                          <LabelList 
-                            dataKey="value" 
-                            position="top" 
+                          <LabelList
+                            dataKey="value"
+                            position="top"
                             style={{ fontSize: 10, fill: '#374151' }}
                           />
                         </Bar>
@@ -3497,14 +3497,14 @@ const ClinicDashboard: NextPageWithLayout = () => {
                           label={false}
                           outerRadius={55}
                           fill="#8884d8"
-                          dataKey="value" 
+                          dataKey="value"
                         >
                           {leadStatusData.map((_entry, index) => (
                             <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
                           ))}
                         </Pie>
                         <Tooltip />
-                        <Legend 
+                        <Legend
                           wrapperStyle={{ fontSize: '10px', paddingTop: '15px' }}
                           iconType="circle"
                           formatter={(value: any, entry: any) => {
@@ -3544,7 +3544,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                           ))}
                         </Pie>
                         <Tooltip />
-                        <Legend 
+                        <Legend
                           wrapperStyle={{ fontSize: '10px', paddingTop: '15px' }}
                           iconType="circle"
                           formatter={(value: any, entry: any) => {
@@ -3584,7 +3584,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                                   ))}
                                                 </Pie>
                                                 <Tooltip />
-                                                <Legend 
+                                                <Legend
                                                   wrapperStyle={{ fontSize: '10px', paddingTop: '15px' }}
                                                   iconType="circle"
                                                   formatter={(value: any, entry: any) => {
@@ -3605,7 +3605,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                 })}
             </div>
                         );
-                      
+                     
                       case 'analytics-overview':
                         if (!((stats.totalEnquiries > 0 || stats.totalReviews > 0 || (stats.totalAppointments || 0) > 0 || (stats.totalLeads || 0) > 0 || (stats.totalOffers || 0) > 0 || (stats.totalPatients || 0) > 0 || (stats.totalRooms || 0) > 0) || modulesChartData.length > 0 || statsChartData.length > 0)) {
                           return null;
@@ -3636,9 +3636,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         domain={[0, 'auto']}
                         type="number"
                     />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#fff', 
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#fff',
                         border: '1px solid #e5e7eb',
                         borderRadius: '6px',
                         fontSize: '11px'
@@ -3686,18 +3686,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       tickLine={{ stroke: '#d1d5db' }}
                       domain={[0, 'auto']}
                     />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#fff', 
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#fff',
                         border: '1px solid #e5e7eb',
                         borderRadius: '6px',
                         fontSize: '11px'
                       }}
                     />
-                    <Line 
-                      type="monotone" 
-                      dataKey="value" 
-                      stroke="#22c55e" 
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#22c55e"
                       strokeWidth={2}
                       dot={{ fill: '#22c55e', r: 4 }}
                       activeDot={{ r: 6 }}
@@ -3709,12 +3709,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
             <div className="h-80">
               <h3 className="text-base font-semibold text-teal-800 mb-4">Active vs Inactive</h3>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart 
+                <BarChart
                   data={[
                     { name: 'Active', value: navigationItems.length, status: 'Active' },
                     { name: 'Inactive', value: restrictedModules.length, status: 'Inactive' },
                     { name: 'Total', value: allModules.length, status: 'Total' }
-                  ]} 
+                  ]}
                   margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -3729,9 +3729,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
                     axisLine={{ stroke: '#d1d5db' }}
                     tickLine={{ stroke: '#d1d5db' }}
                   />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#fff', 
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#fff',
                       border: '1px solid #e5e7eb',
                       borderRadius: '6px',
                       fontSize: '11px'
@@ -3791,14 +3791,14 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 <span className="text-2xl font-bold text-green-700">{navigationItems.length}</span>
               </div>
               <div className="w-full bg-green-100 rounded-full h-3 overflow-hidden">
-                <div 
+                <div
                   className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-500 shadow-sm"
                   style={{ width: `${subscriptionSummary.subscriptionPercentage}%` }}
                 ></div>
               </div>
               <div className="mt-2 text-xs text-gray-600">
                 {subscriptionSummary.subscriptionPercentage > 0 ? (
-                  <span className="text-green-600 font-medium">✓ Fully operational</span>
+                  <span className="text-green-600 font-medium">? Fully operational</span>
                 ) : (
                   <span className="text-gray-500">No active modules</span>
                 )}
@@ -3815,7 +3815,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 <span className="text-2xl font-bold text-teal-700">{subscriptionSummary.subscriptionPercentage}%</span>
               </div>
               <div className="w-full bg-teal-100 rounded-full h-3 overflow-hidden">
-                <div 
+                <div
                   className="bg-gradient-to-r from-teal-500 to-indigo-500 h-3 rounded-full transition-all duration-500 shadow-sm"
                   style={{ width: `${subscriptionSummary.subscriptionPercentage}%` }}
                 ></div>
@@ -3837,7 +3837,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 <span className="text-2xl font-bold text-gray-600">{subscriptionSummary.restrictedCount}</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                <div 
+                <div
                   className="bg-gradient-to-r from-gray-400 to-slate-400 h-3 rounded-full transition-all duration-500"
                   style={{ width: `${100 - subscriptionSummary.subscriptionPercentage}%` }}
                 ></div>
@@ -3880,7 +3880,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
           </div>
         </div>
                         );
-                      
+                     
                       case 'additional-stats':
                         if (!permissionsLoaded) return null;
                         const sortedStatsSections = statsSections.sort((a, b) => a.order - b.order);
@@ -3938,7 +3938,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                             </DragOverlay>
                           </DndContext>
                         );
-                      
+                     
                       default:
                         return null;
                     }
@@ -3971,7 +3971,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       );
                     }
                   }
-                  
+                 
                   // Item-level drag overlays
                   if (activeCardId) {
                     const allCards = [...statCards.primary, ...statCards.secondary];

@@ -1539,7 +1539,17 @@ function ClinicManagementDashboard() {
                                     }}
                                   />
                                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <Eye className="w-6 h-6 text-white" />
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setCurrentPhotoIndex(index);
+                                      }}
+                                      className="text-white hover:text-teal-300 transition-colors"
+                                      title="View photo"
+                                    >
+                                      {/* <Eye className="w-6 h-6" /> */}
+                                    </button>
                                   </div>
                                   <button
                                     type="button"
@@ -1553,9 +1563,6 @@ function ClinicManagementDashboard() {
                                   >
                                     <X className="w-3 h-3" />
                                   </button>
-                                  {index === currentPhotoIndex && (
-                                    <Eye className="absolute bottom-1 left-1 w-4 h-4 text-white" />
-                                  )}
                                 </div>
                               ))}
                             </div>

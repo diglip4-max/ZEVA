@@ -254,7 +254,9 @@
         /* Force horizontal scroll to work */
         .appointment-table-wrapper {
           overflow-x: auto !important;
-          overflow-y: visible !important;
+          overflow-y: auto !important;
+          height: 400px !important;
+          max-height: 400px !important;
           -webkit-overflow-scrolling: touch !important;
           width: 100% !important;
           display: block !important;
@@ -266,7 +268,7 @@
         }
         /* Override any parent constraints */
         .appointment-table-wrapper table {
-          min-width: 1800px !important;
+          min-width: 100% !important;
           width: max-content !important;
         }
         /* Toast animation */
@@ -536,7 +538,7 @@
           setLoading(false);
           return;
         }
-        const params: any = { page, limit: 50 };
+        const params: any = { page, limit: 10 };
         
         // Add filters to params
         if (filters.search) params.search = filters.search;
@@ -770,59 +772,59 @@
               {showFilters && (
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-2 sm:mb-3">
                   <div className="max-w-7xl mx-auto px-2 sm:px-3 md:px-4 py-2 sm:py-3">
-                    <div className="p-2 sm:p-3 md:p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+                    <div className="p-2 sm:p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
                     {/* EMR Number */}
                     <div>
-                      <label className="block text-sm font-medium text-teal-700 mb-1">
+                      <label className="block text-[10px] sm:text-xs font-semibold text-teal-800 mb-1 uppercase tracking-wide">
                         EMR Number
                       </label>
                       <input
                         type="text"
                         value={pendingFilters.emrNumber}
                         onChange={(e) => handleFilterChange("emrNumber", e.target.value)}
-                        placeholder="Enter EMR number"
-                            className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-gray-900 outline-none text-teal-900"
+                        placeholder="EMR #"
+                            className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 bg-white"
                       />
                     </div>
 
                     {/* From Date */}
                     <div>
-                      <label className="block text-sm font-medium text-teal-700 mb-1">
+                      <label className="block text-[10px] sm:text-xs font-semibold text-teal-800 mb-1 uppercase tracking-wide">
                         From Date
                       </label>
                       <input
                         type="date"
                         value={pendingFilters.fromDate}
                         onChange={(e) => handleFilterChange("fromDate", e.target.value)}
-                            className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-gray-900 outline-none text-teal-900"
+                            className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 bg-white"
                       />
                     </div>
 
                     {/* To Date */}
                     <div>
-                      <label className="block text-sm font-medium text-teal-700 mb-1">
+                      <label className="block text-[10px] sm:text-xs font-semibold text-teal-800 mb-1 uppercase tracking-wide">
                         To Date
                       </label>
                       <input
                         type="date"
                         value={pendingFilters.toDate}
                         onChange={(e) => handleFilterChange("toDate", e.target.value)}
-                            className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-gray-900 outline-none text-teal-900"
+                            className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 bg-white"
                       />
                     </div>
 
                     {/* Doctor */}
                     <div>
-                      <label className="block text-sm font-medium text-teal-700 mb-1">
+                      <label className="block text-[10px] sm:text-xs font-semibold text-teal-800 mb-1 uppercase tracking-wide">
                         Doctor
                       </label>
                       <select
                         value={pendingFilters.doctorId}
                         onChange={(e) => handleFilterChange("doctorId", e.target.value)}
-                            className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-gray-900 outline-none text-teal-900"
+                            className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 bg-white"
                       >
-                        <option value="">All Doctors</option>
+                        <option value="">All</option>
                         {doctors.map((doc) => (
                           <option key={doc._id} value={doc._id}>
                             {doc.name}
@@ -833,15 +835,15 @@
 
                     {/* Room */}
                     <div>
-                      <label className="block text-sm font-medium text-teal-700 mb-1">
+                      <label className="block text-[10px] sm:text-xs font-semibold text-teal-800 mb-1 uppercase tracking-wide">
                         Room
                       </label>
                       <select
                         value={pendingFilters.roomId}
                         onChange={(e) => handleFilterChange("roomId", e.target.value)}
-                            className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-gray-900 outline-none text-teal-900"
+                            className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 bg-white"
                       >
-                        <option value="">All Rooms</option>
+                        <option value="">All</option>
                         {rooms.map((room) => (
                           <option key={room._id} value={room._id}>
                             {room.name}
@@ -852,15 +854,15 @@
 
                     {/* Status */}
                     <div>
-                      <label className="block text-sm font-medium text-teal-700 mb-1">
+                      <label className="block text-[10px] sm:text-xs font-semibold text-teal-800 mb-1 uppercase tracking-wide">
                         Status
                       </label>
                       <select
                         value={pendingFilters.status}
                         onChange={(e) => handleFilterChange("status", e.target.value)}
-                            className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-gray-900 outline-none text-teal-900"
+                            className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 bg-white"
                       >
-                        <option value="">All Status</option>
+                        <option value="">All</option>
                         {APPOINTMENT_STATUS_OPTIONS.map((opt) => (
                           <option key={opt.value} value={opt.value}>
                             {opt.label}
@@ -871,15 +873,15 @@
 
                     {/* Follow Type */}
                     <div>
-                      <label className="block text-sm font-medium text-teal-700 mb-1">
+                      <label className="block text-[10px] sm:text-xs font-semibold text-teal-800 mb-1 uppercase tracking-wide">
                         Follow Type
                       </label>
                       <select
                         value={pendingFilters.followType}
                         onChange={(e) => handleFilterChange("followType", e.target.value)}
-                            className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-gray-900 outline-none text-teal-900"
+                            className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 bg-white"
                       >
-                        <option value="">All Types</option>
+                        <option value="">All</option>
                         <option value="first time">First Time</option>
                         <option value="follow up">Follow Up</option>
                         <option value="repeat">Repeat</option>
@@ -888,15 +890,15 @@
 
                     {/* Referral */}
                     <div>
-                      <label className="block text-sm font-medium text-teal-700 mb-1">
+                      <label className="block text-[10px] sm:text-xs font-semibold text-teal-800 mb-1 uppercase tracking-wide">
                         Source
                       </label>
                       <select
                         value={pendingFilters.referral}
                         onChange={(e) => handleFilterChange("referral", e.target.value)}
-                            className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-gray-900 outline-none text-teal-900"
+                            className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 bg-white"
                       >
-                        <option value="">All Sources</option>
+                        <option value="">All</option>
                         <option value="direct">Direct</option>
                         <option value="referral">Referral</option>
                       </select>
@@ -904,18 +906,18 @@
                   </div>
 
                   {/* Apply and Clear Filters Buttons */}
-                  <div className="mt-3 sm:mt-4 flex justify-end gap-2">
+                  <div className="mt-3 flex justify-end gap-2">
                     <button
                       onClick={clearFilters}
-                          className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm text-teal-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium"
+                          className="px-3 py-1.5 text-[10px] sm:text-xs text-teal-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition font-medium"
                     >
-                      Clear All Filters
+                      Clear All
                     </button>
                     <button
                       onClick={applyFilters}
-                      className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm text-white bg-teal-600 border border-teal-600 rounded-lg hover:bg-teal-700 transition font-medium"
+                      className="px-3 py-1.5 text-[10px] sm:text-xs text-white bg-teal-600 border border-teal-600 rounded-md hover:bg-teal-700 transition font-medium"
                     >
-                      Apply Filters
+                      Apply
                     </button>
                   </div>
                 </div>
@@ -961,7 +963,8 @@
                   <p className="text-sm text-teal-700">No appointments found</p>
               </div>
             ) : (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200" style={{ width: '100%', overflow: 'visible' }}>
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200" style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+                
                 {/* Horizontal Scroll Indicator */}
                 <div className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-gray-50 border-b border-gray-200 text-[10px] sm:text-xs text-teal-700 flex items-center justify-center gap-1 sm:gap-2">
                   <span className="hidden md:inline">← Scroll horizontally to view all columns →</span>
@@ -969,15 +972,17 @@
                   <span className="sm:hidden">← Swipe →</span>
                 </div>
                 
-                {/* Scrollable Table Container */}
+                {/* Scrollable Table Container - Fixed height to ensure scrollbar is at page bottom */}
                 <div 
-                  className="appointment-table-wrapper"
+                  className="appointment-table-wrapper flex-grow"
                   style={{ 
                     overflowX: 'auto',
-                    overflowY: 'visible',
+                    overflowY: 'auto',
+                    height: '400px',  /* Fixed height to ensure scrollbar is always at the same position */
+                    maxHeight: '400px',
                     WebkitOverflowScrolling: 'touch',
                     scrollbarWidth: 'thin',
-                    scrollbarColor: '#1f2937',
+                    scrollbarColor: '#888 #f1f1f1',
                     width: '100%',
                     display: 'block',
                     position: 'relative',
