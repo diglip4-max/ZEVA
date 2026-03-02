@@ -1394,9 +1394,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           title="Remove treatment"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedTreatments((prev) =>
-                              prev.filter((t) => t.treatmentSlug !== treatment.treatmentSlug)
-                            );
+                            handleRemoveSelectedTreatment(treatment.treatmentSlug);
                           }}
                           className="ml-2 p-0.5 rounded hover:bg-red-50 text-red-600 transition"
                           aria-label="Remove selected treatment"

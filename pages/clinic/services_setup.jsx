@@ -328,12 +328,10 @@ function ServicesSetupPage() {
     try {
       const res = await axios.get("/api/clinic/treatments", { headers });
       if (res.data.success) {
-        // Flatten the treatment structure from the API response
         const flattenedTreatments = [];
         const clinicTreatments = res.data.clinic?.treatments || [];
-        
+
         clinicTreatments.forEach(mainTreatment => {
-          // Add main treatment if it has sub-treatments or if we want to show main treatments too
           if (mainTreatment.subTreatments && mainTreatment.subTreatments.length > 0) {
             mainTreatment.subTreatments.forEach(subTreatment => {
               flattenedTreatments.push({
@@ -345,7 +343,6 @@ function ServicesSetupPage() {
               });
             });
           } else {
-            // Add main treatment if it has no sub-treatments
             flattenedTreatments.push({
               name: mainTreatment.mainTreatment,
               slug: mainTreatment.mainTreatmentSlug,
@@ -354,7 +351,26 @@ function ServicesSetupPage() {
             });
           }
         });
-        
+
+        // Also fetch Services and merge into the same list (without removing treatments)
+        try {
+          const servicesRes = await axios.get("/api/clinic/services", { headers });
+          if (servicesRes.data?.success && Array.isArray(servicesRes.data.services)) {
+            const services = servicesRes.data.services || [];
+            services.forEach((svc) => {
+              flattenedTreatments.push({
+                name: svc.name,
+                slug: svc.serviceSlug || svc._id,
+                price: Number(svc.price) || 0,
+                mainTreatment: "Service",
+                type: "sub"
+              });
+            });
+          }
+        } catch {
+          // Ignore services fetch errors and proceed with available treatments
+        }
+
         setTreatments(flattenedTreatments);
         return flattenedTreatments;
       } else {
@@ -2107,6 +2123,9 @@ function ServicesSetupPage() {
                                         <div className="flex items-center justify-between">
                                           <span>
                                             {treatment.name}
+                                            {treatment.type === "sub" && treatment.mainTreatment && (
+                                              <span className="text-[10px] text-teal-500 ml-1">({treatment.mainTreatment})</span>
+                                            )}
                                           </span>
                                           {isSelected && (
                                             <span className="text-slate-600 text-xs">✓</span>
