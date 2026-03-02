@@ -320,6 +320,39 @@ const PackageUsageModal = ({ isOpen, onClose, patient, packageUsageData, loading
 };
 
 const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packages = [], onViewPackageUsage, transferNameMap = {}, membershipUsageMap = {} }) => {
+  const [balance, setBalance] = useState({ pendingBalance: null, advanceBalance: null });
+  const [balanceLoading, setBalanceLoading] = useState(false);
+
+  const formatAEDLocal = (v) => {
+    if (typeof v !== "number" || Number.isNaN(v) || v === null) return "—";
+    try { return `د.إ${v.toLocaleString()}`; } catch { return `د.إ${v}`; }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const headers = getAuthHeaders();
+    if (!isOpen || !patient?._id || !headers) return;
+    setBalanceLoading(true);
+    (async () => {
+      try {
+        const res = await axios.get(`/api/clinic/patient-balance/${patient._id}`, { headers });
+        const data = res?.data?.balances || {};
+        if (!cancelled) {
+          setBalance({
+            pendingBalance: Number(data.pendingBalance || 0),
+            advanceBalance: Number(data.advanceBalance || 0),
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          setBalance({ pendingBalance: 0, advanceBalance: 0 });
+        }
+      } finally {
+        if (!cancelled) setBalanceLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, patient]);
 
   if (!isOpen || !patient) return null;
   const membershipName = (() => {
@@ -401,6 +434,16 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
               <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Patient Type</span> <span className="font-medium text-gray-900 text-sm">{patient.patientType}</span></div>
               <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Referred By</span> <span className="font-medium text-gray-900 text-sm">{patient.referredBy || 'N/A'}</span></div>
               {patient.doctor && <div className="flex flex-col md:col-span-2"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Doctor</span> <span className="font-medium text-gray-900 text-sm">{patient.doctor}</span></div>}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-100 text-amber-700 text-[11px] font-semibold">
+                <DollarSign className="w-3 h-3" />
+                {balanceLoading && balance.pendingBalance === null ? "Pending: ..." : `Pending: ${formatAEDLocal(balance.pendingBalance)}`}
+              </span>
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-100 text-emerald-700 text-[11px] font-semibold">
+                <DollarSign className="w-3 h-3" />
+                {balanceLoading && balance.advanceBalance === null ? "Advance: ..." : `Advance: ${formatAEDLocal(balance.advanceBalance)}`}
+              </span>
             </div>
           </div>
 
@@ -876,6 +919,8 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
   // Calculate stats
   const totalPatients = patients.length;
   const activePatients = patients.filter(p => p.status === 'Active' || p.applicationStatus === 'Active').length;
+
+  
 
   const fetchPatients = async (showSuccessToast = true) => {
     const headers = getAuthHeaders();
