@@ -326,6 +326,11 @@ export default async function handler(req, res) {
     });
     await allocatedItemDetails.save();
 
+    // update the status of purchase record to "Allocated"
+    await PurchaseRecord.findByIdAndUpdate(purchaseRecord, {
+      status: "Allocated",
+    });
+
     // Populate references
     const allocatedItems = await AllocatedStockItem.find({
       _id: { $in: allocatedItemIds },

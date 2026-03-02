@@ -22,11 +22,13 @@ import {
   Activity,
   ClipboardList,
   Eye,
+  RefreshCw,
 } from "lucide-react";
 import useStockItems from "@/hooks/useStockItems";
 import useUoms from "@/hooks/useUoms";
 import { getTokenByPath } from "@/lib/helper";
 import useAllocatedItems from "@/hooks/useAllocatedItems";
+import AddStockTransferRequestModal from "@/pages/clinic/stocks/stock-transfer/stock-transfer-requests/_components/AddStockTransferRequestModal";
 
 interface AppointmentLite {
   _id: string;
@@ -195,6 +197,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     useState<boolean>(false);
   const [allocatedSearch, setAllocatedSearch] = useState<string>("");
   const allocatedDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // stock transfer modal
+  const [isOpenStockTransferModal, setIsOpenStockTransferModal] =
+    useState<boolean>(false);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -548,7 +554,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 px-4 py-8">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8">
         <div className="bg-white w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
           <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
             <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
@@ -824,9 +830,17 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                   <div className="flex justify-between items-center">
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold text-blue-900 uppercase tracking-wide">
-                          Stock Items
-                        </h3>
+                        <div className="text-sm font-semibold text-blue-900 uppercase tracking-wide flex items-center gap-2">
+                          Stock Items{" "}
+                          <button
+                            onClick={() => {
+                              setIsOpenStockTransferModal(true);
+                            }}
+                            className="flex items-center gap-1 text-xs text-blue-800 p-1.5 rounded-md bg-white border border-blue-800 hover:bg-blue-100 transition-colors"
+                          >
+                            <RefreshCw size={16} /> Stock Transfer Request
+                          </button>
+                        </div>
                       </div>
                       <p className="text-xs text-blue-800 mt-1">
                         Add items related to this appointment
@@ -1502,6 +1516,18 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           complaint={selectedComplaint}
         />
       )}
+      {/* Stock Transfer Request Modal */}
+      {/* stock transfer request modal */}
+      <AddStockTransferRequestModal
+        isOpen={isOpenStockTransferModal}
+        onClose={() => {
+          setIsOpenStockTransferModal(false);
+        }}
+        onSuccess={() => {
+          fetchAllocatedItems();
+          setIsOpenStockTransferModal(false);
+        }}
+      />
     </>
   );
 };

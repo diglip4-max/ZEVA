@@ -67,11 +67,23 @@ export default async function handler(req, res) {
             .reduce((acc, s) => { acc[s._id.toString()] = s.acknowledgmentDeadline ? new Date(s.acknowledgmentDeadline) : null; return acc; }, {})
         : {};
       const toUpdate = [];
+      const endOfDay = (d) => {
+        const t = new Date(d);
+        t.setHours(23, 59, 59, 999);
+        return t;
+      };
       for (const ack of items) {
-        if (!ack.acknowledgedOn) {
-          const sopDeadline = ack.documentType === "SOP" ? sopMap[ack.documentId.toString()] : null;
-          const pastDeadline = sopDeadline ? now > sopDeadline : (ack.dueDate ? now > ack.dueDate : false);
-          if (pastDeadline && ack.status !== "Overdue") {
+        const sopDeadline = ack.documentType === "SOP" ? sopMap[ack.documentId.toString()] : null;
+        const due = sopDeadline || ack.dueDate || null;
+        if (!due) continue;
+        const deadlineEOD = endOfDay(due);
+        if (ack.acknowledgedOn) {
+          if (new Date(ack.acknowledgedOn) > deadlineEOD && ack.status !== "Overdue") {
+            ack.status = "Overdue";
+            toUpdate.push(ack.save());
+          }
+        } else {
+          if (now > deadlineEOD && ack.status !== "Overdue") {
             ack.status = "Overdue";
             toUpdate.push(ack.save());
           }
@@ -119,8 +131,10 @@ export default async function handler(req, res) {
             resolvedDue = sop.reviewDate ? new Date(sop.reviewDate) : resolvedDue;
             resolvedVersion = resolvedVersion || sop.version || "";
             const deadline = sop.acknowledgmentDeadline ? new Date(sop.acknowledgmentDeadline) : null;
-            if (!acknowledgedOn && deadline && new Date() > deadline) {
-              initialStatus = "Overdue";
+            if (!acknowledgedOn && deadline) {
+              const eod = new Date(deadline);
+              eod.setHours(23,59,59,999);
+              if (new Date() > eod) initialStatus = "Overdue";
             }
           }
         } else if (documentType === "Policy") {
@@ -193,18 +207,28 @@ export default async function handler(req, res) {
     if (!isAssignedStaff && !isPrivileged) {
       return res.status(403).json({ success: false, message: "Not allowed to update this acknowledgment" });
     }
+    const wantsAck = typeof status === "string" && status === "Acknowledged";
+    const hasValidSignatureInBody = typeof signatureDataUrl === "string" && signatureDataUrl.startsWith("data:image/");
+    const hasExistingSignature = !!ack.signatureDataUrl;
+    if (wantsAck && !hasValidSignatureInBody && !hasExistingSignature) {
+      return res.status(400).json({ success: false, message: "Signature is required to mark as Acknowledged" });
+    }
+    if (hasValidSignatureInBody) {
+      ack.signatureDataUrl = signatureDataUrl;
+      ack.signatureBy = user?.name || user?.email || "";
+      ack.signatureAt = new Date();
+    }
     if (typeof status === "string") {
       ack.status = status;
       if (status === "Acknowledged") {
         ack.acknowledgedOn = new Date();
+        const endOfDay = (d) => { const t = new Date(d); t.setHours(23,59,59,999); return t; };
+        const due = ack.dueDate;
+        if (due && ack.acknowledgedOn > endOfDay(due)) {
+          ack.status = "Overdue";
+        }
       } else if (status === "Viewed" && !ack.acknowledgedOn) {
-        // keep acknowledgedOn null
       }
-    }
-    if (signatureDataUrl && typeof signatureDataUrl === "string" && signatureDataUrl.startsWith("data:image/")) {
-      ack.signatureDataUrl = signatureDataUrl;
-      ack.signatureBy = user?.name || user?.email || "";
-      ack.signatureAt = new Date();
     }
     await ack.save();
     return res.status(200).json({ success: true, item: ack });

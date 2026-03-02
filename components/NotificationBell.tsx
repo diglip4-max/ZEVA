@@ -1,9 +1,10 @@
-"use client";
 // NotificationBell.tsx
-import { useState, useEffect, useRef } from "react";
+"use client";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { io, Socket } from "socket.io-client";
 import { jwtDecode } from "jwt-decode";
+import SignatureCanvas from "react-signature-canvas";
 import { 
   BellIcon, 
   XMarkIcon,
@@ -19,6 +20,24 @@ import {
 } from "@heroicons/react/24/outline";
 import { CheckCircleIcon as CheckCircleSolid } from "@heroicons/react/24/solid";
 import { ClipboardListIcon } from "lucide-react";
+
+// Professional signature configuration for optimal smoothness
+const SIGNATURE_CONFIG = {
+  penColor: "#1e293b",
+  minWidth: 0.8,
+  maxWidth: 3.5,
+  velocityFilterWeight: 0.9,
+  throttle: 8,
+  minDistance: 1,
+  dotSize: 1.2,
+  backgroundColor: "rgba(255,255,255,0)",
+  canvasProps: {
+    className: "w-full h-64 border-2 border-gray-200 rounded-xl bg-white shadow-inner touch-none cursor-crosshair",
+    style: {
+      boxShadow: "inset 0 2px 4px rgba(0,0,0,0.02)",
+    }
+  }
+};
 
 interface AppNotification {
   _id: string;
@@ -46,7 +65,335 @@ interface DecodedToken {
   [key: string]: unknown;
 }
 
+interface SignatureModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (signatureDataUrl: string) => Promise<void>;
+  title?: string;
+  acknowledgmentId?: string;
+}
+
 let socket: Socket | null = null;
+
+// Professional Signature Modal Component
+const SignatureModal: React.FC<SignatureModalProps> = ({
+  isOpen,
+  onClose,
+  onSave,
+  title = "Draw Your eSignature",
+}) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [signatureExists, setSignatureExists] = useState(false);
+  const signaturePadRef = useRef<SignatureCanvas>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Handle escape key
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) onClose();
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [isOpen, onClose]);
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
+
+  // Check if signature has content
+  const checkSignature = useCallback(() => {
+    if (signaturePadRef.current) {
+      const isEmpty = signaturePadRef.current.isEmpty();
+      setSignatureExists(!isEmpty);
+    }
+  }, []);
+
+  // Clear signature
+  const clearSignature = useCallback(() => {
+    if (signaturePadRef.current) {
+      signaturePadRef.current.clear();
+      setSignatureExists(false);
+      setError(null);
+    }
+  }, []);
+
+  // Helper function to trim canvas whitespace
+  const trimCanvas = (canvas: HTMLCanvasElement): HTMLCanvasElement => {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return canvas;
+
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = pixels.data;
+    let top = canvas.height;
+    let left = canvas.width;
+    let right = 0;
+    let bottom = 0;
+
+    // Find the bounding box of non-transparent pixels
+    for (let y = 0; y < canvas.height; y++) {
+      for (let x = 0; x < canvas.width; x++) {
+        const alpha = data[(y * canvas.width + x) * 4 + 3];
+        if (alpha > 0) {
+          if (y < top) top = y;
+          if (y > bottom) bottom = y;
+          if (x < left) left = x;
+          if (x > right) right = x;
+        }
+      }
+    }
+
+    // Add padding
+    const padding = 10;
+    top = Math.max(0, top - padding);
+    left = Math.max(0, left - padding);
+    bottom = Math.min(canvas.height, bottom + padding);
+    right = Math.min(canvas.width, right + padding);
+
+    const width = right - left;
+    const height = bottom - top;
+
+    if (width <= 0 || height <= 0) return canvas;
+
+    const trimmedCanvas = document.createElement('canvas');
+    trimmedCanvas.width = width;
+    trimmedCanvas.height = height;
+    const trimmedCtx = trimmedCanvas.getContext('2d');
+    
+    if (trimmedCtx) {
+      trimmedCtx.drawImage(canvas, left, top, width, height, 0, 0, width, height);
+    }
+
+    return trimmedCanvas;
+  };
+
+  // Handle save with validation and error handling
+  const handleSave = async () => {
+    try {
+      setError(null);
+      
+      if (!signaturePadRef.current) {
+        throw new Error("Signature pad not initialized");
+      }
+
+      if (signaturePadRef.current.isEmpty()) {
+        throw new Error("Please draw your signature before submitting");
+      }
+
+      setLoading(true);
+
+      // Get the canvas element from the signature pad
+      const canvas = signaturePadRef.current.getCanvas();
+      
+      // Trim the canvas to remove whitespace
+      const trimmedCanvas = trimCanvas(canvas);
+      
+      // Convert to high-quality PNG
+      const dataUrl = trimmedCanvas.toDataURL("image/png", 1.0);
+      
+      await onSave(dataUrl);
+      
+      clearSignature();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save signature");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div 
+        ref={containerRef}
+        className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
+              <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+              <p className="text-xs text-gray-500">Use mouse or touch to draw your signature</p>
+            </div>
+          </div>
+          <button 
+            onClick={onClose}
+            className="rounded-lg p-2 hover:bg-gray-100 transition-colors"
+            aria-label="Close"
+          >
+            <XMarkIcon className="h-5 w-5 text-gray-500" />
+          </button>
+        </div>
+
+        {/* Signature Pad Area */}
+        <div className="p-6 space-y-4">
+          <div className="relative bg-gray-50 rounded-xl p-4 border-2 border-dashed border-gray-200">
+            <SignatureCanvas
+              ref={signaturePadRef}
+              {...SIGNATURE_CONFIG}
+              onBegin={checkSignature}
+              onEnd={checkSignature}
+            />
+            
+            {/* Watermark when empty */}
+            {!signatureExists && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <span className="text-gray-300 text-sm font-medium select-none">
+                  Draw your signature here
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-sm text-red-600 flex items-center gap-2">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {error}
+              </p>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-between">
+            <button
+              onClick={clearSignature}
+              disabled={!signatureExists}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-2
+                ${signatureExists 
+                  ? 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400' 
+                  : 'text-gray-400 bg-gray-50 border border-gray-200 cursor-not-allowed'
+                }`}
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Clear
+            </button>
+            
+            <div className="flex items-center gap-3">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={loading || !signatureExists}
+                className={`px-6 py-2 text-sm font-medium text-white rounded-lg transition-all duration-200 flex items-center gap-2
+                  ${loading || !signatureExists
+                    ? 'bg-gradient-to-r from-blue-400 to-indigo-400 cursor-not-allowed opacity-50'
+                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg'
+                  }`}
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Submit Signature
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Signature Tips */}
+          <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
+            <p className="text-xs text-blue-700 flex items-center gap-2">
+              <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>
+                <strong>Tips:</strong> Draw slowly for smoother lines • Use a stylus for best results • Sign within the box for proper scaling
+              </span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+// Hook for managing signature state
+const useSignature = (acknowledgmentId?: string, token?: string | null) => {
+  const [signatureData, setSignatureData] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const saveSignature = async (dataUrl: string) => {
+    try {
+      setError(null);
+      if (acknowledgmentId) {
+        const response = await fetch(`/api/compliance/acknowledgments`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            acknowledgmentId,
+            signatureDataUrl: dataUrl,
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || "Failed to save signature");
+        }
+
+        const json = await response.json();
+        if (json.success && json.item) {
+          setSignatureData(json.item.signatureDataUrl || dataUrl);
+        }
+      } else {
+        setSignatureData(dataUrl);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save signature");
+      throw err;
+    }
+  };
+
+  const clearSignature = () => {
+    setSignatureData(null);
+  };
+
+  return {
+    signatureData,
+    isModalOpen,
+    error,
+    openModal: () => setIsModalOpen(true),
+    closeModal: () => setIsModalOpen(false),
+    saveSignature,
+    clearSignature,
+  };
+};
 
 export default function NotificationBell() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -62,17 +409,35 @@ export default function NotificationBell() {
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const [viewerTitle, setViewerTitle] = useState<string>("Document Preview");
   const [viewerError, setViewerError] = useState<string | null>(null);
-  const [sigOpen, setSigOpen] = useState(false);
-  const sigCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [sigDrawing, setSigDrawing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "warning" } | null>(null);
+
+  // Use the enhanced signature hook
+  const {
+    signatureData,
+    isModalOpen: sigOpen,
+    openModal: openSignatureModal,
+    closeModal: closeSignatureModal,
+    saveSignature,
+    clearSignature: clearSignatureData,
+  } = useSignature(selected?.relatedAcknowledgment, token);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const showToast = (message: string, type: "success" | "error" | "warning" = "error") => {
+    setToast({ message, type });
+    window.setTimeout(() => setToast(null), 3000);
+  };
 
   useEffect(() => {
     setIsClient(true);
     const t =
-      (typeof window !== "undefined" && (localStorage.getItem("agentToken") || localStorage.getItem("userToken"))) ||
+      (typeof window !== "undefined" &&
+        (localStorage.getItem("agentToken") ||
+         sessionStorage.getItem("agentToken") ||
+         localStorage.getItem("userToken") ||
+         sessionStorage.getItem("userToken") ||
+         localStorage.getItem("token") ||
+         sessionStorage.getItem("token"))) ||
       null;
     if (!t) return;
     setToken(t);
@@ -82,12 +447,26 @@ export default function NotificationBell() {
     if (!uid) return;
     setUserId(uid);
 
+    // Warm up Socket.IO server (Next.js API) to ensure namespace is ready
+    fetch(`/api/push-notification/socketio`).catch(() => {});
+
     fetch(`/api/push-notification/reply-notifications?userId=${uid}`)
       .then((res) => res.json())
       .then((data) => setNotifications(data.notifications || []))
       .catch((err) => console.error("Error fetching notifications:", err));
 
-    socket = io({ path: "/api/push-notification/socketio" });
+    socket = io({
+      path: "/api/push-notification/socketio",
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 500,
+      reconnectionDelayMax: 5000,
+    });
+
+    socket.on("connect", () => {
+      if (uid) socket?.emit("register", uid);
+    });
     socket.emit("register", uid);
 
     socket.on("newNotification", (notif: AppNotification) => {
@@ -95,6 +474,12 @@ export default function NotificationBell() {
         new Notification("New Notification", { body: notif.message });
       }
       setNotifications((prev) => [{ ...notif, isRead: false }, ...prev]);
+    });
+    socket.on("connect_error", (err) => {
+      console.error("Socket connection error:", err?.message || err);
+    });
+    socket.on("reconnect", () => {
+      if (uid) socket?.emit("register", uid);
     });
 
     if (Notification.permission !== "granted") {
@@ -143,6 +528,8 @@ export default function NotificationBell() {
         if (selected?._id === id) {
           setSelected(null);
           setAckDetails(null);
+          setDocDetails(null);
+          clearSignatureData();
         }
       })
       .catch((err) => console.error("Delete error:", err));
@@ -158,6 +545,8 @@ export default function NotificationBell() {
         setNotifications([]);
         setSelected(null);
         setAckDetails(null);
+        setDocDetails(null);
+        clearSignatureData();
       })
       .catch((err) => console.error("Clear all error:", err));
   };
@@ -166,6 +555,8 @@ export default function NotificationBell() {
     setSelected(n);
     setAckDetails(null);
     setDocDetails(null);
+    clearSignatureData();
+    
     if (n.relatedAcknowledgment) {
       try {
         const res = await fetch(`/api/compliance/acknowledgments?id=${n.relatedAcknowledgment}`, {
@@ -174,6 +565,12 @@ export default function NotificationBell() {
         const json = await res.json();
         if (json.success) {
           setAckDetails(json.item);
+          
+          // Set signature data if exists
+          if (json.item.signatureDataUrl) {
+            await saveSignature(json.item.signatureDataUrl);
+          }
+          
           if (json.item.status !== "Acknowledged") {
             try {
               await fetch(`/api/compliance/acknowledgments`, {
@@ -283,7 +680,7 @@ export default function NotificationBell() {
 
       for (let p = 1; p <= pdf.numPages; p++) {
         const page = await pdf.getPage(p);
-        const viewport = page.getViewport({ scale: 1.3 }); // Slightly larger for better readability
+        const viewport = page.getViewport({ scale: 1.3 });
         const canvas = document.createElement("canvas");
         canvas.style.display = "block";
         canvas.style.margin = "0 auto 20px auto";
@@ -301,8 +698,8 @@ export default function NotificationBell() {
         await page.render({ canvasContext: ctx, viewport }).promise;
         
         // Add signature if document is acknowledged and has signature
-        const shouldPlaceSignature = (ackDetails?.status === "Acknowledged" || !!ackDetails?.acknowledgedOn) && !!ackDetails?.signatureDataUrl;
-        if (shouldPlaceSignature && ackDetails?.signatureDataUrl) {
+        const shouldPlaceSignature = (ackDetails?.status === "Acknowledged" || !!ackDetails?.acknowledgedOn) && !!signatureData;
+        if (shouldPlaceSignature && signatureData) {
           const img = new Image();
           await new Promise<void>((resolve) => {
             img.onload = () => {
@@ -344,7 +741,7 @@ export default function NotificationBell() {
               resolve();
             };
             img.onerror = () => resolve();
-            img.src = ackDetails.signatureDataUrl;
+            img.src = signatureData;
           });
         }
       }
@@ -379,6 +776,10 @@ export default function NotificationBell() {
   const markAckStatus = async (status: "Viewed" | "Acknowledged") => {
     if (!ackDetails) return;
     try {
+      if (status === "Acknowledged" && !signatureData && !ackDetails?.signatureDataUrl) {
+        showToast("Signature is required to acknowledge", "warning");
+        return;
+      }
       setLoading(true);
       const res = await fetch(`/api/compliance/acknowledgments`, {
         method: "PATCH",
@@ -391,10 +792,24 @@ export default function NotificationBell() {
         if (viewerOpen && viewerUrl) {
           await loadPdfIntoModal(viewerUrl);
         }
+      } else {
+        showToast(json.message || "Unable to acknowledge", "error");
       }
       setLoading(false);
     } catch (e) {
       setLoading(false);
+      showToast("Failed to update acknowledgment", "error");
+    }
+  };
+
+  const handleSignatureSave = async (dataUrl: string) => {
+    await saveSignature(dataUrl);
+    if (ackDetails) {
+      setAckDetails((prev: any) => ({
+        ...prev,
+        signatureDataUrl: dataUrl,
+        signatureAt: new Date().toISOString(),
+      }));
     }
   };
 
@@ -444,6 +859,11 @@ export default function NotificationBell() {
       {showPanel && isClient && createPortal(
         <div className="fixed inset-0 z-[1000]">
           <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity" onClick={handleTogglePanel} />
+          {toast && (
+            <div className={`absolute top-4 right-4 z-[1200] px-4 py-3 rounded-lg shadow-lg border text-sm ${toast.type === "success" ? "bg-green-50 border-green-200 text-green-800" : toast.type === "warning" ? "bg-yellow-50 border-yellow-200 text-yellow-800" : "bg-red-50 border-red-200 text-red-800"}`}>
+              {toast.message}
+            </div>
+          )}
           
           {/* Main Panel */}
           <div className="absolute inset-2 w-auto rounded-xl bg-white border border-gray-200 shadow-2xl flex flex-col overflow-hidden min-h-0 max-h-[90vh] animate-slide-in-right sm:inset-auto sm:right-4 sm:top-20 sm:bottom-4 sm:w-[480px] sm:rounded-2xl">
@@ -600,6 +1020,7 @@ export default function NotificationBell() {
                         setSelected(null);
                         setAckDetails(null);
                         setDocDetails(null);
+                        clearSignatureData();
                       }}
                       className="p-1 hover:bg-gray-100 rounded"
                     >
@@ -683,7 +1104,7 @@ export default function NotificationBell() {
                             <div className="min-w-0">
                               <p className="text-xs text-gray-500">Acknowledged On</p>
                               <p className="text-sm text-gray-900 break-words">
-                                {new Date(ackDetails.acknowledgedOn).toLocaleDateString()}
+                                {new Date(ackDetails.acknowledgedOn).toLocaleString()}
                               </p>
                             </div>
                           </div>
@@ -719,7 +1140,7 @@ export default function NotificationBell() {
                                     </p>
                                   </div>
                                 </div>
-                                {Array.isArray(docDetails.checklist) && docDetails.checklist.length > 0 && (
+                                 {Array.isArray(docDetails.checklist) && docDetails.checklist.length > 0 && (
                                   <div className="flex items-start gap-2 col-span-2">
                                     <ClipboardListIcon className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
                                     <div className="min-w-0 flex-1">
@@ -816,10 +1237,10 @@ export default function NotificationBell() {
                       )}
                       {ackDetails.status !== "Acknowledged" && (
                         <button
-                          onClick={() => setSigOpen(true)}
+                          onClick={openSignatureModal}
                           className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all"
                         >
-                          Signature
+                          {signatureData ? "Update Signature" : "Add Signature"}
                         </button>
                       )}
                       {ackDetails.status === "Acknowledged" && (
@@ -874,151 +1295,13 @@ export default function NotificationBell() {
       )}
 
       {/* Signature Modal */}
-      {sigOpen && isClient && createPortal(
-        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/60 p-2">
-          <div className="w-full max-w-lg bg-white rounded-xl shadow-xl overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
-              <div className="text-sm font-semibold text-gray-900">Draw Your eSignature</div>
-              <button onClick={() => setSigOpen(false)} className="rounded-md p-1 hover:bg-gray-100">
-                <XMarkIcon className="h-4 w-4 text-gray-500" />
-              </button>
-            </div>
-            <div className="p-4 space-y-3">
-              <div className="border-2 border-gray-200 rounded-lg overflow-hidden bg-white">
-                <canvas
-                  ref={sigCanvasRef}
-                  width={600}
-                  height={220}
-                  onMouseDown={(e) => {
-                    const c = sigCanvasRef.current;
-                    if (!c) return;
-                    const rect = c.getBoundingClientRect();
-                    const ctx = c.getContext("2d")!;
-                    ctx.strokeStyle = "#111827";
-                    ctx.lineWidth = 2;
-                    ctx.lineCap = "round";
-                    ctx.beginPath();
-                    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
-                    setSigDrawing(true);
-                  }}
-                  onMouseMove={(e) => {
-                    if (!sigDrawing || !sigCanvasRef.current) return;
-                    const c = sigCanvasRef.current;
-                    const rect = c.getBoundingClientRect();
-                    const ctx = c.getContext("2d")!;
-                    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-                    ctx.stroke();
-                  }}
-                  onMouseUp={() => setSigDrawing(false)}
-                  onMouseLeave={() => setSigDrawing(false)}
-                  onTouchStart={(e) => {
-                    e.preventDefault();
-                    const c = sigCanvasRef.current;
-                    if (!c) return;
-                    const rect = c.getBoundingClientRect();
-                    const t = e.touches[0];
-                    const ctx = c.getContext("2d")!;
-                    ctx.strokeStyle = "#111827";
-                    ctx.lineWidth = 2;
-                    ctx.lineCap = "round";
-                    ctx.beginPath();
-                    ctx.moveTo(t.clientX - rect.left, t.clientY - rect.top);
-                    setSigDrawing(true);
-                  }}
-                  onTouchMove={(e) => {
-                    e.preventDefault();
-                    const c = sigCanvasRef.current;
-                    if (!c || !sigDrawing) return;
-                    const rect = c.getBoundingClientRect();
-                    const t = e.touches[0];
-                    const ctx = c.getContext("2d")!;
-                    ctx.lineTo(t.clientX - rect.left, t.clientY - rect.top);
-                    ctx.stroke();
-                  }}
-                  onTouchEnd={() => setSigDrawing(false)}
-                  className="w-full h-[220px] touch-none bg-white cursor-crosshair"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={() => {
-                    const c = sigCanvasRef.current;
-                    if (c) {
-                      const ctx = c.getContext("2d")!;
-                      ctx.clearRect(0, 0, c.width, c.height);
-                    }
-                  }}
-                  className="px-3 py-1.5 text-xs sm:text-sm border rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Clear
-                </button>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setSigOpen(false)}
-                    className="px-3 py-1.5 text-xs sm:text-sm border rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!ackDetails) return;
-                      const c = sigCanvasRef.current;
-                      if (!c) return;
-                      
-                      // Check if canvas is empty
-                      const ctx = c.getContext("2d")!;
-                      const pixelData = ctx.getImageData(0, 0, c.width, c.height).data;
-                      const isCanvasEmpty = !pixelData.some(channel => channel !== 0);
-                      
-                      if (isCanvasEmpty) {
-                        alert("Please draw your signature before submitting");
-                        return;
-                      }
-                      
-                      const dataUrl = c.toDataURL("image/png");
-                      try {
-                        setLoading(true);
-                        const res = await fetch(`/api/compliance/acknowledgments`, {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-                          body: JSON.stringify({ acknowledgmentId: ackDetails._id, signatureDataUrl: dataUrl }),
-                        });
-                        const json = await res.json();
-                        if (json.success) {
-                          setAckDetails(json.item);
-                          setSigOpen(false);
-                          if (viewerOpen && viewerUrl) {
-                            await loadPdfIntoModal(viewerUrl);
-                          }
-                        }
-                        setLoading(false);
-                      } catch (error) {
-                        console.error("Error saving signature:", error);
-                        setLoading(false);
-                      }
-                    }}
-                    disabled={loading}
-                    className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 flex items-center gap-1"
-                  >
-                    {loading ? (
-                      <>
-                        <div className="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full"></div>
-                        Saving...
-                      </>
-                    ) : (
-                      "Submit Signature"
-                    )}
-                  </button>
-                </div>
-              </div>
-              <p className="text-xs text-gray-400 text-center">
-                Use mouse or touch to draw your signature
-              </p>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      <SignatureModal
+        isOpen={sigOpen}
+        onClose={closeSignatureModal}
+        onSave={handleSignatureSave}
+        title="Draw Your eSignature"
+        acknowledgmentId={selected?.relatedAcknowledgment}
+      />
 
       <style jsx>{`
         @keyframes slideInRight {

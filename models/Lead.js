@@ -98,6 +98,12 @@ const LeadSchema = new mongoose.Schema(
         ref: "Segment",
       },
     ],
+
+    // patient
+    patientId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "PatientRegistration",
+    },
   },
   { timestamps: true },
 );

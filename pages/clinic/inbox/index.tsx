@@ -134,6 +134,7 @@ const InboxPage: NextPageWithLayout = () => {
     isOpenBookAppointmentModal,
     rooms,
     doctors,
+    patient,
   } = state;
 
   return (
@@ -242,7 +243,7 @@ const InboxPage: NextPageWithLayout = () => {
                         setFilters((prev) => ({ ...prev, status: opt.value }));
                         setConversationStatusOptions((prev) => {
                           const selIndex = prev.findIndex(
-                            (o) => o.value === opt.value,
+                            (o) => o.value === opt.value
                           );
                           if (selIndex === -1) return prev;
                           const selectedOption = prev[selIndex];
@@ -252,13 +253,13 @@ const InboxPage: NextPageWithLayout = () => {
 
                           // Remove selected from list
                           const withoutSelected = prev.filter(
-                            (o) => o.value !== opt.value,
+                            (o) => o.value !== opt.value
                           );
 
                           // Insert selectedOption at index 3 (4th position)
                           const insertIndex = Math.min(
                             3,
-                            withoutSelected.length,
+                            withoutSelected.length
                           );
                           let updatedOptions = [
                             ...withoutSelected.slice(0, insertIndex),
@@ -272,7 +273,7 @@ const InboxPage: NextPageWithLayout = () => {
                             originalThird.value !== opt.value
                           ) {
                             const idx = updatedOptions.findIndex(
-                              (o) => o.value === originalThird.value,
+                              (o) => o.value === originalThird.value
                             );
                             if (idx > -1) {
                               updatedOptions.splice(idx, 1);
@@ -367,7 +368,7 @@ const InboxPage: NextPageWithLayout = () => {
                     <span>
                       Last seen{" "}
                       {getFormatedTime(
-                        selectedConversation?.recentMessage?.createdAt,
+                        selectedConversation?.recentMessage?.createdAt
                       ) || "recently"}
                     </span>
                   </div>
@@ -517,7 +518,7 @@ const InboxPage: NextPageWithLayout = () => {
                               {selectedProvider?.type?.includes("sms") ? (
                                 <Phone className="h-5 w-5 text-blue-500" />
                               ) : selectedProvider?.type?.includes(
-                                  "whatsapp",
+                                  "whatsapp"
                                 ) ? (
                                 <FaWhatsapp className="h-5 w-5 text-green-600" />
                               ) : selectedProvider?.type?.includes("email") ? (
@@ -874,7 +875,7 @@ const InboxPage: NextPageWithLayout = () => {
                       ? maskSensitiveInfo(
                           selectedConversation?.leadId?.phone ||
                             selectedConversation?.leadId?.email ||
-                            "",
+                            ""
                         )
                       : selectedConversation?.leadId?.phone ||
                         selectedConversation?.leadId?.email}
@@ -920,7 +921,7 @@ const InboxPage: NextPageWithLayout = () => {
                     {user?.role === "agent"
                       ? maskEmail(
                           selectedConversation?.leadId?.email ||
-                            "bajuddinkhan0786@gmail.com",
+                            "bajuddinkhan0786@gmail.com"
                         )
                       : selectedConversation?.leadId?.email || "—"}
                   </div>
@@ -989,7 +990,7 @@ const InboxPage: NextPageWithLayout = () => {
                         onClick={() =>
                           handleRemoveTagFromConversation(
                             selectedConversation._id,
-                            tag,
+                            tag
                           )
                         }
                         className={`
@@ -1089,8 +1090,8 @@ const InboxPage: NextPageWithLayout = () => {
           attachedFiles?.length > 0
             ? attachedFiles
             : attachedFile
-              ? [attachedFile]
-              : []
+            ? [attachedFile]
+            : []
         }
         loading={sendMsgLoading}
       />
@@ -1135,6 +1136,7 @@ const InboxPage: NextPageWithLayout = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${getTokenByPath()}`,
         })}
+        preSelectedPatient={patient || null}
       />
     </div>
   );

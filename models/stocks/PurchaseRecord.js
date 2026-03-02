@@ -76,6 +76,7 @@ const PurchaseRecordSchema = new mongoose.Schema(
       enum: [
         "New",
         "Approved",
+        "Allocated",
         "Partly_Delivered",
         "Delivered",
         "Partly_Invoiced",

@@ -1,5 +1,6 @@
 import dbConnect from "../../../../../lib/database";
 import Clinic from "../../../../../models/Clinic";
+import GRN from "../../../../../models/stocks/GRN";
 import PurchaseInvoice from "../../../../../models/stocks/PurchaseInvoice";
 import { getUserFromReq, requireRole } from "../../../lead-ms/auth";
 
@@ -58,6 +59,9 @@ export default async function handler(req, res) {
       date,
       notes,
       status,
+      attachmentUrl,
+      paidAmount,
+      remainingAmount,
     } = req.body;
     const invoice = await PurchaseInvoice.findOne({ _id: id, clinicId });
     if (!invoice) {
@@ -76,8 +80,19 @@ export default async function handler(req, res) {
     if (notes !== undefined) invoice.notes = notes;
     if (status !== undefined && invoice.status !== "Deleted")
       invoice.status = status;
+    if (attachmentUrl !== undefined) invoice.attachmentUrl = attachmentUrl;
+    if (paidAmount !== undefined) invoice.paidAmount = Number(paidAmount) || 0;
+    if (remainingAmount !== undefined)
+      invoice.remainingAmount = Number(remainingAmount) || 0;
 
     await invoice.save();
+
+    // update status of grns to invoiced
+    await GRN.updateMany(
+      { _id: { $in: grns } },
+      { $set: { status: "Invoiced" } },
+    );
+
     const saved = await PurchaseInvoice.findById(invoice._id)
       .populate("branch", "name")
       .populate("supplier", "name")
@@ -92,12 +107,10 @@ export default async function handler(req, res) {
       data: saved,
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Failed to update purchase invoice",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Failed to update purchase invoice",
+      error: error.message,
+    });
   }
 }

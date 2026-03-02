@@ -50,6 +50,20 @@ const PurchaseInvoiceSchema = new mongoose.Schema(
       enum: ["New", "Partly_Paid", "Paid", "Unpaid", "Deleted"],
       default: "New",
     },
+    attachmentUrl: {
+      type: String,
+      default: "",
+    },
+    paidAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    remainingAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     grns: [
       {
         type: mongoose.Schema.Types.ObjectId,
