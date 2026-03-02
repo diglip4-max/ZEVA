@@ -34,6 +34,9 @@ function ClinicCommissionPage() {
   const [packageList, setPackageList] = useState([]);
   const [expandedMemberships, setExpandedMemberships] = useState({});
   const [expandedPackages, setExpandedPackages] = useState({});
+  const [addExpenseRow, setAddExpenseRow] = useState(null); // commissionId or null
+  const [newExpenses, setNewExpenses] = useState([{ name: "", price: "" }]);
+  const [addExpenseLoading, setAddExpenseLoading] = useState(false);
 
   const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -219,6 +222,43 @@ function ClinicCommissionPage() {
       } catch (e) {
         setPatientInfoMap((prev) => ({ ...prev, [row.patientId]: { data: null, error: "Failed to load patient" } }));
       }
+    }
+  };
+
+  const handleAddExpense = async (commissionId) => {
+    const headers = getAuthHeaders();
+    if (!headers) {
+      showToast("Authentication required", "error");
+      return;
+    }
+    const validExpenses = newExpenses.filter((e) => e.name.trim() !== "" && Number(e.price) > 0);
+    if (validExpenses.length === 0) {
+      showToast("Enter at least one valid expense with name and price", "error");
+      return;
+    }
+    setAddExpenseLoading(true);
+    try {
+      const res = await axios.post(
+        "/api/clinic/commissions/add-expense",
+        { commissionId, expenses: validExpenses },
+        { headers }
+      );
+      if (res.data.success) {
+        setModalItems((prev) =>
+          prev.map((item) =>
+            item.commissionId === commissionId ? { ...item, ...res.data.updated } : item
+          )
+        );
+        setAddExpenseRow(null);
+        setNewExpenses([{ name: "", price: "" }]);
+        showToast("Expense added successfully");
+      } else {
+        showToast(res.data.message || "Failed to add expense", "error");
+      }
+    } catch {
+      showToast("Failed to add expense", "error");
+    } finally {
+      setAddExpenseLoading(false);
     }
   };
 
@@ -455,6 +495,124 @@ function ClinicCommissionPage() {
                                         </div>
                                       </div>
                                     )}
+                                    {/* Expenses for this billing */}
+                                    {(Number(it.expenseTotal || 0) > 0 || Number(it.complaintExpenseTotal || 0) > 0) && (
+                                      <div className="mb-2">
+                                        <div className="text-[11px] text-gray-600 font-semibold mb-1">Expenses used for this bill:</div>
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {(Array.isArray(it.expenses) ? it.expenses : []).map((ex, iEx) => (
+                                            <span key={`be-${iEx}`} className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-amber-100 text-amber-800 border border-amber-200">
+                                              {ex.name}: ₹{Number(ex.amount || 0).toFixed(2)}
+                                            </span>
+                                          ))}
+                                          {Array.isArray(it.complaintExpenses) && it.complaintExpenses.length > 0 && it.complaintExpenses.map((cx, idx) => (
+                                            <span key={`ce-${idx}`} className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-orange-100 text-orange-800 border border-orange-200">
+                                              {cx.name} • {cx.quantity} {cx.uom} • ₹{Number(cx.totalAmount || 0).toFixed(2)}
+                                            </span>
+                                          ))}
+                                          {(Number(it.expenseTotal || 0) > 0) && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-amber-200 text-amber-900 font-semibold">
+                                              Manual total: ₹{Number(it.expenseTotal || 0).toFixed(2)}
+                                            </span>
+                                          )}
+                                          {(Number(it.complaintExpenseTotal || 0) > 0) && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-orange-200 text-orange-900 font-semibold">
+                                              Items total: ₹{Number(it.complaintExpenseTotal || 0).toFixed(2)}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {/* Commission base amount summary */}
+                                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                                      {Number(it.commissionBaseAmount || 0) > 0 && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold text-teal-700 bg-teal-50 border border-teal-200">
+                                          Commission Base: ₹{Number(it.commissionBaseAmount || 0).toFixed(2)}
+                                        </span>
+                                      )}
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200">
+                                        Final Commission: ₹{Number(it.finalCommissionAmount || it.commissionAmount || 0).toFixed(2)} ({Number(it.commissionPercent || 0)}%)
+                                      </span>
+                                    </div>
+                                    {/* Post-commission expenses */}
+                                    {Array.isArray(it.postCommissionExpenses) && it.postCommissionExpenses.length > 0 && (
+                                      <div className="mt-2">
+                                        <div className="text-[11px] text-gray-600 font-semibold mb-1">Post-billing expenses (deducted after commission):</div>
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {it.postCommissionExpenses.map((pce, iPce) => (
+                                            <span key={`pce-${iPce}`} className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-violet-100 text-violet-800 border border-violet-200">
+                                              {pce.name}: ₹{Number(pce.price || 0).toFixed(2)}
+                                            </span>
+                                          ))}
+                                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-violet-200 text-violet-900 font-semibold">
+                                            Post-expense total: ₹{it.postCommissionExpenses.reduce((s, e) => s + Number(e.price || 0), 0).toFixed(2)}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {/* Add Expense button / inline form */}
+                                    <div className="mt-2">
+                                      {addExpenseRow !== it.commissionId ? (
+                                        <button
+                                          onClick={() => { setAddExpenseRow(it.commissionId); setNewExpenses([{ name: "", price: "" }]); }}
+                                          className="px-3 py-1 text-[11px] rounded-md bg-violet-600 hover:bg-violet-700 text-white font-medium transition-all"
+                                        >
+                                          + Add Expense
+                                        </button>
+                                      ) : (
+                                        <div className="rounded-md border border-violet-200 bg-violet-50/40 p-3 mt-1">
+                                          <div className="text-[11px] font-semibold text-violet-800 mb-2">Add Post-Commission Expenses</div>
+                                          {newExpenses.map((exp, idx) => (
+                                            <div key={idx} className="flex items-center gap-2 mb-1.5">
+                                              <input
+                                                type="text"
+                                                placeholder="Expense name"
+                                                value={exp.name}
+                                                onChange={(e) => setNewExpenses((prev) => prev.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))}
+                                                className="flex-1 px-2 py-1 text-[11px] border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-violet-400"
+                                              />
+                                              <input
+                                                type="number"
+                                                placeholder="Price"
+                                                min="0"
+                                                value={exp.price}
+                                                onChange={(e) => setNewExpenses((prev) => prev.map((x, i) => i === idx ? { ...x, price: e.target.value } : x))}
+                                                className="w-24 px-2 py-1 text-[11px] border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-violet-400"
+                                              />
+                                              {newExpenses.length > 1 && (
+                                                <button
+                                                  onClick={() => setNewExpenses((prev) => prev.filter((_, i) => i !== idx))}
+                                                  className="text-[11px] text-red-500 hover:text-red-700 px-1"
+                                                >
+                                                  ✕
+                                                </button>
+                                              )}
+                                            </div>
+                                          ))}
+                                          <div className="flex items-center gap-2 mt-2">
+                                            <button
+                                              onClick={() => setNewExpenses((prev) => [...prev, { name: "", price: "" }])}
+                                              className="px-2 py-1 text-[11px] rounded-md border border-violet-300 text-violet-700 hover:bg-violet-100"
+                                            >
+                                              + Add Row
+                                            </button>
+                                            <button
+                                              disabled={addExpenseLoading}
+                                              onClick={() => handleAddExpense(it.commissionId)}
+                                              className="px-3 py-1 text-[11px] rounded-md bg-violet-600 hover:bg-violet-700 text-white font-medium disabled:opacity-50"
+                                            >
+                                              {addExpenseLoading ? "Saving..." : "Save"}
+                                            </button>
+                                            <button
+                                              onClick={() => { setAddExpenseRow(null); setNewExpenses([{ name: "", price: "" }]); }}
+                                              className="px-2 py-1 text-[11px] rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100"
+                                            >
+                                              Cancel
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
                                     <div className="border-t border-gray-100 my-2" />
                                     {it.patientId && patientInfoMap[it.patientId]?.full && (() => {
                                       const full = patientInfoMap[it.patientId].full;

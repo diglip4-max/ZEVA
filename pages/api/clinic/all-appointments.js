@@ -6,6 +6,13 @@ import Room from "../../../models/Room"; // Import Room model
 import Service from "../../../models/Service"; // Import Service model
 import User from "../../../models/Users"; // Import User model
 import { getUserFromReq } from "../lead-ms/auth";
+import Service from "../../../models/Service";
+import Room from "../../../models/Room";
+import User from "../../../models/Users";
+
+void Service;
+void Room;
+void User;
 
 export default async function handler(req, res) {
   try {

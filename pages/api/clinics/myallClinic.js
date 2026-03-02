@@ -100,6 +100,15 @@ export default async function handler(req, res) {
         photo.startsWith("http") ? photo : `${getBaseUrl()}${photo}`
       );
     }
+    // Ensure documents URLs are absolute
+    if (clinic.documents && Array.isArray(clinic.documents)) {
+      clinic.documents = clinic.documents.map((doc) => {
+        if (!doc?.url) return doc;
+        const url = doc.url;
+        if (url.startsWith("http")) return doc;
+        return { ...doc, url: `${getBaseUrl()}${url}` };
+      });
+    }
     if (clinic.licenseDocumentUrl) {
       clinic.licenseDocumentUrl = clinic.licenseDocumentUrl.startsWith("http")
         ? clinic.licenseDocumentUrl

@@ -39,13 +39,6 @@ export default async function handler(req, res) {
       clinicId = me.clinicId;
     }
 
-    if (me.role !== "admin" && ["agent", "doctorStaff"].includes(me.role)) {
-      const { hasPermission, error } = await checkAgentPermission(me._id, "clinic_commission", "read");
-      if (!hasPermission && !(error && error.includes("not found in agent permissions"))) {
-        return res.status(403).json({ success: false, message: error || "No permission to view commissions" });
-      }
-    }
-
     const filter = { clinicId, staffId: me._id };
 
     const commissions = await Commission.find(filter)
@@ -93,4 +86,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ success: false, message: err.message || "Internal Server Error" });
   }
 }
-

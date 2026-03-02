@@ -28,6 +28,7 @@ interface Clinic {
     }>;
   }>;
   photos: (string | File)[];
+  documents?: Array<{ name: string; url?: string; file?: File }>;
   createdAt: string;
   slug: string;
   averageRating?: number;
@@ -84,6 +85,8 @@ function ClinicManagementDashboard() {
   const [newSubTreatmentPrice, setNewSubTreatmentPrice] = useState("");
   const [selectedTreatmentIndex, setSelectedTreatmentIndex] = useState<number | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [newDocName, setNewDocName] = useState<string>("");
+  const [newDocFile, setNewDocFile] = useState<File | null>(null);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState<number>(0);
   const [updating, setUpdating] = useState(false);
   const [availableTreatments, setAvailableTreatments] = useState<Treatment[]>([]);
@@ -338,6 +341,46 @@ function ClinicManagementDashboard() {
     setEditForm({});
   };
 
+  const handleAddDocument = () => {
+    if (!newDocName.trim() || !newDocFile) {
+      toast.error("Please provide document name and file");
+      return;
+    }
+    setEditForm((prev) => ({
+      ...prev,
+      documents: [
+        ...(prev.documents || []),
+        {
+          name: newDocName.trim(),
+          file: newDocFile,
+        } as any,
+      ],
+    }));
+    setNewDocName("");
+    setNewDocFile(null);
+    toast.success("Document added");
+  };
+
+  const handleRemoveExistingDocument = (index: number) => {
+    setEditForm((prev) => {
+      const docs = [...(prev.documents || [])];
+      if (index >= 0 && index < docs.length) {
+        docs.splice(index, 1);
+      }
+      return { ...prev, documents: docs };
+    });
+  };
+
+  const handleRenameExistingDocument = (index: number, value: string) => {
+    setEditForm((prev) => {
+      const docs = [...(prev.documents || [])];
+      if (docs[index]) {
+        docs[index] = { ...docs[index], name: value };
+      }
+      return { ...prev, documents: docs };
+    });
+  };
+
   // Handle update
   const handleUpdate = async () => {
     if (!editingClinicId) return;
@@ -366,6 +409,13 @@ function ClinicManagementDashboard() {
       const existingPhotos = (editForm.photos || [])
         .filter((p: any) => typeof p === "string" && String(p).trim().length > 0)
         .map((p: any) => toRelativeUploadPath(String(p)));
+      const existingDocuments =
+        (editForm.documents || [])
+          .filter((d: any) => d && typeof d.url === "string" && d.url.length > 0)
+          .map((d: any) => ({
+            name: d.name,
+            url: toRelativeUploadPath(String(d.url)),
+          }));
       const baseClinic = clinics[0] || ({} as any);
       const safeName = (editForm.name ?? baseClinic.name ?? "").trim();
       const safeAddress = (editForm.address ?? baseClinic.address ?? "").trim();
@@ -376,8 +426,13 @@ function ClinicManagementDashboard() {
         if (!filesToUploadMap.has(key)) filesToUploadMap.set(key, f);
       });
       const filesToUpload = Array.from(filesToUploadMap.values());
+      const documentFilesToUpload =
+        (editForm.documents || [])
+          .filter((d: any) => d && d.file instanceof File)
+          .map((d: any) => d.file as File);
       const hasFiles = filesToUpload.length > 0;
-      if (hasFiles) {
+      const hasDocFiles = documentFilesToUpload.length > 0;
+      if (hasFiles || hasDocFiles) {
         const form = new FormData();
         form.append("name", safeName);
         form.append("address", safeAddress);
@@ -388,7 +443,17 @@ function ClinicManagementDashboard() {
         if (editForm.treatments)
           form.append("treatments", JSON.stringify(editForm.treatments));
         form.append("existingPhotos", JSON.stringify(existingPhotos));
+        if (existingDocuments && existingDocuments.length > 0) {
+          form.append("existingDocuments", JSON.stringify(existingDocuments));
+        }
         filesToUpload.forEach((file) => form.append("photos", file));
+        // Append new documents with names
+        (editForm.documents || [])
+          .filter((d: any) => d && d.file instanceof File)
+          .forEach((d: any) => {
+            form.append("documents", d.file);
+            form.append("documentNames", d.name || d.file?.name || "Document");
+          });
         try {
           const response = await axios.put(
             `/api/clinics/${editingClinicId}`,
@@ -412,7 +477,16 @@ function ClinicManagementDashboard() {
             if (editForm.treatments)
               retryForm.append("treatments", JSON.stringify(editForm.treatments));
             retryForm.append("existingPhotos", JSON.stringify(existingPhotos));
+            if (existingDocuments && existingDocuments.length > 0) {
+              retryForm.append("existingDocuments", JSON.stringify(existingDocuments));
+            }
             filesToUpload.forEach((file) => retryForm.append("photos", file));
+            (editForm.documents || [])
+              .filter((d: any) => d && d.file instanceof File)
+              .forEach((d: any) => {
+                retryForm.append("documents", d.file);
+                retryForm.append("documentNames", d.name || d.file?.name || "Document");
+              });
             const response2 = await axios.put(
               `/api/clinics/${editingClinicId}`,
               retryForm,
@@ -441,6 +515,14 @@ function ClinicManagementDashboard() {
           ...(editForm.servicesName && { servicesName: editForm.servicesName }),
           ...(editForm.treatments && { treatments: editForm.treatments }),
           existingPhotos,
+          ...(editForm.documents && {
+            documents: (editForm.documents || [])
+              .filter((d: any) => typeof d.url === "string" && d.url.length > 0)
+              .map((d: any) => ({
+                name: d.name,
+                url: toRelativeUploadPath(String(d.url)),
+              })),
+          }),
         };
         try {
           const response = await axios.put(
@@ -1457,7 +1539,17 @@ function ClinicManagementDashboard() {
                                     }}
                                   />
                                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <Eye className="w-6 h-6 text-white" />
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setCurrentPhotoIndex(index);
+                                      }}
+                                      className="text-white hover:text-teal-300 transition-colors"
+                                      title="View photo"
+                                    >
+                                      {/* <Eye className="w-6 h-6" /> */}
+                                    </button>
                                   </div>
                                   <button
                                     type="button"
@@ -1471,9 +1563,6 @@ function ClinicManagementDashboard() {
                                   >
                                     <X className="w-3 h-3" />
                                   </button>
-                                  {index === currentPhotoIndex && (
-                                    <Eye className="absolute bottom-1 left-1 w-4 h-4 text-white" />
-                                  )}
                                 </div>
                               ))}
                             </div>
@@ -1482,6 +1571,86 @@ function ClinicManagementDashboard() {
                       )}
 
                       {/* Error messages are shown via toast popup only */}
+                    </div>
+                  </div>
+
+                  {/* Documents Section */}
+                  <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
+                    <h3 className="text-lg font-bold text-teal-900 mb-4 flex items-center gap-2">
+                      <svg className="w-5 h-5 text-teal-700" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M7 2a2 2 0 0 0-2 2v16l7-3 7 3V4a2 2 0 0 0-2-2H7z" />
+                      </svg>
+                      Add Documents
+                    </h3>
+                    <div className="space-y-4">
+                      {/* Add new document row */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <input
+                          type="text"
+                          placeholder="Document name"
+                          value={newDocName}
+                          onChange={(e) => setNewDocName(e.target.value)}
+                          className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm"
+                        />
+                        <input
+                          type="file"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0] || null;
+                            setNewDocFile(f);
+                          }}
+                          accept=".pdf,.doc,.docx,.txt,image/jpeg,image/jpg,image/png"
+                          className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddDocument}
+                          className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm"
+                        >
+                          Add Document
+                        </button>
+                      </div>
+
+                      {/* Existing and pending documents list */}
+                      {(editForm.documents && editForm.documents.length > 0) ? (
+                        <div className="space-y-2">
+                          {editForm.documents!.map((doc: any, idx: number) => (
+                            <div key={idx} className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded-lg">
+                              <input
+                                type="text"
+                                value={doc.name || ""}
+                                onChange={(e) => handleRenameExistingDocument(idx, e.target.value)}
+                                className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                              />
+                              {doc.url ? (
+                                <a
+                                  href={typeof doc.url === "string" ? doc.url : "#"}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-xs text-teal-700 underline"
+                                >
+                                  View
+                                </a>
+                              ) : doc.file ? (
+                                <span className="text-xs text-teal-700">
+                                  {(doc.file as File).name}
+                                </span>
+                              ) : null}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveExistingDocument(idx)}
+                                className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-teal-700">No documents added yet.</p>
+                      )}
+                      <p className="text-xs text-teal-600">
+                        Supported: PDF, DOC, DOCX, TXT, JPG, PNG. Documents save on Update Profile.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1679,6 +1848,65 @@ function ClinicManagementDashboard() {
                                   </div>
                                 </div>
                               )}
+                               {clinic.documents && clinic.documents.length > 0 && (
+                                 <div>
+                                   <h4 className="text-sm font-semibold text-teal-800 mb-2">
+                                     Documents
+                                   </h4>
+                                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                     {clinic.documents.map((doc: any, dIdx: number) => {
+                                       const url = String(doc?.url || "");
+                                       const isImage = /\.(jpg|jpeg|png)$/i.test(url);
+                                       return (
+                                         <div
+                                           key={dIdx}
+                                           className="border border-gray-200 rounded-lg overflow-hidden bg-white"
+                                         >
+                                           <a
+                                             href={url}
+                                             target="_blank"
+                                             rel="noreferrer"
+                                             className="block"
+                                           >
+                                             {isImage ? (
+                                               <img
+                                                 src={url}
+                                                 alt={doc?.name || `Document ${dIdx + 1}`}
+                                                 className="w-full h-28 object-cover object-center"
+                                                 onError={(e) => {
+                                                   const img = e.currentTarget as HTMLImageElement;
+                                                   img.onerror = null;
+                                                   img.src = PLACEHOLDER_DATA_URI;
+                                                 }}
+                                               />
+                                             ) : (
+                                               <div className="w-full h-28 flex items-center justify-center bg-gray-50 text-teal-700">
+                                                 <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                                   <path d="M14 2v6h6" />
+                                                 </svg>
+                                               </div>
+                                             )}
+                                           </a>
+                                           <div className="px-2 py-2">
+                                             <div className="text-xs font-medium text-teal-900 truncate">
+                                               {doc?.name || `Document ${dIdx + 1}`}
+                                             </div>
+                                             <a
+                                               href={url}
+                                               target="_blank"
+                                               rel="noreferrer"
+                                               className="text-[11px] text-teal-700 underline"
+                                             >
+                                               View
+                                             </a>
+                                           </div>
+                                         </div>
+                                       );
+                                     })}
+                                   </div>
+                                 </div>
+                               )}
                             </div>
 
                             {/* Right Column - Photos and Stats */}

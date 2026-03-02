@@ -35,6 +35,13 @@ const CommissionSchema = new mongoose.Schema(
     // Target-plus-expense commission fields
     amountAboveTarget: { type: Number, min: 0, default: 0 }, // Amount exceeding the target
     netCommissionableAmount: { type: Number, min: 0, default: 0 }, // Amount above target minus expenses
+    // Post-commission expense fields
+    commissionBaseAmount: { type: Number, min: 0, default: 0 }, // Base amount used for commission (paidAmount - billing expenses). Stored once at billing time.
+    postCommissionExpenses: {
+      type: [{ name: { type: String }, price: { type: Number }, addedAt: { type: Date, default: Date.now } }],
+      default: [],
+    }, // Additional expenses added after commission was calculated
+    finalCommissionAmount: { type: Number, min: 0, default: 0 }, // Recalculated commission after post-commission expenses. Initially equals commissionAmount.
   },
   { timestamps: true }
 );
