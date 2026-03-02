@@ -393,8 +393,14 @@ export default async function handler(req, res) {
         contractUrl, contractFrontUrl, contractBackUrl, contractType, baseSalary, commissionType, commissionPercentage,
         emergencyName, employeeVisaFrontUrl, employeeVisaBackUrl,
         targetMultiplier, targetAmount,
-        joiningDate, isActive
+        joiningDate, isActive,
+        otherDocuments
       } = req.body;
+
+      const clean = (s) =>
+        typeof s === 'string'
+          ? s.trim().replace(/^`+|`+$/g, '').replace(/^"+|"+$/g, '').replace(/^'+|'+$/g, '')
+          : s;
 
       // Update User fields
       if (name) agent.name = name;
@@ -416,16 +422,16 @@ export default async function handler(req, res) {
       if (relativePhone !== undefined) profile.relativePhone = relativePhone;
       if (idType !== undefined) profile.idType = idType;
       if (idNumber !== undefined) profile.idNumber = idNumber;
-      if (idDocumentUrl !== undefined) profile.idDocumentUrl = idDocumentUrl;
-      if (idDocumentFrontUrl !== undefined) profile.idDocumentFrontUrl = idDocumentFrontUrl;
-      if (idDocumentBackUrl !== undefined) profile.idDocumentBackUrl = idDocumentBackUrl;
+      if (idDocumentUrl !== undefined) profile.idDocumentUrl = clean(idDocumentUrl);
+      if (idDocumentFrontUrl !== undefined) profile.idDocumentFrontUrl = clean(idDocumentFrontUrl);
+      if (idDocumentBackUrl !== undefined) profile.idDocumentBackUrl = clean(idDocumentBackUrl);
       if (passportNumber !== undefined) profile.passportNumber = passportNumber;
-      if (passportDocumentUrl !== undefined) profile.passportDocumentUrl = passportDocumentUrl;
-      if (passportDocumentFrontUrl !== undefined) profile.passportDocumentFrontUrl = passportDocumentFrontUrl;
-      if (passportDocumentBackUrl !== undefined) profile.passportDocumentBackUrl = passportDocumentBackUrl;
-      if (contractUrl !== undefined) profile.contractUrl = contractUrl;
-      if (contractFrontUrl !== undefined) profile.contractFrontUrl = contractFrontUrl;
-      if (contractBackUrl !== undefined) profile.contractBackUrl = contractBackUrl;
+      if (passportDocumentUrl !== undefined) profile.passportDocumentUrl = clean(passportDocumentUrl);
+      if (passportDocumentFrontUrl !== undefined) profile.passportDocumentFrontUrl = clean(passportDocumentFrontUrl);
+      if (passportDocumentBackUrl !== undefined) profile.passportDocumentBackUrl = clean(passportDocumentBackUrl);
+      if (contractUrl !== undefined) profile.contractUrl = clean(contractUrl);
+      if (contractFrontUrl !== undefined) profile.contractFrontUrl = clean(contractFrontUrl);
+      if (contractBackUrl !== undefined) profile.contractBackUrl = clean(contractBackUrl);
       if (contractType !== undefined) profile.contractType = contractType;
       if (baseSalary !== undefined) profile.baseSalary = baseSalary;
       if (commissionType !== undefined) profile.commissionType = commissionType;
@@ -443,8 +449,15 @@ export default async function handler(req, res) {
       if (emergencyName !== undefined) profile.emergencyName = emergencyName;
       if (joiningDate !== undefined) profile.joiningDate = joiningDate;
       if (isActive !== undefined) profile.isActive = isActive;
-      if (employeeVisaFrontUrl !== undefined) profile.employeeVisaFrontUrl = employeeVisaFrontUrl;
-      if (employeeVisaBackUrl !== undefined) profile.employeeVisaBackUrl = employeeVisaBackUrl;
+      if (employeeVisaFrontUrl !== undefined) profile.employeeVisaFrontUrl = clean(employeeVisaFrontUrl);
+      if (employeeVisaBackUrl !== undefined) profile.employeeVisaBackUrl = clean(employeeVisaBackUrl);
+      if (otherDocuments !== undefined) {
+        profile.otherDocuments = Array.isArray(otherDocuments)
+          ? otherDocuments
+              .filter(d => d && typeof d.name === 'string' && typeof d.url === 'string')
+              .map(d => ({ name: d.name.trim(), url: clean(d.url) }))
+          : [];
+      }
 
       await profile.save();
       updatedProfile = profile;

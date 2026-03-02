@@ -1,5 +1,6 @@
 import dbConnect from "../../../lib/database";
 import Appointment from "../../../models/Appointment";
+import Service from "../../../models/Service";
 import Clinic from "../../../models/Clinic";
 import PatientRegistration from "../../../models/PatientRegistration";
 import User from "../../../models/Users";
@@ -148,6 +149,7 @@ export default async function handler(req, res) {
         .populate("patientId", "firstName lastName mobileNumber email invoiceNumber emrNumber gender")
         .populate("doctorId", "name email")
         .populate("roomId", "name")
+        .populate("serviceId", "name")
         .sort({ startDate: 1, fromTime: 1 })
         .lean();
 
@@ -266,6 +268,8 @@ export default async function handler(req, res) {
             ? apt.bookedFrom 
             : (apt.bookedFrom ? apt.bookedFrom : "doctor"), // Include booking source, default to "doctor" for old appointments without this field
           doctorTreatments: doctorTreatmentsMap[apt.doctorId?._id?.toString()] || [],
+          serviceId: apt.serviceId?._id?.toString() || null,
+          serviceName: apt.serviceId?.name || null,
           createdAt: apt.createdAt,
         })),
       });
@@ -501,6 +505,18 @@ export default async function handler(req, res) {
         bookedFrom: validBookedFrom, // Use validated value - explicitly set to override default
         customTimeSlots: req.body.customTimeSlots || undefined, // Save custom time slots if provided
       };
+      // Optional service selection
+      if (req.body.serviceId) {
+        try {
+          const svc = await Service.findOne({ _id: req.body.serviceId, clinicId }).select("_id").lean();
+          if (!svc) {
+            return res.status(400).json({ success: false, message: "Selected service not found for this clinic" });
+          }
+          appointmentData.serviceId = req.body.serviceId;
+        } catch {
+          return res.status(400).json({ success: false, message: "Invalid service selected" });
+        }
+      }
       console.log("💾 Appointment data being saved:", JSON.stringify(appointmentData, null, 2));
       
       const appointment = await Appointment.create(appointmentData);
@@ -519,6 +535,7 @@ export default async function handler(req, res) {
         .populate("patientId", "firstName lastName mobileNumber email invoiceNumber emrNumber gender")
         .populate("doctorId", "name email")
         .populate("roomId", "name")
+        .populate("serviceId", "name")
         .lean();
       
       console.log("📖 Populated appointment bookedFrom from DB:", populatedAppointment.bookedFrom);
@@ -566,6 +583,8 @@ export default async function handler(req, res) {
             ? populatedAppointment.bookedFrom 
             : validBookedFrom, // Use value from database, fallback to validated value
           doctorTreatments,
+          serviceId: populatedAppointment.serviceId?._id?.toString() || null,
+          serviceName: populatedAppointment.serviceId?.name || null,
           patientInvoiceNumber: populatedAppointment.patientId?.invoiceNumber || null,
           patientEmrNumber: populatedAppointment.patientId?.emrNumber || null,
           patientGender: populatedAppointment.patientId?.gender || null,

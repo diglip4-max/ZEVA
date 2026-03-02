@@ -55,14 +55,20 @@ function ServicesSetupPage() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: "info", text: "" });
 
-  const [name, setName] = useState("");
-  const [price, setPrice] = useState("");
-  const [durationMinutes, setDurationMinutes] = useState("");
+  const [departments, setDepartments] = useState([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(true);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
+  const [filterDepartmentId, setFilterDepartmentId] = useState("");
+  const [servicesBatch, setServicesBatch] = useState([
+    { name: "", price: "", durationMinutes: "", clinicPrice: "" },
+  ]);
 
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState("");
   const [editingPrice, setEditingPrice] = useState("");
   const [editingDuration, setEditingDuration] = useState("");
+  const [editingClinicPrice, setEditingClinicPrice] = useState("");
+  const [editingDepartmentId, setEditingDepartmentId] = useState("");
   const [editingActive, setEditingActive] = useState(true);
   const [updating, setUpdating] = useState(false);
 
@@ -114,7 +120,9 @@ function ServicesSetupPage() {
       return;
     }
     try {
-      const res = await axios.get("/api/clinic/services", { headers });
+      const params = {};
+      if (filterDepartmentId) params.departmentId = filterDepartmentId;
+      const res = await axios.get("/api/clinic/services", { headers, params });
       if (res.data.success) {
         setServices(res.data.services || []);
       } else {
@@ -135,11 +143,116 @@ function ServicesSetupPage() {
     }
   };
 
+  const loadDepartments = async () => {
+    const headers = getAuthHeaders();
+    if (!headers) {
+      setMessage({ type: "error", text: "Authentication required. Please log in again." });
+      return;
+    }
+    try {
+      setDepartmentsLoading(true);
+      const res = await axios.get("/api/clinic/departments", {
+        headers,
+        params: { module: MODULE_KEY },
+      });
+      if (res.data.success) {
+        setDepartments(res.data.departments || []);
+      } else {
+        const errorMsg = res.data.message || "Failed to load departments";
+        setMessage({ type: "error", text: errorMsg });
+        toast.error(errorMsg, { duration: 3000 });
+      }
+    } catch (error) {
+      const status = error.response?.status;
+      if (status !== 401 && status !== 403) {
+        const errorMsg = error.response?.data?.message || "Failed to load departments";
+        setMessage({ type: "error", text: errorMsg });
+        toast.error(errorMsg, { duration: 3000 });
+      }
+    } finally {
+      setDepartmentsLoading(false);
+    }
+  };
+
+  const handleAddRow = () => {
+    setServicesBatch((prev) => [...prev, { name: "", price: "", durationMinutes: "", clinicPrice: "" }]);
+  };
+
+  const handleRemoveRow = (index) => {
+    setServicesBatch((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRowChange = (index, field, value) => {
+    setServicesBatch((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, [field]: value } : row))
+    );
+  };
+
+  const handleCreateBatch = async (e) => {
+    e.preventDefault();
+    setMessage({ type: "info", text: "" });
+    if (!selectedDepartmentId) {
+      setMessage({ type: "error", text: "Please select a department" });
+      return;
+    }
+    const prepared = servicesBatch
+      .map((r) => ({
+        name: (r.name || "").trim(),
+        price: r.price,
+        durationMinutes: r.durationMinutes,
+        clinicPrice: r.clinicPrice === "" ? null : r.clinicPrice,
+      }))
+      .filter((r) => r.name);
+    if (prepared.length === 0) {
+      setMessage({ type: "error", text: "Please add at least one service" });
+      return;
+    }
+    const headers = getAuthHeaders();
+    if (!headers) {
+      setMessage({ type: "error", text: "Authentication required. Please log in again." });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await axios.post(
+        "/api/clinic/services",
+        {
+          departmentId: selectedDepartmentId,
+          items: prepared,
+        },
+        { headers }
+      );
+      if (res.data.success) {
+        const successMsg = res.data.message || "Services created";
+        setMessage({ type: "success", text: successMsg });
+        toast.success(successMsg, { duration: 3000 });
+        setServicesBatch([{ name: "", price: "", durationMinutes: "", clinicPrice: "" }]);
+        await loadServices();
+      } else {
+        const errorMsg = res.data.message || "Failed to create services";
+        setMessage({ type: "error", text: errorMsg });
+        toast.error(errorMsg, { duration: 3000 });
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || "Failed to create services";
+      setMessage({ type: "error", text: errorMessage });
+      toast.error(errorMessage, { duration: 3000 });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
 
 
   useEffect(() => {
     loadServices();
+    loadDepartments();
   }, []);
+
+  useEffect(() => {
+    // reload services on department filter change
+    loadServices();
+  }, [filterDepartmentId]);
 
   useEffect(() => {
     if (activeTab === "memberships") {
@@ -370,6 +483,8 @@ function ServicesSetupPage() {
           serviceSlug: slugify(editingName),
           price: parseFloat(editingPrice),
           durationMinutes: parseInt(editingDuration),
+          clinicPrice: editingClinicPrice === "" ? null : parseFloat(editingClinicPrice),
+          departmentId: editingDepartmentId || null,
           isActive: Boolean(editingActive),
         },
         { headers }
@@ -876,75 +991,124 @@ function ServicesSetupPage() {
                 </div>
               </div>
               
-              <form onSubmit={handleCreate} className="space-y-3">
+              <form onSubmit={handleCreateBatch} className="space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-teal-700 mb-1.5">
-                      Service Name
+                      Department
                     </label>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="e.g., Dental Cleaning"
+                    <select
+                      value={selectedDepartmentId}
+                      onChange={(e) => setSelectedDepartmentId(e.target.value)}
                       className="w-full border border-teal-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
+                      disabled={departmentsLoading}
                       required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-xs font-medium text-teal-700 mb-1.5">
-                      Price (AED)
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-sm">د.إ</span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
-                        placeholder="0.00"
-                        className="w-full border border-teal-200 rounded-lg pl-10 pr-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
-                        required
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-xs font-medium text-teal-700 mb-1.5">
-                      Duration (Minutes)
-                    </label>
-                    <input
-                      type="number"
-                      min="5"
-                      value={durationMinutes}
-                      onChange={(e) => setDurationMinutes(e.target.value)}
-                      placeholder="30"
-                      className="w-full border border-teal-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
-                      required
-                    />
+                    >
+                      <option value="" disabled>Select department</option>
+                      {departments.map((d) => (
+                        <option key={d._id} value={d._id}>{d.name}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
-                
-                <div className="flex justify-end">
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="px-4 py-2 bg-gradient-to-r from-teal-600 to-cyan-600 text-white text-xs font-medium rounded-lg hover:from-teal-700 hover:to-cyan-700 disabled:opacity-60 transition-all shadow-sm flex items-center gap-1.5"
-                  >
-                    {submitting ? (
-                      <>
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                        Creating...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-3 h-3" />
-                        Create Service
-                      </>
-                    )}
-                  </button>
+
+                <div className="space-y-2">
+                  {servicesBatch.map((row, idx) => (
+                    <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                      <div>
+                        <label className="block text-xs font-medium text-teal-700 mb-1.5">Service Name</label>
+                        <input
+                          type="text"
+                          value={row.name}
+                          onChange={(e) => handleRowChange(idx, "name", e.target.value)}
+                          placeholder="e.g., Dental Cleaning"
+                          className="w-full border border-teal-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-teal-700 mb-1.5">Price (AED)</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-sm">د.إ</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={row.price}
+                            onChange={(e) => handleRowChange(idx, "price", e.target.value)}
+                            placeholder="0.00"
+                            className="w-full border border-teal-200 rounded-lg pl-10 pr-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-teal-700 mb-1.5">Duration (Minutes)</label>
+                        <input
+                          type="number"
+                          min="5"
+                          value={row.durationMinutes}
+                          onChange={(e) => handleRowChange(idx, "durationMinutes", e.target.value)}
+                          placeholder="30"
+                          className="w-full border border-teal-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs"
+                          required
+                        />
+                      </div>
+                      <div className="flex gap-2 items-end">
+                        <div className="flex-1">
+                          <label className="block text-xs font-medium text-teal-700 mb-1.5">Clinic Price (AED)</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-sm">د.إ</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={row.clinicPrice}
+                              onChange={(e) => handleRowChange(idx, "clinicPrice", e.target.value)}
+                              placeholder="0.00"
+                              className="w-full border border-teal-200 rounded-lg pl-10 pr-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs"
+                            />
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveRow(idx)}
+                          disabled={servicesBatch.length === 1}
+                          className="h-10 px-3 bg-rose-100 text-rose-700 text-xs font-medium rounded-md hover:bg-rose-200 disabled:opacity-50"
+                          title="Remove row"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex justify-between">
+                    <button
+                      type="button"
+                      onClick={handleAddRow}
+                      className="px-3 py-2 bg-white text-teal-700 border border-teal-200 rounded-lg text-xs font-medium hover:bg-teal-50"
+                    >
+                      <Plus className="inline w-3 h-3 mr-1" />
+                      Add Service Row
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="px-4 py-2 bg-gradient-to-r from-teal-600 to-cyan-600 text-white text-xs font-medium rounded-lg hover:from-teal-700 hover:to-cyan-700 disabled:opacity-60 transition-all shadow-sm flex items-center gap-1.5"
+                    >
+                      {submitting ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-3 h-3" />
+                          Create Services
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </form>
             </div>
@@ -961,10 +1125,22 @@ function ServicesSetupPage() {
                     <p className="text-xs text-teal-600">Manage your clinic's service offerings</p>
                   </div>
                 </div>
-                <div className="px-3 py-1.5 bg-gradient-to-r from-teal-100 to-cyan-100 rounded-lg border border-teal-200">
-                  <span className="text-xs font-bold text-teal-700">
-                    {services.length} {services.length === 1 ? 'Service' : 'Services'}
-                  </span>
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:block px-3 py-1.5 bg-gradient-to-r from-teal-100 to-cyan-100 rounded-lg border border-teal-200">
+                    <span className="text-xs font-bold text-teal-700">
+                      {services.length} {services.length === 1 ? 'Service' : 'Services'}
+                    </span>
+                  </div>
+                  <select
+                    value={filterDepartmentId}
+                    onChange={(e) => setFilterDepartmentId(e.target.value)}
+                    className="px-3 py-1.5 text-xs font-medium bg-white border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-700"
+                  >
+                    <option value="">All Departments</option>
+                    {departments.map((d) => (
+                      <option key={d._id} value={d._id}>{d.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               
@@ -1004,9 +1180,15 @@ function ServicesSetupPage() {
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <h3 className="text-sm font-bold text-gray-900 mb-1 tracking-tight" style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>{s.name}</h3>
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${statusColor} shadow-xs`}>
                                   {statusText}
+                                </span>
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-teal-100 text-teal-700 shadow-xs">
+                                  {(() => {
+                                    const d = departments.find((dd) => dd._id === String(s.departmentId || ""));
+                                    return d ? d.name : "Unassigned";
+                                  })()}
                                 </span>
                               </div>
                             </div>
@@ -1030,6 +1212,18 @@ function ServicesSetupPage() {
                               <span className="text-xs font-medium text-gray-900">د.إ{Number(s.price || 0).toFixed(2)}</span>
                             </div>
                             
+                            {s.clinicPrice !== undefined && s.clinicPrice !== null && (
+                              <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                                <div className="flex items-center gap-1.5">
+                                  <div className="p-1.5 bg-teal-100 rounded-md">
+                                    <Package className="w-3.5 h-3.5 text-teal-600" />
+                                  </div>
+                                  <span className="text-[10px] text-gray-600 font-medium">Clinic Price</span>
+                                </div>
+                                <span className="text-xs font-medium text-gray-900">د.إ{Number(s.clinicPrice || 0).toFixed(2)}</span>
+                              </div>
+                            )}
+                            
                             <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                               <div className="flex items-center gap-1.5">
                                 <div className="p-1.5 bg-teal-100 rounded-md">
@@ -1038,6 +1232,21 @@ function ServicesSetupPage() {
                                 <span className="text-[10px] text-gray-600 font-medium">Duration</span>
                               </div>
                               <span className="text-xs font-medium text-gray-900">{s.durationMinutes} min</span>
+                            </div>
+                            
+                            <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                              <div className="flex items-center gap-1.5">
+                                <div className="p-1.5 bg-teal-100 rounded-md">
+                                  <Package className="w-3.5 h-3.5 text-teal-600" />
+                                </div>
+                                <span className="text-[10px] text-gray-600 font-medium">Department</span>
+                              </div>
+                              <span className="text-xs font-medium text-gray-900">
+                                {(() => {
+                                  const d = departments.find((dd) => dd._id === String(s.departmentId || ""));
+                                  return d ? d.name : "Unassigned";
+                                })()}
+                              </span>
                             </div>
                             
                             <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
@@ -1061,6 +1270,8 @@ function ServicesSetupPage() {
                                     setEditingName(s.name || "");
                                     setEditingPrice(String(s.price ?? ""));
                                     setEditingDuration(String(s.durationMinutes ?? ""));
+                                    setEditingClinicPrice(s.clinicPrice !== undefined && s.clinicPrice !== null ? String(s.clinicPrice) : "");
+                                    setEditingDepartmentId(s.departmentId ? String(s.departmentId) : "");
                                     setEditingActive(Boolean(s.isActive));
                                   }}
                                   className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-teal-100 text-teal-700 text-xs font-medium rounded-md hover:bg-teal-200 transition-colors"
@@ -1124,6 +1335,39 @@ function ServicesSetupPage() {
                                       className="w-full border border-teal-200 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
                                       style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}
                                     />
+                                  </div>
+                                  
+                                  <div>
+                                    <label className="block text-[10px] font-medium text-teal-700 mb-1">
+                                      Department
+                                    </label>
+                                    <select
+                                      value={editingDepartmentId}
+                                      onChange={(e) => setEditingDepartmentId(e.target.value)}
+                                      className="w-full border border-teal-200 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
+                                    >
+                                      <option value="">Unassigned</option>
+                                      {departments.map((d) => (
+                                        <option key={d._id} value={d._id}>{d.name}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  
+                                  <div>
+                                    <label className="block text-[10px] font-medium text-teal-700 mb-1">
+                                      Clinic Price (AED)
+                                    </label>
+                                    <div className="relative">
+                                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-xs">د.إ</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={editingClinicPrice}
+                                        onChange={(e) => setEditingClinicPrice(e.target.value)}
+                                        className="w-full border border-teal-200 rounded-lg pl-6 pr-2 py-1.5 text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
+                                      />
+                                    </div>
                                   </div>
                                   
                                   <div className="flex items-center justify-between pt-2">
