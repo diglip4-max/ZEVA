@@ -89,7 +89,7 @@ export default async function handler(req, res) {
           select: "doctorId",
           populate: { path: "doctorId", model: User, select: "name role" },
         },
-        { path: "billingId", model: Billing, select: "invoiceNumber invoicedDate service treatment package paid pending advance advanceUsed pendingUsed isFreeConsultation freeConsultationCount membershipDiscountApplied originalAmount selectedPackageTreatments" },
+        { path: "billingId", model: Billing, select: "invoiceNumber invoicedDate service treatment package paid pending advance advanceUsed pendingUsed isFreeConsultation freeConsultationCount membershipDiscountApplied originalAmount selectedPackageTreatments expenses expenseTotal" },
       ])
       .lean();
 
@@ -130,6 +130,9 @@ export default async function handler(req, res) {
       }, {});
     }
 
+    // Build complaint expense data per commission from the stored expenseBreakdown on each
+    // Commission record. This avoids the appointmentId-collision problem where two billings
+    // for the same appointment would aggregate each other's complaints.
     const items = commissions.map((c) => {
       const patient = c.patientId || {};
       const appointment = c.appointmentId || {};
@@ -137,6 +140,27 @@ export default async function handler(req, res) {
       const billing = c.billingId || {};
       const pid = patient?._id ? String(patient._id) : null;
       const balance = pid ? balancesByPatient[pid] || { pendingBalance: 0, advanceBalance: 0 } : { pendingBalance: 0, advanceBalance: 0 };
+
+      // Use the expenseBreakdown stored on this specific Commission record at billing time.
+      // Each item in expenseBreakdown has: { items: [{ name, quantity, uom, totalAmount }], complaintTotal }
+      // Flatten all items across all complaint entries for display.
+      const storedBreakdown = Array.isArray(c.expenseBreakdown) ? c.expenseBreakdown : [];
+      const complaintExpenseItems = [];
+      let complaintExpenseTotal = 0;
+      for (const entry of storedBreakdown) {
+        const entryItems = Array.isArray(entry.items) ? entry.items : [];
+        for (const it of entryItems) {
+          complaintExpenseItems.push({
+            name: it.name || "",
+            quantity: Number(it.quantity || 0),
+            uom: it.uom || "",
+            totalAmount: Number(it.totalAmount || 0),
+          });
+          complaintExpenseTotal += Number(it.totalAmount || 0);
+        }
+      }
+      complaintExpenseTotal = Number(complaintExpenseTotal.toFixed(2));
+
       return {
         patientId: pid,
         commissionId: c._id.toString(),
@@ -157,8 +181,15 @@ export default async function handler(req, res) {
         membershipDiscountApplied: Number(billing.membershipDiscountApplied || 0),
         originalAmount: Number(billing.originalAmount || 0),
         selectedPackageTreatments: Array.isArray(billing.selectedPackageTreatments) ? billing.selectedPackageTreatments : [],
+        expenseTotal: Number(billing.expenseTotal || 0),
+        expenses: Array.isArray(billing.expenses) ? billing.expenses.map((e) => ({ name: e.name, amount: Number(e.amount || 0) })) : [],
+        complaintExpenseTotal,
+        complaintExpenses: complaintExpenseItems,
         commissionPercent: Number(c.commissionPercent || 0),
         commissionAmount: Number(c.commissionAmount || 0),
+        commissionBaseAmount: Number(c.commissionBaseAmount || 0),
+        postCommissionExpenses: Array.isArray(c.postCommissionExpenses) ? c.postCommissionExpenses.map((e) => ({ name: e.name, price: Number(e.price || 0), addedAt: e.addedAt })) : [],
+        finalCommissionAmount: Number(c.finalCommissionAmount || c.commissionAmount || 0),
         doctorName: doctor.name || "",
       };
     });

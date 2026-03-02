@@ -17,6 +17,18 @@ const ClinicSchema = new mongoose.Schema(
     timings: String,
     photos: [String],
     licenseDocumentUrl: { type: String, default: null },
+    documents: {
+      type: [
+        new mongoose.Schema(
+          {
+            name: { type: String, required: true, trim: true },
+            url: { type: String, required: true, trim: true },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
     location: {
       type: { type: String, enum: ["Point"], default: "Point" },
       coordinates: { type: [Number], required: true },
@@ -44,4 +56,7 @@ ClinicSchema.index({
 
 
 
-export default mongoose.models.Clinic || mongoose.model("Clinic", ClinicSchema);
+if (mongoose.models.Clinic) {
+  delete mongoose.models.Clinic;
+}
+export default mongoose.model("Clinic", ClinicSchema);

@@ -6,10 +6,13 @@ import path from "path";
 import fs from "fs";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 
-// Configure multer for file upload
+// Configure multer for file upload (photos + documents)
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadPath = path.join(process.cwd(), "public/uploads/clinic");
+    let uploadPath = path.join(process.cwd(), "public/uploads/clinic");
+    if (file.fieldname === "documents") {
+      uploadPath = path.join(process.cwd(), "public/uploads/clinic/documents");
+    }
     if (!fs.existsSync(uploadPath)) {
       fs.mkdirSync(uploadPath, { recursive: true });
     }
@@ -17,27 +20,51 @@ const storage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, "clinic-" + uniqueSuffix + path.extname(file.originalname));
+    const base =
+      file.fieldname === "documents" ? "doc-" : "clinic-";
+    cb(null, base + uniqueSuffix + path.extname(file.originalname));
   },
 });
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
   fileFilter: function (req, file, cb) {
-    // Only accept JPG and PNG formats
-    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-    const allowedExtensions = /jpeg|jpg|png/;
-    const extname = allowedExtensions.test(
-      path.extname(file.originalname).toLowerCase()
-    );
-    const mimetype = allowedMimeTypes.includes(file.mimetype);
-
-    if (mimetype && extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error(`File type "${file.mimetype}" is not allowed. Only JPG and PNG formats are allowed.`));
+    const ext = path.extname(file.originalname).toLowerCase();
+    const mime = file.mimetype;
+    if (file.fieldname === "photos") {
+      const allowedMimeTypes = ["image/jpeg", "image/jpg", "image/png"];
+      const allowedExtensions = /jpeg|jpg|png/;
+      const extname = allowedExtensions.test(ext);
+      const mimetype = allowedMimeTypes.includes(mime);
+      if (mimetype && extname) return cb(null, true);
+      return cb(
+        new Error(
+          `File type "${mime}" is not allowed for photos. Only JPG and PNG formats are allowed.`
+        )
+      );
     }
+    if (file.fieldname === "documents") {
+      const allowedDocMimes = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "text/plain",
+      ];
+      const allowedDocExt = /pdf|doc|docx|jpeg|jpg|png|txt/;
+      const extname = allowedDocExt.test(ext.replace(".", ""));
+      const mimetype = allowedDocMimes.includes(mime);
+      if (mimetype && extname) return cb(null, true);
+      return cb(
+        new Error(
+          `File type "${mime}" is not allowed for documents. Allowed: PDF, DOC, DOCX, JPG, PNG, TXT.`
+        )
+      );
+    }
+    return cb(new Error("Unexpected upload field"));
   },
 });
 
@@ -197,6 +224,23 @@ export default async function handler(req, res) {
           return `${getBaseUrl()}/uploads/clinic/${photo}`;
         });
       }
+      // Ensure documents URLs are absolute
+      if (clinic.documents && Array.isArray(clinic.documents)) {
+        clinic.documents = clinic.documents.map((doc) => {
+          if (!doc?.url) return doc;
+          const url = doc.url;
+          if (url.startsWith("http://") || url.startsWith("https://")) return doc;
+          if (url.includes("uploads/")) {
+            const idx = url.indexOf("uploads/");
+            const rel = "/" + url.substring(idx);
+            return { ...doc, url: `${getBaseUrl()}${rel}` };
+          }
+          if (url.startsWith("/")) {
+            return { ...doc, url: `${getBaseUrl()}${url}` };
+          }
+          return { ...doc, url: `${getBaseUrl()}/uploads/clinic/documents/${url}` };
+        });
+      }
       if (clinic.licenseDocumentUrl) {
         clinic.licenseDocumentUrl = clinic.licenseDocumentUrl.startsWith("http")
           ? clinic.licenseDocumentUrl
@@ -305,12 +349,29 @@ export default async function handler(req, res) {
 
       // Handle multiple file uploads if present
       let uploadedPhotoPaths = [];
+      let uploadedDocumentPaths = [];
       if (req.headers["content-type"]?.includes("multipart/form-data")) {
         try {
-          await runMiddleware(req, res, upload.array("photos", 10)); // Allow up to 10 photos
-          if (req.files && Array.isArray(req.files) && req.files.length > 0) {
-            uploadedPhotoPaths = req.files.map((file) => `/uploads/clinic/${file.filename}`);
+          await runMiddleware(
+            req,
+            res,
+            upload.fields([
+              { name: "photos", maxCount: 10 },
+              { name: "documents", maxCount: 20 },
+            ])
+          );
+          const files = req.files || {};
+          const photoFiles = Array.isArray(files.photos) ? files.photos : [];
+          const documentFiles = Array.isArray(files.documents) ? files.documents : [];
+          if (photoFiles.length > 0) {
+            uploadedPhotoPaths = photoFiles.map((file) => `/uploads/clinic/${file.filename}`);
             console.log("📸 Files uploaded:", uploadedPhotoPaths);
+          }
+          if (documentFiles.length > 0) {
+            uploadedDocumentPaths = documentFiles.map(
+              (file) => `/uploads/clinic/documents/${file.filename}`
+            );
+            console.log("📄 Documents uploaded:", uploadedDocumentPaths);
           }
         } catch (uploadError) {
           console.error("File upload error:", uploadError);
@@ -417,6 +478,25 @@ export default async function handler(req, res) {
         existingPhotosFromClient = updateData.existingPhotos;
       }
 
+      // Documents: parse existingDocuments and documentNames
+      let existingDocumentsFromClient = null;
+      if (typeof updateData.existingDocuments === "string") {
+        try {
+          existingDocumentsFromClient = JSON.parse(updateData.existingDocuments);
+        } catch {
+          existingDocumentsFromClient = [];
+        }
+      } else if (Array.isArray(updateData.existingDocuments)) {
+        existingDocumentsFromClient = updateData.existingDocuments;
+      }
+
+      let documentNames = [];
+      if (typeof updateData.documentNames === "string") {
+        documentNames = [updateData.documentNames];
+      } else if (Array.isArray(updateData.documentNames)) {
+        documentNames = updateData.documentNames;
+      }
+
       if (typeof updateData.location === "string") {
         try {
           updateData.location = JSON.parse(updateData.location);
@@ -464,6 +544,38 @@ export default async function handler(req, res) {
           }
         });
         updateData.photos = allPhotos;
+      }
+
+      // Documents merging and cleanup
+      if (existingDocumentsFromClient) {
+        const oldDocs = Array.isArray(existingClinic.documents) ? existingClinic.documents : [];
+        const desiredDocs = Array.isArray(existingDocumentsFromClient) ? existingDocumentsFromClient : [];
+        const removedDocs = oldDocs.filter(
+          (d) => !desiredDocs.some((nd) => nd.url === d.url)
+        );
+        removedDocs.forEach((doc) => {
+          if (doc?.url && doc.url.startsWith("/uploads/clinic/documents/")) {
+            const fullPath = path.join(process.cwd(), "public", doc.url);
+            try {
+              fs.unlinkSync(fullPath);
+            } catch (err) {}
+          }
+        });
+        updateData.documents = desiredDocs;
+      }
+
+      if (uploadedDocumentPaths.length > 0) {
+        const baseDocs = Array.isArray(updateData.documents)
+          ? updateData.documents
+          : Array.isArray(existingClinic.documents)
+          ? existingClinic.documents
+          : [];
+        const newDocs = uploadedDocumentPaths.map((url, idx) => ({
+          name: documentNames[idx] || `Document ${idx + 1}`,
+          url,
+        }));
+        const allDocs = [...baseDocs, ...newDocs];
+        updateData.documents = allDocs;
       }
 
       // Remove undefined/empty fields
@@ -541,6 +653,23 @@ export default async function handler(req, res) {
           }
           // Otherwise, prepend /uploads/clinic/ if it looks like a filename
           return `${getBaseUrl()}/uploads/clinic/${photo}`;
+        });
+      }
+      // Ensure documents URLs are absolute
+      if (updatedClinic && updatedClinic.documents && Array.isArray(updatedClinic.documents)) {
+        updatedClinic.documents = updatedClinic.documents.map((doc) => {
+          if (!doc?.url) return doc;
+          const url = doc.url;
+          if (url.startsWith("http://") || url.startsWith("https://")) return doc;
+          if (url.includes("uploads/")) {
+            const idx = url.indexOf("uploads/");
+            const rel = "/" + url.substring(idx);
+            return { ...doc, url: `${getBaseUrl()}${rel}` };
+          }
+          if (url.startsWith("/")) {
+            return { ...doc, url: `${getBaseUrl()}${url}` };
+          }
+          return { ...doc, url: `${getBaseUrl()}/uploads/clinic/documents/${url}` };
         });
       }
       if (updatedClinic && updatedClinic.licenseDocumentUrl) {

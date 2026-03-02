@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import NotificationBell from './NotificationBell';
 
@@ -26,6 +27,8 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
     commissionAmount: number;
     doctorName: string;
   }>>([]);
+  const walletBtnRef = useRef<HTMLButtonElement | null>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
 
   const handleLogout = () => {
     localStorage.removeItem('agentToken');
@@ -96,9 +99,34 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
     loadCommissions();
   }, [loadCommissions]);
 
-  const toggleWallet = () => {
-    setWalletOpen((prev) => !prev);
+  const computeDropdownPos = () => {
+    if (typeof window === 'undefined') return;
+    const btn = walletBtnRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const top = rect.bottom + 8;
+    const right = Math.max(8, window.innerWidth - rect.right);
+    setDropdownPos({ top, right });
   };
+
+  const toggleWallet = () => {
+    setWalletOpen((prev) => {
+      const next = !prev;
+      if (!prev) computeDropdownPos();
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (!walletOpen) return;
+    const handler = () => computeDropdownPos();
+    window.addEventListener('resize', handler);
+    window.addEventListener('scroll', handler, true);
+    return () => {
+      window.removeEventListener('resize', handler);
+      window.removeEventListener('scroll', handler, true);
+    };
+  }, [walletOpen]);
 
 
 
@@ -160,6 +188,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
           {/* Wallet */}
           <div className="relative">
             <button
+              ref={walletBtnRef}
               onClick={toggleWallet}
               className="relative p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 flex-shrink-0"
               aria-label="Commission Wallet"
@@ -175,46 +204,59 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                 </span>
               )}
             </button>
-            {walletOpen && (
-              <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white border border-gray-200 rounded-lg shadow-xl z-50">
-                <div className="px-3 py-2 border-b">
-                  <div className="flex items-center justify-between">
-                    <div className="text-xs font-semibold text-gray-900">Your Commissions</div>
-                    <div className="text-xs text-teal-700 font-semibold">Total ₹ {Number(totalCommission || 0).toFixed(2)}</div>
+            {walletOpen &&
+              typeof window !== 'undefined' &&
+              createPortal(
+                <>
+                  <div
+                    className="fixed inset-0 z-[9998]"
+                    onClick={() => setWalletOpen(false)}
+                  />
+                  <div
+                    className="fixed z-[9999] w-[22rem] sm:w-[24rem] bg-white border border-gray-200 rounded-lg shadow-2xl"
+                    style={{ top: dropdownPos.top, right: dropdownPos.right, maxWidth: '92vw' }}
+                  >
+                    <div className="px-3 py-2 border-b">
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs font-semibold text-gray-900">Your Commissions</div>
+                        <div className="text-xs text-teal-700 font-semibold">Total ₹ {Number(totalCommission || 0).toFixed(2)}</div>
+                      </div>
+                    </div>
+                    <div className="max-h-80 overflow-auto">
+                      {commissionItems.length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-gray-600">No commissions yet</div>
+                      ) : (
+                        <ul className="divide-y divide-gray-100">
+                          {commissionItems.map((it) => (
+                            <li key={it.commissionId} className="px-3 py-2">
+                              <div className="flex items-center justify-between">
+                                <div className="text-xs text-gray-900">{it.patientName || '—'}</div>
+                                <div className="text-[10px] text-gray-500">{it.invoiceNumber || '—'}</div>
+                              </div>
+                              <div className="mt-0.5 flex items-center justify-between">
+                                <div className="text-[10px] text-gray-700">
+                                  Paid ₹ {Number(it.paidAmount || 0).toFixed(2)} • {Number(it.commissionPercent || 0)}%
+                                </div>
+                                <div className="text-[10px] bg-teal-50 text-teal-800 px-2 py-0.5 rounded">
+                                  Commission ₹ {Number(it.commissionAmount || 0).toFixed(2)}
+                                </div>
+                              </div>
+                              <div className="mt-0.5 text-[10px] text-gray-500">
+                                {it.doctorName ? `Doctor: ${it.doctorName}` : ''}
+                              </div>
+                              <div className="mt-0.5 text-[10px] text-gray-500">
+                                {it.invoicedDate ? new Date(it.invoicedDate).toLocaleDateString() : ''}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div className="max-h-80 overflow-auto">
-                  {commissionItems.length === 0 ? (
-                    <div className="px-3 py-2 text-xs text-gray-600">No commissions yet</div>
-                  ) : (
-                    <ul className="divide-y divide-gray-100">
-                      {commissionItems.map((it) => (
-                        <li key={it.commissionId} className="px-3 py-2">
-                          <div className="flex items-center justify-between">
-                            <div className="text-xs text-gray-900">{it.patientName || '—'}</div>
-                            <div className="text-[10px] text-gray-500">{it.invoiceNumber || '—'}</div>
-                          </div>
-                          <div className="mt-0.5 flex items-center justify-between">
-                            <div className="text-[10px] text-gray-700">
-                              Paid ₹ {Number(it.paidAmount || 0).toFixed(2)} • {Number(it.commissionPercent || 0)}%
-                            </div>
-                            <div className="text-[10px] bg-teal-50 text-teal-800 px-2 py-0.5 rounded">
-                              Commission ₹ {Number(it.commissionAmount || 0).toFixed(2)}
-                            </div>
-                          </div>
-                          <div className="mt-0.5 text-[10px] text-gray-500">
-                            {it.doctorName ? `Doctor: ${it.doctorName}` : ''}
-                          </div>
-                          <div className="mt-0.5 text-[10px] text-gray-500">
-                            {it.invoicedDate ? new Date(it.invoicedDate).toLocaleDateString() : ''}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-            )}
+                </>,
+                document.body
+              )
+            }
           </div>
           <div className="hidden sm:block">
             <NotificationBell />

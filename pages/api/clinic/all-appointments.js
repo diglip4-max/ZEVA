@@ -3,6 +3,13 @@ import Appointment from "../../../models/Appointment";
 import Clinic from "../../../models/Clinic";
 import PatientRegistration from "../../../models/PatientRegistration";
 import { getUserFromReq } from "../lead-ms/auth";
+import Service from "../../../models/Service";
+import Room from "../../../models/Room";
+import User from "../../../models/Users";
+
+void Service;
+void Room;
+void User;
 
 export default async function handler(req, res) {
   await dbConnect();
