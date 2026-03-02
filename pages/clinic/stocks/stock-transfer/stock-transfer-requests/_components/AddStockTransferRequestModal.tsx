@@ -4,10 +4,9 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import useClinicBranches from "@/hooks/useClinicBranches";
 import { getTokenByPath } from "@/lib/helper";
-import { PlusCircle, X, Plus, Trash2 } from "lucide-react";
-import useUoms from "@/hooks/useUoms";
-import useStockItems from "@/hooks/useStockItems";
+import { PlusCircle, X, Plus, Trash2, ChevronDown } from "lucide-react";
 import useAgents from "@/hooks/useAgents";
+import useAllocatedItems from "@/hooks/useAllocatedItems";
 
 interface Props {
   isOpen: boolean;
@@ -18,6 +17,7 @@ interface Props {
 interface StockTransferItem {
   code?: string;
   itemId?: string;
+  allocatedStockItemId?: string;
   name: string;
   description: string;
   quantity: number;
@@ -33,14 +33,12 @@ const AddStockTransferRequestModal: React.FC<Props> = ({
   onSuccess,
 }) => {
   const { clinicBranches } = useClinicBranches();
-  const { agents } = useAgents({ role: "agent" })?.state || {};
   const { agents: doctors } = useAgents({ role: "doctorStaff" })?.state || {};
-  const { stockItems } = useStockItems();
   const token = getTokenByPath() || "";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const requestingEmployees = [...(agents || []), ...(doctors || [])];
+  const requestingEmployees = [...(doctors || [])];
 
   // Form state
   const [formData, setFormData] = useState({
@@ -52,6 +50,11 @@ const AddStockTransferRequestModal: React.FC<Props> = ({
     notes: "",
   });
 
+  const [isAllocatedDropdownOpen, setIsAllocatedDropdownOpen] =
+    useState<boolean>(false);
+  const [allocatedSearch, setAllocatedSearch] = useState<string>("");
+  const allocatedDropdownRef = React.useRef<HTMLDivElement | null>(null);
+
   // Items state
   const [items, setItems] = useState<StockTransferItem[]>([]);
 
@@ -59,6 +62,7 @@ const AddStockTransferRequestModal: React.FC<Props> = ({
   const [currentItem, setCurrentItem] = useState<StockTransferItem>({
     code: "",
     itemId: "",
+    allocatedStockItemId: "",
     name: "",
     description: "",
     quantity: 1,
@@ -66,10 +70,18 @@ const AddStockTransferRequestModal: React.FC<Props> = ({
     requestedQuantity: 1,
   });
 
-  const { uoms, loading: uomsLoading } = useUoms({
-    token,
-    branchId: formData.requestingBranch || formData.fromBranch || "",
+  // fetch allocated stock items
+  const {
+    allocatedItems,
+    loading: fetchAllocatedItemsLoading,
+    // fetchAllocatedItems,
+  } = useAllocatedItems({
+    // @ts-ignore
+    userId: formData.requestingEmployee || "",
+    search: "",
   });
+
+  console.log({ allocatedItems });
 
   useEffect(() => {
     if (!isOpen) {
@@ -111,18 +123,19 @@ const AddStockTransferRequestModal: React.FC<Props> = ({
     field: keyof StockTransferItem,
     value: any,
   ) => {
-    if (field === "itemId") {
-      const item = stockItems.find((i) => i._id === value);
-      const selectedUOM = uoms.find((u) => u?.name === item?.level0?.uom);
-      if (item) {
-        setCurrentItem((prev) => ({
-          ...prev,
-          code: item.code,
-          name: item.name,
-          uom: selectedUOM ? selectedUOM.name : "",
-        }));
-      }
-    }
+    // if (field === "itemId") {
+    //   const item = stockItems.find((i) => i._id === value);
+    //   const selectedUOM = uoms.find((u) => u?.name === item?.level0?.uom);
+    //   if (item) {
+    //     setCurrentItem((prev) => ({
+    //       ...prev,
+    //       code: item.code,
+    //       name: item.name,
+    //       uom: selectedUOM ? selectedUOM.name : "",
+    //       allocatedStockItemId: "",
+    //     }));
+    //   }
+    // }
     setCurrentItem((prev) => ({
       ...prev,
       [field]: value,
@@ -162,10 +175,6 @@ const AddStockTransferRequestModal: React.FC<Props> = ({
     const updatedItems = [...items];
     updatedItems.splice(index, 1);
     setItems(updatedItems);
-  };
-
-  const resetItems = () => {
-    setItems([]);
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -236,8 +245,23 @@ const AddStockTransferRequestModal: React.FC<Props> = ({
     onClose();
   };
 
+  const selectedAllocatedItem: any =
+    allocatedItems.find(
+      (si: any) => si._id === currentItem.allocatedStockItemId,
+    ) || null;
+
+  const availableForSelectedUom: number =
+    selectedAllocatedItem?.quantitiesByUom?.find(
+      (q: any) => q?.uom === currentItem.uom,
+    )?.quantity ?? 0;
+  const exceedsAvailable =
+    !!currentItem.uom &&
+    typeof currentItem.quantity === "number" &&
+    currentItem.quantity > availableForSelectedUom &&
+    availableForSelectedUom > 0;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="bg-gray-800 px-4 py-3 flex justify-between items-center">
@@ -379,228 +403,342 @@ const AddStockTransferRequestModal: React.FC<Props> = ({
             </div>
 
             {/* Items Section */}
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="text-base font-bold text-gray-900">
-                    Transfer Items <span className="text-red-500">*</span>
-                  </h3>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Add items for this transfer request
-                  </p>
-                </div>
-              </div>
-
-              {/* Item Form */}
-              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                  {/* Item Name */}
-                  <div className="sm:col-span-3 space-y-1">
-                    <label className="block text-xs font-bold text-gray-900">
-                      Item Name <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={currentItem.itemId || ""}
-                      onChange={(e) =>
-                        handleCurrentItemChange("itemId", e.target.value)
-                      }
-                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all h-10"
-                      required
-                    >
-                      <option value="">Select a Item</option>
-                      {stockItems?.map((item: any) => (
-                        <option key={item?._id} value={item?._id}>
-                          {item?.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Description */}
-                  <div className="sm:col-span-3 space-y-1">
-                    <label className="block text-xs font-bold text-gray-900">
-                      Item Description
-                    </label>
-                    <input
-                      type="text"
-                      value={currentItem.description || ""}
-                      onChange={(e) =>
-                        handleCurrentItemChange("description", e.target.value)
-                      }
-                      placeholder="Description"
-                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all h-10"
-                    />
-                  </div>
-
-                  {/* Quantity */}
-                  <div className="sm:col-span-2 space-y-1">
-                    <label className="block text-xs font-bold text-gray-900">
-                      Quantity <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={currentItem.quantity}
-                      onChange={(e) =>
-                        handleCurrentItemChange(
-                          "quantity",
-                          parseFloat(e.target.value) || 0,
-                        )
-                      }
-                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all h-10"
-                      placeholder="Qty"
-                      required
-                    />
-                  </div>
-
-                  {/* UOM */}
-                  <div className="sm:col-span-2 space-y-1">
-                    <label className="block text-xs font-bold text-gray-900">
-                      UOM <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={currentItem.uom || ""}
-                      onChange={(e) =>
-                        handleCurrentItemChange("uom", e.target.value)
-                      }
-                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all h-10"
-                      required
-                    >
-                      <option value="">Select UOM</option>
-                      {uomsLoading ? (
-                        <option value="">Loading UOMs...</option>
-                      ) : uoms.length > 0 ? (
-                        uoms.map((uom: any) => (
-                          <option key={uom._id} value={uom.name}>
-                            {uom.name}
-                          </option>
-                        ))
-                      ) : (
-                        <option value="">No UOMs available</option>
-                      )}
-                    </select>
-                  </div>
-
-                  {/* Add Item Button */}
-                  <div className="sm:col-span-12 flex justify-end gap-2 mt-2">
-                    <button
-                      type="button"
-                      onClick={resetItems}
-                      disabled={items.length === 0}
-                      className="inline-flex items-center px-3 py-2.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-gray-800/20 transition-all disabled:opacity-50"
-                    >
-                      Reset Items
-                    </button>
-                    <button
-                      type="button"
-                      onClick={addCurrentItem}
-                      disabled={
-                        !currentItem.name?.trim() ||
-                        !currentItem.quantity ||
-                        !currentItem.uom?.trim()
-                      }
-                      className="px-3 py-2.5 border border-transparent text-xs font-medium rounded-lg text-white bg-gray-800 hover:bg-gray-900 focus:ring-2 focus:ring-gray-800/20 transition-all disabled:opacity-50 flex items-center gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add Item
-                    </button>
+            {formData?.requestingEmployee && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900">
+                      Transfer Items <span className="text-red-500">*</span>
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Add items for this transfer request
+                    </p>
                   </div>
                 </div>
-              </div>
 
-              {/* Items Table */}
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-800">
-                      <tr>
-                        <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                          SI No
-                        </th>
-                        <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                          Item Name
-                        </th>
-                        <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                          Description
-                        </th>
-                        <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                          Quantity
-                        </th>
-                        <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                          UOM
-                        </th>
-                        <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                          Action
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {items.length === 0 ? (
-                        <tr>
-                          <td
-                            colSpan={6}
-                            className="px-3 py-8 text-sm text-center text-gray-500"
+                <div className="border border-blue-200 rounded-lg p-3 bg-white">
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                    <div
+                      className="sm:col-span-3 space-y-1"
+                      ref={allocatedDropdownRef}
+                    >
+                      <label className="block text-xs font-bold text-gray-900">
+                        Item <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <div
+                          className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed flex items-center justify-between cursor-pointer bg-white h-10"
+                          onClick={() =>
+                            setIsAllocatedDropdownOpen(!isAllocatedDropdownOpen)
+                          }
+                        >
+                          <span
+                            className={
+                              currentItem.itemId
+                                ? "text-gray-900"
+                                : "text-gray-400"
+                            }
                           >
-                            No Items Added
-                          </td>
+                            {allocatedItems.find(
+                              (si: any) =>
+                                si._id === currentItem.allocatedStockItemId,
+                            )?.item?.name || "Select an item"}
+                          </span>
+                          <ChevronDown
+                            className={`w-4 h-4 text-gray-500 transition-transform ${
+                              isAllocatedDropdownOpen ? "rotate-180" : ""
+                            }`}
+                          />
+                        </div>
+
+                        {isAllocatedDropdownOpen && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                            <div className="p-2 border-b border-gray-200">
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  placeholder="Search items..."
+                                  value={allocatedSearch}
+                                  onChange={(e) =>
+                                    setAllocatedSearch(e.target.value)
+                                  }
+                                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                                  autoFocus
+                                />
+                              </div>
+                            </div>
+
+                            {fetchAllocatedItemsLoading && (
+                              <div className="p-4 text-sm text-center text-gray-500">
+                                Loading items...
+                              </div>
+                            )}
+
+                            {!fetchAllocatedItemsLoading && (
+                              <>
+                                {allocatedItems.length === 0 ? (
+                                  <div className="p-4 text-center text-gray-500 text-sm">
+                                    {allocatedSearch
+                                      ? "No items found"
+                                      : "No items available"}
+                                  </div>
+                                ) : (
+                                  <ul className="py-1">
+                                    {allocatedItems
+                                      .filter((si: any) => {
+                                        const n = (
+                                          si.item?.name || ""
+                                        ).toLowerCase();
+                                        const c = (
+                                          si.item?.code || ""
+                                        ).toLowerCase();
+                                        const q = allocatedSearch.toLowerCase();
+                                        return n.includes(q) || c.includes(q);
+                                      })
+                                      .map((si: any) => (
+                                        <li
+                                          key={si._id}
+                                          className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
+                                          onClick={() => {
+                                            const it = si.item || {};
+                                            console.log({ it, si });
+                                            setCurrentItem((prev) => ({
+                                              ...prev,
+                                              code: it.code || "",
+                                              itemId: it?.itemId?._id || "",
+                                              allocatedStockItemId:
+                                                si._id || "",
+                                              name: it.name || "",
+                                              description: it.description || "",
+                                              uom: it.uom || prev.uom || "",
+                                            }));
+                                            console.log({ currentItem });
+                                            setIsAllocatedDropdownOpen(false);
+                                            setAllocatedSearch("");
+                                          }}
+                                        >
+                                          <div className="font-medium">
+                                            {si.item?.name || "-"}
+                                          </div>
+                                          {(si.item?.code ||
+                                            si.location?.name) && (
+                                            <div className="text-xs text-gray-500">
+                                              {si.item?.code
+                                                ? `Code: ${si.item.code}`
+                                                : ""}
+                                            </div>
+                                          )}
+                                        </li>
+                                      ))}
+                                  </ul>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="sm:col-span-3 space-y-1">
+                      <label className="block text-xs font-bold text-gray-900">
+                        Description
+                      </label>
+                      <input
+                        type="text"
+                        value={currentItem.description || ""}
+                        onChange={(e) =>
+                          handleCurrentItemChange("description", e.target.value)
+                        }
+                        placeholder="Description"
+                        className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 h-10"
+                      />
+                    </div>
+                    <div className="sm:col-span-3 space-y-1">
+                      <label className="block text-xs font-bold text-gray-900">
+                        Qty <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={availableForSelectedUom || undefined}
+                        value={currentItem.quantity}
+                        onChange={(e) => {
+                          const raw = Number(e.target.value) || 0;
+                          const max = availableForSelectedUom || 0;
+                          const clamped =
+                            max > 0 ? Math.min(raw, max) : Math.max(1, raw);
+                          handleCurrentItemChange("quantity", clamped);
+                        }}
+                        placeholder="Qty"
+                        className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 h-10"
+                      />
+                      {currentItem.uom && (
+                        <p className="text-xs text-gray-500">
+                          Available: {availableForSelectedUom} {currentItem.uom}
+                        </p>
+                      )}
+                      {exceedsAvailable && (
+                        <p className="text-xs text-red-600">
+                          Quantity exceeds available for selected UOM
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="sm:col-span-3 space-y-1">
+                      <label className="block text-xs font-bold text-gray-900">
+                        UOM <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={currentItem.uom || ""}
+                        onChange={(e) =>
+                          handleCurrentItemChange("uom", e.target.value)
+                        }
+                        className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 h-10"
+                      >
+                        <option value="">Select UOM</option>
+                        {!allocatedItems?.find(
+                          (i) => i?._id === currentItem?.allocatedStockItemId,
+                        ) ? (
+                          <option value="">Loading UOMs...</option>
+                        ) : allocatedItems?.find(
+                            (i) => i?._id === currentItem?.allocatedStockItemId,
+                          ) && currentItem ? (
+                          (
+                            allocatedItems?.find(
+                              (i) =>
+                                i?._id === currentItem?.allocatedStockItemId,
+                            )?.quantitiesByUom || []
+                          )?.map((i, index: number) => (
+                            <option key={index.toString()} value={i.uom}>
+                              {i.uom}
+                            </option>
+                          ))
+                        ) : (
+                          <></>
+                        )}
+                      </select>
+                    </div>
+                    <div className="sm:col-span-3 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setItems([]);
+                        }}
+                        disabled={
+                          items.length === 0 || !availableForSelectedUom
+                        }
+                        className="inline-flex items-center px-3 py-2.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Reset
+                      </button>
+                      <button
+                        type="button"
+                        onClick={addCurrentItem}
+                        disabled={
+                          !currentItem.name.trim() ||
+                          !currentItem.quantity ||
+                          !currentItem.uom ||
+                          exceedsAvailable
+                        }
+                        className="inline-flex items-center px-3 py-2.5 border border-transparent text-xs font-medium rounded-lg text-white bg-gray-800 hover:bg-gray-900"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Add Item
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                {/* Item Form */}
+
+                {/* Items Table */}
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-800">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                            SI No
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                            Item Name
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                            Description
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                            Quantity
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                            UOM
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                            Action
+                          </th>
                         </tr>
-                      ) : (
-                        items.map((item, index) => (
-                          <tr key={index} className="hover:bg-gray-50">
-                            <td className="px-3 py-2 text-sm text-gray-900">
-                              {index + 1}
-                            </td>
-                            <td className="px-3 py-2 text-sm text-gray-900 font-medium">
-                              {item.name}
-                            </td>
-                            <td className="px-3 py-2 text-sm text-gray-900">
-                              {item.description || "-"}
-                            </td>
-                            <td className="px-3 py-2 text-sm text-gray-900">
-                              {item.quantity}
-                            </td>
-                            <td className="px-3 py-2 text-sm text-gray-900">
-                              {item.uom}
-                            </td>
-                            <td className="px-3 py-2 text-sm">
-                              <button
-                                type="button"
-                                onClick={() => removeItem(index)}
-                                className="text-red-600 hover:text-red-900 transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {items.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={6}
+                              className="px-3 py-8 text-sm text-center text-gray-500"
+                            >
+                              No Items Added
                             </td>
                           </tr>
-                        ))
+                        ) : (
+                          items.map((item, index) => (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="px-3 py-2 text-sm text-gray-900">
+                                {index + 1}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900 font-medium">
+                                {item.name}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900">
+                                {item.description || "-"}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900">
+                                {item.quantity}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900">
+                                {item.uom}
+                              </td>
+                              <td className="px-3 py-2 text-sm">
+                                <button
+                                  type="button"
+                                  onClick={() => removeItem(index)}
+                                  className="text-red-600 hover:text-red-900 transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                      {items.length > 0 && (
+                        <tfoot className="bg-gray-50">
+                          <tr>
+                            <td
+                              colSpan={3}
+                              className="px-3 py-2 text-sm font-bold text-gray-900 text-right"
+                            >
+                              Total Items:
+                            </td>
+
+                            <td className="px-3 py-2 text-sm font-bold text-gray-900">
+                              {items.length}
+                            </td>
+                            <td></td>
+                          </tr>
+                        </tfoot>
                       )}
-                    </tbody>
-                    {items.length > 0 && (
-                      <tfoot className="bg-gray-50">
-                        <tr>
-                          <td
-                            colSpan={3}
-                            className="px-3 py-2 text-sm font-bold text-gray-900 text-right"
-                          >
-                            Total Items:
-                          </td>
-                          <td className="px-3 py-2 text-sm font-bold text-gray-900">
-                            {items.reduce(
-                              (sum, item) => sum + (item.quantity || 0),
-                              0,
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-sm font-bold text-gray-900">
-                            {items.length}
-                          </td>
-                          <td></td>
-                        </tr>
-                      </tfoot>
-                    )}
-                  </table>
+                    </table>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </form>
         </div>
 

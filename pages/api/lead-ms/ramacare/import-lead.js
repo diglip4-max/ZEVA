@@ -44,6 +44,8 @@ export default async function handler(req, res) {
     body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
   }
 
+  console.log({ body });
+
   let me = await getUserFromReq(req);
   if (!me && body.userEmail) {
     me = await User.findOne({ email: body.userEmail });

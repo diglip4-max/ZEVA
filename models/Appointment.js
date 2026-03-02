@@ -25,7 +25,20 @@ const AppointmentSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["booked", "enquiry", "Discharge", "Arrived" , "Consultation", "Cancelled", "Approved", "Rescheduled", "Waiting", "Rejected", "Completed", "invoice"],
+      enum: [
+        "booked",
+        "enquiry",
+        "Discharge",
+        "Arrived",
+        "Consultation",
+        "Cancelled",
+        "Approved",
+        "Rescheduled",
+        "Waiting",
+        "Rejected",
+        "Completed",
+        "invoice",
+      ],
       required: true,
       default: "booked",
     },
@@ -90,7 +103,7 @@ const AppointmentSchema = new mongoose.Schema(
       index: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // Indexes for faster queries
@@ -105,4 +118,3 @@ if (mongoose.models.Appointment) {
 }
 
 export default mongoose.model("Appointment", AppointmentSchema);
-

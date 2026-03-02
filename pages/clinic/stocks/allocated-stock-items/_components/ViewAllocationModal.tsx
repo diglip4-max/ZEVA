@@ -65,6 +65,8 @@ const ViewAllocationModal: React.FC<ViewAllocationModalProps> = ({
     onClose();
   };
 
+  const stock = data?.stockItem || data?.item?.itemId || data?.item || null;
+
   const statusLabel = (s?: string): string => {
     if (!s) return "-";
     if (s === "Issued") return "In Use";
@@ -168,18 +170,18 @@ const ViewAllocationModal: React.FC<ViewAllocationModalProps> = ({
               <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-xl p-5 border border-gray-200">
                 <div className="flex items-start gap-4">
                   <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg">
-                    {(data?.stockItem?.name || "?").charAt(0).toUpperCase()}
+                    {(stock?.name || "?").charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-start justify-between">
                       <div>
                         <h3 className="text-xl font-bold text-gray-900">
-                          {data?.stockItem?.name || "-"}
+                          {stock?.name || "-"}
                         </h3>
                         <div className="flex items-center gap-3 mt-1">
                           <span className="text-sm text-gray-500 flex items-center gap-1">
                             <Tag className="w-3.5 h-3.5" />
-                            Code: {data?.stockItem?.code || "-"}
+                            Code: {stock?.code || "-"}
                           </span>
                         </div>
                       </div>
@@ -196,19 +198,31 @@ const ViewAllocationModal: React.FC<ViewAllocationModalProps> = ({
 
               {/* Details Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow group">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-blue-50 rounded-lg group-hover:bg-blue-100 transition-colors">
-                      <Package className="w-5 h-5 text-blue-600" />
+                {Array.isArray(data?.quantitiesByUom) &&
+                  data.quantitiesByUom.length > 0 && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow group">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 bg-blue-50 rounded-lg group-hover:bg-blue-100 transition-colors">
+                          <Tag className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-500 mb-1">
+                            UOM Breakdown
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {data.quantitiesByUom.map((q: any, idx: number) => (
+                              <span
+                                key={`${q?.uom || "UOM"}-${idx}`}
+                                className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200"
+                              >
+                                {q?.uom || "-"}: {q?.quantity ?? 0}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Quantity</p>
-                      <p className="text-lg font-bold text-gray-900">
-                        {data?.quantity ?? "-"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                  )}
 
                 <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow group">
                   <div className="flex items-start gap-3">

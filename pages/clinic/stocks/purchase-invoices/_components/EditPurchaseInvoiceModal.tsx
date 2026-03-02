@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { Pencil, X, Search, ChevronDown } from "lucide-react";
 import useClinicBranches from "@/hooks/useClinicBranches";
 import useSuppliers from "@/hooks/useSuppliers";
 import axios from "axios";
-import { getTokenByPath } from "@/lib/helper";
+import { getTokenByPath, handleUpload } from "@/lib/helper";
 
 type Props = {
   token: string;
@@ -11,6 +11,18 @@ type Props = {
   onClose: () => void;
   data: any | null;
   onSuccess: (data: any) => void;
+};
+
+type InvoiceFormData = {
+  branch: string;
+  supplier: string;
+  supplierInvoiceNo: string;
+  date: string;
+  notes: string;
+  status: string;
+  attachmentUrl: string;
+  paidAmount: number;
+  remainingAmount: number;
 };
 
 const EditPurchaseInvoiceModal: React.FC<Props> = ({
@@ -25,13 +37,16 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
   const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
   const supplierDropdownRef = useRef<HTMLDivElement>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<InvoiceFormData>({
     branch: "",
     supplier: "",
     supplierInvoiceNo: "",
     date: "",
     notes: "",
     status: "New",
+    attachmentUrl: "",
+    paidAmount: 0,
+    remainingAmount: 0,
   });
 
   const [grns, setGrns] = useState<any[]>([]);
@@ -40,6 +55,50 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
   const [showEntries, setShowEntries] = useState("100");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [attachment, setAttachment] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const payableAmount = useMemo(() => {
+    try {
+      const map = new Map<string, any>();
+      grns.forEach((g) => map.set(g._id, g));
+      let sum = 0;
+      selectedGrns.forEach((id) => {
+        const g = map.get(id);
+        if (!g) return;
+        let totalOfPurchaseOrder = 0;
+        g?.purchasedOrder?.items?.forEach((po: any) => {
+          totalOfPurchaseOrder += Number(po?.netPlusVat || 0);
+        });
+
+        sum += totalOfPurchaseOrder;
+      });
+      return Number(sum.toFixed(2));
+    } catch {
+      return 0;
+    }
+  }, [grns, selectedGrns]);
+
+  useEffect(() => {
+    setFormData((prev) => {
+      const next = { ...prev };
+      if (prev.status === "Paid") {
+        next.remainingAmount = 0;
+        next.paidAmount = payableAmount;
+      } else {
+        const paid = Number(prev.paidAmount || 0);
+        const clamped =
+          isNaN(paid) || paid < 0
+            ? 0
+            : paid > payableAmount
+              ? payableAmount
+              : paid;
+        next.paidAmount = clamped;
+        const remaining = payableAmount - clamped;
+        next.remainingAmount = remaining > 0 ? Number(remaining.toFixed(2)) : 0;
+      }
+      return next;
+    });
+  }, [payableAmount]);
 
   const { suppliers, loading: suppliersLoading } = useSuppliers({
     search: supplierSearch,
@@ -58,6 +117,9 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
           : new Date().toISOString().split("T")[0],
         notes: data?.notes || "",
         status: data?.status || "New",
+        attachmentUrl: data?.attachmentUrl || "",
+        paidAmount: Number(data?.paidAmount || 0),
+        remainingAmount: Number(data?.remainingAmount || 0),
       });
 
       // Load selected GRNs
@@ -96,7 +158,8 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
           headers: { Authorization: `Bearer ${t}` },
         });
         if (res.data?.success) {
-          setGrns(res.data?.data?.records || []);
+          const filteredGrns = res.data?.data?.records || [];
+          setGrns(filteredGrns || []);
         } else {
           setGrns([]);
         }
@@ -135,10 +198,51 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
     >,
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => {
+      const next = { ...prev };
+      if (name === "status") {
+        next.status = String(value);
+        if (next.status === "Paid") {
+          next.paidAmount = payableAmount;
+          next.remainingAmount = 0;
+        } else if (next.status === "Partly_Paid") {
+          const clampedPaid =
+            Number(prev.paidAmount || 0) > payableAmount
+              ? payableAmount
+              : Number(prev.paidAmount || 0) < 0
+                ? 0
+                : Number(prev.paidAmount || 0);
+          next.paidAmount = clampedPaid;
+          const remaining = payableAmount - clampedPaid;
+          next.remainingAmount =
+            remaining > 0 ? Number(remaining.toFixed(2)) : 0;
+        } else {
+          next.paidAmount = 0;
+          next.remainingAmount = 0;
+        }
+        return next;
+      }
+      if (name === "paidAmount") {
+        if (prev.status === "Paid") {
+          next.paidAmount = payableAmount;
+          next.remainingAmount = 0;
+          return next;
+        }
+        const raw = Number(value);
+        const clamped =
+          isNaN(raw) || raw < 0 ? 0 : raw > payableAmount ? payableAmount : raw;
+        next.paidAmount = clamped;
+        const remaining = payableAmount - clamped;
+        next.remainingAmount = remaining > 0 ? Number(remaining.toFixed(2)) : 0;
+        return next;
+      }
+      // remainingAmount is always derived; ignore direct edits
+      if (name === "remainingAmount") {
+        return prev;
+      }
+      (next as any)[name] = value;
+      return next;
+    });
   };
 
   const toggleSelectGrn = (grnId: string) => {
@@ -176,7 +280,7 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
     setError(null);
 
     try {
-      const payload = {
+      let payload: any = {
         branch: formData.branch,
         supplier: formData.supplier,
         grns: selectedGrns,
@@ -185,6 +289,29 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
         notes: formData.notes,
         status: formData.status,
       };
+
+      if (
+        (formData.status === "Paid" || formData.status === "Partly_Paid") &&
+        !formData.attachmentUrl
+      ) {
+        setError("Please upload an attachment for Paid/Partly Paid status");
+        if (
+          formData.status === "Paid" &&
+          Number(formData.paidAmount || 0) !== payableAmount
+        ) {
+          setError(
+            "For Paid status, the paid amount must equal the payable amount",
+          );
+          setLoading(false);
+          return;
+        }
+        setLoading(false);
+        return;
+      }
+
+      payload.attachmentUrl = formData.attachmentUrl || "";
+      payload.paidAmount = Number(formData.paidAmount || 0);
+      payload.remainingAmount = Number(formData.remainingAmount || 0);
 
       const res = await fetch(
         `/api/stocks/purchase-invoices/update/${data._id}`,
@@ -221,12 +348,16 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
       date: "",
       notes: "",
       status: "New",
+      attachmentUrl: data?.attachmentUrl || "",
+      paidAmount: 0,
+      remainingAmount: 0,
     });
     setSelectedGrns([]);
     setSupplierSearch("");
     setIsSupplierDropdownOpen(false);
     setGrns([]);
     setError(null);
+    setAttachment(null);
     onClose();
   };
 
@@ -447,7 +578,6 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
                 </div>
 
                 {/* Status */}
-                {/* Status */}
                 <div className="space-y-1.5">
                   <label className="block text-sm font-semibold text-gray-800">
                     Status <span className="text-red-500">*</span>
@@ -467,20 +597,261 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
                     <option value="Deleted">Deleted</option>
                   </select>
                 </div>
+                {false &&
+                  (formData.status === "Paid" ||
+                    formData.status === "Partly_Paid") && (
+                    <div className="space-y-1.5">
+                      <label className="block text-sm font-semibold text-gray-800">
+                        Attachments (payment proofs, invoices)
+                      </label>
+                      <input
+                        type="file"
+                        onChange={async (e) => {
+                          const file =
+                            (e.target.files && e.target.files[0]) || null;
+                          setAttachment(file);
+                          if (file) {
+                            setUploading(true);
+                            try {
+                              const resData = await handleUpload(file);
+                              if (resData?.success && resData?.url) {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  attachmentUrl: resData.url,
+                                }));
+                              } else {
+                                setError("Failed to upload attachment");
+                              }
+                            } catch {
+                              setError("Failed to upload attachment");
+                            } finally {
+                              setUploading(false);
+                            }
+                          }
+                        }}
+                        className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        disabled={loading || uploading}
+                        accept=".pdf,image/*"
+                      />
+                      {attachment && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          <div className="px-2 py-1 text-xs rounded border border-gray-200 bg-gray-50 text-gray-700 flex items-center gap-2">
+                            <span className="font-medium">
+                              {attachment?.name}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setAttachment(null)}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {formData.attachmentUrl && (
+                        <div className="mt-2 text-xs">
+                          <a
+                            href={formData.attachmentUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline"
+                          >
+                            View uploaded attachment
+                          </a>
+                        </div>
+                      )}
+                      {uploading && (
+                        <div className="text-xs text-gray-500">
+                          Uploading...
+                        </div>
+                      )}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                        <div className="sm:col-span-2">
+                          <div className="px-3 py-2.5 text-sm text-gray-900 bg-gray-50 border border-gray-300 rounded-lg flex items-center justify-between">
+                            <span className="font-semibold">
+                              Payable Amount
+                            </span>
+                            <span className="font-bold">
+                              {payableAmount.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="block text-sm font-semibold text-gray-800">
+                            Paid Amount
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            max={payableAmount}
+                            name="paidAmount"
+                            value={Number(formData.paidAmount || 0)}
+                            onChange={handleInputChange}
+                            className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                            disabled={loading || formData.status === "Paid"}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="block text-sm font-semibold text-gray-800">
+                            Remaining Amount
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            name="remainingAmount"
+                            value={
+                              formData.status === "Paid"
+                                ? 0
+                                : Number(formData.remainingAmount || 0)
+                            }
+                            onChange={() => {}}
+                            className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                            disabled
+                            placeholder="0.00"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+              </div>
+              {/* Notes */}
+              <div className="space-y-1.5">
+                <label className="block text-sm font-semibold text-gray-800">
+                  Notes
+                </label>
+                <textarea
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleInputChange}
+                  placeholder="Enter Notes"
+                  rows={4}
+                  className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed resize-none"
+                  disabled={loading}
+                />
+              </div>
+            </div>
 
-                {/* Notes */}
+            <div className="space-y-3 pt-4 border-t border-gray-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2">
+                  <div className="px-3 py-2.5 text-sm text-gray-900 bg-gray-50 border border-gray-300 rounded-lg flex items-center justify-between">
+                    <span className="font-semibold">Payable Amount</span>
+                    <span className="font-bold">
+                      {payableAmount.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                </div>
+                {(formData.status === "Paid" ||
+                  formData.status === "Partly_Paid") && (
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <label className="block text-sm font-semibold text-gray-800">
+                      Attachments (payment proofs, invoices)
+                    </label>
+                    <input
+                      type="file"
+                      onChange={async (e) => {
+                        const file =
+                          (e.target.files && e.target.files[0]) || null;
+                        setAttachment(file);
+                        if (file) {
+                          setUploading(true);
+                          try {
+                            const resData = await handleUpload(file);
+                            if (resData?.success && resData?.url) {
+                              setFormData((prev) => ({
+                                ...prev,
+                                attachmentUrl: resData.url,
+                              }));
+                            } else {
+                              setError("Failed to upload attachment");
+                            }
+                          } catch {
+                            setError("Failed to upload attachment");
+                          } finally {
+                            setUploading(false);
+                          }
+                        }
+                      }}
+                      className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      disabled={loading || uploading}
+                      accept=".pdf,image/*"
+                    />
+                    {attachment && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <div className="px-2 py-1 text-xs rounded border border-gray-200 bg-gray-50 text-gray-700 flex items-center gap-2">
+                          <span className="font-medium">{attachment.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setAttachment(null)}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {formData.attachmentUrl && (
+                      <div className="mt-2 text-xs">
+                        <a
+                          href={formData.attachmentUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline"
+                        >
+                          View uploaded attachment
+                        </a>
+                      </div>
+                    )}
+                    {uploading && (
+                      <div className="text-xs text-gray-500">Uploading...</div>
+                    )}
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <label className="block text-sm font-semibold text-gray-800">
-                    Notes
+                    Paid Amount
                   </label>
-                  <textarea
-                    name="notes"
-                    value={formData.notes}
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    max={payableAmount}
+                    name="paidAmount"
+                    value={Number(formData.paidAmount || 0)}
                     onChange={handleInputChange}
-                    placeholder="Enter Notes"
-                    rows={4}
-                    className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed resize-none"
-                    disabled={loading}
+                    className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                    disabled={loading || formData.status === "Paid"}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-semibold text-gray-800">
+                    Remaining Amount
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    name="remainingAmount"
+                    value={
+                      formData.status === "Paid"
+                        ? 0
+                        : Number(formData.remainingAmount || 0)
+                    }
+                    onChange={() => {}}
+                    className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                    disabled
+                    placeholder="0.00"
                   />
                 </div>
               </div>
@@ -582,66 +953,88 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
                             VAT
                           </th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            Net Plus VAT
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                             Status
                           </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {grns.map((grn) => (
-                          <tr
-                            key={grn._id}
-                            className={`hover:bg-gray-50 cursor-pointer ${
-                              selectedGrns.includes(grn._id)
-                                ? "bg-blue-50/50"
-                                : ""
-                            }`}
-                            onClick={() => toggleSelectGrn(grn._id)}
-                          >
-                            <td className="px-4 py-3">
-                              <input
-                                type="checkbox"
-                                checked={selectedGrns.includes(grn._id)}
-                                onChange={() => toggleSelectGrn(grn._id)}
-                                onClick={(e) => e.stopPropagation()}
-                                className="rounded border-gray-300 text-gray-800 focus:ring-gray-800/20"
-                              />
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                              {grn.grnNo || "N/A"}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {grn.date
-                                ? new Date(grn.date).toLocaleDateString("en-GB")
-                                : "N/A"}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {grn.purchaseOrder?.poNo || "N/A"}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {grn.total?.toFixed(2) || "0.00"}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {grn.discount?.toFixed(2) || "0.00"}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {grn.net?.toFixed(2) || "0.00"}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {grn.vat?.toFixed(2) || "0.00"}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span
-                                className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                  grn.status === "Completed"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-yellow-100 text-yellow-800"
-                                }`}
-                              >
-                                {grn.status || "New"}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                        {grns.map((grn) => {
+                          let total = 0;
+                          let discount = 0;
+                          let net = 0;
+                          let vat = 0;
+                          let netPlusVat = 0;
+                          for (let item of grn?.purchasedOrder?.items || []) {
+                            total += item?.totalPrice;
+                            discount += item?.discountAmount || 0;
+                            net += item?.netPrice || 0;
+                            vat += item?.vatAmount || 0;
+                            netPlusVat += item?.netPlusVat || 0;
+                          }
+                          return (
+                            <tr
+                              key={grn._id}
+                              className={`hover:bg-gray-50 cursor-pointer ${
+                                selectedGrns.includes(grn._id)
+                                  ? "bg-blue-50/50"
+                                  : ""
+                              }`}
+                              onClick={() => toggleSelectGrn(grn._id)}
+                            >
+                              <td className="px-4 py-3">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedGrns.includes(grn._id)}
+                                  onChange={() => toggleSelectGrn(grn._id)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="rounded border-gray-300 text-gray-800 focus:ring-gray-800/20"
+                                />
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                                {grn.grnNo || "N/A"}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {grn.grnDate
+                                  ? new Date(grn.grnDate).toLocaleDateString(
+                                      "en-GB",
+                                    )
+                                  : "N/A"}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {grn.purchasedOrder?.orderNo || "N/A"}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {total?.toFixed(2) || "0.00"}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {discount?.toFixed(2) || "0.00"}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {net?.toFixed(2) || "0.00"}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {vat?.toFixed(2) || "0.00"}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {netPlusVat?.toFixed(2) || "0.00"}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span
+                                  className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                    grn.status === "Completed"
+                                      ? "bg-green-100 text-green-800"
+                                      : "bg-yellow-100 text-yellow-800"
+                                  }`}
+                                >
+                                  {grn.status || "New"}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

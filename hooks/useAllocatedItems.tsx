@@ -80,7 +80,13 @@ const useAllocatedItems = ({
         },
       });
       const data = res.data?.records as AllocatedItem[] | undefined;
-      setAllocatedItems(Array.isArray(data) ? data : []);
+      const items = Array.isArray(data) ? data : [];
+      // unique items by itemId
+      const uniqueItems = items.filter(
+        (item, index, self) =>
+          index === self.findIndex((i) => i._id === item._id),
+      );
+      setAllocatedItems(uniqueItems);
     } catch (error) {
       console.log("Error fetching allocated items:", error);
     } finally {

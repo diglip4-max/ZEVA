@@ -18,7 +18,10 @@ const AgentDashboard = () => {
     const getToken = () => {
       if (typeof window !== "undefined") {
         // Check for agentToken first, then userToken
-        return localStorage.getItem("agentToken") || localStorage.getItem("userToken");
+        return (
+          localStorage.getItem("agentToken") ||
+          localStorage.getItem("userToken")
+        );
       }
       return null;
     };
@@ -65,11 +68,13 @@ const AgentDashboard = () => {
         setIsLoading(true);
         const agentToken =
           typeof window !== "undefined"
-            ? localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken")
+            ? localStorage.getItem("agentToken") ||
+              sessionStorage.getItem("agentToken")
             : null;
         const userToken =
           typeof window !== "undefined"
-            ? localStorage.getItem("userToken") || sessionStorage.getItem("userToken")
+            ? localStorage.getItem("userToken") ||
+              sessionStorage.getItem("userToken")
             : null;
         const token = agentToken || userToken;
 
@@ -86,21 +91,22 @@ const AgentDashboard = () => {
         if (res.data.success) {
           // Filter out dashboard item itself and items without paths
           const filteredItems = (res.data.navigationItems || [])
-            .filter(item => {
+            .filter((item) => {
               // Exclude dashboard item and items without paths
-              const isDashboard = item.path === "/agent/dashboard" ||
+              const isDashboard =
+                item.path === "/agent/dashboard" ||
                 item.path === "/agent/agent-dashboard" ||
                 item.moduleKey?.toLowerCase().includes("dashboard");
               return !isDashboard && item.path;
             })
-            .map(item => ({
+            .map((item) => ({
               label: item.label,
               path: item.path,
               icon: item.icon,
               description: item.description || item.label,
               moduleKey: item.moduleKey,
               order: item.order || 999,
-              subModules: item.subModules || []
+              subModules: item.subModules || [],
             }))
             .sort((a, b) => (a.order || 0) - (b.order || 0));
 
@@ -124,10 +130,10 @@ const AgentDashboard = () => {
       fetchNavigationAndPermissions();
     };
 
-    router.events.on('routeChangeComplete', handleRouteChange);
+    router.events.on("routeChangeComplete", handleRouteChange);
 
     return () => {
-      router.events.off('routeChangeComplete', handleRouteChange);
+      router.events.off("routeChangeComplete", handleRouteChange);
     };
   }, [router]);
 
@@ -135,13 +141,13 @@ const AgentDashboard = () => {
   useEffect(() => {
     const updateDateTime = () => {
       const now = new Date();
-      const day = now.toLocaleDateString('en-US', { weekday: 'short' });
-      const month = now.toLocaleDateString('en-US', { month: 'short' });
+      const day = now.toLocaleDateString("en-US", { weekday: "short" });
+      const month = now.toLocaleDateString("en-US", { month: "short" });
       const dayNum = now.getDate();
-      const time = now.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
+      const time = now.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
       });
 
       setDateTime(`${day}, ${month} ${dayNum} • ${time}`);
@@ -157,21 +163,23 @@ const AgentDashboard = () => {
   const renderIcon = (iconString) => {
     if (!iconString) return null;
     // If it's an emoji, render it directly
-    if (typeof iconString === 'string' && iconString.length <= 2) {
+    if (typeof iconString === "string" && iconString.length <= 2) {
       return <span className="text-2xl">{iconString}</span>;
     }
     // Otherwise, treat as text/emoji
     return <span className="text-xl">{iconString}</span>;
   };
-// support agentToken and userToken routes
-const handleDeskTimeClick = () => {
+  // support agentToken and userToken routes
+  const handleDeskTimeClick = () => {
     const agentToken =
       typeof window !== "undefined"
-        ? localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken")
+        ? localStorage.getItem("agentToken") ||
+          sessionStorage.getItem("agentToken")
         : null;
     const userToken =
       typeof window !== "undefined"
-        ? localStorage.getItem("userToken") || sessionStorage.getItem("userToken")
+        ? localStorage.getItem("userToken") ||
+          sessionStorage.getItem("userToken")
         : null;
 
     if (agentToken) {
@@ -183,11 +191,10 @@ const handleDeskTimeClick = () => {
     }
   };
 
-
   return (
     <div className="min-h-screen text-white relative overflow-hidden">
       <AuroraBackground />
-      
+
       <div className="relative z-10 p-2 md:p-3">
         <div className="max-w-7xl mt-1 mx-auto">
           {/* User Info Section at the top */}
@@ -195,49 +202,80 @@ const handleDeskTimeClick = () => {
             {/* Left side - Name and Welcome */}
             <div className="flex-1">
               {userInfo.name && (
-                <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white leading-tight tracking-tight" style={{ fontFamily: 'system-ui, -apple-system, sans-serif', letterSpacing: '-0.02em' }}>
+                <h1
+                  className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white leading-tight tracking-tight"
+                  style={{
+                    fontFamily: "system-ui, -apple-system, sans-serif",
+                    letterSpacing: "-0.02em",
+                  }}
+                >
                   Hi, {userInfo.name}
                 </h1>
               )}
               {!userInfo.name && (
-                <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white leading-tight tracking-tight" style={{ fontFamily: 'system-ui, -apple-system, sans-serif', letterSpacing: '-0.02em' }}>Hi, Agent!</h1>
+                <h1
+                  className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white leading-tight tracking-tight"
+                  style={{
+                    fontFamily: "system-ui, -apple-system, sans-serif",
+                    letterSpacing: "-0.02em",
+                  }}
+                >
+                  Hi, Agent!
+                </h1>
               )}
-              <div className="mt-1 text-sm md:text-base font-medium text-gray-600 dark:text-gray-300 leading-relaxed tracking-normal" style={{ fontFamily: 'system-ui, -apple-system, sans-serif', letterSpacing: '0.01em' }}>
+              <div
+                className="mt-1 text-sm md:text-base font-medium text-gray-600 dark:text-gray-300 leading-relaxed tracking-normal"
+                style={{
+                  fontFamily: "system-ui, -apple-system, sans-serif",
+                  letterSpacing: "0.01em",
+                }}
+              >
                 <Typewriter
-                  text={["Welcome to your agent dashboard.", "Manage your leads efficiently.", "Track your performance.", "Stay organized and productive."]}
+                  text={[
+                    "Welcome to your agent dashboard.",
+                    "Manage your leads efficiently.",
+                    "Track your performance.",
+                    "Stay organized and productive.",
+                  ]}
                   speed={100}
                   loop={true}
                   className="text-sm md:text-base font-medium text-gray-600 dark:text-gray-300"
                 />
               </div>
             </div>
-            <div className="text-sm md:text-base font-medium">
+            {/* <div className="text-sm md:text-base font-medium">
               <button
                 onClick={handleDeskTimeClick}
                 className="px-2 py-1 rounded-lg bg-cyan-700 hover:bg-cyan-800 text-white font-bold shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 dark:bg-cyan-800 dark:hover:bg-cyan-700"
               >
                 View DeskTime
               </button>
-            </div>
+            </div> */}
 
             {/* Right side - Date and Time */}
-            <div className="bg-cyan-800 dark:bg-cyan-800 rounded-lg px-2 py-1.5 md:px-2.5 md:py-1.5 shadow-md">
+            {/* <div className="bg-cyan-800 dark:bg-cyan-800 rounded-lg px-2 py-1.5 md:px-2.5 md:py-1.5 shadow-md">
               <div className="text-white font-bold text-xs md:text-sm whitespace-nowrap" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
                 {dateTime}
               </div>
-            </div>
+            </div> */}
           </div>
 
           {/* Permission-based Dashboard Cards */}
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="text-gray-600 dark:text-gray-400">Loading dashboard...</div>
+              <div className="text-gray-600 dark:text-gray-400">
+                Loading dashboard...
+              </div>
             </div>
           ) : navigationItems.length === 0 ? (
             <div className="flex items-center justify-center py-8">
               <div className="text-gray-600 dark:text-gray-400 text-center">
-                <p className="text-lg font-semibold mb-2">No modules available</p>
-                <p className="text-sm">You don't have permissions to view any dashboard modules yet.</p>
+                <p className="text-lg font-semibold mb-2">
+                  No modules available
+                </p>
+                <p className="text-sm">
+                  You don't have permissions to view any dashboard modules yet.
+                </p>
               </div>
             </div>
           ) : (
@@ -252,7 +290,11 @@ const handleDeskTimeClick = () => {
                     border border-transparent hover:border-white/20
                     flex flex-col justify-between
                     p-2.5 md:p-3 min-h-[120px] md:min-h-[130px]
-                    ${item.path ? 'hover:scale-[1.02]' : 'opacity-60 cursor-not-allowed'}
+                    ${
+                      item.path
+                        ? "hover:scale-[1.02]"
+                        : "opacity-60 cursor-not-allowed"
+                    }
                   `}
                 >
                   {/* Icon */}
@@ -279,8 +321,18 @@ const handleDeskTimeClick = () => {
 
                   {/* Hover indicator */}
                   <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <svg className="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    <svg
+                      className="w-4 h-4 text-white/60"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
                     </svg>
                   </div>
                 </div>
@@ -299,9 +351,7 @@ AgentDashboard.getLayout = function PageLayout(page) {
 };
 
 // ✅ Apply Agent Auth HOC
-const ProtectedAgentDashboard = withAgentAuth(
-  AgentDashboard
-);
+const ProtectedAgentDashboard = withAgentAuth(AgentDashboard);
 
 // ✅ Reassign layout for the protected version
 ProtectedAgentDashboard.getLayout = AgentDashboard.getLayout;

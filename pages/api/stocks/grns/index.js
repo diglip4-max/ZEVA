@@ -183,7 +183,7 @@ export default async function handler(req, res) {
         .populate("branch", "name")
         .populate({
           path: "purchasedOrder",
-          select: "orderNo date supplier",
+          // select: "orderNo date supplier",
           populate: {
             path: "supplier",
             select: "name",

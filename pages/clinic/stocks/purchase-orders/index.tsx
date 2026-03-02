@@ -811,6 +811,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                             >
                               <div className="py-1" role="none">
                                 {![
+                                  "Allocated",
                                   "Partly_Delivered",
                                   "Delivered",
                                   "Partly_Invoiced",

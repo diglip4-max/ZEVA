@@ -49,7 +49,6 @@ const EditAllocationModal: React.FC<EditAllocationModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [locations, setLocations] = useState<StockLocation[]>([]);
 
-  const [quantity, setQuantity] = useState<number>(0);
   const [status, setStatus] = useState<AllocStatus>("Allocated");
   const [location, setLocation] = useState<string>("");
   const [expiryDate, setExpiryDate] = useState<string>("");
@@ -122,7 +121,6 @@ const EditAllocationModal: React.FC<EditAllocationModalProps> = ({
           { headers },
         );
         const d = res.data?.data || null;
-        setQuantity(d?.quantity ?? 0);
         setStatus((d?.status as AllocStatus) ?? "Allocated");
         setLocation(d?.location?._id ?? "");
         setExpiryDate(
@@ -158,7 +156,6 @@ const EditAllocationModal: React.FC<EditAllocationModalProps> = ({
       setSubmitting(true);
       setError(null);
       const payload: any = {
-        quantity,
         status,
         location: location || undefined,
         expiryDate: expiryDate || undefined,
@@ -244,26 +241,6 @@ const EditAllocationModal: React.FC<EditAllocationModalProps> = ({
 
               {/* Form Fields */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                {/* Quantity Field */}
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-gray-700">
-                    Quantity <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Package className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="number"
-                      min={0}
-                      step="1"
-                      value={quantity}
-                      onChange={(e) => setQuantity(Number(e.target.value))}
-                      className="w-full pl-9 pr-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
-                      placeholder="Enter quantity"
-                      required
-                    />
-                  </div>
-                </div>
-
                 {/* Status Field */}
                 <div className="space-y-1.5">
                   <label className="block text-sm font-semibold text-gray-700">

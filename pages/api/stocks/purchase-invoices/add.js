@@ -1,5 +1,6 @@
 import dbConnect from "../../../../lib/database";
 import Clinic from "../../../../models/Clinic";
+import GRN from "../../../../models/stocks/GRN";
 import PurchaseInvoice from "../../../../models/stocks/PurchaseInvoice";
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
 
@@ -48,14 +49,17 @@ export default async function handler(req, res) {
           .json({ success: false, message: "clinicId is required for admin" });
     }
 
-    const { branch, supplier, grn, grns, supplierInvoiceNo, date, notes } =
-      req.body;
-    console.log({
+    const {
       branch,
       supplier,
       grn,
+      grns,
+      supplierInvoiceNo,
       date,
-    });
+      notes,
+      status,
+    } = req.body;
+
     if (!branch || !supplier || !grn || !date) {
       return res.status(400).json({
         success: false,
@@ -72,11 +76,18 @@ export default async function handler(req, res) {
       supplierInvoiceNo: supplierInvoiceNo || "",
       date: new Date(date),
       notes: notes || "",
-      status: "New",
+      status,
       createdBy: me._id,
     });
 
     await invoice.save();
+
+    // update status of grns to invoiced
+    await GRN.updateMany(
+      { _id: { $in: grns } },
+      { $set: { status: "Invoiced" } }
+    );
+
     const saved = await PurchaseInvoice.findById(invoice._id)
       .populate("branch", "name")
       .populate("supplier", "name")
