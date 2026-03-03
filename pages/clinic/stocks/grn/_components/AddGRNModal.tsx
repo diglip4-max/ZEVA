@@ -38,6 +38,7 @@ const AddGRNModal: React.FC<AddGRNModalProps> = ({
     supplierGRNDate: new Date().toISOString().split("T")[0],
     notes: "",
     status: "New",
+    orderCreditDays: "0",
   });
 
   const [items, setItems] = useState<PurchaseRecordItem[]>([]);
@@ -96,31 +97,17 @@ const AddGRNModal: React.FC<AddGRNModalProps> = ({
   useEffect(() => {
     if (formData.purchaseOrder) {
       const selectedPO = purchaseOrders.find(
-        (po) => po._id === formData.purchaseOrder,
+        (po) => po._id === formData.purchaseOrder
       );
       if (selectedPO && (selectedPO as any).items) {
         const poItems = (selectedPO as any).items || [];
         setItems(
           poItems.map((it: any) => ({
-            itemId: it.itemId,
-            code: it.code,
-            name: it.name,
-            description: it.description || "",
-            expiryDate: "",
-            quantity: it.quantity || 0,
-            uom: it.uom || "",
-            unitPrice: it.unitPrice || 0,
-            totalPrice: (it.quantity || 0) * (it.unitPrice || 0),
-            discount: 0,
-            discountType: "Fixed",
-            discountAmount: 0,
-            netPrice: (it.quantity || 0) * (it.unitPrice || 0),
-            vatAmount: 0,
-            vatType: "Exclusive",
-            vatPercentage: 0,
-            netPlusVat: (it.quantity || 0) * (it.unitPrice || 0),
-            freeQuantity: 0,
-          })),
+            ...it,
+            expiryDate: new Date().toISOString().split("T")[0] || "",
+            freeQuantityExpiryDate:
+              new Date().toISOString().split("T")[0] || "",
+          }))
         );
       }
     } else {
@@ -129,7 +116,7 @@ const AddGRNModal: React.FC<AddGRNModalProps> = ({
   }, [formData.purchaseOrder, purchaseOrders]);
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -145,7 +132,7 @@ const AddGRNModal: React.FC<AddGRNModalProps> = ({
     const discVal =
       (item.discountType || "Fixed") === "Percentage"
         ? parseFloat(
-            ((qty * unit * (Number(item.discount) || 0)) / 100).toFixed(2),
+            ((qty * unit * (Number(item.discount) || 0)) / 100).toFixed(2)
           )
         : Number(item.discount) || 0;
     const net = parseFloat((total - discVal).toFixed(2));
@@ -168,7 +155,7 @@ const AddGRNModal: React.FC<AddGRNModalProps> = ({
   const handleItemChange = (
     index: number,
     field: keyof PurchaseRecordItem,
-    value: any,
+    value: any
   ) => {
     setItems((prev) => {
       const next = [...prev];
@@ -194,6 +181,7 @@ const AddGRNModal: React.FC<AddGRNModalProps> = ({
       supplierGRNDate: new Date().toISOString().split("T")[0],
       notes: "",
       status: "New",
+      orderCreditDays: "",
     });
     setItems([]);
     setPoSearch("");
@@ -231,7 +219,8 @@ const AddGRNModal: React.FC<AddGRNModalProps> = ({
         supplierInvoiceNo: formData.supplierGRN,
         supplierGrnDate: formData.supplierGRNDate,
         notes: formData.notes,
-        status: "New",
+        status: formData.status,
+        orderCreditDays: formData.orderCreditDays,
         items: items.map((it) => ({
           itemId: it.itemId,
           code: it.code,
@@ -251,6 +240,9 @@ const AddGRNModal: React.FC<AddGRNModalProps> = ({
           vatPercentage: it.vatPercentage,
           netPlusVat: it.netPlusVat,
           freeQuantity: it.freeQuantity,
+          freeQuantityExpiryDate: it.freeQuantityExpiryDate
+            ? new Date(it.freeQuantityExpiryDate)
+            : undefined,
         })),
       };
 
@@ -264,21 +256,30 @@ const AddGRNModal: React.FC<AddGRNModalProps> = ({
       handleClose();
     } catch (error: any) {
       setError(
-        error.response?.data?.message || "Failed to add GRN. Please try again.",
+        error.response?.data?.message || "Failed to add GRN. Please try again."
       );
     } finally {
       setLoading(false);
     }
   };
 
-  if (!isOpen) return null;
-
   const selectedPO = purchaseOrders?.find(
-    (po) => po._id === formData.purchaseOrder,
+    (po) => po._id === formData.purchaseOrder
   );
   const filteredPOs = purchaseOrders?.filter((po) =>
-    po.orderNo?.toLowerCase().includes(poSearch.toLowerCase()),
+    po.orderNo?.toLowerCase().includes(poSearch.toLowerCase())
   );
+
+  useEffect(() => {
+    if (selectedPO) {
+      setFormData((prev) => ({
+        ...prev,
+        orderCreditDays: selectedPO.paymentTermsDays || "0",
+      }));
+    }
+  }, [selectedPO]);
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
@@ -394,6 +395,7 @@ const AddGRNModal: React.FC<AddGRNModalProps> = ({
                                   setFormData({
                                     ...formData,
                                     purchaseOrder: po._id,
+                                    supplierGRN: po.supplierInvoiceNo || "",
                                   });
                                   setIsPoDropdownOpen(false);
                                   setPoSearch("");
@@ -459,6 +461,24 @@ const AddGRNModal: React.FC<AddGRNModalProps> = ({
                 />
               </div>
 
+              {/* Order Credit Days */}
+              {selectedPO && (
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-gray-900">
+                    Order Credit Days <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="orderCreditDays"
+                    value={formData.orderCreditDays}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    disabled={loading}
+                    required
+                  />
+                </div>
+              )}
+
               {/* Notes */}
               <div className="space-y-2 col-span-full">
                 <label className="block text-sm font-bold text-gray-900">
@@ -511,6 +531,9 @@ const AddGRNModal: React.FC<AddGRNModalProps> = ({
                           Free Qty
                         </th>
                         <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                          Free Qty Exp. Date
+                        </th>
+                        <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
                           NET
                         </th>
                         <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
@@ -540,7 +563,7 @@ const AddGRNModal: React.FC<AddGRNModalProps> = ({
                                 handleItemChange(
                                   idx,
                                   "expiryDate",
-                                  e.target.value,
+                                  e.target.value
                                 )
                               }
                               className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
@@ -555,7 +578,7 @@ const AddGRNModal: React.FC<AddGRNModalProps> = ({
                                 handleItemChange(
                                   idx,
                                   "unitPrice",
-                                  e.target.value,
+                                  e.target.value
                                 )
                               }
                               className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-right"
@@ -568,7 +591,7 @@ const AddGRNModal: React.FC<AddGRNModalProps> = ({
                                 handleItemChange(
                                   idx,
                                   "discountType",
-                                  e.target.value,
+                                  e.target.value
                                 )
                               }
                               className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
@@ -586,7 +609,7 @@ const AddGRNModal: React.FC<AddGRNModalProps> = ({
                                 handleItemChange(
                                   idx,
                                   "discount",
-                                  e.target.value,
+                                  e.target.value
                                 )
                               }
                               className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-right"
@@ -601,7 +624,7 @@ const AddGRNModal: React.FC<AddGRNModalProps> = ({
                                 handleItemChange(
                                   idx,
                                   "vatPercentage",
-                                  e.target.value,
+                                  e.target.value
                                 )
                               }
                               className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-right"
@@ -616,7 +639,7 @@ const AddGRNModal: React.FC<AddGRNModalProps> = ({
                                 handleItemChange(
                                   idx,
                                   "quantity",
-                                  e.target.value,
+                                  e.target.value
                                 )
                               }
                               className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-right"
@@ -647,10 +670,24 @@ const AddGRNModal: React.FC<AddGRNModalProps> = ({
                                 handleItemChange(
                                   idx,
                                   "freeQuantity",
-                                  e.target.value,
+                                  e.target.value
                                 )
                               }
                               className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-right"
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="date"
+                              value={item.freeQuantityExpiryDate || ""}
+                              onChange={(e) =>
+                                handleItemChange(
+                                  idx,
+                                  "freeQuantityExpiryDate",
+                                  e.target.value
+                                )
+                              }
+                              className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
                             />
                           </td>
                           <td className="px-3 py-2 text-right">

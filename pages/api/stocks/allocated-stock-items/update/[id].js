@@ -121,7 +121,7 @@ export default async function handler(req, res) {
         stockItemIds.push(stockItem);
       }
       stockItemIds = stockItemIds.filter((sid) =>
-        mongoose.Types.ObjectId.isValid(sid),
+        mongoose.Types.ObjectId.isValid(sid)
       );
       if (!stockItemIds.length) {
         return res.status(400).json({
@@ -138,11 +138,11 @@ export default async function handler(req, res) {
       {
         new: true,
         runValidators: true,
-      },
+      }
     )
-      .populate("stockItems")
       .populate("user", "name role")
       .populate("location")
+      .populate("allocatedBy")
       .lean();
 
     if (!updated) {
@@ -159,7 +159,7 @@ export default async function handler(req, res) {
   } catch (err) {
     console.error(
       "PUT /api/stocks/allocated-stock-items/update/[id] error:",
-      err,
+      err
     );
     return res
       .status(500)
