@@ -1,10 +1,19 @@
 import React, { useState, useEffect, useRef } from "react";
-import { PlusCircle, X, Plus, Trash2, Search, ChevronDown } from "lucide-react";
+import {
+  PlusCircle,
+  X,
+  Plus,
+  Trash2,
+  Search,
+  ChevronDown,
+  CirclePlus,
+} from "lucide-react";
 import { PurchaseRecord, PurchaseRecordItem } from "@/types/stocks";
 import useClinicBranches from "@/hooks/useClinicBranches";
 import useSuppliers from "@/hooks/useSuppliers";
 import useUoms from "@/hooks/useUoms";
 import useStockItems from "@/hooks/useStockItems";
+import AddStockItemModal from "@/components/shared/AddStockItemModal";
 
 interface AddPurchaseRequestModalProps {
   token: string;
@@ -13,6 +22,48 @@ interface AddPurchaseRequestModalProps {
   onSuccess: (data: PurchaseRecord) => void;
 }
 
+// Function to generate next enquiry number
+const generateEnqNo = async (token: string): Promise<string> => {
+  try {
+    const response = await fetch(
+      "/api/stocks/purchase-records?type=Purchase_Request&limit=1000",
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    const data = await response.json();
+
+    if (data.success) {
+      const records = data.data.records || [];
+      // Filter records with enqNo starting with ENQ-
+      const enqNumbers = records
+        .map((r: any) => r.enqNo)
+        .filter((enq: string) => enq && enq.startsWith("ENQ-"))
+        .map((enq: string) => {
+          const match = enq.match(/(\d+)$/);
+          return match ? parseInt(match[1]) : 0;
+        })
+        .sort((a: number, b: number) => a - b);
+
+      let nextNumber = 1;
+      for (const num of enqNumbers) {
+        if (num === nextNumber) {
+          nextNumber++;
+        } else if (num > nextNumber) {
+          break;
+        }
+      }
+      return `ENQ-${String(nextNumber).padStart(6, "0")}`;
+    }
+  } catch (error) {
+    console.error("Error generating enquiry number:", error);
+  }
+  // Fallback
+  return `ENQ-${Date.now().toString().slice(-6)}`;
+};
+
 const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
   token,
   isOpen,
@@ -20,12 +71,14 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
   onSuccess,
 }) => {
   const { clinicBranches } = useClinicBranches();
-  const { stockItems } = useStockItems();
+  const { stockItems, fetchStockItems } = useStockItems();
   const [supplierSearch, setSupplierSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
   const supplierDropdownRef = useRef<HTMLDivElement>(null);
+  const [isOpenAddStockItemModal, setIsOpenAddStockItemModal] = useState(false);
+  const [enqNoLoading, setEnqNoLoading] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -57,7 +110,7 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
     },
   });
 
-  const { uoms, loading: uomsLoading } = useUoms({
+  const { uoms } = useUoms({
     token,
     branchId: formData.branch || "",
   });
@@ -105,10 +158,22 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
     };
   }, []);
 
+  // Auto-generate enquiry number when modal opens
+  useEffect(() => {
+    if (isOpen && !formData.enqNo) {
+      setEnqNoLoading(true);
+      generateEnqNo(token)
+        .then((enqNo) => {
+          setFormData((prev) => ({ ...prev, enqNo }));
+        })
+        .finally(() => setEnqNoLoading(false));
+    }
+  }, [isOpen, token]);
+
   const handleInputChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >,
+    >
   ) => {
     const { name, value } = e.target;
 
@@ -131,7 +196,7 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
 
   const handleCurrentItemChange = (
     field: keyof PurchaseRecordItem,
-    value: any,
+    value: any
   ) => {
     let discountAmount = 0;
     if (field === "discount" && currentItem?.discountType === "Fixed") {
@@ -240,7 +305,7 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(payload),
-        },
+        }
       );
 
       const result = await response.json();
@@ -394,7 +459,7 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
                       }
                     >
                       {suppliers?.find(
-                        (supplier) => supplier._id === formData.supplier,
+                        (supplier) => supplier._id === formData.supplier
                       )?.name || "Select a supplier"}
                     </span>
                     <ChevronDown
@@ -527,17 +592,24 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
                 <label className="block text-sm font-bold text-gray-900">
                   Enquiry Number
                 </label>
-                <input
-                  type="text"
-                  name="enqNo"
-                  value={formData.enqNo}
-                  onChange={handleInputChange}
-                  placeholder="Enter enquiry number"
-                  className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  disabled={loading}
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="enqNo"
+                    value={formData.enqNo}
+                    readOnly
+                    placeholder="Auto-generated"
+                    className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed"
+                    disabled={true}
+                  />
+                  {enqNoLoading && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Reference enquiry number
+                  Auto-generated enquiry number
                 </p>
               </div>
 
@@ -593,9 +665,17 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <div>
-                  <h3 className="text-base font-bold text-gray-900">
-                    Purchase Request Items *
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-gray-900">
+                      Purchase Request Items *
+                    </h3>
+                    <button
+                      onClick={() => setIsOpenAddStockItemModal(true)}
+                      className="flex items-center justify-center gap-1 text-blue-500 hover:text-blue-700 transition-colors"
+                    >
+                      <CirclePlus size={18} />
+                    </button>
+                  </div>
                   <p className="text-xs text-gray-500 mt-1">
                     Add items for this purchase request
                   </p>
@@ -657,7 +737,7 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "quantity",
-                          parseFloat(e.target.value) || 0,
+                          parseFloat(e.target.value) || 0
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -677,21 +757,17 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange("uom", e.target.value)
                       }
-                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
-                      disabled={loading}
-                      required
+                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 h-10"
                     >
                       <option value="">Select UOM</option>
-                      {uomsLoading ? (
+                      {!stockItems?.find(
+                        (i) => i?._id === currentItem?.itemId
+                      ) ? (
                         <option value="">Loading UOMs...</option>
-                      ) : uoms.length > 0 ? (
-                        uoms.map((uom) => (
-                          <option key={uom._id} value={uom.name}>
-                            {uom.name}
-                          </option>
-                        ))
                       ) : (
-                        <option value="">No UOMs available</option>
+                        <option value={currentItem.uom}>
+                          {currentItem.uom}
+                        </option>
                       )}
                     </select>
                   </div>
@@ -865,6 +941,19 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
             )}
           </button>
         </div>
+
+        {/* Add stock item modal */}
+        <AddStockItemModal
+          token={token || ""}
+          clinicId={formData?.branch || ""}
+          isOpen={isOpenAddStockItemModal}
+          onClose={() => setIsOpenAddStockItemModal(false)}
+          onSuccess={(newStockItem) => {
+            // Handle successful creation
+            console.log("New stock item created:", newStockItem);
+            fetchStockItems();
+          }}
+        />
       </div>
     </div>
   );

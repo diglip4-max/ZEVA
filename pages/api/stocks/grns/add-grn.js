@@ -91,6 +91,7 @@ export default async function handler(req, res) {
       supplierGrnDate,
       notes = "",
       status = "New",
+      orderCreditDays,
       items,
     } = req.body;
 
@@ -227,8 +228,8 @@ export default async function handler(req, res) {
         it.discountAmount !== undefined
           ? Number(it.discountAmount)
           : discountType === "Percentage"
-            ? parseFloat(((qty * unit * discount) / 100).toFixed(2))
-            : discount;
+          ? parseFloat(((qty * unit * discount) / 100).toFixed(2))
+          : discount;
 
       const netPrice =
         it.netPrice !== undefined
@@ -242,8 +243,8 @@ export default async function handler(req, res) {
         it.vatAmount !== undefined
           ? Number(it.vatAmount)
           : vatType === "Exclusive"
-            ? parseFloat(((netPrice * vatPercentage) / 100).toFixed(2))
-            : 0;
+          ? parseFloat(((netPrice * vatPercentage) / 100).toFixed(2))
+          : 0;
 
       const netPlusVat =
         it.netPlusVat !== undefined
@@ -255,7 +256,7 @@ export default async function handler(req, res) {
         code: it.code || "",
         name: it.name.trim(),
         description: it.description || "",
-        expiryDate: it.expiryDate ? new Date(it.expiryDate) : undefined,
+        expiryDate: it.expiryDate ? new Date(it.expiryDate) : null,
         quantity: qty,
         uom: it.uom || "",
         unitPrice: unit,
@@ -269,6 +270,9 @@ export default async function handler(req, res) {
         vatPercentage,
         netPlusVat,
         freeQuantity: Number(it.freeQuantity || 0),
+        freeQuantityExpiryDate: it.freeQuantityExpiryDate
+          ? new Date(it.freeQuantityExpiryDate)
+          : null,
       });
     }
 
@@ -283,6 +287,7 @@ export default async function handler(req, res) {
       notes: notes.trim(),
       status,
       createdBy: me._id,
+      orderCreditDays: orderCreditDays || 0,
       items: normalizedItems,
     };
 

@@ -53,6 +53,11 @@ const GRNSchema = new mongoose.Schema(
       ],
       default: "New",
     },
+    orderCreditDays: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
     items: [
       // requested items
       {
@@ -132,6 +137,10 @@ const GRNSchema = new mongoose.Schema(
           type: Number,
           default: 0,
         },
+        freeQuantityExpiryDate: {
+          type: Date,
+          default: null,
+        },
       },
     ],
     createdBy: {
@@ -141,7 +150,7 @@ const GRNSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  },
+  }
 );
 
 // Separate function to find next available gap

@@ -58,6 +58,8 @@ export default async function handler(req, res) {
       date,
       notes,
       status,
+      paidAmount,
+      remainingAmount,
     } = req.body;
 
     if (!branch || !supplier || !grn || !date) {
@@ -78,6 +80,8 @@ export default async function handler(req, res) {
       notes: notes || "",
       status,
       createdBy: me._id,
+      paidAmount,
+      remainingAmount,
     });
 
     await invoice.save();

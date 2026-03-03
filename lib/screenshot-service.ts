@@ -1,5 +1,5 @@
 // lib/screenshot-service.ts
-import { multiCloudinary } from './cloudinary-multi';
+import { multiCloudinary } from "./cloudinary-multi";
 
 export interface AgentScreenshot {
   agentId: string;
@@ -33,18 +33,18 @@ export interface ScreenshotMetadata {
 
 class ScreenshotService {
   private static instance: ScreenshotService;
-  
+
   private constructor() {
-    console.log('Screenshot Service initialized (using dggxzfnyz account)');
+    console.log("Screenshot Service initialized (using dggxzfnyz account)");
   }
-  
+
   public static getInstance(): ScreenshotService {
     if (!ScreenshotService.instance) {
       ScreenshotService.instance = new ScreenshotService();
     }
     return ScreenshotService.instance;
   }
-  
+
   /** Capture and upload screenshot for an agent*/
   async captureAndUpload(
     base64Image: string,
@@ -56,29 +56,27 @@ class ScreenshotService {
       compress?: boolean;
     } = {}
   ): Promise<AgentScreenshot> {
-    const {
-      sessionId,
-      windowTitle,
-      appName,
-      compress = true,
-    } = options;
-    
+    const { sessionId, windowTitle, appName, compress = true } = options;
+
     try {
       // Compress image if requested (client-side only)
       let processedImage = base64Image;
       if (compress && this.isBrowser()) {
         processedImage = await this.compressImage(base64Image, 1600, 0.8);
       }
-      
+
       // Upload to screenshot Cloudinary account (dggxzfnyz)
-      const uploadResult = await multiCloudinary.uploadScreenshot(processedImage, {
-        agentId,
-        sessionId,
-        windowTitle,
-        appName,
-        timestamp: new Date(),
-      });
-      
+      const uploadResult = await multiCloudinary.uploadScreenshot(
+        processedImage,
+        {
+          agentId,
+          sessionId,
+          windowTitle,
+          appName,
+          timestamp: new Date(),
+        }
+      );
+
       // Create agent screenshot object
       const agentScreenshot: AgentScreenshot = {
         agentId,
@@ -94,21 +92,23 @@ class ScreenshotService {
           appName,
         },
       };
-      
-      console.log(`Screenshot captured for agent ${agentId}:`, {
-        url: agentScreenshot.url.substring(0, 80) + '...',
-        size: `${(uploadResult.bytes / 1024).toFixed(1)} KB`,
-        dimensions: `${uploadResult.width}x${uploadResult.height}`,
-      });
-      
+
+      // console.log(`Screenshot captured for agent ${agentId}:`, {
+      //   url: agentScreenshot.url.substring(0, 80) + '...',
+      //   size: `${(uploadResult.bytes / 1024).toFixed(1)} KB`,
+      //   dimensions: `${uploadResult.width}x${uploadResult.height}`,
+      // });
+
       return agentScreenshot;
-      
     } catch (error: any) {
-      console.error(`Failed to capture screenshot for agent ${agentId}:`, error);
+      console.error(
+        `Failed to capture screenshot for agent ${agentId}:`,
+        error
+      );
       throw new Error(`Screenshot capture failed: ${error.message}`);
     }
   }
-  
+
   /**Get signed upload parameters for direct frontend upload*/
   getDirectUploadParams(agentId: string): {
     cloudName: string;
@@ -117,15 +117,15 @@ class ScreenshotService {
     tags: string[];
     timestamp: number;
   } {
-    const dateStr = new Date().toISOString().split('T')[0];
+    const dateStr = new Date().toISOString().split("T")[0];
     const folder = `desktime/screenshots/${dateStr}/agent-${agentId}`;
     const timestamp = Math.floor(Date.now() / 1000);
-    
+
     return {
-      cloudName: 'dggxzfnyz', // Screenshot account
-      uploadPreset: 'desktime_screenshots',
+      cloudName: "dggxzfnyz", // Screenshot account
+      uploadPreset: "desktime_screenshots",
       folder,
-      tags: ['desktime', 'screenshot', `agent-${agentId}`, `date-${dateStr}`],
+      tags: ["desktime", "screenshot", `agent-${agentId}`, `date-${dateStr}`],
       timestamp,
     };
   }
@@ -139,59 +139,59 @@ class ScreenshotService {
     if (!this.isBrowser()) {
       return base64Image;
     }
-    
+
     return new Promise((resolve, reject) => {
       const img = new Image();
-      
+
       img.onload = () => {
-        const canvas = document.createElement('canvas');
+        const canvas = document.createElement("canvas");
         let width = img.width;
         let height = img.height;
-        
+
         // Calculate new dimensions
         if (width > maxWidth) {
           height = Math.round((height * maxWidth) / width);
           width = maxWidth;
         }
-        
+
         canvas.width = width;
         canvas.height = height;
-        
-        const ctx = canvas.getContext('2d');
+
+        const ctx = canvas.getContext("2d");
         if (!ctx) {
-          reject(new Error('Canvas context not available'));
+          reject(new Error("Canvas context not available"));
           return;
         }
-        
+
         // Draw with high quality scaling
         ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
+        ctx.imageSmoothingQuality = "high";
         ctx.drawImage(img, 0, 0, width, height);
-        
+
         // Convert to JPEG with specified quality
-        const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+        const compressedBase64 = canvas.toDataURL("image/jpeg", quality);
         resolve(compressedBase64);
       };
-      
+
       img.onerror = () => {
-        reject(new Error('Failed to load image for compression'));
+        reject(new Error("Failed to load image for compression"));
       };
-      
+
       img.src = base64Image;
     });
   }
-  
+
   /** Check if running in browser*/
   private isBrowser(): boolean {
-    return typeof window !== 'undefined';
+    return typeof window !== "undefined";
   }
-  
+
   /* Validate screenshot Cloudinary account*/
   validateScreenshotAccount(): boolean {
     const accountInfo = multiCloudinary.getAccountInfo();
     return accountInfo.screenshot.isValid;
   }
-  
+
   /*Get screenshot account info */
   getAccountInfo() {
     return multiCloudinary.getAccountInfo().screenshot;

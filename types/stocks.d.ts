@@ -63,6 +63,7 @@ export type PurchaseRecordItem = {
   vatPercentage?: number;
   netPlusVat?: number;
   freeQuantity?: number;
+  freeQuantityExpiryDate?: string;
 };
 
 export type PurchaseRecord = {
