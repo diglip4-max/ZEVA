@@ -1101,7 +1101,7 @@ function OffersPage() {
                       <div className="flex flex-wrap gap-1.5">
                         {viewingOffer.treatments.map((t, idx) => (
                           <span key={idx} className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200">
-                            {typeof t === "string" ? t : t?._id || "—"}
+                            {typeof t === "string" ? t : t?.name || t?._id || "—"}
                           </span>
                         ))}
                       </div>
@@ -1148,17 +1148,17 @@ function OffersPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <p className="text-[10px] font-medium text-teal-700 mb-1">Clinic ID</p>
-                      <p className="text-sm text-gray-900">{viewingOffer?.clinicId || "—"}</p>
+                      <p className="text-sm text-gray-900">{viewingOffer?.clinicId?.name || "—"}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-medium text-teal-700 mb-1">Created By</p>
-                      <p className="text-sm text-gray-900">{viewingOffer?.createdBy || "—"}</p>
+                      <p className="text-sm text-gray-900">{viewingOffer?.createdBy?.name || "—"}</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <p className="text-[10px] font-medium text-teal-700 mb-1">Updated By</p>
-                      <p className="text-sm text-gray-900">{viewingOffer?.updatedBy || "—"}</p>
+                      <p className="text-sm text-gray-900">{viewingOffer?.updatedBy?.name || "—"}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-medium text-teal-700 mb-1">Created At</p>
