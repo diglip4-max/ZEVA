@@ -275,6 +275,8 @@ function ClinicCommissionPage() {
               : item
           )
         );
+        // Refresh summary so the Approve button's pendingApprovalCount updates immediately
+        load();
       } else {
         showToast(res.data.message || "Failed to update", "error");
       }
