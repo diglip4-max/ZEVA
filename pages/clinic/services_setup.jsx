@@ -71,9 +71,12 @@ function ServicesSetupPage() {
   const [editingDepartmentId, setEditingDepartmentId] = useState("");
   const [editingActive, setEditingActive] = useState(true);
   const [updating, setUpdating] = useState(false);
-
-
-
+  
+  // Search states
+  const [serviceSearchTerm, setServiceSearchTerm] = useState("");
+  const [membershipSearchTerm, setMembershipSearchTerm] = useState("");
+  const [packageSearchTerm, setPackageSearchTerm] = useState("");
+  
   const [memberships, setMemberships] = useState([]);
   const [memLoading, setMemLoading] = useState(true);
   const [memSubmitting, setMemSubmitting] = useState(false);
@@ -1131,7 +1134,7 @@ function ServicesSetupPage() {
             
             {/* Service Display Section - Modern Healthcare UI */}
             <div className="bg-white border border-teal-200 rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between gap-3 mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center">
                     <Wrench className="w-4 h-4 text-teal-600" />
@@ -1141,7 +1144,18 @@ function ServicesSetupPage() {
                     <p className="text-xs text-teal-600">Manage your clinic's service offerings</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap gap-2">
+                  {/* Service Search Bar */}
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-teal-400" />
+                    <input
+                      type="text"
+                      placeholder="Search services..."
+                      value={serviceSearchTerm}
+                      onChange={(e) => setServiceSearchTerm(e.target.value)}
+                      className="pl-8 pr-3 py-1.5 text-xs font-medium bg-white border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-700 w-full sm:w-40"
+                    />
+                  </div>
                   <div className="hidden sm:block px-3 py-1.5 bg-gradient-to-r from-teal-100 to-cyan-100 rounded-lg border border-teal-200">
                     <span className="text-xs font-bold text-teal-700">
                       {services.length} {services.length === 1 ? 'Service' : 'Services'}
@@ -1167,17 +1181,21 @@ function ServicesSetupPage() {
                     <span className="text-xs font-medium">Loading services...</span>
                   </div>
                 </div>
-              ) : services.length === 0 ? (
+              ) : services.filter(service => 
+                service.name.toLowerCase().includes(serviceSearchTerm.toLowerCase())
+              ).length === 0 ? (
                 <div className="text-center py-8">
                   <div className="w-12 h-12 mx-auto bg-teal-100 rounded-full flex items-center justify-center mb-3">
                     <Wrench className="w-6 h-6 text-teal-400" />
                   </div>
-                  <h3 className="text-base font-medium text-gray-900 mb-1">No services created yet</h3>
-                  <p className="text-xs text-gray-600">Create your first service to get started</p>
+                  <h3 className="text-base font-medium text-gray-900 mb-1">No services found</h3>
+                  <p className="text-xs text-gray-600">Try adjusting your search criteria</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {services.map((s) => {
+                  {services.filter(service => 
+                    service.name.toLowerCase().includes(serviceSearchTerm.toLowerCase())
+                  ).map((s) => {
                     const statusColor = s.isActive ? 'bg-[#2D9AA5]/10 text-[#2D9AA5]' : 'bg-gray-100 text-gray-800';
                     const statusText = s.isActive ? 'Active' : 'Inactive';
                     
@@ -1593,6 +1611,17 @@ function ServicesSetupPage() {
                 
                 {/* Filter Controls */}
                 <div className="flex flex-wrap gap-2">
+                  {/* Membership Search Bar */}
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-teal-400" />
+                    <input
+                      type="text"
+                      placeholder="Search memberships..."
+                      value={membershipSearchTerm}
+                      onChange={(e) => setMembershipSearchTerm(e.target.value)}
+                      className="pl-8 pr-3 py-1.5 text-xs font-medium bg-white border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-700 w-full sm:w-40"
+                    />
+                  </div>
                   <select
                     value={memFilter}
                     onChange={(e) => setMemFilter(e.target.value)}
@@ -1628,58 +1657,81 @@ function ServicesSetupPage() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {(() => {
-                    // Filter memberships based on selected filter
+                    // Filter memberships based on selected filter and search term
                     const filteredMemberships = memberships.filter(m => {
                       const isExpired = isMembershipExpired(m);
                       const isActive = m.isActive && !isExpired;
                       
+                      // Apply filter based on memFilter
+                      let passesFilter = true;
                       switch(memFilter) {
                         case 'active':
-                          return isActive;
+                          passesFilter = isActive;
+                          break;
                         case 'expired':
-                          return isExpired;
+                          passesFilter = isExpired;
+                          break;
                         case 'priority':
-                          return m.benefits?.priorityBooking === true;
+                          passesFilter = m.benefits?.priorityBooking === true;
+                          break;
                         case 'expiring-soon':
                           // Show memberships that will expire soon (within 30 days)
-                          if (!isActive) return false; // Only consider active memberships
-                          const expirationDate = new Date(m.createdAt);
-                          expirationDate.setMonth(expirationDate.getMonth() + m.durationMonths);
-                          const today = new Date();
-                          const daysUntilExpiry = Math.ceil((expirationDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                          return daysUntilExpiry <= 30 && daysUntilExpiry >= 0;
+                          if (!isActive) passesFilter = false; // Only consider active memberships
+                          else {
+                            const expirationDate = new Date(m.createdAt);
+                            expirationDate.setMonth(expirationDate.getMonth() + m.durationMonths);
+                            const today = new Date();
+                            const daysUntilExpiry = Math.ceil((expirationDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                            passesFilter = daysUntilExpiry <= 30 && daysUntilExpiry >= 0;
+                          }
+                          break;
                         case 'expiring-1-month':
                           // Show memberships expiring within 1 month
-                          if (!isActive) return false; // Only consider active memberships
-                          const expDate1 = new Date(m.createdAt);
-                          expDate1.setMonth(expDate1.getMonth() + m.durationMonths);
-                          const today1 = new Date();
-                          const daysUntilExpiry1 = Math.ceil((expDate1.getTime() - today1.getTime()) / (1000 * 60 * 60 * 24));
-                          return daysUntilExpiry1 <= 30 && daysUntilExpiry1 >= 0;
+                          if (!isActive) passesFilter = false; // Only consider active memberships
+                          else {
+                            const expDate1 = new Date(m.createdAt);
+                            expDate1.setMonth(expDate1.getMonth() + m.durationMonths);
+                            const today1 = new Date();
+                            const daysUntilExpiry1 = Math.ceil((expDate1.getTime() - today1.getTime()) / (1000 * 60 * 60 * 24));
+                            passesFilter = daysUntilExpiry1 <= 30 && daysUntilExpiry1 >= 0;
+                          }
+                          break;
                         case 'expiring-2-months':
                           // Show memberships expiring within 2 months
-                          if (!isActive) return false; // Only consider active memberships
-                          const expDate2 = new Date(m.createdAt);
-                          expDate2.setMonth(expDate2.getMonth() + m.durationMonths);
-                          const today2 = new Date();
-                          const daysUntilExpiry2 = Math.ceil((expDate2.getTime() - today2.getTime()) / (1000 * 60 * 60 * 24));
-                          return daysUntilExpiry2 <= 60 && daysUntilExpiry2 >= 0;
+                          if (!isActive) passesFilter = false; // Only consider active memberships
+                          else {
+                            const expDate2 = new Date(m.createdAt);
+                            expDate2.setMonth(expDate2.getMonth() + m.durationMonths);
+                            const today2 = new Date();
+                            const daysUntilExpiry2 = Math.ceil((expDate2.getTime() - today2.getTime()) / (1000 * 60 * 60 * 24));
+                            passesFilter = daysUntilExpiry2 <= 60 && daysUntilExpiry2 >= 0;
+                          }
+                          break;
                         case 'expiring-3-months':
                           // Show memberships expiring within 3 months
-                          if (!isActive) return false; // Only consider active memberships
-                          const expDate3 = new Date(m.createdAt);
-                          expDate3.setMonth(expDate3.getMonth() + m.durationMonths);
-                          const today3 = new Date();
-                          const daysUntilExpiry3 = Math.ceil((expDate3.getTime() - today3.getTime()) / (1000 * 60 * 60 * 24));
-                          return daysUntilExpiry3 <= 90 && daysUntilExpiry3 >= 0;
+                          if (!isActive) passesFilter = false; // Only consider active memberships
+                          else {
+                            const expDate3 = new Date(m.createdAt);
+                            expDate3.setMonth(expDate3.getMonth() + m.durationMonths);
+                            const today3 = new Date();
+                            const daysUntilExpiry3 = Math.ceil((expDate3.getTime() - today3.getTime()) / (1000 * 60 * 60 * 24));
+                            passesFilter = daysUntilExpiry3 <= 90 && daysUntilExpiry3 >= 0;
+                          }
+                          break;
                         case 'recent':
                           // Show recently created memberships (last 7 days)
                           const createdDate = new Date(m.createdAt);
                           const daysSinceCreation = Math.ceil((new Date().getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
-                          return daysSinceCreation <= 7;
+                          passesFilter = daysSinceCreation <= 7;
+                          break;
                         default: // 'all'
-                          return true;
+                          passesFilter = true;
                       }
+                      
+                      // Apply search filter
+                      const passesSearch = m.name.toLowerCase().includes(membershipSearchTerm.toLowerCase());
+                      
+                      return passesFilter && passesSearch;
                     });
                     
                     if (filteredMemberships.length === 0) {
@@ -2269,7 +2321,7 @@ function ServicesSetupPage() {
             </div>
             
             <div className="mt-6">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-teal-600 flex items-center justify-center shadow-md">
                     <Package className="w-5 h-5 text-white" />
@@ -2279,10 +2331,23 @@ function ServicesSetupPage() {
                     <p className="text-xs text-teal-600">Manage your existing packages</p>
                   </div>
                 </div>
-                <div className="px-3 py-1.5 bg-gradient-to-r from-teal-100 to-cyan-100 rounded-lg border border-teal-200">
-                  <span className="text-xs font-bold text-teal-700">
-                    {packages.length} {packages.length === 1 ? 'Package' : 'Packages'}
-                  </span>
+                <div className="flex flex-wrap gap-2">
+                  {/* Package Search Bar */}
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-teal-400" />
+                    <input
+                      type="text"
+                      placeholder="Search packages..."
+                      value={packageSearchTerm}
+                      onChange={(e) => setPackageSearchTerm(e.target.value)}
+                      className="pl-8 pr-3 py-1.5 text-xs font-medium bg-white border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-700 w-full sm:w-40"
+                    />
+                  </div>
+                  <div className="px-3 py-1.5 bg-gradient-to-r from-teal-100 to-cyan-100 rounded-lg border border-teal-200">
+                    <span className="text-xs font-bold text-teal-700">
+                      {packages.length} {packages.length === 1 ? 'Package' : 'Packages'}
+                    </span>
+                  </div>
                 </div>
               </div>
               
@@ -2293,20 +2358,24 @@ function ServicesSetupPage() {
                     <span className="text-sm font-medium">Loading packages...</span>
                   </div>
                 </div>
-              ) : packages.length === 0 ? (
+              ) : packages.filter(pkg => 
+                pkg.name.toLowerCase().includes(packageSearchTerm.toLowerCase())
+              ).length === 0 ? (
                 <div className="text-center py-12">
                   <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-teal-100 flex items-center justify-center">
                     <Package className="w-8 h-8 text-teal-600" />
                   </div>
-                  <p className="text-base font-semibold text-gray-900 mb-1">No packages created yet</p>
-                  <p className="text-sm text-gray-600 mb-4">Get started by creating your first package using the form above</p>
+                  <p className="text-base font-semibold text-gray-900 mb-1">No packages found</p>
+                  <p className="text-sm text-gray-600 mb-4">Try adjusting your search criteria</p>
                   <div className="inline-block px-3 py-1.5 bg-gradient-to-r from-teal-100 to-cyan-100 rounded-lg">
                     <span className="text-xs text-teal-700 font-medium">Start building your service packages today!</span>
                   </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {packages.map((pkg) => (
+                  {packages.filter(pkg => 
+                    pkg.name.toLowerCase().includes(packageSearchTerm.toLowerCase())
+                  ).map((pkg) => (
                     <div
                       key={pkg._id}
                       className="bg-white border border-teal-200 rounded-xl p-3 shadow-sm hover:shadow-md hover:border-teal-300 transition-all duration-200"
