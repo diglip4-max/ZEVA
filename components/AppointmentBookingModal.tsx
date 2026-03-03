@@ -873,6 +873,26 @@ export default function AppointmentBookingModal({
               </div>
             </div>
 
+            {/* Treatment Selection (Optional) */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
+                Treatment (Optional)
+              </label>
+              <select
+                value={selectedServiceId}
+                onChange={(e) => setSelectedServiceId(e.target.value)}
+                className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                disabled={servicesLoading}
+              >
+                <option value="">Select a treatment (optional)</option>
+                {services.map((svc) => (
+                  <option key={svc._id} value={svc._id}>
+                    {svc.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Search Patient */}
             <div>
               <label
@@ -1360,26 +1380,6 @@ export default function AppointmentBookingModal({
                 className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 placeholder-gray-400 dark:placeholder-gray-600 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm resize-none"
                 placeholder="Add any additional notes or special instructions..."
               />
-            </div>
-
-            {/* Treatment Selection (Optional) */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
-                Treatment (Optional)
-              </label>
-              <select
-                value={selectedServiceId}
-                onChange={(e) => setSelectedServiceId(e.target.value)}
-                className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
-                disabled={servicesLoading}
-              >
-                <option value="">Select a treatment (optional)</option>
-                {services.map((svc) => (
-                  <option key={svc._id} value={svc._id}>
-                    {svc.name}
-                  </option>
-                ))}
-              </select>
             </div>
           </form>
 

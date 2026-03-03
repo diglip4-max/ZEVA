@@ -462,6 +462,21 @@ export default async function handler(req, res) {
             commissionData.complaintsCount = commissionResult.complaintsCount || 0;
           }
 
+          // Store commission base amount (the amount used as basis for commission calculation)
+          // and set initial finalCommissionAmount equal to the computed commissionAmount.
+          // This base is used later if post-commission expenses are added on the commission page.
+          const commissionType = commissionResult.commissionType;
+          let commissionBaseAmount = paidNum; // default: full paid amount (flat / target_based)
+          if (commissionType === "after_deduction") {
+            // netAmount = paidAmount - billingExpenses (already computed by calculator)
+            commissionBaseAmount = commissionResult.netAmount || 0;
+          } else if (commissionType === "target_plus_expense") {
+            // netCommissionableAmount = amountAboveTarget - expenses
+            commissionBaseAmount = commissionResult.netCommissionableAmount || 0;
+          }
+          commissionData.commissionBaseAmount = commissionBaseAmount;
+          commissionData.finalCommissionAmount = commissionResult.commissionAmount || 0;
+
           await Commission.create(commissionData);
         } else {
           console.log(`Commission not created for staff ${appointment.doctorId}: ${commissionResult.reason}`);

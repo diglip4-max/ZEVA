@@ -1717,9 +1717,21 @@ const ManageAgentsPage = () => {
                             if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, employeeVisaFrontUrl: url })), setUploadingEmployeeVisaFront);
                           }}
                         />
-                        <span className="text-xs text-gray-600 truncate">
-                          {profileForm.employeeVisaFrontUrl ? getFileNameFromUrl(profileForm.employeeVisaFrontUrl) : "No file chosen"}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-600 truncate">
+                            {profileForm.employeeVisaFrontUrl ? getFileNameFromUrl(profileForm.employeeVisaFrontUrl) : "No file chosen"}
+                          </span>
+                          {profileForm.employeeVisaFrontUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setProfileForm((f) => ({ ...f, employeeVisaFrontUrl: "" }))}
+                              className="text-xs text-red-600 hover:text-red-700"
+                              aria-label="Clear Employee Visa Front"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
                       </label>
                     </div>
                     <div>
@@ -1743,9 +1755,21 @@ const ManageAgentsPage = () => {
                             if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, employeeVisaBackUrl: url })), setUploadingEmployeeVisaBack);
                           }}
                         />
-                        <span className="text-xs text-gray-600 truncate">
-                          {profileForm.employeeVisaBackUrl ? getFileNameFromUrl(profileForm.employeeVisaBackUrl) : "No file chosen"}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-600 truncate">
+                            {profileForm.employeeVisaBackUrl ? getFileNameFromUrl(profileForm.employeeVisaBackUrl) : "No file chosen"}
+                          </span>
+                          {profileForm.employeeVisaBackUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setProfileForm((f) => ({ ...f, employeeVisaBackUrl: "" }))}
+                              className="text-xs text-red-600 hover:text-red-700"
+                              aria-label="Clear Employee Visa Back"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
                       </label>
                     </div>
                   </div>
@@ -1767,7 +1791,7 @@ const ManageAgentsPage = () => {
                     </div>
                     <div className="space-y-3">
                       {(profileForm.otherDocuments || []).map((doc, idx) => (
-                        <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                        <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-start">
                           <div className="sm:col-span-4">
                             <label className="block text-xs font-medium text-teal-700 mb-1.5">Document Name</label>
                             <input
@@ -1819,21 +1843,37 @@ const ManageAgentsPage = () => {
                                   }
                                 }}
                               />
-                              <span className="text-xs text-gray-600 truncate">
-                                {doc.url ? getFileNameFromUrl(doc.url) : "No file chosen"}
-                              </span>
+                              {doc.url && (
+                                <span className="text-xs text-gray-600 truncate">
+                                  {getFileNameFromUrl(doc.url)}
+                                </span>
+                              )}
                               {doc.url && /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(doc.url) && (
-                                <div className="mt-1">
+                                <div className="mt-1 relative inline-block">
                                   <img
                                     src={doc.url}
                                     alt={doc.name || "Document preview"}
-                                    className="h-16 rounded border border-gray-200 object-contain"
+                                    className="h-16 w-auto rounded border border-gray-200 object-contain"
                                   />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setProfileForm(f => {
+                                        const arr = [...(f.otherDocuments || [])];
+                                        arr[idx] = { ...arr[idx], url: "" };
+                                        return { ...f, otherDocuments: arr };
+                                      });
+                                    }}
+                                    className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-white border border-gray-300 text-gray-700 hover:bg-red-50 hover:text-red-600 text-xs leading-5 flex items-center justify-center"
+                                    aria-label="Remove image"
+                                  >
+                                    ×
+                                  </button>
                                 </div>
                               )}
                             </label>
                           </div>
-                          <div className="sm:col-span-2 flex">
+                          <div className="sm:col-span-2 flex items-center mt-6 sm:mt-6">
                             <button
                               type="button"
                               onClick={() => {
@@ -1848,7 +1888,7 @@ const ManageAgentsPage = () => {
                                   return n;
                                 });
                               }}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs text-red-700 hover:bg-red-50"
+                              className="w-full h-[35px] px-3 py-2 border border-gray-300 rounded-lg text-xs text-red-700 hover:bg-red-50"
                             >
                               Remove
                             </button>
@@ -1856,6 +1896,7 @@ const ManageAgentsPage = () => {
                         </div>
                       ))}
                     </div>
+                    
                   </div>
                 </div>
 
@@ -2079,8 +2120,15 @@ const ManageAgentsPage = () => {
                           <span className="font-semibold">Employee Visa Front:</span>{' '}
                           {viewProfile?.employeeVisaFrontUrl ? (
                             <>
-                              <a href={viewProfile.employeeVisaFrontUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
-                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.employeeVisaFrontUrl)}</span>
+                              <a
+                                href={viewProfile.employeeVisaFrontUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center px-2 py-0.5 rounded border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 text-[11px] font-medium"
+                              >
+                                View
+                              </a>
+                              <span className="ml-2 text-[11px] text-gray-600">{getFileNameFromUrl(viewProfile.employeeVisaFrontUrl)}</span>
                             </>
                           ) : '—'}
                         </div>
@@ -2088,28 +2136,54 @@ const ManageAgentsPage = () => {
                           <span className="font-semibold">Employee Visa Back:</span>{' '}
                           {viewProfile?.employeeVisaBackUrl ? (
                             <>
-                              <a href={viewProfile.employeeVisaBackUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
-                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.employeeVisaBackUrl)}</span>
+                              <a
+                                href={viewProfile.employeeVisaBackUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center px-2 py-0.5 rounded border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 text-[11px] font-medium"
+                              >
+                                View
+                              </a>
+                              <span className="ml-2 text-[11px] text-gray-600">{getFileNameFromUrl(viewProfile.employeeVisaBackUrl)}</span>
                             </>
                           ) : '—'}
                         </div>
                         {Array.isArray(viewProfile?.otherDocuments) && viewProfile.otherDocuments.length > 0 && (
-                          <div className="mt-2 space-y-1">
-                            {viewProfile.otherDocuments.map((d, i) => (
-                              <div key={i} className="text-xs text-teal-700 dark:text-teal-300">
-                                <span className="font-semibold">{d.name || `Document ${i + 1}`}:</span>{' '}
-                                {d?.url ? (
-                                  <>
-                                    <a href={d.url} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
-                                    <span className="ml-2 text-[11px]">{getFileNameFromUrl(d.url)}</span>
-                                  </>
-                                ) : '—'}
-                              </div>
-                            ))}
+                          <div className="mt-10 sm:mt-12 space-y-2">
+                            {viewProfile.otherDocuments
+                              .filter(d => !['id','approve'].includes((d?.name || '').toLowerCase()))
+                              .map((d, i) => (
+                                <div
+                                  key={i}
+                                  className="text-xs text-teal-700 dark:text-teal-300"
+                                >
+                                  <span className="font-semibold capitalize">
+                                    {d.name || `Document ${i + 1}`}
+                                  </span>
+                                  {': '}
+                                  {d?.url ? (
+                                    <>
+                                      <a
+                                        href={d.url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center px-2 py-0.5 rounded border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 text-[11px] font-medium"
+                                      >
+                                        View
+                                      </a>
+                                      <span className="ml-2 text-[11px] text-gray-600">
+                                        {getFileNameFromUrl(d.url)}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span className="text-gray-500">—</span>
+                                  )}
+                                </div>
+                              ))}
                           </div>
                         )}
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {viewProfile?.employeeVisaFrontUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.employeeVisaFrontUrl) ? (
                           <div className="flex items-center justify-center">
                             <img src={viewProfile.employeeVisaFrontUrl} alt="Employee Visa Front" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
@@ -2128,24 +2202,53 @@ const ManageAgentsPage = () => {
                             No visa back image
                           </div>
                         )}
-                        {Array.isArray(viewProfile?.otherDocuments) && viewProfile.otherDocuments.length > 0 && (
-                          <>
-                            {viewProfile.otherDocuments.map((d, i) => (
-                              d?.url && /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(d.url) ? (
-                                <div key={`odoc-${i}`} className="flex items-center justify-center">
-                                  <img
-                                    src={d.url}
-                                    alt={d.name || `Document ${i + 1}`}
-                                    className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm"
-                                  />
-                                </div>
-                              ) : null
-                            ))}
-                          </>
-                        )}
                       </div>
                     </div>
                   </div>
+                  {Array.isArray(viewProfile?.otherDocuments) && viewProfile.otherDocuments.length > 0 && (
+                    <div className="border border-gray200 dark:border-gray700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900 mt-5">
+                      <h4 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-3">Add Document</h4>
+                      <div className="space-y-2">
+                        {viewProfile.otherDocuments
+                          .map((d, i) => (
+                            <div key={`adddoc-${i}`} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                              <div className="text-xs text-teal-700 dark:text-teal-300 flex-shrink-0">
+                                <span className="font-semibold capitalize">
+                                  {d.name || `Document ${i + 1}`}
+                                </span>
+                                {': '}
+                                {d?.url ? (
+                                  <>
+                                    <a
+                                      href={d.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center px-2 py-0.5 rounded border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 text-[11px] font-medium"
+                                    >
+                                      View
+                                    </a>
+                                    <span className="ml-2 text-[11px] text-gray-600">
+                                      {getFileNameFromUrl(d.url)}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span className="text-gray-500">—</span>
+                                )}
+                              </div>
+                              {d?.url && /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(d.url) && (
+                                <div className="flex-shrink-0 flex items-center justify-center sm:justify-start w-32 h-32">
+                                  <img
+                                    src={d.url}
+                                    alt={d.name || `Document ${i + 1}`}
+                                    className="rounded border border-gray200 dark:border-gray700 max-h-32 max-w-full object-contain shadow-sm"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="flex items-center justify-end">
                     <button
                       type="button"

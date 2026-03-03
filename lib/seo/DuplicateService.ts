@@ -110,8 +110,8 @@ export async function checkClinicDuplicates(clinic: any): Promise<DuplicateCheck
     if (combinedSimilarity > 0.8) {
       similarEntities.push({
         id: otherClinic._id.toString(),
-        name: otherClinic.name,
-        slug: otherClinic.slug,
+        name: otherClinic.name || '',
+        slug: otherClinic.slug || undefined,
         similarity: combinedSimilarity,
       });
     }
@@ -485,4 +485,3 @@ export async function checkDuplicates(
     return await checkBlogDuplicates(entity);
   }
 }
-

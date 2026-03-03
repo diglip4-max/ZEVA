@@ -320,6 +320,39 @@ const PackageUsageModal = ({ isOpen, onClose, patient, packageUsageData, loading
 };
 
 const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packages = [], onViewPackageUsage, transferNameMap = {}, membershipUsageMap = {} }) => {
+  const [balance, setBalance] = useState({ pendingBalance: null, advanceBalance: null });
+  const [balanceLoading, setBalanceLoading] = useState(false);
+
+  const formatAEDLocal = (v) => {
+    if (typeof v !== "number" || Number.isNaN(v) || v === null) return "—";
+    try { return `د.إ${v.toLocaleString()}`; } catch { return `د.إ${v}`; }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const headers = getAuthHeaders();
+    if (!isOpen || !patient?._id || !headers) return;
+    setBalanceLoading(true);
+    (async () => {
+      try {
+        const res = await axios.get(`/api/clinic/patient-balance/${patient._id}`, { headers });
+        const data = res?.data?.balances || {};
+        if (!cancelled) {
+          setBalance({
+            pendingBalance: Number(data.pendingBalance || 0),
+            advanceBalance: Number(data.advanceBalance || 0),
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          setBalance({ pendingBalance: 0, advanceBalance: 0 });
+        }
+      } finally {
+        if (!cancelled) setBalanceLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, patient]);
 
   if (!isOpen || !patient) return null;
   const membershipName = (() => {
@@ -368,27 +401,46 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-xl sm:rounded-2xl shadow-2xl max-w-4xl w-full my-2 sm:my-4 md:my-8 animate-scaleIn max-h-[95vh] sm:max-h-[90vh] md:max-h-[85vh] overflow-y-auto flex flex-col">
-        <div className="sticky top-0 bg-gradient-to-r from-teal-50 to-cyan-50 border-b px-4 py-3 flex items-center justify-between z-10 rounded-t-xl">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <User className="w-5 h-5 text-teal-600 flex-shrink-0" />
-            <h3 className="text-lg font-bold text-gray-900 truncate">Patient Profile</h3>
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-[95vw] md:max-w-6xl my-4 md:my-8 animate-scaleIn max-h-[95vh] sm:max-h-[92vh] md:max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="sticky top-0 bg-gradient-to-r from-teal-600 to-cyan-600 px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 z-10 rounded-t-xl text-white">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center font-bold">
+              <span className="text-sm">
+                {(patient?.firstName?.[0] || '').toUpperCase()}
+              </span>
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-lg font-bold truncate">Patient Profile</h3>
+              <p className="text-[11px] text-white/80 truncate">{patient ? `${patient.firstName} ${patient.lastName}` : ''}</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {isPriority && (
-              <span className="ml-2 inline-flex px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-700 text-[11px] font-semibold shadow-sm">
+              <span className="inline-flex px-2 py-0.5 rounded-full bg-white/20 text-white text-[11px] font-semibold shadow-sm">
                 Priority
               </span>
             )}
             {isExpired && (
-              <span className="ml-2 inline-flex px-2 py-0.5 rounded-full bg-gradient-to-r from-red-100 to-pink-100 text-red-700 text-[11px] font-semibold shadow-sm">
+              <span className="inline-flex px-2 py-0.5 rounded-full bg-red-500/30 text-white text-[11px] font-semibold shadow-sm">
                 Expired
               </span>
             )}
+            {patient?.emrNumber && (
+              <span className="px-2 py-0.5 rounded-full bg-white/15 text-[11px] font-semibold">
+                EMR: {patient.emrNumber}
+              </span>
+            )}
+            {patient?.invoiceNumber && (
+              <span className="px-2 py-0.5 rounded-full bg-white/15 text-[11px] font-semibold">
+                Inv: {patient.invoiceNumber}
+              </span>
+            )}
+            <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors flex-shrink-0"><X className="w-5 h-5" /></button>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-lg text-gray-500 hover:text-gray-800 transition-colors flex-shrink-0 ml-2"><X className="w-5 h-5" /></button>
         </div>
-        <div className="p-3 space-y-2.5 flex-1 overflow-y-auto">
+        <div className="p-4 sm:p-6 space-y-3 flex-1 overflow-y-auto bg-gradient-to-b from-gray-50 to-white">
           {/* Personal & Contact Info Card */}
-          <div className="bg-gradient-to-br from-white to-teal-50 rounded-lg border border-gray-200 p-3 shadow-sm">
+          <div className="bg-gradient-to-br from-white to-teal-50 rounded-xl border border-gray-200 p-4 shadow-md">
             <div className="flex items-center gap-1.5 mb-2.5">
               <User className="w-4 h-4 text-teal-600" />
               <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wide">Patient Info</h4>
@@ -402,11 +454,21 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
               <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Referred By</span> <span className="font-medium text-gray-900 text-sm">{patient.referredBy || 'N/A'}</span></div>
               {patient.doctor && <div className="flex flex-col md:col-span-2"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Doctor</span> <span className="font-medium text-gray-900 text-sm">{patient.doctor}</span></div>}
             </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-100 text-amber-700 text-[11px] font-semibold">
+                <DollarSign className="w-3 h-3" />
+                {balanceLoading && balance.pendingBalance === null ? "Pending: ..." : `Pending: ${formatAEDLocal(balance.pendingBalance)}`}
+              </span>
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-100 text-emerald-700 text-[11px] font-semibold">
+                <DollarSign className="w-3 h-3" />
+                {balanceLoading && balance.advanceBalance === null ? "Advance: ..." : `Advance: ${formatAEDLocal(balance.advanceBalance)}`}
+              </span>
+            </div>
           </div>
 
           {/* Invoice & Insurance Info Card */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
-            <div className="bg-gradient-to-br from-white to-cyan-50 rounded-lg border border-gray-200 p-3 shadow-sm">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="bg-gradient-to-br from-white to-cyan-50 rounded-xl border border-gray-200 p-4 shadow-md">
               <div className="flex items-center gap-1.5 mb-2.5">
                 <FileText className="w-4 h-4 text-cyan-600" />
                 <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wide">Invoice</h4>
@@ -429,7 +491,9 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
               <div className="space-y-2.5">
                 <div className="grid grid-cols-2 gap-2.5">
                   <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Insurance Status</span> <span className={`font-medium text-sm ${patient.insurance === 'Yes' ? 'text-green-600' : 'text-red-600'}`}>{patient.insurance || 'No'}</span></div>
-                  <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Insurance Type</span> <span className="font-medium text-gray-900 text-sm">{patient.insuranceType || 'Paid'}</span></div>
+                  {patient.insurance === 'Yes' && (
+                    <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Insurance Type</span> <span className="font-medium text-gray-900 text-sm">{patient.insuranceType || '-'}</span></div>
+                  )}
                 </div>
                 {patient.insurance === 'Yes' && patient.insuranceType === 'Advance' && (
                   <div className="space-y-2 pt-2 border-t border-gray-200 mt-2">
@@ -440,7 +504,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                     <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Due</span> <span className="font-medium text-gray-900 text-sm">د.إ{patient.needToPay?.toLocaleString() || 0}</span></div>
                   </div>
                 )}
-                {patient.advanceClaimStatus && (
+                {patient.insurance === 'Yes' && patient.advanceClaimStatus && (
                   <div className="flex flex-col pt-2 border-t border-gray-200 mt-2">
                     <span className="text-[11px] font-semibold text-gray-600 mb-0.5">Claim Status</span>
                     <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${patient.advanceClaimStatus === 'Released' ? 'bg-green-100 text-green-800' : patient.advanceClaimStatus === 'Approved by doctor' ? 'bg-blue-100 text-blue-800' : patient.advanceClaimStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
@@ -876,6 +940,8 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
   // Calculate stats
   const totalPatients = patients.length;
   const activePatients = patients.filter(p => p.status === 'Active' || p.applicationStatus === 'Active').length;
+
+  
 
   const fetchPatients = async (showSuccessToast = true) => {
     const headers = getAuthHeaders();

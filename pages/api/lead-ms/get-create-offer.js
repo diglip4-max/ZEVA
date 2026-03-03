@@ -86,16 +86,49 @@ export default async function handler(req, res) {
     // Fetch offers for the clinic - return all fields defined in CreateOffer model
     const now = new Date();
     const query = clinicId ? { clinicId } : {};
-    const offers = await Offer.find(query)
+    const offers = await Offer.find(query).populate({ path: "treatments", select: "name slug" }).populate({ path: "subTreatments.treatmentId", model: "Treatment", select: "name slug" }).populate({ path: "createdBy", select: "name" }).populate({ path: "updatedBy", select: "name" }).populate({ path: "clinicId", select: "name" })
       .sort({ createdAt: -1 })
       .lean();
 
     // Compute expired status in-memory without DB write
-    const shapedOffers = offers.map((offer) => ({
-      ...offer,
-      status:
-        offer.endsAt && new Date(offer.endsAt) < now ? "expired" : offer.status,
-    }));
+    const shapedOffers = offers.map((offer) => {
+      // Transform treatments to include names
+      const treatmentNames = (offer.treatments || []).map(treatment => ({
+        _id: treatment._id,
+        name: treatment.name,
+        slug: treatment.slug
+      }));
+      
+      // Transform subTreatments to include names
+      const subTreatmentNames = (offer.subTreatments || []).map(subTreatment => {
+        // Handle the populated treatmentId object
+        const treatmentInfo = subTreatment.treatmentId;
+        return {
+          ...subTreatment,
+          treatmentName: treatmentInfo?.name || subTreatment.name,
+          treatmentSlug: treatmentInfo?.slug || subTreatment.slug
+        };
+      });
+      
+      return {
+        ...offer,
+        treatments: treatmentNames,
+        subTreatments: subTreatmentNames,
+        clinicId: {
+          _id: offer.clinicId?._id,
+          name: offer.clinicId?.name
+        },
+        createdBy: {
+          _id: offer.createdBy?._id,
+          name: offer.createdBy?.name
+        },
+        updatedBy: {
+          _id: offer.updatedBy?._id,
+          name: offer.updatedBy?.name
+        },
+        status: offer.endsAt && new Date(offer.endsAt) < now ? "expired" : offer.status,
+      };
+    });
 
     // Light caching for 5s (client-side private cache)
     res.setHeader("Cache-Control", "private, max-age=5, stale-while-revalidate=30");
@@ -107,3 +140,7 @@ export default async function handler(req, res) {
       .json({ success: false, message: err.message || "Server error" });
   }
 }
+
+
+
+
