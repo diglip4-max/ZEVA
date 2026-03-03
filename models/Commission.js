@@ -42,6 +42,9 @@ const CommissionSchema = new mongoose.Schema(
       default: [],
     }, // Additional expenses added after commission was calculated
     finalCommissionAmount: { type: Number, min: 0, default: 0 }, // Recalculated commission after post-commission expenses. Initially equals commissionAmount.
+    // Submission & approval workflow
+    isSubmitted: { type: Boolean, default: false }, // Clinic marks individual commission as submitted/selected (tick in detail modal)
+    isApproved: { type: Boolean, default: false },  // Clinic approves the batch after submitting (approve button on summary row)
   },
   { timestamps: true }
 );
