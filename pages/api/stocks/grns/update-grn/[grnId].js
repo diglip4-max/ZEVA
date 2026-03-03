@@ -104,6 +104,7 @@ export default async function handler(req, res) {
       supplierGrnDate,
       notes,
       status,
+      orderCreditDays,
       items,
     } = req.body;
 
@@ -201,7 +202,7 @@ export default async function handler(req, res) {
         return res.status(400).json({
           success: false,
           message: `Invalid status. Valid statuses are: ${validStatuses.join(
-            ", ",
+            ", "
           )}`,
         });
       }
@@ -239,6 +240,7 @@ export default async function handler(req, res) {
     if (supplierGrnDate) updateData.supplierGrnDate = new Date(supplierGrnDate);
     if (notes !== undefined) updateData.notes = notes.trim();
     if (status) updateData.status = status;
+    updateData.orderCreditDays = orderCreditDays || 0;
     if (items && Array.isArray(items)) {
       const normalized = [];
       for (let i = 0; i < items.length; i++) {
@@ -272,7 +274,7 @@ export default async function handler(req, res) {
         const total = Number(
           (it.totalPrice !== undefined ? it.totalPrice : qty * unit).toFixed
             ? (qty * unit).toFixed(2)
-            : qty * unit,
+            : qty * unit
         );
         const discountType =
           it.discountType === "Percentage" ? "Percentage" : "Fixed";
@@ -281,8 +283,8 @@ export default async function handler(req, res) {
           it.discountAmount !== undefined
             ? Number(it.discountAmount || 0)
             : discountType === "Percentage"
-              ? Number(((qty * unit * discount) / 100).toFixed(2))
-              : Number(discount);
+            ? Number(((qty * unit * discount) / 100).toFixed(2))
+            : Number(discount);
         const netPrice =
           it.netPrice !== undefined
             ? Number(it.netPrice || 0)
@@ -293,8 +295,8 @@ export default async function handler(req, res) {
           it.vatAmount !== undefined
             ? Number(it.vatAmount || 0)
             : vatType === "Exclusive"
-              ? Number(((netPrice * vatPercentage) / 100).toFixed(2))
-              : Number(0);
+            ? Number(((netPrice * vatPercentage) / 100).toFixed(2))
+            : Number(0);
         const netPlusVat =
           it.netPlusVat !== undefined
             ? Number(it.netPlusVat || 0)
@@ -304,7 +306,7 @@ export default async function handler(req, res) {
           code: it.code || "",
           name: it.name.trim(),
           description: it.description || "",
-          expiryDate: it.expiryDate ? new Date(it.expiryDate) : undefined,
+          expiryDate: it.expiryDate ? new Date(it.expiryDate) : null,
           quantity: qty,
           uom: it.uom || "",
           unitPrice: unit,
@@ -318,6 +320,9 @@ export default async function handler(req, res) {
           vatPercentage,
           netPlusVat,
           freeQuantity: Number(it.freeQuantity || 0),
+          freeQuantityExpiryDate: it.freeQuantityExpiryDate
+            ? new Date(it.freeQuantityExpiryDate)
+            : null,
         });
       }
       updateData.items = normalized;
@@ -327,7 +332,7 @@ export default async function handler(req, res) {
     const updatedGRN = await GRN.findOneAndUpdate(
       { _id: grnId, clinicId },
       { ...updateData },
-      { new: true, runValidators: true },
+      { new: true, runValidators: true }
     )
       .populate("branch", "name")
       .populate("purchasedOrder", "orderNo date supplier")

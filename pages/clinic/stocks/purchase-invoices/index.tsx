@@ -76,7 +76,7 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
             `/api/stocks/purchase-invoices?${params.toString()}`,
             {
               headers: { Authorization: `Bearer ${token}` },
-            },
+            }
           );
           if (response.data?.success) {
             const data = response.data?.data || [];
@@ -95,22 +95,22 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
             const uniqueSuppliers = new Set(
               data
                 .map((r: any) =>
-                  typeof r.supplier === "object" ? r.supplier?._id : r.supplier,
+                  typeof r.supplier === "object" ? r.supplier?._id : r.supplier
                 )
-                .filter(Boolean),
+                .filter(Boolean)
             );
             const uniqueBranches = new Set(
               data
                 .map((r: any) =>
-                  typeof r.branch === "object" ? r.branch?._id : r.branch,
+                  typeof r.branch === "object" ? r.branch?._id : r.branch
                 )
-                .filter(Boolean),
+                .filter(Boolean)
             );
             const totalGrns =
               data.reduce(
                 (sum: number, r: any) =>
                   sum + (Array.isArray(r.grns) ? r.grns.length : r.grn ? 1 : 0),
-                0,
+                0
               ) || 0;
             setStats({
               totalRecords: response.data.pagination?.total || data.length,
@@ -125,9 +125,9 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
           setLoading(false);
         }
       },
-      300,
+      300
     ),
-    [pagination.limit],
+    [pagination.limit]
   );
 
   useEffect(() => {
@@ -138,7 +138,7 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
     (page: number) => {
       fetchPurchaseInvoices(page, searchTerm, filterData);
     },
-    [fetchPurchaseInvoices, searchTerm, filterData],
+    [fetchPurchaseInvoices, searchTerm, filterData]
   );
 
   useEffect(() => {
@@ -191,7 +191,7 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
         `/api/stocks/purchase-invoices/delete/${recordToDelete._id}`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        },
+        }
       );
       if (response.data.success) {
         const updated = records.filter((po) => po._id !== recordToDelete._id);
@@ -270,7 +270,7 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                 fetchPurchaseInvoices(
                   pagination.currentPage,
                   searchTerm,
-                  filterData,
+                  filterData
                 );
               }}
             />
@@ -286,11 +286,8 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
               isOpen={isEditModalOpen}
               onClose={handleEditCancel}
               data={recordToEdit}
-              onSuccess={(updated: any) => {
-                const mapped = records.map((po) =>
-                  po._id === updated._id ? updated : po,
-                );
-                setRecords(mapped);
+              onSuccess={(_updated: any) => {
+                fetchPurchaseInvoices();
               }}
             />
             <PurchaseInvoiceDetailModal
@@ -555,6 +552,16 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                       GRNs Linked
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total Amount (AED)
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Paid Amount (AED)
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Due Amount (AED)
+                    </th>
+
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -566,72 +573,73 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {displayData.map((r: any) => (
-                    <React.Fragment key={r._id}>
-                      <tr className="hover:bg-gray-50 transition-colors duration-150">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                              <span className="text-white font-medium text-sm">
-                                {(r.invoiceNo || "").slice(-2) || "PI"}
-                              </span>
-                            </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {r.invoiceNo || r._id}
+                  {displayData.map((r: any) => {
+                    let totalAmount = 0;
+                    let paidAmount = r?.paidAmount || 0;
+                    let remainingAmount = r?.remainingAmount || 0;
+
+                    r?.grns?.forEach((grn: any) => {
+                      grn?.items?.forEach((item: any) => {
+                        totalAmount += item?.netPlusVat || 0;
+                      });
+                    });
+                    return (
+                      <React.Fragment key={r._id}>
+                        <tr className="hover:bg-gray-50 transition-colors duration-150">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                                <span className="text-white font-medium text-sm">
+                                  {(r.invoiceNo || "").slice(-2) || "PI"}
+                                </span>
                               </div>
-                              <div className="text-sm text-gray-500">
-                                ID: {r._id.substring(0, 8)}...
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {r.invoiceNo || r._id}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  ID: {r._id.substring(0, 8)}...
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {r.date ? new Date(r.date).toLocaleDateString() : "-"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {r.supplier?.name || "N/A"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {r.branch?.name || "N/A"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {Array.isArray(r.grns)
-                            ? r.grns.length
-                            : r.grn
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {r.date
+                              ? new Date(r.date).toLocaleDateString()
+                              : "-"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {r.supplier?.name || "N/A"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {r.branch?.name || "N/A"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {Array.isArray(r.grns)
+                              ? r.grns.length
+                              : r.grn
                               ? 1
                               : 0}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                              {
-                                New: "bg-blue-100 text-blue-800",
-                                Approved: "bg-green-100 text-green-800",
-                                Invoiced: "bg-emerald-100 text-emerald-800",
-                                Rejected: "bg-red-100 text-red-800",
-                                Cancelled: "bg-gray-100 text-gray-800",
-                                Deleted: "bg-gray-100 text-gray-800",
-                              }[
-                                r.status as
-                                  | "New"
-                                  | "Approved"
-                                  | "Invoiced"
-                                  | "Rejected"
-                                  | "Cancelled"
-                                  | "Deleted"
-                              ] || "bg-gray-100 text-gray-800"
-                            }`}
-                          >
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {totalAmount?.toFixed(2) || "0.00"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {paidAmount?.toFixed(2) || "0.00"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {remainingAmount?.toFixed(2) || "0.00"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
                             <span
-                              className={`h-2 w-2 rounded-full mr-2 ${
+                              className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
                                 {
-                                  New: "bg-blue-500",
-                                  Approved: "bg-green-500",
-                                  Invoiced: "bg-emerald-500",
-                                  Rejected: "bg-red-500",
-                                  Cancelled: "bg-gray-500",
-                                  Deleted: "bg-gray-500",
+                                  New: "bg-blue-100 text-blue-800",
+                                  Approved: "bg-green-100 text-green-800",
+                                  Invoiced: "bg-emerald-100 text-emerald-800",
+                                  Rejected: "bg-red-100 text-red-800",
+                                  Cancelled: "bg-gray-100 text-gray-800",
+                                  Deleted: "bg-gray-100 text-gray-800",
                                 }[
                                   r.status as
                                     | "New"
@@ -640,249 +648,273 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                                     | "Rejected"
                                     | "Cancelled"
                                     | "Deleted"
-                                ] || "bg-gray-500"
+                                ] || "bg-gray-100 text-gray-800"
                               }`}
-                            />
-                            {(r.status || "").replace(/_/g, " ")}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {r.createdAt
-                            ? new Date(r.createdAt).toLocaleDateString(
-                                "en-US",
-                                {
-                                  year: "numeric",
-                                  month: "short",
-                                  day: "numeric",
-                                },
-                              )
-                            : "-"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="relative inline-block text-left">
-                            <button
-                              onClick={() => {
-                                const currentMenuState = document
-                                  .getElementById(`menu-${r._id}`)
-                                  ?.classList.contains("block");
-                                document
-                                  .querySelectorAll("[id^=menu-]")
-                                  .forEach((el) => {
-                                    if (el.id !== `menu-${r._id}`) {
-                                      el.classList.remove("block");
-                                      el.classList.add("hidden");
-                                    }
-                                  });
-                                const menuEl = document.getElementById(
-                                  `menu-${r._id}`,
-                                );
-                                if (menuEl) {
-                                  if (currentMenuState) {
-                                    menuEl.classList.remove("block");
-                                    menuEl.classList.add("hidden");
-                                  } else {
-                                    menuEl.classList.remove("hidden");
-                                    menuEl.classList.add("block");
+                            >
+                              <span
+                                className={`h-2 w-2 rounded-full mr-2 ${
+                                  {
+                                    New: "bg-blue-500",
+                                    Approved: "bg-green-500",
+                                    Invoiced: "bg-emerald-500",
+                                    Rejected: "bg-red-500",
+                                    Cancelled: "bg-gray-500",
+                                    Deleted: "bg-gray-500",
+                                  }[
+                                    r.status as
+                                      | "New"
+                                      | "Approved"
+                                      | "Invoiced"
+                                      | "Rejected"
+                                      | "Cancelled"
+                                      | "Deleted"
+                                  ] || "bg-gray-500"
+                                }`}
+                              />
+                              {(r.status || "").replace(/_/g, " ")}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {r.createdAt
+                              ? new Date(r.createdAt).toLocaleDateString(
+                                  "en-US",
+                                  {
+                                    year: "numeric",
+                                    month: "short",
+                                    day: "numeric",
                                   }
-                                }
-                              }}
-                              className="text-gray-500 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-50 transition-all duration-200"
-                              title="More options"
-                            >
-                              <EllipsisVerticalIcon className="h-5 w-5" />
-                            </button>
-                            <div
-                              id={`menu-${r._id}`}
-                              className="hidden origin-top-right absolute right-0 mt-2 w-40 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10"
-                            >
-                              <div className="py-1">
-                                <button
-                                  onClick={() => {
-                                    handleDetailClick(r);
-                                    const menuEl = document.getElementById(
-                                      `menu-${r._id}`,
-                                    );
-                                    if (menuEl) {
+                                )
+                              : "-"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="relative inline-block text-left">
+                              <button
+                                onClick={() => {
+                                  const currentMenuState = document
+                                    .getElementById(`menu-${r._id}`)
+                                    ?.classList.contains("block");
+                                  document
+                                    .querySelectorAll("[id^=menu-]")
+                                    .forEach((el) => {
+                                      if (el.id !== `menu-${r._id}`) {
+                                        el.classList.remove("block");
+                                        el.classList.add("hidden");
+                                      }
+                                    });
+                                  const menuEl = document.getElementById(
+                                    `menu-${r._id}`
+                                  );
+                                  if (menuEl) {
+                                    if (currentMenuState) {
                                       menuEl.classList.remove("block");
                                       menuEl.classList.add("hidden");
+                                    } else {
+                                      menuEl.classList.remove("hidden");
+                                      menuEl.classList.add("block");
                                     }
-                                  }}
-                                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                                >
-                                  <div className="flex items-center">
-                                    <svg
-                                      className="h-4 w-4 mr-2"
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      stroke="currentColor"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                      />
-                                    </svg>
-                                    Detail
-                                  </div>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    toggleRowExpansion(r._id);
-                                    const menuEl = document.getElementById(
-                                      `menu-${r._id}`,
-                                    );
-                                    if (menuEl) {
-                                      menuEl.classList.remove("block");
-                                      menuEl.classList.add("hidden");
-                                    }
-                                  }}
-                                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                                >
-                                  <div className="flex items-center">
-                                    <svg
-                                      className="h-4 w-4 mr-2"
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      stroke="currentColor"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M19 9l-7 7-7-7"
-                                      />
-                                    </svg>
-                                    {expandedRows[r._id]
-                                      ? "Hide GRNs"
-                                      : "Show GRNs"}
-                                  </div>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    handleEditClick(r);
-                                    const menuEl = document.getElementById(
-                                      `menu-${r._id}`,
-                                    );
-                                    if (menuEl) {
-                                      menuEl.classList.remove("block");
-                                      menuEl.classList.add("hidden");
-                                    }
-                                  }}
-                                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                                >
-                                  <div className="flex items-center">
-                                    <PencilIcon className="h-4 w-4 mr-2" />
-                                    Edit
-                                  </div>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    // Open print page in new tab
-                                    const printUrl = `/clinic/stocks/purchase-invoices/print-purchase-invoice?pinvId=${r?._id}`;
-                                    window.open(
-                                      printUrl,
-                                      "_blank",
-                                      "noopener,noreferrer",
-                                    );
-                                    // Close the dropdown after clicking
-                                    const menuEl = document.getElementById(
-                                      `menu-${r._id}`,
-                                    );
-                                    if (menuEl) {
-                                      menuEl.classList.remove("block");
-                                      menuEl.classList.add("hidden");
-                                    }
-                                  }}
-                                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                                >
-                                  <div className="flex items-center">
-                                    <Printer className="h-4 w-4 mr-2" />
-                                    Print
-                                  </div>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    handleDeleteClick(r);
-                                    const menuEl = document.getElementById(
-                                      `menu-${r._id}`,
-                                    );
-                                    if (menuEl) {
-                                      menuEl.classList.remove("block");
-                                      menuEl.classList.add("hidden");
-                                    }
-                                  }}
-                                  className="block w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50"
-                                >
-                                  <div className="flex items-center">
-                                    <TrashIcon className="h-4 w-4 mr-2" />
-                                    Delete
-                                  </div>
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                      {expandedRows[r._id] && (
-                        <tr>
-                          <td
-                            colSpan={8}
-                            className="px-6 py-6 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200"
-                          >
-                            <div className="ml-8 mr-4">
-                              <div className="flex items-center justify-between mb-4">
-                                <h4 className="text-lg font-bold text-gray-900">
-                                  Linked GRNs
-                                </h4>
-                              </div>
-                              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                <div className="overflow-x-auto">
-                                  <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                      <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          GRN No
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          Created
-                                        </th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                      {(Array.isArray(r.grns)
-                                        ? r.grns
-                                        : r.grn
-                                          ? [r.grn]
-                                          : []
-                                      ).map((g: any, idx: number) => (
-                                        <tr key={idx}>
-                                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
-                                            {g?.grnNo || g}
-                                          </td>
-                                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                                            {g?.createdAt
-                                              ? new Date(
-                                                  g.createdAt,
-                                                ).toLocaleDateString("en-US", {
-                                                  year: "numeric",
-                                                  month: "short",
-                                                  day: "numeric",
-                                                })
-                                              : "-"}
-                                          </td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
+                                  }
+                                }}
+                                className="text-gray-500 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-50 transition-all duration-200"
+                                title="More options"
+                              >
+                                <EllipsisVerticalIcon className="h-5 w-5" />
+                              </button>
+                              <div
+                                id={`menu-${r._id}`}
+                                className="hidden origin-top-right absolute right-0 mt-2 w-40 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10"
+                              >
+                                <div className="py-1">
+                                  <button
+                                    onClick={() => {
+                                      handleDetailClick(r);
+                                      const menuEl = document.getElementById(
+                                        `menu-${r._id}`
+                                      );
+                                      if (menuEl) {
+                                        menuEl.classList.remove("block");
+                                        menuEl.classList.add("hidden");
+                                      }
+                                    }}
+                                    className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                  >
+                                    <div className="flex items-center">
+                                      <svg
+                                        className="h-4 w-4 mr-2"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                        />
+                                      </svg>
+                                      Detail
+                                    </div>
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      toggleRowExpansion(r._id);
+                                      const menuEl = document.getElementById(
+                                        `menu-${r._id}`
+                                      );
+                                      if (menuEl) {
+                                        menuEl.classList.remove("block");
+                                        menuEl.classList.add("hidden");
+                                      }
+                                    }}
+                                    className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                  >
+                                    <div className="flex items-center">
+                                      <svg
+                                        className="h-4 w-4 mr-2"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M19 9l-7 7-7-7"
+                                        />
+                                      </svg>
+                                      {expandedRows[r._id]
+                                        ? "Hide GRNs"
+                                        : "Show GRNs"}
+                                    </div>
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      handleEditClick(r);
+                                      const menuEl = document.getElementById(
+                                        `menu-${r._id}`
+                                      );
+                                      if (menuEl) {
+                                        menuEl.classList.remove("block");
+                                        menuEl.classList.add("hidden");
+                                      }
+                                    }}
+                                    className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                  >
+                                    <div className="flex items-center">
+                                      <PencilIcon className="h-4 w-4 mr-2" />
+                                      Edit
+                                    </div>
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      // Open print page in new tab
+                                      const printUrl = `/clinic/stocks/purchase-invoices/print-purchase-invoice?pinvId=${r?._id}`;
+                                      window.open(
+                                        printUrl,
+                                        "_blank",
+                                        "noopener,noreferrer"
+                                      );
+                                      // Close the dropdown after clicking
+                                      const menuEl = document.getElementById(
+                                        `menu-${r._id}`
+                                      );
+                                      if (menuEl) {
+                                        menuEl.classList.remove("block");
+                                        menuEl.classList.add("hidden");
+                                      }
+                                    }}
+                                    className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                  >
+                                    <div className="flex items-center">
+                                      <Printer className="h-4 w-4 mr-2" />
+                                      Print
+                                    </div>
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      handleDeleteClick(r);
+                                      const menuEl = document.getElementById(
+                                        `menu-${r._id}`
+                                      );
+                                      if (menuEl) {
+                                        menuEl.classList.remove("block");
+                                        menuEl.classList.add("hidden");
+                                      }
+                                    }}
+                                    className="block w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50"
+                                  >
+                                    <div className="flex items-center">
+                                      <TrashIcon className="h-4 w-4 mr-2" />
+                                      Delete
+                                    </div>
+                                  </button>
                                 </div>
                               </div>
                             </div>
                           </td>
                         </tr>
-                      )}
-                    </React.Fragment>
-                  ))}
+                        {expandedRows[r._id] && (
+                          <tr>
+                            <td
+                              colSpan={8}
+                              className="px-6 py-6 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200"
+                            >
+                              <div className="ml-8 mr-4">
+                                <div className="flex items-center justify-between mb-4">
+                                  <h4 className="text-lg font-bold text-gray-900">
+                                    Linked GRNs
+                                  </h4>
+                                </div>
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                                  <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                      <thead className="bg-gray-50">
+                                        <tr>
+                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            GRN No
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Created
+                                          </th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="bg-white divide-y divide-gray-200">
+                                        {(Array.isArray(r.grns)
+                                          ? r.grns
+                                          : r.grn
+                                          ? [r.grn]
+                                          : []
+                                        ).map((g: any, idx: number) => (
+                                          <tr key={idx}>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
+                                              {g?.grnNo || g}
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                                              {g?.createdAt
+                                                ? new Date(
+                                                    g.createdAt
+                                                  ).toLocaleDateString(
+                                                    "en-US",
+                                                    {
+                                                      year: "numeric",
+                                                      month: "short",
+                                                      day: "numeric",
+                                                    }
+                                                  )
+                                                : "-"}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -899,7 +931,7 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                 <span className="font-medium">
                   {Math.min(
                     pagination.currentPage * pagination.limit,
-                    pagination.totalResults,
+                    pagination.totalResults
                   )}
                 </span>{" "}
                 of{" "}
@@ -931,7 +963,7 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                           {pageNum}
                         </button>
                       );
-                    },
+                    }
                   )}
                 </div>
                 <button
@@ -959,7 +991,7 @@ PurchaseInvoicesPage.getLayout = function getLayout(page: ReactElement) {
 };
 
 const ProtectedPurchaseInvoicesPage = withClinicAuth(
-  PurchaseInvoicesPage,
+  PurchaseInvoicesPage
 ) as NextPageWithLayout;
 ProtectedPurchaseInvoicesPage.getLayout = PurchaseInvoicesPage.getLayout;
 

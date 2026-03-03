@@ -22,6 +22,45 @@ interface AddPurchaseOrderModalProps {
   onSuccess: (data: PurchaseRecord) => void;
 }
 
+// Function to generate next enquiry number
+const generateEnqNo = async (token: string): Promise<string> => {
+  try {
+    const response = await fetch("/api/stocks/purchase-records?limit=1000", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const data = await response.json();
+
+    if (data.success) {
+      const records = data.data.records || [];
+      // Filter records with enqNo starting with ENQ-
+      const enqNumbers = records
+        .map((r: any) => r.enqNo)
+        .filter((enq: string) => enq && enq.startsWith("ENQ-"))
+        .map((enq: string) => {
+          const match = enq.match(/(\d+)$/);
+          return match ? parseInt(match[1]) : 0;
+        })
+        .sort((a: number, b: number) => a - b);
+
+      let nextNumber = 1;
+      for (const num of enqNumbers) {
+        if (num === nextNumber) {
+          nextNumber++;
+        } else if (num > nextNumber) {
+          break;
+        }
+      }
+      return `ENQ-${String(nextNumber).padStart(6, "0")}`;
+    }
+  } catch (error) {
+    console.error("Error generating enquiry number:", error);
+  }
+  // Fallback
+  return `ENQ-${Date.now().toString().slice(-6)}`;
+};
+
 const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
   token,
   isOpen,
@@ -29,13 +68,14 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
   onSuccess,
 }) => {
   const { clinicBranches } = useClinicBranches();
-  const { stockItems } = useStockItems();
+  const { stockItems, fetchStockItems } = useStockItems();
   const [supplierSearch, setSupplierSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
   const supplierDropdownRef = useRef<HTMLDivElement>(null);
   const [isOpenAddStockItemModal, setIsOpenAddStockItemModal] = useState(false);
+  const [enqNoLoading, setEnqNoLoading] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -50,7 +90,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
     type: "Purchase_Order",
     supplierInvoiceNo: "",
     notes: "",
-    status: "New",
+    status: "Approved",
     shipTo: {
       to: "",
       address: "",
@@ -70,7 +110,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
       email: "",
     },
   });
-  const { uoms, loading: uomsLoading } = useUoms({
+  const { uoms } = useUoms({
     token,
     branchId: formData.branch || "",
   });
@@ -108,40 +148,37 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
     freeQuantity: 0,
   });
 
-  // Calculate total for an item
-  const calculateItemTotal = (item: PurchaseRecordItem): number => {
-    let total = item.quantity * item.unitPrice;
-
-    // Apply discount
-    if (item.discountType === "Fixed") {
-      total -= item.discount || 0;
-    } else if (item.discountType === "Percentage") {
-      total -= (total * (item.discount || 0)) / 100;
-    }
-
-    // Apply VAT
-    if (item.vatType === "Exclusive") {
-      total += item.vatAmount || 0;
-    }
-
-    return parseFloat(total.toFixed(2));
-  };
-
-  // Update item calculations when quantities change
+  // Update item calculations when relevant fields change
   useEffect(() => {
-    const total = currentItem.quantity * currentItem.unitPrice;
-    const netPrice = calculateItemTotal(currentItem);
+    const totalPrice = currentItem.quantity * currentItem.unitPrice;
+
+    // Calculate discount amount
+    let discountAmount = 0;
+    if (currentItem.discountType === "Fixed") {
+      discountAmount = currentItem.discount || 0;
+    } else if (currentItem.discountType === "Percentage") {
+      discountAmount = (totalPrice * (currentItem.discount || 0)) / 100;
+    }
+
+    // Net price = totalPrice - discountAmount
+    const netPrice = totalPrice - discountAmount;
+
+    // VAT amount: if vatPercentage is set use it, otherwise use manual vatAmount
     const vatAmount =
-      currentItem.vatType === "Exclusive" ? currentItem.vatAmount : 0;
+      (currentItem.vatPercentage || 0) > 0
+        ? (netPrice * (currentItem.vatPercentage || 0)) / 100
+        : currentItem.vatAmount || 0;
+
+    // Net + VAT
+    const netPlusVat = netPrice + vatAmount;
 
     setCurrentItem((prev) => ({
       ...prev,
-      totalPrice: parseFloat(total.toFixed(2)),
-      netPrice: netPrice,
-      netPlusVat:
-        currentItem.vatType === "Exclusive"
-          ? netPrice + (vatAmount || 0)
-          : netPrice,
+      totalPrice: parseFloat(totalPrice.toFixed(2)),
+      discountAmount: parseFloat(discountAmount.toFixed(2)),
+      netPrice: parseFloat(netPrice.toFixed(2)),
+      vatAmount: parseFloat(vatAmount.toFixed(2)),
+      netPlusVat: parseFloat(netPlusVat.toFixed(2)),
     }));
   }, [
     currentItem.quantity,
@@ -150,6 +187,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
     currentItem.discountType,
     currentItem.vatAmount,
     currentItem.vatType,
+    currentItem.vatPercentage,
   ]);
 
   // Close dropdowns when clicking outside
@@ -170,10 +208,22 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
     };
   }, []);
 
+  // Auto-generate enquiry number when modal opens
+  useEffect(() => {
+    if (isOpen && !formData.enqNo) {
+      setEnqNoLoading(true);
+      generateEnqNo(token)
+        .then((enqNo) => {
+          setFormData((prev) => ({ ...prev, enqNo }));
+        })
+        .finally(() => setEnqNoLoading(false));
+    }
+  }, [isOpen, token]);
+
   const handleInputChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >,
+    >
   ) => {
     const { name, value } = e.target;
 
@@ -197,7 +247,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
 
   const handleCurrentItemChange = (
     field: keyof PurchaseRecordItem,
-    value: any,
+    value: any
   ) => {
     let discountAmount = 0;
     if (field === "discount" && currentItem?.discountType === "Fixed") {
@@ -291,7 +341,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(payload),
-        },
+        }
       );
 
       const result = await response.json();
@@ -323,7 +373,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
       type: "Purchase_Order",
       supplierInvoiceNo: "",
       notes: "",
-      status: "New",
+      status: "Approved",
       shipTo: {
         to: "",
         address: "",
@@ -451,7 +501,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                       }
                     >
                       {suppliers?.find(
-                        (supplier) => supplier._id === formData.supplier,
+                        (supplier) => supplier._id === formData.supplier
                       )?.name || "Select a supplier"}
                     </span>
                     <ChevronDown
@@ -605,17 +655,24 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                 <label className="block text-sm font-bold text-gray-900">
                   Enquiry Number
                 </label>
-                <input
-                  type="text"
-                  name="enqNo"
-                  value={formData.enqNo}
-                  onChange={handleInputChange}
-                  placeholder="Enter enquiry number"
-                  className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  disabled={loading}
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="enqNo"
+                    value={formData.enqNo}
+                    readOnly
+                    placeholder="Auto-generated"
+                    className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed"
+                    disabled={true}
+                  />
+                  {enqNoLoading && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Reference enquiry number
+                  Auto-generated enquiry number
                 </p>
               </div>
 
@@ -938,7 +995,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-base font-bold text-gray-900">
-                      Items *
+                      Purchase Order Items *
                     </h3>
                     <button
                       onClick={() => setIsOpenAddStockItemModal(true)}
@@ -1026,7 +1083,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "quantity",
-                          parseFloat(e.target.value) || 0,
+                          parseFloat(e.target.value) || 0
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1045,20 +1102,17 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange("uom", e.target.value)
                       }
-                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
-                      disabled={loading}
+                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 h-10"
                     >
                       <option value="">Select UOM</option>
-                      {uomsLoading ? (
+                      {!stockItems?.find(
+                        (i) => i?._id === currentItem?.itemId
+                      ) ? (
                         <option value="">Loading UOMs...</option>
-                      ) : uoms.length > 0 ? (
-                        uoms.map((uom) => (
-                          <option key={uom._id} value={uom.name}>
-                            {uom.name}
-                          </option>
-                        ))
                       ) : (
-                        <option value="">No UOMs available</option>
+                        <option value={currentItem.uom}>
+                          {currentItem.uom}
+                        </option>
                       )}
                     </select>
                   </div>
@@ -1076,7 +1130,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "unitPrice",
-                          parseFloat(e.target.value) || 0,
+                          parseFloat(e.target.value) || 0
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1111,7 +1165,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "discount",
-                          parseFloat(e.target.value) || 0,
+                          parseFloat(e.target.value) || 0
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1130,7 +1184,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "discountType",
-                          e.target.value as "Fixed" | "Percentage",
+                          e.target.value as "Fixed" | "Percentage"
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1179,7 +1233,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "vatPercentage",
-                          parseFloat(e.target.value) || 0,
+                          parseFloat(e.target.value) || 0
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1201,7 +1255,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "vatAmount",
-                          parseFloat(e.target.value) || 0,
+                          parseFloat(e.target.value) || 0
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1235,7 +1289,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "freeQuantity",
-                          parseFloat(e.target.value) || 0,
+                          parseFloat(e.target.value) || 0
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1396,26 +1450,71 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                         ))
                       )}
                     </tbody>
-                    {items.length > 0 && (
-                      <tfoot className="bg-gray-50">
-                        <tr>
-                          <td
-                            colSpan={6}
-                            className="px-3 py-2 text-sm font-bold text-gray-900 text-right"
-                          >
-                            Total :
-                          </td>
-                          <td className="px-3 py-2 text-sm font-bold text-gray-900">
-                            {items
-                              .reduce((sum, item) => sum + item.totalPrice, 0)
-                              .toFixed(2)}
-                          </td>
-                          <td colSpan={6}></td>
-                        </tr>
-                      </tfoot>
-                    )}
                   </table>
                 </div>
+
+                {/* Totals Summary */}
+                {items.length > 0 && (
+                  <div className="mt-4 bg-gray-50 rounded-lg p-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="text-center">
+                        <p className="text-xs text-gray-500 mb-1">
+                          Total Quantity
+                        </p>
+                        <p className="text-lg font-bold text-gray-900">
+                          {items.reduce((sum, item) => sum + item.quantity, 0)}
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-gray-500 mb-1">Subtotal</p>
+                        <p className="text-lg font-bold text-gray-900">
+                          {items
+                            .reduce(
+                              (sum, item) => sum + (item.totalPrice || 0),
+                              0
+                            )
+                            .toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-gray-500 mb-1">
+                          Total Discount
+                        </p>
+                        <p className="text-lg font-bold text-red-600">
+                          -
+                          {items
+                            .reduce(
+                              (sum, item) => sum + (item.discountAmount || 0),
+                              0
+                            )
+                            .toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-gray-500 mb-1">Total VAT</p>
+                        <p className="text-lg font-bold text-gray-900">
+                          {items
+                            .reduce(
+                              (sum, item) => sum + (item.vatAmount || 0),
+                              0
+                            )
+                            .toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
+                      <p className="text-sm text-gray-600">Grand Total</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {items
+                          .reduce(
+                            (sum, item) => sum + (item.netPlusVat || 0),
+                            0
+                          )
+                          .toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </form>
@@ -1485,6 +1584,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
           onSuccess={(newStockItem) => {
             // Handle successful creation
             console.log("New stock item created:", newStockItem);
+            fetchStockItems();
           }}
         />
       </div>

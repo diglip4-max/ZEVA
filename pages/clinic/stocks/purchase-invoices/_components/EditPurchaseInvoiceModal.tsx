@@ -90,8 +90,8 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
           isNaN(paid) || paid < 0
             ? 0
             : paid > payableAmount
-              ? payableAmount
-              : paid;
+            ? payableAmount
+            : paid;
         next.paidAmount = clamped;
         const remaining = payableAmount - clamped;
         next.remainingAmount = remaining > 0 ? Number(remaining.toFixed(2)) : 0;
@@ -140,7 +140,7 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
     }
   }, [data, isOpen]);
 
-  // Fetch GRNs when branch changes
+  // Fetch GRNs when branch or supplier changes
   useEffect(() => {
     const fetchGrns = async () => {
       try {
@@ -158,7 +158,15 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
           headers: { Authorization: `Bearer ${t}` },
         });
         if (res.data?.success) {
-          const filteredGrns = res.data?.data?.records || [];
+          let filteredGrns = res.data?.data?.records || [];
+          // Filter by selected supplier
+          if (formData.supplier) {
+            filteredGrns = filteredGrns.filter(
+              (grn: any) =>
+                grn?.purchasedOrder?.supplier?._id === formData.supplier ||
+                grn?.purchasedOrder?.supplier === formData.supplier
+            );
+          }
           setGrns(filteredGrns || []);
         } else {
           setGrns([]);
@@ -173,7 +181,7 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
     if (isOpen && formData.branch) {
       fetchGrns();
     }
-  }, [formData.branch, showEntries, isOpen]);
+  }, [formData.branch, formData.supplier, showEntries, isOpen]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -195,7 +203,7 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
   const handleInputChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >,
+    >
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => {
@@ -210,8 +218,8 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
             Number(prev.paidAmount || 0) > payableAmount
               ? payableAmount
               : Number(prev.paidAmount || 0) < 0
-                ? 0
-                : Number(prev.paidAmount || 0);
+              ? 0
+              : Number(prev.paidAmount || 0);
           next.paidAmount = clampedPaid;
           const remaining = payableAmount - clampedPaid;
           next.remainingAmount =
@@ -300,7 +308,7 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
           Number(formData.paidAmount || 0) !== payableAmount
         ) {
           setError(
-            "For Paid status, the paid amount must equal the payable amount",
+            "For Paid status, the paid amount must equal the payable amount"
           );
           setLoading(false);
           return;
@@ -322,7 +330,7 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(payload),
-        },
+        }
       );
 
       const result = await res.json();
@@ -443,7 +451,7 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
                         }
                       >
                         {suppliers?.find(
-                          (supplier) => supplier._id === formData.supplier,
+                          (supplier) => supplier._id === formData.supplier
                         )?.name || "Select a supplier"}
                       </span>
                       <ChevronDown
@@ -518,6 +526,7 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
                                         ...formData,
                                         supplier: supplier._id,
                                       });
+                                      setSelectedGrns([]);
                                       setIsSupplierDropdownOpen(false);
                                       setSupplierSearch("");
                                     }}
@@ -958,6 +967,9 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
                           <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                             Status
                           </th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            Payment
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
@@ -974,6 +986,35 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
                             vat += item?.vatAmount || 0;
                             netPlusVat += item?.netPlusVat || 0;
                           }
+                          // Payment due label calculation
+                          const paymentTermsDays = Number(
+                            grn?.orderCreditDays || 0
+                          );
+                          const poDate = grn?.purchasedOrder?.date
+                            ? new Date(grn.purchasedOrder.date)
+                            : null;
+                          let paymentLabel:
+                            | "Due"
+                            | "Partly Due"
+                            | "Unpaid"
+                            | null = "Unpaid";
+                          if (poDate && paymentTermsDays > 0) {
+                            const dueDate = new Date(poDate);
+                            dueDate.setDate(
+                              dueDate.getDate() + paymentTermsDays
+                            );
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            dueDate.setHours(0, 0, 0, 0);
+                            const diffDays = Math.ceil(
+                              (dueDate.getTime() - today.getTime()) /
+                                (1000 * 60 * 60 * 24)
+                            );
+                            if (diffDays <= 0) {
+                              paymentLabel = "Due";
+                            }
+                          }
+
                           return (
                             <tr
                               key={grn._id}
@@ -999,7 +1040,7 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
                               <td className="px-4 py-3 text-sm text-gray-600">
                                 {grn.grnDate
                                   ? new Date(grn.grnDate).toLocaleDateString(
-                                      "en-GB",
+                                      "en-GB"
                                     )
                                   : "N/A"}
                               </td>
@@ -1031,6 +1072,19 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
                                 >
                                   {grn.status || "New"}
                                 </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                {paymentLabel === "Due" && (
+                                  <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">
+                                    Due
+                                  </span>
+                                )}
+
+                                {paymentLabel === "Unpaid" && (
+                                  <span className="text-xs text-gray-400 bg-white border border-gray-300 rounded-full">
+                                    {paymentLabel}
+                                  </span>
+                                )}
                               </td>
                             </tr>
                           );
