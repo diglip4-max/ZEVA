@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { toast, Toaster } from "react-hot-toast";
 import axios from "axios";
-import { Building2, Edit3, X, Plus, Camera, ChevronLeft, ChevronRight, Clock, MapPin, DollarSign, Users, Star, Heart, Activity, Eye, Check } from "lucide-react";
+import { Building2, Edit3, X, Plus, Camera, ChevronLeft, ChevronRight, Clock, MapPin, DollarSign, Users, Star, Heart, Activity, Check } from "lucide-react";
 import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import type { NextPageWithLayout } from "../_app";

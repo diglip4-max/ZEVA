@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, User, Crown, Stethoscope, Building2, Package, Gift, DoorOpen, UserPlus, GripVertical, Eye, EyeOff, Save, RotateCcw, Edit2, X, Undo2, Redo2, ChevronLeft, ChevronRight, LayoutDashboard, Home, Tag, Percent, ShoppingCart, Receipt, DollarSign, Wallet, Shield, UserCheck, UserCog, UserCircle, Award } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, LineChart, Line, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
 import Stats from '../../components/Stats';
@@ -539,18 +539,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
   // Icon mapping
   const iconMap: { [key: string]: React.ReactNode } = {
     // Standard keys
-    '??': <BarChart3 className="w-5 h-5" />,
-    '??': <Users className="w-5 h-5" />,
-    '??': <FileText className="w-5 h-5" />,
-    '??': <Briefcase className="w-5 h-5" />,
-    '??': <MessageSquare className="w-5 h-5" />,
-    '??': <Calendar className="w-5 h-5" />,
-    '??': <CreditCard className="w-5 h-5" />,
+    '??-bar': <BarChart3 className="w-5 h-5" />,
+    '??-users': <Users className="w-5 h-5" />,
+    '??-file': <FileText className="w-5 h-5" />,
+    '??-briefcase': <Briefcase className="w-5 h-5" />,
+    '??-message': <MessageSquare className="w-5 h-5" />,
+    '??-calendar': <Calendar className="w-5 h-5" />,
+    '??-card': <CreditCard className="w-5 h-5" />,
     '?': <Star className="w-5 h-5" />,
-    '??': <Mail className="w-5 h-5" />,
-    '??': <Settings className="w-5 h-5" />,
-    '??': <TrendingUp className="w-5 h-5" />,
-    '??': <Lock className="w-5 h-5" />,
+    '??-mail': <Mail className="w-5 h-5" />,
+    '??-settings': <Settings className="w-5 h-5" />,
+    '??-trending': <TrendingUp className="w-5 h-5" />,
+    '??-lock': <Lock className="w-5 h-5" />,
    
     // Sidebar specific keys
     'home': <Home className="w-5 h-5" />,

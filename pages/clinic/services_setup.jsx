@@ -1134,7 +1134,7 @@ function ServicesSetupPage() {
             
             {/* Service Display Section - Modern Healthcare UI */}
             <div className="bg-white border border-teal-200 rounded-xl p-4 shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center">
                     <Wrench className="w-4 h-4 text-teal-600" />
@@ -1153,7 +1153,7 @@ function ServicesSetupPage() {
                       placeholder="Search services..."
                       value={serviceSearchTerm}
                       onChange={(e) => setServiceSearchTerm(e.target.value)}
-                      className="pl-8 pr-3 py-1.5 text-xs font-medium bg-white border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-700 w-full sm:w-40"
+                      className="pl-8 pr-3 py-3.5 text-xs font-medium bg-white border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-700 w-full sm:w-64"
                     />
                   </div>
                   <div className="hidden sm:block px-3 py-1.5 bg-gradient-to-r from-teal-100 to-cyan-100 rounded-lg border border-teal-200">
@@ -1598,7 +1598,7 @@ function ServicesSetupPage() {
 
             {/* Membership Display Section - Compact Healthcare UI */}
             <div className="bg-white border border-teal-200 rounded-xl p-4 shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center">
                     <Users className="w-4 h-4 text-teal-600" />
@@ -1619,7 +1619,7 @@ function ServicesSetupPage() {
                       placeholder="Search memberships..."
                       value={membershipSearchTerm}
                       onChange={(e) => setMembershipSearchTerm(e.target.value)}
-                      className="pl-8 pr-3 py-1.5 text-xs font-medium bg-white border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-700 w-full sm:w-40"
+                      className="pl-8 pr-3 py-1.5 text-xs font-medium bg-white border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-700 w-full sm:w-64"
                     />
                   </div>
                   <select
@@ -2321,7 +2321,7 @@ function ServicesSetupPage() {
             </div>
             
             <div className="mt-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-teal-600 flex items-center justify-center shadow-md">
                     <Package className="w-5 h-5 text-white" />
@@ -2340,7 +2340,7 @@ function ServicesSetupPage() {
                       placeholder="Search packages..."
                       value={packageSearchTerm}
                       onChange={(e) => setPackageSearchTerm(e.target.value)}
-                      className="pl-8 pr-3 py-1.5 text-xs font-medium bg-white border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-700 w-full sm:w-40"
+                      className="pl-8 pr-3 py-3.5 text-xs font-medium bg-white border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-700 w-full sm:w-64"
                     />
                   </div>
                   <div className="px-3 py-1.5 bg-gradient-to-r from-teal-100 to-cyan-100 rounded-lg border border-teal-200">
