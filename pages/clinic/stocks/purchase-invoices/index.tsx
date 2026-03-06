@@ -76,7 +76,7 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
             `/api/stocks/purchase-invoices?${params.toString()}`,
             {
               headers: { Authorization: `Bearer ${token}` },
-            }
+            },
           );
           if (response.data?.success) {
             const data = response.data?.data || [];
@@ -95,22 +95,22 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
             const uniqueSuppliers = new Set(
               data
                 .map((r: any) =>
-                  typeof r.supplier === "object" ? r.supplier?._id : r.supplier
+                  typeof r.supplier === "object" ? r.supplier?._id : r.supplier,
                 )
-                .filter(Boolean)
+                .filter(Boolean),
             );
             const uniqueBranches = new Set(
               data
                 .map((r: any) =>
-                  typeof r.branch === "object" ? r.branch?._id : r.branch
+                  typeof r.branch === "object" ? r.branch?._id : r.branch,
                 )
-                .filter(Boolean)
+                .filter(Boolean),
             );
             const totalGrns =
               data.reduce(
                 (sum: number, r: any) =>
                   sum + (Array.isArray(r.grns) ? r.grns.length : r.grn ? 1 : 0),
-                0
+                0,
               ) || 0;
             setStats({
               totalRecords: response.data.pagination?.total || data.length,
@@ -125,9 +125,9 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
           setLoading(false);
         }
       },
-      300
+      300,
     ),
-    [pagination.limit]
+    [pagination.limit],
   );
 
   useEffect(() => {
@@ -138,7 +138,7 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
     (page: number) => {
       fetchPurchaseInvoices(page, searchTerm, filterData);
     },
-    [fetchPurchaseInvoices, searchTerm, filterData]
+    [fetchPurchaseInvoices, searchTerm, filterData],
   );
 
   useEffect(() => {
@@ -191,7 +191,7 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
         `/api/stocks/purchase-invoices/delete/${recordToDelete._id}`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
       if (response.data.success) {
         const updated = records.filter((po) => po._id !== recordToDelete._id);
@@ -270,7 +270,7 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                 fetchPurchaseInvoices(
                   pagination.currentPage,
                   searchTerm,
-                  filterData
+                  filterData,
                 );
               }}
             />
@@ -618,8 +618,8 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                             {Array.isArray(r.grns)
                               ? r.grns.length
                               : r.grn
-                              ? 1
-                              : 0}
+                                ? 1
+                                : 0}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {totalAmount?.toFixed(2) || "0.00"}
@@ -640,6 +640,8 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                                   Rejected: "bg-red-100 text-red-800",
                                   Cancelled: "bg-gray-100 text-gray-800",
                                   Deleted: "bg-gray-100 text-gray-800",
+                                  Paid: "bg-green-100 text-green-600",
+                                  Partly_Paid: "bg-green-100 text-green-600",
                                 }[
                                   r.status as
                                     | "New"
@@ -648,6 +650,8 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                                     | "Rejected"
                                     | "Cancelled"
                                     | "Deleted"
+                                    | "Paid"
+                                    | "Partly_Paid"
                                 ] || "bg-gray-100 text-gray-800"
                               }`}
                             >
@@ -660,6 +664,8 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                                     Rejected: "bg-red-500",
                                     Cancelled: "bg-gray-500",
                                     Deleted: "bg-gray-500",
+                                    Paid: "bg-green-500 text-green-500",
+                                    Partly_Paid: "bg-green-500 text-green-500",
                                   }[
                                     r.status as
                                       | "New"
@@ -668,6 +674,8 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                                       | "Rejected"
                                       | "Cancelled"
                                       | "Deleted"
+                                      | "Paid"
+                                      | "Partly_Paid"
                                   ] || "bg-gray-500"
                                 }`}
                               />
@@ -682,7 +690,7 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                                     year: "numeric",
                                     month: "short",
                                     day: "numeric",
-                                  }
+                                  },
                                 )
                               : "-"}
                           </td>
@@ -702,7 +710,7 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                                       }
                                     });
                                   const menuEl = document.getElementById(
-                                    `menu-${r._id}`
+                                    `menu-${r._id}`,
                                   );
                                   if (menuEl) {
                                     if (currentMenuState) {
@@ -728,7 +736,7 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                                     onClick={() => {
                                       handleDetailClick(r);
                                       const menuEl = document.getElementById(
-                                        `menu-${r._id}`
+                                        `menu-${r._id}`,
                                       );
                                       if (menuEl) {
                                         menuEl.classList.remove("block");
@@ -758,7 +766,7 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                                     onClick={() => {
                                       toggleRowExpansion(r._id);
                                       const menuEl = document.getElementById(
-                                        `menu-${r._id}`
+                                        `menu-${r._id}`,
                                       );
                                       if (menuEl) {
                                         menuEl.classList.remove("block");
@@ -790,7 +798,7 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                                     onClick={() => {
                                       handleEditClick(r);
                                       const menuEl = document.getElementById(
-                                        `menu-${r._id}`
+                                        `menu-${r._id}`,
                                       );
                                       if (menuEl) {
                                         menuEl.classList.remove("block");
@@ -811,11 +819,11 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                                       window.open(
                                         printUrl,
                                         "_blank",
-                                        "noopener,noreferrer"
+                                        "noopener,noreferrer",
                                       );
                                       // Close the dropdown after clicking
                                       const menuEl = document.getElementById(
-                                        `menu-${r._id}`
+                                        `menu-${r._id}`,
                                       );
                                       if (menuEl) {
                                         menuEl.classList.remove("block");
@@ -833,7 +841,7 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                                     onClick={() => {
                                       handleDeleteClick(r);
                                       const menuEl = document.getElementById(
-                                        `menu-${r._id}`
+                                        `menu-${r._id}`,
                                       );
                                       if (menuEl) {
                                         menuEl.classList.remove("block");
@@ -855,10 +863,10 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                         {expandedRows[r._id] && (
                           <tr>
                             <td
-                              colSpan={8}
+                              colSpan={11}
                               className="px-6 py-6 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200"
                             >
-                              <div className="ml-8 mr-4">
+                              <div className="w-full">
                                 <div className="flex items-center justify-between mb-4">
                                   <h4 className="text-lg font-bold text-gray-900">
                                     Linked GRNs
@@ -869,11 +877,11 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                                     <table className="min-w-full divide-y divide-gray-200">
                                       <thead className="bg-gray-50">
                                         <tr>
-                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                             GRN No
                                           </th>
-                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                            Created
+                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                            Created Date
                                           </th>
                                         </tr>
                                       </thead>
@@ -881,29 +889,31 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                                         {(Array.isArray(r.grns)
                                           ? r.grns
                                           : r.grn
-                                          ? [r.grn]
-                                          : []
-                                        ).map((g: any, idx: number) => (
-                                          <tr key={idx}>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
-                                              {g?.grnNo || g}
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                                              {g?.createdAt
-                                                ? new Date(
-                                                    g.createdAt
-                                                  ).toLocaleDateString(
-                                                    "en-US",
-                                                    {
-                                                      year: "numeric",
-                                                      month: "short",
-                                                      day: "numeric",
-                                                    }
-                                                  )
-                                                : "-"}
-                                            </td>
-                                          </tr>
-                                        ))}
+                                            ? [r.grn]
+                                            : []
+                                        ).map((g: any, idx: number) => {
+                                          const grn: any = g || {};
+
+                                          return (
+                                            <tr key={idx}>
+                                              <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                                                {grn?.grnNo ||
+                                                  (typeof g === "string"
+                                                    ? g
+                                                    : "N/A")}
+                                              </td>
+                                              <td className="px-4 py-3 text-sm text-gray-600">
+                                                {grn?.createdAt
+                                                  ? new Date(
+                                                      grn.createdAt,
+                                                    ).toLocaleDateString(
+                                                      "en-GB",
+                                                    )
+                                                  : "N/A"}
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
                                       </tbody>
                                     </table>
                                   </div>
@@ -931,7 +941,7 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                 <span className="font-medium">
                   {Math.min(
                     pagination.currentPage * pagination.limit,
-                    pagination.totalResults
+                    pagination.totalResults,
                   )}
                 </span>{" "}
                 of{" "}
@@ -963,7 +973,7 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                           {pageNum}
                         </button>
                       );
-                    }
+                    },
                   )}
                 </div>
                 <button
@@ -991,7 +1001,7 @@ PurchaseInvoicesPage.getLayout = function getLayout(page: ReactElement) {
 };
 
 const ProtectedPurchaseInvoicesPage = withClinicAuth(
-  PurchaseInvoicesPage
+  PurchaseInvoicesPage,
 ) as NextPageWithLayout;
 ProtectedPurchaseInvoicesPage.getLayout = PurchaseInvoicesPage.getLayout;
 

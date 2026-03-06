@@ -804,7 +804,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                             <div
                               id={`menu-${order._id}`}
                               className={`hidden absolute ${
-                                index >= displayData?.length - 2
+                                index >= displayData?.length - 2 && index >= 1
                                   ? "bottom-0 right-0"
                                   : "right-0"
                               } z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-gray-200 ring-opacity-5 focus:outline-none`}

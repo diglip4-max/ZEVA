@@ -133,7 +133,8 @@ export default async function handler(req, res) {
     const prQtyMap = new Map();
     (pr.items || []).forEach((it) => {
       const key = (it.itemId || it._id || "").toString();
-      if (key) prQtyMap.set(key, Number(it.quantity || 0));
+      if (key)
+        prQtyMap.set(key, Number(it.quantity || 0) + (it?.freeQuantity || 0));
     });
 
     const newTotals = new Map();
@@ -176,6 +177,12 @@ export default async function handler(req, res) {
         (sum, doc) => sum + Number(doc.quantity || 0),
         0,
       );
+      console.log({
+        itemId,
+        allowed,
+        existingSum,
+        newTotal,
+      });
       if (existingSum + newTotal > allowed) {
         return res.status(400).json({
           success: false,

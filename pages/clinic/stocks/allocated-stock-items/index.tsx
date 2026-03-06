@@ -127,7 +127,7 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
   >(undefined);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | AllocStatus>("all");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [items, setItems] = useState<AllocatedItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -324,7 +324,11 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
               <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
                 <button
                   onClick={() => setViewMode("grid")}
-                  className={`p-2 ${viewMode === "grid" ? "bg-blue-50 text-blue-600" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                  className={`p-2 ${
+                    viewMode === "grid"
+                      ? "bg-blue-50 text-blue-600"
+                      : "bg-white text-gray-600 hover:bg-gray-50"
+                  }`}
                 >
                   <svg
                     className="w-5 h-5"
@@ -342,7 +346,11 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
                 </button>
                 <button
                   onClick={() => setViewMode("list")}
-                  className={`p-2 ${viewMode === "list" ? "bg-blue-50 text-blue-600" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                  className={`p-2 ${
+                    viewMode === "list"
+                      ? "bg-blue-50 text-blue-600"
+                      : "bg-white text-gray-600 hover:bg-gray-50"
+                  }`}
                 >
                   <svg
                     className="w-5 h-5"
@@ -570,112 +578,116 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
         ) : (
           // List View
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Item
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Location
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Quantity
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Allocated By
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Allocated At
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {items.map((item) => (
-                  <tr
-                    key={item._id}
-                    className="hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-semibold text-xs">
-                          {(item.item?.name || "?").charAt(0)}
-                        </div>
-                        <div className="ml-3">
-                          <div className="text-sm font-medium text-gray-900">
-                            {item.item?.name || "-"}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {item.item?.code || "-"}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {item.user?.name || "-"}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {item.user?.role || "-"}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item?.location?.location || "-"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item?.quantity || "-"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <StatusBadge status={item?.status} />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item?.allocatedBy?.name || "-"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item?.createdAt ? formatDate(item?.createdAt) : "-"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 space-x-3">
-                      <button
-                        onClick={() => {
-                          setSelectedAllocatedItem(item);
-                          setIsOpenViewModal(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        View
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedAllocatedItem(item);
-                          setIsOpenEditModal(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedAllocatedItem(item);
-                          setIsOpenDeleteModal(true);
-                        }}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        Delete
-                      </button>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Item
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      User
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Location
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Quantity
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Allocated By
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Allocated At
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {items.map((item) => (
+                    <tr
+                      key={item._id}
+                      className="hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-semibold text-xs">
+                            {(item.item?.name || "?").charAt(0)}
+                          </div>
+                          <div className="ml-3">
+                            <div className="text-sm font-medium text-gray-900">
+                              {item.item?.name || "-"}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {item.item?.code || "-"}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {item.user?.name || "-"}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {item.user?.role || "-"}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item?.location?.location || "-"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item?.quantitiesByUom
+                          ?.map((uom) => `${uom.quantity} ${uom.uom}`)
+                          .join(", ")}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <StatusBadge status={item?.status} />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item?.allocatedBy?.name || "-"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item?.createdAt ? formatDate(item?.createdAt) : "-"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 space-x-3">
+                        <button
+                          onClick={() => {
+                            setSelectedAllocatedItem(item);
+                            setIsOpenViewModal(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedAllocatedItem(item);
+                            setIsOpenEditModal(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedAllocatedItem(item);
+                            setIsOpenDeleteModal(true);
+                          }}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
