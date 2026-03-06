@@ -86,6 +86,8 @@ export default async function handler(req, res) {
             totalAmountPaid: { $sum: "$amountPaid" },
             count: { $sum: 1 },
             lastCommissionPercent: { $last: "$commissionPercent" },
+            submittedCount: { $sum: { $cond: [{ $eq: ["$isSubmitted", true] }, 1, 0] } },
+            pendingApprovalCount: { $sum: { $cond: [{ $and: [{ $eq: ["$isSubmitted", true] }, { $eq: ["$isApproved", false] }] }, 1, 0] } },
           },
         },
         { $sort: { totalCommissionAmount: -1 } },
@@ -182,6 +184,8 @@ export default async function handler(req, res) {
           totalEarned: Number(g.totalCommissionAmount.toFixed(2)),
           totalPaid: Number(g.totalAmountPaid.toFixed(2)),
           count: g.count,
+          submittedCount: g.submittedCount || 0,
+          pendingApprovalCount: g.pendingApprovalCount || 0,
         };
         
         // Add target-specific fields if applicable

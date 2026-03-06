@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import ClinicLayout from "../../components/ClinicLayout";
 import withClinicAuth from "../../components/withClinicAuth";
-import { Eye, CheckCircle, AlertCircle, X } from "lucide-react";
+import { Eye, CheckCircle, AlertCircle, X, Check } from "lucide-react";
 
 const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
 const getStoredToken = () => {
@@ -262,6 +262,50 @@ function ClinicCommissionPage() {
     }
   };
 
+  const handleToggleSubmit = async (commissionId) => {
+    const headers = getAuthHeaders();
+    if (!headers) return;
+    try {
+      const res = await axios.post("/api/clinic/commissions/toggle-submit", { commissionId }, { headers });
+      if (res.data.success) {
+        setModalItems((prev) =>
+          prev.map((item) =>
+            item.commissionId === commissionId
+              ? { ...item, isSubmitted: res.data.isSubmitted }
+              : item
+          )
+        );
+        // Refresh summary so the Approve button's pendingApprovalCount updates immediately
+        load();
+      } else {
+        showToast(res.data.message || "Failed to update", "error");
+      }
+    } catch {
+      showToast("Failed to update submission", "error");
+    }
+  };
+
+  const handleApprove = async (personId) => {
+    const headers = getAuthHeaders();
+    if (!headers) return;
+    try {
+      const res = await axios.post("/api/clinic/commissions/approve", { staffId: personId }, { headers });
+      if (res.data.success) {
+        showToast(`${res.data.approvedCount} commission(s) approved`);
+        // Refresh summary list to update pendingApprovalCount badge
+        load();
+        // Refresh modal items if open for this person
+        if (selectedPerson && selectedPerson.personId === personId) {
+          setModalItems((prev) => prev.map((item) => (item.isSubmitted ? { ...item, isApproved: true } : item)));
+        }
+      } else {
+        showToast(res.data.message || "Failed to approve", "error");
+      }
+    } catch {
+      showToast("Failed to approve", "error");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6">
       {toast && (
@@ -338,13 +382,30 @@ function ClinicCommissionPage() {
                       <td className="px-4 py-3">₹ {Number(row.totalPaid || 0).toFixed(2)}</td>
                       <td className="px-4 py-3">{row.count}</td>
                       <td className="px-4 py-3">
-                        <button
-                          className="px-3 py-1.5 text-xs rounded-md bg-teal-600 hover:bg-teal-700 text-white flex items-center gap-1 font-medium transition-all shadow-sm"
-                          onClick={() => openDetails(row)}
-                        >
-                          <Eye className="w-3 h-3" />
-                          View
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            className="px-3 py-1.5 text-xs rounded-md bg-teal-600 hover:bg-teal-700 text-white flex items-center gap-1 font-medium transition-all shadow-sm"
+                            onClick={() => openDetails(row)}
+                          >
+                            <Eye className="w-3 h-3" />
+                            View
+                          </button>
+                          {row.source === "staff" && (
+                            <button
+                              className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-1 font-medium transition-all shadow-sm ${
+                                Number(row.pendingApprovalCount || 0) > 0
+                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              }`}
+                              disabled={Number(row.pendingApprovalCount || 0) === 0}
+                              onClick={() => handleApprove(row.personId)}
+                              title={Number(row.pendingApprovalCount || 0) > 0 ? `Approve ${row.pendingApprovalCount} submitted commission(s)` : "No submitted commissions to approve"}
+                            >
+                              <Check className="w-3 h-3" />
+                              Approve{Number(row.pendingApprovalCount || 0) > 0 ? ` (${row.pendingApprovalCount})` : ""}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -416,12 +477,31 @@ function ClinicCommissionPage() {
                               <td className="px-4 py-3 whitespace-nowrap">{it.doctorName || "—"}</td>
                               <td className="px-4 py-3 whitespace-nowrap">{it.invoicedDate ? new Date(it.invoicedDate).toLocaleDateString() : "—"}</td>
                               <td className="px-4 py-3 whitespace-nowrap">
-                                <button
-                                  onClick={() => toggleRow(it)}
-                                  className="px-2 py-1 text-xs rounded-md bg-teal-600 hover:bg-teal-700 text-white whitespace-nowrap"
-                                >
-                                  {expandedRow === it.commissionId ? "Hide" : "View"}
-                                </button>
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    onClick={() => toggleRow(it)}
+                                    className="px-2 py-1 text-xs rounded-md bg-teal-600 hover:bg-teal-700 text-white whitespace-nowrap"
+                                  >
+                                    {expandedRow === it.commissionId ? "Hide" : "View"}
+                                  </button>
+                                  {/* Tick button: mark/unmark this commission as submitted */}
+                                  <button
+                                    onClick={() => handleToggleSubmit(it.commissionId)}
+                                    title={it.isSubmitted ? "Unmark submission" : "Mark as submitted"}
+                                    className={`p-1 rounded-md transition-all ${
+                                      it.isSubmitted
+                                        ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                                        : "bg-gray-100 text-gray-400 hover:bg-emerald-50 hover:text-emerald-600 border border-gray-200"
+                                    }`}
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                  </button>
+                                  {it.isApproved && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-700 font-semibold whitespace-nowrap">
+                                      Approved
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                             {expandedRow === it.commissionId && (
