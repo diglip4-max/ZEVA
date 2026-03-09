@@ -3626,7 +3626,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   <User className="w-4 h-4" />
                   <span>{clinicInfo.ownerName || clinicUser?.name || 'N/A'}</span>
                 </div>
-                <span>�</span>
+                <span> </span>
                 <span className="font-semibold">{formatTime(currentTime)}</span>
               </div>
             </div>

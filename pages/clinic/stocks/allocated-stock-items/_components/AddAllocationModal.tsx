@@ -156,7 +156,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
         const q: Record<string, number> = {};
         (pr.items || []).forEach((it) => {
           const key = it._id || it.itemId || "";
-          if (key) q[key] = it.quantity || 1;
+          if (key) q[key] = (it.quantity || 0) + (it.freeQuantity || 0);
         });
         setQuantities(q);
       } catch (err: unknown) {
@@ -384,7 +384,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
         (it) => (it._id || it.itemId) === id,
       );
       const selectedQty = quantities[id] || 0;
-      const maxQty = item?.quantity || 0;
+      const maxQty = (item?.quantity || 0) + (item?.freeQuantity || 0);
       return selectedQty > maxQty;
     });
     if (exceedItem) {
@@ -719,7 +719,8 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
                         if (!key) return null;
                         const checked = selectedItemIds.includes(key);
                         const qty = quantities[key] ?? it.quantity ?? 1;
-                        const maxQty = it.quantity || 0;
+                        const maxQty =
+                          (it.quantity || 0) + (it?.freeQuantity || 0);
                         const splits = allocations[key] || [];
                         const allocatedSum = getTotalAllocatedForItem(key);
                         const hasError = quantityErrors[key];
@@ -745,7 +746,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
                                 </div>
                               </td>
                               <td className="px-3 py-2 text-sm text-gray-600">
-                                {it.quantity}
+                                {it.quantity + (it?.freeQuantity || 0)}
                               </td>
                               <td className="px-3 py-2">
                                 <div className="flex flex-col">
@@ -753,7 +754,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
                                     type="number"
                                     min={0}
                                     max={maxQty}
-                                    value={qty}
+                                    value={maxQty}
                                     onChange={(e) =>
                                       setItemQty(
                                         key,
@@ -775,7 +776,8 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
                                     </span>
                                   )}
                                   <div className="text-[10px] text-gray-500 mt-1">
-                                    Allocated: {allocatedSum} / {qty}
+                                    Allocated: {allocatedSum} / {maxQty}, ({qty}
+                                    -Qty and {it.freeQuantity || 0}-FreeQty)
                                   </div>
                                 </div>
                               </td>

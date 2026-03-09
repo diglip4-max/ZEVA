@@ -517,6 +517,7 @@ const GRNPage: NextPageWithLayout = () => {
           </div>
 
           {/* Loading State */}
+          {/* Loading State */}
           {loading ? (
             <div className="p-12 text-center">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
@@ -620,649 +621,588 @@ const GRNPage: NextPageWithLayout = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {displayData.map((grn: any, index: number) => (
-                    <React.Fragment key={grn._id}>
-                      <tr className="hover:bg-gray-50 transition-colors duration-150">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                              <span className="text-white font-medium text-sm">
-                                {(() => {
-                                  const s = (
-                                    grn.purchasedOrder?.purchaseNo ||
-                                    grn.grnNo ||
-                                    ""
-                                  ).toString();
-                                  return s.charAt(Math.max(0, s.length - 2));
-                                })()}
-                              </span>
-                            </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {grn.grnNo}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                ID: {grn._id.substring(0, 8)}...
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {grn.branch?.name || "N/A"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(
-                            grn.grnDate || grn.date,
-                          ).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">
-                          {grn.purchasedOrder?.orderNo ||
-                            grn.purchasedOrder?.poNo ||
-                            (grn.purchasedOrder?._id
-                              ? grn.purchasedOrder._id.substring(0, 8) + "..."
-                              : "N/A")}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {grn.purchaseDetails?.supplier?.name ||
-                            grn.purchasedOrder?.supplier?.name ||
-                            grn.supplier?.name ||
-                            grn.suppplier?.name ||
-                            "N/A"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          AED{" "}
-                          {(grn.purchaseDetails?.items || [])
-                            .reduce(
-                              (sum: number, item: any) =>
-                                sum + (item.totalPrice || 0),
-                              0,
-                            )
-                            .toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">
-                          AED{" "}
-                          {(
-                            grn.purchaseDetails?.discountAmount ||
-                            grn.purchaseDetails?.discount ||
-                            0
-                          ).toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">
-                          AED{" "}
-                          {(
-                            (grn.purchaseDetails?.items || []).reduce(
-                              (sum: number, item: any) =>
-                                sum + (item.totalPrice || 0),
-                              0,
-                            ) -
-                            (grn.purchaseDetails?.discountAmount ||
-                              grn.purchaseDetails?.discount ||
-                              0)
-                          ).toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
-                          AED{" "}
-                          {(
-                            grn.purchaseDetails?.taxAmount ||
-                            grn.purchaseDetails?.vat ||
-                            0
-                          ).toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
-                          AED{" "}
-                          {(
-                            (grn.purchaseDetails?.items || []).reduce(
-                              (sum: number, item: any) =>
-                                sum + (item.totalPrice || 0),
-                              0,
-                            ) -
-                            (grn.purchaseDetails?.discountAmount ||
-                              grn.purchaseDetails?.discount ||
-                              0) +
-                            (grn.purchaseDetails?.taxAmount ||
-                              grn.purchaseDetails?.vat ||
-                              0)
-                          ).toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                              (
-                                {
-                                  New: "bg-blue-100 text-blue-800",
-                                  Approved: "bg-green-100 text-green-800",
-                                  Partly_Delivered:
-                                    "bg-yellow-100 text-yellow-800",
-                                  Delivered: "bg-teal-100 text-teal-800",
-                                  Partly_Invoiced:
-                                    "bg-orange-100 text-orange-800",
-                                  Invoiced: "bg-emerald-100 text-emerald-800",
-                                  Rejected: "bg-red-100 text-red-800",
-                                  Cancelled: "bg-gray-100 text-gray-800",
-                                  Deleted: "bg-gray-100 text-gray-800",
-                                } as any
-                              )[grn.status] || "bg-gray-100 text-gray-800"
-                            }`}
-                          >
-                            <span
-                              className={`h-2 w-2 rounded-full mr-2 ${
-                                (
-                                  {
-                                    New: "bg-blue-500",
-                                    Approved: "bg-green-500",
-                                    Partly_Delivered: "bg-yellow-500",
-                                    Delivered: "bg-teal-500",
-                                    Partly_Invoiced: "bg-orange-500",
-                                    Invoiced: "bg-emerald-500",
-                                    Rejected: "bg-red-500",
-                                    Cancelled: "bg-gray-500",
-                                    Deleted: "bg-gray-500",
-                                  } as any
-                                )[grn.status] || "bg-gray-500"
-                              }`}
-                            />
-                            {grn.status.replace(/_/g, " ")}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="relative inline-block text-left">
-                            <button
-                              onClick={() => {
-                                // Toggle dropdown menu for this GRN
-                                const currentMenuState = document
-                                  .getElementById(`menu-${grn._id}`)
-                                  ?.classList.contains("block");
-                                // Close all other menus
-                                document
-                                  .querySelectorAll("[id^=menu-]")
-                                  .forEach((el) => {
-                                    if (el.id !== `menu-${grn._id}`) {
-                                      el.classList.remove("block");
-                                      el.classList.add("hidden");
-                                    }
-                                  });
-                                // Toggle current menu
-                                const menuEl = document.getElementById(
-                                  `menu-${grn._id}`,
-                                );
-                                if (menuEl) {
-                                  if (currentMenuState) {
-                                    menuEl.classList.remove("block");
-                                    menuEl.classList.add("hidden");
-                                  } else {
-                                    menuEl.classList.remove("hidden");
-                                    menuEl.classList.add("block");
-                                  }
-                                }
-                              }}
-                              className="text-gray-500 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-50 transition-all duration-200"
-                              title="More options"
-                            >
-                              <EllipsisVerticalIcon className="h-5 w-5" />
-                            </button>
-                            <div
-                              id={`menu-${grn._id}`}
-                              className={`hidden absolute ${
-                                index >= displayData?.length - 2
-                                  ? "bottom-0 right-0"
-                                  : "right-0"
-                              } z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-gray-200 ring-opacity-5 focus:outline-none`}
-                            >
-                              <div className="py-1" role="none">
-                                <button
-                                  onClick={() => {
-                                    handleEditClick(grn);
-                                    const menuEl = document.getElementById(
-                                      `menu-${grn._id}`,
-                                    );
-                                    if (menuEl) {
-                                      menuEl.classList.remove("block");
-                                      menuEl.classList.add("hidden");
-                                    }
-                                  }}
-                                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                                >
-                                  <div className="flex items-center">
-                                    <PencilIcon className="h-4 w-4 mr-2" />
-                                    Edit
-                                  </div>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    // Open print page in new tab
-                                    const printUrl = `/clinic/stocks/grn/print-good-received-note?grnId=${grn?._id}`;
-                                    window.open(
-                                      printUrl,
-                                      "_blank",
-                                      "noopener,noreferrer",
-                                    );
-                                    // Close the dropdown after clicking
-                                    const menuEl = document.getElementById(
-                                      `menu-${grn._id}`,
-                                    );
-                                    if (menuEl) {
-                                      menuEl.classList.remove("block");
-                                      menuEl.classList.add("hidden");
-                                    }
-                                  }}
-                                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                                >
-                                  <div className="flex items-center">
-                                    <Printer className="h-4 w-4 mr-2" />
-                                    Print
-                                  </div>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    toggleRowExpansion(grn._id);
-                                    const menuEl = document.getElementById(
-                                      `menu-${grn._id}`,
-                                    );
-                                    if (menuEl) {
-                                      menuEl.classList.remove("block");
-                                      menuEl.classList.add("hidden");
-                                    }
-                                  }}
-                                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                                >
-                                  <div className="flex items-center">
-                                    <svg
-                                      className="h-4 w-4 mr-2"
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      stroke="currentColor"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M19 9l-7 7-7-7"
-                                      />
-                                    </svg>
-                                    {expandedRows[grn._id]
-                                      ? "Hide Items"
-                                      : "Show Items"}
-                                  </div>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    handleDeleteClick(grn);
-                                    const menuEl = document.getElementById(
-                                      `menu-${grn._id}`,
-                                    );
-                                    if (menuEl) {
-                                      menuEl.classList.remove("block");
-                                      menuEl.classList.add("hidden");
-                                    }
-                                  }}
-                                  className="block w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50"
-                                >
-                                  <div className="flex items-center">
-                                    <TrashIcon className="h-4 w-4 mr-2" />
-                                    Delete
-                                  </div>
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
+                  {displayData.map((grn: any, index: number) => {
+                    // Calculate totals from items
+                    const items = grn.purchaseDetails?.items || grn.items || [];
+                    let totalAmount = 0;
+                    let discountAmount = 0;
+                    let vatAmount = 0;
+                    let netAmount = 0;
+                    let netPlusVat = 0;
 
-                      {/* Expanded row for items */}
-                      {expandedRows[grn._id] && (
-                        <tr>
-                          <td
-                            colSpan={12}
-                            className="px-6 py-6 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200"
-                          >
-                            <div className="ml-8 mr-4">
-                              <div className="flex items-center justify-between mb-4">
-                                <h4 className="text-lg font-bold text-gray-900 flex items-center">
-                                  <svg
-                                    className="w-5 h-5 text-purple-600 mr-2"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                                    />
-                                  </svg>
-                                  Items in GRN #{grn.grnNo}
-                                </h4>
-                                <div className="flex items-center space-x-4 text-sm text-gray-600">
-                                  <div className="flex items-center">
-                                    <svg
-                                      className="w-4 h-4 mr-1 text-gray-500"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                                      />
-                                    </svg>
-                                    <span>
-                                      {
-                                        (grn.purchaseDetails?.items || [])
-                                          .length
-                                      }{" "}
-                                      items
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <svg
-                                      className="w-4 h-4 mr-1 text-gray-500"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                      />
-                                    </svg>
-                                    <span>
-                                      AED{" "}
-                                      {(grn.purchaseDetails?.items || [])
-                                        .reduce(
-                                          (sum: number, item: any) =>
-                                            sum + (item.totalPrice || 0),
-                                          0,
-                                        )
-                                        .toFixed(2)}{" "}
-                                      total
-                                    </span>
-                                  </div>
+                    items.forEach((item: any) => {
+                      totalAmount += item.totalPrice || 0;
+                      discountAmount += item.discountAmount || 0;
+                      vatAmount += item.vatAmount || 0;
+                      netAmount += item.netPrice || item.totalPrice || 0;
+                      netPlusVat +=
+                        item.netPlusVat ||
+                        (item.netPrice || item.totalPrice || 0) +
+                          (item.vatAmount || 0);
+                    });
+
+                    return (
+                      <React.Fragment key={grn._id}>
+                        <tr className="hover:bg-gray-50 transition-colors duration-150">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                                <span className="text-white font-medium text-sm">
+                                  {(() => {
+                                    const s = (
+                                      grn.purchasedOrder?.purchaseNo ||
+                                      grn.grnNo ||
+                                      ""
+                                    ).toString();
+                                    return (
+                                      s.charAt(Math.max(0, s.length - 2)) ||
+                                      s.charAt(0)
+                                    );
+                                  })()}
+                                </span>
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {grn.grnNo}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  ID: {grn._id.substring(0, 8)}...
                                 </div>
                               </div>
-
-                              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                <div className="overflow-x-auto">
-                                  <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                      <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          Item
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          Description
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          Qty
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          UOM
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          Unit Price
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          Total
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          Discount
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          Net Price
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          VAT %
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          VAT
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          Net + VAT
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          Free Qty
-                                        </th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                      {(grn.purchaseDetails?.items || []).map(
-                                        (item: any, itemIndex: number) => (
-                                          <tr
-                                            key={itemIndex}
-                                            className="hover:bg-purple-50 transition-colors duration-150"
-                                          >
-                                            <td className="px-4 py-3 whitespace-nowrap">
-                                              <div className="flex items-center">
-                                                <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
-                                                  <span className="text-white text-xs font-bold">
-                                                    {item.name.charAt(0)}
-                                                  </span>
-                                                </div>
-                                                <div className="ml-3">
-                                                  <div className="text-sm font-medium text-gray-900">
-                                                    {item.name}
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                              <div className="text-sm text-gray-600 max-w-xs truncate">
-                                                {item.description || (
-                                                  <span className="text-gray-400 italic">
-                                                    No description
-                                                  </span>
-                                                )}
-                                              </div>
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap">
-                                              <div className="flex items-center">
-                                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                                  {item.quantity}
-                                                </span>
-                                              </div>
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                                {item.uom || "N/A"}
-                                              </span>
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
-                                              <div className="flex items-center">
-                                                <span className="text-green-600 mr-1">
-                                                  AED
-                                                </span>
-                                                {item.unitPrice.toFixed(2)}
-                                              </div>
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
-                                              <div className="flex items-center">
-                                                <span className="text-green-600 mr-1">
-                                                  AED
-                                                </span>
-                                                {item.totalPrice.toFixed(2)}
-                                              </div>
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                                              <div className="flex items-center space-x-1">
-                                                <span>
-                                                  {item.discount || 0}
-                                                  {item.discountType ===
-                                                  "Percentage"
-                                                    ? "%"
-                                                    : ""}
-                                                </span>
-                                                {(item.discount || 0) > 0 && (
-                                                  <span className="text-xs text-gray-500">
-                                                    ({item.discountType})
-                                                  </span>
-                                                )}
-                                              </div>
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
-                                              <div className="flex items-center">
-                                                <span className="text-blue-600 mr-1">
-                                                  AED
-                                                </span>
-                                                {(
-                                                  item.netPrice ||
-                                                  item.totalPrice
-                                                ).toFixed(2)}
-                                              </div>
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                                              <span>
-                                                {item.vatPercentage || 0}%
-                                              </span>
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
-                                              <div className="flex items-center">
-                                                <span className="text-orange-600 mr-1">
-                                                  AED
-                                                </span>
-                                                {(item.vatAmount || 0).toFixed(
-                                                  2,
-                                                )}
-                                              </div>
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
-                                              <div className="flex items-center">
-                                                <span className="text-purple-600 mr-1">
-                                                  AED
-                                                </span>
-                                                {(
-                                                  item.netPlusVat ||
-                                                  (item.netPrice ||
-                                                    item.totalPrice) +
-                                                    (item.vatAmount || 0)
-                                                ).toFixed(2)}
-                                              </div>
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                                              <div className="flex items-center">
-                                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                                  {item.freeQuantity || 0}
-                                                </span>
-                                                {(item.freeQuantity || 0) > 0 &&
-                                                  item.uom && (
-                                                    <span className="ml-1 text-xs text-gray-500">
-                                                      {item.uom}
-                                                    </span>
-                                                  )}
-                                              </div>
-                                            </td>
-                                          </tr>
-                                        ),
-                                      )}
-                                    </tbody>
-                                    <tfoot className="bg-gray-50">
-                                      <tr>
-                                        <td
-                                          colSpan={5}
-                                          className="px-4 py-3 text-sm font-medium text-gray-700 text-right"
-                                        >
-                                          GRN Totals:
-                                        </td>
-                                        <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
-                                          <div className="flex items-center justify-end">
-                                            <span className="text-green-600 mr-1">
-                                              AED
-                                            </span>
-                                            {(grn.purchaseDetails?.items || [])
-                                              .reduce(
-                                                (sum: number, item: any) =>
-                                                  sum + (item.totalPrice || 0),
-                                                0,
-                                              )
-                                              .toFixed(2)}
-                                          </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-700 text-right">
-                                          <span className="text-gray-500">
-                                            Discounts:
-                                          </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
-                                          <div className="flex items-center justify-end">
-                                            <span className="text-blue-600 mr-1">
-                                              AED
-                                            </span>
-                                            {(grn.purchaseDetails?.items || [])
-                                              .reduce(
-                                                (sum: number, item: any) =>
-                                                  sum +
-                                                  (item.discountAmount || 0),
-                                                0,
-                                              )
-                                              .toFixed(2)}
-                                          </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-700 text-right">
-                                          <span className="text-gray-500">
-                                            VAT:
-                                          </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
-                                          <div className="flex items-center justify-end">
-                                            <span className="text-orange-600 mr-1">
-                                              AED
-                                            </span>
-                                            {(grn.purchaseDetails?.items || [])
-                                              .reduce(
-                                                (sum: number, item: any) =>
-                                                  sum + (item.vatAmount || 0),
-                                                0,
-                                              )
-                                              .toFixed(2)}
-                                          </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
-                                          <div className="flex items-center justify-end">
-                                            <span className="text-purple-600 mr-1">
-                                              AED
-                                            </span>
-                                            {(grn.purchaseDetails?.items || [])
-                                              .reduce(
-                                                (sum: number, item: any) =>
-                                                  sum +
-                                                  (item.netPlusVat ||
-                                                    (item.netPrice ||
-                                                      item.totalPrice) +
-                                                      (item.vatAmount || 0)),
-                                                0,
-                                              )
-                                              .toFixed(2)}
-                                          </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-700 text-right">
-                                          <div className="flex items-center justify-end">
-                                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                              {(
-                                                grn.purchaseDetails?.items || []
-                                              ).reduce(
-                                                (sum: number, item: any) =>
-                                                  sum +
-                                                  (item.freeQuantity || 0),
-                                                0,
-                                              )}{" "}
-                                              free
-                                            </span>
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    </tfoot>
-                                  </table>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {grn.branch?.name || "N/A"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(
+                              grn.grnDate || grn.date,
+                            ).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">
+                            {grn.purchasedOrder?.orderNo ||
+                              grn.purchasedOrder?.poNo ||
+                              (grn.purchasedOrder?._id
+                                ? grn.purchasedOrder._id.substring(0, 8) + "..."
+                                : "N/A")}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {grn.purchaseDetails?.supplier?.name ||
+                              grn.purchasedOrder?.supplier?.name ||
+                              grn.supplier?.name ||
+                              grn.suppplier?.name ||
+                              "N/A"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            AED {totalAmount.toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">
+                            AED {discountAmount.toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">
+                            AED {netAmount.toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
+                            AED {vatAmount.toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
+                            AED {netPlusVat.toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                                (
+                                  {
+                                    New: "bg-blue-100 text-blue-800",
+                                    Approved: "bg-green-100 text-green-800",
+                                    Partly_Delivered:
+                                      "bg-yellow-100 text-yellow-800",
+                                    Delivered: "bg-teal-100 text-teal-800",
+                                    Partly_Invoiced:
+                                      "bg-orange-100 text-orange-800",
+                                    Invoiced: "bg-emerald-100 text-emerald-800",
+                                    Rejected: "bg-red-100 text-red-800",
+                                    Cancelled: "bg-gray-100 text-gray-800",
+                                    Deleted: "bg-gray-100 text-gray-800",
+                                  } as any
+                                )[grn.status] || "bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              <span
+                                className={`h-2 w-2 rounded-full mr-2 ${
+                                  (
+                                    {
+                                      New: "bg-blue-500",
+                                      Approved: "bg-green-500",
+                                      Partly_Delivered: "bg-yellow-500",
+                                      Delivered: "bg-teal-500",
+                                      Partly_Invoiced: "bg-orange-500",
+                                      Invoiced: "bg-emerald-500",
+                                      Rejected: "bg-red-500",
+                                      Cancelled: "bg-gray-500",
+                                      Deleted: "bg-gray-500",
+                                    } as any
+                                  )[grn.status] || "bg-gray-500"
+                                }`}
+                              />
+                              {grn.status.replace(/_/g, " ")}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="relative inline-block text-left">
+                              <button
+                                onClick={() => {
+                                  // Toggle dropdown menu for this GRN
+                                  const menuEl = document.getElementById(
+                                    `menu-${grn._id}`,
+                                  );
+                                  if (menuEl) {
+                                    const isHidden =
+                                      menuEl.classList.contains("hidden");
+                                    // Close all other menus
+                                    document
+                                      .querySelectorAll("[id^=menu-]")
+                                      .forEach((el) => {
+                                        el.classList.add("hidden");
+                                        el.classList.remove("block");
+                                      });
+                                    // Toggle current menu
+                                    if (isHidden) {
+                                      menuEl.classList.remove("hidden");
+                                      menuEl.classList.add("block");
+                                    } else {
+                                      menuEl.classList.add("hidden");
+                                      menuEl.classList.remove("block");
+                                    }
+                                  }
+                                }}
+                                className="text-gray-500 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-50 transition-all duration-200"
+                                title="More options"
+                              >
+                                <EllipsisVerticalIcon className="h-5 w-5" />
+                              </button>
+                              <div
+                                id={`menu-${grn._id}`}
+                                className={`hidden absolute ${
+                                  index >= displayData.length - 2
+                                    ? "bottom-0 right-0"
+                                    : "right-0"
+                                } z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-gray-200 ring-opacity-5 focus:outline-none`}
+                              >
+                                <div className="py-1" role="none">
+                                  {![
+                                    "Partly_Invoiced",
+                                    "Invoiced",
+                                    "Partly_Paid",
+                                    "Paid",
+                                    "Deleted",
+                                  ].includes(grn.status) && (
+                                    <button
+                                      onClick={() => {
+                                        handleEditClick(grn);
+                                        document
+                                          .getElementById(`menu-${grn._id}`)
+                                          ?.classList.add("hidden");
+                                      }}
+                                      className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                    >
+                                      <div className="flex items-center">
+                                        <PencilIcon className="h-4 w-4 mr-2" />
+                                        Edit
+                                      </div>
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => {
+                                      // Open print page in new tab
+                                      const printUrl = `/clinic/stocks/grn/print-good-received-note?grnId=${grn?._id}`;
+                                      window.open(
+                                        printUrl,
+                                        "_blank",
+                                        "noopener,noreferrer",
+                                      );
+                                      document
+                                        .getElementById(`menu-${grn._id}`)
+                                        ?.classList.add("hidden");
+                                    }}
+                                    className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                  >
+                                    <div className="flex items-center">
+                                      <Printer className="h-4 w-4 mr-2" />
+                                      Print
+                                    </div>
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      toggleRowExpansion(grn._id);
+                                      document
+                                        .getElementById(`menu-${grn._id}`)
+                                        ?.classList.add("hidden");
+                                    }}
+                                    className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                  >
+                                    <div className="flex items-center">
+                                      <svg
+                                        className="h-4 w-4 mr-2"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M19 9l-7 7-7-7"
+                                        />
+                                      </svg>
+                                      {expandedRows[grn._id]
+                                        ? "Hide Items"
+                                        : "Show Items"}
+                                    </div>
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      handleDeleteClick(grn);
+                                      document
+                                        .getElementById(`menu-${grn._id}`)
+                                        ?.classList.add("hidden");
+                                    }}
+                                    className="block w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50"
+                                  >
+                                    <div className="flex items-center">
+                                      <TrashIcon className="h-4 w-4 mr-2" />
+                                      Delete
+                                    </div>
+                                  </button>
                                 </div>
                               </div>
                             </div>
                           </td>
                         </tr>
-                      )}
-                    </React.Fragment>
-                  ))}
+
+                        {/* Expanded row for items */}
+                        {expandedRows[grn._id] && (
+                          <tr>
+                            <td
+                              colSpan={12}
+                              className="px-6 py-6 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200"
+                            >
+                              <div className="ml-8 mr-4">
+                                <div className="flex items-center justify-between mb-4">
+                                  <h4 className="text-lg font-bold text-gray-900 flex items-center">
+                                    <svg
+                                      className="w-5 h-5 text-purple-600 mr-2"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                                      />
+                                    </svg>
+                                    Items in GRN #{grn.grnNo}
+                                  </h4>
+                                  <div className="flex items-center space-x-4 text-sm text-gray-600">
+                                    <div className="flex items-center">
+                                      <svg
+                                        className="w-4 h-4 mr-1 text-gray-500"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                                        />
+                                      </svg>
+                                      <span>{items.length} items</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <svg
+                                        className="w-4 h-4 mr-1 text-gray-500"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                        />
+                                      </svg>
+                                      <span>
+                                        AED {totalAmount.toFixed(2)} total
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                                  <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                      <thead className="bg-gray-50">
+                                        <tr>
+                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Item
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Description
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Qty
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            UOM
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Unit Price
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Total
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Discount
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Net Price
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            VAT %
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            VAT
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Net + VAT
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Free Qty
+                                          </th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="bg-white divide-y divide-gray-200">
+                                        {items.map(
+                                          (item: any, itemIndex: number) => (
+                                            <tr
+                                              key={itemIndex}
+                                              className="hover:bg-purple-50 transition-colors duration-150"
+                                            >
+                                              <td className="px-4 py-3 whitespace-nowrap">
+                                                <div className="flex items-center">
+                                                  <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
+                                                    <span className="text-white text-xs font-bold">
+                                                      {(
+                                                        item.name || "?"
+                                                      ).charAt(0)}
+                                                    </span>
+                                                  </div>
+                                                  <div className="ml-3">
+                                                    <div className="text-sm font-medium text-gray-900">
+                                                      {item.name}
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              </td>
+                                              <td className="px-4 py-3">
+                                                <div className="text-sm text-gray-600 max-w-xs truncate">
+                                                  {item.description || (
+                                                    <span className="text-gray-400 italic">
+                                                      No description
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </td>
+                                              <td className="px-4 py-3 whitespace-nowrap">
+                                                <div className="flex items-center">
+                                                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                                    {item.quantity}
+                                                  </span>
+                                                </div>
+                                              </td>
+                                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                                  {item.uom || "N/A"}
+                                                </span>
+                                              </td>
+                                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
+                                                <div className="flex items-center">
+                                                  <span className="text-green-600 mr-1">
+                                                    AED
+                                                  </span>
+                                                  {(
+                                                    item.unitPrice || 0
+                                                  ).toFixed(2)}
+                                                </div>
+                                              </td>
+                                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
+                                                <div className="flex items-center">
+                                                  <span className="text-green-600 mr-1">
+                                                    AED
+                                                  </span>
+                                                  {(
+                                                    item.totalPrice || 0
+                                                  ).toFixed(2)}
+                                                </div>
+                                              </td>
+                                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                                                <div className="flex items-center space-x-1">
+                                                  <span>
+                                                    {item.discount || 0}
+                                                    {item.discountType ===
+                                                    "Percentage"
+                                                      ? "%"
+                                                      : item.discountType ===
+                                                          "Amount"
+                                                        ? " AED"
+                                                        : ""}
+                                                  </span>
+                                                  {(item.discount || 0) > 0 &&
+                                                    item.discountType && (
+                                                      <span className="text-xs text-gray-500">
+                                                        ({item.discountType})
+                                                      </span>
+                                                    )}
+                                                </div>
+                                              </td>
+                                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
+                                                <div className="flex items-center">
+                                                  <span className="text-blue-600 mr-1">
+                                                    AED
+                                                  </span>
+                                                  {(
+                                                    item.netPrice ||
+                                                    item.totalPrice ||
+                                                    0
+                                                  ).toFixed(2)}
+                                                </div>
+                                              </td>
+                                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                                                <span>
+                                                  {item.vatPercentage || 0}%
+                                                </span>
+                                              </td>
+                                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
+                                                <div className="flex items-center">
+                                                  <span className="text-orange-600 mr-1">
+                                                    AED
+                                                  </span>
+                                                  {(
+                                                    item.vatAmount || 0
+                                                  ).toFixed(2)}
+                                                </div>
+                                              </td>
+                                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
+                                                <div className="flex items-center">
+                                                  <span className="text-purple-600 mr-1">
+                                                    AED
+                                                  </span>
+                                                  {(
+                                                    item.netPlusVat ||
+                                                    (item.netPrice ||
+                                                      item.totalPrice ||
+                                                      0) + (item.vatAmount || 0)
+                                                  ).toFixed(2)}
+                                                </div>
+                                              </td>
+                                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                                                <div className="flex items-center">
+                                                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                                    {item.freeQuantity || 0}
+                                                  </span>
+                                                  {(item.freeQuantity || 0) >
+                                                    0 &&
+                                                    item.uom && (
+                                                      <span className="ml-1 text-xs text-gray-500">
+                                                        {item.uom}
+                                                      </span>
+                                                    )}
+                                                </div>
+                                              </td>
+                                            </tr>
+                                          ),
+                                        )}
+                                      </tbody>
+                                      <tfoot className="bg-gray-50">
+                                        <tr>
+                                          <td
+                                            colSpan={5}
+                                            className="px-4 py-3 text-sm font-medium text-gray-700 text-right"
+                                          >
+                                            GRN Totals:
+                                          </td>
+                                          <td className="px-4 py-3 text-sm font-bold text-gray-900">
+                                            <div className="flex items-center">
+                                              <span className="text-green-600 mr-1">
+                                                AED
+                                              </span>
+                                              {totalAmount.toFixed(2)}
+                                            </div>
+                                          </td>
+                                          <td className="px-4 py-3 text-sm text-gray-700">
+                                            <span className="text-gray-500">
+                                              Discounts:
+                                            </span>
+                                          </td>
+                                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                            <div className="flex items-center">
+                                              <span className="text-blue-600 mr-1">
+                                                AED
+                                              </span>
+                                              {discountAmount.toFixed(2)}
+                                            </div>
+                                          </td>
+                                          <td className="px-4 py-3 text-sm text-gray-700">
+                                            <span className="text-gray-500">
+                                              VAT:
+                                            </span>
+                                          </td>
+                                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                            <div className="flex items-center">
+                                              <span className="text-orange-600 mr-1">
+                                                AED
+                                              </span>
+                                              {vatAmount.toFixed(2)}
+                                            </div>
+                                          </td>
+                                          <td className="px-4 py-3 text-sm font-bold text-gray-900">
+                                            <div className="flex items-center">
+                                              <span className="text-purple-600 mr-1">
+                                                AED
+                                              </span>
+                                              {netPlusVat.toFixed(2)}
+                                            </div>
+                                          </td>
+                                          <td className="px-4 py-3 text-sm text-gray-700">
+                                            <div className="flex items-center">
+                                              <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                                {items.reduce(
+                                                  (sum: number, item: any) =>
+                                                    sum +
+                                                    (item.freeQuantity || 0),
+                                                  0,
+                                                )}{" "}
+                                                free
+                                              </span>
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      </tfoot>
+                                    </table>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

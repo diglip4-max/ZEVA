@@ -190,6 +190,8 @@ export default async function handler(req, res) {
         commissionBaseAmount: Number(c.commissionBaseAmount || 0),
         postCommissionExpenses: Array.isArray(c.postCommissionExpenses) ? c.postCommissionExpenses.map((e) => ({ name: e.name, price: Number(e.price || 0), addedAt: e.addedAt })) : [],
         finalCommissionAmount: Number(c.finalCommissionAmount || c.commissionAmount || 0),
+        isSubmitted: !!c.isSubmitted,
+        isApproved: !!c.isApproved,
         doctorName: doctor.name || "",
       };
     });

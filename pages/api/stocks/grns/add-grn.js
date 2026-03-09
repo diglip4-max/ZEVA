@@ -91,6 +91,7 @@ export default async function handler(req, res) {
       supplierGrnDate,
       notes = "",
       status = "New",
+      orderCreditDays,
       items,
     } = req.body;
 
@@ -250,12 +251,32 @@ export default async function handler(req, res) {
           ? Number(it.netPlusVat)
           : parseFloat((netPrice + vatAmount).toFixed(2));
 
+      // Packaging structure normalization and price derivation
+      const level0 = {
+        price: Number(it.level0?.price ?? unit),
+        uom: String(it.level0?.uom ?? it.uom ?? ""),
+      };
+      const l1Qty = Number(it.packagingStructure?.level1?.quantity || 0);
+      const l1Uom = String(it.packagingStructure?.level1?.uom || "");
+      let l1Price = Number(it.packagingStructure?.level1?.price || 0);
+      const baseBoxPrice =
+        qty > 0 ? Number((netPlusVat / qty).toFixed(4)) : Number(0);
+      if (l1Qty > 0 && baseBoxPrice > 0) {
+        l1Price = Number((baseBoxPrice / l1Qty).toFixed(4));
+      }
+      const l2Qty = Number(it.packagingStructure?.level2?.quantity || 0);
+      const l2Uom = String(it.packagingStructure?.level2?.uom || "");
+      let l2Price = Number(it.packagingStructure?.level2?.price || 0);
+      if (l2Qty > 0 && l1Qty > 0 && l1Price > 0) {
+        l2Price = Number((l1Price / l2Qty).toFixed(4));
+      }
+
       normalizedItems.push({
         itemId: it.itemId,
         code: it.code || "",
         name: it.name.trim(),
         description: it.description || "",
-        expiryDate: it.expiryDate ? new Date(it.expiryDate) : undefined,
+        expiryDate: it.expiryDate ? new Date(it.expiryDate) : null,
         quantity: qty,
         uom: it.uom || "",
         unitPrice: unit,
@@ -269,6 +290,14 @@ export default async function handler(req, res) {
         vatPercentage,
         netPlusVat,
         freeQuantity: Number(it.freeQuantity || 0),
+        freeQuantityExpiryDate: it.freeQuantityExpiryDate
+          ? new Date(it.freeQuantityExpiryDate)
+          : null,
+        level0,
+        packagingStructure: {
+          level1: { quantity: l1Qty, price: l1Price, uom: l1Uom },
+          level2: { quantity: l2Qty, price: l2Price, uom: l2Uom },
+        },
       });
     }
 
@@ -283,12 +312,30 @@ export default async function handler(req, res) {
       notes: notes.trim(),
       status,
       createdBy: me._id,
+      orderCreditDays: orderCreditDays || 0,
       items: normalizedItems,
     };
+
+    // update expiry date and free quantity expiry date
+    const purchaseRecordObj = await PurchaseRecord.findById(
+      purchaseOrder._id,
+    ).lean();
+    let updatedPurchasedOrderItems = [];
+    for (let i = 0; i < normalizedItems.length; i++) {
+      const item = purchaseRecordObj.items[i];
+      const grnItem = normalizedItems[i];
+      // updatedPurchasedOrderItems.push({
+      //   ...item,
+      //   expiryDate: grnItem.expiryDate,
+      //   freeQuantityExpiryDate: grnItem.freeQuantityExpiryDate,
+      // });
+      updatedPurchasedOrderItems.push(grnItem);
+    }
 
     const newGRN = new GRN(grnData);
     const savedGRN = await newGRN.save();
     purchaseOrder.status = "Delivered";
+    purchaseOrder.items = updatedPurchasedOrderItems;
     await purchaseOrder.save();
 
     // Populate references for the response

@@ -175,8 +175,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [selectedComplaint, setSelectedComplaint] =
     useState<PreviousComplaint | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const token = getTokenByPath() || "";
-  const { uoms } = useUoms({ token });
   const [items, setItems] = useState<StockRow[]>([]);
   const [currentItem, setCurrentItem] = useState<StockRow>({
     itemId: "",
@@ -1195,11 +1193,32 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         className="w-32 px-2 py-1.5 text-sm border border-gray-300 rounded"
                                       >
                                         <option value="">Select UOM</option>
-                                        {uoms.map((u: any) => (
-                                          <option key={u._id} value={u.name}>
-                                            {u.name}
+                                        {!allocatedItems?.find(
+                                          (i) => i?._id === editingItem?.itemId,
+                                        ) ? (
+                                          <option value="">
+                                            Loading UOMs...
                                           </option>
-                                        ))}
+                                        ) : allocatedItems?.find(
+                                            (i) =>
+                                              i?._id === editingItem?.itemId,
+                                          ) && editingItem ? (
+                                          (
+                                            allocatedItems?.find(
+                                              (i) =>
+                                                i?._id === editingItem?.itemId,
+                                            )?.quantitiesByUom || []
+                                          )?.map((i, index: number) => (
+                                            <option
+                                              key={index.toString()}
+                                              value={i.uom}
+                                            >
+                                              {i.uom}
+                                            </option>
+                                          ))
+                                        ) : (
+                                          <></>
+                                        )}
                                       </select>
                                     ) : (
                                       item.uom || "-"
@@ -2087,7 +2106,6 @@ const ComplaintDetailModal: React.FC<{
   onClose: () => void;
 }> = ({ complaint, onClose }) => {
   if (!complaint) return null;
-
   const formatDate = (date: string) => {
     return new Date(date).toLocaleString("en-US", {
       dateStyle: "full",
@@ -2174,10 +2192,10 @@ const ComplaintDetailModal: React.FC<{
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-medium text-blue-600 w-24">
-                    Patient ID:
+                    EMR No:
                   </span>
                   <span className="text-sm text-gray-900 font-mono">
-                    {complaint.patientId?._id?.slice(-8).toUpperCase() || "N/A"}
+                    {complaint.patientId?.emrNumber || "N/A"}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -2185,7 +2203,8 @@ const ComplaintDetailModal: React.FC<{
                     Name:
                   </span>
                   <span className="text-sm text-gray-900">
-                    {complaint.patientId?.name || "N/A"}
+                    {`${complaint.patientId?.firstName} ${complaint.patientId?.lastName}` ||
+                      "N/A"}
                   </span>
                 </div>
                 {complaint.patientId?.phone && (

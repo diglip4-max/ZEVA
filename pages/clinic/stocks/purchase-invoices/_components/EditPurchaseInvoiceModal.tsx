@@ -23,6 +23,7 @@ type InvoiceFormData = {
   attachmentUrl: string;
   paidAmount: number;
   remainingAmount: number;
+  paymentMethod?: string;
 };
 
 const EditPurchaseInvoiceModal: React.FC<Props> = ({
@@ -32,6 +33,7 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
   data,
   onSuccess,
 }) => {
+  console.log({ data });
   const { clinicBranches } = useClinicBranches();
   const [supplierSearch, setSupplierSearch] = useState("");
   const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
@@ -47,6 +49,7 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
     attachmentUrl: "",
     paidAmount: 0,
     remainingAmount: 0,
+    paymentMethod: "",
   });
 
   const [grns, setGrns] = useState<any[]>([]);
@@ -118,6 +121,7 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
         notes: data?.notes || "",
         status: data?.status || "New",
         attachmentUrl: data?.attachmentUrl || "",
+        paymentMethod: data?.paymentMethod || "",
         paidAmount: Number(data?.paidAmount || 0),
         remainingAmount: Number(data?.remainingAmount || 0),
       });
@@ -140,7 +144,7 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
     }
   }, [data, isOpen]);
 
-  // Fetch GRNs when branch changes
+  // Fetch GRNs when branch or supplier changes
   useEffect(() => {
     const fetchGrns = async () => {
       try {
@@ -158,7 +162,15 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
           headers: { Authorization: `Bearer ${t}` },
         });
         if (res.data?.success) {
-          const filteredGrns = res.data?.data?.records || [];
+          let filteredGrns = res.data?.data?.records || [];
+          // Filter by selected supplier
+          if (formData.supplier) {
+            filteredGrns = filteredGrns.filter(
+              (grn: any) =>
+                grn?.purchasedOrder?.supplier?._id === formData.supplier ||
+                grn?.purchasedOrder?.supplier === formData.supplier,
+            );
+          }
           setGrns(filteredGrns || []);
         } else {
           setGrns([]);
@@ -173,7 +185,7 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
     if (isOpen && formData.branch) {
       fetchGrns();
     }
-  }, [formData.branch, showEntries, isOpen]);
+  }, [formData.branch, formData.supplier, showEntries, isOpen]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -312,6 +324,7 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
       payload.attachmentUrl = formData.attachmentUrl || "";
       payload.paidAmount = Number(formData.paidAmount || 0);
       payload.remainingAmount = Number(formData.remainingAmount || 0);
+      payload.paymentMethod = formData.paymentMethod || "";
 
       const res = await fetch(
         `/api/stocks/purchase-invoices/update/${data._id}`,
@@ -518,6 +531,7 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
                                         ...formData,
                                         supplier: supplier._id,
                                       });
+                                      setSelectedGrns([]);
                                       setIsSupplierDropdownOpen(false);
                                       setSupplierSearch("");
                                     }}
@@ -597,129 +611,6 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
                     <option value="Deleted">Deleted</option>
                   </select>
                 </div>
-                {false &&
-                  (formData.status === "Paid" ||
-                    formData.status === "Partly_Paid") && (
-                    <div className="space-y-1.5">
-                      <label className="block text-sm font-semibold text-gray-800">
-                        Attachments (payment proofs, invoices)
-                      </label>
-                      <input
-                        type="file"
-                        onChange={async (e) => {
-                          const file =
-                            (e.target.files && e.target.files[0]) || null;
-                          setAttachment(file);
-                          if (file) {
-                            setUploading(true);
-                            try {
-                              const resData = await handleUpload(file);
-                              if (resData?.success && resData?.url) {
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  attachmentUrl: resData.url,
-                                }));
-                              } else {
-                                setError("Failed to upload attachment");
-                              }
-                            } catch {
-                              setError("Failed to upload attachment");
-                            } finally {
-                              setUploading(false);
-                            }
-                          }
-                        }}
-                        className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
-                        disabled={loading || uploading}
-                        accept=".pdf,image/*"
-                      />
-                      {attachment && (
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          <div className="px-2 py-1 text-xs rounded border border-gray-200 bg-gray-50 text-gray-700 flex items-center gap-2">
-                            <span className="font-medium">
-                              {attachment?.name}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setAttachment(null)}
-                              className="text-red-600 hover:text-red-800"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                      {formData.attachmentUrl && (
-                        <div className="mt-2 text-xs">
-                          <a
-                            href={formData.attachmentUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
-                          >
-                            View uploaded attachment
-                          </a>
-                        </div>
-                      )}
-                      {uploading && (
-                        <div className="text-xs text-gray-500">
-                          Uploading...
-                        </div>
-                      )}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-                        <div className="sm:col-span-2">
-                          <div className="px-3 py-2.5 text-sm text-gray-900 bg-gray-50 border border-gray-300 rounded-lg flex items-center justify-between">
-                            <span className="font-semibold">
-                              Payable Amount
-                            </span>
-                            <span className="font-bold">
-                              {payableAmount.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="block text-sm font-semibold text-gray-800">
-                            Paid Amount
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            max={payableAmount}
-                            name="paidAmount"
-                            value={Number(formData.paidAmount || 0)}
-                            onChange={handleInputChange}
-                            className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-                            disabled={loading || formData.status === "Paid"}
-                            placeholder="0.00"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="block text-sm font-semibold text-gray-800">
-                            Remaining Amount
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            name="remainingAmount"
-                            value={
-                              formData.status === "Paid"
-                                ? 0
-                                : Number(formData.remainingAmount || 0)
-                            }
-                            onChange={() => {}}
-                            className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-                            disabled
-                            placeholder="0.00"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
               </div>
               {/* Notes */}
               <div className="space-y-1.5">
@@ -738,124 +629,156 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
               </div>
             </div>
 
-            <div className="space-y-3 pt-4 border-t border-gray-200">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="sm:col-span-2">
-                  <div className="px-3 py-2.5 text-sm text-gray-900 bg-gray-50 border border-gray-300 rounded-lg flex items-center justify-between">
-                    <span className="font-semibold">Payable Amount</span>
-                    <span className="font-bold">
-                      {payableAmount.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </span>
-                  </div>
-                </div>
-                {(formData.status === "Paid" ||
-                  formData.status === "Partly_Paid") && (
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <label className="block text-sm font-semibold text-gray-800">
-                      Attachments (payment proofs, invoices)
-                    </label>
-                    <input
-                      type="file"
-                      onChange={async (e) => {
-                        const file =
-                          (e.target.files && e.target.files[0]) || null;
-                        setAttachment(file);
-                        if (file) {
-                          setUploading(true);
-                          try {
-                            const resData = await handleUpload(file);
-                            if (resData?.success && resData?.url) {
-                              setFormData((prev) => ({
-                                ...prev,
-                                attachmentUrl: resData.url,
-                              }));
-                            } else {
-                              setError("Failed to upload attachment");
+            {selectedGrns?.length > 0 &&
+              (formData?.status === "Paid" ||
+                formData?.status === "Partly_Paid") && (
+                <div className="space-y-3 pt-4 border-t border-gray-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="sm:col-span-2">
+                      <div className="px-3 py-2.5 text-sm text-gray-900 bg-gray-50 border border-gray-300 rounded-lg flex items-center justify-between">
+                        <span className="font-semibold">Payable Amount</span>
+                        <span className="font-bold">
+                          {payableAmount.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                    {(formData.status === "Paid" ||
+                      formData.status === "Partly_Paid") && (
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <label className="block text-sm font-semibold text-gray-800">
+                          Attachments (payment proofs, invoices){" "}
+                          <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="file"
+                          onChange={async (e) => {
+                            const file =
+                              (e.target.files && e.target.files[0]) || null;
+                            setAttachment(file);
+                            if (file) {
+                              setUploading(true);
+                              try {
+                                const resData = await handleUpload(file);
+                                if (resData?.success && resData?.url) {
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    attachmentUrl: resData.url,
+                                  }));
+                                } else {
+                                  setError("Failed to upload attachment");
+                                }
+                              } catch {
+                                setError("Failed to upload attachment");
+                              } finally {
+                                setUploading(false);
+                              }
                             }
-                          } catch {
-                            setError("Failed to upload attachment");
-                          } finally {
-                            setUploading(false);
-                          }
-                        }
-                      }}
-                      className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
-                      disabled={loading || uploading}
-                      accept=".pdf,image/*"
-                    />
-                    {attachment && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        <div className="px-2 py-1 text-xs rounded border border-gray-200 bg-gray-50 text-gray-700 flex items-center gap-2">
-                          <span className="font-medium">{attachment.name}</span>
-                          <button
-                            type="button"
-                            onClick={() => setAttachment(null)}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            Remove
-                          </button>
-                        </div>
+                          }}
+                          className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          disabled={loading || uploading}
+                          accept=".pdf,image/*"
+                        />
+                        {attachment && (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            <div className="px-2 py-1 text-xs rounded border border-gray-200 bg-gray-50 text-gray-700 flex items-center gap-2">
+                              <span className="font-medium">
+                                {attachment.name}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setAttachment(null)}
+                                className="text-red-600 hover:text-red-800"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {formData.attachmentUrl && (
+                          <div className="mt-2 text-xs">
+                            <a
+                              href={formData.attachmentUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline"
+                            >
+                              View uploaded attachment
+                            </a>
+                          </div>
+                        )}
+                        {uploading && (
+                          <div className="text-xs text-gray-500">
+                            Uploading...
+                          </div>
+                        )}
                       </div>
                     )}
-                    {formData.attachmentUrl && (
-                      <div className="mt-2 text-xs">
-                        <a
-                          href={formData.attachmentUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline"
+                    {(formData.status === "Paid" ||
+                      formData.status === "Partly_Paid") && (
+                      <div className="space-y-1.5 col-span-2">
+                        <label className="block text-sm font-semibold text-gray-800">
+                          Payment Method <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          name="paymentMethod"
+                          value={formData.paymentMethod || ""}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          disabled={loading}
                         >
-                          View uploaded attachment
-                        </a>
+                          <option value="">Select method</option>
+                          <option value="Cash">Cash</option>
+                          <option value="Card">Card</option>
+                          <option value="Bank_Transfer">Bank Transfer</option>
+                          <option value="Cheque">Cheque</option>
+                          <option value="Online">Online</option>
+                          <option value="Other">Other</option>
+                        </select>
                       </div>
                     )}
-                    {uploading && (
-                      <div className="text-xs text-gray-500">Uploading...</div>
-                    )}
+                    <div className="space-y-1.5">
+                      <label className="block text-sm font-semibold text-gray-800">
+                        Paid Amount
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        max={payableAmount}
+                        name="paidAmount"
+                        value={Number(formData.paidAmount || 0)}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                        disabled={loading || formData.status === "Paid"}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-sm font-semibold text-gray-800">
+                        Remaining Amount
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        name="remainingAmount"
+                        value={
+                          formData.status === "Paid"
+                            ? 0
+                            : Number(formData.remainingAmount || 0)
+                        }
+                        onChange={() => {}}
+                        className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                        disabled
+                        placeholder="0.00"
+                      />
+                    </div>
                   </div>
-                )}
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-gray-800">
-                    Paid Amount
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    max={payableAmount}
-                    name="paidAmount"
-                    value={Number(formData.paidAmount || 0)}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-                    disabled={loading || formData.status === "Paid"}
-                    placeholder="0.00"
-                  />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-gray-800">
-                    Remaining Amount
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    name="remainingAmount"
-                    value={
-                      formData.status === "Paid"
-                        ? 0
-                        : Number(formData.remainingAmount || 0)
-                    }
-                    onChange={() => {}}
-                    className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-                    disabled
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-            </div>
+              )}
 
             {/* GRN Selection Table */}
             <div className="space-y-3 pt-4 border-t border-gray-200">
@@ -958,10 +881,14 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
                           <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                             Status
                           </th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            Payment
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {grns.map((grn) => {
+                          console.log({ data });
                           let total = 0;
                           let discount = 0;
                           let net = 0;
@@ -974,6 +901,48 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
                             vat += item?.vatAmount || 0;
                             netPlusVat += item?.netPlusVat || 0;
                           }
+                          // Payment due label calculation
+                          const paymentTermsDays = Number(
+                            grn?.orderCreditDays || 0,
+                          );
+                          const poDate = grn?.purchasedOrder?.date
+                            ? new Date(grn.purchasedOrder.date)
+                            : null;
+                          let paymentLabel:
+                            | "Due"
+                            | "Partly Due"
+                            | "Unpaid"
+                            | "Paid"
+                            | "Partly_Paid"
+                            | null = "Unpaid";
+                          if (poDate && paymentTermsDays > 0) {
+                            const dueDate = new Date(poDate);
+                            dueDate.setDate(
+                              dueDate.getDate() + paymentTermsDays,
+                            );
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            dueDate.setHours(0, 0, 0, 0);
+                            const diffDays = Math.ceil(
+                              (dueDate.getTime() - today.getTime()) /
+                                (1000 * 60 * 60 * 24),
+                            );
+                            if (diffDays <= 0) {
+                              paymentLabel = "Due";
+                            }
+                          }
+
+                          let isIncludedGRN = data?.grns?.find(
+                            (item: any) => item?._id === grn?._id,
+                          );
+                          if (isIncludedGRN) {
+                            if (data?.status === "Paid") {
+                              paymentLabel = "Paid";
+                            } else if (data?.status === "Partly_Paid") {
+                              paymentLabel = "Partly_Paid";
+                            }
+                          }
+
                           return (
                             <tr
                               key={grn._id}
@@ -1032,6 +1001,25 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
                                   {grn.status || "New"}
                                 </span>
                               </td>
+                              <td className="px-4 py-3">
+                                {paymentLabel === "Due" && (
+                                  <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">
+                                    Due
+                                  </span>
+                                )}
+
+                                {paymentLabel === "Unpaid" && (
+                                  <span className="text-xs px-2 py-1 bg-gray-100 text-gray-500 border border-gray-300 rounded-full">
+                                    {paymentLabel}
+                                  </span>
+                                )}
+                                {(paymentLabel === "Paid" ||
+                                  paymentLabel === "Partly_Paid") && (
+                                  <span className="text-xs px-2 py-1 bg-green-100 text-green-500 border border-green-300 rounded-full">
+                                    {paymentLabel}
+                                  </span>
+                                )}
+                              </td>
                             </tr>
                           );
                         })}
@@ -1075,7 +1063,10 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
               !formData.supplier.trim() ||
               !formData.supplierInvoiceNo.trim() ||
               !formData.date.trim() ||
-              selectedGrns.length === 0
+              selectedGrns.length === 0 ||
+              ((formData.status === "Paid" ||
+                formData.status === "Partly_Paid") &&
+                !formData.attachmentUrl)
             }
             className="px-5 py-2.5 text-sm font-medium text-white bg-gray-800 border border-transparent rounded-lg hover:bg-gray-900 focus:ring-2 focus:ring-gray-800/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >

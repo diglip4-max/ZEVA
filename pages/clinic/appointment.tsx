@@ -97,9 +97,14 @@ interface Appointment {
   referral: string;
   emergency: string;
   notes: string;
+<<<<<<< HEAD
   treatment?: string;
   serviceId?: string;
   serviceName?: string;
+=======
+  serviceId?: string | null;
+  serviceName?: string | null;
+>>>>>>> c356be21e97e18564a8deafb8e0ebe89011664eb
   bookedFrom?: "doctor" | "room"; // Track which column the appointment was booked from
   doctorTreatments?: Array<{
     mainTreatment: string;
@@ -3350,9 +3355,9 @@ useEffect(() => {
                                                       <span className="text-[13px] font-[600] text-black mb-[2px] block">
                                                         {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
                                                       </span>
-                                                      {item.apt.roomName && (
-                                                        <span className="text-[12px] font-[400] text-black opacity-[0.8] block">
-                                                          {item.apt.roomName}
+                                                      {item.apt.serviceName && (
+                                                        <span className="text-[12px] font-[400] text-black opacity-[0.8] block truncate">
+                                                          {item.apt.serviceName}
                                                         </span>
                                                       )}
                                                       {item.apt.doctorTreatments && item.apt.doctorTreatments.length > 0 && (
@@ -3629,9 +3634,9 @@ useEffect(() => {
                                                       <span className="text-[13px] font-[600] text-black mb-[2px] block">
                                                         {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
                                                       </span>
-                                                      {item.apt.roomName && (
-                                                        <span className="text-[12px] font-[400] text-black opacity-[0.8] block">
-                                                          {item.apt.roomName}
+                                                      {item.apt.serviceName && (
+                                                        <span className="text-[12px] font-[400] text-black opacity-[0.8] block truncate">
+                                                          {item.apt.serviceName}
                                                         </span>
                                                       )}
                                                       {item.apt.doctorTreatments && item.apt.doctorTreatments.length > 0 && (
@@ -4027,24 +4032,34 @@ useEffect(() => {
                 )}
               </div>
 
-              {/* Contact Info & Treatment */}
+              {/* Contact Info */}
+              {(hoveredAppointment.appointment.patientEmail || hoveredAppointment.appointment.patientMobileNumber) && (
+                <div className="space-y-0.5 pt-0.5 border-t border-gray-100 dark:border-gray-300">
+                  {hoveredAppointment.appointment.patientMobileNumber && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Mobile:</span>
+                      <span className="text-[10px] text-gray-700 dark:text-gray-800 truncate">{hoveredAppointment.appointment.patientMobileNumber}</span>
+                    </div>
+                  )}
+                  {hoveredAppointment.appointment.patientEmail && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Email:</span>
+                      <span className="text-[10px] text-gray-700 dark:text-gray-800 truncate">{hoveredAppointment.appointment.patientEmail}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Doctor & Treatment */}
               <div className="space-y-0.5 pt-0.5 border-t border-gray-100 dark:border-gray-300">
-                {hoveredAppointment.appointment.patientMobileNumber && (
-                  <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Mobile:</span>
-                    <span className="text-[10px] text-gray-700 dark:text-gray-800 truncate">{hoveredAppointment.appointment.patientMobileNumber}</span>
-                  </div>
-                )}
-                {hoveredAppointment.appointment.patientEmail && (
-                  <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Email:</span>
-                    <span className="text-[10px] text-gray-700 dark:text-gray-800 truncate">{hoveredAppointment.appointment.patientEmail}</span>
-                  </div>
-                )}
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Dr:</span>
+                  <span className="text-[10px] text-gray-700 dark:text-gray-800 truncate">{hoveredAppointment.appointment.doctorName}</span>
+                </div>
                 {hoveredAppointment.appointment.serviceName && (
                   <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Treatment:</span>
-                    <span className="text-[10px] text-gray-700 dark:text-gray-800 font-medium truncate">{hoveredAppointment.appointment.serviceName}</span>
+                    <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Service:</span>
+                    <span className="text-[10px] text-gray-700 dark:text-gray-800 truncate">{hoveredAppointment.appointment.serviceName}</span>
                   </div>
                 )}
                 {hoveredAppointment.appointment.doctorTreatments && hoveredAppointment.appointment.doctorTreatments.length > 0 && (

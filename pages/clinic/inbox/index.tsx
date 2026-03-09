@@ -138,7 +138,7 @@ const InboxPage: NextPageWithLayout = () => {
   } = state;
 
   return (
-    <div className="flex h-[91vh] bg-gray-50 text-gray-800">
+    <div className="flex h-[92vh] bg-gray-50 text-gray-800">
       {/* Left Sidebar - Conversations List */}
       <div
         className={`w-full md:w-1/3 lg:w-1/4 border-r border-gray-200 flex flex-col bg-white shadow-sm ${

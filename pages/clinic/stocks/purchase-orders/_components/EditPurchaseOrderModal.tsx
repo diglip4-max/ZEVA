@@ -108,31 +108,60 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
   const showSupplierInvoiceNo =
     formData.type === "Purchase_Invoice" || formData.type === "GRN_Regular";
 
-  // Calculate discount amount
+  // Calculate discount amount (clamped)
   const calculateDiscountAmount = (item: PurchaseRecordItem): number => {
-    const total = item.quantity * item.unitPrice;
+    const qty = Math.max(0, Number(item.quantity) || 0);
+    const unit = Math.max(0, Number(item.unitPrice) || 0);
+    const total = qty * unit;
     if (item.discountType === "Fixed") {
-      return item.discount || 0;
+      const fixed = Math.max(0, Number(item.discount || 0));
+      return Math.min(fixed, total);
     } else if (item.discountType === "Percentage") {
-      return (total * (item.discount || 0)) / 100;
+      const pct = Math.min(Math.max(Number(item.discount || 0), 0), 100);
+      return (total * pct) / 100;
     }
     return 0;
   };
 
-  // Update current item calculations
+  // Update current item calculations (handles Inclusive/Exclusive VAT correctly)
   useEffect(() => {
-    const total = currentItem.quantity * currentItem.unitPrice;
+    const qty = Math.max(0, Number(currentItem.quantity) || 0);
+    const unit = Math.max(0, Number(currentItem.unitPrice) || 0);
+    const total = qty * unit;
     const discountAmount = calculateDiscountAmount(currentItem);
-    const netPrice = total - discountAmount;
-    const vatAmount =
-      currentItem.vatType === "Exclusive" ? currentItem.vatAmount || 0 : 0;
+    const netBeforeVat = total - discountAmount;
+    const vatPct = Math.max(0, Number(currentItem.vatPercentage || 0));
 
+    let vatAmount = 0;
+    let netPrice = 0;
+    let netPlusVat = 0;
+    if (currentItem.vatType === "Inclusive") {
+      if (vatPct > 0) {
+        vatAmount = Number(((netBeforeVat * vatPct) / (100 + vatPct)).toFixed(2));
+      } else {
+        vatAmount = Math.max(0, Math.min(Number(currentItem.vatAmount || 0), netBeforeVat));
+      }
+      netPrice = Number((netBeforeVat - vatAmount).toFixed(2));
+      netPlusVat = Number(netBeforeVat.toFixed(2));
+    } else {
+      // Exclusive
+      if (vatPct > 0) {
+        vatAmount = Number(((netBeforeVat * vatPct) / 100).toFixed(2));
+      } else {
+        vatAmount = Math.max(0, Number(currentItem.vatAmount || 0));
+      }
+      netPrice = Number(netBeforeVat.toFixed(2));
+      netPlusVat = Number((netBeforeVat + vatAmount).toFixed(2));
+    }
     setCurrentItem((prev) => ({
       ...prev,
-      totalPrice: parseFloat(total.toFixed(2)),
-      discountAmount: parseFloat(discountAmount.toFixed(2)),
-      netPrice: parseFloat(netPrice.toFixed(2)),
-      netPlusVat: parseFloat((netPrice + vatAmount).toFixed(2)),
+      quantity: qty,
+      unitPrice: unit,
+      totalPrice: Number(total.toFixed(2)),
+      discountAmount: Number(discountAmount.toFixed(2)),
+      netPrice,
+      vatAmount,
+      netPlusVat,
     }));
   }, [
     currentItem.quantity,
@@ -141,6 +170,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
     currentItem.discountType,
     currentItem.vatAmount,
     currentItem.vatType,
+    currentItem.vatPercentage,
   ]);
 
   // Load data when purchaseOrderData changes
@@ -241,13 +271,17 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
     field: keyof PurchaseRecordItem,
     value: any,
   ) => {
-    let discountAmount = 0;
-    if (field === "discount" && currentItem?.discountType === "Fixed") {
-      discountAmount = value || 0;
-    }
-    if (field === "discount" && currentItem?.discountType === "Percentage") {
-      discountAmount =
-        (currentItem.quantity * currentItem.unitPrice * (value || 0)) / 100;
+    const numericFields: (keyof PurchaseRecordItem)[] = [
+      "quantity",
+      "unitPrice",
+      "discount",
+      "vatAmount",
+      "vatPercentage",
+      "freeQuantity",
+    ];
+    if (numericFields.includes(field)) {
+      value = Number(value || 0);
+      if (value < 0) value = 0;
     }
     if (field === "itemId") {
       const item = stockItems.find((i) => i._id === value);
@@ -265,7 +299,6 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
     setCurrentItem((prev) => ({
       ...prev,
       [field]: value,
-      ...(field === "discount" && { discountAmount }),
     }));
   };
 
@@ -275,18 +308,40 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
       return;
     }
 
+    const qty = Math.max(0, Number(currentItem.quantity) || 0);
+    const unit = Math.max(0, Number(currentItem.unitPrice) || 0);
+    const total = qty * unit;
     const discountAmount = calculateDiscountAmount(currentItem);
-    const total = currentItem.quantity * currentItem.unitPrice;
-    const netPrice = total - discountAmount;
-    const vatAmount =
-      currentItem.vatType === "Exclusive" ? currentItem.vatAmount || 0 : 0;
+    const netBeforeVat = total - discountAmount;
+    const vatPct = Math.max(0, Number(currentItem.vatPercentage || 0));
+    let vatAmount = 0;
+    let netPrice = 0;
+    let netPlusVat = 0;
+    if (currentItem.vatType === "Inclusive") {
+      if (vatPct > 0) {
+        vatAmount = Number(((netBeforeVat * vatPct) / (100 + vatPct)).toFixed(2));
+      } else {
+        vatAmount = Math.max(0, Math.min(Number(currentItem.vatAmount || 0), netBeforeVat));
+      }
+      netPrice = Number((netBeforeVat - vatAmount).toFixed(2));
+      netPlusVat = Number(netBeforeVat.toFixed(2));
+    } else {
+      if (vatPct > 0) {
+        vatAmount = Number(((netBeforeVat * vatPct) / 100).toFixed(2));
+      } else {
+        vatAmount = Math.max(0, Number(currentItem.vatAmount || 0));
+      }
+      netPrice = Number(netBeforeVat.toFixed(2));
+      netPlusVat = Number((netBeforeVat + vatAmount).toFixed(2));
+    }
 
     const newItem = {
       ...currentItem,
-      discountAmount: parseFloat(discountAmount.toFixed(2)),
-      totalPrice: parseFloat(total.toFixed(2)),
-      netPrice: parseFloat(netPrice.toFixed(2)),
-      netPlusVat: parseFloat((netPrice + vatAmount).toFixed(2)),
+      discountAmount: Number(discountAmount.toFixed(2)),
+      totalPrice: Number(total.toFixed(2)),
+      netPrice,
+      vatAmount,
+      netPlusVat,
     };
 
     setItems([...items, newItem]);

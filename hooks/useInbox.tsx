@@ -25,7 +25,6 @@ import { User } from "@/types/users";
 import { Template } from "@/types/templates";
 import { useAuth } from "@/context/AuthContext";
 import useRooms from "./useRooms";
-import useLead from "./useLead";
 import useLeadPatient from "./useLeadPatient";
 
 export type VariableType = {
@@ -181,11 +180,9 @@ const useInbox = () => {
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   // fetch lead patient details
-  const { state: leadState } = useLead({
-    leadId: selectedConversation?.leadId?._id || "",
+  const { state: leadPatient } = useLeadPatient({
+    lead: selectedConversation?.leadId || null,
   });
-  const { lead } = leadState;
-  const { state: leadPatient } = useLeadPatient({ lead: lead || null });
   const { patient } = leadPatient;
 
   const token = getTokenByPath();

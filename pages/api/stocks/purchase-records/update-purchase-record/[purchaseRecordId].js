@@ -100,6 +100,10 @@ export default async function handler(req, res) {
       branch,
       date,
       enqNo,
+      quotationNo,
+      quotationDate,
+      validityDays,
+      paymentTermsDays,
       supplier,
       type,
       supplierInvoiceNo,
@@ -221,6 +225,11 @@ export default async function handler(req, res) {
     if (contactInfoOfBuyer) updateData.contactInfoOfBuyer = contactInfoOfBuyer;
     if (items && Array.isArray(items) && items.length > 0)
       updateData.items = items;
+    if (quotationNo !== undefined) updateData.quotationNo = quotationNo;
+    if (quotationDate) updateData.quotationDate = new Date(quotationDate);
+    if (validityDays !== undefined) updateData.validityDays = validityDays;
+    if (paymentTermsDays !== undefined)
+      updateData.paymentTermsDays = paymentTermsDays;
 
     // Update the record
     const updatedRecord = await PurchaseRecord.findOneAndUpdate(

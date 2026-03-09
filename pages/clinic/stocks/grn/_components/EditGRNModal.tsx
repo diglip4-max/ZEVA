@@ -36,11 +36,10 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
     supplierGRNDate: new Date().toISOString().split("T")[0],
     notes: "",
     status: "New",
+    orderCreditDays: "0",
   });
   const [items, setItems] = useState<PurchaseRecordItem[]>([]);
   const { uoms } = useUoms({ token, branchId: formData.branch });
-
-  console.log({ grnData, formData });
 
   // Initialize form when grnData changes
   useEffect(() => {
@@ -57,8 +56,10 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
           new Date().toISOString().split("T")[0],
         notes: grnData.notes || "",
         status: (grnData as any).status || "New",
+        orderCreditDays: (grnData as any).orderCreditDays || "0",
       });
       const inItems = (grnData as any)?.items || [];
+      console.log("inItems", inItems);
       setItems(
         (inItems || []).map((it: any) => ({
           _id: it._id,
@@ -108,6 +109,49 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
                       100
                     : it.discount || 0))) + (it.vatAmount || 0),
           freeQuantity: it.freeQuantity || 0,
+          freeQuantityExpiryDate: it.freeQuantityExpiryDate
+            ? new Date(it.freeQuantityExpiryDate)?.toISOString().split("T")[0]
+            : "",
+          level0: {
+            price: (it.level0 && it.level0.price) || it.unitPrice || 0,
+            uom: (it.level0 && it.level0.uom) || it.uom || "",
+          },
+          packagingStructure: {
+            level1: {
+              quantity:
+                (it.packagingStructure &&
+                  it.packagingStructure.level1 &&
+                  it.packagingStructure.level1.quantity) ||
+                0,
+              price:
+                (it.packagingStructure &&
+                  it.packagingStructure.level1 &&
+                  it.packagingStructure.level1.price) ||
+                0,
+              uom:
+                (it.packagingStructure &&
+                  it.packagingStructure.level1 &&
+                  it.packagingStructure.level1.uom) ||
+                "",
+            },
+            level2: {
+              quantity:
+                (it.packagingStructure &&
+                  it.packagingStructure.level2 &&
+                  it.packagingStructure.level2.quantity) ||
+                0,
+              price:
+                (it.packagingStructure &&
+                  it.packagingStructure.level2 &&
+                  it.packagingStructure.level2.price) ||
+                0,
+              uom:
+                (it.packagingStructure &&
+                  it.packagingStructure.level2 &&
+                  it.packagingStructure.level2.uom) ||
+                "",
+            },
+          },
         })),
       );
     }
@@ -194,7 +238,91 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
         field === "freeQuantity"
           ? parseFloat(value) || 0
           : value;
-      next[index] = recalcItem({ ...next[index], [field]: parsed });
+      const updated = recalcItem({ ...next[index], [field]: parsed });
+      // Recompute packaging prices from netPlusVat/quantity (per box)
+      const qtyBox = Number(updated.quantity || 0);
+      const totalInc = Number(updated.netPlusVat || 0);
+      const baseBoxPrice =
+        qtyBox > 0 ? Number((totalInc / qtyBox).toFixed(4)) : Number(0);
+      const l1Qty = Number(updated.packagingStructure?.level1?.quantity || 0);
+      const l2Qty = Number(updated.packagingStructure?.level2?.quantity || 0);
+      if (l1Qty > 0 && baseBoxPrice > 0) {
+        const l1Price = Number((baseBoxPrice / l1Qty).toFixed(4));
+        updated.packagingStructure = {
+          ...(updated.packagingStructure || {}),
+          level1: {
+            ...(updated.packagingStructure?.level1 || {}),
+            price: l1Price,
+            uom: updated.packagingStructure?.level1?.uom || "",
+          },
+          level2: updated.packagingStructure?.level2,
+        };
+        if (l2Qty > 0) {
+          const l2Price = Number((l1Price / l2Qty).toFixed(4));
+          updated.packagingStructure = {
+            ...(updated.packagingStructure || {}),
+            level1: updated.packagingStructure?.level1,
+            level2: {
+              ...(updated.packagingStructure?.level2 || {}),
+              price: l2Price,
+              uom: updated.packagingStructure?.level2?.uom || "",
+            },
+          };
+        }
+      }
+      next[index] = updated;
+      return next;
+    });
+  };
+
+  const handlePackagingChange = (
+    index: number,
+    level: 1 | 2,
+    subField: "quantity" | "uom",
+    value: any,
+  ) => {
+    setItems((prev) => {
+      const next = [...prev];
+      const item = { ...next[index] };
+      const parsed =
+        subField === "quantity" ? Math.max(0, parseFloat(value) || 0) : value;
+      const ps = { ...(item.packagingStructure || {}) };
+      if (level === 1) {
+        ps.level1 = {
+          ...(ps.level1 || {}),
+          [subField]: parsed,
+        };
+      } else {
+        ps.level2 = {
+          ...(ps.level2 || {}),
+          [subField]: parsed,
+        };
+      }
+      item.packagingStructure = ps;
+      // recompute prices based on netPlusVat/quantity and sub-quantities
+      const qtyBox = Number(item.quantity || 0);
+      const totalInc = Number(item.netPlusVat || 0);
+      const baseBoxPrice =
+        qtyBox > 0 ? Number((totalInc / qtyBox).toFixed(4)) : Number(0);
+      console.log({ baseBoxPrice });
+      const l1Qty = Number(item.packagingStructure?.level1?.quantity || 0);
+      const l2Qty = Number(item.packagingStructure?.level2?.quantity || 0);
+      if (l1Qty > 0 && baseBoxPrice > 0) {
+        const l1Price = Number((baseBoxPrice / l1Qty).toFixed(2));
+
+        item.packagingStructure.level1 = {
+          ...(item.packagingStructure.level1 || {}),
+          price: l1Price,
+        };
+        if (l2Qty > 0) {
+          const l2Price = Number((l1Price / l2Qty).toFixed(2));
+          item.packagingStructure.level2 = {
+            ...(item.packagingStructure.level2 || {}),
+            price: l2Price,
+          };
+        }
+      }
+      next[index] = item;
       return next;
     });
   };
@@ -212,6 +340,7 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
       supplierGRNDate: new Date().toISOString().split("T")[0],
       notes: "",
       status: "New",
+      orderCreditDays: "0",
     });
     setError(null);
     setItems([]);
@@ -243,25 +372,29 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
         supplierGrnDate: formData.supplierGRNDate,
         notes: formData.notes,
         status: formData.status,
+        orderCreditDays: formData.orderCreditDays,
+
         items: items.map((it) => ({
-          itemId: it.itemId,
-          code: it.code,
-          name: it.name,
-          description: it.description,
-          expiryDate: it.expiryDate ? new Date(it.expiryDate) : undefined,
-          quantity: it.quantity,
-          uom: it.uom,
-          unitPrice: it.unitPrice,
-          totalPrice: it.totalPrice,
-          discount: it.discount,
-          discountType: it.discountType,
-          discountAmount: it.discountAmount,
-          netPrice: it.netPrice,
-          vatAmount: it.vatAmount,
-          vatType: it.vatType,
-          vatPercentage: it.vatPercentage,
-          netPlusVat: it.netPlusVat,
-          freeQuantity: it.freeQuantity,
+          ...it,
+          level0: {
+            price:
+              it.quantity > 0
+                ? Number(((it.netPlusVat || 0) / it.quantity).toFixed(4))
+                : Number(0),
+            uom: it.uom,
+          },
+          packagingStructure: {
+            level1: {
+              quantity: it.packagingStructure?.level1?.quantity || 0,
+              price: it.packagingStructure?.level1?.price || 0,
+              uom: it.packagingStructure?.level1?.uom || "",
+            },
+            level2: {
+              quantity: it.packagingStructure?.level2?.quantity || 0,
+              price: it.packagingStructure?.level2?.price || 0,
+              uom: it.packagingStructure?.level2?.uom || "",
+            },
+          },
         })),
       };
 
@@ -287,13 +420,11 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
     }
   };
 
-  console.log({ purchaseOrders, formData });
-
-  if (!isOpen || !grnData) return null;
-
   const selectedPO = (purchaseOrders || [])?.find(
     (po) => po._id === formData.purchaseOrder,
   );
+
+  if (!isOpen || !grnData) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
@@ -493,6 +624,24 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
                 />
               </div>
 
+              {/* Order Credit Days */}
+              {selectedPO && (
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-gray-900">
+                    Order Credit Days <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="orderCreditDays"
+                    value={formData.orderCreditDays}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    disabled={loading}
+                    required
+                  />
+                </div>
+              )}
+
               {/* Notes */}
               <div className="space-y-2 col-span-full">
                 <label className="block text-sm font-bold text-gray-900">
@@ -511,6 +660,15 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
             </div>
 
             <div className="border border-gray-200 text-gray-500 rounded-lg overflow-hidden">
+              <div className="bg-blue-50 border-b border-blue-100 px-3 py-2 text-[11px] text-blue-800">
+                <div className="font-semibold">Instructions</div>
+                <div>
+                  R.Qty: Received Box count. Net+VAT is total including VAT. L1
+                  Qty/UOM: Units per Box (e.g., PCS). L1 Price = (Net+VAT ÷
+                  R.Qty) ÷ L1 Qty. L2 Qty/UOM: Units per L1 unit (e.g.,
+                  sub-PCS). L2 Price = L1 Price ÷ L2 Qty.
+                </div>
+              </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-800">
@@ -543,6 +701,9 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
                         Free Qty
                       </th>
                       <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        Free Qty Exp. Date
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
                         NET
                       </th>
                       <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
@@ -550,6 +711,24 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
                       </th>
                       <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
                         Net+VAT
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        L1 Qty
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        L1 UOM
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        L1 Price
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        L2 Qty
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        L2 UOM
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        L2 Price
                       </th>
                       {/* <th className="px-3 py-2 text-right text-xs font-bold text-white uppercase tracking-wider">
                         Edit
@@ -676,6 +855,20 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
                             className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-right"
                           />
                         </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="date"
+                            value={item.freeQuantityExpiryDate || ""}
+                            onChange={(e) =>
+                              handleItemChange(
+                                idx,
+                                "freeQuantityExpiryDate",
+                                e.target.value,
+                              )
+                            }
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                          />
+                        </td>
                         <td className="px-3 py-2 text-right">
                           {item.netPrice?.toFixed(2)}
                         </td>
@@ -684,6 +877,94 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
                         </td>
                         <td className="px-3 py-2 text-right font-bold">
                           {item.netPlusVat?.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            min={0}
+                            value={
+                              item.packagingStructure?.level1?.quantity || 0
+                            }
+                            onChange={(e) =>
+                              handlePackagingChange(
+                                idx,
+                                1,
+                                "quantity",
+                                e.target.value,
+                              )
+                            }
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-right"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <select
+                            value={item.packagingStructure?.level1?.uom || ""}
+                            onChange={(e) =>
+                              handlePackagingChange(
+                                idx,
+                                1,
+                                "uom",
+                                e.target.value,
+                              )
+                            }
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                          >
+                            <option value="">Select UOM</option>
+                            {uoms?.map((u: any) => (
+                              <option key={u._id} value={u.name}>
+                                {u.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {item.packagingStructure?.level1?.price
+                            ? item.packagingStructure.level1.price.toFixed(4)
+                            : "-"}
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            min={0}
+                            value={
+                              item.packagingStructure?.level2?.quantity || 0
+                            }
+                            onChange={(e) =>
+                              handlePackagingChange(
+                                idx,
+                                2,
+                                "quantity",
+                                e.target.value,
+                              )
+                            }
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-right"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <select
+                            value={item.packagingStructure?.level2?.uom || ""}
+                            onChange={(e) =>
+                              handlePackagingChange(
+                                idx,
+                                2,
+                                "uom",
+                                e.target.value,
+                              )
+                            }
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                          >
+                            <option value="">Select UOM</option>
+                            {uoms?.map((u: any) => (
+                              <option key={u._id} value={u.name}>
+                                {u.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {item.packagingStructure?.level2?.price
+                            ? item.packagingStructure.level2.price.toFixed(4)
+                            : "-"}
                         </td>
                         {/* <td className="px-3 py-2 text-right">
                           <button

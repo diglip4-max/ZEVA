@@ -39,7 +39,8 @@ export default async function handler(req, res) {
       clinicId = me.clinicId;
     }
 
-    const filter = { clinicId, staffId: me._id };
+    // Only show commissions that have been both submitted (tick) AND approved by the clinic.
+    const filter = { clinicId, staffId: me._id, isSubmitted: true, isApproved: true };
 
     const commissions = await Commission.find(filter)
       .sort({ createdAt: -1 })

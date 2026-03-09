@@ -43,6 +43,7 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
   const [uploading, setUploading] = useState(false);
   const [paidAmount, setPaidAmount] = useState<number>(0);
   const [remainingAmount, setRemainingAmount] = useState<number>(0);
+  const [paymentMethod, setPaymentMethod] = useState<string>("");
   const payableAmount = useMemo(() => {
     try {
       const map = new Map<string, any>();
@@ -68,7 +69,7 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
     branchId: formData.branch,
   });
 
-  // Fetch GRNs when branch changes
+  // Fetch GRNs when branch or supplier changes
   useEffect(() => {
     const fetchGrns = async () => {
       try {
@@ -86,9 +87,17 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
           headers: { Authorization: `Bearer ${t}` },
         });
         if (res.data?.success) {
-          const filteredGrns = (res.data?.data?.records || [])?.filter(
+          let filteredGrns = (res.data?.data?.records || [])?.filter(
             (f: any) => f?.status !== "Invoiced",
           );
+          // Filter by selected supplier
+          if (formData.supplier) {
+            filteredGrns = filteredGrns.filter(
+              (grn: any) =>
+                grn?.purchasedOrder?.supplier?._id === formData.supplier ||
+                grn?.purchasedOrder?.supplier === formData.supplier,
+            );
+          }
           setGrns(filteredGrns || []);
         } else {
           setGrns([]);
@@ -102,8 +111,10 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
 
     if (formData.branch) {
       fetchGrns();
+    } else {
+      setGrns([]);
     }
-  }, [formData.branch, showEntries]);
+  }, [formData.branch, formData.supplier, showEntries]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -185,6 +196,14 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
         setLoading(false);
         return;
       }
+      if (
+        (formData.status === "Paid" || formData.status === "Partly_Paid") &&
+        !paymentMethod
+      ) {
+        setError("Please select a payment method");
+        setLoading(false);
+        return;
+      }
       const payload = {
         branch: formData.branch,
         supplier: formData.supplier,
@@ -195,6 +214,7 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
         notes: formData.notes,
         status: formData.status,
         attachmentUrl,
+        paymentMethod,
         paidAmount,
         remainingAmount,
       };
@@ -245,11 +265,23 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
     onClose();
   };
 
+  useEffect(() => {
+    if (selectedGrns?.length > 0) {
+      const grn = grns.find((g) => g._id === selectedGrns[0]);
+      if (grn) {
+        setFormData((prev) => ({
+          ...prev,
+          supplierInvoiceNo: grn.supplierInvoiceNo,
+        }));
+      }
+    }
+  }, [selectedGrns]);
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-8xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="bg-gray-800 px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -402,6 +434,7 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
                                         ...formData,
                                         supplier: supplier._id,
                                       });
+                                      setSelectedGrns([]);
                                       setIsSupplierDropdownOpen(false);
                                       setSupplierSearch("");
                                     }}
@@ -526,6 +559,10 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
                 <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
                   Please select a branch to view GRNs
                 </div>
+              ) : !formData.supplier ? (
+                <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+                  Please select a supplier to view GRNs
+                </div>
               ) : grnLoading ? (
                 <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
                   <div className="inline-flex items-center">
@@ -600,11 +637,13 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
                           <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                             Status
                           </th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            Payment
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {grns.map((grn) => {
-                          console.log({ grn });
                           let total = 0;
                           let discount = 0;
                           let net = 0;
@@ -616,6 +655,34 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
                             net += item?.netPrice || 0;
                             vat += item?.vatAmount || 0;
                             netPlusVat += item?.netPlusVat || 0;
+                          }
+                          // Payment due label calculation
+                          const paymentTermsDays = Number(
+                            grn?.orderCreditDays || 0,
+                          );
+                          const poDate = grn?.purchasedOrder?.date
+                            ? new Date(grn.purchasedOrder.date)
+                            : null;
+                          let paymentLabel:
+                            | "Due"
+                            | "Partly Due"
+                            | "Unpaid"
+                            | null = "Unpaid";
+                          if (poDate && paymentTermsDays > 0) {
+                            const dueDate = new Date(poDate);
+                            dueDate.setDate(
+                              dueDate.getDate() + paymentTermsDays,
+                            );
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            dueDate.setHours(0, 0, 0, 0);
+                            const diffDays = Math.ceil(
+                              (dueDate.getTime() - today.getTime()) /
+                                (1000 * 60 * 60 * 24),
+                            );
+                            if (diffDays <= 0) {
+                              paymentLabel = "Due";
+                            }
                           }
                           return (
                             <tr
@@ -675,6 +742,19 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
                                   {grn.status || "New"}
                                 </span>
                               </td>
+                              <td className="px-4 py-3">
+                                {paymentLabel === "Due" && (
+                                  <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">
+                                    Due
+                                  </span>
+                                )}
+
+                                {paymentLabel === "Unpaid" && (
+                                  <span className="text-xs px-2 py-1 bg-gray-100 text-gray-500 border border-gray-300 rounded-full">
+                                    {paymentLabel}
+                                  </span>
+                                )}
+                              </td>
                             </tr>
                           );
                         })}
@@ -727,11 +807,15 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
                     onRemainingAmountChange={(val: number) =>
                       setRemainingAmount(val)
                     }
-                    onRequireAttachment={() =>
+                    paymentMethod={paymentMethod}
+                    onPaymentMethodChange={(val: string) =>
+                      setPaymentMethod(val)
+                    }
+                    onRequireAttachment={() => {
                       setError(
                         "Please upload an attachment for Paid/Partly Paid status",
-                      )
-                    }
+                      );
+                    }}
                   />
                 </div>
               )}
@@ -757,7 +841,10 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
               !formData.supplier.trim() ||
               !formData.supplierInvoiceNo.trim() ||
               !formData.date.trim() ||
-              selectedGrns.length === 0
+              selectedGrns.length === 0 ||
+              ((formData.status === "Paid" ||
+                formData.status === "Partly_Paid") &&
+                !attachmentUrl)
             }
             className="px-5 py-2.5 text-sm font-medium text-white bg-gray-800 border border-transparent rounded-lg hover:bg-gray-900 focus:ring-2 focus:ring-gray-800/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
@@ -813,6 +900,8 @@ function PaymentSection(props: {
   remainingAmount: number;
   onPaidAmountChange: (val: number) => void;
   onRemainingAmountChange: (val: number) => void;
+  paymentMethod: string;
+  onPaymentMethodChange: (val: string) => void;
   onRequireAttachment: () => void;
 }) {
   const {
@@ -829,6 +918,8 @@ function PaymentSection(props: {
     paidAmount,
     onPaidAmountChange,
     onRemainingAmountChange,
+    paymentMethod,
+    onPaymentMethodChange,
   } = props;
 
   const payableAmount = useMemo(() => {
@@ -885,7 +976,8 @@ function PaymentSection(props: {
         {(status === "Paid" || status === "Partly_Paid") && (
           <div className="space-y-1.5 sm:col-span-2">
             <label className="block text-sm font-semibold text-gray-800">
-              Attachments (payment proofs, invoices)
+              Attachments (payment proofs, invoices){" "}
+              <span className="text-red-500">*</span>
             </label>
             <input
               type="file"
@@ -934,6 +1026,26 @@ function PaymentSection(props: {
             {uploading && (
               <div className="text-xs text-gray-500">Uploading...</div>
             )}
+          </div>
+        )}
+        {(status === "Paid" || status === "Partly_Paid") && (
+          <div className="space-y-1.5 sm:col-span-2">
+            <label className="block text-sm font-semibold text-gray-800">
+              Payment Method <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={paymentMethod}
+              onChange={(e) => onPaymentMethodChange(e.target.value)}
+              className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all"
+            >
+              <option value="">Select method</option>
+              <option value="Cash">Cash</option>
+              <option value="Card">Card</option>
+              <option value="Bank_Transfer">Bank Transfer</option>
+              <option value="Cheque">Cheque</option>
+              <option value="Online">Online</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
         )}
         <div className="space-y-1.5">

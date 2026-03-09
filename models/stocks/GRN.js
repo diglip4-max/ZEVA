@@ -53,6 +53,11 @@ const GRNSchema = new mongoose.Schema(
       ],
       default: "New",
     },
+    orderCreditDays: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
     items: [
       // requested items
       {
@@ -131,6 +136,52 @@ const GRNSchema = new mongoose.Schema(
         freeQuantity: {
           type: Number,
           default: 0,
+        },
+        freeQuantityExpiryDate: {
+          type: Date,
+          default: null,
+        },
+
+        // packaging structure
+        level0: {
+          price: {
+            type: Number,
+            default: 0,
+          },
+          uom: {
+            type: String,
+            trim: true,
+          },
+        },
+        packagingStructure: {
+          level1: {
+            quantity: {
+              type: Number,
+              default: 1,
+            },
+            price: {
+              type: Number,
+              default: 0,
+            },
+            uom: {
+              type: String,
+              trim: true,
+            },
+          },
+          level2: {
+            quantity: {
+              type: Number,
+              default: 1,
+            },
+            price: {
+              type: Number,
+              default: 0,
+            },
+            uom: {
+              type: String,
+              trim: true,
+            },
+          },
         },
       },
     ],
