@@ -86,7 +86,7 @@ const GRNPage: NextPageWithLayout = () => {
               headers: {
                 Authorization: `Bearer ${token}`,
               },
-            }
+            },
           );
 
           if (response.data?.success) {
@@ -97,8 +97,8 @@ const GRNPage: NextPageWithLayout = () => {
               new Set(
                 records
                   .map((r: any) => r.purchasedOrder?._id || r.purchasedOrder)
-                  .filter(Boolean)
-              )
+                  .filter(Boolean),
+              ),
             );
 
             const poMap: Record<string, any> = {};
@@ -110,7 +110,7 @@ const GRNPage: NextPageWithLayout = () => {
                       `/api/stocks/purchase-records/get-purchase-record/${id}`,
                       {
                         headers: { Authorization: `Bearer ${token}` },
-                      }
+                      },
                     );
                     if (poRes.data?.success) {
                       poMap[id] = poRes.data.data;
@@ -119,7 +119,7 @@ const GRNPage: NextPageWithLayout = () => {
                     // ignore individual PO fetch errors
                     console.warn("Failed to fetch PO", id, err);
                   }
-                })
+                }),
               );
             }
 
@@ -145,7 +145,7 @@ const GRNPage: NextPageWithLayout = () => {
                 uniqueSuppliersCount: 0,
                 uniqueBranchesCount: 0,
                 totalItems: 0,
-              }
+              },
             );
           }
         } catch (error) {
@@ -155,9 +155,9 @@ const GRNPage: NextPageWithLayout = () => {
           setLoading(false);
         }
       },
-      300
+      300,
     ),
-    [pagination.limit]
+    [pagination.limit],
   );
 
   // Initial fetch on mount
@@ -170,7 +170,7 @@ const GRNPage: NextPageWithLayout = () => {
     (page: number) => {
       fetchGRNRecords(page, searchTerm, filterData);
     },
-    [fetchGRNRecords, searchTerm, filterData]
+    [fetchGRNRecords, searchTerm, filterData],
   );
 
   useEffect(() => {
@@ -229,12 +229,12 @@ const GRNPage: NextPageWithLayout = () => {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       if (response.data.success) {
         const updatedGrnRecords = grnRecords.filter(
-          (grn) => grn._id !== grnToDelete._id
+          (grn) => grn._id !== grnToDelete._id,
         );
         setGrnRecords(updatedGrnRecords);
         setIsDeleteModalOpen(false);
@@ -676,7 +676,7 @@ const GRNPage: NextPageWithLayout = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {new Date(
-                              grn.grnDate || grn.date
+                              grn.grnDate || grn.date,
                             ).toLocaleDateString()}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">
@@ -754,7 +754,7 @@ const GRNPage: NextPageWithLayout = () => {
                                 onClick={() => {
                                   // Toggle dropdown menu for this GRN
                                   const menuEl = document.getElementById(
-                                    `menu-${grn._id}`
+                                    `menu-${grn._id}`,
                                   );
                                   if (menuEl) {
                                     const isHidden =
@@ -790,20 +790,28 @@ const GRNPage: NextPageWithLayout = () => {
                                 } z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-gray-200 ring-opacity-5 focus:outline-none`}
                               >
                                 <div className="py-1" role="none">
-                                  <button
-                                    onClick={() => {
-                                      handleEditClick(grn);
-                                      document
-                                        .getElementById(`menu-${grn._id}`)
-                                        ?.classList.add("hidden");
-                                    }}
-                                    className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                                  >
-                                    <div className="flex items-center">
-                                      <PencilIcon className="h-4 w-4 mr-2" />
-                                      Edit
-                                    </div>
-                                  </button>
+                                  {![
+                                    "Partly_Invoiced",
+                                    "Invoiced",
+                                    "Partly_Paid",
+                                    "Paid",
+                                    "Deleted",
+                                  ].includes(grn.status) && (
+                                    <button
+                                      onClick={() => {
+                                        handleEditClick(grn);
+                                        document
+                                          .getElementById(`menu-${grn._id}`)
+                                          ?.classList.add("hidden");
+                                      }}
+                                      className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                    >
+                                      <div className="flex items-center">
+                                        <PencilIcon className="h-4 w-4 mr-2" />
+                                        Edit
+                                      </div>
+                                    </button>
+                                  )}
                                   <button
                                     onClick={() => {
                                       // Open print page in new tab
@@ -811,7 +819,7 @@ const GRNPage: NextPageWithLayout = () => {
                                       window.open(
                                         printUrl,
                                         "_blank",
-                                        "noopener,noreferrer"
+                                        "noopener,noreferrer",
                                       );
                                       document
                                         .getElementById(`menu-${grn._id}`)
@@ -1050,9 +1058,9 @@ const GRNPage: NextPageWithLayout = () => {
                                                     "Percentage"
                                                       ? "%"
                                                       : item.discountType ===
-                                                        "Amount"
-                                                      ? " AED"
-                                                      : ""}
+                                                          "Amount"
+                                                        ? " AED"
+                                                        : ""}
                                                   </span>
                                                   {(item.discount || 0) > 0 &&
                                                     item.discountType && (
@@ -1117,7 +1125,7 @@ const GRNPage: NextPageWithLayout = () => {
                                                 </div>
                                               </td>
                                             </tr>
-                                          )
+                                          ),
                                         )}
                                       </tbody>
                                       <tfoot className="bg-gray-50">
@@ -1177,7 +1185,7 @@ const GRNPage: NextPageWithLayout = () => {
                                                   (sum: number, item: any) =>
                                                     sum +
                                                     (item.freeQuantity || 0),
-                                                  0
+                                                  0,
                                                 )}{" "}
                                                 free
                                               </span>
@@ -1212,7 +1220,7 @@ const GRNPage: NextPageWithLayout = () => {
                 <span className="font-medium">
                   {Math.min(
                     pagination.currentPage * pagination.limit,
-                    pagination.totalResults
+                    pagination.totalResults,
                   )}
                 </span>{" "}
                 of{" "}
@@ -1244,7 +1252,7 @@ const GRNPage: NextPageWithLayout = () => {
                           {pageNum}
                         </button>
                       );
-                    }
+                    },
                   )}
                 </div>
                 <button

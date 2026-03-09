@@ -23,6 +23,7 @@ type InvoiceFormData = {
   attachmentUrl: string;
   paidAmount: number;
   remainingAmount: number;
+  paymentMethod?: string;
 };
 
 const EditPurchaseInvoiceModal: React.FC<Props> = ({
@@ -32,6 +33,7 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
   data,
   onSuccess,
 }) => {
+  console.log({ data });
   const { clinicBranches } = useClinicBranches();
   const [supplierSearch, setSupplierSearch] = useState("");
   const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
@@ -47,6 +49,7 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
     attachmentUrl: "",
     paidAmount: 0,
     remainingAmount: 0,
+    paymentMethod: "",
   });
 
   const [grns, setGrns] = useState<any[]>([]);
@@ -118,6 +121,7 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
         notes: data?.notes || "",
         status: data?.status || "New",
         attachmentUrl: data?.attachmentUrl || "",
+        paymentMethod: data?.paymentMethod || "",
         paidAmount: Number(data?.paidAmount || 0),
         remainingAmount: Number(data?.remainingAmount || 0),
       });
@@ -320,6 +324,7 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
       payload.attachmentUrl = formData.attachmentUrl || "";
       payload.paidAmount = Number(formData.paidAmount || 0);
       payload.remainingAmount = Number(formData.remainingAmount || 0);
+      payload.paymentMethod = formData.paymentMethod || "";
 
       const res = await fetch(
         `/api/stocks/purchase-invoices/update/${data._id}`,
@@ -709,6 +714,29 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
                             Uploading...
                           </div>
                         )}
+                      </div>
+                    )}
+                    {(formData.status === "Paid" ||
+                      formData.status === "Partly_Paid") && (
+                      <div className="space-y-1.5 col-span-2">
+                        <label className="block text-sm font-semibold text-gray-800">
+                          Payment Method <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          name="paymentMethod"
+                          value={formData.paymentMethod || ""}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          disabled={loading}
+                        >
+                          <option value="">Select method</option>
+                          <option value="Cash">Cash</option>
+                          <option value="Card">Card</option>
+                          <option value="Bank_Transfer">Bank Transfer</option>
+                          <option value="Cheque">Cheque</option>
+                          <option value="Online">Online</option>
+                          <option value="Other">Other</option>
+                        </select>
                       </div>
                     )}
                     <div className="space-y-1.5">

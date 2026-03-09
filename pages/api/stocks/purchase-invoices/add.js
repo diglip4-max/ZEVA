@@ -58,6 +58,7 @@ export default async function handler(req, res) {
       date,
       notes,
       status,
+      paymentMethod,
       paidAmount,
       remainingAmount,
     } = req.body;
@@ -79,6 +80,7 @@ export default async function handler(req, res) {
       date: new Date(date),
       notes: notes || "",
       status,
+      paymentMethod: paymentMethod || "",
       createdBy: me._id,
       paidAmount,
       remainingAmount,
@@ -89,7 +91,7 @@ export default async function handler(req, res) {
     // update status of grns to invoiced
     await GRN.updateMany(
       { _id: { $in: grns } },
-      { $set: { status: "Invoiced" } }
+      { $set: { status: "Invoiced" } },
     );
 
     const saved = await PurchaseInvoice.findById(invoice._id)

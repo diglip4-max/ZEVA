@@ -126,7 +126,7 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
     AllocatedItem | undefined
   >(undefined);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | AllocStatus>("all");
+  const [statusFilter, setStatusFilter] = useState<"All" | AllocStatus>("All");
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [items, setItems] = useState<AllocatedItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -135,6 +135,13 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
   const [limit] = useState(12);
   const [totalResults, setTotalResults] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [analytics, setAnalytics] = useState({
+    total: 0,
+    inUseNow: 0,
+    expired: 0,
+    usedToday: 0,
+    expiringSoon: 0,
+  });
 
   const headers = useMemo(() => getAuthHeaders() || {}, []);
 
@@ -145,7 +152,7 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
       const params = new URLSearchParams({
         page: pageNum.toString(),
         limit: limit.toString(),
-        ...(statusFilter !== "all" ? { status: statusFilter } : {}),
+        ...(statusFilter !== "All" ? { status: statusFilter } : {}),
         ...(searchTerm ? { search: searchTerm } : {}),
         sort: "-allocatedAt",
       });
@@ -181,8 +188,29 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
     }
   };
 
+  const fetchAnalytics = async () => {
+    try {
+      const { data } = await axios.get(
+        `/api/stocks/allocated-stock-items/analytics`,
+        { headers },
+      );
+      if (data?.success && data.analytics) {
+        setAnalytics({
+          total: data.analytics.total || 0,
+          inUseNow: data.analytics.inUseNow || 0,
+          expired: data.analytics.expired || 0,
+          usedToday: data.analytics.usedToday || 0,
+          expiringSoon: data.analytics.expiringSoon || 0,
+        });
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   useEffect(() => {
     fetchAllocated(1);
+    fetchAnalytics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, searchTerm, limit]);
 
@@ -198,28 +226,7 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
     "Deleted",
   ];
 
-  const analytics = useMemo(() => {
-    const total = totalResults;
-    const inUse = items.filter((i) => i.status === "In_Use").length;
-    const usedToday = items.filter((i) => {
-      const d = new Date(i.allocatedAt);
-      const now = new Date();
-      return (
-        d.getFullYear() === now.getFullYear() &&
-        d.getMonth() === now.getMonth() &&
-        d.getDate() === now.getDate() &&
-        i.status === "Used"
-      );
-    }).length;
-    const expiringSoon = items.filter((i) => {
-      if (!i.expiryDate) return false;
-      const exp = new Date(i.expiryDate);
-      const now = new Date();
-      const diff = (exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-      return diff >= 0 && diff <= 30;
-    }).length;
-    return { total, inUse, usedToday, expiringSoon };
-  }, [items, totalResults]);
+  // analytics now loaded from backend
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -259,11 +266,17 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
                 icon: BeakerIcon,
                 color: "blue",
               },
+              // {
+              //   label: "In Use Now",
+              //   value: String(analytics.inUseNow),
+              //   icon: ClockIcon,
+              //   color: "yellow",
+              // },
               {
-                label: "In Use Now",
-                value: String(analytics.inUse),
-                icon: ClockIcon,
-                color: "yellow",
+                label: "Expired",
+                value: String(analytics.expired),
+                icon: ExclamationTriangleIcon,
+                color: "gray",
               },
               {
                 label: "Used Today",

@@ -265,7 +265,12 @@ export default async function handler(req, res) {
         vatPercentage,
         netPlusVat,
         freeQuantity: Number(prItem.freeQuantity || 0),
+        freeQuantityExpiryDate: prItem.freeQuantityExpiryDate || null,
+        level0: prItem.level0,
+        packagingStructure: prItem.packagingStructure,
       };
+
+      console.log({ itemSubdoc });
 
       // Add quantitiesByUom to itemSubdoc
       let quantitiesByUom = [];
@@ -277,33 +282,31 @@ export default async function handler(req, res) {
       }
 
       // add on level1
-      const stockItemData = await StockItem.findById(itemId);
       if (
-        stockItemData &&
-        stockItemData?.packagingStructure?.level1?.uom &&
-        stockItemData?.packagingStructure?.level1?.multiplier &&
-        stockItemData?.packagingStructure?.level1?.costPrice
+        prItem &&
+        prItem?.packagingStructure?.level1?.uom &&
+        prItem?.packagingStructure?.level1?.quantity &&
+        prItem?.packagingStructure?.level1?.price > 0
       ) {
         quantitiesByUom.push({
-          uom: stockItemData?.packagingStructure?.level1?.uom || "",
+          uom: prItem?.packagingStructure?.level1?.uom || "",
           quantity: Number(
-            (stockItemData?.packagingStructure?.level1?.multiplier || 0) *
-              quantity,
+            (prItem?.packagingStructure?.level1?.quantity || 0) * quantity,
           ),
         });
       }
 
       // add on level2
       if (
-        stockItemData &&
-        stockItemData?.packagingStructure?.level2?.uom &&
-        stockItemData?.packagingStructure?.level2?.multiplier &&
-        stockItemData?.packagingStructure?.level2?.costPrice
+        prItem &&
+        prItem?.packagingStructure?.level2?.uom &&
+        prItem?.packagingStructure?.level2?.quantity &&
+        prItem?.packagingStructure?.level2?.price > 0
       ) {
         quantitiesByUom.push({
-          uom: stockItemData?.packagingStructure?.level2?.uom || "",
+          uom: prItem?.packagingStructure?.level2?.uom || "",
           quantity: Number(
-            (stockItemData?.packagingStructure?.level2?.multiplier || 0) *
+            (prItem?.packagingStructure?.level2?.quantity || 0) *
               quantitiesByUom[quantitiesByUom?.length - 1]?.quantity,
           ),
         });
