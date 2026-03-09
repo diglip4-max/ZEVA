@@ -212,7 +212,8 @@ export default async function handler(req, res) {
         leads: dailyLeads,
         reviews: dailyReviews,
         enquiries: dailyEnquiries,
-        applications: dailyApplications
+        applications: dailyApplications,
+        appointments: stats.booked + stats.arrived + stats.consultation + stats.cancelled + stats.discharge + stats.enquiry + stats.approved + stats.rescheduled + stats.waiting + stats.rejected + stats.completed
       },
       totals: {
         membership: totalMembership,

@@ -41,6 +41,11 @@ const patientRegistrationSchema = new mongoose.Schema(
     invoicedDate: { type: Date, default: Date.now },
     invoicedBy: { type: String, trim: true },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    clinicId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Clinic",
+      index: true,
+    },
 
     // Patient Details
     emrNumber: { type: String, trim: true },

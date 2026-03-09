@@ -77,6 +77,11 @@ const AppointmentSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    treatment: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     arrivedAt: {
       type: Date,
       default: null,
