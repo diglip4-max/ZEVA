@@ -97,14 +97,8 @@ interface Appointment {
   referral: string;
   emergency: string;
   notes: string;
-<<<<<<< HEAD
-  treatment?: string;
-  serviceId?: string;
-  serviceName?: string;
-=======
   serviceId?: string | null;
   serviceName?: string | null;
->>>>>>> c356be21e97e18564a8deafb8e0ebe89011664eb
   bookedFrom?: "doctor" | "room"; // Track which column the appointment was booked from
   doctorTreatments?: Array<{
     mainTreatment: string;
