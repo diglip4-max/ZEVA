@@ -105,18 +105,18 @@ export default async function handler(req, res) {
           console.log({ allocatedItem });
 
           // reduce quantity from allocated item
-          const stockItemId = allocatedItem?.item?.itemId;
           const updatedQtyByUom = await reduceQuantity(
             allocatedItem.quantitiesByUom,
             item.uom,
             item.quantity,
-            stockItemId,
+            allocatedItem?.item?.level0,
+            allocatedItem?.item?.packagingStructure,
           );
           console.log({ updatedQtyByUom });
 
           // add totalAmount to item
           item.totalAmount = await calculateTotalAmount(
-            stockItemId,
+            allocatedItem._id,
             item.uom,
             item.quantity,
           );

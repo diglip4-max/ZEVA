@@ -202,7 +202,7 @@ export default async function handler(req, res) {
         return res.status(400).json({
           success: false,
           message: `Invalid status. Valid statuses are: ${validStatuses.join(
-            ", "
+            ", ",
           )}`,
         });
       }
@@ -241,8 +241,8 @@ export default async function handler(req, res) {
     if (notes !== undefined) updateData.notes = notes.trim();
     if (status) updateData.status = status;
     updateData.orderCreditDays = orderCreditDays || 0;
+    const normalized = [];
     if (items && Array.isArray(items)) {
-      const normalized = [];
       for (let i = 0; i < items.length; i++) {
         const it = items[i] || {};
         if (!it.itemId) {
@@ -274,7 +274,7 @@ export default async function handler(req, res) {
         const total = Number(
           (it.totalPrice !== undefined ? it.totalPrice : qty * unit).toFixed
             ? (qty * unit).toFixed(2)
-            : qty * unit
+            : qty * unit,
         );
         const discountType =
           it.discountType === "Percentage" ? "Percentage" : "Fixed";
@@ -283,8 +283,8 @@ export default async function handler(req, res) {
           it.discountAmount !== undefined
             ? Number(it.discountAmount || 0)
             : discountType === "Percentage"
-            ? Number(((qty * unit * discount) / 100).toFixed(2))
-            : Number(discount);
+              ? Number(((qty * unit * discount) / 100).toFixed(2))
+              : Number(discount);
         const netPrice =
           it.netPrice !== undefined
             ? Number(it.netPrice || 0)
@@ -295,12 +295,33 @@ export default async function handler(req, res) {
           it.vatAmount !== undefined
             ? Number(it.vatAmount || 0)
             : vatType === "Exclusive"
-            ? Number(((netPrice * vatPercentage) / 100).toFixed(2))
-            : Number(0);
+              ? Number(((netPrice * vatPercentage) / 100).toFixed(2))
+              : Number(0);
         const netPlusVat =
           it.netPlusVat !== undefined
             ? Number(it.netPlusVat || 0)
             : Number((netPrice + vatAmount).toFixed(2));
+        // Packaging structure acceptance
+        const level0 = {
+          price: Number(it.level0?.price ?? unit),
+          uom: String(it.level0?.uom ?? it.uom ?? ""),
+        };
+        const l1Qty = Number(it.packagingStructure?.level1?.quantity || 0);
+        const l1Uom = String(it.packagingStructure?.level1?.uom || "");
+        let l1Price = Number(it.packagingStructure?.level1?.price || 0);
+        // base box price derived from netPlusVat/qty
+        const baseBoxPrice =
+          qty > 0 ? Number((netPlusVat / qty).toFixed(4)) : Number(0);
+        if (l1Qty > 0 && baseBoxPrice > 0) {
+          l1Price = Number((baseBoxPrice / l1Qty).toFixed(4));
+        }
+        const l2Qty = Number(it.packagingStructure?.level2?.quantity || 0);
+        const l2Uom = String(it.packagingStructure?.level2?.uom || "");
+        let l2Price = Number(it.packagingStructure?.level2?.price || 0);
+        if (l2Qty > 0 && l1Qty > 0 && l1Price > 0) {
+          l2Price = Number((l1Price / l2Qty).toFixed(4));
+        }
+
         normalized.push({
           itemId: it.itemId,
           code: it.code || "",
@@ -323,16 +344,50 @@ export default async function handler(req, res) {
           freeQuantityExpiryDate: it.freeQuantityExpiryDate
             ? new Date(it.freeQuantityExpiryDate)
             : null,
+          level0,
+          packagingStructure: {
+            level1: {
+              quantity: l1Qty,
+              price: l1Price,
+              uom: l1Uom,
+            },
+            level2: {
+              quantity: l2Qty,
+              price: l2Price,
+              uom: l2Uom,
+            },
+          },
         });
       }
       updateData.items = normalized;
     }
 
+    // update expiry date and free quantity expiry date
+    // Validate that the purchase order exists and belongs to the same clinic
+    const purchaseRecordObj =
+      await PurchaseRecord.findById(purchasedOrder).lean();
+    let updatedPurchasedOrderItems = [];
+    for (let i = 0; i < normalized.length; i++) {
+      const item = purchaseRecordObj.items[i];
+      const grnItem = normalized[i];
+      // updatedPurchasedOrderItems.push({
+      //   ...item,
+      //   level0: grnItem.level0,
+      //   packagingStructure: grnItem.packagingStructure,
+      //   expiryDate: grnItem.expiryDate,
+      //   freeQuantityExpiryDate: grnItem.freeQuantityExpiryDate,
+      // });
+      updatedPurchasedOrderItems.push(grnItem);
+    }
+    await PurchaseRecord.findByIdAndUpdate(purchasedOrder, {
+      items: updatedPurchasedOrderItems,
+    });
+
     // Update the GRN
     const updatedGRN = await GRN.findOneAndUpdate(
       { _id: grnId, clinicId },
       { ...updateData },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     )
       .populate("branch", "name")
       .populate("purchasedOrder", "orderNo date supplier")

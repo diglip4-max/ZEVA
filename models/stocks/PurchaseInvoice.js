@@ -64,6 +64,11 @@ const PurchaseInvoiceSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    paymentMethod: {
+      type: String,
+      enum: ["Cash", "Card", "Bank_Transfer", "Cheque", "Online", "Other", ""],
+      default: "",
+    },
     grns: [
       {
         type: mongoose.Schema.Types.ObjectId,

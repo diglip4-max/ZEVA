@@ -43,6 +43,7 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
   const [uploading, setUploading] = useState(false);
   const [paidAmount, setPaidAmount] = useState<number>(0);
   const [remainingAmount, setRemainingAmount] = useState<number>(0);
+  const [paymentMethod, setPaymentMethod] = useState<string>("");
   const payableAmount = useMemo(() => {
     try {
       const map = new Map<string, any>();
@@ -195,6 +196,14 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
         setLoading(false);
         return;
       }
+      if (
+        (formData.status === "Paid" || formData.status === "Partly_Paid") &&
+        !paymentMethod
+      ) {
+        setError("Please select a payment method");
+        setLoading(false);
+        return;
+      }
       const payload = {
         branch: formData.branch,
         supplier: formData.supplier,
@@ -205,6 +214,7 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
         notes: formData.notes,
         status: formData.status,
         attachmentUrl,
+        paymentMethod,
         paidAmount,
         remainingAmount,
       };
@@ -254,6 +264,18 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
     setRemainingAmount(0);
     onClose();
   };
+
+  useEffect(() => {
+    if (selectedGrns?.length > 0) {
+      const grn = grns.find((g) => g._id === selectedGrns[0]);
+      if (grn) {
+        setFormData((prev) => ({
+          ...prev,
+          supplierInvoiceNo: grn.supplierInvoiceNo,
+        }));
+      }
+    }
+  }, [selectedGrns]);
 
   if (!isOpen) return null;
 
@@ -785,6 +807,10 @@ const AddPurchaseInvoiceModal: React.FC<AddPurchaseInvoiceModalProps> = ({
                     onRemainingAmountChange={(val: number) =>
                       setRemainingAmount(val)
                     }
+                    paymentMethod={paymentMethod}
+                    onPaymentMethodChange={(val: string) =>
+                      setPaymentMethod(val)
+                    }
                     onRequireAttachment={() => {
                       setError(
                         "Please upload an attachment for Paid/Partly Paid status",
@@ -874,6 +900,8 @@ function PaymentSection(props: {
   remainingAmount: number;
   onPaidAmountChange: (val: number) => void;
   onRemainingAmountChange: (val: number) => void;
+  paymentMethod: string;
+  onPaymentMethodChange: (val: string) => void;
   onRequireAttachment: () => void;
 }) {
   const {
@@ -890,6 +918,8 @@ function PaymentSection(props: {
     paidAmount,
     onPaidAmountChange,
     onRemainingAmountChange,
+    paymentMethod,
+    onPaymentMethodChange,
   } = props;
 
   const payableAmount = useMemo(() => {
@@ -996,6 +1026,26 @@ function PaymentSection(props: {
             {uploading && (
               <div className="text-xs text-gray-500">Uploading...</div>
             )}
+          </div>
+        )}
+        {(status === "Paid" || status === "Partly_Paid") && (
+          <div className="space-y-1.5 sm:col-span-2">
+            <label className="block text-sm font-semibold text-gray-800">
+              Payment Method <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={paymentMethod}
+              onChange={(e) => onPaymentMethodChange(e.target.value)}
+              className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all"
+            >
+              <option value="">Select method</option>
+              <option value="Cash">Cash</option>
+              <option value="Card">Card</option>
+              <option value="Bank_Transfer">Bank Transfer</option>
+              <option value="Cheque">Cheque</option>
+              <option value="Online">Online</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
         )}
         <div className="space-y-1.5">

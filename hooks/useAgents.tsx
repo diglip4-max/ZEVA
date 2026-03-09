@@ -14,11 +14,14 @@ const useAgents = ({ role }: { role: UserRole }) => {
       const token = getTokenByPath();
       if (!token || !role) return;
 
-      const response = await fetch(`/api/lead-ms/get-agents?role=${role}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const response = await fetch(
+        `/api/lead-ms/get-agents-options?role=${role}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      );
       const data = await response.json();
       if (data.success) {
         setAgents(data.agents);
