@@ -4947,37 +4947,24 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         const totalOffers = offerStatusData.reduce((sum, item) => sum + item.value, 0);
                         
                         return (
-                          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
-                            <div className="flex items-center justify-between mb-4">
-                              <div>
-                                <h3 className="text-base font-semibold text-teal-800">Offer Status</h3>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  Total Offers: <span className="font-semibold text-teal-600">{totalOffers}</span>
-                                </p>
+                          <div>
+                            {/* Main Header - Plain heading without box */}
+                            <div className="mb-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h3 className="text-xl font-bold text-black">
+                                    Offer Status
+                                    {timeRangeFilter === 'month' && ` - ${new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}`}
+                                    {timeRangeFilter === 'overall' && ' (All Time)'}
+                                  </h3>
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    Track offer distribution and status
+                                  </p>
+                                </div>
                               </div>
                             </div>
                             
-                            {/* Date Display - Show even when no data */}
-                            <div className="mb-3 text-xs text-gray-500 text-center">
-                              {timeRangeFilter === 'month' && (
-                                <span>Showing data for: {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
-                              )}
-                              {timeRangeFilter === 'overall' && (
-                                <span>Showing all-time accumulated data</span>
-                              )}
-                            </div>
-
-                            {/* Check if there's data - show empty state like Lead Analytics */}
-                            {offerStatusData.length === 0 || totalOffers === 0 ? (
-                              <div className="flex flex-col items-center justify-center py-12 text-center">
-                                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                                  <Gift className="w-10 h-10 text-gray-400" />
-                                </div>
-                                <p className="text-sm font-medium text-gray-500">No Offer Status Data Available for the selected period</p>
-                              </div>
-                            ) : (
-                              <>
-                                {/* Offer Status Cards Grid */}
+                            {/* Offer Status Cards Grid */}
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
                                   {offerStatusData.map((status) => (
                                     <div 
@@ -4998,8 +4985,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                   ))}
                                 </div>
                                 
-                                {/* Pie Chart - Full Width */}
-                                <div className="h-80">
+                                {/* Pie Chart - In Div Box */}
+                                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                                  <h3 className="text-base font-bold text-black mb-4">Offer Status Distribution</h3>
+                                  <div className="h-72">
                                   <ResponsiveContainer width="100%" height="100%">
                                     <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                                       <Pie
@@ -5024,24 +5013,36 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     </PieChart>
                                   </ResponsiveContainer>
                                 </div>
-                              </>
-                            )}
+                              </div>
                           </div>
                         );
                      
                       case 'services-overview':
                         // Always show the section, even if empty
                         return (
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-teal-800">Top 5 Services</h3>
-            </div>
-            
-            {/* Top 5 Packages Graph - Multi-Series Line Chart */}
+                          <div>
+                            {/* Main Header - Plain heading without box */}
+                            <div className="mb-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h3 className="text-xl font-bold text-black">
+                                    Top 5 Services
+                                    {timeRangeFilter === 'month' && ` - ${selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' })}`}
+                                    {timeRangeFilter === 'overall' && ' (All Time)'}
+                                  </h3>
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    Track top performing services and packages
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Top 5 Packages Graph - Multi-Series Line Chart */}
             {topPackagesData.length > 0 ? (
               <div className="mb-6">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Top 5 Packages</h4>
-                <div className="h-64">
+                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                  <h3 className="text-base font-bold text-black mb-4">Top 5 Packages</h3>
+                  <div className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={topPackagesData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -5089,8 +5090,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   </ResponsiveContainer>
                 </div>
               </div>
+              </div>
             ) : (
-              <div className="mb-6 h-64 flex flex-col items-center justify-center text-gray-400">
+              <div className="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm p-4 h-72 flex flex-col items-center justify-center text-gray-400">
                 <div className="flex flex-col items-center gap-3">
                   {/* Empty state icon */}
                   <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
@@ -5105,9 +5107,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
             
             {/* Top 5 Services Graph - Multi-Series Line Chart */}
             {topServicesData.length > 0 ? (
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Top 5 Services</h4>
-                <div className="h-64">
+              <div className="mb-6">
+                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                  <h3 className="text-base font-bold text-black mb-4">Top 5 Services</h3>
+                  <div className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={topServicesData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -5155,8 +5158,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   </ResponsiveContainer>
                 </div>
               </div>
+              </div>
             ) : (
-              <div className="h-64 flex flex-col items-center justify-center text-gray-400">
+              <div className="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm p-4 h-72 flex flex-col items-center justify-center text-gray-400">
                 <div className="flex flex-col items-center gap-3">
                   {/* Empty state icon */}
                   <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
@@ -5184,12 +5188,26 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       case 'membership-overview':
                         // Always show the section, even if empty
                         return (
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-teal-800">Most Purchased Membership</h3>
-            </div>
-            
-            {/* Membership Data - Area Chart (different from other charts) */}
+                          <div>
+                            {/* Main Header - Plain heading without box */}
+                            <div className="mb-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h3 className="text-xl font-bold text-black">
+                                    Most Purchased Membership
+                                    {timeRangeFilter === 'month' && ` - ${selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' })}`}
+                                    {timeRangeFilter === 'overall' && ' (All Time)'}
+                                  </h3>
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    Track membership package purchases and revenue
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Membership Data Card */}
+                            <div className="bg-white rounded-[16px] border border-gray-200 shadow-sm p-5 mb-6">
+                              {/* Membership Data - Area Chart (different from other charts) */}
             {membershipData.length > 0 ? (
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
@@ -5267,6 +5285,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               )}
             </div>
           </div>
+        </div>
                         );
                      
                       case 'commission-overview':
@@ -5286,10 +5305,25 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         const paginatedRows = commissionRows.slice(startIndex, endIndex);
 
                         return (
-                          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
-                            <div className="flex items-center justify-between mb-4">
-                              <h3 className="text-base font-semibold text-teal-800">Commission Details</h3>
+                          <div>
+                            {/* Main Header - Plain heading without box */}
+                            <div className="mb-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h3 className="text-xl font-bold text-black">
+                                    Commission Details
+                                    {timeRangeFilter === 'month' && ` - ${selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' })}`}
+                                    {timeRangeFilter === 'overall' && ' (All Time)'}
+                                  </h3>
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    Track staff commissions and earnings
+                                  </p>
+                                </div>
+                              </div>
                             </div>
+                            
+                            {/* Commission Table Card */}
+                            <div className="bg-white rounded-[16px] border border-gray-200 shadow-sm p-5 mb-6">
                             
                             {/* Commission Table */}
                             {commissionRows.length > 0 ? (
@@ -5469,6 +5503,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                               )}
                             </div>
                           </div>
+                        </div>
                         );
                      
                       case 'analytics-overview':
@@ -5476,11 +5511,29 @@ const ClinicDashboard: NextPageWithLayout = () => {
                           return null;
                         }
                         return (
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
-            <h3 className="text-base font-semibold text-teal-800 mb-6">Analytics Overview</h3>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              <div className="h-80">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Appointments, Leads, Offers & Jobs</h4>
+                          <div>
+                            {/* Main Header - Plain heading without box */}
+                            <div className="mb-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h3 className="text-xl font-bold text-black">
+                                    Analytics Overview
+                                    {timeRangeFilter === 'month' && ` - ${selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' })}`}
+                                    {timeRangeFilter === 'overall' && ' (All Time)'}
+                                  </h3>
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    Comprehensive clinic performance metrics
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Analytics Cards Grid */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                              {/* Left Side - Bar Chart Box (Appointments, Leads, Offers & Jobs) */}
+                              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                                <h3 className="text-base font-bold text-black">Appointments, Leads, Offers & Jobs</h3>
+                                <div className="h-72">
                 {modulesChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={modulesChartData} margin={{ top: 10, right: 20, left: 10, bottom: 40 }}>
@@ -5534,8 +5587,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
               </div>
                 )}
               </div>
-              <div className="h-80">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Reviews, Enquiries, Patients & Rooms</h4>
+                              </div>
+                              
+                              {/* Right Side - Line Chart Box (Reviews, Enquiries, Patients & Rooms) */}
+                              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                                <h3 className="text-base font-bold text-black">Reviews, Enquiries, Patients & Rooms</h3>
+                                <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={statsChartData} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -5570,9 +5627,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   </LineChart>
                 </ResponsiveContainer>
               </div>
-            </div>
-            <div className="h-80">
-              <h3 className="text-base font-semibold text-teal-800 mb-4">Active vs Inactive</h3>
+                              </div>
+                            </div>
+                            
+                            {/* Active vs Inactive - Single Div */}
+                            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 mb-4">
+                              <h3 className="text-base font-bold text-black mb-4">Active vs Inactive</h3>
+                              <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={[
@@ -5624,6 +5685,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               </ResponsiveContainer>
             </div>
           </div>
+                            </div>
                         );
 
                       case 'subscription-status':
