@@ -32,6 +32,8 @@
     "pages/api/clinics/register.js",
     "pages/api/auth/register.js",
     "pages/api/admin/deleteTreatment.js",
+    "pages/api/lead-ms/auth.js",
+    "pages/api/lead-ms/permissions-helper.js",
     "components/createBlog.tsx",
     "pages/staff/update-patient-info/[id].jsx",
     "components/blog.jsx",

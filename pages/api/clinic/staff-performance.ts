@@ -167,7 +167,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const apptDoctorIds = appointmentsRaw.map(stat => stat._id).filter(id => id !== null);
       
       // Fetch doctor details from DoctorProfile
-      let apptDoctorProfiles = [];
+      let apptDoctorProfiles: any[] = [];
       if (apptDoctorIds.length > 0) {
         apptDoctorProfiles = await DoctorProfile.find({ 
           user: { $in: apptDoctorIds } 
@@ -190,10 +190,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         role: 'doctor'
       }).select('firstName lastName').lean();
       
-      apptUsers.forEach(user => {
-        const userId = user._id.toString();
+      apptUsers.forEach((user: any) => {
+        const userId = user['_id'].toString();
         if (!apptDoctorMap.has(userId)) {
-          const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Dr. Unknown';
+          const fullName = `${user['firstName'] || ''} ${user['lastName'] || ''}`.trim() || 'Dr. Unknown';
           apptDoctorMap.set(userId, fullName);
         }
       });
@@ -223,7 +223,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const revDoctorIds = revenueRaw.map(stat => stat._id).filter(id => id !== null);
       
       // Fetch doctor details from DoctorProfile
-      let revDoctorProfiles = [];
+      let revDoctorProfiles: any[] = [];
       if (revDoctorIds.length > 0) {
         revDoctorProfiles = await DoctorProfile.find({ 
           user: { $in: revDoctorIds } 
@@ -246,10 +246,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         role: 'doctor'
       }).select('firstName lastName').lean();
       
-      revUsers.forEach(user => {
-        const userId = user._id.toString();
+      revUsers.forEach((user: any) => {
+        const userId = user['_id'].toString();
         if (!revDoctorMap.has(userId)) {
-          const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Dr. Unknown';
+          const fullName = `${user['firstName'] || ''} ${user['lastName'] || ''}`.trim() || 'Dr. Unknown';
           revDoctorMap.set(userId, fullName);
         }
       });

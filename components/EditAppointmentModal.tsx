@@ -26,7 +26,7 @@ interface EditAppointmentModalProps {
     emergency: string;
     notes: string;
     treatment?: string;
-    serviceId?: string | { _id: string };
+    serviceId?: string | { _id: string } | null;
   } | null;
   rooms: Array<{ _id: string; name: string }>;
   doctors: Array<{ _id: string; name: string }>;

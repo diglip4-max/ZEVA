@@ -654,7 +654,7 @@ export default function AppointmentBookingModal({
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 hover:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 text-white hover:scale-110 active:scale-95"
+              className="p-1.5 hover:bg-gray-800 dark:hover:bg-gray-600 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 text-white hover:scale-110 active:scale-95"
               aria-label="Close modal"
             >
               <X className="w-4 h-4" />

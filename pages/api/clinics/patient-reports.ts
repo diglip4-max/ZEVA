@@ -29,7 +29,9 @@ export default async function handler(
     console.log('👤 User role:', authUser.role);
 
     // Get clinic ID from user using the same helper as other endpoints
-    const { clinicId, error } = await getClinicIdFromUser(authUser);
+    const result: any = await getClinicIdFromUser(authUser);
+    const clinicId = result['clinicId'];
+    const error = result['error'];
     
     if (error) {
       console.error('❌ Error getting clinic ID:', error);
@@ -48,6 +50,7 @@ export default async function handler(
       const startOfDay = new Date(selectedDate.setHours(0, 0, 0, 0));
       const endOfDay = new Date(selectedDate.setHours(23, 59, 59, 999));
       dateFilter = { createdAt: { $gte: startOfDay, $lte: endOfDay } };
+      console.log('📅 Using single date filter:', startOfDay.toISOString(), 'to', endOfDay.toISOString());
     } else if (startDate && endDate) {
       dateFilter = {
         createdAt: {
@@ -55,10 +58,13 @@ export default async function handler(
           $lte: new Date(endDate as string),
         },
       };
+      console.log('📅 Using date range filter:', new Date(startDate as string).toISOString(), 'to', new Date(endDate as string).toISOString());
+    } else {
+      // For 'overall' or no date params - NO date filter, shows ALL historical data
+      console.log('📅 Overall filter - NO date restriction, showing all data');
     }
-    // For 'overall', no date filter - shows all data
 
-    console.log('📅 Using dateFilter:', dateFilter || 'Overall (no filter)');
+    console.log('📅 Final dateFilter:', Object.keys(dateFilter).length > 0 ? dateFilter : 'NONE (showing all data)');
 
     // Fetch all patients for the clinic within the date range
     const patients = await PatientRegistration.find({
@@ -66,7 +72,12 @@ export default async function handler(
       ...dateFilter,
     }).lean();
 
-    console.log('✅ Found', patients.length, 'patients');
+    console.log('✅ Found', patients.length, 'patients in date range');
+    if (patients.length > 0) {
+      const firstPatientDate = patients[0].createdAt;
+      const lastPatientDate = patients[patients.length - 1].createdAt;
+      console.log('📊 Patient date range:', firstPatientDate, 'to', lastPatientDate);
+    }
 
     // 1. New vs Old Patients - Based on patientType field from PatientRegistration
     // Filter data based on the selected time range from "Select Calendar"
@@ -80,6 +91,14 @@ export default async function handler(
       .lean();
 
     console.log('📊 Found', patientHistory.length, 'patients for New vs Old analysis');
+    console.log('📋 Sample patients:', JSON.stringify(patientHistory.slice(0, 5), null, 2));
+    
+    // Count total new and old patients
+    const totalNewPatients = patientHistory.filter(p => p.patientType === 'New').length;
+    const totalOldPatients = patientHistory.filter(p => p.patientType === 'Old').length;
+    
+    console.log('📈 Total New Patients:', totalNewPatients);
+    console.log('📈 Total Old Patients:', totalOldPatients);
 
     // Group by month for display in the chart
     const monthlyData: any = {};
@@ -99,44 +118,51 @@ export default async function handler(
       // Count based on patientType: "New" or "Old"
       if (patient.patientType === 'New') {
         monthlyData[monthKey].newPatients++;
-      } else {
+      } else if (patient.patientType === 'Old') {
         monthlyData[monthKey].returningPatients++;
       }
     });
 
+    console.log('📊 Monthly data breakdown:', JSON.stringify(monthlyData, null, 2));
+    
     const newVsReturning = Object.values(monthlyData);
-    console.log('📈 New vs Old patients data:', newVsReturning);
+    console.log('📈 Final New vs Returning data:', newVsReturning);
 
     // 2. Gender Distribution - Using gender field from PatientRegistration
-    // Only count Male and Female genders, exclude Others and Unknown for cleaner display
-    const genderCounts: any = {
-      Male: 0,
-      Female: 0,
-    };
-
+    console.log('👥 Fetching gender data from PatientRegistration...');
+    
+    // Count all gender values from the patients
+    const genderCounts: any = {};
+    
     patients.forEach((patient: any) => {
-      if (patient.gender === 'Male') {
-        genderCounts.Male++;
-      } else if (patient.gender === 'Female') {
-        genderCounts.Female++;
+      const gender = patient.gender;
+      // Only count valid genders (Male, Female, Other), skip Unknown/null/undefined
+      if (gender && ['Male', 'Female', 'Other'].includes(gender)) {
+        if (!genderCounts[gender]) {
+          genderCounts[gender] = 0;
+        }
+        genderCounts[gender]++;
       }
-      // Skip counting Other, Unknown, or null genders
     });
-
+    
+    console.log('👥 Raw gender counts:', genderCounts);
+    console.log('📋 Sample patient genders:', patients.slice(0, 10).map((p: any) => p.gender));
+    
     const totalPatientsWithGender = Object.values(genderCounts).reduce((sum: number, count) => sum + (count as number), 0);
     
-    console.log('👥 Gender counts:', genderCounts);
+    console.log('👥 Total patients with valid gender data:', totalPatientsWithGender);
     
-    // Only include gender groups that have data (Male and/or Female)
+    // Only include Male, Female, Other that have data
     const genderDistribution = Object.entries(genderCounts)
       .filter(([_, count]) => (count as number) > 0)
       .map(([name, count]) => ({
         name,
         percentage: totalPatientsWithGender > 0 ? (count as number) / totalPatientsWithGender : 0,
         value: count as number,
-      }));
+      }))
+      .sort((a, b) => (b.value as number) - (a.value as number)); // Sort by count descending
 
-    console.log('📊 Gender distribution:', genderDistribution);
+    console.log('📊 Final Gender distribution:', genderDistribution);
 
     // 3. Patient Visit Frequency - Based on number of appointments per patient
     const appointments = await Appointment.find({

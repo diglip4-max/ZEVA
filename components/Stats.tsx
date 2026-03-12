@@ -574,7 +574,7 @@ const JobStats: React.FC<JobStatsProps> = ({
         {sortedJobTypes.length > 0 ? (
           <>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
-              <h3 className="text-xs sm:text-sm font-semibold text-gray-900">Job Types Distribution</h3>
+              <h3 className="text-base font-bold text-black">Job Types Distribution</h3>
               <span className="text-xs text-gray-500">{stats.totalJobs} total jobs</span>
             </div>
             
@@ -847,8 +847,8 @@ const JobStats: React.FC<JobStatsProps> = ({
               <FileText className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-gray-900">Blog Statistics</h3>
-              <p className="text-xs text-gray-600">Track your blog performance</p>
+              <h3 className="text-base font-bold text-black">Blog Statistics</h3>
+              <p className="text-xs text-gray-500 mt-1">Track your blog performance</p>
             </div>
           </div>
           {blogLoading ? (

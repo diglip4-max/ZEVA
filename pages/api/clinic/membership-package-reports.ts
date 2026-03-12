@@ -29,7 +29,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(403).json({ success: false, message: "Access denied" });
   }
 
-  const userInfo: any = user;
   const { clinicId, error: clinicError }: any = await getClinicIdFromUser(user);
   if (clinicError || (!clinicId && user.role !== "admin")) {
     return res.status(403).json({

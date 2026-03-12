@@ -1,12 +1,14 @@
 ﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, User, Crown, Stethoscope, Building2, Package, Gift, DoorOpen, UserPlus, GripVertical, Eye, EyeOff, Save, RotateCcw, Edit2, X, Undo2, Redo2, ChevronLeft, ChevronRight, LayoutDashboard, Home, Tag, Percent, ShoppingCart, Receipt, DollarSign, Wallet, Shield, UserCheck, UserCog, UserCircle, Award } from 'lucide-react';
+import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, User, Crown, Stethoscope, Building2, Package, Gift, DoorOpen, UserPlus, GripVertical, Eye, EyeOff, Save, RotateCcw, Edit2, X, Undo2, Redo2, ChevronLeft, ChevronRight, LayoutDashboard, Home, Tag, Percent, ShoppingCart, Receipt, DollarSign, Wallet, Shield, UserCheck, UserCog, UserCircle, Award, Download, RefreshCw, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, LineChart, Line, Tooltip, PieChart, Pie, Cell, Legend, AreaChart, Area } from 'recharts';
 import Stats from '../../components/Stats';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
-import ServicePerformance from '../../components/clinic/ServicePerformance';
+// import ServicePerformance from '../../components/clinic/ServicePerformance'; // Unused import
 import MembershipPackageReports from '../../components/clinic/MembershipPackageReports';
-import StaffPerformance from '../../components/clinic/StaffPerformance';
+import RoomUtilization from '../../components/clinic/RoomUtilization';
+import CancellationReports from '../../components/clinic/CancellationReports';
+import DoctorPerformance from '../../components/clinic/DoctorPerformance';
 import type { NextPageWithLayout } from '../_app';
 import axios from 'axios';
 import {
@@ -135,7 +137,8 @@ type WidgetType =
   | 'commission-overview'
   | 'analytics-overview'
   | 'subscription-status'
-  | 'additional-stats';
+  | 'additional-stats'
+  | 'financial-reports';
 
 interface DashboardWidget {
   id: string;
@@ -188,20 +191,21 @@ const DEFAULT_WIDGETS: DashboardWidget[] = [
   { id: '1', type: 'packages-offers', title: 'Packages & Offers', visible: true, order: 0 },
   { id: '2', type: 'primary-stats', title: 'Key Statistics', visible: true, order: 1 },
   { id: '3', type: 'secondary-stats', title: 'Additional Statistics', visible: true, order: 2 },
-  { id: '9', type: 'appointment-status-overview', title: 'Appointment Status Overview', visible: true, order: 3 },
-  { id: '14', type: 'patient-reports', title: 'Patient Reports', visible: true, order: 4 },
-  { id: '10', type: 'lead-status-charts', title: 'Lead Status Charts', visible: true, order: 5 },
-  { id: '5', type: 'status-charts', title: 'Status Breakdown Charts', visible: true, order: 6 },
-  { id: '11', type: 'services-overview', title: 'Top Services & Packages', visible: true, order: 7 },
-  { id: '12', type: 'membership-overview', title: 'Most Purchased Membership', visible: true, order: 8 },
-  { id: '13', type: 'commission-overview', title: 'Commission Details', visible: true, order: 9 },
-  { id: '6', type: 'analytics-overview', title: 'Analytics Overview', visible: true, order: 10 },
-  { id: '7', type: 'subscription-status', title: 'Subscription Status', visible: true, order: 11 },
-  { id: '8', type: 'additional-stats', title: 'Job & Blog Analytics', visible: true, order: 12 },
-  { id: '4', type: 'quick-actions', title: 'Quick Actions', visible: true, order: 13 },
+  { id: 'financial', type: 'financial-reports', title: 'Financial Reports', visible: true, order: 3 },
+  { id: '9', type: 'appointment-status-overview', title: 'Appointment Status Overview', visible: true, order: 4 },
+  { id: '14', type: 'patient-reports', title: 'Patient Reports', visible: true, order: 5 },
+  { id: '10', type: 'lead-status-charts', title: 'Lead Status Charts', visible: true, order: 6 },
+  { id: '5', type: 'status-charts', title: 'Status Breakdown Charts', visible: true, order: 7 },
+  { id: '11', type: 'services-overview', title: 'Top Services & Packages', visible: true, order: 8 },
+  { id: '12', type: 'membership-overview', title: 'Most Purchased Membership', visible: true, order: 9 },
+  { id: '13', type: 'commission-overview', title: 'Commission Details', visible: true, order: 10 },
+  { id: '6', type: 'analytics-overview', title: 'Analytics Overview', visible: true, order: 11 },
+  { id: '7', type: 'subscription-status', title: 'Subscription Status', visible: true, order: 12 },
+  { id: '8', type: 'additional-stats', title: 'Job & Blog Analytics', visible: true, order: 13 },
+  { id: '4', type: 'quick-actions', title: 'Quick Actions', visible: true, order: 14 },
 ];
 
-const STORAGE_KEY = 'clinic-dashboard-layout-v3';
+const STORAGE_KEY = 'clinic-dashboard-layout-v8'; // Financial Reports sabse uppar (before Appointment Status)
 
 const ClinicDashboard: NextPageWithLayout = () => {
   const [stats, setStats] = useState<Stats>({
@@ -241,7 +245,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
  
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showCalendar, setShowCalendar] = useState<boolean>(false);
-  const [timeRangeFilter, setTimeRangeFilter] = useState<'select-calendar' | 'week' | 'month' | 'overall'>('select-calendar');
+  const [timeRangeFilter, setTimeRangeFilter] = useState<'today' | 'week' | 'month' | 'overall'>('today');
   const [filteredAppointmentData, setFilteredAppointmentData] = useState<any[]>([]);
   const [filteredLeadSourceData, setFilteredLeadSourceData] = useState<any[]>([]);
   const [filteredLeadStatusData, setFilteredLeadStatusData] = useState<any[]>([]);
@@ -252,6 +256,15 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const [commissionPage, setCommissionPage] = useState<number>(1);
   const COMMISSION_PAGE_SIZE = 10;
   const [commissionTypeStats, setCommissionTypeStats] = useState<any[]>([]);
+  
+  // Financial Reports Data
+  const [financialData, setFinancialData] = useState({
+    revenueTrendData: [] as any[],
+    paymentMethodsData: [] as any[],
+    doctorRevenueData: [] as any[],
+    topServicesData: [] as any[],
+  });
+  const [financialLoading, setFinancialLoading] = useState<boolean>(false);
   
   // Patient Reports Data
   const [patientDemographics, setPatientDemographics] = useState({
@@ -272,6 +285,95 @@ const ClinicDashboard: NextPageWithLayout = () => {
   
   // New filter states for Last 30 Days with options
   const [searchQuery, setSearchQuery] = useState<string>('');
+ 
+  // Export dashboard data to CSV
+ 
+  // Export dashboard data to CSV
+  const handleExportDashboard = () => {
+    const headers = ['Module', 'Value', 'Label'];
+    const csvData = Object.entries(moduleStats).map(([key, stat]) => [
+      key,
+      stat.value,
+      stat.label
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `dashboard-export-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Refresh dashboard - reload page
+  const handleRefreshDashboard = () => {
+    window.location.reload();
+  };
+
+  // Function to check if a section matches the search query
+  const sectionMatchesSearch = (sectionNames: string[]): boolean => {
+    if (!searchQuery.trim()) return false;
+    const query = searchQuery.toLowerCase();
+    return sectionNames.some(name => name.toLowerCase().includes(query));
+  };
+
+  // Compute matching section IDs based on current search (memoized)
+  const matchingSectionIds = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    
+    const matches: string[] = [];
+    
+    // Check each section type
+    if (sectionMatchesSearch(['Appointment', 'Appointments', 'Reports'])) {
+      matches.push('appointment-status-overview');
+    }
+    if (sectionMatchesSearch(['Patient', 'Patients', 'Demographics'])) {
+      matches.push('patient-reports');
+    }
+    if (sectionMatchesSearch(['Service', 'Services', 'Performance', 'Booked'])) {
+      matches.push('services-overview');
+    }
+    if (sectionMatchesSearch(['Status', 'Charts', 'Breakdown'])) {
+      matches.push('status-charts');
+    }
+    if (sectionMatchesSearch(['Membership', 'Package', 'Packages'])) {
+      matches.push('membership-overview');
+    }
+    if (sectionMatchesSearch(['Commission'])) {
+      matches.push('commission-overview');
+    }
+    if (sectionMatchesSearch(['Analytics', 'Overview'])) {
+      matches.push('analytics-overview');
+    }
+    if (sectionMatchesSearch(['Subscription'])) {
+      matches.push('subscription-status');
+    }
+    if (sectionMatchesSearch(['Job', 'Blog', 'Additional'])) {
+      matches.push('additional-stats');
+    }
+    if (sectionMatchesSearch(['Quick', 'Actions'])) {
+      matches.push('quick-actions');
+    }
+    if (sectionMatchesSearch(['Doctor', 'Performance'])) {
+      matches.push('doctor-performance');
+    }
+    if (sectionMatchesSearch(['Room', 'Resource', 'Utilization'])) {
+      matches.push('room-utilization');
+    }
+    if (sectionMatchesSearch(['Cancellation', 'No-Show'])) {
+      matches.push('cancellation-reports');
+    }
+    
+    return matches;
+  }, [searchQuery]);
  
   // Close calendar when clicking outside
   useEffect(() => {
@@ -397,7 +499,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
       reviews: 0,
       enquiries: 0,
       applications: 0,
-      appointments: 0
+      appointments: 0,
+      arrived: 0,
+      booked: 0,
+      cancelled: 0,
+      waiting: 0,
+      enquiry: 0
     },
     totals: {
       membership: 0,
@@ -1793,24 +1900,24 @@ const ClinicDashboard: NextPageWithLayout = () => {
     ].filter(item => item.value > 0 || !statsLoading); // Only show items with data or while loading
   }, [stats.totalReviews, stats.totalEnquiries, stats.totalPatients, stats.totalRooms, statsLoading]);
 
-  // Prepare breakdown chart data
-  const appointmentStatusData = useMemo(() => {
-    // Use dailyStats for the chart - showing ALL appointment statuses
-    return [
-      { name: 'Booked', value: dailyStats.booked },
-      { name: 'Enquiry', value: dailyStats.enquiry },
-      { name: 'Discharge', value: dailyStats.discharge },
-      { name: 'Arrived', value: dailyStats.arrived },
-      { name: 'Consultation', value: dailyStats.consultation },
-      { name: 'Cancelled', value: dailyStats.cancelled },
-      { name: 'Approved', value: dailyStats.approved },
-      { name: 'Rescheduled', value: dailyStats.rescheduled },
-      { name: 'Waiting', value: dailyStats.waiting },
-      { name: 'Rejected', value: dailyStats.rejected },
-      { name: 'Completed', value: dailyStats.completed },
-    ];
-    // Note: Not filtering out zero values to show all statuses in chart
-  }, [dailyStats]);
+  // Prepare breakdown chart data (commented out as unused)
+  // const appointmentStatusData = useMemo(() => {
+  //   // Use dailyStats for the chart - showing ALL appointment statuses
+  //   return [
+  //     { name: 'Booked', value: dailyStats.booked },
+  //     { name: 'Enquiry', value: dailyStats.enquiry },
+  //     { name: 'Discharge', value: dailyStats.discharge },
+  //     { name: 'Arrived', value: dailyStats.arrived },
+  //     { name: 'Consultation', value: dailyStats.consultation },
+  //     { name: 'Cancelled', value: dailyStats.cancelled },
+  //     { name: 'Approved', value: dailyStats.approved },
+  //     { name: 'Rescheduled', value: dailyStats.rescheduled },
+  //     { name: 'Waiting', value: dailyStats.waiting },
+  //     { name: 'Rejected', value: dailyStats.rejected },
+  //     { name: 'Completed', value: dailyStats.completed },
+  //   ];
+  //   // Note: Not filtering out zero values to show all statuses in chart
+  // }, [dailyStats]);
 
   const dailyAppointmentChartData = useMemo(() => [
     { name: 'Booked', value: dailyStats.booked, fill: '#3b82f6' },
@@ -1820,13 +1927,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
     { name: 'Discharge', value: dailyStats.discharge, fill: '#8b5cf6' },
   ], [dailyStats]);
 
-  const leadStatusData = useMemo(() => {
-    if (!stats.leadStatusBreakdown) return [];
-    return Object.entries(stats.leadStatusBreakdown).map(([status, count]) => ({
-      name: status,
-      value: count,
-    }));
-  }, [stats.leadStatusBreakdown]);
+  // const leadStatusData = useMemo(() => {
+  //   if (!stats.leadStatusBreakdown) return [];
+  //   return Object.entries(stats.leadStatusBreakdown).map(([status, count]) => ({
+  //     name: status,
+  //     value: count,
+  //   }));
+  // }, [stats.leadStatusBreakdown]);
 
   const offerStatusData = useMemo(() => {
     console.log('🔍 offerStatusData recalculating...', stats.offerStatusBreakdown);
@@ -1842,17 +1949,17 @@ const ClinicDashboard: NextPageWithLayout = () => {
     return result;
   }, [stats.offerStatusBreakdown]);
 
-  const dailyActivitiesData = useMemo(() => {
-    if (!dailyStats.daily) return [];
-    return [
-      { name: 'Patients', value: dailyStats.daily.patients },
-      { name: 'Jobs', value: dailyStats.daily.jobs },
-      { name: 'Offers', value: dailyStats.daily.offers },
-      { name: 'Leads', value: dailyStats.daily.leads },
-      { name: 'Reviews', value: dailyStats.daily.reviews },
-      { name: 'Enquiries', value: dailyStats.daily.enquiries },
-    ].filter(item => item.value > 0);
-  }, [dailyStats.daily]);
+  // const dailyActivitiesData = useMemo(() => {
+  //   if (!dailyStats.daily) return [];
+  //   return [
+  //     { name: 'Patients', value: dailyStats.daily.patients },
+  //     { name: 'Jobs', value: dailyStats.daily.jobs },
+  //     { name: 'Offers', value: dailyStats.daily.offers },
+  //     { name: 'Leads', value: dailyStats.daily.leads },
+  //     { name: 'Reviews', value: dailyStats.daily.reviews },
+  //     { name: 'Enquiries', value: dailyStats.daily.enquiries },
+  //   ].filter(item => item.value > 0);
+  // }, [dailyStats.daily]);
 
   // Colors for pie charts
   const pieColors = ['#2D9AA5', '#22c55e', '#a855f7', '#f97316', '#ec4899', '#6366f1', '#ef4444', '#10b981', '#3b82f6', '#f59e0b'];
@@ -2183,18 +2290,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
     }
   };
 
-  const toggleChartVisibility = (chartId: string) => {
-    setChartComponents((prev) => ({
-      'status-charts': prev['status-charts'].map(chart =>
-        chart.id === chartId ? { ...chart, visible: !chart.visible } : chart
-      ),
-      'services-overview': prev['services-overview'] || [],
-      'membership-overview': prev['membership-overview'] || [],
-      'analytics-overview': prev['analytics-overview'].map(chart =>
-        chart.id === chartId ? { ...chart, visible: !chart.visible } : chart
-      ),
-    }));
-  };
+  // const toggleChartVisibility = (chartId: string) => {
+  //   setChartComponents((prev) => ({
+  //     'status-charts': prev['status-charts'].map(chart =>
+  //       chart.id === chartId ? { ...chart, visible: !chart.visible } : chart
+  //     ),
+  //     'services-overview': prev['services-overview'] || [],
+  //     'membership-overview': prev['membership-overview'] || [],
+  //     'analytics-overview': prev['analytics-overview'].map(chart =>
+  //       chart.id === chartId ? { ...chart, visible: !chart.visible } : chart
+  //     ),
+  //   }));
+  // };
 
   // Package/Offer drag handlers
   const handlePackageOfferDragStart = (event: DragStartEvent) => {
@@ -2525,12 +2632,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
           console.log('API Response:', res.data);
           setDailyStats({
             ...res.data.stats,
-            daily: res.data.daily || { patients: 0, jobs: 0, offers: 0, leads: 0, reviews: 0, enquiries: 0, applications: 0, appointments: 0 },
+            daily: res.data.daily || { patients: 0, jobs: 0, offers: 0, leads: 0, reviews: 0, enquiries: 0, applications: 0, appointments: 0, arrived: 0, booked: 0, cancelled: 0, waiting: 0, enquiry: 0 },
             totals: res.data.totals || { membership: 0, jobs: 0 }
           });
           console.log('Updated dailyStats:', {
             ...res.data.stats,
-            daily: res.data.daily || { patients: 0, jobs: 0, offers: 0, leads: 0, reviews: 0, enquiries: 0 },
+            daily: res.data.daily || { patients: 0, jobs: 0, offers: 0, leads: 0, reviews: 0, enquiries: 0, applications: 0, appointments: 0, arrived: 0, booked: 0, cancelled: 0, waiting: 0, enquiry: 0 },
             totals: res.data.totals || { membership: 0, jobs: 0 }
           });
         }
@@ -2819,6 +2926,84 @@ const ClinicDashboard: NextPageWithLayout = () => {
     fetchCommissionData();
   }, [timeRangeFilter, selectedDate]);
 
+  // Fetch Financial Reports Data - Uses existing timeRangeFilter
+  useEffect(() => {
+    const fetchFinancialReports = async () => {
+      try {
+        setFinancialLoading(true);
+        const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+        if (!token) return;
+
+        console.log('📊 Fetching financial reports for', timeRangeFilter);
+        
+        // Calculate date range based on filter
+        const endDate = new Date();
+        let startDate = new Date();
+        
+        if (timeRangeFilter === 'today') {
+          // Today - set to start of day
+          startDate.setHours(0, 0, 0, 0);
+          console.log('📅 Today filter: Current day');
+        } else if (timeRangeFilter === 'week') {
+          // Last 7 days
+          startDate.setDate(endDate.getDate() - 7);
+          startDate.setHours(0, 0, 0, 0);
+          console.log('📅 Week filter: Last 7 days');
+        } else if (timeRangeFilter === 'month') {
+          // Last 30 days
+          startDate.setDate(endDate.getDate() - 30);
+          startDate.setHours(0, 0, 0, 0);
+          console.log('📅 Month filter: Last 30 days');
+        } else if (timeRangeFilter === 'overall') {
+          // Overall - use start of year
+          startDate = new Date(new Date().getFullYear(), 0, 1);
+          startDate.setHours(0, 0, 0, 0);
+          console.log('📅 Overall filter: Start of year', startDate.getFullYear());
+        } else {
+          // Default to today
+          startDate.setHours(0, 0, 0, 0);
+          console.log('📅 Default filter: Today');
+        }
+        
+        // Set end time to end of day
+        endDate.setHours(23, 59, 59, 999);
+        
+        console.log('📅 Calculated date range:', { 
+          filter: timeRangeFilter,
+          startDate: startDate.toISOString(), 
+          endDate: endDate.toISOString(),
+          startDateReadable: startDate.toLocaleDateString(),
+          endDateReadable: endDate.toLocaleDateString()
+        });
+        
+        const res = await axios.get('/api/clinics/financialReports', {
+          headers: { Authorization: `Bearer ${token}` },
+          params: {
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            filter: timeRangeFilter
+          }
+        });
+
+        console.log('✅ Financial Reports Response:', res.data);
+        if (res.data.success) {
+          setFinancialData({
+            revenueTrendData: res.data.revenueTrendData || [],
+            paymentMethodsData: res.data.paymentMethodsData || [],
+            doctorRevenueData: res.data.doctorRevenueData || [],
+            topServicesData: res.data.topServicesData || [],
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching financial reports:', error);
+      } finally {
+        setFinancialLoading(false);
+      }
+    };
+
+    fetchFinancialReports();
+  }, [timeRangeFilter]);
+
   // Fetch Patient Reports Data (uses timeRangeFilter like other sections)
   useEffect(() => {
     const fetchPatientReports = async () => {
@@ -2829,14 +3014,23 @@ const ClinicDashboard: NextPageWithLayout = () => {
         // Calculate date range based on timeRangeFilter (same as other sections)
         const params: any = {};
         if (timeRangeFilter === 'week') {
-          params.date = selectedDate.toISOString().split('T')[0];
+          // Last 7 days
+          const endDate = new Date(selectedDate);
+          const startDate = new Date(selectedDate);
+          startDate.setDate(startDate.getDate() - 6); // 7 days including today
+          params.startDate = startDate.toISOString().split('T')[0];
+          params.endDate = endDate.toISOString().split('T')[0];
+          console.log('📅 Week filter:', params.startDate, 'to', params.endDate);
         } else if (timeRangeFilter === 'month') {
+          // Full month
           const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
           const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
           params.startDate = startDate.toISOString().split('T')[0];
           params.endDate = endDate.toISOString().split('T')[0];
+          console.log('📅 Month filter:', params.startDate, 'to', params.endDate);
         }
         // For 'overall', no date params - shows all data
+        console.log('📅 Patient reports params:', params);
 
         // Get clinic ID from user context or localStorage
         const clinicId = localStorage.getItem('clinic_id') || localStorage.getItem('clinicId');
@@ -3001,19 +3195,44 @@ const ClinicDashboard: NextPageWithLayout = () => {
       const newSecondary = [...prev.secondary];
       if (!hasDailyPatients) {
          newSecondary.push({ id: 's8', label: 'Patients', value: 0, icon: 'users', moduleKey: 'daily_patients', gridType: 'secondary' as const, order: 7, visible: true });
-         newSecondary.push({ id: 's9', label: 'Jobs', value: 0, icon: 'briefcase', moduleKey: 'daily_jobs', gridType: 'secondary' as const, order: 8, visible: true });
-         newSecondary.push({ id: 's10', label: 'Offers', value: 0, icon: 'gift', moduleKey: 'daily_offers', gridType: 'secondary' as const, order: 9, visible: true });
-         newSecondary.push({ id: 's11', label: 'Leads', value: 0, icon: 'users', moduleKey: 'daily_leads', gridType: 'secondary' as const, order: 10, visible: true });
-         newSecondary.push({ id: 's12', label: 'Applications', value: 0, icon: 'file-text', moduleKey: 'daily_applications', gridType: 'secondary' as const, order: 11, visible: true });
-         newSecondary.push({ id: 's13', label: 'Reviews', value: 0, icon: 'star', moduleKey: 'daily_reviews', gridType: 'secondary' as const, order: 12, visible: true });
-         newSecondary.push({ id: 's14', label: 'Enquiries', value: 0, icon: 'message-square', moduleKey: 'daily_enquiries', gridType: 'secondary' as const, order: 13, visible: true });
+         newSecondary.push({ id: 's9', label: 'Offers', value: 0, icon: 'gift', moduleKey: 'daily_offers', gridType: 'secondary' as const, order: 8, visible: true });
+         newSecondary.push({ id: 's10', label: 'Arrived', value: 0, icon: 'check-circle', moduleKey: 'daily_arrived', gridType: 'secondary' as const, order: 9, visible: true });
+         newSecondary.push({ id: 's11', label: 'Booked', value: 0, icon: 'calendar-check', moduleKey: 'daily_booked', gridType: 'secondary' as const, order: 10, visible: true });
+         newSecondary.push({ id: 's12', label: 'Cancelled', value: 0, icon: 'calendar-x', moduleKey: 'daily_cancelled', gridType: 'secondary' as const, order: 11, visible: true });
+         newSecondary.push({ id: 's13', label: 'Waiting', value: 0, icon: 'clock', moduleKey: 'daily_waiting', gridType: 'secondary' as const, order: 12, visible: true });
+         newSecondary.push({ id: 's14', label: 'Enquiry', value: 0, icon: 'message-square', moduleKey: 'daily_enquiry', gridType: 'secondary' as const, order: 13, visible: true });
       } else {
-         if (!hasDailyApplications) {
-            newSecondary.push({ id: 's12', label: 'Applications', value: 0, icon: 'file-text', moduleKey: 'daily_applications', gridType: 'secondary' as const, order: 11, visible: true });
-         }
-         if (!hasDailyReviews) {
-            newSecondary.push({ id: 's13', label: 'Reviews', value: 0, icon: 'star', moduleKey: 'daily_reviews', gridType: 'secondary' as const, order: 12, visible: true });
-            newSecondary.push({ id: 's14', label: 'Enquiries', value: 0, icon: 'message-square', moduleKey: 'daily_enquiries', gridType: 'secondary' as const, order: 13, visible: true });
+         // Check for old cards and replace them
+         const hasOldCards = prev.secondary.some(c => {
+            const oldKeys = ['daily_applications', 'daily_reviews', 'daily_enquiries', 'daily_jobs', 'daily_leads', 'daily_enquiry'];
+            return c.moduleKey !== undefined && oldKeys.includes(c.moduleKey);
+         });
+         if (hasOldCards) {
+            // Remove old cards
+            const filteredSecondary = prev.secondary.filter(c => {
+               const oldKeys = ['daily_applications', 'daily_reviews', 'daily_enquiries', 'daily_jobs', 'daily_leads', 'daily_enquiry'];
+               return c.moduleKey === undefined || !oldKeys.includes(c.moduleKey);
+            });
+            // Add new cards if not present
+            if (!filteredSecondary.some(c => c.moduleKey === 'daily_arrived')) {
+               filteredSecondary.push({ id: 's10', label: 'Arrived', value: 0, icon: 'check-circle', moduleKey: 'daily_arrived', gridType: 'secondary' as const, order: 9, visible: true });
+            }
+            if (!filteredSecondary.some(c => c.moduleKey === 'daily_booked')) {
+               filteredSecondary.push({ id: 's11', label: 'Booked', value: 0, icon: 'calendar-check', moduleKey: 'daily_booked', gridType: 'secondary' as const, order: 10, visible: true });
+            }
+            if (!filteredSecondary.some(c => c.moduleKey === 'daily_cancelled')) {
+               filteredSecondary.push({ id: 's12', label: 'Cancelled', value: 0, icon: 'calendar-x', moduleKey: 'daily_cancelled', gridType: 'secondary' as const, order: 11, visible: true });
+            }
+            if (!filteredSecondary.some(c => c.moduleKey === 'daily_waiting')) {
+               filteredSecondary.push({ id: 's13', label: 'Waiting', value: 0, icon: 'clock', moduleKey: 'daily_waiting', gridType: 'secondary' as const, order: 12, visible: true });
+            }
+            if (!filteredSecondary.some(c => c.moduleKey === 'daily_enquiry')) {
+               filteredSecondary.push({ id: 's14', label: 'Enquiry', value: 0, icon: 'message-square', moduleKey: 'daily_enquiry', gridType: 'secondary' as const, order: 13, visible: true });
+            }
+            return {
+               primary: updatedPrimary,
+               secondary: filteredSecondary
+            };
          }
       }
 
@@ -3125,29 +3344,24 @@ const ClinicDashboard: NextPageWithLayout = () => {
           case 'daily_appointments':
             value = dailyStats.daily.appointments || 0;
             break;
-          case 'daily_jobs':
-            console.log('Setting daily_jobs value:', dailyStats.daily.jobs || 0);
-            value = dailyStats.daily.jobs || 0;
-            break;
           case 'daily_offers':
             console.log('Setting daily_offers value:', dailyStats.daily.offers || 0);
             value = dailyStats.daily.offers || 0;
             break;
-          case 'daily_leads':
-            value = dailyStats.daily.leads || 0;
+          case 'daily_arrived':
+            value = dailyStats.daily.arrived || 0;
             break;
-          case 'appointment':
-            // Sum of all appointment statuses for Today's Activity
-            value = dailyStats.booked + dailyStats.arrived + dailyStats.consultation + dailyStats.cancelled + dailyStats.discharge;
+          case 'daily_booked':
+            value = dailyStats.daily.booked || 0;
             break;
-          case 'daily_applications':
-            value = dailyStats.daily.applications || 0;
+          case 'daily_cancelled':
+            value = dailyStats.daily.cancelled || 0;
             break;
-          case 'daily_reviews':
-            value = dailyStats.daily.reviews || 0;
+          case 'daily_waiting':
+            value = dailyStats.daily.waiting || 0;
             break;
-          case 'daily_enquiries':
-            value = dailyStats.daily.enquiries || 0;
+          case 'daily_enquiry':
+            value = dailyStats.daily.enquiry || 0;
             break;
         }
         return { ...card, value };
@@ -3400,65 +3614,65 @@ const ClinicDashboard: NextPageWithLayout = () => {
     );
   };
 
-  // Sortable Chart Component
-  const SortableChart: React.FC<{
-    chart: ChartComponent;
-    children: React.ReactNode;
-  }> = ({ chart, children }) => {
-    const {
-      attributes,
-      listeners,
-      setNodeRef,
-      transform,
-      transition,
-      isDragging,
-    } = useSortable({ id: chart.id });
+  // Sortable Chart Component (commented out as unused)
+  // const SortableChart: React.FC<{
+  //   chart: ChartComponent;
+  //   children: React.ReactNode;
+  // }> = ({ chart, children }) => {
+  //   const {
+  //     attributes,
+  //     listeners,
+  //     setNodeRef,
+  //     transform,
+  //     transition,
+  //     isDragging,
+  //   } = useSortable({ id: chart.id });
 
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-      opacity: isDragging ? 0.5 : 1,
-    };
+  //   const style = {
+  //     transform: CSS.Transform.toString(transform),
+  //     transition,
+  //     opacity: isDragging ? 0.5 : 1,
+  //   };
 
-    if (!chart.visible && !isEditMode) {
-      return null;
-    }
+  //   if (!chart.visible && !isEditMode) {
+  //     return null;
+  //   }
 
-    return (
-      <div
-        ref={setNodeRef}
-        style={style}
-        className={`relative ${isDragging ? 'z-50' : ''} ${!chart.visible ? 'opacity-50' : ''}`}
-      >
-        {isEditMode && (
-          <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
-            <button
-              onClick={() => toggleChartVisibility(chart.id)}
-              className="p-1 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-              title={chart.visible ? 'Hide chart' : 'Show chart'}
-            >
-              {chart.visible ? (
-                <Eye className="w-3 h-3 text-gray-600" />
-              ) : (
-                <EyeOff className="w-3 h-3 text-gray-400" />
-              )}
-            </button>
-            <div
-              {...attributes}
-              {...listeners}
-              className="p-1.5 bg-orange-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:bg-orange-600 transition-colors"
-              title="Drag to move chart"
-            >
-              <GripVertical className="w-3.5 h-3.5 text-white" />
-            </div>
-          </div>
-        )}
-        <div className={isEditMode ? 'pl-14' : ''}>
-          {children}
-        </div>
-      </div>
-    );
-  };
+  //   return (
+  //     <div
+  //       ref={setNodeRef}
+  //       style={style}
+  //       className={`relative ${isDragging ? 'z-50' : ''} ${!chart.visible ? 'opacity-50' : ''}`}
+  //     >
+  //       {isEditMode && (
+  //         <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
+  //           <button
+  //             onClick={() => toggleChartVisibility(chart.id)}
+  //             className="p-1 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+  //             title={chart.visible ? 'Hide chart' : 'Show chart'}
+  //           >
+  //             {chart.visible ? (
+  //               <Eye className="w-3 h-3 text-gray-600" />
+  //             ) : (
+  //               <EyeOff className="w-3 h-3 text-gray-400" />
+  //             )}
+  //           </button>
+  //           <div
+  //             {...attributes}
+  //             {...listeners}
+  //             className="p-1.5 bg-orange-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:bg-orange-600 transition-colors"
+  //             title="Drag to move chart"
+  //           >
+  //             <GripVertical className="w-3.5 h-3.5 text-white" />
+  //           </div>
+  //         </div>
+  //       )}
+  //       <div className={isEditMode ? 'pl-14' : ''}>
+  //         {children}
+  //       </div>
+  //     </div>
+  //   );
+  // };
 
   // Sortable Stat Card Component
   const SortableStatCard: React.FC<{
@@ -3770,7 +3984,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Search dashboard..."
+                  placeholder="Search reports..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
@@ -3786,25 +4000,45 @@ const ClinicDashboard: NextPageWithLayout = () => {
               </div>
             </div>
 
+            {/* Export Button */}
+            <button
+              onClick={handleExportDashboard}
+              className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium"
+              title="Export dashboard data"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export</span>
+            </button>
+
+            {/* Refresh Button */}
+            <button
+              onClick={handleRefreshDashboard}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
+              title="Refresh dashboard"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Refresh</span>
+            </button>
+
             {/* Time Range Filter */}
             <select
               value={timeRangeFilter}
-              onChange={(e) => setTimeRangeFilter(e.target.value as 'select-calendar' | 'week' | 'month' | 'overall')}
+              onChange={(e) => setTimeRangeFilter(e.target.value as 'today' | 'week' | 'month' | 'overall')}
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
               title="Select time range for all graphs"
             >
-              <option value="select-calendar">Select Calendar</option>
+              <option value="today">Today</option>
               <option value="week">Week</option>
               <option value="month">Month</option>
               <option value="overall">Overall</option>
             </select>
 
             {/* Clear Filters Button */}
-            {(searchQuery || timeRangeFilter !== 'select-calendar') && (
+            {(searchQuery || timeRangeFilter !== 'today') && (
               <button
                 onClick={() => {
                   setSearchQuery('');
-                  setTimeRangeFilter('select-calendar');
+                  setTimeRangeFilter('today');
                 }}
                 className="flex items-center gap-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors text-sm font-medium"
                 title="Clear all filters"
@@ -3816,7 +4050,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
           </div>
 
           {/* Active Filters Display */}
-          {(searchQuery || timeRangeFilter !== 'select-calendar') && (
+          {(searchQuery || timeRangeFilter !== 'today') && (
             <div className="mt-3 flex flex-wrap items-center gap-2 pt-3 border-t border-gray-200">
               <span className="text-xs text-gray-500 font-medium">Active filters:</span>
               {searchQuery && (
@@ -3830,7 +4064,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               {timeRangeFilter === 'week' && (
                 <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-700 rounded-md text-xs font-medium">
                   Week
-                  <button onClick={() => setTimeRangeFilter('select-calendar')} className="hover:bg-indigo-200 rounded-full p-0.5">
+                  <button onClick={() => setTimeRangeFilter('today')} className="hover:bg-indigo-200 rounded-full p-0.5">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
@@ -3838,7 +4072,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               {timeRangeFilter === 'month' && (
                 <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-md text-xs font-medium">
                   Month
-                  <button onClick={() => setTimeRangeFilter('select-calendar')} className="hover:bg-green-200 rounded-full p-0.5">
+                  <button onClick={() => setTimeRangeFilter('today')} className="hover:bg-green-200 rounded-full p-0.5">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
@@ -3846,7 +4080,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               {timeRangeFilter === 'overall' && (
                 <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-md text-xs font-medium">
                   Overall
-                  <button onClick={() => setTimeRangeFilter('select-calendar')} className="hover:bg-red-200 rounded-full p-0.5">
+                  <button onClick={() => setTimeRangeFilter('today')} className="hover:bg-red-200 rounded-full p-0.5">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
@@ -3875,7 +4109,17 @@ const ClinicDashboard: NextPageWithLayout = () => {
           >
             <div className={`space-y-6 ${isEditMode ? 'pl-12' : ''}`}>
               {widgets
-                .sort((a, b) => a.order - b.order)
+                .sort((a, b) => {
+                  // If searching and section matches, move it to top
+                  if (searchQuery.trim() && matchingSectionIds.length > 0) {
+                    const aMatches = matchingSectionIds.includes(a.type);
+                    const bMatches = matchingSectionIds.includes(b.type);
+                    
+                    if (aMatches && !bMatches) return -1; // a goes first
+                    if (!aMatches && bMatches) return 1;  // b goes first
+                  }
+                  return a.order - b.order; // Default sort by order
+                })
                 .map((widget) => {
                   const widgetContent = (() => {
                     switch (widget.type) {
@@ -3974,7 +4218,258 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                 })}
         </div>
                         );
-                     
+                      
+                      case 'financial-reports':
+                        // Financial Reports Section - Revenue, Payments, and Financial Performance
+                        if (financialLoading) {
+                          return (
+                            <div className="mb-8 p-8 text-center">
+                              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                              <p className="mt-4 text-gray-600">Loading financial reports...</p>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="mb-8">
+                            <div className="mb-5">
+                              <h2 className="text-xl font-bold text-black mb-1">Financial Reports</h2>
+                              <p className="text-sm text-gray-500">Track revenue, payments, and financial performance</p>
+                            </div>
+                        
+                        {/* 2x2 Grid Layout */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          
+                          {/* Card 1: Revenue Trend (Line Chart) */}
+                          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                            <div className="mb-4">
+                              <h3 className="text-base font-bold text-black">Revenue Trend</h3>
+                              <p className="text-xs text-gray-500 mt-1">Monthly revenue vs target</p>
+                            </div>
+                            <div className="h-72">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <LineChart
+                                  data={[
+                                    { name: 'Jan', revenue: 45000, target: 40000 },
+                                    { name: 'Feb', revenue: 52000, target: 45000 },
+                                    { name: 'Mar', revenue: 48000, target: 50000 },
+                                    { name: 'Apr', revenue: 61000, target: 55000 },
+                                    { name: 'May', revenue: 55000, target: 60000 },
+                                    { name: 'Jun', revenue: 67000, target: 65000 },
+                                    { name: 'Jul', revenue: 72000, target: 70000 },
+                                    { name: 'Aug', revenue: 69000, target: 75000 },
+                                    { name: 'Sep', revenue: 78000, target: 80000 },
+                                    { name: 'Oct', revenue: 85000, target: 85000 },
+                                    { name: 'Nov', revenue: 92000, target: 90000 },
+                                    { name: 'Dec', revenue: 98000, target: 95000 }
+                                  ]}
+                                  margin={{ top: 20, right: 20, left: 0, bottom: 60 }}
+                                >
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                  <XAxis
+                                    dataKey="name"
+                                    angle={-45}
+                                    textAnchor="end"
+                                    height={60}
+                                    tick={{ fontSize: 10, fill: '#374151', fontWeight: '500' }}
+                                    stroke="#6b7280"
+                                  />
+                                  <YAxis 
+                                    tick={{ fontSize: 10, fill: '#374151' }}
+                                    stroke="#6b7280"
+                                    tickFormatter={(value) => `₹${(value/1000).toFixed(0)}K`}
+                                  />
+                                  <Tooltip
+                                    contentStyle={{
+                                      backgroundColor: '#fff',
+                                      border: '1px solid #e5e7eb',
+                                      borderRadius: '8px',
+                                      fontSize: '12px',
+                                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                    }}
+                                    labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
+                                    formatter={(value: any) => [`₹${value.toLocaleString()}`, '']}
+                                  />
+                                  <Legend 
+                                    wrapperStyle={{ 
+                                      fontSize: '10px', 
+                                      paddingTop: '10px',
+                                      color: '#4b5563'
+                                    }}
+                                  />
+                                  <Line
+                                    type="monotone"
+                                    dataKey="revenue"
+                                    stroke="#3b82f6"
+                                    strokeWidth={3}
+                                    dot={{ fill: '#3b82f6', r: 4 }}
+                                    activeDot={{ r: 6 }}
+                                    name="Revenue"
+                                  />
+                                  <Line
+                                    type="monotone"
+                                    dataKey="target"
+                                    stroke="#10b981"
+                                    strokeWidth={2}
+                                    strokeDasharray="5 5"
+                                    dot={false}
+                                    name="Target"
+                                  />
+                                </LineChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+
+                          {/* Card 2: Payment Methods (Donut Chart) */}
+                          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                            <div className="mb-4">
+                              <h3 className="text-base font-bold text-black">Payment Methods</h3>
+                              <p className="text-xs text-gray-500 mt-1">Distribution by payment type</p>
+                            </div>
+                            <div className="h-72">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                  <Pie
+                                    data={financialData.paymentMethodsData || []}
+                                    cx="40%"
+                                    cy="50%"
+                                    innerRadius={50}
+                                    outerRadius={80}
+                                    paddingAngle={5}
+                                    dataKey="value"
+                                    nameKey="name"
+                                    labelLine={false}
+                                  >
+                                    {(financialData.paymentMethodsData || []).map((entry: any, index: number) => (
+                                      <Cell key={`cell-${index}`} fill={entry.color} />
+                                    ))}
+                                  </Pie>
+                                  <Tooltip
+                                    contentStyle={{
+                                      backgroundColor: '#fff',
+                                      border: '1px solid #e5e7eb',
+                                      borderRadius: '8px',
+                                      fontSize: '12px',
+                                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                    }}
+                                    formatter={(value: any, name: any) => [`${value}%`, name || 'Payment Method']}
+                                  />
+                                  <Legend 
+                                    layout="vertical"
+                                    verticalAlign="middle"
+                                    align="right"
+                                    wrapperStyle={{ 
+                                      fontSize: '11px',
+                                      paddingLeft: '20px',
+                                      color: '#4b5563',
+                                      lineHeight: '24px'
+                                    }}
+                                    formatter={(value: any) => {
+                                      const item = (financialData.paymentMethodsData || []).find((d: any) => d.name === value);
+                                      return `${value}: ${item ? item.value : 0}%`;
+                                    }}
+                                  />
+                                </PieChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+
+                          {/* Card 3: Doctor Revenue (Bar Chart) */}
+                          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                            <div className="mb-4">
+                              <h3 className="text-base font-bold text-black">Doctor Revenue</h3>
+                              <p className="text-xs text-gray-500 mt-1">Revenue generated by each doctor</p>
+                            </div>
+                            <div className="h-72">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart
+                                  data={financialData.doctorRevenueData.length > 0 ? financialData.doctorRevenueData : []}
+                                  margin={{ top: 5, right: 20, left: 0, bottom: 60 }}
+                                >
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                                  <XAxis 
+                                    dataKey="name" 
+                                    tick={{ fontSize: 10, fill: '#6b7280' }}
+                                    angle={-45}
+                                    textAnchor="end"
+                                    height={80}
+                                  />
+                                  <YAxis 
+                                    tick={{ fontSize: 10, fill: '#6b7280' }}
+                                    tickFormatter={(value) => `₹${(value/1000).toFixed(0)}K`}
+                                  />
+                                  <Tooltip
+                                    contentStyle={{
+                                      backgroundColor: '#fff',
+                                      border: '1px solid #e5e7eb',
+                                      borderRadius: '8px',
+                                      fontSize: '12px',
+                                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                    }}
+                                    labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
+                                    formatter={(value: any, name: any) => {
+                                      if (name === 'revenue') {
+                                        return [`₹${value.toLocaleString()}`, 'Revenue'];
+                                      }
+                                      return [value, name];
+                                    }}
+                                  />
+                                  <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
+                                  <Bar
+                                    dataKey="revenue"
+                                    fill="#3b82f6"
+                                    name="Revenue"
+                                    radius={[6, 6, 0, 0]}
+                                  />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+
+                          {/* Card 4: Top Services Revenue (Table) */}
+                          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                            <div className="mb-4">
+                              <h3 className="text-base font-bold text-black">Top Services Revenue</h3>
+                              <p className="text-xs text-gray-500 mt-1">Best-performing services by revenue</p>
+                            </div>
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full">
+                                <thead className="bg-gray-50 sticky top-0">
+                                  <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Service Name</th>
+                                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Sessions</th>
+                                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Revenue</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                  {financialData.topServicesData.length > 0 ? (
+                                    financialData.topServicesData.slice(0, 5).map((service, index) => (
+                                      <tr key={index} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                          <span className="text-sm font-medium text-gray-900">{service.name || 'N/A'}</span>
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-center">
+                                          <span className="text-sm text-gray-700">{typeof service.sessions === 'number' ? service.sessions : 0}</span>
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-right">
+                                          <span className="text-sm font-semibold text-teal-600">₹{(typeof service.revenue === 'number' ? service.revenue : 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </td>
+                                      </tr>
+                                    ))
+                                  ) : (
+                                    <tr>
+                                      <td colSpan={3} className="px-4 py-8 text-center text-gray-500">
+                                        No service data available
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+                          </div>
+                        );
+                      
                       case 'primary-stats':
                         const primaryCards = statCards.primary.sort((a, b) => a.order - b.order);
                         const gapClass = gridSize === 'compact' ? 'gap-1.5' : gridSize === 'spacious' ? 'gap-4' : 'gap-3';
@@ -4004,11 +4499,23 @@ const ClinicDashboard: NextPageWithLayout = () => {
                           package: <Package className="w-5 h-5" />,
                           star: <Star className="w-5 h-5" />,
                           mail: <Mail className="w-5 h-5" />,
+                          'check-circle': <CheckCircle2 className="w-5 h-5" />,
+                          'calendar-check': <Calendar className="w-5 h-5" />,
+                          'calendar-x': <X className="w-5 h-5" />,
+                          clock: <Clock className="w-5 h-5" />,
+                          'message-square': <MessageSquare className="w-5 h-5" />,
                         };
 
                         // Gradient backgrounds for different metrics
                         const getGradientBg = (moduleKey: string | undefined) => {
                           if (!moduleKey) return 'from-gray-500 to-slate-500';
+                          if (moduleKey === 'daily_patients') return 'from-green-500 to-emerald-500';
+                          if (moduleKey === 'daily_offers') return 'from-pink-500 to-rose-500';
+                          if (moduleKey === 'daily_arrived') return 'from-blue-500 to-cyan-500';
+                          if (moduleKey === 'daily_booked') return 'from-purple-500 to-indigo-500';
+                          if (moduleKey === 'daily_cancelled') return 'from-red-500 to-rose-500';
+                          if (moduleKey === 'daily_waiting') return 'from-orange-500 to-amber-500';
+                          if (moduleKey === 'daily_enquiry') return 'from-teal-500 to-green-500';
                           if (moduleKey.includes('appointment')) return 'from-blue-500 to-cyan-500';
                           if (moduleKey.includes('patient')) return 'from-green-500 to-emerald-500';
                           if (moduleKey.includes('doctor')) return 'from-purple-500 to-pink-500';
@@ -4090,12 +4597,269 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                 )}
                               </div>
                         );
+
+                      case 'financial-reports':
+                        // Financial Reports Section - Revenue, Payments, and Financial Performance
+                        return (
+                          <div className="mb-8">
+                            <h2 className="text-xl font-bold text-black mb-1">Financial Reports</h2>
+                            <p className="text-sm text-gray-500 mb-5">Track revenue, payments, and financial performance</p>
+                            
+                            {/* 2x2 Grid Layout */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                              
+                              {/* Card 1: Revenue Trend (Line Chart) */}
+                              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                                <div className="mb-4">
+                                  <h3 className="text-base font-bold text-black">Revenue Trend</h3>
+                                  <p className="text-xs text-gray-500 mt-1">Monthly revenue vs target (Jan - Dec)</p>
+                                </div>
+                                <div className="h-72">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart
+                                      data={[
+                                        { name: 'Jan', revenue: 45000, target: 40000 },
+                                        { name: 'Feb', revenue: 52000, target: 45000 },
+                                        { name: 'Mar', revenue: 48000, target: 50000 },
+                                        { name: 'Apr', revenue: 61000, target: 55000 },
+                                        { name: 'May', revenue: 55000, target: 60000 },
+                                        { name: 'Jun', revenue: 67000, target: 65000 },
+                                        { name: 'Jul', revenue: 72000, target: 70000 },
+                                        { name: 'Aug', revenue: 69000, target: 75000 },
+                                        { name: 'Sep', revenue: 78000, target: 80000 },
+                                        { name: 'Oct', revenue: 85000, target: 85000 },
+                                        { name: 'Nov', revenue: 92000, target: 90000 },
+                                        { name: 'Dec', revenue: 98000, target: 95000 }
+                                      ]}
+                                      margin={{ top: 20, right: 20, left: 0, bottom: 60 }}
+                                    >
+                                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                      <XAxis
+                                        dataKey="name"
+                                        angle={-45}
+                                        textAnchor="end"
+                                        height={60}
+                                        tick={{ fontSize: 10, fill: '#374151', fontWeight: '500' }}
+                                        stroke="#6b7280"
+                                      />
+                                      <YAxis 
+                                        tick={{ fontSize: 10, fill: '#374151' }}
+                                        stroke="#6b7280"
+                                        tickFormatter={(value) => `₹${(value/1000).toFixed(0)}K`}
+                                      />
+                                      <Tooltip
+                                        contentStyle={{
+                                          backgroundColor: '#fff',
+                                          border: '1px solid #e5e7eb',
+                                          borderRadius: '8px',
+                                          fontSize: '12px',
+                                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                        }}
+                                        labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
+                                        formatter={(value: any) => [`₹${value.toLocaleString()}`, '']}
+                                      />
+                                      <Legend 
+                                        wrapperStyle={{ 
+                                          fontSize: '10px', 
+                                          paddingTop: '10px',
+                                          color: '#4b5563'
+                                        }}
+                                      />
+                                      <Line
+                                        type="monotone"
+                                        dataKey="revenue"
+                                        stroke="#3b82f6"
+                                        strokeWidth={3}
+                                        dot={{ fill: '#3b82f6', r: 4 }}
+                                        activeDot={{ r: 6 }}
+                                        name="Revenue"
+                                      />
+                                      <Line
+                                        type="monotone"
+                                        dataKey="target"
+                                        stroke="#10b981"
+                                        strokeWidth={2}
+                                        strokeDasharray="5 5"
+                                        dot={false}
+                                        name="Target"
+                                      />
+                                    </LineChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+
+                              {/* Card 2: Payment Methods (Donut Chart) */}
+                              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                                <div className="mb-4">
+                                  <h3 className="text-base font-bold text-black">Payment Methods</h3>
+                                  <p className="text-xs text-gray-500 mt-1">Distribution by payment type</p>
+                                </div>
+                                <div className="h-72">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                      <Pie
+                                        data={[
+                                          { name: 'Card Payment', value: 35, color: '#3b82f6' },
+                                          { name: 'Cash', value: 25, color: '#10b981' },
+                                          { name: 'Online Transfer', value: 30, color: '#f59e0b' },
+                                          { name: 'Tabby', value: 10, color: '#8b5cf6' }
+                                        ]}
+                                        cx="40%"
+                                        cy="50%"
+                                        innerRadius={50}
+                                        outerRadius={80}
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                        nameKey="name"
+                                        labelLine={false}
+                                      >
+                                        {[
+                                          { name: 'Card Payment', value: 35, color: '#3b82f6' },
+                                          { name: 'Cash', value: 25, color: '#10b981' },
+                                          { name: 'Online Transfer', value: 30, color: '#f59e0b' },
+                                          { name: 'Tabby', value: 10, color: '#8b5cf6' }
+                                        ].map((entry, index) => (
+                                          <Cell key={`cell-${index}`} fill={entry.color} />
+                                        ))}
+                                      </Pie>
+                                      <Tooltip
+                                        contentStyle={{
+                                          backgroundColor: '#fff',
+                                          border: '1px solid #e5e7eb',
+                                          borderRadius: '8px',
+                                          fontSize: '12px',
+                                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                        }}
+                                        formatter={(value: any, name: any) => [`${value}%`, name || 'Payment Method']}
+                                      />
+                                      <Legend 
+                                        layout="vertical"
+                                        verticalAlign="middle"
+                                        align="right"
+                                        wrapperStyle={{ 
+                                          fontSize: '11px', 
+                                          paddingLeft: '20px',
+                                          color: '#4b5563',
+                                          lineHeight: '24px'
+                                        }}
+                                        formatter={(value: any) => {
+                                          const data = [
+                                            { name: 'Card Payment', value: 35, color: '#3b82f6' },
+                                            { name: 'Cash', value: 25, color: '#10b981' },
+                                            { name: 'Online Transfer', value: 30, color: '#f59e0b' },
+                                            { name: 'Tabby', value: 10, color: '#8b5cf6' }
+                                          ];
+                                          const item = data.find((d) => d.name === value);
+                                          return `${value}: ${item ? item.value : 0}%`;
+                                        }}
+                                      />
+                                    </PieChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+
+                              {/* Card 3: Doctor Revenue (Bar Chart) */}
+                              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                                <div className="mb-4">
+                                  <h3 className="text-base font-bold text-black">Doctor Revenue</h3>
+                                  <p className="text-xs text-gray-500 mt-1">Revenue generated by each doctor</p>
+                                </div>
+                                <div className="h-72">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                      data={financialData.doctorRevenueData.length > 0 ? financialData.doctorRevenueData : []}
+                                      margin={{ top: 5, right: 20, left: 0, bottom: 60 }}
+                                    >
+                                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                                      <XAxis 
+                                        dataKey="name" 
+                                        tick={{ fontSize: 10, fill: '#6b7280' }}
+                                        angle={-45}
+                                        textAnchor="end"
+                                        height={80}
+                                      />
+                                      <YAxis 
+                                        tick={{ fontSize: 10, fill: '#6b7280' }}
+                                        tickFormatter={(value) => `₹${(value/1000).toFixed(0)}K`}
+                                      />
+                                      <Tooltip
+                                        contentStyle={{
+                                          backgroundColor: '#fff',
+                                          border: '1px solid #e5e7eb',
+                                          borderRadius: '8px',
+                                          fontSize: '12px',
+                                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                        }}
+                                        labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
+                                        formatter={(value: any, name: any) => {
+                                          if (name === 'revenue') {
+                                            return [`₹${value.toLocaleString()}`, 'Revenue'];
+                                          }
+                                          return [value, name];
+                                        }}
+                                      />
+                                      <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
+                                      <Bar
+                                        dataKey="revenue"
+                                        fill="#3b82f6"
+                                        name="Revenue"
+                                        radius={[6, 6, 0, 0]}
+                                      />
+                                    </BarChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+
+                              {/* Card 4: Top Services Revenue (Table) */}
+                              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                                <div className="mb-4">
+                                  <h3 className="text-base font-bold text-black">Top Services Revenue</h3>
+                                  <p className="text-xs text-gray-500 mt-1">Best-performing services by revenue</p>
+                                </div>
+                                <div className="overflow-x-auto">
+                                  <table className="min-w-full">
+                                    <thead className="bg-gray-50 sticky top-0">
+                                      <tr>
+                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Service Name</th>
+                                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Sessions</th>
+                                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Revenue</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200">
+                                      {financialData.topServicesData.length > 0 ? (
+                                        financialData.topServicesData.slice(0, 5).map((service, index) => (
+                                          <tr key={index} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                              <span className="text-sm font-medium text-gray-900">{service.name || 'N/A'}</span>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-center">
+                                              <span className="text-sm text-gray-700">{typeof service.sessions === 'number' ? service.sessions : 0}</span>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-right">
+                                              <span className="text-sm font-semibold text-teal-600">₹{(typeof service.revenue === 'number' ? service.revenue : 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            </td>
+                                          </tr>
+                                        ))
+                                      ) : (
+                                        <tr>
+                                          <td colSpan={3} className="px-4 py-8 text-center text-gray-500">
+                                            No service data available
+                                          </td>
+                                        </tr>
+                                      )}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
                      
                       case 'quick-actions':
                         return (
             <div>
               <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 mb-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Quick Actions</h3>
+                <h3 className="text-base font-bold text-black mb-4">Quick Actions</h3>
                 <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
                   {quickActions.map((action, idx) => {
                     return (
@@ -4152,16 +4916,16 @@ const ClinicDashboard: NextPageWithLayout = () => {
                           { name: 'Completed', value: dailyStats.completed, target: Math.max(dailyStats.completed * 1.2, 100) },
                         ];
 
-                        // Calculate totals
-                        const totalBarChart = barChartData.reduce((sum, item) => sum + item.value, 0);
-                        const totalLineChart = lineChartData.reduce((sum, item) => sum + item.value, 0);
-                        const totalAppointments = totalBarChart + totalLineChart;
+                        // Calculate totals (commented out as unused)
+                        // const totalBarChart = barChartData.reduce((sum, item) => sum + item.value, 0);
+                        // const totalLineChart = lineChartData.reduce((sum, item) => sum + item.value, 0);
+                        // const totalAppointments = totalBarChart + totalLineChart;
 
                         return (
                           <div>
                             {/* Main Header - Plain heading without box */}
                             <div className="mb-4">
-                              <div className="flex items-center justify-between">
+                              <div className={`flex items-center justify-between ${searchQuery.trim() && sectionMatchesSearch(['Appointment', 'Appointments', 'Reports']) ? 'bg-blue-100 p-3 rounded-lg' : ''}`}>
                                 <div>
                                   <h3 className="text-xl font-bold text-black">
                                     Appointment Reports
@@ -4313,7 +5077,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                   {timeRangeFilter === 'week' && 'Weekly patient acquisition trends'}
                                   {timeRangeFilter === 'month' && 'Monthly patient acquisition trends'}
                                   {timeRangeFilter === 'overall' && 'Overall patient acquisition trends'}
-                                  {timeRangeFilter === 'select-calendar' && 'Select a time range to view patient acquisition trends'}
+                                  {timeRangeFilter === 'today' && 'Today patient acquisition trends'}
                                 </p>
                               </div>
                               <div className="h-72">
@@ -4493,7 +5257,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                   {timeRangeFilter === 'week' && 'Weekly distribution by number of visits'}
                                   {timeRangeFilter === 'month' && 'Monthly distribution by number of visits'}
                                   {timeRangeFilter === 'overall' && 'Overall distribution by number of visits'}
-                                  {timeRangeFilter === 'select-calendar' && 'Distribution by number of visits'}
+                                  {timeRangeFilter === 'today' && 'Today distribution by number of visits'}
                                 </p>
                               </div>
                               <div className="h-72">
@@ -4553,7 +5317,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                               {timeRangeFilter === 'week' && 'Weekly service bookings, revenue, and conversion rates'}
                               {timeRangeFilter === 'month' && 'Monthly service bookings, revenue, and conversion rates'}
                               {timeRangeFilter === 'overall' && 'Overall service bookings, revenue, and conversion rates'}
-                              {timeRangeFilter === 'select-calendar' && 'Track service bookings, revenue, and conversion rates'}
+                              {timeRangeFilter === 'today' && 'Today service bookings, revenue, and conversion rates'}
                             </p>
 
                             {servicePerformanceLoading ? (
@@ -4795,9 +5559,19 @@ const ClinicDashboard: NextPageWithLayout = () => {
                             <MembershipPackageReports timeRange={timeRangeFilter as 'week' | 'month' | 'overall'} />
                           </div>
 
-                          {/* Staff Performance Section */}
+                          {/* Doctor Performance Analytics Section */}
                           <div className="mt-9">
-                            <StaffPerformance timeRange={timeRangeFilter as 'week' | 'month' | 'overall'} />
+                            <DoctorPerformance timeRange={timeRangeFilter as 'week' | 'month' | 'overall'} selectedDate={selectedDate} />
+                          </div>
+
+                          {/* Room & Resource Usage Section */}
+                          <div className="mt-9">
+                            <RoomUtilization timeRange={timeRangeFilter as 'week' | 'month' | 'overall'} selectedDate={selectedDate} />
+                          </div>
+
+                          {/* Cancellation & No-Show Reports Section */}
+                          <div className="mt-9">
+                            <CancellationReports timeRange={timeRangeFilter as 'week' | 'month' | 'overall'} selectedDate={selectedDate} />
                           </div>
                         </div>
                         );
@@ -4827,52 +5601,45 @@ const ClinicDashboard: NextPageWithLayout = () => {
                               <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
                                 <h3 className="text-base font-bold text-black">Lead Source Wise</h3>
                                 <div className="h-72">
-                                  {filteredLeadSourceData.length > 0 ? (
-                                    <ResponsiveContainer width="100%" height="100%">
-                                      <PieChart>
-                                        <Pie
-                                          data={filteredLeadSourceData}
-                                          cx="50%"
-                                          cy="50%"
-                                          labelLine={false}
-                                          label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
-                                          outerRadius={80}
-                                          fill="#8884d8"
-                                          dataKey="value"
-                                        >
-                                          {filteredLeadSourceData.map((entry: any, index: number) => (
-                                            <Cell key={`cell-${index}`} fill={entry.fill} />
-                                          ))}
-                                        </Pie>
-                                        <Tooltip 
-                                          contentStyle={{
-                                            backgroundColor: '#fff',
-                                            border: '1px solid #e5e7eb',
-                                            borderRadius: '8px',
-                                            fontSize: '12px',
-                                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                                          }}
-                                          labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
-                                        />
-                                        <Legend 
-                                          wrapperStyle={{ 
-                                            fontSize: '10px', 
-                                            paddingTop: '10px',
-                                            color: '#4b5563'
-                                          }}
-                                        />
-                                      </PieChart>
-                                    </ResponsiveContainer>
-                                  ) : (
-                                    <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
-                                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                        </svg>
-                                      </div>
-                                      <p className="text-sm font-medium text-gray-500">No lead source data available for the selected period</p>
-                                    </div>
-                                  )}
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                      <Pie
+                                        data={filteredLeadSourceData.length > 0 ? filteredLeadSourceData : [{ name: 'No Data', value: 0 }]}
+                                        cx="50%"
+                                        cy="50%"
+                                        labelLine={false}
+                                        label={({ name, percent }) => {
+                                          const displayName = (name && name.length > 12) ? name.substring(0, 10) + '...' : (name || '');
+                                          return `${displayName}: ${((percent ?? 0) * 100).toFixed(0)}%`;
+                                        }}
+                                        outerRadius={70}
+                                        fill="#8884d8"
+                                        dataKey="value"
+                                        paddingAngle={2}
+                                      >
+                                        {(filteredLeadSourceData.length > 0 ? filteredLeadSourceData : [{ name: 'No Data', value: 0 }]).map((entry: any, index: number) => (
+                                          <Cell key={`cell-${index}`} fill={entry.fill || '#e5e7eb'} />
+                                        ))}
+                                      </Pie>
+                                      <Tooltip 
+                                        contentStyle={{
+                                          backgroundColor: '#fff',
+                                          border: '1px solid #e5e7eb',
+                                          borderRadius: '8px',
+                                          fontSize: '12px',
+                                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                        }}
+                                        labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
+                                      />
+                                      <Legend 
+                                        wrapperStyle={{ 
+                                          fontSize: '10px', 
+                                          paddingTop: '10px',
+                                          color: '#4b5563'
+                                        }}
+                                      />
+                                    </PieChart>
+                                  </ResponsiveContainer>
                                 </div>
                               </div>
 
@@ -4880,52 +5647,45 @@ const ClinicDashboard: NextPageWithLayout = () => {
                               <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
                                 <h3 className="text-base font-bold text-black">Lead Status Wise</h3>
                                 <div className="h-72">
-                                  {filteredLeadStatusData.length > 0 ? (
-                                    <ResponsiveContainer width="100%" height="100%">
-                                      <PieChart>
-                                        <Pie
-                                          data={filteredLeadStatusData}
-                                          cx="50%"
-                                          cy="50%"
-                                          labelLine={false}
-                                          label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
-                                          outerRadius={80}
-                                          fill="#8884d8"
-                                          dataKey="value"
-                                        >
-                                          {filteredLeadStatusData.map((entry: any, index: number) => (
-                                            <Cell key={`cell-${index}`} fill={entry.fill} />
-                                          ))}
-                                        </Pie>
-                                        <Tooltip 
-                                          contentStyle={{
-                                            backgroundColor: '#fff',
-                                            border: '1px solid #e5e7eb',
-                                            borderRadius: '8px',
-                                            fontSize: '12px',
-                                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                                          }}
-                                          labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
-                                        />
-                                        <Legend 
-                                          wrapperStyle={{ 
-                                            fontSize: '10px', 
-                                            paddingTop: '10px',
-                                            color: '#4b5563'
-                                          }}
-                                        />
-                                      </PieChart>
-                                    </ResponsiveContainer>
-                                  ) : (
-                                    <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-                                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                        </svg>
-                                      </div>
-                                      <p className="text-sm font-medium text-gray-500">No lead status data available for the selected period</p>
-                                    </div>
-                                  )}
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                      <Pie
+                                        data={filteredLeadStatusData.length > 0 ? filteredLeadStatusData : [{ name: 'No Data', value: 0 }]}
+                                        cx="50%"
+                                        cy="50%"
+                                        labelLine={false}
+                                        label={({ name, percent }) => {
+                                          const displayName = (name && name.length > 12) ? name.substring(0, 10) + '...' : (name || '');
+                                          return `${displayName}: ${((percent ?? 0) * 100).toFixed(0)}%`;
+                                        }}
+                                        outerRadius={70}
+                                        fill="#8884d8"
+                                        dataKey="value"
+                                        paddingAngle={2}
+                                      >
+                                        {(filteredLeadStatusData.length > 0 ? filteredLeadStatusData : [{ name: 'No Data', value: 0 }]).map((entry: any, index: number) => (
+                                          <Cell key={`cell-${index}`} fill={entry.fill || '#e5e7eb'} />
+                                        ))}
+                                      </Pie>
+                                      <Tooltip 
+                                        contentStyle={{
+                                          backgroundColor: '#fff',
+                                          border: '1px solid #e5e7eb',
+                                          borderRadius: '8px',
+                                          fontSize: '12px',
+                                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                        }}
+                                        labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
+                                      />
+                                      <Legend 
+                                        wrapperStyle={{ 
+                                          fontSize: '10px', 
+                                          paddingTop: '10px',
+                                          color: '#4b5563'
+                                        }}
+                                      />
+                                    </PieChart>
+                                  </ResponsiveContainer>
                                 </div>
                               </div>
                             </div>
@@ -4943,8 +5703,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         );
 
                       case 'status-charts':
-                        // Calculate total offers
-                        const totalOffers = offerStatusData.reduce((sum, item) => sum + item.value, 0);
+                        // Calculate total offers (commented out as unused)
+                        // const totalOffers = offerStatusData.reduce((sum, item) => sum + item.value, 0);
                         
                         return (
                           <div>
@@ -4965,7 +5725,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                             </div>
                             
                             {/* Offer Status Cards Grid */}
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-3">
                                   {offerStatusData.map((status) => (
                                     <div 
                                       key={status.name}
@@ -4987,7 +5747,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                 
                                 {/* Pie Chart - In Div Box */}
                                 <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-                                  <h3 className="text-base font-bold text-black mb-4">Offer Status Distribution</h3>
+                                  <h3 className="text-base font-bold text-black mb-2">Offer Status Distribution</h3>
                                   <div className="h-72">
                                   <ResponsiveContainer width="100%" height="100%">
                                     <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
@@ -5038,13 +5798,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
                             </div>
                             
                             {/* Top 5 Packages Graph - Multi-Series Line Chart */}
-            {topPackagesData.length > 0 ? (
-              <div className="mb-6">
+            <div className="mb-6">
                 <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
                   <h3 className="text-base font-bold text-black mb-4">Top 5 Packages</h3>
                   <div className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={topPackagesData}>
+                    <LineChart data={topPackagesData.length > 0 ? topPackagesData : [{ name: 'No Data', totalAmount: 0, count: 0 }]}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                       <XAxis
                         dataKey="name"
@@ -5091,28 +5850,14 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 </div>
               </div>
               </div>
-            ) : (
-              <div className="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm p-4 h-72 flex flex-col items-center justify-center text-gray-400">
-                <div className="flex flex-col items-center gap-3">
-                  {/* Empty state icon */}
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                  </div>
-                  <p className="text-sm font-medium text-gray-500">No package data available for the selected period</p>
-                </div>
-              </div>
-            )}
             
             {/* Top 5 Services Graph - Multi-Series Line Chart */}
-            {topServicesData.length > 0 ? (
-              <div className="mb-6">
+            <div className="mb-6">
                 <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
                   <h3 className="text-base font-bold text-black mb-4">Top 5 Services</h3>
                   <div className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={topServicesData}>
+                    <LineChart data={topServicesData.length > 0 ? topServicesData : [{ name: 'No Data', totalAmount: 0, count: 0 }]}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                       <XAxis
                         dataKey="name"
@@ -5159,19 +5904,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 </div>
               </div>
               </div>
-            ) : (
-              <div className="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm p-4 h-72 flex flex-col items-center justify-center text-gray-400">
-                <div className="flex flex-col items-center gap-3">
-                  {/* Empty state icon */}
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                  </div>
-                  <p className="text-sm font-medium text-gray-500">No service data available for the selected period</p>
-                </div>
-              </div>
-            )}
             
             {/* Date Display */}
             <div className="mt-4 text-xs text-gray-500 text-center">
@@ -5208,10 +5940,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
                             {/* Membership Data Card */}
                             <div className="bg-white rounded-[16px] border border-gray-200 shadow-sm p-5 mb-6">
                               {/* Membership Data - Area Chart (different from other charts) */}
-            {membershipData.length > 0 ? (
-              <div className="h-72">
+            <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={membershipData}>
+                  <AreaChart data={membershipData.length > 0 ? membershipData : [{ name: 'No Data', count: 0, totalRevenue: 0 }]}>
                     <defs>
                       <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8}/>
@@ -5261,19 +5992,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
-            ) : (
-              <div className="h-72 flex flex-col items-center justify-center text-gray-400">
-                <div className="flex flex-col items-center gap-3">
-                  {/* Empty state icon */}
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                  </div>
-                  <p className="text-sm font-medium text-gray-500">No membership data available for the selected period</p>
-                </div>
-              </div>
-            )}
             
             {/* Date Display */}
             <div className="mt-4 text-xs text-gray-500 text-center">
@@ -5693,12 +6411,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
         <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-200 shadow-lg p-6 mb-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-gradient-to-br from-teal-500 to-teal-600 rounded-lg shadow-md">
-                <Crown className="w-6 h-6 text-white" />
-              </div>
+            
               <div>
-                <h3 className="text-lg font-bold text-teal-800">Subscription Status</h3>
-                <p className="text-xs text-gray-500">Manage your module access</p>
+                <h3 className="text-base font-bold text-black">Subscription Status</h3>
+                <p className="text-xs text-gray-500 mt-1">Manage your module access</p>
               </div>
             </div>
             <div className="text-right">
@@ -5782,9 +6498,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Activity className="w-5 h-5 text-gray-600" />
-                <span className="text-sm font-semibold text-teal-800">Module Summary</span>
+                <span className="text-base font-bold text-black">Module Summary</span>
               </div>
-              <span className="text-lg font-bold text-teal-800">{subscriptionSummary.totalModules} Total</span>
+              <span className="text-sm text-gray-600">{subscriptionSummary.totalModules} Total</span>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center p-3 bg-green-50 rounded-lg border border-green-100">
