@@ -171,140 +171,123 @@ export default async function handler(req, res) {
           { name: 'Tabby', value: 10, color: '#8b5cf6' }
         ];
 
-    // 3. Doctor Revenue - Calculate from Appointments with valid status and Billing amounts
+    // 3. Doctor Revenue - Fetch from Billing model for doctorStaff/doctors of this clinic
     let doctorRevenueStats = [];
     try {
-      console.log('💰 Calculating Doctor Revenue from Appointments...');
+      console.log('💰 Calculating Doctor Revenue from Billing model...');
+      console.log('📅 Billing date range:', {
+        start: startOfYear.toISOString(),
+        end: endOfYear.toISOString(),
+        filter: filter
+      });
       
-      // First, let's check what data we have in appointments
-      const sampleAppointments = await Appointment.aggregate([
-        {
-          $match: {
-            clinicId: clinic._id,
-            startDate: {
-              $gte: startOfYear,
-              $lte: endOfYear
-            },
-            status: { $in: ['Completed', 'Discharge', 'Consultation', 'Arrived', 'Approved'] }
-          }
-        },
-        {
-          $limit: 5
-        }
-      ]);
+      // First, get all doctorStaff and doctor users for this clinic
+      const clinicDoctors = await mongoose.model('User').find({
+        clinicId: clinic._id,
+        role: { $in: ['doctorStaff', 'doctor'] }
+      }).select('_id name email');
       
-      console.log('🔍 Sample appointments:', JSON.stringify(sampleAppointments.slice(0, 2), null, 2));
+      console.log(`👨‍⚕️ Found ${clinicDoctors.length} doctors/staff for this clinic`);
       
-      // Aggregate appointments by doctor with their billing amounts
-      doctorRevenueStats = await Appointment.aggregate([
-        {
-          $match: {
-            clinicId: clinic._id,
-            startDate: {
-              $gte: startOfYear,
-              $lte: endOfYear
-            },
-            // Only include valid appointment statuses (exclude cancelled/rejected)
-            status: { 
-              $in: ['Completed', 'Discharge', 'Consultation', 'Arrived', 'Approved', 'invoice'] 
+      if (clinicDoctors.length > 0) {
+        const doctorIds = clinicDoctors.map(d => d._id);
+        const doctorNameMap = {};
+        clinicDoctors.forEach(d => {
+          doctorNameMap[d._id.toString()] = d.name;
+        });
+        
+        // Aggregate billings where doctorId matches these doctors
+        doctorRevenueStats = await Billing.aggregate([
+          {
+            $match: {
+              clinicId: clinic._id,
+              createdAt: {
+                $gte: startOfYear,
+                $lte: endOfYear
+              }
             }
-          }
-        },
-        {
-          $lookup: {
-            from: 'billings',
-            localField: '_id',
-            foreignField: 'appointmentId',
-            as: 'billing'
-          }
-        },
-        {
-          $unwind: {
-            path: '$billing',
-            preserveNullAndEmptyArrays: true
-          }
-        },
-        {
-          $lookup: {
-            from: 'doctorprofiles',
-            localField: 'doctorId',
-            foreignField: 'user',
-            as: 'doctorProfile'
-          }
-        },
-        {
-          $unwind: {
-            path: '$doctorProfile',
-            preserveNullAndEmptyArrays: true
-          }
-        },
-        {
-          $lookup: {
-            from: 'users',
-            localField: 'doctorId',
-            foreignField: '_id',
-            as: 'doctorUser'
-          }
-        },
-        {
-          $unwind: {
-            path: '$doctorUser',
-            preserveNullAndEmptyArrays: true
-          }
-        },
-        {
-          $project: {
-            appointmentId: '$_id',
-            doctorId: 1,
-            status: 1,
-            startDate: 1,
-            doctorNameFromProfile: '$doctorProfile.name',
-            doctorDegree: '$doctorProfile.degree',
-            doctorNameFromUser: '$doctorUser.name',
-            doctorEmail: '$doctorUser.email',
-            billingAmount: { $ifNull: ['$billing.paid', 0] },
-            hasBilling: { $ifNull: ['$billing._id', false] }
-          }
-        },
-        {
-          $group: {
-            _id: {
-              doctorId: '$doctorId'
-            },
-            doctorName: { 
-              $first: {
+          },
+          {
+            $lookup: {
+              from: 'appointments',
+              localField: 'appointmentId',
+              foreignField: '_id',
+              as: 'appointment'
+            }
+          },
+          {
+            $unwind: {
+              path: '$appointment',
+              preserveNullAndEmptyArrays: true
+            }
+          },
+          {
+            $match: {
+              'appointment.doctorId': { $in: doctorIds }
+            }
+          },
+          {
+            $group: {
+              _id: '$appointment.doctorId',
+              totalRevenue: { $sum: '$paid' },
+              totalSessions: { $sum: 1 }
+            }
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: '_id',
+              foreignField: '_id',
+              as: 'doctorUser'
+            }
+          },
+          {
+            $unwind: {
+              path: '$doctorUser',
+              preserveNullAndEmptyArrays: true
+            }
+          },
+          {
+            $project: {
+              _id: 1,
+              totalRevenue: 1,
+              totalSessions: 1,
+              doctorName: { 
                 $switch: {
                   branches: [
-                    { case: { $ifNull: ['$doctorNameFromUser', false] }, then: '$doctorNameFromUser' },
-                    { case: { $ifNull: ['$doctorNameFromProfile', false] }, then: '$doctorNameFromProfile' },
-                    { case: { $ifNull: ['$doctorDegree', false] }, then: '$doctorDegree' }
+                    { case: { $ifNull: ['$doctorUser.name', false] }, then: '$doctorUser.name' },
+                    { case: { $ifNull: [doctorNameMap[$_id.toString()], false] }, then: doctorNameMap[$_id.toString()] }
                   ],
                   default: 'Unknown Doctor'
                 }
               }
-            },
-            totalAppointments: { $sum: 1 },
-            billedAppointments: { $sum: { $cond: [{ $ifNull: ['$hasBilling', false] }, 1, 0] } },
-            revenue: { $sum: '$billingAmount' }
+            }
+          },
+          {
+            $sort: { totalRevenue: -1 }
+          },
+          {
+            $limit: 10
           }
-        },
-        {
-          $sort: { revenue: -1 }
-        },
-        {
-          $limit: 10
+        ]);
+        
+        console.log('👨‍⚕️ Doctor Revenue Stats:', doctorRevenueStats.length, 'doctors with revenue');
+        if (doctorRevenueStats.length > 0) {
+          console.log('💉 Sample doctor revenue data:', JSON.stringify(doctorRevenueStats[0], null, 2));
+        } else {
+          console.log('⚠️ No doctor revenue found in date range! Check if billings exist with doctor appointments.');
         }
-      ]);
-      
-      console.log('👨‍⚕️ Doctor Revenue Stats:', doctorRevenueStats.length);
-      console.log('💉 Sample doctor stats with names:', JSON.stringify(doctorRevenueStats.slice(0, 2), null, 2));
+      } else {
+        console.log('⚠️ No doctorStaff or doctors found for this clinic');
+      }
     } catch (err) {
       console.error('❌ Error in doctor revenue aggregation:', err);
     }
 
     const doctorRevenueData = doctorRevenueStats.map(stat => ({
       name: stat.doctorName || 'Unknown Doctor',
-      revenue: stat.revenue
+      revenue: stat.totalRevenue,
+      sessions: stat.totalSessions
     }));
     
     console.log('📋 Final Doctor Revenue Data:', doctorRevenueData);

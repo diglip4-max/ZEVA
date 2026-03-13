@@ -57,12 +57,17 @@ export default async function handler(req, res) {
       let queryStartDate;
       let queryEndDate;
 
-    if (filter === 'week') {
-      const baseDate = date ? dayjs(date) : dayjs();
+      if (filter === 'today') {
+        // Single day - today or selected date
+        const baseDate = date ? dayjs(date) : dayjs();
+        queryStartDate = baseDate.startOf('day').toDate();
+        queryEndDate = baseDate.endOf('day').toDate();
+      } else if (filter === 'week') {
+        const baseDate = date ? dayjs(date) : dayjs();
         queryStartDate = baseDate.subtract(1, 'week').startOf('day').toDate();
         queryEndDate = baseDate.endOf('day').toDate();
       } else if (filter === 'month') {
-      const baseDate = date ? dayjs(date) : dayjs();
+        const baseDate = date ? dayjs(date) : dayjs();
         queryStartDate = baseDate.subtract(1, 'month').startOf('day').toDate();
         queryEndDate = baseDate.endOf('day').toDate();
       } else if (filter === 'overall') {

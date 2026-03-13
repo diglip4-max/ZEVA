@@ -785,7 +785,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
           <div className="sticky top-0 bg-gradient-to-r from-teal-600 to-blue-600 px-4 sm:px-6 py-3 flex items-center justify-between z-10 rounded-t-2xl">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <Edit className="w-5 h-5 text-white flex-shrink-0" />
-              <h1 className="text-xl sm:text-2xl font-bold text-white truncate">Patient & Invoice Management</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-white truncate">Edit Patient Details</h1>
             </div>
             {onClose && (
               <button
@@ -799,7 +799,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
           </div>
           <div className="p-4 sm:p-6 flex-1 overflow-y-auto bg-gray-50">
             <div className="p-3 space-y-4 flex-1 overflow-y-auto">
-              {/* Tabs */}
+              {/* Tabs - Only show Update tab, removed Payment History */}
               <div className="flex gap-2 border-b border-gray-200 mb-3 pb-2">
                 <button
                   onClick={() => setActiveTab("update")}
@@ -810,24 +810,15 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                   }`}
                 >
                   <Edit className="w-3 h-3" />
-                  Update
-                </button>
-                <button
-                  onClick={() => setActiveTab("paymentHistory")}
-                  className={`px-4 py-2 text-[11px] font-semibold transition-all duration-300 flex items-center gap-1 ${
-                    activeTab === "paymentHistory"
-                      ? "text-teal-700 border-b-2 border-teal-500 bg-teal-50 rounded-t-lg"
-                      : "text-gray-600 hover:text-teal-600 hover:bg-teal-50 rounded-t-lg"
-                  }`}
-                >
-                  <DollarSign className="w-3 h-3" />
-                  Payment History
+                  Update Patient Details
                 </button>
               </div>
 
               {/* Update Patient Tab */}
               {activeTab === "update" && (
                 <>
+                {/* Invoice Information Section - REMOVED - Users cannot edit invoice details */}
+                {/* 
                 <div className={`bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-indigo-200 shadow-md`}>
                   <h2 className={`text-[14px] font-bold text-indigo-700 mb-2 flex items-center gap-1`}>
                     <Calendar className={`w-4 h-4 text-indigo-600 flex-shrink-0`} />
@@ -858,6 +849,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                     />
                   </div>
                 </div>
+                */}
 
                 <div className={`bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-indigo-200 shadow-md`}>
                   <h2 className={`text-[14px] font-bold text-blue-700 mb-2 flex items-center gap-1`}>
@@ -865,12 +857,18 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                     Patient Information
                   </h2>
                   <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3`}>
-                    <EditableField
-                      label="EMR Number"
-                      name="emrNumber"
-                      value={formData.emrNumber}
-                      onChange={handleFieldChange}
-                    />
+                    <div className="relative group">
+                      <EditableField
+                        label="EMR Number (Read-Only)"
+                        name="emrNumber"
+                        value={formData.emrNumber}
+                        onChange={handleFieldChange}
+                        disabled
+                      />
+                      <div className="absolute hidden group-hover:block bottom-full left-0 mb-1 px-2 py-1 bg-gray-800 text-white text-[9px] rounded whitespace-nowrap z-10">
+                        EMR Number cannot be changed
+                      </div>
+                    </div>
                     <EditableField
                       label="First Name"
                       name="firstName"
