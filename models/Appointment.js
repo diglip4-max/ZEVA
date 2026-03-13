@@ -38,6 +38,7 @@ const AppointmentSchema = new mongoose.Schema(
         "Rejected",
         "Completed",
         "invoice",
+        "No Show",
       ],
       required: true,
       default: "booked",
@@ -76,6 +77,17 @@ const AppointmentSchema = new mongoose.Schema(
     notes: {
       type: String,
       trim: true,
+    },
+    cancellationReason: {
+      type: String,
+      enum: [
+        "Personal Emergency",
+        "Schedule Conflict",
+        "Found Another Clinic",
+        "Too Expensive",
+        "Other"
+      ],
+      default: null,
     },
     treatment: {
       type: String,

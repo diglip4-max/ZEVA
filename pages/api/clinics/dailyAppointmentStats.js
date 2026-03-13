@@ -201,20 +201,22 @@ export default async function handler(req, res) {
       })
     ]);
 
+    // Daily stats for Today's Activity section - only include needed fields
+    const daily = {
+      patients: dailyPatients,
+      offers: dailyOffers,
+      arrived: stats.arrived,
+      booked: stats.booked,
+      cancelled: stats.cancelled,
+      waiting: stats.waiting,
+      enquiry: stats.enquiry
+    };
+
     return res.status(200).json({
       success: true,
       date: startOfDay,
       stats, // Appointment stats breakdown
-      daily: {
-        patients: dailyPatients,
-        jobs: dailyJobs,
-        offers: dailyOffers,
-        leads: dailyLeads,
-        reviews: dailyReviews,
-        enquiries: dailyEnquiries,
-        applications: dailyApplications,
-        appointments: stats.booked + stats.arrived + stats.consultation + stats.cancelled + stats.discharge + stats.enquiry + stats.approved + stats.rescheduled + stats.waiting + stats.rejected + stats.completed
-      },
+      daily,
       totals: {
         membership: totalMembership,
         jobs: totalJobs

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { io, Socket } from "socket.io-client";
 import { jwtDecode } from "jwt-decode";
-import SignatureCanvas from "react-signature-canvas";
+import SignaturePad from "signature_pad";
 import { 
   BellIcon, 
   XMarkIcon,
@@ -20,24 +20,6 @@ import {
 } from "@heroicons/react/24/outline";
 import { CheckCircleIcon as CheckCircleSolid } from "@heroicons/react/24/solid";
 import { ClipboardListIcon } from "lucide-react";
-
-// Professional signature configuration for optimal smoothness
-const SIGNATURE_CONFIG = {
-  penColor: "#1e293b",
-  minWidth: 0.8,
-  maxWidth: 3.5,
-  velocityFilterWeight: 0.9,
-  throttle: 8,
-  minDistance: 1,
-  dotSize: 1.2,
-  backgroundColor: "rgba(255,255,255,0)",
-  canvasProps: {
-    className: "w-full h-64 border-2 border-gray-200 rounded-xl bg-white shadow-inner touch-none cursor-crosshair",
-    style: {
-      boxShadow: "inset 0 2px 4px rgba(0,0,0,0.02)",
-    }
-  }
-};
 
 interface AppNotification {
   _id: string;
@@ -85,7 +67,7 @@ const SignatureModal: React.FC<SignatureModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [signatureExists, setSignatureExists] = useState(false);
-  const signaturePadRef = useRef<SignatureCanvas>(null);
+  const signaturePadRef = useRef<SignaturePad>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Handle escape key
@@ -108,14 +90,6 @@ const SignatureModal: React.FC<SignatureModalProps> = ({
       document.body.style.overflow = "";
     };
   }, [isOpen]);
-
-  // Check if signature has content
-  const checkSignature = useCallback(() => {
-    if (signaturePadRef.current) {
-      const isEmpty = signaturePadRef.current.isEmpty();
-      setSignatureExists(!isEmpty);
-    }
-  }, []);
 
   // Clear signature
   const clearSignature = useCallback(() => {
@@ -191,7 +165,7 @@ const SignatureModal: React.FC<SignatureModalProps> = ({
       setLoading(true);
 
       // Get the canvas element from the signature pad
-      const canvas = signaturePadRef.current.getCanvas();
+      const canvas = signaturePadRef.current.canvas;
       
       // Trim the canvas to remove whitespace
       const trimmedCanvas = trimCanvas(canvas);
@@ -243,12 +217,12 @@ const SignatureModal: React.FC<SignatureModalProps> = ({
         {/* Signature Pad Area */}
         <div className="p-6 space-y-4">
           <div className="relative bg-gray-50 rounded-xl p-4 border-2 border-dashed border-gray-200">
-            <SignatureCanvas
+            {/* <SignatureCanvas
               ref={signaturePadRef}
               {...SIGNATURE_CONFIG}
               onBegin={checkSignature}
               onEnd={checkSignature}
-            />
+            /> */}
             
             {/* Watermark when empty */}
             {!signatureExists && (

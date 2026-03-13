@@ -1,15 +1,9 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
 import dbConnect from '../../../lib/database';
-import PatientRegistration from '../../../models/PatientRegistration';
 import Appointment from '../../../models/Appointment';
-import Clinic from '../../../models/Clinic';
-import { getUserFromReq } from '../../lead-ms/auth';
-import { getClinicIdFromUser } from '../../lead-ms/permissions-helper';
+import { getUserFromReq } from '../lead-ms/auth';
+import { getClinicIdFromUser } from '../lead-ms/permissions-helper';
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+export default async function handler(req, res) {
   await dbConnect();
 
   if (req.method !== 'GET') {
@@ -42,12 +36,12 @@ export default async function handler(
     const { startDate, endDate, date, timeRange } = req.query;
 
     // Build date filter based on time range
-    let dateFilter: any = {};
+    let dateFilter = {};
     
     if (timeRange === 'week') {
       // For week filter, use the date param to calculate week range
       if (date) {
-        const selectedDate = new Date(date as string);
+        const selectedDate = new Date(date);
         const dayOfWeek = selectedDate.getDay();
         const startOfWeek = new Date(selectedDate);
         
@@ -65,12 +59,12 @@ export default async function handler(
       if (startDate && endDate) {
         dateFilter = {
           startDate: {
-            $gte: new Date(startDate as string),
-            $lte: new Date(endDate as string),
+            $gte: new Date(startDate),
+            $lte: new Date(endDate),
           },
         };
       } else if (date) {
-        const selectedDate = new Date(date as string);
+        const selectedDate = new Date(date);
         const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
         const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
         dateFilter = {
@@ -82,7 +76,7 @@ export default async function handler(
       }
     } else if (date) {
       // Single day filter
-      const selectedDate = new Date(date as string);
+      const selectedDate = new Date(date);
       const startOfDay = new Date(selectedDate.setHours(0, 0, 0, 0));
       const endOfDay = new Date(selectedDate.setHours(23, 59, 59, 999));
       dateFilter = { startDate: { $gte: startOfDay, $lte: endOfDay } };
@@ -102,20 +96,20 @@ export default async function handler(
     console.log('✅ Found', appointments.length, 'appointments');
 
     // Step 2: Count appointments per patient
-    const patientVisitCounts = new Map<string, number>();
+    const patientVisitCounts = new Map();
     
-    appointments.forEach((appointment: any) => {
+    appointments.forEach((appointment) => {
       const patientKey = appointment.patientId.toString();
       if (!patientVisitCounts.has(patientKey)) {
         patientVisitCounts.set(patientKey, 0);
       }
-      patientVisitCounts.set(patientKey, patientVisitCounts.get(patientKey)! + 1);
+      patientVisitCounts.set(patientKey, patientVisitCounts.get(patientKey) + 1);
     });
 
     console.log('📊 Found', patientVisitCounts.size, 'unique patients with appointments');
 
     // Step 3: Group patients by visit frequency ranges
-    const visitFrequencyData: any = {
+    const visitFrequencyData = {
       '1-2 visits': 0,
       '3-5 visits': 0,
       '6-10 visits': 0,
@@ -124,7 +118,7 @@ export default async function handler(
       '20+ visits': 0,
     };
 
-    patientVisitCounts.forEach((visitCount: number) => {
+    patientVisitCounts.forEach((visitCount) => {
       if (visitCount >= 1 && visitCount <= 2) {
         visitFrequencyData['1-2 visits']++;
       } else if (visitCount >= 3 && visitCount <= 5) {
@@ -142,10 +136,10 @@ export default async function handler(
 
     // Step 4: Convert to array format for chart
     const patientVisitFrequency = Object.entries(visitFrequencyData)
-      .filter(([_, count]) => (count as number) > 0)
+      .filter(([_, count]) => count > 0)
       .map(([name, count]) => ({
         name,
-        value: count as number,
+        value: count,
       }));
 
     console.log('📈 Patient visit frequency data:', patientVisitFrequency);
@@ -156,7 +150,7 @@ export default async function handler(
         patientVisitFrequency,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching patient visit frequency:', error);
     res.status(500).json({ 
       success: false, 

@@ -28,7 +28,8 @@ export default async function handler(
     console.log('👤 User role:', authUser.role);
 
     // Get clinic ID from user using the same helper as other endpoints
-    const { clinicId, error } = await getClinicIdFromUser(authUser);
+    const result: any = await getClinicIdFromUser(authUser);
+    const { clinicId, error } = result;
     
     if (error) {
       console.error('❌ Error getting clinic ID:', error);
@@ -75,8 +76,8 @@ export default async function handler(
 
     // Create a map of service IDs to service names from the services collection
     const serviceNameMap = new Map<string, string>();
-    services.forEach(service => {
-      serviceNameMap.set(service._id.toString(), service.name || 'Unknown Service');
+    services.forEach((service: any) => {
+      serviceNameMap.set(service['_id'].toString(), service['name'] || 'Unknown Service');
     });
 
     // 1. Most Booked Services (Top 7)
@@ -139,19 +140,19 @@ export default async function handler(
 
     // 3. Service Revenue Table
     const serviceRevenueData = services
-      .map(service => {
+      .map((service: any) => {
         const serviceAppointments = appointments.filter(
-          (apt: any) => apt.serviceId?.toString() === service._id.toString()
+          (apt: any) => apt.serviceId?.toString() === service['_id'].toString()
         );
         
         const bookings = serviceAppointments.length;
         
         // Placeholder for average price - in real scenario, fetch from Billing model
-        const avgPrice = service.price || Math.floor(Math.random() * 5000) + 1000;
+        const avgPrice = service['price'] || Math.floor(Math.random() * 5000) + 1000;
         const revenue = bookings * avgPrice;
 
         return {
-          serviceName: service.name || 'Unknown Service',
+          serviceName: service['name'] || 'Unknown Service',
           bookings,
           avgPrice,
           revenue,
