@@ -133,7 +133,11 @@ export default function LandingContent({ includeHead = true, embedded = false }:
           {/* CTAs */}
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3 sm:mt-12 sm:gap-4">
             <Link
-              href="#demo"
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                window.dispatchEvent(new Event("zeva:open-demo-popup"));
+              }}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 text-sm font-bold leading-none text-gray-900 shadow-[0_10px_24px_-18px_rgba(0,0,0,0.55)] transition hover:bg-yellow-300 sm:h-11 sm:gap-2.5 sm:px-6 sm:text-base"
             >
               Get a Demo
