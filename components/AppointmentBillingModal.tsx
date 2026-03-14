@@ -591,7 +591,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       pendingVal = netDue - paidNum;
     }
 
-
     setFormData((prev) => {
       const updates: any = {
         pending: pendingVal.toFixed(2),
@@ -986,7 +985,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         advanceUsed: parseFloat(formData.advanceUsed) || 0,
         pastAdvanceUsed: parseFloat(formData.pastAdvanceUsed) || 0,
         pendingUsed:
-          (parseFloat(formData.amount || "0") - parseFloat(formData.pending || "0")) || 0,
+          parseFloat(formData.amount || "0") -
+            parseFloat(formData.pending || "0") || 0,
         pending: parseFloat(formData.pending || "0") || 0,
         advance: parseFloat(formData.advance) || 0,
         pastAdvance: parseFloat(formData.pastAdvance) || 0,
@@ -1111,7 +1111,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       setLoading(false);
     }
   };
-
 
   if (!isOpen || !appointment) return null;
 
@@ -2904,7 +2903,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             Advance
                           </th>
                           <th className="px-2 py-2.5 text-right text-[10px] sm:text-[11px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">
+                            Advance Used
+                          </th>
+                          <th className="px-2 py-2.5 text-right text-[10px] sm:text-[11px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">
                             Past Advance
+                          </th>
+                          <th className="px-2 py-2.5 text-right text-[10px] sm:text-[11px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">
+                            Past Advance Used
                           </th>
                           <th className="px-2 py-2.5 text-center text-[10px] sm:text-[11px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">
                             Qty
@@ -2973,7 +2978,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                 {billing.advance?.toFixed(2) || "0.00"}
                               </td>
                               <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-900 dark:text-gray-900 text-right border-r border-gray-200 dark:border-gray-300">
+                                {billing.advanceUsed?.toFixed(2) || "0.00"}
+                              </td>
+                              <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-900 dark:text-gray-900 text-right border-r border-gray-200 dark:border-gray-300">
                                 {billing.pastAdvance?.toFixed(2) || "0.00"}
+                              </td>
+                              <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-900 dark:text-gray-900 text-right border-r border-gray-200 dark:border-gray-300">
+                                {billing.pastAdvanceUsed?.toFixed(2) || "0.00"}
                               </td>
                               <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-700 dark:text-gray-700 text-center border-r border-gray-200 dark:border-gray-300">
                                 {billing.quantity || "-"}
