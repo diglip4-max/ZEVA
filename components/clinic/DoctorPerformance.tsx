@@ -24,7 +24,7 @@ interface LeaderboardData {
 }
 
 interface DoctorPerformanceProps {
-  timeRange: 'week' | 'month' | 'overall';
+  timeRange: 'today' | 'week' | 'month' | 'overall';
   selectedDate?: Date;
 }
 
@@ -55,14 +55,28 @@ const DoctorPerformance: React.FC<DoctorPerformanceProps> = ({
 
       const params: any = { filter: timeRange };
       
-      if (timeRange === 'week' && selectedDate) {
+      // Handle date parameters based on time range
+      if (timeRange === 'today' && selectedDate) {
+        // For today, pass only today's date
         params.date = selectedDate.toISOString().split('T')[0];
+        params.filter = 'today'; // Explicitly tell backend it's today's data
+      } else if (timeRange === 'week' && selectedDate) {
+        // For week, calculate start and end of the week
+        const curr = new Date(selectedDate);
+        const first = curr.getDate() - curr.getDay();
+        const firstDay = new Date(curr.setDate(first));
+        const lastDay = new Date(firstDay);
+        lastDay.setDate(firstDay.getDate() + 6);
+        params.startDate = firstDay.toISOString().split('T')[0];
+        params.endDate = lastDay.toISOString().split('T')[0];
       } else if (timeRange === 'month' && selectedDate) {
+        // For month, use first and last day of the month
         const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
         const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
         params.startDate = startDate.toISOString().split('T')[0];
         params.endDate = endDate.toISOString().split('T')[0];
       }
+      // For 'overall', no date parameters are passed
 
       const res = await axios.get('/api/clinics/doctor-performance', {
         params,
@@ -70,9 +84,21 @@ const DoctorPerformance: React.FC<DoctorPerformanceProps> = ({
       });
 
       if (res.data.success) {
-        setAppointmentsPerDoctor(res.data.data.appointmentsPerDoctor || []);
-        setRevenuePerDoctor(res.data.data.revenuePerDoctor || []);
-        setLeaderboardData(res.data.data.leaderboardData || []);
+        // Filter out doctors with 0 appointments for today's view
+        let appointmentsPerDoctor = res.data.data.appointmentsPerDoctor || [];
+        let revenuePerDoctor = res.data.data.revenuePerDoctor || [];
+        let leaderboardData = res.data.data.leaderboardData || [];
+        
+        // When viewing today's data, only show doctors who have appointments today
+        if (timeRange === 'today') {
+          appointmentsPerDoctor = appointmentsPerDoctor.filter(doc => doc.appointmentCount > 0);
+          revenuePerDoctor = revenuePerDoctor.filter(doc => doc.appointmentCount > 0);
+          leaderboardData = leaderboardData.filter(doc => doc.appointmentCount > 0);
+        }
+        
+        setAppointmentsPerDoctor(appointmentsPerDoctor);
+        setRevenuePerDoctor(revenuePerDoctor);
+        setLeaderboardData(leaderboardData);
       } else {
         setError(res.data.message || 'Failed to fetch data');
       }
@@ -161,7 +187,12 @@ const DoctorPerformance: React.FC<DoctorPerformanceProps> = ({
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="mb-6">
           <h3 className="text-xl font-bold text-gray-900">Doctor Performance Leaderboard</h3>
-          <p className="text-sm text-gray-500 mt-1">Top performing doctors for the month</p>
+          <p className="text-sm text-gray-500 mt-1">
+            {timeRange === 'today' ? 'Top performing doctors for today' : 
+             timeRange === 'week' ? 'Top performing doctors for the week' :
+             timeRange === 'month' ? 'Top performing doctors for the month' :
+             'Top performing doctors (all time)'}
+          </p>
         </div>
 
         {leaderboardData.length > 0 ? (

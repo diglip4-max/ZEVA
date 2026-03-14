@@ -55,7 +55,12 @@ export default async function handler(req, res) {
      let queryStartDate;
      let queryEndDate;
 
-  if (filter === 'week') {
+  if (filter === 'today') {
+      // For today, use the specific date passed or current date
+      const baseDate = date ? dayjs(date) : dayjs();
+       queryStartDate = baseDate.startOf('day').toDate();
+       queryEndDate = baseDate.endOf('day').toDate();
+    } else if (filter === 'week') {
     const baseDate = date ? dayjs(date) : dayjs();
        queryStartDate = baseDate.startOf('week').toDate();
        queryEndDate = baseDate.endOf('week').toDate();

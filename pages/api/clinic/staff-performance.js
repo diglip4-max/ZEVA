@@ -4,7 +4,6 @@ import DoctorProfile from "../../../models/DoctorProfile";
 import User from "../../../models/Users";
 import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
 import { getClinicIdFromUser } from "../lead-ms/permissions-helper";
-import { NextApiRequest, NextApiResponse } from 'next';
 
 export default async function handler(req, res) {
   await dbConnect();

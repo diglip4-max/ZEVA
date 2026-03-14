@@ -3342,7 +3342,14 @@ const ClinicDashboard: NextPageWithLayout = () => {
             value = dailyStats.daily.patients || 0;
             break;
           case 'daily_appointments':
-            value = dailyStats.daily.appointments || 0;
+            // Calculate total appointments from all statuses
+            const booked = dailyStats.daily.booked || 0;
+            const cancelled = dailyStats.daily.cancelled || 0;
+            const arrived = dailyStats.daily.arrived || 0;
+            const waiting = dailyStats.daily.waiting || 0;
+            const enquiry = dailyStats.daily.enquiry || 0;
+            value = booked + cancelled + arrived + waiting + enquiry;
+            console.log('Total Appointments:', value, '(Booked:', booked, '+ Cancelled:', cancelled, '+ Arrived:', arrived, '+ Waiting:', waiting, '+ Enquiry:', enquiry, ')');
             break;
           case 'daily_offers':
             console.log('Setting daily_offers value:', dailyStats.daily.offers || 0);
@@ -4506,6 +4513,23 @@ const ClinicDashboard: NextPageWithLayout = () => {
                           'message-square': <MessageSquare className="w-5 h-5" />,
                         };
 
+                        // Get appointment status label
+                        const getAppointmentStatusLabel = (moduleKey: string | undefined, originalLabel: string) => {
+                          if (!moduleKey) return originalLabel;
+                          
+                          // Map appointment status module keys to their display names
+                          const appointmentStatusMap: { [key: string]: string } = {
+                            'daily_appointments': 'Appointments',
+                            'daily_arrived': 'Appointments (Arrived)',
+                            'daily_booked': 'Appointments (Booked)',
+                            'daily_cancelled': 'Appointments (Cancelled)',
+                            'daily_waiting': 'Appointments (Waiting)',
+                            'daily_enquiry': 'Appointments (Enquiry)'
+                          };
+                          
+                          return appointmentStatusMap[moduleKey] || originalLabel;
+                        };
+
                         // Gradient backgrounds for different metrics
                         const getGradientBg = (moduleKey: string | undefined) => {
                           if (!moduleKey) return 'from-gray-500 to-slate-500';
@@ -4574,17 +4598,35 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                             
                                             {/* Content */}
                                             <div className="text-center w-full">
-                                              <h4 className="text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1 line-clamp-2 min-h-[20px]">
-                                                {card.label}
-                                              </h4>
-                                              <div className="flex items-center justify-center gap-1">
-                                                <p className="text-xl font-bold text-gray-900">
-                                                  {card.value}
-                                                </p>
-                                                {card.value === 0 && (
-                                                  <span className="text-[10px] text-gray-400 italic">No data</span>
-                                                )}
-                                              </div>
+                                              {card.moduleKey === 'daily_appointments' ? (
+                                                <>
+                                                  <h4 className="text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1 line-clamp-2 min-h-[20px]">
+                                                    Appointments
+                                                  </h4>
+                                                  <div className="flex items-center justify-center gap-1">
+                                                    <p className="text-xl font-bold text-gray-900">
+                                                      {card.value}
+                                                    </p>
+                                                    {card.value === 0 && (
+                                                      <span className="text-[10px] text-gray-400 italic">No data</span>
+                                                    )}
+                                                  </div>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <h4 className="text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1 line-clamp-2 min-h-[20px]">
+                                                    {getAppointmentStatusLabel(card.moduleKey, card.label)}
+                                                  </h4>
+                                                  <div className="flex items-center justify-center gap-1">
+                                                    <p className="text-xl font-bold text-gray-900">
+                                                      {card.value}
+                                                    </p>
+                                                    {card.value === 0 && (
+                                                      <span className="text-[10px] text-gray-400 italic">No data</span>
+                                                    )}
+                                                  </div>
+                                                </>
+                                              )}
                                             </div>
                                             
                                             {/* Bottom Accent Line */}
