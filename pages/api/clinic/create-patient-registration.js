@@ -16,7 +16,9 @@ export default async function handler(req, res) {
   await dbConnect();
 
   if (req.method !== "POST") {
-    return res.status(405).json({ success: false, message: "Method not allowed" });
+    return res
+      .status(405)
+      .json({ success: false, message: "Method not allowed" });
   }
 
   try {
@@ -26,49 +28,55 @@ export default async function handler(req, res) {
     }
 
     // ✅ Check permissions for creating patients (admin bypasses all checks)
-    if (clinicUser.role !== 'admin') {
+    if (clinicUser.role !== "admin") {
       // For clinic role: Check clinic permissions
-      if (clinicUser.role === 'clinic') {
+      if (clinicUser.role === "clinic") {
         const clinic = await Clinic.findOne({ owner: clinicUser._id });
         if (clinic) {
-          const { hasPermission: clinicHasPermission, error: clinicError } = await checkClinicPermission(
-            clinic._id,
-            "patient_registration",
-            "create"
-          );
+          const { hasPermission: clinicHasPermission, error: clinicError } =
+            await checkClinicPermission(
+              clinic._id,
+              "patient_registration",
+              "create",
+            );
           if (!clinicHasPermission) {
             return res.status(403).json({
               success: false,
-              message: clinicError || "You do not have permission to create patients"
+              message:
+                clinicError || "You do not have permission to create patients",
             });
           }
         }
       }
       // For agent role (agentToken): Check agent permissions
-      else if (clinicUser.role === 'agent') {
-        const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
-          clinicUser._id,
-          "patient_registration",
-          "create"
-        );
+      else if (clinicUser.role === "agent") {
+        const { hasPermission: agentHasPermission, error: agentError } =
+          await checkAgentPermission(
+            clinicUser._id,
+            "patient_registration",
+            "create",
+          );
         if (!agentHasPermission) {
           return res.status(403).json({
             success: false,
-            message: agentError || "You do not have permission to create patients"
+            message:
+              agentError || "You do not have permission to create patients",
           });
         }
       }
       // For doctorStaff role (userToken): Check agent permissions
-      else if (clinicUser.role === 'doctorStaff') {
-        const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
-          clinicUser._id,
-          "patient_registration",
-          "create"
-        );
+      else if (clinicUser.role === "doctorStaff") {
+        const { hasPermission: agentHasPermission, error: agentError } =
+          await checkAgentPermission(
+            clinicUser._id,
+            "patient_registration",
+            "create",
+          );
         if (!agentHasPermission) {
           return res.status(403).json({
             success: false,
-            message: agentError || "You do not have permission to create patients"
+            message:
+              agentError || "You do not have permission to create patients",
           });
         }
       }
@@ -80,7 +88,9 @@ export default async function handler(req, res) {
       clinic = await Clinic.findOne({ owner: clinicUser._id });
     } else if (["agent", "doctorStaff", "staff"].includes(clinicUser.role)) {
       if (!clinicUser.clinicId) {
-        return res.status(403).json({ success: false, message: "User not linked to a clinic" });
+        return res
+          .status(403)
+          .json({ success: false, message: "User not linked to a clinic" });
       }
       clinic = await Clinic.findById(clinicUser.clinicId);
     } else {
@@ -88,7 +98,9 @@ export default async function handler(req, res) {
     }
 
     if (!clinic) {
-      return res.status(404).json({ success: false, message: "Clinic not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Clinic not found" });
     }
 
     const {
@@ -111,6 +123,9 @@ export default async function handler(req, res) {
       pending,
       advance,
       advanceUsed,
+      pastAdvance,
+      pastAdvanceUsed,
+      applyPastAdvance,
       paymentMethod,
       notes,
       emrNumber,
@@ -127,8 +142,17 @@ export default async function handler(req, res) {
       originalAmount,
     } = req.body;
 
+    console.log({ bmModify: req.body });
+
     // Validate required fields
-    if (!invoiceNumber || !appointmentId || !firstName || !mobileNumber || !doctor || !service) {
+    if (
+      !invoiceNumber ||
+      !appointmentId ||
+      !firstName ||
+      !mobileNumber ||
+      !doctor ||
+      !service
+    ) {
       return res.status(400).json({
         success: false,
         message: "Missing required fields",
@@ -156,11 +180,11 @@ export default async function handler(req, res) {
     // userId in payload is actually PatientRegistration _id
     // Find existing PatientRegistration record
     let patientRegistration;
-    
+
     if (userId) {
       // userId is the PatientRegistration _id
       patientRegistration = await PatientRegistration.findById(userId);
-      
+
       if (!patientRegistration) {
         return res.status(404).json({
           success: false,
@@ -172,11 +196,12 @@ export default async function handler(req, res) {
       patientRegistration = await PatientRegistration.findOne({
         mobileNumber,
       }).sort({ createdAt: -1 }); // Get the latest one
-      
+
       if (!patientRegistration) {
         return res.status(404).json({
           success: false,
-          message: "Patient registration not found. Please register the patient first.",
+          message:
+            "Patient registration not found. Please register the patient first.",
         });
       }
     }
@@ -191,14 +216,21 @@ export default async function handler(req, res) {
     }
 
     if (service === "Package") {
-      if (!packageName || !Array.isArray(selectedPackageTreatments) || selectedPackageTreatments.length === 0) {
+      if (
+        !packageName ||
+        !Array.isArray(selectedPackageTreatments) ||
+        selectedPackageTreatments.length === 0
+      ) {
         return res.status(400).json({
           success: false,
           message: "Please select a package and at least one treatment",
         });
       }
       const Package = (await import("../../../models/Package")).default;
-      const pkgDoc = await Package.findOne({ clinicId: clinic._id, name: packageName }).lean();
+      const pkgDoc = await Package.findOne({
+        clinicId: clinic._id,
+        name: packageName,
+      }).lean();
       if (!pkgDoc) {
         return res.status(404).json({
           success: false,
@@ -224,7 +256,10 @@ export default async function handler(req, res) {
         (b.selectedPackageTreatments || []).forEach((t) => {
           if (!t.treatmentSlug) return;
           const prev = previouslyUsedMap.get(t.treatmentSlug) || 0;
-          previouslyUsedMap.set(t.treatmentSlug, prev + (parseInt(t.sessions) || 0));
+          previouslyUsedMap.set(
+            t.treatmentSlug,
+            prev + (parseInt(t.sessions) || 0),
+          );
         });
       });
       for (const t of selectedPackageTreatments) {
@@ -267,37 +302,63 @@ export default async function handler(req, res) {
           });
         }
       }
-      const sumSessions = selectedPackageTreatments.reduce((sum, it) => sum + (parseInt(it.sessions) || 0), 0);
+      const sumSessions = selectedPackageTreatments.reduce(
+        (sum, it) => sum + (parseInt(it.sessions) || 0),
+        0,
+      );
       req.body.sessions = sumSessions;
     }
 
     // Calculate pending and advance (use provided values or calculate)
     const amountNum = parseFloat(amount) || 0;
-    const advanceUsedNum = advanceUsed !== undefined ? Math.max(0, parseFloat(advanceUsed) || 0) : 0;
-    const pendingUsedNum = pendingUsed !== undefined ? Math.max(0, parseFloat(pendingUsed) || 0) : 0;
+    const advanceUsedNum =
+      advanceUsed !== undefined ? Math.max(0, parseFloat(advanceUsed) || 0) : 0;
+    const pastAdvanceUsedNum =
+      pastAdvanceUsed !== undefined
+        ? Math.max(0, parseFloat(pastAdvanceUsed) || 0)
+        : 0;
+    const pendingUsedNum =
+      pendingUsed !== undefined ? Math.max(0, parseFloat(pendingUsed) || 0) : 0;
     const pendingNum = pending !== undefined ? parseFloat(pending) || 0 : 0;
     const advanceNum = advance !== undefined ? parseFloat(advance) || 0 : 0;
+    const pastAdvanceNum =
+      pastAdvance !== undefined ? parseFloat(pastAdvance) || 0 : 0;
 
     // Calculate paid from multiple payments if provided
     let paidNum = parseFloat(paid) || 0;
-    const multiPayArr = Array.isArray(multiplePayments) && multiplePayments.length > 0 ? multiplePayments : [];
+    const multiPayArr =
+      Array.isArray(multiplePayments) && multiplePayments.length > 0
+        ? multiplePayments
+        : [];
     if (multiPayArr.length > 0) {
-      paidNum = multiPayArr.reduce((sum, mp) => sum + (parseFloat(mp.amount) || 0), 0);
+      paidNum = multiPayArr.reduce(
+        (sum, mp) => sum + (parseFloat(mp.amount) || 0),
+        0,
+      );
     }
-    
-    // If pending/advance not provided, calculate them
-    let finalPending = pendingNum;
-    let finalAdvance = advanceNum;
-    
-    if (pending === undefined && advance === undefined) {
-      // Auto-calculate if not provided, considering applied advanceUsed
-      const effectiveDue = Math.max(0, amountNum - advanceUsedNum);
-      finalPending = Math.max(0, effectiveDue - paidNum);
-      finalAdvance = Math.max(0, paidNum - effectiveDue);
+
+    // Auto-calculate if pending/advance/pastAdvance are not explicitly provided
+    // or ensure they follow the standard logic
+    let finalPending = parseFloat(pending) || 0;
+    let finalAdvance = parseFloat(advance) || 0;
+    let finalPastAdvance = Math.max(0, pastAdvanceNum - pastAdvanceUsedNum);
+
+    // Standard logic for billing calculation:
+    // 1. Total Amount
+    // 2. Applied Credits (advanceUsed + pastAdvanceUsed)
+    // 3. Net Due = Total - Credits
+    // 4. Final Pending = Net Due - Paid (if Net Due > Paid)
+    // 5. Final Advance = Paid - Net Due (if Paid > Net Due)
+
+    const netDue = Math.max(0, amountNum - advanceUsedNum - pastAdvanceUsedNum);
+    console.log({ netDue, paidNum, advanceUsedNum, pastAdvanceUsedNum });
+
+    if (paidNum > netDue) {
+      finalAdvance = paidNum - netDue;
+      finalPending = 0;
     } else {
-      // Use provided values (user may have manually edited)
-      finalPending = pendingNum;
-      finalAdvance = advanceNum;
+      finalPending = netDue - paidNum;
+      finalAdvance = 0;
     }
 
     // Create billing record
@@ -309,19 +370,24 @@ export default async function handler(req, res) {
       invoicedDate: new Date(invoicedDate),
       invoicedBy: clinicUser.name || "Clinic Staff",
       service,
-      treatment: service === "Treatment" ? (treatment || "") : "",
-      package: service === "Package" ? (packageName || "") : "",
-      quantity: service === "Treatment" ? (parseInt(quantity) || 1) : 1,
-      sessions: service === "Package" ? (parseInt(sessions) || 0) : 0,
-      selectedPackageTreatments: service === "Package" && Array.isArray(selectedPackageTreatments) ? selectedPackageTreatments : [],
+      treatment: service === "Treatment" ? treatment || "" : "",
+      package: service === "Package" ? packageName || "" : "",
+      quantity: service === "Treatment" ? parseInt(quantity) || 1 : 1,
+      sessions: service === "Package" ? parseInt(sessions) || 0 : 0,
+      selectedPackageTreatments:
+        service === "Package" && Array.isArray(selectedPackageTreatments)
+          ? selectedPackageTreatments
+          : [],
       amount: amountNum,
-      paid: paidNum,
-      advanceUsed: advanceUsedNum,
-      pendingUsed: pendingUsedNum,
-      pending: finalPending,
-      advance: finalAdvance,
+      paid: paidNum + advanceUsedNum + pastAdvanceUsedNum,
+      advanceUsed: advanceUsed,
+      pendingUsed: pendingUsed,
+      pastAdvanceUsed: pastAdvanceUsed,
+      pending: pendingNum,
+      advance: advance,
+      pastAdvance: pastAdvance,
       paymentMethod,
-      multiplePayments: multiPayArr.map(mp => ({
+      multiplePayments: multiPayArr.map((mp) => ({
         paymentMethod: mp.paymentMethod,
         amount: parseFloat(mp.amount) || 0,
       })),
@@ -331,7 +397,7 @@ export default async function handler(req, res) {
           paid: paidNum,
           pending: finalPending,
           paymentMethod,
-          multiplePayments: multiPayArr.map(mp => ({
+          multiplePayments: multiPayArr.map((mp) => ({
             paymentMethod: mp.paymentMethod,
             amount: parseFloat(mp.amount) || 0,
           })),
@@ -347,30 +413,43 @@ export default async function handler(req, res) {
       originalAmount: originalAmount || amountNum,
     };
 
+    console.log({ billingData });
+
     const billing = await Billing.create(billingData);
 
     // Commission calculation and storage
     try {
       const paidNumForCommission = paidNum;
       const referredByStr = String(referredBy || "").trim();
-      if (paidNumForCommission > 0 && referredByStr && referredByStr.toLowerCase() !== "no") {
+      if (
+        paidNumForCommission > 0 &&
+        referredByStr &&
+        referredByStr.toLowerCase() !== "no"
+      ) {
         // Find referral by combined name within this clinic
         const referrals = await Referral.find({ clinicId: clinic._id }).lean();
         const match = referrals.find((r) => {
-          const full = `${(r.firstName || "").trim()} ${(r.lastName || "").trim()}`.trim().toLowerCase();
+          const full =
+            `${(r.firstName || "").trim()} ${(r.lastName || "").trim()}`
+              .trim()
+              .toLowerCase();
           return full && full === referredByStr.toLowerCase();
         });
         if (match) {
           const commissionPercent = Number(match.referralPercent || 0);
           if (commissionPercent > 0) {
-            const commissionAmount = Number(((paidNumForCommission * commissionPercent) / 100).toFixed(2));
+            const commissionAmount = Number(
+              ((paidNumForCommission * commissionPercent) / 100).toFixed(2),
+            );
             // Optionally try to map to a staff user via email or phone
             let staffId = null;
             if (match.email || match.phone) {
               const userCandidate = await User.findOne({
                 clinicId: clinic._id,
                 $or: [
-                  match.email ? { email: String(match.email).toLowerCase() } : { _id: null },
+                  match.email
+                    ? { email: String(match.email).toLowerCase() }
+                    : { _id: null },
                   match.phone ? { phone: String(match.phone) } : { _id: null },
                 ],
               }).lean();
@@ -382,7 +461,8 @@ export default async function handler(req, res) {
               clinicId: clinic._id,
               source: "referral",
               referralId: match._id,
-              referralName: `${(match.firstName || "").trim()} ${(match.lastName || "").trim()}`.trim(),
+              referralName:
+                `${(match.firstName || "").trim()} ${(match.lastName || "").trim()}`.trim(),
               staffId,
               appointmentId: appointment._id,
               patientId: patientRegistration._id,
@@ -398,7 +478,10 @@ export default async function handler(req, res) {
         }
       }
     } catch (commissionErr) {
-      console.error("Commission calculation/store error (referral):", commissionErr);
+      console.error(
+        "Commission calculation/store error (referral):",
+        commissionErr,
+      );
       // Do not fail the billing creation if commission creation fails
     }
 
@@ -435,31 +518,44 @@ export default async function handler(req, res) {
           // Add target-based specific fields if applicable
           if (commissionResult.commissionType === "target_based") {
             commissionData.targetAmount = commissionResult.targetAmount || 0;
-            commissionData.cumulativeAchieved = commissionResult.cumulativeAchieved || 0;
-            commissionData.isAboveTarget = commissionResult.isAboveTarget || false;
+            commissionData.cumulativeAchieved =
+              commissionResult.cumulativeAchieved || 0;
+            commissionData.isAboveTarget =
+              commissionResult.isAboveTarget || false;
           }
 
           // Add after_deduction specific fields if applicable
           if (commissionResult.commissionType === "after_deduction") {
             commissionData.totalExpenses = commissionResult.totalExpenses || 0;
             commissionData.netAmount = commissionResult.netAmount || 0;
-            commissionData.expenseBreakdown = commissionResult.expenseBreakdown || [];
-            commissionData.complaintsCount = commissionResult.complaintsCount || 0;
-            commissionData.lastBillingDate = commissionResult.lastBillingDate || null;
-            commissionData.lastBillingInvoice = commissionResult.lastBillingInvoice || null;
-            commissionData.isFirstBilling = commissionResult.isFirstBilling || false;
+            commissionData.expenseBreakdown =
+              commissionResult.expenseBreakdown || [];
+            commissionData.complaintsCount =
+              commissionResult.complaintsCount || 0;
+            commissionData.lastBillingDate =
+              commissionResult.lastBillingDate || null;
+            commissionData.lastBillingInvoice =
+              commissionResult.lastBillingInvoice || null;
+            commissionData.isFirstBilling =
+              commissionResult.isFirstBilling || false;
           }
 
           // Add target_plus_expense specific fields if applicable
           if (commissionResult.commissionType === "target_plus_expense") {
             commissionData.targetAmount = commissionResult.targetAmount || 0;
-            commissionData.cumulativeAchieved = commissionResult.cumulativeAchieved || 0;
-            commissionData.isAboveTarget = commissionResult.isAboveTarget || false;
-            commissionData.amountAboveTarget = commissionResult.amountAboveTarget || 0;
+            commissionData.cumulativeAchieved =
+              commissionResult.cumulativeAchieved || 0;
+            commissionData.isAboveTarget =
+              commissionResult.isAboveTarget || false;
+            commissionData.amountAboveTarget =
+              commissionResult.amountAboveTarget || 0;
             commissionData.totalExpenses = commissionResult.totalExpenses || 0;
-            commissionData.netCommissionableAmount = commissionResult.netCommissionableAmount || 0;
-            commissionData.expenseBreakdown = commissionResult.expenseBreakdown || [];
-            commissionData.complaintsCount = commissionResult.complaintsCount || 0;
+            commissionData.netCommissionableAmount =
+              commissionResult.netCommissionableAmount || 0;
+            commissionData.expenseBreakdown =
+              commissionResult.expenseBreakdown || [];
+            commissionData.complaintsCount =
+              commissionResult.complaintsCount || 0;
           }
 
           // Store commission base amount (the amount used as basis for commission calculation)
@@ -472,24 +568,32 @@ export default async function handler(req, res) {
             commissionBaseAmount = commissionResult.netAmount || 0;
           } else if (commissionType === "target_plus_expense") {
             // netCommissionableAmount = amountAboveTarget - expenses
-            commissionBaseAmount = commissionResult.netCommissionableAmount || 0;
+            commissionBaseAmount =
+              commissionResult.netCommissionableAmount || 0;
           }
           commissionData.commissionBaseAmount = commissionBaseAmount;
-          commissionData.finalCommissionAmount = commissionResult.commissionAmount || 0;
+          commissionData.finalCommissionAmount =
+            commissionResult.commissionAmount || 0;
 
           await Commission.create(commissionData);
         } else {
-          console.log(`Commission not created for staff ${appointment.doctorId}: ${commissionResult.reason}`);
+          console.log(
+            `Commission not created for staff ${appointment.doctorId}: ${commissionResult.reason}`,
+          );
         }
       }
     } catch (staffCommissionErr) {
-      console.error("Commission calculation/store error (staff):", staffCommissionErr);
+      console.error(
+        "Commission calculation/store error (staff):",
+        staffCommissionErr,
+      );
       // Do not fail the billing creation if commission creation fails
     }
 
     return res.status(201).json({
       success: true,
       message: "Billing created successfully",
+      billing,
       data: {
         _id: billing._id,
         invoiceNumber: billing.invoiceNumber,
@@ -503,4 +607,3 @@ export default async function handler(req, res) {
     });
   }
 }
-
