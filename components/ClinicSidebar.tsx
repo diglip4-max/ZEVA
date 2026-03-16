@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { FC, useState, useEffect, useRef, isValidElement } from "react";
+import { FC, useState, useEffect, useRef } from "react";
 import clsx from "clsx";
 import axios from "axios";
 import {
@@ -82,15 +82,14 @@ import {
   ClipboardCheck,
   UserCheck,
   Wallet,
-  Receipt,
-  ShoppingCart,
   Tag,
   Percent,
   Archive,
-  HardDrive,
   Globe2,
   ChevronDown,
-
+  Database as Storage,
+  ShoppingCart as Deals,
+  Receipt as Billing,
 } from "lucide-react";
 
 interface NavItemChild {
@@ -245,7 +244,7 @@ const iconMap: { [key: string]: React.ReactNode } = {
   'offers': <Tag className="w-4 h-4 text-[#6B7280]" />,
   'promotions': <Gift className="w-4 h-4 text-[#6B7280]" />,
   'discounts': <Percent className="w-4 h-4 text-[#6B7280]" />,
-  'deals': <ShoppingCart className="w-4 h-4 text-[#6B7280]" />,
+  'deals': <Deals className="w-4 h-4 text-[#6B7280]" />,
   'packages': <Package className="w-4 h-4 text-[#6B7280]" />,
   'package': <Package className="w-4 h-4 text-[#6B7280]" />,
 
@@ -253,7 +252,7 @@ const iconMap: { [key: string]: React.ReactNode } = {
   '💳': <CreditCard className="w-4 h-4 text-[#6B7280]" />,
   '💰': <DollarSign className="w-4 h-4 text-[#6B7280]" />,
   'payments': <CreditCard className="w-4 h-4 text-[#6B7280]" />,
-  'billing': <Receipt className="w-4 h-4 text-[#6B7280]" />,
+  'billing': <Billing className="w-4 h-4 text-[#6B7280]" />,
   'invoices': <FileText className="w-4 h-4 text-[#6B7280]" />,
   'transactions': <DollarSign className="w-4 h-4 text-[#6B7280]" />,
   'revenue': <TrendingUp className="w-4 h-4 text-[#6B7280]" />,
@@ -333,7 +332,7 @@ const iconMap: { [key: string]: React.ReactNode } = {
   '☁️': <Cloud className="w-4 h-4 text-[#6B7280]" />,
   'folders': <Folder className="w-4 h-4 text-[#6B7280]" />,
   'archive': <Archive className="w-4 h-4 text-[#6B7280]" />,
-  'storage': <HardDrive className="w-4 h-4 text-[#6B7280]" />,
+  'storage': <Storage className="w-4 h-4 text-[#6B7280]" />,
   'database': <Database className="w-4 h-4 text-[#6B7280]" />,
   'server': <Server className="w-4 h-4 text-[#6B7280]" />,
   'cloud': <Cloud className="w-4 h-4 text-[#6B7280]" />,
@@ -356,17 +355,18 @@ const iconMap: { [key: string]: React.ReactNode } = {
   'charts': <BarChart3 className="w-4 h-4 text-[#6B7280]" />,
   'insights': <TrendingUp className="w-4 h-4 text-[#6B7280]" />,
   'metrics': <Activity className="w-4 h-4 text-[#6B7280]" />,
+  'activity': <Activity className="w-4 h-4 text-[#6B7280]" />,
 
   // Default fallback for any unmapped icons
 };
 
-const renderIcon = (key: string, className: string) => {
+const renderIcon = (key: string) => {
   const node = iconMap[key];
-  if (isValidElement(node)) {
-    const IconComp = node.type as any;
-    return <IconComp className={className} />;
+  if (node) {
+    return node;
   }
-  return <span className={className}>{key}</span>;
+  // Return null or a default icon instead of showing the key as text
+  return null;
 };
 
 const ClinicSidebar: FC<ClinicSidebarProps> = ({ 
@@ -550,7 +550,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               icon: "business",
               children: nonNull(
                 pickTop("Manage Health Center"),
-                pickTop("Create offers"),
+                { label: "Create Offers", path: "/clinic/create-offer", icon: "🎁" },
                 { label: "Service Setup", path: "/clinic/services_setup", icon: "services" },
                 { label: "Setup & Operation", path: "/clinic/add-room", icon: "clinic" },
                 pickChild("Membership"),
@@ -561,8 +561,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               label: "HR Management",
               icon: "users",
               children: nonNull(
-                pickTop("Job Posting"),
-                pickTop("Commission"),
+                { label: "Job Posting", path: "/clinic/job-posting", icon: "📝" },
+                { label: "Commission", path: "/clinic/commission", icon: "💰" },
                 pickTop("Assigned Leads"),
                 pickTop("Referral"),
                 pickTop("Referal"),
@@ -570,16 +570,20 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 { label: "Referral", path: "/clinic/referal", icon: "leads" },
                 { label: "Track Members", path: "/clinic/Track-Members", icon: "users" },
                 pickChild("Membership"),
+                pickTop("Create Agent")
               ),
               order: 110,
             },
             {
               label: "Marketing",
-              icon: "messages",
+              icon: "🎯",
               children: nonNull(
-                pickTop("Assigned Leads"),
-                pickTop("Create Lead"),
-                pickTop("Create Agent")
+                { label: "Create Lead", path: "/clinic/create-lead", icon: "➕" },
+                { label: "Inbox", path: "/clinic/inbox", icon: "📨" },
+                { label: "Templates", path: "/clinic/all-templates", icon: "📝" },
+                { label: "Providers", path: "/clinic/providers", icon: "👥" },
+                { label: "Reviews", path: "/clinic/getAllReview", icon: "⭐" },
+                { label: "Enquiry", path: "/clinic/get-Enquiry", icon: "❓" },
               ),
               order: 120,
             },
@@ -604,7 +608,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 { label: "Stock Qty Adjustment", path: "/clinic/stocks/stock-qty-adjustment", icon: "statistics" },
                 { label: "Stock Transfer Requests", path: "/clinic/stocks/stock-transfer/stock-transfer-requests", icon: "share" },
                 { label: "Transfer Stock", path: "/clinic/stocks/stock-transfer/transfer-stock", icon: "share" },
-                // { label: "Material Consumptions", path: "/clinic/stocks/material-consumptions", icon: "activity" },
+                { label: "Material Activity Consumption", path: "/clinic/stocks/material-consumptions", icon: "⚡" },
                 { label: "Allocated Stock Items", path: "/clinic/stocks/allocated-stock-items", icon: "package" },
               ),
               order: 135,
@@ -621,17 +625,17 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               label: "Security & Privacy",
               icon: "security",
               children: nonNull(
-                pickTop("Authentication")
+                { label: "Authentication", path: "/clinic/authentication", icon: "🔒" }
               ),
               order: 170,
             },
             {
               label: "Patients & Appointments",
-              icon: "appointments",
+              icon:"appointments",
               children: nonNull(
                 { label: "Book Appointments", path: "/clinic/appointment", icon: "booking" },
-                { label: "All Appointments", path: "/clinic/all-appointment", icon: "calendar" },
-                pickTop("Patient Registration"),
+                { label: "Scheduled Appointments", path: "/clinic/all-appointment", icon: "calendar" },
+                { label: "Patient Registration", path: "/clinic/patient-registration", icon: "👤" },
                 pickChild("Patient Information")
               ),
               order: 160,
@@ -806,7 +810,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
       {/* Mobile Sidebar */}
       <aside
         className={clsx(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-[#F3F4F6] border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:hidden",
+          "fixed inset-y-0 left-0 z-50 w-72 bg-[#F3F4F6] border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:hidden",
           {
             "translate-x-0": isMobileOpen,
             "-translate-x-full": !isMobileOpen,
@@ -953,7 +957,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                               "text-[#6B7280] group-hover:text-[#374151]": !isActive,
                             }
                           )}>
-                            {renderIcon(item.icon, clsx("w-4 h-4", isActive ? "text-white" : "text-[#6B7280] group-hover:text-[#374151]"))}
+                            {renderIcon(item.icon)}
                           </div>
                           <span className="inter-font text-sm font-medium text-[#374151]">{item.label}</span>
                         </div>
@@ -969,7 +973,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                         />
                       </button>
                       {isDropdownOpen && (
-                        <div className="ml-4 space-y-1 border-l-2 border-gray-200 pl-2">
+                        <div className="ml-9 space-y-0.5">
                           {item.children.map((child, childIdx) => {
                             const isChildActive = router.pathname === child.path;
                             return child.path ? (
@@ -981,16 +985,17 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                                   onDrop={onDropChild(itemIndex, childIdx)}
                                   onDragEnd={onDragEnd}
                                   className={clsx(
-                                  "px-3 py-2 rounded-lg transition-all duration-200 text-sm cursor-move flex items-center gap-2 inter-font",
+                                  "px-3 py-2 rounded-lg transition-all duration-200 text-sm cursor-move flex items-start gap-2.5 inter-font min-w-0",
                                   {
                                     "bg-[#2D9AA5] text-white": isChildActive,
                                     "text-[#374151] hover:bg-gray-100": !isChildActive,
                                   }
                                   )}
                                 >
-
-                                  {renderIcon(child.icon, clsx("w-4 h-4", isChildActive ? "text-white" : "text-[#374151]"))}
-                                  <span className={clsx("inter-font font-medium text-sm", { "text-white": isChildActive })}>
+                                  <span className={clsx("flex-shrink-0 mt-0.5", isChildActive ? "text-white" : "text-[#6B7280] group-hover:text-[#374151]")}>
+                                    {renderIcon(child.icon)}
+                                  </span>
+                                  <span className={clsx("inter-font font-medium text-sm leading-tight", { "text-white": isChildActive })}>
                                     {child.label}
                                   </span>
                                 </div>
@@ -1034,7 +1039,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                         "text-[#6B7280] group-hover:text-gray-700": !isActive,
                       }
                     )}>
-                      {renderIcon(item.icon, clsx("w-4 h-4", isActive ? "text-white" : "text-[#6B7280] group-hover:text-gray-700"))}
+                      {renderIcon(item.icon)}
                     </div>
 
                     <div className="flex-1 min-w-0 ">
@@ -1070,7 +1075,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
       {/* Desktop Sidebar */}
       <aside
         className={clsx(
-          "transition-all duration-300 ease-in-out bg-[#F3F4F6] border-r border-gray-200 flex-col min-h-screen w-64 hidden lg:flex",
+          "transition-all duration-300 ease-in-out bg-[#F3F4F6] border-r border-gray-200 flex-col min-h-screen w-72 hidden lg:flex",
           {
             "lg:flex": !isDesktopHidden,
             "lg:hidden": isDesktopHidden,
@@ -1148,7 +1153,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                         )}
                       >
                         <span className="flex items-center gap-2">
-                          {renderIcon(item.icon, clsx("w-4 h-4", isActive ? "text-white" : "text-[#374151]"))}
+                          {renderIcon(item.icon)}
                           <span className={clsx("inter-font text-xs font-medium uppercase tracking-wider", { "text-white": isActive })}>
                             {item.label}
                           </span>
@@ -1161,7 +1166,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                         />
                       </button>
                       {isDropdownOpen && (
-                        <div className="mt-2 ml-4 space-y-2 border-l-2 border-gray-200 pl-2">
+                        <div className="mt-1 ml-9 space-y-0.5">
                           {item.children.map((child, childIdx) => {
                             const childActive = selectedItem ? selectedItem === child.label : router.pathname === child.path;
                             return (
@@ -1173,7 +1178,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                                   onDrop={onDropChild(parentIdx, childIdx)}
                                   onDragEnd={onDragEnd}
                                   className={clsx(
-                                    "px-3 py-2 rounded-lg transition-all duration-200 text-sm cursor-move flex items-center gap-2 inter-font",
+                                    "px-3 py-2 rounded-lg transition-all duration-200 text-sm cursor-move flex items-start gap-2.5 inter-font min-w-0",
                                     {
                                       "bg-[#2D9AA5] text-white": childActive,
                                       "text-[#374151] hover:bg-gray-100": !childActive,
@@ -1181,8 +1186,10 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                                   )}
                                   onClick={safeClick(() => setSelectedItem(child.label))}
                                 >
-                                  {renderIcon(child.icon, clsx("w-4 h-4", childActive ? "text-white" : "text-[#374151]"))}
-                                  <span className={clsx("inter-font font-medium text-sm", { "text-white": childActive })}>
+                                  <span className={clsx("flex-shrink-0 mt-0.5", childActive ? "text-white" : "text-[#6B7280] group-hover:text-[#374151]")}>
+                                    {renderIcon(child.icon)}
+                                  </span>
+                                  <span className={clsx("inter-font font-medium text-sm leading-tight", { "text-white": childActive })}>
                                     {child.label}
                                   </span>
                                 </div>
@@ -1226,7 +1233,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                           "text-[#6B7280] group-hover:text-[#374151]": !isActive
                         }
                       )}>
-                        {renderIcon(item.icon, clsx("w-4 h-4", isActive ? "text-white" : "text-[#6B7280] group-hover:text-[#374151]"))}
+                        {renderIcon(item.icon)}
                         {item.badge && (
                           <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-medium inter-font text-[10px]">
                             {item.badge}
