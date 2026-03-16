@@ -19,7 +19,6 @@ const WorkflowTriggerSchema = new Schema(
       type: String,
       required: [true, "Trigger name is required"],
       trim: true,
-      unique: true,
     },
     description: {
       type: String,

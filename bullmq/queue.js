@@ -18,3 +18,8 @@ export const scheduleMessageQueue = new Queue("scheduleMessageQueue", {
 export const workflowQueue = new Queue("workflowQueue", {
   connection: redis,
 });
+
+// ----------------------------------- ACTION QUEUE -----------------------------------//
+export const delayActionQueue = new Queue("delayActionQueue", {
+  connection: redis,
+});

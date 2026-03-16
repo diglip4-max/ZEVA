@@ -49,7 +49,7 @@ import { clsx, type ClassValue } from "clsx";
 import { Workflow } from "@/types/workflows";
 import axios from "axios";
 import { getFormatedTime, getTokenByPath } from "@/lib/helper";
-import { FaUserEdit } from "react-icons/fa";
+import { FaUserEdit, FaWhatsapp } from "react-icons/fa";
 import EditWorkflow from "../_components/EditWorkflow";
 import DeleteConfirmation from "../_components/DeleteConfirmation";
 import DelayActionModal from "../_components/DelayActionModal";
@@ -59,6 +59,8 @@ import IfElseConditionModal from "../_components/IfElseConditionModal";
 import WebhookTriggerModal from "../_components/WebhookTriggerModal";
 import AssignOwnerActionModal from "../_components/AssignOwnerActionModal";
 import AddToSegmentActionModal from "../_components/AddToSegmentActionModal";
+import AiComposerActionModal from "../_components/AiComposerActionModal";
+import SendWhatsappActionModal from "../_components/SendWhatsappActionModal";
 
 // Utility for tailwind classes
 function cn(...inputs: ClassValue[]) {
@@ -66,7 +68,7 @@ function cn(...inputs: ClassValue[]) {
 }
 
 const actionIcons: { [key: string]: React.ElementType } = {
-  "Send Message": MessageSquare,
+  "Send WhatsApp": FaWhatsapp,
   Delay: Clock,
   "Rest API": Database,
   "AI Composer": Zap,
@@ -364,6 +366,20 @@ const WorkflowEditor = () => {
     show: false,
     actionId: null,
   });
+  const [aiComposerModal, setAiComposerModal] = useState<{
+    show: boolean;
+    actionId: string | null;
+  }>({
+    show: false,
+    actionId: null,
+  });
+  const [sendWhatsappModal, setSendWhatsappModal] = useState<{
+    show: boolean;
+    actionId: string | null;
+  }>({
+    show: false,
+    actionId: null,
+  });
   const [deleteModal, setDeleteModal] = useState<{
     show: boolean;
     nodeId: string | null;
@@ -457,6 +473,15 @@ const WorkflowEditor = () => {
           });
         } else if (
           node &&
+          (node.data.label === "Send WhatsApp" ||
+            node.data.subType === "send_whatsapp")
+        ) {
+          setSendWhatsappModal({
+            show: true,
+            actionId: node.data.id,
+          });
+        } else if (
+          node &&
           (node.data.label === "Rest API" || node.data.subType === "rest_api")
         ) {
           setRestApiModal({
@@ -503,6 +528,15 @@ const WorkflowEditor = () => {
             node.data.subType === "add_to_segment")
         ) {
           setAddToSegmentModal({
+            show: true,
+            actionId: node.data.id,
+          });
+        } else if (
+          node &&
+          (node.data.label === "AI Composer" ||
+            node.data.subType === "ai_composer")
+        ) {
+          setAiComposerModal({
             show: true,
             actionId: node.data.id,
           });
@@ -945,12 +979,13 @@ const WorkflowEditor = () => {
                 <h3 className="text-[10px] font-bold text-gray-400 uppercase mb-3 tracking-widest">
                   Actions
                 </h3>
+
                 <SidebarItem
                   type="action"
-                  subType="send_message"
-                  label="Send Message"
+                  subType="send_whatsapp"
+                  label="Send WhatsApp"
                   description="Send a whatsapp templated message"
-                  icon={MessageSquare}
+                  icon={FaWhatsapp}
                   color="bg-green-500"
                   onDragStart={onDragStart}
                 />
@@ -981,24 +1016,29 @@ const WorkflowEditor = () => {
                   color="bg-yellow-500"
                   onDragStart={onDragStart}
                 />
-                <SidebarItem
-                  type="action"
-                  subType="add_tag"
-                  label="Add Tag"
-                  description="Add a tag to the lead"
-                  icon={Tag}
-                  color="bg-blue-500"
-                  onDragStart={onDragStart}
-                />
-                <SidebarItem
-                  type="action"
-                  subType="assign_owner"
-                  label="Assign Owner"
-                  description="Assign the lead to a specific owner"
-                  icon={UserPlus}
-                  color="bg-purple-500"
-                  onDragStart={onDragStart}
-                />
+                {workflow?.entity === "Lead" && (
+                  <SidebarItem
+                    type="action"
+                    subType="add_tag"
+                    label="Add Tag"
+                    description="Add a tag to the lead"
+                    icon={Tag}
+                    color="bg-blue-500"
+                    onDragStart={onDragStart}
+                  />
+                )}
+
+                {workflow?.entity === "Lead" && (
+                  <SidebarItem
+                    type="action"
+                    subType="assign_owner"
+                    label="Assign Owner"
+                    description="Assign the lead to a specific owner"
+                    icon={UserPlus}
+                    color="bg-purple-500"
+                    onDragStart={onDragStart}
+                  />
+                )}
 
                 {workflow?.entity === "Lead" && (
                   <SidebarItem
@@ -1203,6 +1243,28 @@ const WorkflowEditor = () => {
         onUpdate={() => {
           fetchWorkflow();
           console.log("Add to segment action updated");
+        }}
+      />
+
+      {/* AI Composer Action Modal */}
+      <AiComposerActionModal
+        isOpen={aiComposerModal.show}
+        onClose={() => setAiComposerModal({ show: false, actionId: null })}
+        actionId={aiComposerModal.actionId}
+        onUpdate={() => {
+          fetchWorkflow();
+          console.log("AI composer action updated");
+        }}
+      />
+
+      {/* Send WhatsApp Action Modal */}
+      <SendWhatsappActionModal
+        isOpen={sendWhatsappModal.show}
+        onClose={() => setSendWhatsappModal({ show: false, actionId: null })}
+        actionId={sendWhatsappModal.actionId}
+        onUpdate={() => {
+          fetchWorkflow();
+          console.log("Send WhatsApp action updated");
         }}
       />
     </div>

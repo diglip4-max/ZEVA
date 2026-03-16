@@ -73,7 +73,7 @@ export default async function handler(req, res) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const {
+    let {
       name,
       description,
       type,
@@ -94,10 +94,15 @@ export default async function handler(req, res) {
       name,
       description,
       type,
-      webhookUrl,
-      webhookListening,
+      webhookUrl: "",
+      webhookListening: false,
       webhookResponse,
     });
+
+    // for webhook trigger
+    if (newTrigger.type === "webhook_received") {
+      newTrigger.webhookUrl = `https://localhost:3000/api/workflows/webhook/${newTrigger._id}`;
+    }
 
     await newTrigger.save();
 
