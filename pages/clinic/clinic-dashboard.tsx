@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, User, Crown, Stethoscope, Building2, Package, Gift, DoorOpen, UserPlus, GripVertical, Eye, EyeOff, Save, RotateCcw, Edit2, X, Undo2, Redo2, ChevronLeft, ChevronRight, LayoutDashboard, Home, Tag, Percent, ShoppingCart, Receipt, DollarSign, Wallet, Shield, UserCheck, UserCog, UserCircle, Award, Download, RefreshCw, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, LineChart, Line, Tooltip, PieChart, Pie, Cell, Legend, AreaChart, Area } from 'recharts';
 import Stats from '../../components/Stats';
@@ -3013,7 +3013,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
 
         // Calculate date range based on timeRangeFilter (same as other sections)
         const params: any = {};
-        if (timeRangeFilter === 'week') {
+        if (timeRangeFilter === 'today') {
+          // Single day
+          params.date = selectedDate.toISOString().split('T')[0];
+          console.log('📅 Today filter:', params.date);
+        } else if (timeRangeFilter === 'week') {
           // Last 7 days
           const endDate = new Date(selectedDate);
           const startDate = new Date(selectedDate);
