@@ -143,7 +143,7 @@ const iconMap: { [key: string]: React.ReactNode } = {
   'home': <Home className="w-4 h-4 text-[#6B7280]" />,
   'dashboard': <LayoutDashboard className="w-4 h-4 text-[#6B7280]" />,
   'analytics': <BarChart3 className="w-4 h-4 text-[#6B7280]" />,
-  'reports': <FileText className="w-4 h-4 text-[#6B7280]" />,
+  'reports': <BarChart3 className="w-4 h-4 text-[#6B7280]" />,
   'overview': <Activity className="w-4 h-4 text-[#6B7280]" />,
 
   // Users & People
@@ -247,6 +247,7 @@ const iconMap: { [key: string]: React.ReactNode } = {
   'discounts': <Percent className="w-4 h-4 text-[#6B7280]" />,
   'deals': <ShoppingCart className="w-4 h-4 text-[#6B7280]" />,
   'packages': <Package className="w-4 h-4 text-[#6B7280]" />,
+  'package': <Package className="w-4 h-4 text-[#6B7280]" />,
 
   // Payments & Finance
   '💳': <CreditCard className="w-4 h-4 text-[#6B7280]" />,
@@ -536,13 +537,14 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
           const nonNull = (...items: Array<NavItemChild | null>) =>
             items.filter(Boolean) as NavItemChild[];
 
+          const dashboardTop = pickTop("Dashboard");
           const groupedModules: NavItem[] = [
-            {
-              label: "MAIN",
-              icon: "dashboard",
-              children: nonNull(pickTop("Dashboard")),
+            ...(dashboardTop ? [{
+              label: (dashboardTop.label || "Dashboard").toUpperCase(),
+              path: dashboardTop.path,
+              icon: dashboardTop.icon,
               order: 0,
-            },
+            }] as NavItem[] : []),
             {
               label: "Business Management",
               icon: "business",
@@ -591,10 +593,29 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               label: "Stock Management",
               icon: "archive",
               children: nonNull(
-                { label: "Policy & Compliance", path: "/clinic/policy_compliance", icon: "🛡️" },
-              
+                { label: "Locations", path: "/clinic/stocks/locations", icon: "storage" },
+                { label: "Suppliers", path: "/clinic/stocks/suppliers", icon: "archive" },
+                { label: "UOM", path: "/clinic/stocks/uom", icon: "database" },
+                { label: "Purchase Requests", path: "/clinic/stocks/purchase-requests", icon: "reports" },
+                { label: "Purchase Orders", path: "/clinic/stocks/purchase-orders", icon: "deals" },
+                { label: "GRN", path: "/clinic/stocks/grn", icon: "billing" },
+                { label: "Purchase Invoices", path: "/clinic/stocks/purchase-invoices", icon: "billing" },
+                { label: "Purchase Returns", path: "/clinic/stocks/purchase-returns", icon: "billing" },
+                { label: "Stock Qty Adjustment", path: "/clinic/stocks/stock-qty-adjustment", icon: "statistics" },
+                { label: "Stock Transfer Requests", path: "/clinic/stocks/stock-transfer/stock-transfer-requests", icon: "share" },
+                { label: "Transfer Stock", path: "/clinic/stocks/stock-transfer/transfer-stock", icon: "share" },
+                { label: "Material Consumptions", path: "/clinic/stocks/material-consumptions", icon: "activity" },
+                { label: "Allocated Stock Items", path: "/clinic/stocks/allocated-stock-items", icon: "package" },
               ),
-              order: 140,
+              order: 135,
+            },
+            {
+              label: "Policy & Compliance",
+              icon: "🛡️",
+              children: nonNull(
+                { label: "Policy & Compliance", path: "/clinic/policy_compliance", icon: "🛡️" }
+              ),
+              order: 136,
             },
             {
               label: "Security & Privacy",
@@ -623,29 +644,40 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 pickTop("Add Expense"),
                 pickTop("Petty Cash"),
                 pickChild("Petty Cash"),
-                { label: "Petty Cash", path: "/clinic/pettycash", icon: "dollar-sign" }
+                { label: "Petty Cash", path: "/clinic/pettycash", icon: "dollar-sign" },
+                { label: "Reports", path: "/clinic/report", icon: "reports" }
               ),
               order: 180,
             },
           ].filter(group => group.children && group.children.length > 0);
 
-          const usedLabels = new Set<string>(
-            groupedModules.flatMap(g => (g.children || []).map(c => toKey(c.label)))
-          );
-          const usedPaths = new Set<string>(
-            groupedModules.flatMap(g => (g.children || []).map(c => c.path || '').filter(Boolean))
-          );
+          const usedLabels = new Set<string>([
+            ...groupedModules.flatMap(g => (g.children || []).map(c => toKey(c.label))),
+            ...groupedModules.filter(g => g.path).map(g => toKey(g.label)),
+          ]);
+          const usedPaths = new Set<string>([
+            ...groupedModules.flatMap(g => (g.children || []).map(c => c.path || '').filter(Boolean)),
+            ...groupedModules.filter(g => g.path).map(g => g.path || '').filter(Boolean),
+          ]);
           const usedGroupLabels = new Set<string>(groupedModules.map(g => toKey(g.label)));
           const filteredOriginals = convertedItems.filter(i => {
             const labelUsed = usedLabels.has(toKey(i.label));
             const pathUsed = i.path ? usedPaths.has(i.path) : false;
             const groupLabelDuplicate = usedGroupLabels.has(toKey(i.label));
-            return !(labelUsed || pathUsed || groupLabelDuplicate);
+            const isStockGeneric = toKey(i.label) === 'stock';
+            const isPolicyCompliance = toKey(i.label) === 'policy & compliance';
+            return !(labelUsed || pathUsed || groupLabelDuplicate || isStockGeneric || isPolicyCompliance);
           });
 
           const finalItems = [...groupedModules, ...filteredOriginals];
+          
+          const rank = (it: NavItem) => {
+            if (it.path && toKey(it.label) === 'dashboard') return -1000;
+            return typeof it.order === 'number' ? it.order : 9999;
+          };
+          const sortedItems = [...finalItems].sort((a, b) => rank(a) - rank(b));
 
-          setItems(finalItems);
+          setItems(sortedItems);
           return;
         } else {
           console.error("Error fetching navigation items:", res.data.message);
@@ -900,21 +932,24 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                       onDragEnd={onDragEnd}
                     >
                       <button
-                        onClick={() => setOpenDropdown(openDropdown === item.label ? null : item.label)}
+                        onClick={() => {
+                          setSelectedItem(item.label);
+                          setOpenDropdown(openDropdown === item.label ? null : item.label);
+                        }}
                         className={clsx(
                           "w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-left group cursor-move",
                           {
-                            "bg-[#ECFDF5] text-[#059669]": isActive,
+                            "bg-[#2D9AA5] text-white": isActive,
                             "text-[#374151] hover:bg-gray-100": !isActive,
                           }
                         )}
                       >
-                        <div className="flex items-center space-x-3">
+                      <div className="flex items-center gap-1">
 
                           <div className={clsx(
                             "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
                             {
-                              "bg-[#ECFDF5] text-[#059669]": isActive,
+                              "bg-[#2D9AA5] text-white": isActive,
                               "text-[#6B7280] group-hover:text-[#374151]": !isActive,
                             }
                           )}>
@@ -927,7 +962,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                             "w-4 h-4 transition-transform duration-200",
                             {
                               "rotate-180": isDropdownOpen,
-                              "text-[#059669]": isActive,
+                              "text-white": isActive,
                               "text-[#374151]": !isActive,
                             }
                           )}
@@ -946,15 +981,18 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                                   onDrop={onDropChild(itemIndex, childIdx)}
                                   onDragEnd={onDragEnd}
                                   className={clsx(
-                                    "px-3 py-2 rounded-lg transition-all duration-200 text-sm cursor-move flex items-center gap-2 inter-font",
-                                    {
-                                      "bg-gray-200 text-gray-900": isChildActive,
-                                      "text-gray-700 hover:bg-gray-100": !isChildActive,
-                                    }
+                                  "px-3 py-2 rounded-lg transition-all duration-200 text-sm cursor-move flex items-center gap-2 inter-font",
+                                  {
+                                    "bg-[#2D9AA5] text-white": isChildActive,
+                                    "text-[#374151] hover:bg-gray-100": !isChildActive,
+                                  }
                                   )}
                                 >
 
-                                  {child.label}
+                                  {renderIcon(child.icon, clsx("w-4 h-4", isChildActive ? "text-white" : "text-[#374151]"))}
+                                  <span className={clsx("inter-font font-medium text-sm", { "text-white": isChildActive })}>
+                                    {child.label}
+                                  </span>
                                 </div>
                               </Link>
                             ) : (
@@ -983,8 +1021,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                     className={clsx(
                       "w-full flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 group cursor-move inter-font",
                       {
-                        "bg-gray-200 text-gray-900": isActive,
-                        "text-gray-700 hover:bg-gray-100": !isActive,
+                        "bg-[#2D9AA5] text-white": isActive,
+                        "text-[#374151] hover:bg-gray-100": !isActive,
                       }
                     )}
                   >
@@ -992,18 +1030,21 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                     <div className={clsx(
                       "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
                       {
-                        "text-gray-900": isActive,
+                        "text-white": isActive,
                         "text-[#6B7280] group-hover:text-gray-700": !isActive,
                       }
                     )}>
                       {renderIcon(item.icon, clsx("w-4 h-4", isActive ? "text-white" : "text-[#6B7280] group-hover:text-gray-700"))}
                     </div>
 
-                    <div className="flex-1 min-w-0 ml-3">
+                    <div className="flex-1 min-w-0 ">
                       <div className={clsx(
-                        "inter-font font-medium text-sm text-[#374151] transition-colors duration-200",
+                        "inter-font font-medium text-sm transition-colors duration-200",
                         {
-                          "text-[#059669]": isActive,
+                          "text-white": isActive,
+                          "text-[#374151]": !isActive,
+                          "uppercase": (item.label || "").toUpperCase() === "DASHBOARD",
+                            "text-xs": (item.label || "").toUpperCase() === "DASHBOARD",
                         }
                       )}>
                         {item.label}
@@ -1081,61 +1122,75 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                   ? selectedItem === item.label 
                   : router.pathname === item.path;
 
-                // Section header with children always visible
+                // Section header - collapsible on desktop
                 if (isSection && item.children) {
+                  const isDropdownOpen = openDropdown === item.label;
                   return (
-                    <div key={item.label}>
-                      <div className="px-2 text-xs font-medium uppercase tracking-wider text-[#64748B] inter-font mt-4 flex items-center">
-                        <span className="flex-1">{item.label}</span>
-                      </div>
-                      <div className="mt-2 space-y-0.5">
-                        {item.children.map((child, childIdx) => {
-                          const childActive = selectedItem ? selectedItem === child.label : router.pathname === child.path;
-                          return (
-                            <Link key={child.path} href={child.path!}>
-                              <div
-                                draggable
-                                onDragStart={onDragStartChild(parentIdx, childIdx)}
-                                onDragOver={onDragOver}
-                                onDrop={onDropChild(parentIdx, childIdx)}
-                                onDragEnd={onDragEnd}
-                                className={clsx(
-                                  "group relative block rounded-lg transition-all duration-200 cursor-pointer p-2 inter-font",
-                                  {
-                                    "bg-[#2D9AA5] text-white": childActive,
-                                    "hover:bg-gray-100 text-[#374151]": !childActive,
-                                  }
-                                )}
-                                onClick={safeClick(() => {
-                                  setSelectedItem(child.label);
-                                })}
-                              >
-                                <div className="flex items-center space-x-2.5">
-                                  <div>
-                                    {renderIcon(child.icon, clsx("w-4 h-4", childActive ? "text-white" : "text-[#374151]"))}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className={clsx(
-                                      "inter-font font-medium text-sm transition-colors duration-200",
-                                      {
-                                        "text-white": childActive,
-                                        "text-[#374151]": !childActive,
-                                      }
-                                    )}>
-                                      {child.label}
-                                    </div>
-                                  </div>
-                                  {child.badge && (
-                                    <span className="ml-auto bg-red-600 text-white text-[10px] rounded-full min-w-4 h-4 px-1 flex items-center justify-center font-medium inter-font">
-                                      {child.badge}
-                                    </span>
+                    <div 
+                      key={item.label}
+                      draggable
+                      onDragStart={onDragStartParent(parentIdx)}
+                      onDragOver={onDragOver}
+                      onDrop={onDropParent(parentIdx)}
+                      onDragEnd={onDragEnd}
+                    >
+                      <button
+                        onClick={() => {
+                          setSelectedItem(item.label);
+                          setOpenDropdown(isDropdownOpen ? null : item.label);
+                        }}
+                        className={clsx(
+                          "w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-left group cursor-move mt-3 mb-1",
+                          {
+                            "bg-[#2D9AA5] text-white": isActive,
+                            "text-[#374151] hover:bg-gray-100": !isActive,
+                          }
+                        )}
+                      >
+                        <span className="flex items-center gap-2">
+                          {renderIcon(item.icon, clsx("w-4 h-4", isActive ? "text-white" : "text-[#374151]"))}
+                          <span className={clsx("inter-font text-xs font-medium uppercase tracking-wider", { "text-white": isActive })}>
+                            {item.label}
+                          </span>
+                        </span>
+                        <ChevronDown
+                          className={clsx(
+                            "w-4 h-4 transition-transform duration-200",
+                            { "rotate-180": isDropdownOpen, "text-white": isActive, "text-[#374151]": !isActive }
+                          )}
+                        />
+                      </button>
+                      {isDropdownOpen && (
+                        <div className="mt-2 ml-4 space-y-2 border-l-2 border-gray-200 pl-2">
+                          {item.children.map((child, childIdx) => {
+                            const childActive = selectedItem ? selectedItem === child.label : router.pathname === child.path;
+                            return (
+                              <Link key={child.path} href={child.path!}>
+                                <div
+                                  draggable
+                                  onDragStart={onDragStartChild(parentIdx, childIdx)}
+                                  onDragOver={onDragOver}
+                                  onDrop={onDropChild(parentIdx, childIdx)}
+                                  onDragEnd={onDragEnd}
+                                  className={clsx(
+                                    "px-3 py-2 rounded-lg transition-all duration-200 text-sm cursor-move flex items-center gap-2 inter-font",
+                                    {
+                                      "bg-[#2D9AA5] text-white": childActive,
+                                      "text-[#374151] hover:bg-gray-100": !childActive,
+                                    }
                                   )}
+                                  onClick={safeClick(() => setSelectedItem(child.label))}
+                                >
+                                  {renderIcon(child.icon, clsx("w-4 h-4", childActive ? "text-white" : "text-[#374151]"))}
+                                  <span className={clsx("inter-font font-medium text-sm", { "text-white": childActive })}>
+                                    {child.label}
+                                  </span>
                                 </div>
-                              </div>
-                            </Link>
-                          );
-                        })}
-                      </div>
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 }
@@ -1162,7 +1217,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                   >
                     {/* Active accent removed for blue pill style */}
 
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center gap-1">
 
                       <div className={clsx(
                         "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
@@ -1171,7 +1226,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                           "text-[#6B7280] group-hover:text-[#374151]": !isActive
                         }
                       )}>
-                        {iconMap[item.icon] || <span className="text-base text-[#6B7280]">{item.icon}</span>}
+                        {renderIcon(item.icon, clsx("w-4 h-4", isActive ? "text-white" : "text-[#6B7280] group-hover:text-[#374151]"))}
                         {item.badge && (
                           <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-medium inter-font text-[10px]">
                             {item.badge}
@@ -1185,6 +1240,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                           {
                             "text-white": isActive,
                             "text-[#374151]": !isActive,
+                            "uppercase": (item.label || "").toUpperCase() === "DASHBOARD",
+                            "text-xs": (item.label || "").toUpperCase() === "DASHBOARD",
                           }
                         )}>
                           {item.label}
