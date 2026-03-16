@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, User, Crown, Stethoscope, Building2, Package, Gift, DoorOpen, UserPlus, GripVertical, Eye, EyeOff, Save, RotateCcw, Edit2, X, Undo2, Redo2, ChevronLeft, ChevronRight, LayoutDashboard, Home, Tag, Percent, ShoppingCart, Receipt, DollarSign, Wallet, Shield, UserCheck, UserCog, UserCircle, Award, Download, RefreshCw, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, LineChart, Line, Tooltip, PieChart, Pie, Cell, Legend, AreaChart, Area } from 'recharts';
 import Stats from '../../components/Stats';
@@ -265,6 +265,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
     topServicesData: [] as any[],
   });
   const [financialLoading, setFinancialLoading] = useState<boolean>(false);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+  useEffect(() => {
+    const updateMobile = () => setIsMobile(typeof window !== 'undefined' && window.innerWidth < 640);
+    updateMobile();
+    window.addEventListener('resize', updateMobile);
+    return () => window.removeEventListener('resize', updateMobile);
+  }, []);
   
   // Patient Reports Data
   const [patientDemographics, setPatientDemographics] = useState({
@@ -3013,7 +3020,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
 
         // Calculate date range based on timeRangeFilter (same as other sections)
         const params: any = {};
-        if (timeRangeFilter === 'week') {
+        if (timeRangeFilter === 'today') {
+          // Single day
+          params.date = selectedDate.toISOString().split('T')[0];
+          console.log('📅 Today filter:', params.date);
+        } else if (timeRangeFilter === 'week') {
           // Last 7 days
           const endDate = new Date(selectedDate);
           const startDate = new Date(selectedDate);
@@ -4332,15 +4343,15 @@ const ClinicDashboard: NextPageWithLayout = () => {
                               <h3 className="text-base font-bold text-black">Payment Methods</h3>
                               <p className="text-xs text-gray-500 mt-1">Distribution by payment type</p>
                             </div>
-                            <div className="h-72">
+                            <div className="h-72 sm:h-72">
                               <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                   <Pie
                                     data={financialData.paymentMethodsData || []}
-                                    cx="40%"
+                                    cx={isMobile ? "50%" : "40%"}
                                     cy="50%"
-                                    innerRadius={50}
-                                    outerRadius={80}
+                                    innerRadius={isMobile ? 40 : 50}
+                                    outerRadius={isMobile ? 70 : 80}
                                     paddingAngle={5}
                                     dataKey="value"
                                     nameKey="name"
@@ -4361,14 +4372,14 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     formatter={(value: any, name: any) => [`${value}%`, name || 'Payment Method']}
                                   />
                                   <Legend 
-                                    layout="vertical"
-                                    verticalAlign="middle"
-                                    align="right"
+                                    layout={isMobile ? "horizontal" : "vertical"}
+                                    verticalAlign={isMobile ? "bottom" : "middle"}
+                                    align={isMobile ? "center" : "right"}
                                     wrapperStyle={{ 
-                                      fontSize: '11px',
-                                      paddingLeft: '20px',
+                                      fontSize: isMobile ? '10px' : '11px',
+                                      paddingLeft: isMobile ? '0px' : '20px',
                                       color: '#4b5563',
-                                      lineHeight: '24px'
+                                      lineHeight: '20px'
                                     }}
                                     formatter={(value: any) => {
                                       const item = (financialData.paymentMethodsData || []).find((d: any) => d.name === value);
@@ -5191,19 +5202,19 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                       <h3 className="text-base font-bold text-black">Gender Distribution</h3>
                                       <p className="text-xs text-gray-500 mt-1">Patient demographics by gender</p>
                                     </div>
-                                    <div className="h-72">
+                                    <div className="h-64 sm:h-72">
                                       <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
                                           <Pie
                                             data={patientDemographics.genderDistribution}
                                             cx="50%"
                                             cy="50%"
-                                            innerRadius={60}
-                                            outerRadius={100}
+                                            innerRadius={isMobile ? 50 : 60}
+                                            outerRadius={isMobile ? 85 : 100}
                                             paddingAngle={5}
                                             dataKey="percentage"
                                             nameKey="name"
-                                            label={({ name, value }) => `${name}: ${((value || 0) * 100).toFixed(0)}%`}
+                                            label={isMobile ? false : ({ name, value }) => `${name}: ${((value || 0) * 100).toFixed(0)}%`}
                                             labelLine={false}
                                           >
                                             {patientDemographics.genderDistribution.map((_entry: any, index: number) => (

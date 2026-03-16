@@ -91,9 +91,9 @@ const DoctorPerformance: React.FC<DoctorPerformanceProps> = ({
         
         // When viewing today's data, only show doctors who have appointments today
         if (timeRange === 'today') {
-          appointmentsPerDoctor = appointmentsPerDoctor.filter(doc => doc.appointmentCount > 0);
-          revenuePerDoctor = revenuePerDoctor.filter(doc => doc.appointmentCount > 0);
-          leaderboardData = leaderboardData.filter(doc => doc.appointmentCount > 0);
+          appointmentsPerDoctor = appointmentsPerDoctor.filter((doc:any) => doc.appointmentCount > 0);
+          revenuePerDoctor = revenuePerDoctor.filter((doc:any) => doc.appointmentCount > 0);
+          leaderboardData = leaderboardData.filter((doc:any) => doc.appointmentCount > 0);
         }
         
         setAppointmentsPerDoctor(appointmentsPerDoctor);

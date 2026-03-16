@@ -221,10 +221,8 @@ export default async function handler(
       }));
 
     // 4. Top Patients (VIP) - Based on billing revenue from Billing model
-    // Fetch all billings for the clinic within the date range
     const billings = await Billing.find({
-      clinicId,
-      ...dateFilter,
+      clinicId
     })
       .populate('patientId', 'firstName lastName mobileNumber')
       .lean();
