@@ -188,7 +188,7 @@ const PrintGoodReceivedNotePage = () => {
         </div>
 
         <h2 className="text-blue-900 text-lg font-bold mb-4">
-          Goods Received Notes
+          Goods Receive Note (GRN)
         </h2>
 
         <div className="grid grid-cols-2 gap-4 mb-4">
