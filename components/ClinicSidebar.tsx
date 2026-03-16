@@ -604,7 +604,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 { label: "Stock Qty Adjustment", path: "/clinic/stocks/stock-qty-adjustment", icon: "statistics" },
                 { label: "Stock Transfer Requests", path: "/clinic/stocks/stock-transfer/stock-transfer-requests", icon: "share" },
                 { label: "Transfer Stock", path: "/clinic/stocks/stock-transfer/transfer-stock", icon: "share" },
-                { label: "Material Consumptions", path: "/clinic/stocks/material-consumptions", icon: "activity" },
+                // { label: "Material Consumptions", path: "/clinic/stocks/material-consumptions", icon: "activity" },
                 { label: "Allocated Stock Items", path: "/clinic/stocks/allocated-stock-items", icon: "package" },
               ),
               order: 135,
