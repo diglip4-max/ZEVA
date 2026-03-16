@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { FC, useState, useEffect, useRef } from "react";
+import { FC, useState, useEffect, useRef, isValidElement } from "react";
 import clsx from "clsx";
 import axios from "axios";
 import {
@@ -357,6 +357,15 @@ const iconMap: { [key: string]: React.ReactNode } = {
   'metrics': <Activity className="w-4 h-4 text-[#6B7280]" />,
 
   // Default fallback for any unmapped icons
+};
+
+const renderIcon = (key: string, className: string) => {
+  const node = iconMap[key];
+  if (isValidElement(node)) {
+    const IconComp = node.type as any;
+    return <IconComp className={className} />;
+  }
+  return <span className={className}>{key}</span>;
 };
 
 const ClinicSidebar: FC<ClinicSidebarProps> = ({ 
@@ -909,7 +918,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                               "text-[#6B7280] group-hover:text-[#374151]": !isActive,
                             }
                           )}>
-                            {iconMap[item.icon] || <span className="text-base text-[#6B7280]">{item.icon}</span>}
+                            {renderIcon(item.icon, clsx("w-4 h-4", isActive ? "text-white" : "text-[#6B7280] group-hover:text-[#374151]"))}
                           </div>
                           <span className="inter-font text-sm font-medium text-[#374151]">{item.label}</span>
                         </div>
@@ -987,7 +996,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                         "text-[#6B7280] group-hover:text-gray-700": !isActive,
                       }
                     )}>
-                      {iconMap[item.icon] || <span className="text-base text-[#6B7280]">{item.icon}</span>}
+                      {renderIcon(item.icon, clsx("w-4 h-4", isActive ? "text-white" : "text-[#6B7280] group-hover:text-gray-700"))}
                     </div>
 
                     <div className="flex-1 min-w-0 ml-3">
@@ -1102,8 +1111,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                                 })}
                               >
                                 <div className="flex items-center space-x-2.5">
-                                  <div className="text-[#374151]">
-                                    {iconMap[child.icon] || <span className="text-sm">{child.icon}</span>}
+                                  <div>
+                                    {renderIcon(child.icon, clsx("w-4 h-4", childActive ? "text-white" : "text-[#374151]"))}
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className={clsx(
