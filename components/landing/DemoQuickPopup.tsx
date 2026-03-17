@@ -15,6 +15,14 @@ export default function DemoQuickPopup() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  const handleSendEmail = () => {
+    const subject = encodeURIComponent("Inquiry from Website");
+    const body = encodeURIComponent(
+      `Hello Zeva Team,\n\nI would like to learn more about your clinic management platform.\n\nThanks,\n${name || "[Your Name]"}\nEmail: ${email || ""}\nPhone: ${phone || ""}\nClinic: ${clinicName || ""}`,
+    );
+    window.location.href = `mailto:hello@zeva.ae?subject=${subject}&body=${body}`;
+  };
+
   useEffect(() => {
     if (router.pathname === "/clinic-management-software-uae") {
       setOpen(true);
@@ -42,6 +50,7 @@ export default function DemoQuickPopup() {
         email,
         phone,
         clinicName,
+        source: modal ? "Floating Modal" : "Fixed Popup",
       });
       if (data.success) {
         setSuccess(true);
@@ -68,13 +77,6 @@ export default function DemoQuickPopup() {
   if (!open) return null;
 
   if (modal) {
-    const handleSendEmail = () => {
-      const subject = encodeURIComponent("Inquiry from Website");
-      const body = encodeURIComponent(
-        `Hello Zeva Team,\n\nI would like to learn more about your clinic management platform.\n\nThanks,\n${name || "[Your Name]"}\nEmail: ${email || ""}\nPhone: ${phone || ""}\nClinic: ${clinicName || ""}`,
-      );
-      window.location.href = `mailto:hello@zeva.ae?subject=${subject}&body=${body}`;
-    };
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center">
         <div
@@ -329,13 +331,7 @@ export default function DemoQuickPopup() {
               <div className="mt-3">
                 <button
                   type="button"
-                  onClick={() => {
-                    const subject = encodeURIComponent("Inquiry from Website");
-                    const body = encodeURIComponent(
-                      `Hello Zeva Team,\n\nI would like to learn more about your clinic management platform.\n\nThanks,\n${name || "[Your Name]"}\nEmail: ${email || ""}\nPhone: ${phone || ""}\nClinic: ${clinicName || ""}`,
-                    );
-                    window.location.href = `mailto:hello@zeva.ae?subject=${subject}&body=${body}`;
-                  }}
+                  onClick={handleSendEmail}
                   className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 text-[#0A1F44] font-semibold px-4 py-2 hover:bg-gray-50 transition-colors"
                 >
                   Send via Email

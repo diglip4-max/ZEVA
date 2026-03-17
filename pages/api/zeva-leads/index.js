@@ -15,7 +15,7 @@ export default async function handler(req, res) {
 
   if (req.method === "POST") {
     try {
-      const { name, email, phone, clinicName } = req.body;
+      const { name, email, phone, clinicName, source } = req.body;
 
       if (!name || typeof name !== "string" || name.trim().length === 0) {
         return res
@@ -38,6 +38,7 @@ export default async function handler(req, res) {
         email: email.trim(),
         phone: phone.trim(),
         clinicName: clinicName?.trim() || "",
+        source: source || "Website Form",
       });
 
       await newZevaLead.save();

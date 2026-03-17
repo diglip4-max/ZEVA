@@ -9,6 +9,10 @@ const ZevaLeadSchema = new mongoose.Schema(
     clinicName: {
       type: String,
     },
+    source: {
+      type: String,
+      default: "Unknown",
+    },
   },
   { timestamps: true },
 );
