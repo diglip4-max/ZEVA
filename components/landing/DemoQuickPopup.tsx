@@ -40,7 +40,7 @@ export default function DemoQuickPopup() {
         onClick={() => setOpen(false)}
         aria-hidden="true"
       />
-      <div className="relative w-[560px] max-w-[92vw] rounded-2xl overflow-hidden shadow-2xl border border-gray-200 bg-white">
+      <div className="relative w-[560px] max-w-[92vw] rounded-2xl overflow-hidden shadow-2xl border border-gray-200 bg-white dark:border-gray-300">
         <div className="bg-[#0A1F44] text-white px-5 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -68,7 +68,7 @@ export default function DemoQuickPopup() {
               <input
                 type="text"
                 placeholder="Enter your name"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-gray-900"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
@@ -80,7 +80,7 @@ export default function DemoQuickPopup() {
               <input
                 type="email"
                 placeholder="you@clinic.com"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-gray-900"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -92,7 +92,7 @@ export default function DemoQuickPopup() {
               <input
                 type="tel"
                 placeholder="+971 XX XXX XXXX"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-gray-900"
                 inputMode="numeric"
                 pattern="[0-9]*"
                 value={phone}
@@ -127,7 +127,7 @@ export default function DemoQuickPopup() {
 
   return (
     <div className="fixed bottom-6 right-6 z-50 w-[360px] max-w-[90vw]">
-      <div className="rounded-2xl overflow-hidden shadow-2xl border border-gray-200 bg-white">
+      <div className="rounded-2xl overflow-hidden shadow-2xl border border-gray-200 bg-white dark:border-gray-300">
         <div className="bg-[#0A1F44] text-white px-5 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -153,7 +153,7 @@ export default function DemoQuickPopup() {
               <input
                 type="text"
                 placeholder="Enter your name"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-gray-900"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
@@ -163,7 +163,7 @@ export default function DemoQuickPopup() {
               <input
                 type="email"
                 placeholder="you@clinic.com"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-gray-900"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -173,7 +173,7 @@ export default function DemoQuickPopup() {
               <input
                 type="tel"
                 placeholder="+971 XX XXX XXXX"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-gray-900"
                 inputMode="numeric"
                 pattern="[0-9]*"
                 value={phone}

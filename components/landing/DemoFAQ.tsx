@@ -15,7 +15,7 @@ const faqs = [
 export default function DemoFAQ() {
   const [open, setOpen] = useState<number | null>(null);
   return (
-    <section className="max-w-3xl mx-auto px-4 py-14">
+    <section className="max-w-3xl mx-auto px-4 py-14 bg-white">
       <div className="flex justify-center">
         <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs shadow-sm bg-[#F5E9C9] border-[#E8D9B6] text-[#0b2b4a]">
           Got Questions?
@@ -57,9 +57,9 @@ export default function DemoFAQ() {
         })}
       </div>
 
-      <div className="mt-12 text-center p-8 bg-gradient-to-br from-gray-50 to-white rounded-2xl border-2 border-gray-200">
+      <div className="mt-12 text-center p-8 bg-gradient-to-br from-gray-50 to-white rounded-2xl border-2 border-gray-200 ">
         <h3 className="text-xl font-bold text-[#0A1F44] mb-2">Still have questions?</h3>
-        <p className="text-gray-600 mb-6">Our team is here to help. Get in touch and we’ll answer all your questions.</p>
+        <p className="text-gray-600 mb-6">Our team is here to help. Get in touch and we'll answer all your questions.</p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <a
             href="https://wa.me/919650608788"

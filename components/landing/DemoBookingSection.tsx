@@ -3,7 +3,7 @@ import { FileText, Users, ShieldCheck, Clock, Send } from "lucide-react";
 
 export default function DemoBookingSection() {
   const bullets = [
-    { icon: FileText, text: "See Zeva in action with your clinic’s workflow" },
+    { icon: FileText, text: "See Zeva in action with your clinic's workflow" },
     { icon: Clock, text: "30-minute personalized demo session" },
     { icon: ShieldCheck, text: "Dedicated onboarding specialist" },
     { icon: Users, text: "No commitment required" },
@@ -70,11 +70,11 @@ export default function DemoBookingSection() {
           </div>
 
           <div className="flex-1 w-full">
-            <div className="relative rounded-3xl bg-white p-7 shadow-2xl border-2 border-gray-200">
+            <div className="relative rounded-3xl bg-white p-7 shadow-2xl border-2 border-gray-200 dark:border-gray-300">
               <div className="absolute top-0 right-0 w-40 h-40 md:w-56 md:h-56 bg-gradient-to-br from-[#D4AF37]/20 to-transparent rounded-bl-full pointer-events-none" />
               <div className="text-lg font-semibold text-[#0b2b4a]">Book Your Free Demo</div>
               <div className="mt-1 text-xs text-gray-600">
-                Fill out the form below and we’ll contact you within 2 hours.
+                Fill out the form below and we'll contact you within 2 hours.
               </div>
               <div className="mt-5 space-y-4">
                 <div>
@@ -82,7 +82,7 @@ export default function DemoBookingSection() {
                   <input
                     type="text"
                     placeholder="Dr. Ahmed Hassan"
-                    className="w-full rounded-xl border border-gray-300 bg-gray-100 px-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-300"
+                    className="w-full rounded-xl border border-gray-300 bg-gray-100 px-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-300 text-gray-900"
                   />
                 </div>
                 <div>
@@ -90,7 +90,7 @@ export default function DemoBookingSection() {
                   <input
                     type="email"
                     placeholder="you@yourclinic.com"
-                    className="w-full rounded-xl border border-gray-300 bg-gray-100 px-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-300"
+                    className="w-full rounded-xl border border-gray-300 bg-gray-100 px-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-300 text-gray-900"
                   />
                 </div>
                 <div>
@@ -98,7 +98,7 @@ export default function DemoBookingSection() {
                   <input
                     type="tel"
                     placeholder="+971 XX XXX XXXX"
-                    className="w-full rounded-xl border border-gray-300 bg-gray-100 px-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-300"
+                    className="w-full rounded-xl border border-gray-300 bg-gray-100 px-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-300 text-gray-900"
                     inputMode="numeric"
                     pattern="[0-9]*"
                     onInput={(e) => {
@@ -112,7 +112,7 @@ export default function DemoBookingSection() {
                   <input
                     type="text"
                     placeholder="Your Clinic Name"
-                    className="w-full rounded-xl border border-gray-300 bg-gray-100 px-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-300"
+                    className="w-full rounded-xl border border-gray-300 bg-gray-100 px-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-300 text-gray-900"
                   />
                 </div>
               </div>

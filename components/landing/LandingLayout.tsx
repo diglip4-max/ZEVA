@@ -11,9 +11,9 @@ type Props = {
 
 const LandingLayout: React.FC<Props> = ({ children }) => {
   return (
-    <div className="flex min-h-screen flex-col overflow-x-hidden">
+    <div className="flex min-h-screen flex-col overflow-x-hidden bg-white">
       <LandingHeader />
-      <main className="flex-1 w-full pt-20">{children}</main>
+      <main className="flex-1 w-full pt-20 bg-white">{children}</main>
       <DemoQuickPopup />
       <LandingFooter />
     </div>
