@@ -2,7 +2,7 @@ import dbConnect from "../../../../lib/database";
 import WorkflowHistory from "../../../../models/workflows/WorkflowHistory";
 import Workflow from "../../../../models/workflows/Workflow";
 import Clinic from "../../../../models/Clinic";
-import { getUserFromReq, requireRole } from "../../../lead-ms/auth";
+import { getUserFromReq, requireRole } from "../../lead-ms/auth";
 
 export default async function handler(req, res) {
   await dbConnect();
