@@ -122,9 +122,16 @@ export default function PricingPlans() {
             <h3 className="text-2xl font-bold text-gray-900">Enterprise</h3>
             <p className="text-sm text-gray-500 mb-6">For multi-location clinics and franchises</p>
             <div className="text-3xl font-extrabold text-gray-900">Custom</div>
-            <a href="/contact-sales" className="mt-4 inline-flex w-full items-center justify-center px-5 py-2 rounded-xl bg-[#0b2b4a] text-white font-semibold text-sm hover:opacity-90 transition-all">
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                window.dispatchEvent(new Event("zeva:open-demo-popup"));
+              }}
+              className="mt-4 inline-flex w-full items-center justify-center px-5 py-2 rounded-xl bg-[#0b2b4a] text-white font-semibold text-sm hover:opacity-90 transition-all">
               Contact Sales
             </a>
+            
             <ul className="mt-5 space-y-2">
               {enterpriseFeatures.map((f) => (
                 <li key={f} className="flex items-start gap-2 text-sm text-gray-700">

@@ -50,6 +50,17 @@ export default async function handler(req, res) {
       startOfDay.setHours(0, 0, 0, 0);
       endOfDay = new Date(queryDate);
       endOfDay.setHours(23, 59, 59, 999);
+    } else if (filter === 'week') {
+      // Get the start of the week (Sunday) and end of the week (Saturday)
+      const currentDay = now.getDay(); // 0 = Sunday, 6 = Saturday
+      const diff = now.getDate() - currentDay; // Calculate days to subtract to get to Sunday
+      
+      startOfDay = new Date(now.setDate(diff));
+      startOfDay.setHours(0, 0, 0, 0);
+      
+      endOfDay = new Date(now);
+      endOfDay.setDate(diff + 6); // Add 6 days to get to Saturday
+      endOfDay.setHours(23, 59, 59, 999);
     } else if (filter === 'month') {
       if (startDate && endDate) {
         startOfDay = new Date(startDate);

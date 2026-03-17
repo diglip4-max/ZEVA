@@ -4042,7 +4042,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
             <select
               value={timeRangeFilter}
               onChange={(e) => setTimeRangeFilter(e.target.value as 'today' | 'week' | 'month' | 'overall')}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               title="Select time range for all graphs"
             >
               <option value="today">Today</option>
@@ -4058,7 +4058,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   setSearchQuery('');
                   setTimeRangeFilter('today');
                 }}
-                className="flex items-center gap-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors text-sm font-medium"
+                className="flex items-center gap-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-colors text-sm font-medium"
                 title="Clear all filters"
               >
                 <X className="w-4 h-4" />
@@ -4069,36 +4069,36 @@ const ClinicDashboard: NextPageWithLayout = () => {
 
           {/* Active Filters Display */}
           {(searchQuery || timeRangeFilter !== 'today') && (
-            <div className="mt-3 flex flex-wrap items-center gap-2 pt-3 border-t border-gray-200">
-              <span className="text-xs text-gray-500 font-medium">Active filters:</span>
+            <div className="mt-3 flex flex-wrap items-center gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+              <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Active filters:</span>
               {searchQuery && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs font-medium">
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md text-xs font-medium">
                   Search: {searchQuery}
-                  <button onClick={() => setSearchQuery('')} className="hover:bg-blue-200 rounded-full p-0.5">
+                  <button onClick={() => setSearchQuery('')} className="hover:bg-blue-200 dark:hover:bg-blue-800/50 rounded-full p-0.5">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
               )}
               {timeRangeFilter === 'week' && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-700 rounded-md text-xs font-medium">
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-md text-xs font-medium">
                   Week
-                  <button onClick={() => setTimeRangeFilter('today')} className="hover:bg-indigo-200 rounded-full p-0.5">
+                  <button onClick={() => setTimeRangeFilter('today')} className="hover:bg-indigo-200 dark:hover:bg-indigo-800/50 rounded-full p-0.5">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
               )}
               {timeRangeFilter === 'month' && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-md text-xs font-medium">
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-md text-xs font-medium">
                   Month
-                  <button onClick={() => setTimeRangeFilter('today')} className="hover:bg-green-200 rounded-full p-0.5">
+                  <button onClick={() => setTimeRangeFilter('today')} className="hover:bg-green-200 dark:hover:bg-green-800/50 rounded-full p-0.5">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
               )}
               {timeRangeFilter === 'overall' && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-md text-xs font-medium">
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-md text-xs font-medium">
                   Overall
-                  <button onClick={() => setTimeRangeFilter('today')} className="hover:bg-red-200 rounded-full p-0.5">
+                  <button onClick={() => setTimeRangeFilter('today')} className="hover:bg-red-200 dark:hover:bg-red-800/50 rounded-full p-0.5">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
@@ -5809,7 +5809,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                         cx="50%"
                                         cy="50%"
                                         labelLine={false}
-                                        label={({ name, percent }) => `${name}: ${percent ? (percent * 100).toFixed(0) : 0}%`}
+                                        label={({ name, value }) => `${name}: ${value}`}
                                         outerRadius={80}
                                         fill="#8884d8"
                                         dataKey="value"
