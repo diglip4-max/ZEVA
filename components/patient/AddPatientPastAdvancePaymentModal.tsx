@@ -24,6 +24,8 @@ interface AddPatientPastAdvancePaymentModalProps {
   patientId: string;
   patientName?: string;
   onSuccess: (data: any) => void;
+  pastAdvanceType?: "50% Offer" | "54% Offer" | "159 Flat" | "";
+  primaryColor?: "amber" | "blue" | "purple" | "emerald" | "indigo" | "rose";
 }
 
 const paymentMethods = [
@@ -66,12 +68,89 @@ const paymentMethods = [
 
 const AddPatientPastAdvancePaymentModal: React.FC<
   AddPatientPastAdvancePaymentModalProps
-> = ({ isOpen, onClose, patientId, patientName, onSuccess }) => {
+> = ({
+  isOpen,
+  onClose,
+  patientId,
+  patientName,
+  onSuccess,
+  pastAdvanceType = "50% Offer",
+  primaryColor = "amber",
+}) => {
   const [amount, setAmount] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>("Cash");
   const [notes, setNotes] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const colorConfig = {
+    amber: {
+      gradient: "from-amber-500 to-yellow-600",
+      text: "text-amber-500",
+      bg: "bg-amber-50",
+      ring: "focus:ring-amber-500",
+      border: "border-amber-500",
+      buttonGradient: "from-amber-500 to-yellow-600",
+      shadow: "hover:shadow-amber-200",
+      badgeText: "text-amber-700",
+      badgeRing: "ring-amber-500/10",
+    },
+    blue: {
+      gradient: "from-blue-500 to-indigo-600",
+      text: "text-blue-500",
+      bg: "bg-blue-50",
+      ring: "focus:ring-blue-500",
+      border: "border-blue-500",
+      buttonGradient: "from-blue-500 to-indigo-600",
+      shadow: "hover:shadow-blue-200",
+      badgeText: "text-blue-700",
+      badgeRing: "ring-blue-500/10",
+    },
+    purple: {
+      gradient: "from-purple-500 to-indigo-600",
+      text: "text-purple-500",
+      bg: "bg-purple-50",
+      ring: "focus:ring-purple-500",
+      border: "border-purple-500",
+      buttonGradient: "from-purple-500 to-indigo-600",
+      shadow: "hover:shadow-purple-200",
+      badgeText: "text-purple-700",
+      badgeRing: "ring-purple-500/10",
+    },
+    emerald: {
+      gradient: "from-emerald-500 to-teal-600",
+      text: "text-emerald-500",
+      bg: "bg-emerald-50",
+      ring: "focus:ring-emerald-500",
+      border: "border-emerald-500",
+      buttonGradient: "from-emerald-500 to-teal-600",
+      shadow: "hover:shadow-emerald-200",
+      badgeText: "text-emerald-700",
+      badgeRing: "ring-emerald-500/10",
+    },
+    indigo: {
+      gradient: "from-indigo-500 to-blue-600",
+      text: "text-indigo-500",
+      bg: "bg-indigo-50",
+      ring: "focus:ring-indigo-500",
+      border: "border-indigo-500",
+      buttonGradient: "from-indigo-500 to-blue-600",
+      shadow: "hover:shadow-indigo-200",
+      badgeText: "text-indigo-700",
+      badgeRing: "ring-indigo-500/10",
+    },
+    rose: {
+      gradient: "from-rose-500 to-pink-600",
+      text: "text-rose-500",
+      bg: "bg-rose-50",
+      ring: "focus:ring-rose-500",
+      border: "border-rose-500",
+      buttonGradient: "from-rose-500 to-pink-600",
+      shadow: "hover:shadow-rose-200",
+      badgeText: "text-rose-700",
+      badgeRing: "ring-rose-500/10",
+    },
+  }[primaryColor];
 
   if (!isOpen) return null;
 
@@ -93,6 +172,7 @@ const AddPatientPastAdvancePaymentModal: React.FC<
           amount: Number(amount),
           paymentMethod,
           notes,
+          pastAdvanceType,
         },
         {
           headers: {
@@ -136,17 +216,23 @@ const AddPatientPastAdvancePaymentModal: React.FC<
       {/* Modal Content */}
       <div className="relative bg-white rounded-3xl shadow-2xl max-w-xl w-full overflow-hidden transform transition-all animate-in fade-in zoom-in duration-300">
         {/* Header with gradient */}
-        <div className="bg-gradient-to-r from-amber-500 to-yellow-600 px-8 py-6 flex items-center justify-between">
+        <div
+          className={cn(
+            "px-8 py-6 flex items-center justify-between bg-gradient-to-r",
+            colorConfig.gradient,
+          )}
+        >
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
               <History className="w-6 h-6 text-white" />
             </div>
             <div>
               <h3 className="text-xl font-bold text-white">
-                Add Past Advance Balance
+                Add {pastAdvanceType} Past Advance Balance
               </h3>
-              <p className="text-amber-50 text-xs font-medium opacity-80">
-                Record historical credit for {patientName || "the patient"}
+              <p className="text-white text-xs font-medium opacity-80">
+                Record historical credit for {patientName || "the patient"} for{" "}
+                {pastAdvanceType}
               </p>
             </div>
           </div>
@@ -162,11 +248,17 @@ const AddPatientPastAdvancePaymentModal: React.FC<
           {/* Amount Input */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
-              <DollarSign className="w-4 h-4 text-amber-500" />
-              Past Balance Amount
+              <DollarSign className={cn("w-4 h-4", colorConfig.text)} />
+              {pastAdvanceType} Past Balance Amount{" "}
+              <span className="text-red-500">*</span>
             </label>
             <div className="relative group">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-amber-500 transition-colors">
+              <div
+                className={cn(
+                  "absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors",
+                  `group-focus-within:${colorConfig.text}`,
+                )}
+              >
                 <span className="text-lg font-bold">AED</span>
               </div>
               <input
@@ -176,7 +268,10 @@ const AddPatientPastAdvancePaymentModal: React.FC<
                 placeholder="0.00"
                 step="0.01"
                 min="0.01"
-                className="w-full pl-16 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none transition-all text-xl font-bold text-gray-700 placeholder:text-gray-300"
+                className={cn(
+                  "w-full pl-16 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:bg-white outline-none transition-all text-xl font-bold text-gray-700 placeholder:text-gray-300",
+                  colorConfig.ring,
+                )}
                 required
                 autoFocus
               />
@@ -201,7 +296,12 @@ const AddPatientPastAdvancePaymentModal: React.FC<
                     className={cn(
                       "flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all gap-1",
                       isSelected
-                        ? "border-amber-500 bg-amber-50 ring-2 ring-amber-500/10"
+                        ? cn(
+                            colorConfig.border,
+                            colorConfig.bg,
+                            "ring-2",
+                            colorConfig.badgeRing,
+                          )
                         : "border-gray-100 hover:border-gray-200 bg-white",
                     )}
                   >
@@ -214,7 +314,7 @@ const AddPatientPastAdvancePaymentModal: React.FC<
                     <span
                       className={cn(
                         "text-[10px] font-bold uppercase tracking-wider",
-                        isSelected ? "text-amber-700" : "text-gray-500",
+                        isSelected ? colorConfig.badgeText : "text-gray-500",
                       )}
                     >
                       {method.label}
@@ -228,14 +328,18 @@ const AddPatientPastAdvancePaymentModal: React.FC<
           {/* Notes */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
-              <MessageSquare className="w-4 h-4 text-amber-500" />
-              Reference/Notes (Optional)
+              <MessageSquare className={cn("w-4 h-4", colorConfig.text)} />
+              Reference/Notes <span className="text-red-500">*</span>
             </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="E.g. Balance migrated from previous system..."
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none transition-all h-24 resize-none text-gray-600 placeholder:text-gray-400 font-medium"
+              className={cn(
+                "w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:bg-white outline-none transition-all h-24 resize-none text-gray-600 placeholder:text-gray-400 font-medium",
+                colorConfig.ring,
+              )}
+              required
             />
           </div>
 
@@ -258,7 +362,11 @@ const AddPatientPastAdvancePaymentModal: React.FC<
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-6 py-4 bg-gradient-to-r from-amber-500 to-yellow-600 text-white font-bold rounded-2xl hover:shadow-lg hover:shadow-amber-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={cn(
+                "flex-1 px-6 py-4 text-white font-bold rounded-2xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r hover:shadow-lg",
+                colorConfig.buttonGradient,
+                colorConfig.shadow,
+              )}
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />

@@ -61,7 +61,7 @@ export default async function handler(req, res) {
     // We track advance and pending separately (not net)
     const billings = await Billing.find(match)
       .select(
-        "pending advance advanceUsed pendingUsed pastAdvance pastAdvanceUsed createdAt",
+        "pending advance advanceUsed pendingUsed pastAdvance pastAdvanceUsed pastAdvanceType createdAt",
       )
       .lean();
 
@@ -73,6 +73,12 @@ export default async function handler(req, res) {
     // Track past advance and its usage
     let totalPastAdvanceGenerated = 0;
     let totalPastAdvanceUsed = 0;
+    let total50PercentOfferPastAdvanceGenerated = 0;
+    let total50PercentOfferPastAdvanceUsed = 0;
+    let total54PercentOfferPastAdvanceGenerated = 0;
+    let total54PercentOfferPastAdvanceUsed = 0;
+    let total159FlatPastAdvanceGenerated = 0;
+    let total159FlatPastAdvanceUsed = 0;
 
     for (const b of billings) {
       totalPending += Number(b.pending || 0);
@@ -83,6 +89,19 @@ export default async function handler(req, res) {
       // Track past advance
       totalPastAdvanceGenerated += Number(b.pastAdvance || 0);
       totalPastAdvanceUsed += Number(b.pastAdvanceUsed || 0);
+
+      if (b.pastAdvanceType === "50% Offer") {
+        total50PercentOfferPastAdvanceGenerated += Number(b.pastAdvance || 0);
+        total50PercentOfferPastAdvanceUsed += Number(b.pastAdvanceUsed || 0);
+      }
+      if (b.pastAdvanceType === "54% Offer") {
+        total54PercentOfferPastAdvanceGenerated += Number(b.pastAdvance || 0);
+        total54PercentOfferPastAdvanceUsed += Number(b.pastAdvanceUsed || 0);
+      }
+      if (b.pastAdvanceType === "159 Flat") {
+        total159FlatPastAdvanceGenerated += Number(b.pastAdvance || 0);
+        total159FlatPastAdvanceUsed += Number(b.pastAdvanceUsed || 0);
+      }
     }
 
     const pendingBalance = Math.max(
@@ -100,12 +119,43 @@ export default async function handler(req, res) {
       Number((totalPastAdvanceGenerated - totalPastAdvanceUsed).toFixed(2)),
     );
 
+    // Calculate past advance balance for each type
+    const pastAdvance50PercentBalance = Math.max(
+      0,
+      Number(
+        (
+          total50PercentOfferPastAdvanceGenerated -
+          total50PercentOfferPastAdvanceUsed
+        ).toFixed(2),
+      ),
+    );
+    const pastAdvance54PercentBalance = Math.max(
+      0,
+      Number(
+        (
+          total54PercentOfferPastAdvanceGenerated -
+          total54PercentOfferPastAdvanceUsed
+        ).toFixed(2),
+      ),
+    );
+    const pastAdvance159FlatBalance = Math.max(
+      0,
+      Number(
+        (
+          total159FlatPastAdvanceGenerated - total159FlatPastAdvanceUsed
+        ).toFixed(2),
+      ),
+    );
+
     return res.status(200).json({
       success: true,
       balances: {
         advanceBalance,
         pendingBalance,
         pastAdvanceBalance,
+        pastAdvance50PercentBalance,
+        pastAdvance54PercentBalance,
+        pastAdvance159FlatBalance,
       },
       count: billings.length,
     });

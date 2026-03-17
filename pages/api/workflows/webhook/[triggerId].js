@@ -1,14 +1,16 @@
 import dbConnect from "../../../../lib/database";
 import WorkflowTrigger from "../../../../models/workflows/WorkflowTrigger";
 import Workflow from "../../../../models/workflows/Workflow";
+import { workflowQueue } from "../../../../bullmq/queue";
 
 export default async function handler(req, res) {
   await dbConnect();
 
-  const { triggerId } = req.query;
+  const { triggerId, ...queryParams } = req.query;
 
-  if (req.method !== "POST") {
-    res.setHeader("Allow", ["POST"]);
+  const allowedMethods = ["GET", "POST", "PUT", "PATCH"];
+  if (!allowedMethods.includes(req.method)) {
+    res.setHeader("Allow", allowedMethods);
     return res.status(405).json({
       success: false,
       message: `Method ${req.method} Not Allowed`,
@@ -32,9 +34,10 @@ export default async function handler(req, res) {
     }
 
     if (!trigger.webhookListening) {
-      return res
-        .status(403)
-        .json({ success: false, message: "Webhook is currently disabled" });
+      return res.status(403).json({
+        success: false,
+        message: "Webhook is currently not listening",
+      });
     }
 
     // 3. Find the associated workflow
@@ -45,15 +48,30 @@ export default async function handler(req, res) {
         .json({ success: false, message: "Workflow is not active" });
     }
 
-    // 4. Capture Payload
-    const payload = req.body;
+    // 4. Capture Payload (Combine Query Params and Body)
+    const payload = {
+      ...queryParams,
+      ...(req.body || {}),
+    };
+
+    // 5. Log the payload (for debugging)
+    console.log("Webhook Payload:", payload);
+
+    const workflowJob = await workflowQueue.add("workflow", {
+      workflowId: workflow._id.toString(),
+      payload,
+    });
+    console.log(`Workflow job ${workflowJob.id} added to queue`);
 
     // --- FUTURE: Trigger Execution Engine ---
     // Here you would call a function like triggerWorkflowExecution(workflow, payload)
-    console.log(`Webhook Triggered for Workflow: ${workflow.name}`, {
-      triggerId,
-      payload,
-    });
+    console.log(
+      `Webhook (${req.method}) Triggered for Workflow: ${workflow.name}`,
+      {
+        triggerId,
+        payload,
+      },
+    );
 
     // 5. Send Response
     return res.status(200).json({

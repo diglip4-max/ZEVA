@@ -143,6 +143,11 @@ const billingSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    pastAdvanceType: {
+      type: String,
+      enum: ["50% Offer", "54% Offer", "159 Flat", ""],
+      default: "",
+    },
     paymentMethod: {
       type: String,
       enum: ["Cash", "Card", "BT", "Tabby", "Tamara"],

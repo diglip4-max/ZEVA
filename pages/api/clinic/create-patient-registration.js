@@ -126,6 +126,10 @@ export default async function handler(req, res) {
       pastAdvance,
       pastAdvanceUsed,
       applyPastAdvance,
+      pastAdvanceUsed50Percent,
+      pastAdvanceUsed54Percent,
+      pastAdvanceUsed159Flat,
+      pastAdvanceType,
       paymentMethod,
       notes,
       emrNumber,
@@ -317,6 +321,23 @@ export default async function handler(req, res) {
       pastAdvanceUsed !== undefined
         ? Math.max(0, parseFloat(pastAdvanceUsed) || 0)
         : 0;
+    const pastAdvanceUsed50PercentNum =
+      pastAdvanceUsed50Percent !== undefined
+        ? Math.max(0, parseFloat(pastAdvanceUsed50Percent) || 0)
+        : 0;
+    const pastAdvanceUsed54PercentNum =
+      pastAdvanceUsed54Percent !== undefined
+        ? Math.max(0, parseFloat(pastAdvanceUsed54Percent) || 0)
+        : 0;
+    const pastAdvanceUsed159FlatNum =
+      pastAdvanceUsed159Flat !== undefined
+        ? Math.max(0, parseFloat(pastAdvanceUsed159Flat) || 0)
+        : 0;
+
+    const totalPastAdvanceUsed =
+      pastAdvanceUsed50PercentNum +
+      pastAdvanceUsed54PercentNum +
+      pastAdvanceUsed159FlatNum;
     const pendingUsedNum =
       pendingUsed !== undefined ? Math.max(0, parseFloat(pendingUsed) || 0) : 0;
     const pendingNum = pending !== undefined ? parseFloat(pending) || 0 : 0;
@@ -350,7 +371,10 @@ export default async function handler(req, res) {
     // 4. Final Pending = Net Due - Paid (if Net Due > Paid)
     // 5. Final Advance = Paid - Net Due (if Paid > Net Due)
 
-    const netDue = Math.max(0, amountNum - advanceUsedNum - pastAdvanceUsedNum);
+    const netDue = Math.max(
+      0,
+      amountNum - advanceUsedNum - totalPastAdvanceUsed,
+    );
     console.log({ netDue, paidNum, advanceUsedNum, pastAdvanceUsedNum });
 
     if (paidNum > netDue) {
@@ -379,10 +403,14 @@ export default async function handler(req, res) {
           ? selectedPackageTreatments
           : [],
       amount: amountNum,
-      paid: paidNum + advanceUsedNum + pastAdvanceUsedNum,
+      paid: paidNum + advanceUsedNum + totalPastAdvanceUsed,
       advanceUsed: advanceUsed,
       pendingUsed: pendingUsed,
-      pastAdvanceUsed: pastAdvanceUsed,
+      pastAdvanceUsed: totalPastAdvanceUsed,
+      pastAdvanceUsed50Percent: pastAdvanceUsed50PercentNum,
+      pastAdvanceUsed54Percent: pastAdvanceUsed54PercentNum,
+      pastAdvanceUsed159Flat: pastAdvanceUsed159FlatNum,
+      pastAdvanceType,
       pending: pendingNum,
       advance: advance,
       pastAdvance: pastAdvance,
