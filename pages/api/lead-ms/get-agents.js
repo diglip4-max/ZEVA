@@ -384,6 +384,7 @@ export default async function handler(req, res) {
       // Hash the password before saving
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       agent.password = hashedPassword;
+      agent.passwordChangedAt = new Date();
     } else if (action === 'updateProfile') {
       const {
         name, email, phone, // User fields

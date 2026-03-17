@@ -7,6 +7,10 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  CalendarCheck,
+  DollarSign,
+  Percent,
+  FileStack,
   UserPlus,
   RefreshCw,
   Trash2,
@@ -502,6 +506,71 @@ const ManageAgentsPage = () => {
       return url?.split('?')[0]?.split('/')?.pop() || '';
     }
   };
+  const isImageUrl = (u) => {
+    try {
+      const s = (u || '').split('?')[0];
+      return /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(s);
+    } catch {
+      return false;
+    }
+  };
+  const isPdfUrl = (u) => {
+    try {
+      const s = (u || '').split('?')[0];
+      return /\.pdf$/i.test(s);
+    } catch {
+      return false;
+    }
+  };
+  const [activity, setActivity] = useState(null);
+  const [activeStatus, setActiveStatus] = useState(null);
+  const [updatingActive, setUpdatingActive] = useState(false);
+  const openAdditionalDocsEditor = () => {
+    if (!viewAgent) return;
+    const agentRef = viewAgent;
+    setViewAgent(null);
+    setTimeout(() => openProfile(agentRef), 0);
+  };
+  const timeAgo = (d) => {
+    if (!d) return '—';
+    const t = new Date(d).getTime();
+    if (isNaN(t)) return '—';
+    const diff = Math.floor((Date.now() - t) / 1000);
+    if (diff < 60) return `${diff}s ago`;
+    const m = Math.floor(diff / 60);
+    if (m < 60) return `${m} min ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h} hours ago`;
+    const days = Math.floor(h / 24);
+    if (days < 7) return `${days} days ago`;
+    return new Date(d).toLocaleDateString();
+  };
+  async function toggleActiveStatus() {
+    if (!viewAgent) return;
+    const authHeaders = getAuthHeaders();
+    if (!authHeaders) return;
+    try {
+      setUpdatingActive(true);
+      const desired = !(activeStatus === true);
+      const payload = {
+        agentId: viewAgent._id,
+        action: "updateProfile",
+        isActive: desired
+      };
+      const res = await axios.patch("/api/lead-ms/get-agents", payload, { headers: authHeaders });
+      if (res.data?.success) {
+        setActiveStatus(desired);
+        setViewProfile((p) => ({ ...(p || {}), isActive: desired }));
+        toast.success(`Active status ${desired ? 'enabled' : 'disabled'}`);
+      } else {
+        toast.error(res.data?.message || 'Failed to update status');
+      }
+    } catch {
+      toast.error('Failed to update status');
+    } finally {
+      setUpdatingActive(false);
+    }
+  }
 
   async function openView(agent) {
     const authHeaders = getAuthHeaders();
@@ -511,12 +580,28 @@ const ManageAgentsPage = () => {
     try {
       const res = await axios.get(`/api/lead-ms/get-agents?agentId=${agent._id}`, { headers: authHeaders });
       if (res.data.success) {
-        setViewProfile(res.data.profile || {});
+        const p = res.data.profile || {};
+        setViewProfile(p);
+        setActiveStatus(typeof p.isActive !== 'undefined' ? !!p.isActive : true);
+        try {
+          const act = await axios.get(`/api/lead-ms/agent-activity?agentId=${agent._id}`, { headers: authHeaders });
+          if (act.data?.success) {
+            setActivity(act.data.data || null);
+          } else {
+            setActivity(null);
+          }
+        } catch {
+          setActivity(null);
+        }
       } else {
         setViewProfile(null);
+        setActiveStatus(null);
+        setActivity(null);
       }
     } catch {
       setViewProfile(null);
+      setActiveStatus(null);
+      setActivity(null);
     } finally {
       setViewLoading(false);
     }
@@ -1924,10 +2009,10 @@ const ManageAgentsPage = () => {
       )}
       {viewAgent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-4xl bg-white rounded-lg border border-gray-200 shadow-xl max-h-[90vh] overflow-y-auto mx-auto">
+          <div className="w-full max-w-7xl bg-white rounded-lg border border-gray-200 shadow-xl max-h-[92vh] overflow-y-auto mx-auto">
             <div className="px-5 py-3.5 border-b border-gray-200 bg-gray-50 flex items-start justify-between sticky top-0 z-10">
               <div className="flex-1 min-w-0 pr-2">
-                <h3 className="text-sm font-semibold text-teal-900">View profile</h3>
+                <h3 className="text-sm font-semibold text-teal-900">View Profile</h3>
                 <p className="text-[11px] text-teal-700 mt-0.5">{viewAgent.name} • {viewAgent.email}</p>
               </div>
               <button
@@ -1939,316 +2024,444 @@ const ManageAgentsPage = () => {
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="p-5 space-y-4">
+            <div className="p-5 space-y-6">
               {viewLoading ? (
                 <div className="py-8 text-center text-sm text-teal-700">Loading...</div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div className="text-xs text-teal-700"><span className="font-semibold">Name:</span> {viewAgent.name || 'N/A'}</div>
-                    <div className="text-xs text-teal-700"><span className="font-semibold">Email:</span> {viewAgent.email || 'N/A'}</div>
-                    <div className="text-xs text-teal-700"><span className="font-semibold">Mobile Number:</span> {viewAgent.phone || 'N/A'}</div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div className="text-xs text-teal-700"><span className="font-semibold">Role:</span> {viewAgent.role}</div>
-                    <div className="text-xs text-teal-700"><span className="font-semibold">Status:</span> {viewAgent.declined ? 'Declined' : viewAgent.isApproved ? 'Approved' : 'Pending'}</div>
-                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Commission:</span> {viewProfile?.commissionType === 'no_commission' ? 'No Commission' : viewProfile?.commissionType || '—'} {viewProfile?.commissionPercentage ? `(${viewProfile.commissionPercentage}%)` : ''}</div>
-                  </div>
-                  <div className="border border-gray200 dark:border-gray700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
-                    <h4 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-3">Identity Information</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Identity Type:</span> {viewProfile?.idType || '—'}</div>
-                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Identity No:</span> {viewProfile?.idNumber || '—'}</div>
-                        <div className="text-xs text-teal-700 dark:text-teal-300">
-                          <span className="font-semibold">ID Front:</span>{' '}
-                          {viewProfile?.idDocumentFrontUrl ? (
-                            <>
-                              <a href={viewProfile.idDocumentFrontUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
-                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.idDocumentFrontUrl)}</span>
-                            </>
-                          ) : '—'}
+                  <div className="bg-white border border-gray-200 rounded-xl p-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className="h-14 w-14 rounded-full bg-gray-900 text-white flex items-center justify-center text-lg font-semibold">
+                          {(viewAgent?.name || 'U').charAt(0).toUpperCase()}
                         </div>
-                        <div className="text-xs text-teal-700 dark:text-teal-300">
-                          <span className="font-semibold">ID Back:</span>{' '}
-                          {viewProfile?.idDocumentBackUrl ? (
-                            <>
-                              <a href={viewProfile.idDocumentBackUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
-                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.idDocumentBackUrl)}</span>
-                            </>
-                          ) : '—'}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {viewProfile?.idDocumentFrontUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.idDocumentFrontUrl) ? (
-                          <div className="flex items-center justify-center">
-                            <img src={viewProfile.idDocumentFrontUrl} alt="ID Front" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <div className="text-lg font-semibold text-teal-900">{viewAgent.name || '—'}</div>
+                            <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">{viewAgent.role || '—'}</span>
                           </div>
-                        ) : (
-                          <div className="flex items-center justify-center text-gray-400 text-sm">
-                            No ID front image
-                          </div>
-                        )}
-                        {viewProfile?.idDocumentBackUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.idDocumentBackUrl) ? (
-                          <div className="flex items-center justify-center">
-                            <img src={viewProfile.idDocumentBackUrl} alt="ID Back" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center text-gray-400 text-sm">
-                            No ID back image
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="border border-gray200 dark:border-gray700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
-                    <h4 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-3">Passport Information</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Passport No:</span> {viewProfile?.passportNumber || '—'}</div>
-                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Emergency Phone:</span> {viewProfile?.emergencyPhone || '—'}</div>
-                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Emergency Name:</span> {viewProfile?.emergencyName || '—'}</div>
-                        <div className="text-xs text-teal-700 dark:text-teal-300">
-                          <span className="font-semibold">Passport Front:</span>{' '}
-                          {viewProfile?.passportDocumentFrontUrl ? (
-                            <>
-                              <a href={viewProfile.passportDocumentFrontUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
-                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.passportDocumentFrontUrl)}</span>
-                            </>
-                          ) : '—'}
-                        </div>
-                        <div className="text-xs text-teal-700 dark:text-teal-300">
-                          <span className="font-semibold">Passport Back:</span>{' '}
-                          {viewProfile?.passportDocumentBackUrl ? (
-                            <>
-                              <a href={viewProfile.passportDocumentBackUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
-                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.passportDocumentBackUrl)}</span>
-                            </>
-                          ) : '—'}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {viewProfile?.passportDocumentFrontUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.passportDocumentFrontUrl) ? (
-                          <div className="flex items-center justify-center">
-                            <img src={viewProfile.passportDocumentFrontUrl} alt="Passport Front" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center text-gray-400 text-sm">
-                            No passport front image
-                          </div>
-                        )}
-                        {viewProfile?.passportDocumentBackUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.passportDocumentBackUrl) ? (
-                          <div className="flex items-center justify-center">
-                            <img src={viewProfile.passportDocumentBackUrl} alt="Passport Back" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center text-gray-400 text-sm">
-                            No passport back image
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="border border-gray200 dark:border-gray700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
-                    <h4 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-3">Employment Information</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Salary:</span> {typeof viewProfile?.baseSalary === 'number' ? viewProfile.baseSalary : (viewProfile?.baseSalary || '—')}</div>
-                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Contract Type:</span> {viewProfile?.contractType || '—'}</div>
-                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Commission Type:</span> {viewProfile?.commissionType || '—'}</div>
-                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Commission %:</span> {typeof viewProfile?.commissionPercentage === 'number' ? viewProfile.commissionPercentage : (viewProfile?.commissionPercentage || '—')}</div>
-                        {(viewProfile?.commissionType === 'target_based' || viewProfile?.commissionType === 'target_plus_expense') && (
-                          <>
-                            <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Target:</span> {viewProfile?.targetMultiplier ? `${viewProfile.targetMultiplier}x` : '—'}</div>
-                            <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Target Amount:</span> {typeof viewProfile?.targetAmount === 'number' ? viewProfile.targetAmount : (viewProfile?.targetAmount || '—')}</div>
-                          </>
-                        )}
-                        <div className="text-xs text-teal-700 dark:text-teal-300">
-                          <span className="font-semibold">Contract Front:</span>{' '}
-                          {viewProfile?.contractFrontUrl ? (
-                            <>
-                              <a href={viewProfile.contractFrontUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
-                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.contractFrontUrl)}</span>
-                            </>
-                          ) : '—'}
-                        </div>
-                        <div className="text-xs text-teal-700 dark:text-teal-300">
-                          <span className="font-semibold">Contract Back:</span>{' '}
-                          {viewProfile?.contractBackUrl ? (
-                            <>
-                              <a href={viewProfile.contractBackUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
-                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.contractBackUrl)}</span>
-                            </>
-                          ) : '—'}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {viewProfile?.contractFrontUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.contractFrontUrl) ? (
-                          <div className="flex items-center justify-center">
-                            <img src={viewProfile.contractFrontUrl} alt="Contract Front" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center text-gray-400 text-sm">
-                            No contract front image
-                          </div>
-                        )}
-                        {viewProfile?.contractBackUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.contractBackUrl) ? (
-                          <div className="flex items-center justify-center">
-                            <img src={viewProfile.contractBackUrl} alt="Contract Back" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center text-gray-400 text-sm">
-                            No contract back image
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="border border-gray200 dark:border-gray700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
-                    <h4 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-3">Additional Information</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Joining Date:</span> {viewProfile?.joiningDate ? new Date(viewProfile.joiningDate).toLocaleDateString() : '—'}</div>
-                      <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Active:</span> {viewProfile?.isActive === false ? 'No' : 'Yes'}</div>
-                      <div />
-                    </div>
-                  </div>
-                  <div className="border border-gray200 dark:border-gray700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
-                    <h4 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-3">Other Document</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <div className="text-xs text-teal-700 dark:text-teal-300">
-                          <span className="font-semibold">Employee Visa Front:</span>{' '}
-                          {viewProfile?.employeeVisaFrontUrl ? (
-                            <>
-                              <a
-                                href={viewProfile.employeeVisaFrontUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center px-2 py-0.5 rounded border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 text-[11px] font-medium"
-                              >
-                                View
-                              </a>
-                              <span className="ml-2 text-[11px] text-gray-600">{getFileNameFromUrl(viewProfile.employeeVisaFrontUrl)}</span>
-                            </>
-                          ) : '—'}
-                        </div>
-                        <div className="text-xs text-teal-700 dark:text-teal-300">
-                          <span className="font-semibold">Employee Visa Back:</span>{' '}
-                          {viewProfile?.employeeVisaBackUrl ? (
-                            <>
-                              <a
-                                href={viewProfile.employeeVisaBackUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center px-2 py-0.5 rounded border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 text-[11px] font-medium"
-                              >
-                                View
-                              </a>
-                              <span className="ml-2 text-[11px] text-gray-600">{getFileNameFromUrl(viewProfile.employeeVisaBackUrl)}</span>
-                            </>
-                          ) : '—'}
-                        </div>
-                        {Array.isArray(viewProfile?.otherDocuments) && viewProfile.otherDocuments.length > 0 && (
-                          <div className="mt-10 sm:mt-12 space-y-2">
-                            {viewProfile.otherDocuments
-                              .filter(d => !['id','approve'].includes((d?.name || '').toLowerCase()))
-                              .map((d, i) => (
-                                <div
-                                  key={i}
-                                  className="text-xs text-teal-700 dark:text-teal-300"
-                                >
-                                  <span className="font-semibold capitalize">
-                                    {d.name || `Document ${i + 1}`}
-                                  </span>
-                                  {': '}
-                                  {d?.url ? (
-                                    <>
-                                      <a
-                                        href={d.url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex items-center px-2 py-0.5 rounded border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 text-[11px] font-medium"
-                                      >
-                                        View
-                                      </a>
-                                      <span className="ml-2 text-[11px] text-gray-600">
-                                        {getFileNameFromUrl(d.url)}
-                                      </span>
-                                    </>
-                                  ) : (
-                                    <span className="text-gray-500">—</span>
-                                  )}
-                                </div>
-                              ))}
-                          </div>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {viewProfile?.employeeVisaFrontUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.employeeVisaFrontUrl) ? (
-                          <div className="flex items-center justify-center">
-                            <img src={viewProfile.employeeVisaFrontUrl} alt="Employee Visa Front" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center text-gray-400 text-sm">
-                            No visa front image
-                          </div>
-                        )}
-                        {viewProfile?.employeeVisaBackUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.employeeVisaBackUrl) ? (
-                          <div className="flex items-center justify-center">
-                            <img src={viewProfile.employeeVisaBackUrl} alt="Employee Visa Back" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center text-gray-400 text-sm">
-                            No visa back image
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  {Array.isArray(viewProfile?.otherDocuments) && viewProfile.otherDocuments.length > 0 && (
-                    <div className="border border-gray200 dark:border-gray700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900 mt-5">
-                      <h4 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-3">Add Document</h4>
-                      <div className="space-y-2">
-                        {viewProfile.otherDocuments
-                          .map((d, i) => (
-                            <div key={`adddoc-${i}`} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                              <div className="text-xs text-teal-700 dark:text-teal-300 flex-shrink-0">
-                                <span className="font-semibold capitalize">
-                                  {d.name || `Document ${i + 1}`}
-                                </span>
-                                {': '}
-                                {d?.url ? (
-                                  <>
-                                    <a
-                                      href={d.url}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="inline-flex items-center px-2 py-0.5 rounded border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 text-[11px] font-medium"
-                                    >
-                                      View
-                                    </a>
-                                    <span className="ml-2 text-[11px] text-gray-600">
-                                      {getFileNameFromUrl(d.url)}
-                                    </span>
-                                  </>
-                                ) : (
-                                  <span className="text-gray-500">—</span>
-                                )}
-                              </div>
-                              {d?.url && /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(d.url) && (
-                                <div className="flex-shrink-0 flex items-center justify-center sm:justify-start w-32 h-32">
-                                  <img
-                                    src={d.url}
-                                    alt={d.name || `Document ${i + 1}`}
-                                    className="rounded border border-gray200 dark:border-gray700 max-h-32 max-w-full object-contain shadow-sm"
-                                  />
-                                </div>
-                              )}
+                          <div className="mt-1 text-xs text-teal-700">
+                            <div className="mt-1 flex flex-wrap gap-3">
+                              <span>ID: {viewAgent?._id?.slice(-6) || '—'}</span>
+                              <span>
+                                Joined:{' '}
+                                {activity?.profileCreatedAt
+                                  ? new Date(activity.profileCreatedAt).toLocaleDateString()
+                                  : '—'}
+                              </span>
                             </div>
-                          ))}
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-3 text-xs text-teal-700">
+                            <span>{viewAgent.email || '—'}</span>
+                            <span className="text-gray-300">|</span>
+                            <span>{viewAgent.phone || '—'}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const a = viewAgent;
+                            setMenuAgentId(null);
+                            setViewAgent(null);
+                            setViewProfile(null);
+                            setTimeout(() => openProfile(a), 0);
+                          }}
+                          className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-full text-sm font-medium transition-colors flex items-center gap-2"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                          Edit Profile
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const a = viewAgent;
+                            setMenuAgentId(null);
+                            setViewAgent(null);
+                            setViewProfile(null);
+                            setTimeout(() => openProfile(a), 0);
+                          }}
+                          className="px-4 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-full text-sm font-medium border border-gray-300 transition-colors flex items-center gap-2"
+                        >
+                          <Upload className="w-4 h-4" />
+                          Upload Document
+                        </button>
+                        <button type="button" className="px-4 py-2.5 bg-white hover:bg-red-50 text-red-700 rounded-full text-sm font-medium border border-red-300 transition-colors flex items-center gap-2">
+                          <X className="w-4 h-4" />
+                          Deactivate
+                        </button>
                       </div>
                     </div>
-                  )}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-xl p-5">
+                      <div className="flex items-center gap-2 text-xs opacity-90">
+                        <CalendarCheck className="w-4 h-4" />
+                        <span>Total Appointments</span>
+                      </div>
+                      <div className="mt-2 text-3xl font-bold">—</div>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-xl p-5">
+                      <div className="flex items-center gap-2 text-xs text-teal-700">
+                        <DollarSign className="w-4 h-4" />
+                        <span>Revenue Generated</span>
+                      </div>
+                      <div className="mt-2 text-3xl font-bold text-teal-900">—</div>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-xl p-5">
+                      <div className="flex items-center gap-2 text-xs text-teal-700">
+                        <Percent className="w-4 h-4" />
+                        <span>Commission Earned</span>
+                      </div>
+                      <div className="mt-2 text-3xl font-bold text-teal-900">
+                        {viewProfile?.commissionPercentage ? `${viewProfile.commissionPercentage}%` : '—'}
+                      </div>
+                    </div>
+                    <div className="bg-blue-600 text-white rounded-xl p-5">
+                      <div className="flex items-center gap-2 text-xs opacity-90">
+                        <FileStack className="w-4 h-4" />
+                        <span>Documents Uploaded</span>
+                      </div>
+                      <div className="mt-2 text-3xl font-bold">
+                        {((viewProfile?.idDocumentFrontUrl?1:0)+(viewProfile?.idDocumentBackUrl?1:0)+(viewProfile?.passportDocumentFrontUrl?1:0)+(viewProfile?.passportDocumentBackUrl?1:0)+(viewProfile?.employeeVisaFrontUrl?1:0)+(viewProfile?.employeeVisaBackUrl?1:0)+(viewProfile?.contractFrontUrl?1:0)+(viewProfile?.contractBackUrl?1:0)+(Array.isArray(viewProfile?.otherDocuments)?viewProfile.otherDocuments.filter(d=>d?.url).length:0))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-5">
+                      <div className="text-base font-semibold text-teal-900 mb-4">Identity & Passport Documents</div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="rounded-xl border border-gray-200 overflow-hidden">
+                          <div className="h-40 bg-gray-50 flex items-center justify-center p-2">
+                            {viewProfile?.idDocumentFrontUrl ? (
+                              /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.idDocumentFrontUrl) ? (
+                                <img src={viewProfile.idDocumentFrontUrl} alt="Identity Front" className="h-full w-full object-contain" />
+                              ) : (
+                                <a href={viewProfile.idDocumentFrontUrl} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
+                              )
+                            ) : (
+                              <div className="text-sm text-gray-400">No image</div>
+                            )}
+                          </div>
+                          <div className="px-4 py-2 text-sm text-teal-900">Identity Card Front</div>
+                        </div>
+                        <div className="rounded-xl border border-gray-200 overflow-hidden">
+                          <div className="h-40 bg-gray-50 flex items-center justify-center p-2">
+                            {viewProfile?.idDocumentBackUrl ? (
+                              /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.idDocumentBackUrl) ? (
+                                <img src={viewProfile.idDocumentBackUrl} alt="Identity Back" className="h-full w-full object-contain" />
+                              ) : (
+                                <a href={viewProfile.idDocumentBackUrl} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
+                              )
+                            ) : (
+                              <div className="text-sm text-gray-400">No image</div>
+                            )}
+                          </div>
+                          <div className="px-4 py-2 text-sm text-teal-900">Identity Card Back</div>
+                        </div>
+                        <div className="rounded-xl border border-gray-200 overflow-hidden">
+                          <div className="h-40 bg-gray-50 flex items-center justify-center p-2">
+                            {viewProfile?.passportDocumentFrontUrl ? (
+                              /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.passportDocumentFrontUrl) ? (
+                                <img src={viewProfile.passportDocumentFrontUrl} alt="Passport Front" className="h-full w-full object-contain" />
+                              ) : (
+                                <a href={viewProfile.passportDocumentFrontUrl} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
+                              )
+                            ) : (
+                              <div className="text-sm text-gray-400">No image</div>
+                            )}
+                          </div>
+                          <div className="px-4 py-2 text-sm text-teal-900">Passport Front</div>
+                        </div>
+                        <div className="rounded-xl border border-gray-200 overflow-hidden">
+                          <div className="h-40 bg-gray-50 flex items-center justify-center p-2">
+                            {viewProfile?.passportDocumentBackUrl ? (
+                              /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.passportDocumentBackUrl) ? (
+                                <img src={viewProfile.passportDocumentBackUrl} alt="Passport Back" className="h-full w-full object-contain" />
+                              ) : (
+                                <a href={viewProfile.passportDocumentBackUrl} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
+                              )
+                            ) : (
+                              <div className="text-sm text-gray-400">No image</div>
+                            )}
+                          </div>
+                          <div className="px-4 py-2 text-sm text-teal-900">Passport Back</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="bg-white border border-gray-200 rounded-xl p-5">
+                        <div className="text-sm font-semibold text-teal-900">Staff Status</div>
+                        <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-teal-900 flex items-center justify-between">
+                          <span>Current Status</span>
+                          <span className="inline-flex items-center gap-2">
+                            <span className={`h-2 w-2 rounded-full ${activeStatus ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                            {activeStatus ? 'Online' : 'Offline'}
+                          </span>
+                        </div>
+                        <div className={`mt-3 rounded-lg ${activeStatus ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-gray-50 text-teal-900'} px-3 py-3 text-sm flex items-center justify-between`}>
+                          <span>Active Status</span>
+                          <button
+                            type="button"
+                            onClick={toggleActiveStatus}
+                            disabled={updatingActive}
+                            className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-60"
+                            style={{ backgroundColor: activeStatus ? '#10b981' : '#e5e7eb' }}
+                          >
+                            <span
+                              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${activeStatus ? 'translate-x-5' : 'translate-x-1'}`}
+                            />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="bg-white border border-gray-200 rounded-xl p-5">
+                        <div className="text-sm font-semibold text-teal-900">Activity Timeline</div>
+                        <div className="relative mt-3 pl-6 space-y-4 text-sm text-teal-700">
+                          <div className="absolute left-3 top-0 h-full w-px bg-gray-200" />
+                          <div className="flex items-start gap-3">
+                            <div className="relative flex-shrink-0">
+                              <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center text-teal-600">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h4a2 2 0 0 1 2 2v4"/><path d="M21 3l-7 7"/><rect x="3" y="11" width="10" height="10" rx="2"/></svg>
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <div className="font-medium text-teal-900">Last login</div>
+                              <div>{timeAgo(activity?.lastLogin)}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center text-teal-600">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7v10"/><path d="M21 7v10"/><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M8 7h8"/></svg>
+                            </div>
+                            <div className="flex-1">
+                              <div className="font-medium text-teal-900">Password changed</div>
+                              <div>{timeAgo(activity?.passwordChangedAt)}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 5h18"/><path d="M7 3v4"/><path d="M17 3v4"/><rect x="3" y="5" width="18" height="18" rx="2"/><path d="M3 10h18"/></svg>
+                            </div>
+                            <div className="flex-1">
+                              <div className="font-medium text-teal-900">Contract updated</div>
+                              <div>{timeAgo(activity?.contractUpdatedAt)}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 16v-7"/><path d="M8 12l4-4 4 4"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>
+                            </div>
+                            <div className="flex-1">
+                              <div className="font-medium text-teal-900">Document uploaded</div>
+                              <div>{timeAgo(activity?.documentUploadedAt)}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 7v10"/><path d="M7 12h10"/><circle cx="12" cy="12" r="9"/></svg>
+                            </div>
+                            <div className="flex-1">
+                              <div className="font-medium text-teal-900">Profile created</div>
+                              <div>{activity?.profileCreatedAt ? new Date(activity.profileCreatedAt).toLocaleDateString() : '—'}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-white border border-gray-200 rounded-xl p-5">
+                    <div className="text-base font-semibold text-teal-900 mb-4">Visa & Legal Files</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="rounded-xl border border-gray-200 overflow-hidden">
+                        <div className="h-40 bg-gray-50 flex items-center justify-center p-2">
+                          {viewProfile?.employeeVisaFrontUrl ? (
+                            /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.employeeVisaFrontUrl) ? (
+                              <img src={viewProfile.employeeVisaFrontUrl} alt="Employee Visa Front" className="h-full w-full object-contain" />
+                            ) : (
+                              <a href={viewProfile.employeeVisaFrontUrl} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
+                            )
+                          ) : (
+                            <div className="text-sm text-gray-400">No image</div>
+                          )}
+                        </div>
+                        <div className="px-4 py-2 text-sm text-teal-900">Employee Visa Front</div>
+                      </div>
+                      <div className="rounded-xl border border-gray-200 overflow-hidden">
+                        <div className="h-40 bg-gray-50 flex items-center justify-center p-2">
+                          {viewProfile?.employeeVisaBackUrl ? (
+                            /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.employeeVisaBackUrl) ? (
+                              <img src={viewProfile.employeeVisaBackUrl} alt="Employee Visa Back" className="h-full w-full object-contain" />
+                            ) : (
+                              <a href={viewProfile.employeeVisaBackUrl} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
+                            )
+                          ) : (
+                            <div className="text-sm text-gray-400">No image</div>
+                          )}
+                        </div>
+                        <div className="px-4 py-2 text-sm text-teal-900">Employee Visa Back</div>
+                      </div>
+                      <div className="rounded-xl border border-gray-200 overflow-hidden">
+                        <div className="h-40 bg-gray-50 flex items-center justify-center p-2">
+                          {viewProfile?.contractFrontUrl ? (
+                            isImageUrl(viewProfile.contractFrontUrl) ? (
+                              <img src={viewProfile.contractFrontUrl} alt="Labour Contract" className="h-full w-full object-contain" />
+                            ) : isPdfUrl(viewProfile.contractFrontUrl) ? (
+                              <object data={viewProfile.contractFrontUrl} type="application/pdf" className="h-full w-full">
+                                <a href={viewProfile.contractFrontUrl} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
+                              </object>
+                            ) : (
+                              <a href={viewProfile.contractFrontUrl} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
+                            )
+                          ) : (
+                            <div className="text-sm text-gray-400">No image</div>
+                          )}
+                        </div>
+                        <div className="px-4 py-2 text-sm text-teal-900">Labour Contract</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-white border border-gray-200 rounded-xl p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="text-base font-semibold text-teal-900">Additional Documents</div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const a = viewAgent;
+                          if (!a) return;
+                          setViewAgent(null);
+                          setTimeout(() => openProfile(a), 0);
+                        }}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-medium rounded-md"
+                      >
+                        + Add Document
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {(Array.isArray(viewProfile?.otherDocuments) ? viewProfile.otherDocuments : []).map((d, i) => (
+                        <div key={`adoc-${i}`} className="relative bg-white rounded-xl border border-gray-200 overflow-hidden">
+                          <div className="h-36 bg-gray-50 flex items-center justify-center">
+                            {d?.url ? (
+                              /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test((d.url||'').split('?')[0]) ? (
+                                <img src={d.url} alt={d?.name || `Document ${i+1}`} className="h-full w-full object-cover" />
+                              ) : (
+                                <a href={d.url} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
+                              )
+                            ) : (
+                              <div className="text-sm text-gray-400">No document</div>
+                            )}
+                          </div>
+                          <div className="px-4 py-2 flex items-center justify-between">
+                            <div className="text-sm text-teal-900">{d?.name || `Document ${i+1}`}</div>
+                            {d?.url && (
+                              <a href={d.url} target="_blank" rel="noreferrer" className="text-teal-700 hover:text-teal-900" aria-label="View">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                  <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {Array.isArray(viewProfile?.otherDocuments) && viewProfile.otherDocuments.length === 0 && (
+                        <>
+                          <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 h-36 flex items-center justify-center text-gray-400 text-sm">Upload document</div>
+                          <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 h-36 hidden sm:flex items-center justify-center text-gray-400 text-sm">Upload document</div>
+                          <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 h-36 hidden lg:flex items-center justify-center text-gray-400 text-sm">Upload document</div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div className="bg-white border border-gray-200 rounded-xl p-5">
+                    <div className="text-base font-semibold text-teal-900 mb-4">Employment & Contract</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                        <div className="text-xs text-teal-700 inline-flex items-center gap-2">
+                          <span className="text-emerald-700">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                          </span>
+                          Salary
+                        </div>
+                        <div className="mt-1 text-lg font-semibold text-teal-900">{typeof viewProfile?.baseSalary === 'number' ? viewProfile.baseSalary : (viewProfile?.baseSalary || '—')}</div>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                        <div className="text-xs text-teal-700 inline-flex items-center gap-2">
+                          <span className="text-emerald-700">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v2"/></svg>
+                          </span>
+                          Contract Type
+                        </div>
+                        <div className="mt-1 text-lg font-semibold text-teal-900">{viewProfile?.contractType || '—'}</div>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                        <div className="text-xs text-teal-700 inline-flex items-center gap-2">
+                          <span className="text-emerald-700">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                              <line x1="19" x2="5" y1="5" y2="19"/>
+                              <circle cx="6.5" cy="6.5" r="2.5"/>
+                              <circle cx="17.5" cy="17.5" r="2.5"/>
+                            </svg>
+                          </span>
+                          Commission Type
+                        </div>
+                        <div className="mt-1 text-lg font-semibold text-teal-900">{viewProfile?.commissionType || '—'}</div>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                        <div className="text-xs text-teal-700 inline-flex items-center gap-2">
+                          <span className="text-emerald-700">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                          </span>
+                          Commission Value
+                        </div>
+                        <div className="mt-1 text-lg font-semibold text-teal-900">{viewProfile?.commissionPercentage ? `${viewProfile.commissionPercentage}%` : '—'}</div>
+                      </div>
+                    </div>
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-sm font-medium text-teal-900">Contract Documents</div>
+                        <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="rounded-xl border border-gray-200 overflow-hidden">
+                        <div className="h-40 bg-gray-50 flex items-center justify-center p-2">
+                          {viewProfile?.contractFrontUrl ? (
+                            isImageUrl(viewProfile.contractFrontUrl) ? (
+                              <img src={viewProfile.contractFrontUrl} alt="Contract Front" className="h-full w-full object-contain" />
+                            ) : isPdfUrl(viewProfile.contractFrontUrl) ? (
+                              <object data={viewProfile.contractFrontUrl} type="application/pdf" className="h-full w-full">
+                                <a href={viewProfile.contractFrontUrl} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
+                              </object>
+                            ) : (
+                              <a href={viewProfile.contractFrontUrl} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
+                            )
+                          ) : (
+                            <div className="text-sm text-gray-400">No image</div>
+                          )}
+                        </div>
+                        <div className="px-4 py-2 text-sm text-teal-900">Contract Front</div>
+                      </div>
+                      <div className="rounded-xl border border-gray-200 overflow-hidden">
+                        <div className="h-40 bg-gray-50 flex items-center justify-center p-2">
+                          {viewProfile?.contractBackUrl ? (
+                            isImageUrl(viewProfile.contractBackUrl) ? (
+                              <img src={viewProfile.contractBackUrl} alt="Contract Back" className="h-full w-full object-contain" />
+                            ) : isPdfUrl(viewProfile.contractBackUrl) ? (
+                              <object data={viewProfile.contractBackUrl} type="application/pdf" className="h-full w-full">
+                                <a href={viewProfile.contractBackUrl} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
+                              </object>
+                            ) : (
+                              <a href={viewProfile.contractBackUrl} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
+                            )
+                          ) : (
+                            <div className="text-sm text-gray-400">No image</div>
+                          )}
+                        </div>
+                        <div className="px-4 py-2 text-sm text-teal-900">Contract Back</div>
+                      </div>
+                    </div>
+                  </div>
                   <div className="flex items-center justify-end">
                     <button
                       type="button"
