@@ -64,7 +64,9 @@ export default async function handler(req, res) {
       }
       if (
         !entity ||
-        !["Lead", "Patient", "Appointment", "Invoice"].includes(entity)
+        !["Lead", "Patient", "Appointment", "Webhook", "Message"].includes(
+          entity,
+        )
       ) {
         return res
           .status(400)

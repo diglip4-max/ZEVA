@@ -145,7 +145,16 @@ const parameterSchema = new mongoose.Schema({
   },
 
   // ai_composer action parameters
-  aiComposerQuestion: {
+  prompt: {
+    type: String,
+  },
+  model: {
+    type: String,
+  },
+  temperature: {
+    type: String,
+  },
+  outputKey: {
     type: String,
   },
 
@@ -163,6 +172,11 @@ const parameterSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Segment",
   },
+  // whatsapp template mappings
+  templateName: { type: String },
+  variableMappings: { type: Object, default: {} },
+  headerVariableMappings: { type: Object, default: {} },
+  buttonVariableMappings: { type: Object, default: {} },
 });
 
 const WorkflowActionSchema = new Schema(

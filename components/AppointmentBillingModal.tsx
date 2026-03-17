@@ -133,13 +133,23 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     advanceBalance: number;
     pendingBalance: number;
     pastAdvanceBalance: number;
+    pastAdvance50PercentBalance: number;
+    pastAdvance54PercentBalance: number;
+    pastAdvance159FlatBalance: number;
   }>({
     advanceBalance: 0,
     pendingBalance: 0,
     pastAdvanceBalance: 0,
+    pastAdvance50PercentBalance: 0,
+    pastAdvance54PercentBalance: 0,
+    pastAdvance159FlatBalance: 0,
   });
   const [applyAdvance, setApplyAdvance] = useState(false);
-  const [applyPastAdvance, setApplyPastAdvance] = useState(false);
+  const [applyPastAdvance50Percent, setApplyPastAdvance50Percent] =
+    useState(false);
+  const [applyPastAdvance54Percent, setApplyPastAdvance54Percent] =
+    useState(false);
+  const [applyPastAdvance159Flat, setApplyPastAdvance159Flat] = useState(false);
 
   // Multiple payment method support
   const [useMultiplePayments, setUseMultiplePayments] = useState(false);
@@ -185,6 +195,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     originalAmount: "",
     advanceUsed: "0.00",
     pastAdvanceUsed: "0.00",
+    pastAdvanceUsed50Percent: "0.00",
+    pastAdvanceUsed54Percent: "0.00",
+    pastAdvanceUsed159Flat: "0.00",
   });
 
   const treatmentDropdownRef = useRef<HTMLDivElement>(null);
@@ -328,12 +341,21 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             advanceBalance: res.data.balances.advanceBalance || 0,
             pendingBalance: res.data.balances.pendingBalance || 0,
             pastAdvanceBalance: res.data.balances.pastAdvanceBalance || 0,
+            pastAdvance50PercentBalance:
+              res.data.balances.pastAdvance50PercentBalance || 0,
+            pastAdvance54PercentBalance:
+              res.data.balances.pastAdvance54PercentBalance || 0,
+            pastAdvance159FlatBalance:
+              res.data.balances.pastAdvance159FlatBalance || 0,
           });
         } else {
           setBalances({
             advanceBalance: 0,
             pendingBalance: 0,
             pastAdvanceBalance: 0,
+            pastAdvance50PercentBalance: 0,
+            pastAdvance54PercentBalance: 0,
+            pastAdvance159FlatBalance: 0,
           });
         }
       } catch {
@@ -341,6 +363,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           advanceBalance: 0,
           pendingBalance: 0,
           pastAdvanceBalance: 0,
+          pastAdvance50PercentBalance: 0,
+          pastAdvance54PercentBalance: 0,
+          pastAdvance159FlatBalance: 0,
         });
       }
     };
@@ -558,12 +583,38 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     const appliedAdvance = applyAdvance
       ? Math.min(balances.advanceBalance || 0, amountNum)
       : 0;
-    const appliedPastAdvance = applyPastAdvance
-      ? Math.min(balances.pastAdvanceBalance || 0, amountNum - appliedAdvance)
+    const appliedPastAdvance50Percent = applyPastAdvance50Percent
+      ? Math.min(
+          balances.pastAdvance50PercentBalance || 0,
+          amountNum - appliedAdvance,
+        )
+      : 0;
+    const appliedPastAdvance54Percent = applyPastAdvance54Percent
+      ? Math.min(
+          balances.pastAdvance54PercentBalance || 0,
+          amountNum - appliedAdvance - appliedPastAdvance50Percent,
+        )
+      : 0;
+    const appliedPastAdvance159Flat = applyPastAdvance159Flat
+      ? Math.min(
+          balances.pastAdvance159FlatBalance || 0,
+          amountNum -
+            appliedAdvance -
+            appliedPastAdvance50Percent -
+            appliedPastAdvance54Percent,
+        )
       : 0;
 
+    const totalPastAdvanceUsed =
+      appliedPastAdvance50Percent +
+      appliedPastAdvance54Percent +
+      appliedPastAdvance159Flat;
+
     // 2. Net Due (Remaining amount to be paid after credits)
-    const netDue = Math.max(0, amountNum - appliedAdvance - appliedPastAdvance);
+    const netDue = Math.max(
+      0,
+      amountNum - appliedAdvance - totalPastAdvanceUsed,
+    );
 
     // 3. Determine how much is actually being paid today (Cash/Card etc)
     let paidNum: number;
@@ -596,11 +647,19 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         pending: pendingVal.toFixed(2),
         advance: advanceVal.toFixed(2),
         advanceUsed: appliedAdvance.toFixed(2),
-        pastAdvanceUsed: appliedPastAdvance.toFixed(2),
+        pastAdvanceUsed: totalPastAdvanceUsed.toFixed(2),
+        pastAdvanceUsed50Percent: appliedPastAdvance50Percent.toFixed(2),
+        pastAdvanceUsed54Percent: appliedPastAdvance54Percent.toFixed(2),
+        pastAdvanceUsed159Flat: appliedPastAdvance159Flat.toFixed(2),
       };
 
       // Auto-set paid to 0.00 if credits are applied and paid was equal to amount (suggesting full coverage)
-      if (applyAdvance || applyPastAdvance) {
+      if (
+        applyAdvance ||
+        applyPastAdvance50Percent ||
+        applyPastAdvance54Percent ||
+        applyPastAdvance159Flat
+      ) {
         if (
           prev.paid === prev.amount ||
           prev.paid === "" ||
@@ -627,6 +686,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         updates.advance !== prev.advance ||
         updates.advanceUsed !== prev.advanceUsed ||
         updates.pastAdvanceUsed !== prev.pastAdvanceUsed ||
+        updates.pastAdvanceUsed50Percent !== prev.pastAdvanceUsed50Percent ||
+        updates.pastAdvanceUsed54Percent !== prev.pastAdvanceUsed54Percent ||
+        updates.pastAdvanceUsed159Flat !== prev.pastAdvanceUsed159Flat ||
         (updates.paid !== undefined && updates.paid !== prev.paid);
 
       if (!hasChanges) return prev;
@@ -637,9 +699,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     formData.amount,
     formData.paid,
     applyAdvance,
-    applyPastAdvance,
+    applyPastAdvance50Percent,
+    applyPastAdvance54Percent,
+    applyPastAdvance159Flat,
     balances.advanceBalance,
     balances.pastAdvanceBalance,
+    balances.pastAdvance50PercentBalance,
+    balances.pastAdvance54PercentBalance,
+    balances.pastAdvance159FlatBalance,
     useMultiplePayments,
     multiplePayments,
   ]);
@@ -984,13 +1051,25 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         paid: parseFloat(formData.paid) || 0,
         advanceUsed: parseFloat(formData.advanceUsed) || 0,
         pastAdvanceUsed: parseFloat(formData.pastAdvanceUsed) || 0,
+        pastAdvanceUsed50Percent:
+          parseFloat(formData.pastAdvanceUsed50Percent) || 0,
+        pastAdvanceUsed54Percent:
+          parseFloat(formData.pastAdvanceUsed54Percent) || 0,
+        pastAdvanceUsed159Flat:
+          parseFloat(formData.pastAdvanceUsed159Flat) || 0,
         pendingUsed:
           parseFloat(formData.amount || "0") -
             parseFloat(formData.pending || "0") || 0,
         pending: parseFloat(formData.pending || "0") || 0,
         advance: parseFloat(formData.advance) || 0,
         pastAdvance: parseFloat(formData.pastAdvance) || 0,
-        applyPastAdvance: applyPastAdvance || false,
+        pastAdvanceType: applyPastAdvance50Percent
+          ? "50% Offer"
+          : applyPastAdvance54Percent
+            ? "54% Offer"
+            : applyPastAdvance159Flat
+              ? "159 Flat"
+              : "",
         paymentMethod: formData.paymentMethod,
         notes: formData.notes,
         emrNumber: formData.emrNumber,
@@ -1077,6 +1156,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                   balanceResponse.data.balances.pendingBalance || 0,
                 pastAdvanceBalance:
                   balanceResponse.data.balances.pastAdvanceBalance || 0,
+                pastAdvance50PercentBalance:
+                  balanceResponse.data.balances.pastAdvance50PercentBalance ||
+                  0,
+                pastAdvance54PercentBalance:
+                  balanceResponse.data.balances.pastAdvance54PercentBalance ||
+                  0,
+                pastAdvance159FlatBalance:
+                  balanceResponse.data.balances.pastAdvance159FlatBalance || 0,
               });
             }
           } catch (error) {
@@ -1135,6 +1222,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     const query = packageSearchQuery.toLowerCase();
     return pkg.name.toLowerCase().includes(query);
   });
+
+  console.log({ balances });
 
   return (
     <>
@@ -1358,6 +1447,88 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       </>
                     ) : null}
                   </div>
+
+                  <div className="flex items-center gap-4 mt-2">
+                    {balances.advanceBalance > 0 && (
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="apply-advance"
+                          checked={applyAdvance}
+                          onChange={(e) => setApplyAdvance(e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <label
+                          htmlFor="apply-advance"
+                          className="ml-2 block text-sm text-gray-900"
+                        >
+                          Apply Advance (AED{" "}
+                          {balances.advanceBalance.toFixed(2)})
+                        </label>
+                      </div>
+                    )}
+                    {balances.pastAdvance50PercentBalance > 0 && (
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="apply-past-advance-50-percent"
+                          checked={applyPastAdvance50Percent}
+                          onChange={(e) =>
+                            setApplyPastAdvance50Percent(e.target.checked)
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <label
+                          htmlFor="apply-past-advance-50-percent"
+                          className="ml-2 block text-sm text-gray-900"
+                        >
+                          Apply 50% Offer (AED{" "}
+                          {balances.pastAdvance50PercentBalance.toFixed(2)})
+                        </label>
+                      </div>
+                    )}
+                    {balances.pastAdvance54PercentBalance > 0 && (
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="apply-past-advance-54-percent"
+                          checked={applyPastAdvance54Percent}
+                          onChange={(e) =>
+                            setApplyPastAdvance54Percent(e.target.checked)
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <label
+                          htmlFor="apply-past-advance-54-percent"
+                          className="ml-2 block text-sm text-gray-900"
+                        >
+                          Apply 54% Offer (AED{" "}
+                          {balances.pastAdvance54PercentBalance.toFixed(2)})
+                        </label>
+                      </div>
+                    )}
+                    {balances.pastAdvance159FlatBalance > 0 && (
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="apply-past-advance-159-flat"
+                          checked={applyPastAdvance159Flat}
+                          onChange={(e) =>
+                            setApplyPastAdvance159Flat(e.target.checked)
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <label
+                          htmlFor="apply-past-advance-159-flat"
+                          className="ml-2 block text-sm text-gray-900"
+                        >
+                          Apply 159 Flat (AED{" "}
+                          {balances.pastAdvance159FlatBalance.toFixed(2)})
+                        </label>
+                      </div>
+                    )}
+                  </div>
+
                   {(errors.firstName ||
                     errors.mobileNumber ||
                     errors.gender) && (
@@ -2492,8 +2663,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       />
                       {(balances.pendingBalance > 0 ||
                         (applyAdvance && balances.advanceBalance > 0) ||
-                        (applyPastAdvance &&
-                          balances.pastAdvanceBalance > 0)) && (
+                        (applyPastAdvance50Percent &&
+                          balances.pastAdvance50PercentBalance > 0) ||
+                        (applyPastAdvance54Percent &&
+                          balances.pastAdvance54PercentBalance > 0) ||
+                        (applyPastAdvance159Flat &&
+                          balances.pastAdvance159FlatBalance > 0)) && (
                         <div className="mt-1 text-[9px]">
                           {balances.pendingBalance > 0 && (
                             <div className="text-red-600">
@@ -2512,12 +2687,34 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                               to this bill
                             </div>
                           )}
-                          {applyPastAdvance &&
-                            balances.pastAdvanceBalance > 0 && (
+                          {applyPastAdvance50Percent &&
+                            balances.pastAdvance50PercentBalance > 0 && (
                               <div className="text-emerald-700">
-                                Applying past advance ₹
+                                Applying 50% Offer Past Advance AED
                                 {Math.min(
-                                  balances.pastAdvanceBalance,
+                                  balances.pastAdvance50PercentBalance,
+                                  parseFloat(formData.amount) || 0,
+                                ).toFixed(2)}{" "}
+                                to this bill
+                              </div>
+                            )}
+                          {applyPastAdvance54Percent &&
+                            balances.pastAdvance54PercentBalance > 0 && (
+                              <div className="text-emerald-700">
+                                Applying 54% Offer Past Advance AED
+                                {Math.min(
+                                  balances.pastAdvance54PercentBalance,
+                                  parseFloat(formData.amount) || 0,
+                                ).toFixed(2)}{" "}
+                                to this bill
+                              </div>
+                            )}
+                          {applyPastAdvance159Flat &&
+                            balances.pastAdvance159FlatBalance > 0 && (
+                              <div className="text-emerald-700">
+                                Applying 159 Flat Past Advance AED
+                                {Math.min(
+                                  balances.pastAdvance159FlatBalance,
                                   parseFloat(formData.amount) || 0,
                                 ).toFixed(2)}{" "}
                                 to this bill
@@ -2545,7 +2742,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         readOnly={useMultiplePayments}
                       />
                       <div className="mt-1 text-[9px] text-gray-600">
-                        Net due = ₹
+                        Net due = AED
                         {Math.max(
                           0,
                           (parseFloat(formData.amount) || 0) -
@@ -2554,12 +2751,25 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                   balances.advanceBalance,
                                   parseFloat(formData.amount) || 0,
                                 )
-                              : applyPastAdvance
-                                ? Math.min(
-                                    balances.pastAdvanceBalance,
-                                    parseFloat(formData.amount) || 0,
-                                  )
-                                : 0),
+                              : 0) -
+                            (applyPastAdvance50Percent
+                              ? Math.min(
+                                  balances.pastAdvance50PercentBalance,
+                                  parseFloat(formData.amount) || 0,
+                                )
+                              : 0) -
+                            (applyPastAdvance54Percent
+                              ? Math.min(
+                                  balances.pastAdvance54PercentBalance,
+                                  parseFloat(formData.amount) || 0,
+                                )
+                              : 0) -
+                            (applyPastAdvance159Flat
+                              ? Math.min(
+                                  balances.pastAdvance159FlatBalance,
+                                  parseFloat(formData.amount) || 0,
+                                )
+                              : 0),
                         ).toFixed(2)}
                       </div>
                     </div>
@@ -2628,28 +2838,78 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           checked={applyAdvance}
                           onChange={(e) => setApplyAdvance(e.target.checked)}
                           className="w-3.5 h-3.5"
-                          disabled={applyPastAdvance}
+                          disabled={
+                            applyPastAdvance50Percent ||
+                            applyPastAdvance54Percent ||
+                            applyPastAdvance159Flat
+                          }
                         />
                         <label className="text-[9px] sm:text-[10px] text-gray-800">
-                          Use advance balance now (₹
+                          Use advance balance now (AED{" "}
                           {balances.advanceBalance.toFixed(2)})
                         </label>
                       </div>
                     )}
-                    {balances.pastAdvanceBalance > 0 && (
+                    {balances.pastAdvance50PercentBalance > 0 && (
                       <div className="mt-1 mb-1 flex items-center gap-2">
                         <input
                           type="checkbox"
-                          checked={applyPastAdvance}
+                          checked={applyPastAdvance50Percent}
                           onChange={(e) =>
-                            setApplyPastAdvance(e.target.checked)
+                            setApplyPastAdvance50Percent(e.target.checked)
                           }
                           className="w-3.5 h-3.5"
-                          disabled={applyAdvance}
+                          disabled={
+                            applyPastAdvance54Percent ||
+                            applyPastAdvance159Flat ||
+                            applyAdvance
+                          }
                         />
                         <label className="text-[9px] sm:text-[10px] text-gray-800">
-                          Use past advance balance now (₹
-                          {balances.pastAdvanceBalance.toFixed(2)})
+                          Use 50% Offer past advance now (AED{" "}
+                          {balances.pastAdvance50PercentBalance.toFixed(2)})
+                        </label>
+                      </div>
+                    )}
+                    {balances.pastAdvance54PercentBalance > 0 && (
+                      <div className="mt-1 mb-1 flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={applyPastAdvance54Percent}
+                          onChange={(e) =>
+                            setApplyPastAdvance54Percent(e.target.checked)
+                          }
+                          className="w-3.5 h-3.5"
+                          disabled={
+                            applyPastAdvance50Percent ||
+                            applyPastAdvance159Flat ||
+                            applyAdvance
+                          }
+                        />
+                        <label className="text-[9px] sm:text-[10px] text-gray-800">
+                          Use 54% Offer past advance now (AED{" "}
+                          {balances.pastAdvance54PercentBalance.toFixed(2)})
+                        </label>
+                      </div>
+                    )}
+                    {balances.pastAdvance159FlatBalance > 0 && (
+                      <div className="mt-1 mb-1 flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={applyPastAdvance159Flat}
+                          onChange={(e) =>
+                            setApplyPastAdvance159Flat(e.target.checked)
+                          }
+                          className="w-3.5 h-3.5"
+                          disabled={
+                            applyPastAdvance50Percent ||
+                            applyPastAdvance54Percent ||
+                            applyAdvance
+                          }
+                        />
+                        <label className="text-[9px] sm:text-[10px] text-gray-800">
+                          Use 159 Flat past advance now (AED{" "}
+                          {balances.pastAdvance159FlatBalance.toFixed(2)})
                         </label>
                       </div>
                     )}
@@ -2984,7 +3244,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                 {billing.pastAdvance?.toFixed(2) || "0.00"}
                               </td>
                               <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-900 dark:text-gray-900 text-right border-r border-gray-200 dark:border-gray-300">
-                                {billing.pastAdvanceUsed?.toFixed(2) || "0.00"}
+                                {billing.pastAdvanceUsed?.toFixed(2) || "0.00"}{" "}
+                                {billing.pastAdvanceUsed
+                                  ? `(${billing?.pastAdvanceType || ""})`
+                                  : ""}
                               </td>
                               <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-700 dark:text-gray-700 text-center border-r border-gray-200 dark:border-gray-300">
                                 {billing.quantity || "-"}

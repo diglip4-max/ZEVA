@@ -34,7 +34,13 @@ export default async function handler(req, res) {
         .json({ success: false, message: "Patient ID is required" });
     }
 
-    const { amount, paymentMethod, notes, invoicedBy } = req.body;
+    const {
+      amount,
+      paymentMethod,
+      notes,
+      invoicedBy,
+      pastAdvanceType = "50% Offer",
+    } = req.body;
     if (!amount || isNaN(amount) || Number(amount) <= 0) {
       return res
         .status(400)
@@ -89,6 +95,7 @@ export default async function handler(req, res) {
       amount: 0,
       paid: 0, // Since it's a historical balance, we don't record it as a new "payment" in the current period
       pastAdvance: Number(amount),
+      pastAdvanceType,
       pending: 0,
       paymentMethod,
       status: "Completed",
