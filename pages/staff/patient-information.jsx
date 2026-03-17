@@ -318,10 +318,19 @@ const PackageUsageModal = ({ isOpen, onClose, patient, packageUsageData, loading
 };
 
 const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packages = [], onViewPackageUsage, transferNameMap = {}, membershipUsageMap = {} }) => {
-  const [balance, setBalance] = useState({ pendingBalance: null, advanceBalance: null, pastAdvanceBalance: null });
+  const [balance, setBalance] = useState({
+    pendingBalance: 0,
+    advanceBalance: 0,
+    pastAdvanceBalance: 0,
+    pastAdvance50PercentBalance: 0,
+    pastAdvance54PercentBalance: 0,
+    pastAdvance159FlatBalance: 0,
+  });
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [showAddAdvancePaymentModal, setShowAddAdvancePaymentModal] = useState(false);
-  const [showAddPastAdvancePaymentModal, setShowAddPastAdvancePaymentModal] = useState(false);
+  const [showAddPastAdvancePayment50PercentModal, setShowAddPastAdvancePayment50PercentModal] = useState(false);
+  const [showAddPastAdvancePayment54PercentModal, setShowAddPastAdvancePayment54PercentModal] = useState(false);
+  const [showAddPastAdvancePayment159FlatModal, setShowAddPastAdvancePayment159FlatModal] = useState(false);
 
   const formatAEDLocal = (v) => {
     if (typeof v !== "number" || Number.isNaN(v) || v === null) return "—";
@@ -358,11 +367,14 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
             pendingBalance: Number(data.pendingBalance || 0),
             advanceBalance: Number(data.advanceBalance || 0),
             pastAdvanceBalance: Number(data.pastAdvanceBalance || 0),
+            pastAdvance50PercentBalance: Number(data.pastAdvance50PercentBalance || 0),
+            pastAdvance54PercentBalance: Number(data.pastAdvance54PercentBalance || 0),
+            pastAdvance159FlatBalance: Number(data.pastAdvance159FlatBalance || 0),
           });
         }
       } catch {
         if (!cancelled) {
-          setBalance({ pendingBalance: 0, advanceBalance: 0, pastAdvanceBalance: 0 });
+          setBalance({ pendingBalance: 0, advanceBalance: 0, pastAdvanceBalance: 0, pastAdvance50PercentBalance: 0, pastAdvance54PercentBalance: 0, pastAdvance159FlatBalance: 0 });
         }
       } finally {
         if (!cancelled) setBalanceLoading(false);
@@ -481,9 +493,21 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                   <DollarSign className="w-3 h-3" />
                   {balanceLoading && balance.advanceBalance === null ? "Advance: ..." : `Advance: ${formatAEDLocal(balance.advanceBalance)}`}
                 </span>
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-100 text-emerald-700 text-[11px] font-semibold">
+                {/* <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-100 text-emerald-700 text-[11px] font-semibold">
                   <DollarSign className="w-3 h-3" />
                   {balanceLoading && balance.pastAdvanceBalance === null ? "Past Advance: ..." : `Past Advance: ${formatAEDLocal(balance.pastAdvanceBalance)}`}
+                </span> */}
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-100 text-amber-700 text-[11px] font-semibold">
+                  <DollarSign className="w-3 h-3" />
+                  {balanceLoading && balance.pastAdvance50PercentBalance === null ? "Past Advance 50%: ..." : `Past Advance 50%: ${formatAEDLocal(balance.pastAdvance50PercentBalance)}`}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-blue-100 text-blue-700 text-[11px] font-semibold">
+                  <DollarSign className="w-3 h-3" />
+                  {balanceLoading && balance.pastAdvance54PercentBalance === null ? "Past Advance 54%: ..." : `Past Advance 54%: ${formatAEDLocal(balance.pastAdvance54PercentBalance)}`}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-purple-100 text-purple-700 text-[11px] font-semibold">
+                  <DollarSign className="w-3 h-3" />
+                  {balanceLoading && balance.pastAdvance159FlatBalance === null ? "Past Advance 159 Flat: ..." : `Past Advance 159 Flat: ${formatAEDLocal(balance.pastAdvance159FlatBalance)}`}
                 </span>
 
                 <button
@@ -494,11 +518,25 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                   <span>Add Advance Balance</span>
                 </button>
                 <button
-                  onClick={() => setShowAddPastAdvancePaymentModal(true)}
-                  className="inline-flex items-center gap-2 rounded-lg bg-yellow-600 px-4 py-2 text-sm font-medium text-white shadow-md transition-all duration-200 hover:bg-yellow-700 hover:shadow-lg active:scale-95"
+                  onClick={() => setShowAddPastAdvancePayment50PercentModal(true)}
+                  className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white shadow-md transition-all duration-200 hover:bg-amber-700 hover:shadow-lg active:scale-95"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Add Past Advance Balance</span>
+                  <span>Add 50% Past Advance Balance</span>
+                </button>
+                <button
+                  onClick={() => setShowAddPastAdvancePayment54PercentModal(true)}
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-md transition-all duration-200 hover:bg-blue-700 hover:shadow-lg active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add 54% Past Advance Balance</span>
+                </button>
+                <button
+                  onClick={() => setShowAddPastAdvancePayment159FlatModal(true)}
+                  className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white shadow-md transition-all duration-200 hover:bg-purple-700 hover:shadow-lg active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add 159 Flat Past Advance Balance</span>
                 </button>
               </div>
             </div>
@@ -849,11 +887,12 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
           const balances = await fetchPatientBalance(patient._id);
           setBalance(balances);
         }}
+
       />
 
       <AddPatientPastAdvancePaymentModal
-        isOpen={showAddPastAdvancePaymentModal}
-        onClose={() => setShowAddPastAdvancePaymentModal(false)}
+        isOpen={showAddPastAdvancePayment50PercentModal}
+        onClose={() => setShowAddPastAdvancePayment50PercentModal(false)}
         patientId={patient._id}
         patientName={patient.name}
         onSuccess={async (data) => {
@@ -862,6 +901,36 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
           const balances = await fetchPatientBalance(patient._id);
           setBalance(balances);
         }}
+        pastAdvanceType="50% Offer"
+        primaryColor="amber"
+      />
+      <AddPatientPastAdvancePaymentModal
+        isOpen={showAddPastAdvancePayment54PercentModal}
+        onClose={() => setShowAddPastAdvancePayment54PercentModal(false)}
+        patientId={patient._id}
+        patientName={patient.name}
+        onSuccess={async (data) => {
+          console.log("Historical balance recorded:", data);
+          // Refresh patient balances
+          const balances = await fetchPatientBalance(patient._id);
+          setBalance(balances);
+        }}
+        pastAdvanceType="54% Offer"
+        primaryColor="blue"
+      />
+      <AddPatientPastAdvancePaymentModal
+        isOpen={showAddPastAdvancePayment159FlatModal}
+        onClose={() => setShowAddPastAdvancePayment159FlatModal(false)}
+        patientId={patient._id}
+        patientName={patient.name}
+        onSuccess={async (data) => {
+          console.log("Historical balance recorded:", data);
+          // Refresh patient balances
+          const balances = await fetchPatientBalance(patient._id);
+          setBalance(balances);
+        }}
+        pastAdvanceType="159 Flat"
+        primaryColor="purple"
       />
     </>
   );
