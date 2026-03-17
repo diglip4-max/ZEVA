@@ -9,7 +9,6 @@ import FeaturesGrid from "../../components/landing/FeaturesGrid";
 import PricingPlans from "../../components/landing/PricingPlans";
 import DemoBookingSection from "../../components/landing/DemoBookingSection";
 import DemoFAQ from "../../components/landing/DemoFAQ";
-import DemoQuickPopup from "../../components/landing/DemoQuickPopup";
 
 const LandingPage: React.FC = () => {
   return (
@@ -26,7 +25,9 @@ const LandingPage: React.FC = () => {
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20">
                   <Sparkles className="w-4 h-4 text-[#D4AF37]" />
                   <span className="text-sm font-semibold">Limited Offer</span>
-                  <span className="opacity-80">3 Months Free for Early Adopters</span>
+                  <span className="opacity-80">
+                    3 Months Free for Early Adopters
+                  </span>
                 </div>
                 <h1 className="mt-10 text-4xl md:text-5xl  lg:text-6xl font-bold mb-6 leading-[1.33]">
                   Transform Your Clinic{"\u00A0"}
@@ -36,13 +37,19 @@ const LandingPage: React.FC = () => {
                   {"\u00A0"}with Zeva
                 </h1>
                 <p className="mt-5 text-lg md:text-xl text-gray-300 max-w-2xl">
-                  Join 500+ Dubai clinics who increased revenue by 60% and patient satisfaction by 40% in their first 90 days with {" "}
-                  <span className="text-yellow-300">Zeva Clinic Management System</span>.
+                  Join 500+ Dubai clinics who increased revenue by 60% and
+                  patient satisfaction by 40% in their first 90 days with{" "}
+                  <span className="text-yellow-300">
+                    Zeva Clinic Management System
+                  </span>
+                  .
                 </p>
                 <ul className="mt-8 space-y-5 text-sm">
                   <li className="flex items-start gap-2">
                     <CircleCheck className="w-5 h-5 text-yellow-400 shrink-0" />
-                    <span>Set up in 24 hours • Start accepting bookings tomorrow</span>
+                    <span>
+                      Set up in 24 hours • Start accepting bookings tomorrow
+                    </span>
                   </li>
                   <li className="flex items-start gap-2">
                     <CircleCheck className="w-5 h-5 text-yellow-400  shrink-0" />
@@ -50,7 +57,9 @@ const LandingPage: React.FC = () => {
                   </li>
                   <li className="flex items-start gap-2">
                     <CircleCheck className="w-5 h-5 text-yellow-400 shrink-0" />
-                    <span>ROI guaranteed • Pay for itself in 30 days or money back</span>
+                    <span>
+                      ROI guaranteed • Pay for itself in 30 days or money back
+                    </span>
                   </li>
                 </ul>
                 <div className="mt-6 flex flex-col sm:flex-row gap-3">
@@ -83,7 +92,9 @@ const LandingPage: React.FC = () => {
               </div>
               <div className="hidden md:block">
                 <div className="relative rounded-2xl bg-white text-gray-900 shadow-2xl p-5 border border-blue-100">
-                  <div className="absolute -top-6 -right-6 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg font-bold text-sm animate-[bounce_1.9s_ease-in-out_infinite]">✓ Live Now</div>
+                  <div className="absolute -top-6 -right-6 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg font-bold text-sm animate-[bounce_1.9s_ease-in-out_infinite]">
+                    ✓ Live Now
+                  </div>
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1">
                       <span className="w-3 h-3 rounded-full bg-red-400" />
@@ -91,7 +102,9 @@ const LandingPage: React.FC = () => {
                       <span className="w-3 h-3 rounded-full bg-green-400" />
                     </div>
                     <div className="flex-1">
-                      <div className="bg-gray-100 rounded-md h-8 px-3 flex items-center text-xs text-gray-600">app.zeva.ae/dashboard</div>
+                      <div className="bg-gray-100 rounded-md h-8 px-3 flex items-center text-xs text-gray-600">
+                        app.zeva.ae/dashboard
+                      </div>
                     </div>
                   </div>
                   <div className="mt-4 grid grid-cols-3 gap-3">
@@ -119,7 +132,10 @@ const LandingPage: React.FC = () => {
                   </div>
                   <div className="mt-4 space-y-3">
                     {[1, 2, 3].map((i) => (
-                      <div key={i} className="flex items-center gap-3 border border-gray-200 rounded-md p-2">
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 border border-gray-200 rounded-md p-2"
+                      >
                         <div className="w-8 h-8 rounded-full bg-yellow-100" />
                         <div className="flex-1">
                           <div className="h-2 bg-gray-100 rounded w-5/6" />
@@ -130,9 +146,13 @@ const LandingPage: React.FC = () => {
                   </div>
                   <div className="absolute -bottom-4 left-4 animate-[bounce_1.8s_ease-in-out_infinite]">
                     <div className="rounded-xl bg-white/95 backdrop-blur shadow-2xl border-2 border-[#F0D98C] px-4 py-3">
-                      <div className="text-[11px] text-gray-600">Monthly Revenue</div>
+                      <div className="text-[11px] text-gray-600">
+                        Monthly Revenue
+                      </div>
                       <div className="mt-1 flex items-center gap-2">
-                        <span className="text-green-600 font-extrabold text-lg">+60%</span>
+                        <span className="text-green-600 font-extrabold text-lg">
+                          +60%
+                        </span>
                         <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-gradient-to-br from-blue-500 to-sky-500 shadow">
                           <TrendingUp className="w-3.5 h-3.5 text-white" />
                         </span>
@@ -147,24 +167,44 @@ const LandingPage: React.FC = () => {
             <div className="max-w-5xl mx-auto px-6">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
                 <div className="text-center">
-                  <div className="text-3xl lg:text-4xl font-bold text-[#D4AF37] mb-1">500+</div>
-                  <div className="text-sm font-semibold text-white">Active Clinics</div>
+                  <div className="text-3xl lg:text-4xl font-bold text-[#D4AF37] mb-1">
+                    500+
+                  </div>
+                  <div className="text-sm font-semibold text-white">
+                    Active Clinics
+                  </div>
                   <div className="text-xs text-gray-400 mt-1">and growing</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl lg:text-4xl font-bold text-[#D4AF37] mb-1">99.9%</div>
-                  <div className="text-sm font-semibold text-white">Uptime SLA</div>
+                  <div className="text-3xl lg:text-4xl font-bold text-[#D4AF37] mb-1">
+                    99.9%
+                  </div>
+                  <div className="text-sm font-semibold text-white">
+                    Uptime SLA
+                  </div>
                   <div className="text-xs text-gray-400 mt-1">guaranteed</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl lg:text-4xl font-bold text-[#D4AF37] mb-1">2M+</div>
-                  <div className="text-sm font-semibold text-white">Appointments</div>
-                  <div className="text-xs text-gray-400 mt-1">booked monthly</div>
+                  <div className="text-3xl lg:text-4xl font-bold text-[#D4AF37] mb-1">
+                    2M+
+                  </div>
+                  <div className="text-sm font-semibold text-white">
+                    Appointments
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    booked monthly
+                  </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl lg:text-4xl font-bold text-[#D4AF37] mb-1">&lt;2hrs</div>
-                  <div className="text-sm font-semibold text-white">Setup Time</div>
-                  <div className="text-xs text-gray-400 mt-1">avg. onboarding</div>
+                  <div className="text-3xl lg:text-4xl font-bold text-[#D4AF37] mb-1">
+                    &lt;2hrs
+                  </div>
+                  <div className="text-sm font-semibold text-white">
+                    Setup Time
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    avg. onboarding
+                  </div>
                 </div>
               </div>
             </div>
@@ -192,7 +232,6 @@ const LandingPage: React.FC = () => {
         <DemoBookingSection />
         <DemoFAQ />
       </LandingLayout>
-      <DemoQuickPopup />
     </>
   );
 };
@@ -201,4 +240,3 @@ const LandingPage: React.FC = () => {
 LandingPage.getLayout = (page: React.ReactNode) => page;
 
 export default LandingPage;
-
