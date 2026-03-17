@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, Minus, Phone, Mail } from "lucide-react";
+import { Plus, Minus, Mail, MessageCircle } from "lucide-react";
 
 const faqs = [
   { q: "How quickly can we start using Zeva?", a: "Most clinics are up and running within 24 hours. Our onboarding team will migrate your data, set up your system, and train your staff. You can start accepting bookings the very next day." },
@@ -62,18 +62,20 @@ export default function DemoFAQ() {
         <p className="text-gray-600 mb-6">Our team is here to help. Get in touch and we’ll answer all your questions.</p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <a
-            href="tel:+97144567890"
+            href="https://wa.me/919650608788"
+            target="_blank"
+            rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#F0D98C] text-[#0A1F44] font-semibold shadow"
           >
-            <Phone className="w-4 h-4" />
-            Call Us: +971 4 456 7890
+            <MessageCircle className="w-4 h-4" />
+            WhatsApp: +91 9650608788
           </a>
           <a
             href="mailto:hello@zeva.ae?subject=Inquiry%20from%20Website&body=Hello%20Zeva%20Team,%0A%0AI%20would%20like%20to%20learn%20more%20about%20your%20clinic%20management%20platform.%0A%0AThanks,%0A[Your%20Name]"
             className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#0A1F44] text-white font-semibold shadow"
           >
             <Mail className="w-4 h-4" />
-            Email: hello@zeva.ae
+            Email: sales@zeva360.com
           </a>
         </div>
       </div>
