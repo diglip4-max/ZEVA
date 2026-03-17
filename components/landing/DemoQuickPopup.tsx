@@ -20,7 +20,7 @@ export default function DemoQuickPopup() {
     const body = encodeURIComponent(
       `Hello Zeva Team,\n\nI would like to learn more about your clinic management platform.\n\nThanks,\n${name || "[Your Name]"}\nEmail: ${email || ""}\nPhone: ${phone || ""}\nClinic: ${clinicName || ""}`,
     );
-    window.location.href = `mailto:hello@zeva.ae?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:sales@zeva360.com?subject=${subject}&body=${body}`;
   };
 
   useEffect(() => {
@@ -204,7 +204,7 @@ export default function DemoQuickPopup() {
                     onClick={handleSendEmail}
                     className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 text-[#0A1F44] font-semibold px-4 py-2 hover:bg-gray-50 transition-colors"
                   >
-                    Send via Email
+                    sales@zeva360.com
                   </button>
                 </div>
                 <div className="mt-3 text-center text-[11px] text-gray-500">
@@ -334,7 +334,7 @@ export default function DemoQuickPopup() {
                   onClick={handleSendEmail}
                   className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 text-[#0A1F44] font-semibold px-4 py-2 hover:bg-gray-50 transition-colors"
                 >
-                  Send via Email
+                  sales@zeva360.com
                 </button>
               </div>
               <div className="mt-3 text-center text-[11px] text-gray-500">

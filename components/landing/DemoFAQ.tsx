@@ -71,7 +71,7 @@ export default function DemoFAQ() {
             WhatsApp: +91 9650608788
           </a>
           <a
-            href="mailto:hello@zeva.ae?subject=Inquiry%20from%20Website&body=Hello%20Zeva%20Team,%0A%0AI%20would%20like%20to%20learn%20more%20about%20your%20clinic%20management%20platform.%0A%0AThanks,%0A[Your%20Name]"
+            href="mailto:sales@zeva360.com?subject=Inquiry%20from%20Website&body=Hello%20Zeva%20Team,%0A%0AI%20would%20like%20to%20learn%20more%20about%20your%20clinic%20management%20platform.%0A%0AThanks,%0A[Your%20Name]"
             className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#0A1F44] text-white font-semibold shadow"
           >
             <Mail className="w-4 h-4" />

@@ -26,7 +26,7 @@ export default function DemoBookingSection() {
     const body = encodeURIComponent(
       `Hello Zeva Team,\n\nI would like to book a free demo.\n\nThanks,\n${name || "[Your Name]"}\nEmail: ${email || ""}\nPhone: ${phone || ""}\nClinic: ${clinicName || ""}`,
     );
-    window.location.href = `mailto:hello@zeva.ae?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:sales@zeva360.com?subject=${subject}&body=${body}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -244,7 +244,7 @@ export default function DemoBookingSection() {
                       onClick={handleSendEmail}
                       className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-gray-300 text-[#0A1F44] font-semibold px-4 py-3 hover:bg-gray-50 transition-colors shadow-sm"
                     >
-                      Send via Email
+                    sales@zeva360.com
                     </button>
                   </div>
 
