@@ -19,11 +19,13 @@ const WorkflowHistorySchema = new Schema(
       ref: "WorkflowAction",
       required: true,
     },
-    // The document that triggered the workflow (e.g., a Lead or Appointment ID)
-    targetId: {
+    conditionId: {
       type: Schema.Types.ObjectId,
+      ref: "WorkflowCondition",
       required: true,
-      index: true,
+    },
+    conditionResult: {
+      type: Boolean,
     },
     status: {
       type: String,
