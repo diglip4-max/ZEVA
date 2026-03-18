@@ -19,16 +19,6 @@ export default function DemoBookingSection() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const handleSendEmail = () => {
-    const subject = encodeURIComponent(
-      "Inquiry from Website (Booking Section)",
-    );
-    const body = encodeURIComponent(
-      `Hello Zeva Team,\n\nI would like to book a free demo.\n\nThanks,\n${name || "[Your Name]"}\nEmail: ${email || ""}\nPhone: ${phone || ""}\nClinic: ${clinicName || ""}`,
-    );
-    window.location.href = `mailto:sales@zeva360.com?subject=${subject}&body=${body}`;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -238,15 +228,7 @@ export default function DemoBookingSection() {
                     Book My Free Demo Now
                   </button>
 
-                  <div className="mt-3">
-                    <button
-                      type="button"
-                      onClick={handleSendEmail}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-gray-300 text-[#0A1F44] font-semibold px-4 py-3 hover:bg-gray-50 transition-colors shadow-sm"
-                    >
-                    sales@zeva360.com
-                    </button>
-                  </div>
+                  
 
                   <p className="mt-3 text-xs text-gray-500 text-center">
                     By submitting, you agree to our Terms of Service and Privacy
