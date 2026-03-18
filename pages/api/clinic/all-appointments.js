@@ -5,12 +5,14 @@ import PatientRegistration from "../../../models/PatientRegistration";
 import Room from "../../../models/Room"; // Import Room model
 import Service from "../../../models/Service"; // Import Service model
 import User from "../../../models/Users"; // Import User model
+import Billing from "../../../models/Billing"; // Revenue model
 import { getUserFromReq } from "../lead-ms/auth";
 // (duplicate imports removed)
 
 void Service;
 void Room;
 void User;
+void Billing;
 
 export default async function handler(req, res) {
   try {
@@ -106,6 +108,7 @@ export default async function handler(req, res) {
         followType,
         referral,
         emergency,
+        createdBy,
         page = 1,
         limit = 50,
       } = req.query;
@@ -119,39 +122,25 @@ export default async function handler(req, res) {
       }
 
       // Date range filter - default to today if no dates provided
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const endOfToday = new Date();
-      endOfToday.setHours(23, 59, 59, 999);
-
-      query.startDate = {};
-      if (fromDate) {
-        const startDate = new Date(fromDate);
-        if (isNaN(startDate.getTime())) {
-          return res.status(400).json({ 
-            success: false, 
-            message: "Invalid fromDate parameter" 
-          });
+      // If fromDate/toDate are provided, use them; if both are missing, skip date filter (all-time)
+      if (fromDate || toDate) {
+        const start = fromDate ? new Date(fromDate) : null;
+        const end = toDate ? new Date(toDate) : null;
+        query.startDate = {};
+        if (start) {
+          if (isNaN(start.getTime())) {
+            return res.status(400).json({ success: false, message: "Invalid fromDate parameter" });
+          }
+          start.setHours(0, 0, 0, 0);
+          query.startDate.$gte = start;
         }
-        startDate.setHours(0, 0, 0, 0);
-        query.startDate.$gte = startDate;
-      } else {
-        // Default to start of today
-        query.startDate.$gte = today;
-      }
-      if (toDate) {
-        const endDate = new Date(toDate);
-        if (isNaN(endDate.getTime())) {
-          return res.status(400).json({ 
-            success: false, 
-            message: "Invalid toDate parameter" 
-          });
+        if (end) {
+          if (isNaN(end.getTime())) {
+            return res.status(400).json({ success: false, message: "Invalid toDate parameter" });
+          }
+          end.setHours(23, 59, 59, 999);
+          query.startDate.$lte = end;
         }
-        endDate.setHours(23, 59, 59, 999);
-        query.startDate.$lte = endDate;
-      } else {
-        // Default to end of today
-        query.startDate.$lte = endOfToday;
       }
 
       // Doctor filter
@@ -162,6 +151,15 @@ export default async function handler(req, res) {
       // Room filter
       if (roomId) {
         query.roomId = roomId;
+      }
+
+      // CreatedBy filter (for agent totals)
+      if (createdBy) {
+        try {
+          query.createdBy = createdBy;
+        } catch (e) {
+          // ignore invalid id
+        }
       }
 
       // Status filter
@@ -282,10 +280,41 @@ export default async function handler(req, res) {
       const limitNum = parseInt(limit);
       const skip = (pageNum - 1) * limitNum;
 
-      let total, appointments;
+      let total, appointments, totalRevenue = 0;
       try {
         // Get total count for pagination (use the final query)
         total = await Appointment.countDocuments(query);
+      
+        // Compute total revenue for the same filtered appointments
+        try {
+          const revenueAgg = await Appointment.aggregate([
+            { $match: query },
+            {
+              $lookup: {
+                from: "billings",
+                localField: "_id",
+                foreignField: "appointmentId",
+                as: "bills",
+              },
+            },
+            { $unwind: { path: "$bills", preserveNullAndEmptyArrays: true } },
+            {
+              $group: {
+                _id: "$_id",
+                amount: { $sum: { $ifNull: ["$bills.amount", 0] } },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                total: { $sum: "$amount" },
+              },
+            },
+          ]);
+          totalRevenue = revenueAgg?.[0]?.total || 0;
+        } catch (revErr) {
+          totalRevenue = 0;
+        }
       
         // Fetch appointments with pagination
         appointments = await Appointment.find(query)
@@ -397,7 +426,8 @@ export default async function handler(req, res) {
         appointments: formatted,
         total,
         page: pageNum,
-        totalPages: Math.ceil(total / limitNum),
+            totalPages: Math.ceil(total / limitNum),
+            totalRevenue,
       });
     }
 

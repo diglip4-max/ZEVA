@@ -41,10 +41,35 @@ export default async function handler(
     console.log('🏥 Using clinicId:', clinicId);
 
     // Get date filter params from query
-    const { startDate, endDate, date } = req.query;
+    const { startDate, endDate, date, filter } = req.query;
 
-    // Build date filter based on time range
+    // Build date filter based on time range (accepts date/startDate&endDate or filter=today|week|month|overall)
     let dateFilter: any = {};
+    let computedStart: Date | null = null;
+    let computedEnd: Date | null = null;
+
+    // If filter is provided but date params are missing, compute range
+    if (filter && !date && !(startDate && endDate)) {
+      const now = new Date();
+      if (filter === 'today') {
+        computedStart = new Date(now);
+        computedStart.setHours(0, 0, 0, 0);
+        computedEnd = new Date(now);
+        computedEnd.setHours(23, 59, 59, 999);
+      } else if (filter === 'week') {
+        computedEnd = new Date(now);
+        computedEnd.setHours(23, 59, 59, 999);
+        computedStart = new Date(now);
+        computedStart.setDate(computedStart.getDate() - 6);
+        computedStart.setHours(0, 0, 0, 0);
+      } else if (filter === 'month') {
+        computedStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        computedStart.setHours(0, 0, 0, 0);
+        computedEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      } else {
+        // overall -> no restriction
+      }
+    }
     if (date) {
       const selectedDate = new Date(date as string);
       const startOfDay = new Date(selectedDate.setHours(0, 0, 0, 0));
@@ -59,10 +84,16 @@ export default async function handler(
         },
       };
       console.log('📅 Using date range filter:', new Date(startDate as string).toISOString(), 'to', new Date(endDate as string).toISOString());
+    } else if (computedStart && computedEnd) {
+      dateFilter = {
+        createdAt: { $gte: computedStart, $lte: computedEnd }
+      };
+      console.log('📅 Using computed filter:', computedStart.toISOString(), 'to', computedEnd.toISOString(), 'based on', filter);
     } else {
       // For 'overall' or no date params - NO date filter, shows ALL historical data
       console.log('📅 Overall filter - NO date restriction, showing all data');
     }
+
 
     console.log('📅 Final dateFilter:', Object.keys(dateFilter).length > 0 ? dateFilter : 'NONE (showing all data)');
 
@@ -220,9 +251,44 @@ export default async function handler(
         value: count as number,
       }));
 
-    // 4. Top Patients (VIP) - Based on billing revenue from Billing model
+    // 4. Top Patients (VIP) - Based on billing revenue from Billing model (date-aware)
+    // Build a date filter that prefers invoicedDate but falls back to createdAt
+    let billingDateFilter: any = {};
+    if (date) {
+      const selectedDate = new Date(date as string);
+      const startOfDay = new Date(selectedDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(selectedDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      billingDateFilter = {
+        $or: [
+          { invoicedDate: { $gte: startOfDay, $lte: endOfDay } },
+          { createdAt:    { $gte: startOfDay, $lte: endOfDay } },
+        ],
+      };
+    } else if (startDate && endDate) {
+      const s = new Date(startDate as string);
+      const e = new Date(endDate as string);
+      billingDateFilter = {
+        $or: [
+          { invoicedDate: { $gte: s, $lte: e } },
+          { createdAt:    { $gte: s, $lte: e } },
+        ],
+      };
+    } else if (computedStart && computedEnd) {
+      billingDateFilter = {
+        $or: [
+          { invoicedDate: { $gte: computedStart, $lte: computedEnd } },
+          { createdAt:    { $gte: computedStart, $lte: computedEnd } },
+        ],
+      };
+    }
+
     const billings = await Billing.find({
-      clinicId
+      clinicId,
+      ...(Object.keys(billingDateFilter).length ? billingDateFilter : {}),
+      // Exclude advance/past-advance adjustment rows from "billings" count
+      invoiceNumber: { $not: /^(PAST-ADV|ADV-)/ },
     })
       .populate('patientId', 'firstName lastName mobileNumber')
       .lean();
@@ -251,13 +317,16 @@ export default async function handler(
       // Increment billing count
       patientBillingStats.get(patientKey).billingCount++;
       
-      // Add revenue from payment history in billing
-      if (billing.paymentHistory && Array.isArray(billing.paymentHistory)) {
-        billing.paymentHistory.forEach((payment: any) => {
-          const amount = Number(payment.paid || payment.amount || 0);
-          patientBillingStats.get(patientKey).totalRevenue += amount;
-        });
+      // Add revenue - prefer invoice 'paid' field, fallback to paymentHistory sum
+      const paidFromInvoice = Number(billing.paid || 0);
+      let paidFromHistory = 0;
+      if (Array.isArray(billing.paymentHistory)) {
+        paidFromHistory = billing.paymentHistory.reduce(
+          (sum: number, payment: any) => sum + Number(payment.paid || payment.amount || 0),
+          0
+        );
       }
+      patientBillingStats.get(patientKey).totalRevenue += paidFromInvoice || paidFromHistory;
       
       // Update last billing date if this is more recent
       const billingDate = new Date(billing.invoicedDate || billing.createdAt);

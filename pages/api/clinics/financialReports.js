@@ -171,8 +171,10 @@ export default async function handler(req, res) {
           { name: 'Tabby', value: 10, color: '#8b5cf6' }
         ];
 
-    // 3. Doctor Revenue - Fetch from Billing model for doctorStaff/doctors of this clinic
+    // 3. Doctor Revenue - Fetch from Billing model for staff doctors of this clinic
     let doctorRevenueStats = [];
+    let clinicDoctors = [];
+    let doctorNameMap = {};
     try {
       console.log('💰 Calculating Doctor Revenue from Billing model...');
       console.log('📅 Billing date range:', {
@@ -181,55 +183,71 @@ export default async function handler(req, res) {
         filter: filter
       });
       
-      // First, get all doctorStaff and doctor users for this clinic
-      const clinicDoctors = await mongoose.model('User').find({
+      // First, get all staff doctors for this clinic
+      clinicDoctors = await mongoose.model('User').find({
         clinicId: clinic._id,
-        role: { $in: ['doctorStaff', 'doctor'] }
+        role: 'doctorStaff'
       }).select('_id name email');
       
-      console.log(`👨‍⚕️ Found ${clinicDoctors.length} doctors/staff for this clinic`);
+      console.log(`👨‍⚕️ Found ${clinicDoctors.length} staff doctors for this clinic`);
       
       if (clinicDoctors.length > 0) {
         const doctorIds = clinicDoctors.map(d => d._id);
-        const doctorNameMap = {};
+        doctorNameMap = {};
         clinicDoctors.forEach(d => {
           doctorNameMap[d._id.toString()] = d.name;
         });
         
-        // Aggregate billings where doctorId matches these doctors
+        // Aggregate billings where doctorId matches staff doctors, with robust ref to appointment
         doctorRevenueStats = await Billing.aggregate([
           {
             $match: {
               clinicId: clinic._id,
-              createdAt: {
-                $gte: startOfYear,
-                $lte: endOfYear
-              }
+              $or: [
+                { createdAt: { $gte: startOfYear, $lte: endOfYear } },
+                { invoicedDate: { $gte: startOfYear, $lte: endOfYear } }
+              ]
             }
           },
+          // Link by appointmentId if present
           {
             $lookup: {
               from: 'appointments',
               localField: 'appointmentId',
               foreignField: '_id',
-              as: 'appointment'
+              as: 'aptById'
+            }
+          },
+          // Fallback: link by patientId to any appointment in range
+          {
+            $lookup: {
+              from: 'appointments',
+              localField: 'patientId',
+              foreignField: 'patientId',
+              as: 'aptByPatient'
             }
           },
           {
-            $unwind: {
-              path: '$appointment',
-              preserveNullAndEmptyArrays: true
+            $addFields: {
+              refApt: {
+                $cond: [
+                  { $gt: [{ $size: "$aptById" }, 0] },
+                  { $arrayElemAt: ["$aptById", 0] },
+                  { $arrayElemAt: ["$aptByPatient", 0] }
+                ]
+              }
             }
           },
           {
             $match: {
-              'appointment.doctorId': { $in: doctorIds }
+              'refApt.clinicId': clinic._id,
+              'refApt.doctorId': { $in: doctorIds }
             }
           },
           {
             $group: {
-              _id: '$appointment.doctorId',
-              totalRevenue: { $sum: '$paid' },
+              _id: '$refApt.doctorId',
+              totalRevenue: { $sum: { $ifNull: ['$paid', 0] } },
               totalSessions: { $sum: 1 }
             }
           },
@@ -252,23 +270,13 @@ export default async function handler(req, res) {
               _id: 1,
               totalRevenue: 1,
               totalSessions: 1,
-              doctorName: { 
-                $switch: {
-                  branches: [
-                    { case: { $ifNull: ['$doctorUser.name', false] }, then: '$doctorUser.name' },
-                    { case: { $ifNull: [doctorNameMap[$_id.toString()], false] }, then: doctorNameMap[$_id.toString()] }
-                  ],
-                  default: 'Unknown Doctor'
-                }
+              doctorName: {
+                $ifNull: ['$doctorUser.name', 'Unknown Doctor']
               }
             }
           },
-          {
-            $sort: { totalRevenue: -1 }
-          },
-          {
-            $limit: 10
-          }
+          { $sort: { totalRevenue: -1 } },
+          { $limit: 10 }
         ]);
         
         console.log('👨‍⚕️ Doctor Revenue Stats:', doctorRevenueStats.length, 'doctors with revenue');
@@ -278,108 +286,132 @@ export default async function handler(req, res) {
           console.log('⚠️ No doctor revenue found in date range! Check if billings exist with doctor appointments.');
         }
       } else {
-        console.log('⚠️ No doctorStaff or doctors found for this clinic');
+        console.log('⚠️ No staff doctors found for this clinic');
       }
     } catch (err) {
       console.error('❌ Error in doctor revenue aggregation:', err);
     }
 
-    const doctorRevenueData = doctorRevenueStats.map(stat => ({
-      name: stat.doctorName || 'Unknown Doctor',
-      revenue: stat.totalRevenue,
-      sessions: stat.totalSessions
-    }));
+    // Build doctorRevenueData including zero-revenue doctors
+    const revenueMap = new Map(
+      doctorRevenueStats.map((stat) => [
+        stat._id?.toString(),
+        { revenue: Number(stat.totalRevenue || 0), sessions: Number(stat.totalSessions || 0) }
+      ])
+    );
+    let doctorRevenueData = (clinicDoctors || []).map((doc) => {
+      const key = doc._id.toString();
+      const totals = revenueMap.get(key) || { revenue: 0, sessions: 0 };
+      return {
+        name: doctorNameMap[key] || doc.name || 'Unknown Doctor',
+        revenue: totals.revenue,
+        sessions: totals.sessions
+      };
+    });
+    // Sort by revenue desc for chart readability
+    doctorRevenueData.sort((a, b) => b.revenue - a.revenue);
     
     console.log('📋 Final Doctor Revenue Data:', doctorRevenueData);
 
-    // If no doctor data, add dummy data
-    if (doctorRevenueData.length === 0) {
-      doctorRevenueData.push(
-        { name: 'Dr. Sarah', revenue: 125000, sessions: 45 },
-        { name: 'Dr. Ahmed', revenue: 98000, sessions: 38 },
-        { name: 'Dr. Michael', revenue: 142000, sessions: 52 },
-        { name: 'Dr. Emily', revenue: 87000, sessions: 31 },
-        { name: 'Dr. David', revenue: 115000, sessions: 42 }
-      );
-    }
+    // No dummy fallback; zero-revenue doctors are included above
 
-    // 4. Top Services Revenue - Using Service, Appointment, and Billing models
+    // 4. Top Services Revenue - EXACT same basis as Doctor Revenue
+    // Use Billing joined to Appointments, filter to staff doctors (clinicDoctors)
     let topServicesStats = [];
     try {
-      // Step 1: Get active services from Service model
-      const activeServices = await Service.find({ 
+      const doctorIds = (clinicDoctors || []).map(d => d._id);
+      const matchStage = {
         clinicId: clinic._id,
-        isActive: true 
-      }).select('_id name serviceSlug');
-      
-      console.log(`🏥 Found ${activeServices.length} active services for clinic ${clinic._id}`);
-      
-      if (activeServices.length > 0) {
-        const serviceIds = activeServices.map(s => s._id);
-        const serviceNameMap = {};
-        activeServices.forEach(s => {
-          serviceNameMap[s._id.toString()] = s.name;
-        });
-        
-        // Step 2: Get appointments with these services in the date range
-        console.log(`📅 Querying appointments from ${startOfYear.toISOString()} to ${endOfYear.toISOString()}`);
-        const appointmentsWithServices = await Appointment.aggregate([
-          {
-            $match: {
-              clinicId: clinic._id,
-              serviceId: { $in: serviceIds },
-              startDate: {
-                $gte: startOfYear,
-                $lte: endOfYear
-              }
-            }
-          },
-          {
-            $lookup: {
-              from: 'billings',
-              localField: '_id',
-              foreignField: 'appointmentId',
-              as: 'billing'
-            }
-          },
-          {
-            $unwind: {
-              path: '$billing',
-              preserveNullAndEmptyArrays: true
-            }
-          },
-          {
-            $group: {
-              _id: '$serviceId',
-              serviceName: { $first: '$serviceId' }, // Will replace with lookup
-              sessions: { $sum: 1 },
-              revenue: { $sum: { $ifNull: ['$billing.paid', 0] } },
-              count: { $sum: 1 }
-            }
-          },
-          {
-            $sort: { revenue: -1 }
-          },
-          {
-            $limit: 10
+        $or: [
+          { createdAt: { $gte: startOfYear, $lte: endOfYear } },
+          { invoicedDate: { $gte: startOfYear, $lte: endOfYear } }
+        ],
+        // Exclude advance/past-advance
+        invoiceNumber: { $not: /^(PAST-ADV|ADV-)/ }
+      };
+      const pipeline = [
+        { $match: matchStage },
+        // Join by appointmentId if present
+        {
+          $lookup: {
+            from: 'appointments',
+            localField: 'appointmentId',
+            foreignField: '_id',
+            as: 'aptById'
           }
-        ]);
-        
-        console.log(`📊 Found ${appointmentsWithServices.length} services with revenue in date range`);
-        console.log('💰 Top services raw data:', appointmentsWithServices.slice(0, 3));
-        
-        // Step 3: Map service names from the Service model
-        topServicesStats = appointmentsWithServices.map(stat => ({
-          _id: serviceNameMap[stat._id.toString()] || 'Unknown Service',
-          sessions: stat.sessions,
-          revenue: stat.revenue,
-          count: stat.count
-        }));
-        
-        console.log('🏥 Top Services from Appointments:', topServicesStats.length);
+        },
+        // Fallback by patientId
+        {
+          $lookup: {
+            from: 'appointments',
+            localField: 'patientId',
+            foreignField: 'patientId',
+            as: 'aptByPatient'
+          }
+        },
+        {
+          $addFields: {
+            refApt: {
+              $cond: [
+                { $gt: [{ $size: "$aptById" }, 0] },
+                { $arrayElemAt: ["$aptById", 0] },
+                { $arrayElemAt: ["$aptByPatient", 0] }
+              ]
+            }
+          }
+        },
+        { $match: { "refApt.clinicId": clinic._id } },
+      ];
+      // Filter to staff doctors if we have any
+      if (doctorIds.length > 0) {
+        pipeline.push({ $match: { "refApt.doctorId": { $in: doctorIds } } });
       }
+      pipeline.push(
+        {
+          $project: {
+            serviceName: {
+              $trim: {
+                input: {
+                  $ifNull: [
+                    {
+                      $cond: [
+                        { $ifNull: ["$treatment", false] },
+                        "$treatment",
+                        {
+                          $cond: [
+                            { $ifNull: ["$package", false] },
+                            "$package",
+                            "$service"
+                          ]
+                        }
+                      ]
+                    },
+                    "Unknown Service"
+                  ]
+                }
+              }
+            },
+            paid: { $ifNull: ["$paid", 0] }
+          }
+        },
+        {
+          $group: {
+            _id: "$serviceName",
+            sessions: { $sum: 1 },
+            revenue: { $sum: "$paid" }
+          }
+        },
+        { $sort: { revenue: -1 } }
+      );
+      const agg = await Billing.aggregate(pipeline);
+      topServicesStats = agg.map(row => ({
+        _id: row._id || 'Unknown Service',
+        sessions: Number(row.sessions || 0),
+        revenue: Number(row.revenue || 0),
+        count: Number(row.sessions || 0)
+      }));
     } catch (err) {
-      console.error('❌ Error in top services aggregation:', err);
+      console.error('❌ Error computing top services from doctor-revenue basis:', err);
     }
 
     // Calculate top services (without growth)
@@ -399,20 +431,9 @@ export default async function handler(req, res) {
       }));
     }
 
-    // If no services data, add dummy data
-    if (topServicesData.length === 0) {
-      console.log('⚠️ No top services found, using dummy data');
-      topServicesData.push(
-        { name: 'Dental Cleaning', sessions: 245, revenue: 85000 },
-        { name: 'Teeth Whitening', sessions: 189, revenue: 72000 },
-        { name: 'Root Canal', sessions: 156, revenue: 95000 },
-        { name: 'Orthodontics', sessions: 134, revenue: 125000 },
-        { name: 'Dental Implants', sessions: 98, revenue: 145000 },
-        { name: 'Veneers', sessions: 87, revenue: 98000 }
-      );
-    } else {
-      console.log('✅ Top Services Data:', topServicesData);
-    }
+    // Sort and cap for UX; no dummy fallback
+    topServicesData.sort((a, b) => Number(b.revenue || 0) - Number(a.revenue || 0));
+    console.log('✅ Top Services Data (merged):', topServicesData.slice(0, 5));
 
     console.log('📤 Sending response with filter:', filter);
     res.status(200).json({ 

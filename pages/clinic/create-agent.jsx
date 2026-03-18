@@ -111,6 +111,10 @@ const ManageAgentsPage = () => {
     canRead: false,
   });
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [totalAppointments, setTotalAppointments] = useState(null);
+  const [totalRevenue, setTotalRevenue] = useState(null);
+  const [totalCommission, setTotalCommission] = useState(null);
+  const [commissionPercent, setCommissionPercent] = useState(null);
 
   // Get the appropriate token based on what's available (clinic > doctor > admin)
   // This ensures we use the correct token for the logged-in user
@@ -584,6 +588,95 @@ const ManageAgentsPage = () => {
         setViewProfile(p);
         setActiveStatus(typeof p.isActive !== 'undefined' ? !!p.isActive : true);
         try {
+          const today = new Date();
+          const yyyy = today.getFullYear();
+          const mm = String(today.getMonth() + 1).padStart(2, '0');
+          const dd = String(today.getDate()).padStart(2, '0');
+          const toDate = `${yyyy}-${mm}-${dd}`;
+          const baseParams = { page: 1, limit: 1, fromDate: '1970-01-01', toDate };
+          const params = { ...baseParams };
+          // Appointments/revenue: doctorStaff uses doctor-performance API as primary source
+          if (agent?.role === 'doctorStaff') {
+            try {
+              const perfRes = await axios.get("/api/clinics/doctor-performance", {
+                headers: authHeaders,
+                params: { filter: 'all' }
+              });
+              const appts = perfRes.data?.data?.appointmentsPerDoctor || [];
+              const revs = perfRes.data?.data?.revenuePerDoctor || [];
+              const docA = appts.find((d) => d.doctorId === String(agent._id));
+              const docR = revs.find((d) => d.doctorId === String(agent._id));
+              setTotalAppointments(docA?.appointmentCount ?? 0);
+              setTotalRevenue(typeof docR?.estimatedRevenue === 'number' ? docR.estimatedRevenue : 0);
+              // Fetch total commission (all-time) from commissions summary
+              try {
+                const commRes = await axios.get("/api/clinic/commissions/summary", {
+                  headers: authHeaders,
+                  params: { source: 'staff' }
+                });
+                const items = commRes.data?.results || commRes.data || [];
+                // Support both {results: []} and [] shapes
+                const list = Array.isArray(items) ? items : (Array.isArray(items.results) ? items.results : []);
+                const me = list.find((row) => String(row.personId || row._id) === String(agent._id));
+                setTotalCommission(typeof me?.totalEarned === 'number' ? me.totalEarned : 0);
+                setCommissionPercent(
+                  me && typeof me.percent !== 'undefined'
+                    ? Number(me.percent)
+                    : (viewProfile?.commissionPercentage != null ? Number(viewProfile.commissionPercentage) : null)
+                );
+              } catch {
+                setTotalCommission(0);
+                setCommissionPercent(viewProfile?.commissionPercentage != null ? Number(viewProfile.commissionPercentage) : null);
+              }
+            } catch {
+              // Fallback to all-appointments if doctor-performance fails
+              params.doctorId = agent._id;
+              const aptRes = await axios.get("/api/clinic/all-appointments", {
+                headers: authHeaders,
+                params
+              });
+              if (aptRes.data?.success) {
+                setTotalAppointments(aptRes.data.total || 0);
+                setTotalRevenue(aptRes.data.totalRevenue ?? 0);
+                setTotalCommission(0);
+                setCommissionPercent(viewProfile?.commissionPercentage != null ? Number(viewProfile.commissionPercentage) : null);
+              } else {
+                setTotalAppointments(0);
+                setTotalRevenue(0);
+                setTotalCommission(0);
+                setCommissionPercent(viewProfile?.commissionPercentage != null ? Number(viewProfile.commissionPercentage) : null);
+              }
+            }
+          } else {
+            // For agents: hide appointment section by clearing totalAppointments,
+            // but still fetch revenue (agent-specific) for display
+            setTotalAppointments(null);
+            const revRes = await axios.get("/api/clinic/all-appointments", {
+              headers: authHeaders,
+              params: { ...baseParams, createdBy: agent._id }
+            });
+            if (revRes.data?.success) {
+              setTotalRevenue(revRes.data.totalRevenue ?? 0);
+              setTotalCommission(0);
+              setCommissionPercent(viewProfile?.commissionPercentage != null ? Number(viewProfile.commissionPercentage) : null);
+            } else {
+              setTotalRevenue(0);
+              setTotalCommission(0);
+              setCommissionPercent(viewProfile?.commissionPercentage != null ? Number(viewProfile.commissionPercentage) : null);
+            }
+          }
+        } catch {
+          // Fallbacks
+          if (agent?.role === 'doctorStaff') {
+            setTotalAppointments(0);
+          } else {
+            setTotalAppointments(null);
+          }
+          setTotalRevenue(0);
+          setTotalCommission(0);
+          setCommissionPercent(viewProfile?.commissionPercentage != null ? Number(viewProfile.commissionPercentage) : null);
+        }
+        try {
           const act = await axios.get(`/api/lead-ms/agent-activity?agentId=${agent._id}`, { headers: authHeaders });
           if (act.data?.success) {
             setActivity(act.data.data || null);
@@ -597,11 +690,15 @@ const ManageAgentsPage = () => {
         setViewProfile(null);
         setActiveStatus(null);
         setActivity(null);
+        setTotalAppointments(null);
+        setTotalRevenue(null);
       }
     } catch {
       setViewProfile(null);
       setActiveStatus(null);
       setActivity(null);
+      setTotalAppointments(null);
+      setTotalRevenue(null);
     } finally {
       setViewLoading(false);
     }
@@ -2017,7 +2114,7 @@ const ManageAgentsPage = () => {
               </div>
               <button
                 type="button"
-                onClick={() => { setViewAgent(null); setViewProfile(null); }}
+                onClick={() => { setViewAgent(null); setViewProfile(null); setTotalAppointments(null); }}
                 className="flex-shrink-0 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-teal-500 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-200"
                 aria-label="Close"
               >
@@ -2094,20 +2191,24 @@ const ManageAgentsPage = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-xl p-5">
-                      <div className="flex items-center gap-2 text-xs opacity-90">
-                        <CalendarCheck className="w-4 h-4" />
-                        <span>Total Appointments</span>
+                  <div className={`grid grid-cols-1 sm:grid-cols-2 ${viewAgent?.role === 'agent' ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-4`}>
+                    {viewAgent?.role !== 'agent' && (
+                      <div className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-xl p-5">
+                        <div className="flex items-center gap-2 text-xs opacity-90">
+                          <CalendarCheck className="w-4 h-4" />
+                          <span>Total Appointments</span>
+                        </div>
+                        <div className="mt-2 text-3xl font-bold">{totalAppointments !== null ? totalAppointments : '—'}</div>
                       </div>
-                      <div className="mt-2 text-3xl font-bold">—</div>
-                    </div>
+                    )}
                     <div className="bg-white border border-gray-200 rounded-xl p-5">
                       <div className="flex items-center gap-2 text-xs text-teal-700">
                         <DollarSign className="w-4 h-4" />
                         <span>Revenue Generated</span>
                       </div>
-                      <div className="mt-2 text-3xl font-bold text-teal-900">—</div>
+                      <div className="mt-2 text-3xl font-bold text-teal-900">
+                        {totalRevenue !== null ? `AED ${Number(totalRevenue || 0).toLocaleString()}` : '—'}
+                      </div>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-xl p-5">
                       <div className="flex items-center gap-2 text-xs text-teal-700">
@@ -2115,7 +2216,10 @@ const ManageAgentsPage = () => {
                         <span>Commission Earned</span>
                       </div>
                       <div className="mt-2 text-3xl font-bold text-teal-900">
-                        {viewProfile?.commissionPercentage ? `${viewProfile.commissionPercentage}%` : '—'}
+                        {totalCommission != null ? `AED ${Number(totalCommission || 0).toLocaleString()}` : '—'}
+                      </div>
+                      <div className="text-xs text-teal-700 mt-1">
+                        {commissionPercent != null ? `Profile: ${Number(commissionPercent)}%` : 'Profile: —'}
                       </div>
                     </div>
                     <div className="bg-blue-600 text-white rounded-xl p-5">
@@ -2465,7 +2569,7 @@ const ManageAgentsPage = () => {
                   <div className="flex items-center justify-end">
                     <button
                       type="button"
-                      onClick={() => { setViewAgent(null); setViewProfile(null); }}
+                      onClick={() => { setViewAgent(null); setViewProfile(null); setTotalAppointments(null); }}
                       className="px-3.5 py-2 rounded-md border border-gray300 dark:border-gray600 text-[11px] font-medium text-teal-700 dark:text-teal-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                     >
                       Close
