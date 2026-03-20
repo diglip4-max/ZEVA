@@ -139,6 +139,7 @@ function ClinicPatientRegistration() {
               <div className="p-4 sm:p-6">
                 <PatientRegistrationWrapper 
                   onSuccess={handleRegistrationSuccess}
+                  onCancel={handleCloseModal}
                   isCompact={false}
                   routeContext={routeContext}
                 />
@@ -205,8 +206,8 @@ function ClinicPatientRegistration() {
 }
 
 // Wrapper component for PatientRegistration to handle success callback
-const PatientRegistrationWrapper = ({ onSuccess, isCompact, routeContext }) => {
-  return <PatientRegistration onSuccess={onSuccess} isCompact={!!isCompact} routeContext={routeContext} />;
+const PatientRegistrationWrapper = ({ onSuccess, onCancel, isCompact, routeContext }) => {
+  return <PatientRegistration onSuccess={onSuccess} onCancel={onCancel} isCompact={!!isCompact} routeContext={routeContext} />;
 };
 
 // Patient Import Modal Component
