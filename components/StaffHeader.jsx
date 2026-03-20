@@ -16,9 +16,20 @@ const AdminHeader = () => {
 
   const email = storedUser.email;
 
-  const handleLogout = () => {
-    localStorage.removeItem('userToken');
-    window.location.href = '/staff';
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('userToken') || sessionStorage.getItem('userToken');
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          keepalive: true,
+        }).catch(() => {});
+      }
+    } finally {
+      localStorage.removeItem('userToken');
+      window.location.href = '/staff';
+    }
   };
 
   const getInitials = (name) => {

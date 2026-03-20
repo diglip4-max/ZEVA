@@ -30,13 +30,26 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
   const walletBtnRef = useRef<HTMLButtonElement | null>(null);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
 
-  const handleLogout = () => {
-    localStorage.removeItem('agentToken');
-    localStorage.removeItem('userToken');
-    localStorage.removeItem('agentUser');
-    // sessionStorage.removeItem('resetEmail');
-    //  sessionStorage.removeItem('clinicEmailForReset');
-    window.location.href = '/staff';
+  const handleLogout = async () => {
+    try {
+      const token =
+        localStorage.getItem('agentToken') ||
+        localStorage.getItem('userToken') ||
+        sessionStorage.getItem('agentToken') ||
+        sessionStorage.getItem('userToken');
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          keepalive: true,
+        }).catch(() => {});
+      }
+    } finally {
+      localStorage.removeItem('agentToken');
+      localStorage.removeItem('userToken');
+      localStorage.removeItem('agentUser');
+      window.location.href = '/staff';
+    }
   };
 
   useEffect(() => {

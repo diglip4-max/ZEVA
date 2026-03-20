@@ -127,26 +127,22 @@ function ClinicPatientRegistration() {
       {/* Register Patient Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-black/60 backdrop-blur-md">
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto flex flex-col border border-teal-100">
-            <div className="sticky top-0 bg-teal-600 px-4 sm:px-6 py-3 flex items-center justify-between z-10 rounded-t-2xl">
-              <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                <UserPlus className="w-5 h-5" />
-                Register New Patient
-              </h2>
-              <button
-                onClick={handleCloseModal}
-                className="p-2 hover:bg-white/20 rounded-lg text-white hover:text-white transition-colors flex-shrink-0 backdrop-blur-sm"
-                aria-label="Close modal"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-4 sm:p-6 flex-1 overflow-y-auto bg-gray-50">
-              <PatientRegistrationWrapper 
-                onSuccess={handleRegistrationSuccess}
-                isCompact
-                routeContext={routeContext}
-              />
+          <div className="relative w-full max-w-7xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={handleCloseModal}
+              className="absolute top-2 right-2 z-20 p-2 rounded-lg bg-white/90 hover:bg-white shadow-sm border border-gray-200"
+              aria-label="Close modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="bg-gray-50 rounded-2xl shadow-2xl border border-gray-200 p-0">
+              <div className="p-4 sm:p-6">
+                <PatientRegistrationWrapper 
+                  onSuccess={handleRegistrationSuccess}
+                  isCompact={false}
+                  routeContext={routeContext}
+                />
+              </div>
             </div>
           </div>
         </div>

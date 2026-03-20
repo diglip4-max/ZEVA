@@ -98,9 +98,62 @@ const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, type = "war
 
 const paymentMethods = ["Cash", "Card", "BT", "Tabby", "Tamara"];
 
+const COUNTRY_CODES = [
+  { code: "+1", name: "United States", flag: "🇺🇸" },
+  { code: "+1", name: "Canada", flag: "🇨🇦" },
+  { code: "+7", name: "Russia", flag: "🇷🇺" },
+  { code: "+7", name: "Kazakhstan", flag: "🇰🇿" },
+  { code: "+20", name: "Egypt", flag: "🇪🇬" },
+  { code: "+27", name: "South Africa", flag: "🇿🇦" },
+  { code: "+30", name: "Greece", flag: "🇬🇷" },
+  { code: "+31", name: "Netherlands", flag: "🇳🇱" },
+  { code: "+32", name: "Belgium", flag: "🇧🇪" },
+  { code: "+33", name: "France", flag: "🇫🇷" },
+  { code: "+34", name: "Spain", flag: "🇪🇸" },
+  { code: "+39", name: "Italy", flag: "🇮🇹" },
+  { code: "+40", name: "Romania", flag: "🇷🇴" },
+  { code: "+41", name: "Switzerland", flag: "🇨🇭" },
+  { code: "+44", name: "United Kingdom", flag: "🇬🇧" },
+  { code: "+45", name: "Denmark", flag: "🇩🇰" },
+  { code: "+46", name: "Sweden", flag: "🇸🇪" },
+  { code: "+47", name: "Norway", flag: "🇳🇴" },
+  { code: "+48", name: "Poland", flag: "🇵🇱" },
+  { code: "+49", name: "Germany", flag: "🇩🇪" },
+  { code: "+52", name: "Mexico", flag: "🇲🇽" },
+  { code: "+55", name: "Brazil", flag: "🇧🇷" },
+  { code: "+60", name: "Malaysia", flag: "🇲🇾" },
+  { code: "+61", name: "Australia", flag: "🇦🇺" },
+  { code: "+62", name: "Indonesia", flag: "🇮🇩" },
+  { code: "+63", name: "Philippines", flag: "🇵🇭" },
+  { code: "+64", name: "New Zealand", flag: "🇳🇿" },
+  { code: "+65", name: "Singapore", flag: "🇸🇬" },
+  { code: "+66", name: "Thailand", flag: "🇹🇭" },
+  { code: "+81", name: "Japan", flag: "🇯🇵" },
+  { code: "+82", name: "South Korea", flag: "🇰🇷" },
+  { code: "+84", name: "Vietnam", flag: "🇻🇳" },
+  { code: "+86", name: "China", flag: "🇨🇳" },
+  { code: "+90", name: "Turkey", flag: "🇹🇷" },
+  { code: "+91", name: "India", flag: "🇮🇳" },
+  { code: "+92", name: "Pakistan", flag: "🇵🇰" },
+  { code: "+93", name: "Afghanistan", flag: "🇦🇫" },
+  { code: "+94", name: "Sri Lanka", flag: "🇱🇰" },
+  { code: "+95", name: "Myanmar", flag: "🇲🇲" },
+  { code: "+98", name: "Iran", flag: "🇮🇷" },
+  { code: "+971", name: "United Arab Emirates", flag: "🇦🇪" },
+  { code: "+972", name: "Israel", flag: "🇮🇱" },
+  { code: "+973", name: "Bahrain", flag: "🇧🇭" },
+  { code: "+974", name: "Qatar", flag: "🇶🇦" },
+  { code: "+975", name: "Bhutan", flag: "🇧🇹" },
+  { code: "+976", name: "Mongolia", flag: "🇲🇳" },
+  { code: "+977", name: "Nepal", flag: "🇳🇵" },
+  { code: "+880", name: "Bangladesh", flag: "🇧🇩" },
+  { code: "+994", name: "Azerbaijan", flag: "🇦🇿" },
+  { code: "+996", name: "Kyrgyzstan", flag: "🇰🇬" },
+];
+
 const INITIAL_FORM_DATA = {
   invoiceNumber: "", emrNumber: "", firstName: "", lastName: "", email: "",
-  mobileNumber: "", gender: "", patientType: "", referredBy: "No",
+  mobileNumber: "", countryCode: "+971", gender: "", patientType: "", referredBy: "No",
   insurance: "No", advanceGivenAmount: "", coPayPercent: "", advanceClaimStatus: "Pending",
   insuranceType: "Paid",
   membership: "No", membershipStartDate: "", membershipEndDate: "", membershipId: "",
@@ -341,9 +394,16 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
   const handleInputChange = useCallback((e) => {
     const { name, value } = e.target;
     
-    // Handle mobileNumber - allow any digits (no length restriction for clinic route)
+    // Country code
+    if (name === "countryCode") {
+      setFormData(prev => ({ ...prev, countryCode: value }));
+      if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
+      return;
+    }
+
+    // Handle mobileNumber - digits only, max 10
     if (name === "mobileNumber") {
-      const numericValue = value.replace(/\D/g, '');
+      const numericValue = value.replace(/\D/g, '').slice(0, 10);
       setFormData(prev => ({ ...prev, [name]: numericValue }));
       if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
       return;
@@ -456,6 +516,7 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
     // Unified validation: Only First Name and Mobile Number are mandatory for all roles
     if (!firstName.trim()) newErrors.firstName = "Required";
     if (!mobileNumber.trim()) newErrors.mobileNumber = "Required";
+    else if (mobileNumber.replace(/\D/g, '').length !== 10) newErrors.mobileNumber = "Enter 10-digit number";
     
     // Optional fields validation if provided
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = "Invalid email";
@@ -792,6 +853,32 @@ return (
                         <option value="">Select {field.label}</option>
                         {field.options.filter(opt => opt !== "").map(opt => <option key={opt} value={opt}>{opt}</option>)}
                       </select>
+                    ) : field.name === "mobileNumber" ? (
+                      <div className="flex gap-1">
+                        <select
+                          name="countryCode"
+                          value={formData.countryCode}
+                          onChange={handleInputChange}
+                          className="px-2 py-1 text-[11px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 text-gray-900 border-gray-300 min-w-[100px]"
+                        >
+                          {COUNTRY_CODES.map(({ code, name, flag }, idx) => (
+                            <option key={`${code}-${name}-${idx}`} value={code}>
+                              {`${flag ? flag + ' ' : ''}${code}`}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="tel"
+                          name="mobileNumber"
+                          value={formData.mobileNumber}
+                          onChange={handleInputChange}
+                          maxLength={10}
+                          inputMode="numeric"
+                          pattern="\d{10}"
+                          className={`flex-1 px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 text-gray-900 ${errors[field.name] ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                          placeholder="10-digit mobile"
+                        />
+                      </div>
                     ) : (
                       <input
                         type={field.type || "text"}
