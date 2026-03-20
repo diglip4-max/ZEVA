@@ -25,6 +25,8 @@ interface EditAppointmentModalProps {
     referral: string;
     emergency: string;
     notes: string;
+    serviceId?: string | null;
+    serviceIds?: string[];
   } | null;
   rooms: Array<{ _id: string; name: string }>;
   doctors: Array<{ _id: string; name: string }>;
@@ -55,6 +57,9 @@ export default function EditAppointmentModal({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const [referrals, setReferrals] = useState<Array<{ _id: string; firstName: string; lastName: string }>>([]);
+  const [services, setServices] = useState<Array<{ _id: string; name: string }>>([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
+  const [selectedServiceId, setSelectedServiceId] = useState<string>("");
 
   const fetchReferrals = async () => {
     try {
@@ -74,6 +79,29 @@ export default function EditAppointmentModal({
       fetchReferrals();
     }
   }, [isOpen]);
+  useEffect(() => {
+    const loadServices = async () => {
+      try {
+        setServicesLoading(true);
+        const res = await axios.get("/api/clinic/services", {
+          headers: getAuthHeaders(),
+        });
+        if (res.data.success) {
+          const list = Array.isArray(res.data.services) ? res.data.services : [];
+          setServices(list.map((s: any) => ({ _id: s._id, name: s.name })));
+        } else {
+          setServices([]);
+        }
+      } catch (e) {
+        setServices([]);
+      } finally {
+        setServicesLoading(false);
+      }
+    };
+    if (isOpen) {
+      loadServices();
+    }
+  }, [isOpen, getAuthHeaders]);
 
   useEffect(() => {
     const fetchPatientReferral = async () => {
@@ -118,6 +146,11 @@ export default function EditAppointmentModal({
       setNotes(appointment.notes || "");
       setError("");
       setFieldErrors({});
+      const initId =
+        Array.isArray(appointment.serviceIds) && appointment.serviceIds.length > 0
+          ? appointment.serviceIds[0]
+          : appointment.serviceId || "";
+      setSelectedServiceId(initId || "");
     }
   }, [appointment]);
 
@@ -156,6 +189,7 @@ export default function EditAppointmentModal({
           referral,
           emergency,
           notes,
+          serviceId: selectedServiceId || undefined,
         },
         { headers }
       );
@@ -462,6 +496,25 @@ export default function EditAppointmentModal({
                 className="w-full border border-gray-300 dark:border-gray-300 rounded px-2 py-1.5 text-xs bg-white dark:bg-white text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Add notes..."
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-0.5">Treatments</label>
+              <select
+                value={selectedServiceId}
+                onChange={(e) => setSelectedServiceId(e.target.value)}
+                className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs bg-white text-gray-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                disabled={servicesLoading}
+              >
+                <option value="">Select a treatment (optional)</option>
+                {services.map((svc) => (
+                  <option key={svc._id} value={svc._id}>
+                    {svc.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

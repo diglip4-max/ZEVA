@@ -1,0 +1,300 @@
+import dbConnect from "../../../../lib/database";
+import { getUserFromReq } from "../../lead-ms/auth";
+import { getClinicIdFromUser, checkClinicPermission } from "../../lead-ms/permissions-helper";
+import mongoose from "mongoose";
+
+export default async function handler(req, res) {
+  if (req.method !== "GET") {
+    return res.status(405).json({ success: false, message: "Method not allowed" });
+  }
+
+  try {
+    await dbConnect();
+  } catch {
+    return res.status(500).json({ success: false, message: "Database connection failed" });
+  }
+
+  let user;
+  try {
+    user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ success: false, message: "Unauthorized" });
+  } catch {
+    return res.status(401).json({ success: false, message: "Invalid token" });
+  }
+
+  const { clinicId, error: clinicError } = await getClinicIdFromUser(user);
+  if (clinicError && user.role !== "admin") {
+    return res.status(403).json({ success: false, message: clinicError });
+  }
+
+  const moduleKey = "clinic_reporting";
+  const { hasPermission } = await checkClinicPermission(clinicId, moduleKey, "read");
+  if (!hasPermission) {
+    return res.status(403).json({ success: false, message: "You do not have permission to view reports" });
+  }
+
+  const parseId = (v) => {
+    const val = Array.isArray(v) ? v[0] : v;
+    if (!val) return null;
+    if (!mongoose.Types.ObjectId.isValid(val)) return null;
+    return new mongoose.Types.ObjectId(val);
+  };
+  const parseDate = (v) => {
+    const val = Array.isArray(v) ? v[0] : v;
+    if (!val || val === "undefined" || val === "null") return null;
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  const qStart = parseDate(req.query.startDate);
+  const qEnd = parseDate(req.query.endDate);
+  const doctorId = parseId(req.query.doctorId);
+  const departmentId = parseId(req.query.departmentId);
+
+  const targetClinicId =
+    user.role !== "admin"
+      ? new mongoose.Types.ObjectId(String(clinicId))
+      : req.query.clinicId
+      ? new mongoose.Types.ObjectId(String(req.query.clinicId))
+      : null;
+
+  try {
+    const matchApt = {};
+    if (targetClinicId) matchApt.clinicId = targetClinicId;
+    if (qStart || qEnd) {
+      matchApt.startDate = {};
+      if (qStart) matchApt.startDate.$gte = qStart;
+      if (qEnd) matchApt.startDate.$lte = qEnd;
+      if (!Object.keys(matchApt.startDate).length) delete matchApt.startDate;
+    }
+    if (doctorId) matchApt.doctorId = doctorId;
+
+    const pipelineBase = [
+      { $match: matchApt },
+      {
+        $lookup: {
+          from: "services",
+          localField: "serviceId",
+          foreignField: "_id",
+          as: "svc",
+        },
+      },
+      { $unwind: { path: "$svc", preserveNullAndEmptyArrays: true } },
+    ];
+    if (departmentId) {
+      pipelineBase.push({ $match: { "svc.departmentId": departmentId } });
+    }
+
+    const statusCompleted = ["Completed", "invoice", "Consultation"];
+    const statusCancelled = ["Cancelled"];
+    const statusNoShow = ["Rejected"];
+
+    const dateFilterForBilling = {};
+    if (qStart) dateFilterForBilling.$gte = qStart;
+    if (qEnd) dateFilterForBilling.$lte = qEnd;
+    const applyBillingDate = Object.keys(dateFilterForBilling).length > 0;
+
+    const result = await mongoose.connection.collection("appointments").aggregate([
+      ...pipelineBase,
+      {
+        $facet: {
+          leaderboard: [
+            { $group: { _id: "$doctorId", totalAppointments: { $sum: 1 } } },
+            { $sort: { totalAppointments: -1 } },
+            {
+              $lookup: {
+                from: "users",
+                localField: "_id",
+                foreignField: "_id",
+                as: "doc",
+              },
+            },
+            {
+              $project: {
+                doctorId: "$_id",
+                totalAppointments: 1,
+                doctorName: {
+                  $let: {
+                    vars: { d: { $arrayElemAt: ["$doc", 0] } },
+                    in: {
+                      $cond: [
+                        { $ifNull: ["$$d.name", false] },
+                        "$$d.name",
+                        { $trim: { input: { $concat: [{ $ifNull: ["$$d.firstName", ""] }, " ", { $ifNull: ["$$d.lastName", ""] }] } } },
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+          ],
+          summary: [
+            {
+              $group: {
+                _id: null,
+                totalAppointments: { $sum: 1 },
+                completedAppointments: { $sum: { $cond: [{ $in: ["$status", statusCompleted] }, 1, 0] } },
+                cancelledAppointments: { $sum: { $cond: [{ $in: ["$status", statusCancelled] }, 1, 0] } },
+                noShowAppointments: { $sum: { $cond: [{ $in: ["$status", statusNoShow] }, 1, 0] } },
+              },
+            },
+          ],
+          filters: [
+            {
+              $group: {
+                _id: null,
+                doctorIds: { $addToSet: "$doctorId" },
+                departmentIds: { $addToSet: "$svc.departmentId" },
+              },
+            },
+            {
+              $project: {
+                doctorIds: {
+                  $filter: {
+                    input: "$doctorIds",
+                    as: "x",
+                    cond: { $ne: ["$$x", null] },
+                  },
+                },
+                departmentIds: {
+                  $filter: {
+                    input: "$departmentIds",
+                    as: "y",
+                    cond: { $ne: ["$$y", null] },
+                  },
+                },
+              },
+            },
+          ],
+          doctorReport: [
+            {
+              $group: {
+                _id: "$doctorId",
+                appointmentIds: { $addToSet: "$_id" },
+                totalAppointments: { $sum: 1 },
+              },
+            },
+            {
+              $lookup: {
+                from: "billings",
+                let: { aptIds: "$appointmentIds" },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: { $in: ["$appointmentId", { $ifNull: ["$$aptIds", []] }] },
+                      ...(targetClinicId ? { clinicId: targetClinicId } : {}),
+                      ...(applyBillingDate ? { invoicedDate: dateFilterForBilling } : {}),
+                    },
+                  },
+                  { $group: { _id: null, revenue: { $sum: { $ifNull: ["$paid", 0] } } } },
+                ],
+                as: "rev",
+              },
+            },
+            {
+              $lookup: {
+                from: "users",
+                localField: "_id",
+                foreignField: "_id",
+                as: "doc",
+              },
+            },
+            {
+              $project: {
+                doctorId: "$_id",
+                totalAppointments: 1,
+                revenue: { $ifNull: [{ $arrayElemAt: ["$rev.revenue", 0] }, 0] },
+                doctorName: {
+                  $let: {
+                    vars: { d: { $arrayElemAt: ["$doc", 0] } },
+                    in: {
+                      $cond: [
+                        { $ifNull: ["$$d.name", false] },
+                        "$$d.name",
+                        { $trim: { input: { $concat: [{ $ifNull: ["$$d.firstName", ""] }, " ", { $ifNull: ["$$d.lastName", ""] }] } } },
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+            { $sort: { revenue: -1 } },
+          ],
+          statusCounts: [
+            { $group: { _id: "$status", count: { $sum: 1 } } },
+            { $project: { status: "$_id", count: 1 } },
+            { $sort: { count: -1 } },
+          ],
+        },
+      },
+    ]).toArray();
+
+    const out = result[0] || {};
+
+    let doctors = [];
+    let departments = [];
+    if (out.filters && out.filters.length > 0) {
+      const f = out.filters[0];
+      const [docRows, depRows] = await Promise.all([
+        f.doctorIds?.length
+          ? mongoose.connection.collection("users").aggregate([
+              { $match: { _id: { $in: f.doctorIds } } },
+              {
+                $project: {
+                  _id: 1,
+                  name: {
+                    $cond: [
+                      { $ifNull: ["$name", false] },
+                      "$name",
+                      { $trim: { input: { $concat: [{ $ifNull: ["$firstName", ""] }, " ", { $ifNull: ["$lastName", ""] }] } } },
+                    ],
+                  },
+                },
+              },
+            ]).toArray()
+          : [],
+        f.departmentIds?.length
+          ? mongoose.connection.collection("departments").aggregate([
+              { $match: { _id: { $in: f.departmentIds } } },
+              { $project: { _id: 1, name: 1 } },
+            ]).toArray()
+          : [],
+      ]);
+      doctors = docRows.map((d) => ({ id: d._id, name: d.name }));
+      departments = depRows.map((d) => ({ id: d._id, name: d.name }));
+    }
+
+    // Ensure all known statuses appear with zero if missing
+    const ALL_STATUSES = [
+      "booked",
+      "enquiry",
+      "Discharge",
+      "Arrived",
+      "Consultation",
+      "Cancelled",
+      "Approved",
+      "Rescheduled",
+      "Waiting",
+      "Rejected",
+      "Completed",
+      "invoice",
+    ];
+    const rawStatusCounts = Array.isArray(out.statusCounts) ? out.statusCounts : [];
+    const statusMap = new Map(rawStatusCounts.map((s) => [s.status, s.count]));
+    const statusCountsAll = ALL_STATUSES.map((s) => ({ status: s, count: statusMap.get(s) || 0 }));
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        leaderboard: out.leaderboard || [],
+        summary: (out.summary && out.summary[0]) || { totalAppointments: 0, completedAppointments: 0, cancelledAppointments: 0, noShowAppointments: 0 },
+        doctorReport: out.doctorReport || [],
+        statusCounts: statusCountsAll,
+        filters: { doctors, departments },
+      },
+    });
+  } catch (e) {
+    console.error("appointment-stats error:", e);
+    return res.status(500).json({ success: false, message: "Failed to fetch appointment stats" });
+  }
+}

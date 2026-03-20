@@ -219,6 +219,10 @@ const routeMap: { [key: string]: () => Promise<any> } = {
     import("../clinic/stocks/stock-transfer/transfer-stock"),
   "clinic-stocks-allocated-stock-items": () =>
     import("../clinic/stocks/allocated-stock-items"),
+ "clinic-pettycash": () =>
+    import("../clinic/pettycash"),
+
+
 };
 
 const StaffDynamicPage = () => {

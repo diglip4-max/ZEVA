@@ -357,6 +357,27 @@ const ClinicDashboard: NextPageWithLayout = () => {
     }
   });
 
+  // Patient analytics state
+  const [patientStats, setPatientStats] = useState<{
+    topVisited: Array<{ patientId: string; patientName: string; visits: number }>;
+    membershipByPatient: Array<{ patientId: string; patientName: string; membershipRevenue: number; count: number }>;
+    packageByPatient: Array<{ patientId: string; patientName: string; revenue: number; count: number }>;
+    highestPending: Array<{ patientId: string; patientName: string; pending: number }>;
+    highestAdvance: Array<{ patientId: string; patientName: string; advance: number }>;
+    revenueByPatient: Array<{ patientId: string; patientName: string; revenue: number }>;
+    summary: { totalPatients: number; newPatients: number; returningPatients: number };
+  }>({
+    topVisited: [],
+    membershipByPatient: [],
+    packageByPatient: [],
+    highestPending: [],
+    highestAdvance: [],
+    revenueByPatient: [],
+    summary: { totalPatients: 0, newPatients: 0, returningPatients: 0 },
+  });
+  const [patientStatsLoading, setPatientStatsLoading] = useState(false);
+  const [patientSlide, setPatientSlide] = useState(0);
+
   // Drag and drop state
   const [isEditMode, setIsEditMode] = useState(false);
   const [widgets, setWidgets] = useState<DashboardWidget[]>(() => {
@@ -2426,6 +2447,29 @@ const ClinicDashboard: NextPageWithLayout = () => {
     fetchDailyStats();
   }, [selectedDate]);
 
+  // Fetch patient analytics stats
+  useEffect(() => {
+    if (!permissionsLoaded || !moduleAccess.canRead) return;
+    const fetchPatientStats = async () => {
+      try {
+        setPatientStatsLoading(true);
+        const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+        if (!token) return;
+        const res = await axios.get('/api/clinic/reports/patient-stats', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.data.success) {
+          setPatientStats(res.data.data);
+        }
+      } catch (err) {
+        console.error('Error fetching patient stats:', err);
+      } finally {
+        setPatientStatsLoading(false);
+      }
+    };
+    fetchPatientStats();
+  }, [permissionsLoaded, moduleAccess.canRead]);
+
   // Migration effect to ensure new components are added to existing localStorage state
   useEffect(() => {
     // Migrate Stat Cards
@@ -4035,5 +4079,4 @@ const ProtectedDashboard: NextPageWithLayout = withClinicAuth(ClinicDashboard);
 
 // Reassign layout (TS-safe now)
 ProtectedDashboard.getLayout = ClinicDashboard.getLayout;
-
 export default ProtectedDashboard;

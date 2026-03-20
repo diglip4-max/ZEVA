@@ -308,6 +308,8 @@ export default async function handler(req, res) {
       invoiceNumber,
       invoicedDate: new Date(invoicedDate),
       invoicedBy: clinicUser.name || "Clinic Staff",
+      invoicedById: clinicUser._id,
+      doctorId: appointment.doctorId || null,
       service,
       treatment: service === "Treatment" ? (treatment || "") : "",
       package: service === "Package" ? (packageName || "") : "",
@@ -437,6 +439,7 @@ export default async function handler(req, res) {
             commissionData.targetAmount = commissionResult.targetAmount || 0;
             commissionData.cumulativeAchieved = commissionResult.cumulativeAchieved || 0;
             commissionData.isAboveTarget = commissionResult.isAboveTarget || false;
+            commissionData.amountAboveTarget = commissionResult.amountAboveTarget || 0;
           }
 
           // Add after_deduction specific fields if applicable
@@ -466,8 +469,11 @@ export default async function handler(req, res) {
           // and set initial finalCommissionAmount equal to the computed commissionAmount.
           // This base is used later if post-commission expenses are added on the commission page.
           const commissionType = commissionResult.commissionType;
-          let commissionBaseAmount = paidNum; // default: full paid amount (flat / target_based)
-          if (commissionType === "after_deduction") {
+          let commissionBaseAmount = paidNum; // default: full paid amount (flat)
+          if (commissionType === "target_based") {
+            // Base = only the amount above target (commission is earned only on excess)
+            commissionBaseAmount = commissionResult.amountAboveTarget || 0;
+          } else if (commissionType === "after_deduction") {
             // netAmount = paidAmount - billingExpenses (already computed by calculator)
             commissionBaseAmount = commissionResult.netAmount || 0;
           } else if (commissionType === "target_plus_expense") {

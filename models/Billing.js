@@ -58,6 +58,18 @@ const billingSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    // ID of the user who created the billing (agent / doctorStaff / clinic owner)
+    invoicedById: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      index: true,
+    },
+    // Doctor (doctorStaff) assigned to the appointment
+    doctorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      index: true,
+    },
     // Service details
     service: {
       type: String,

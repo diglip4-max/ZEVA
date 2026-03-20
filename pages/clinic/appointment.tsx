@@ -361,7 +361,24 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     endMinutes: null,
     roomId: null,
   });
-  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
+  // Initialize selectedDate from localStorage if available, otherwise use today's date
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("appointmentSelectedDate");
+      if (saved) {
+        try {
+          // Validate the saved date format
+          if (/^\d{4}-\d{2}-\d{2}$/.test(saved)) {
+            return saved;
+          }
+        } catch (e) {
+          // Swallow parse errors silently
+        }
+      }
+    }
+    // Default to today's date if no saved date
+    return new Date().toISOString().split("T")[0];
+  });
   const [doctorTreatmentsMap, setDoctorTreatmentsMap] = useState<Record<string, DoctorTreatmentSummary[]>>({});
   const [doctorTreatmentsLoading, setDoctorTreatmentsLoading] = useState<Record<string, boolean>>({});
   const [doctorTreatmentsError, setDoctorTreatmentsError] = useState<Record<string, string>>({});
@@ -373,8 +390,43 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     doctorName: string;
     position: { top: number; left: number };
   } | null>(null);
-  const [visibleDoctorIds, setVisibleDoctorIds] = useState<string[]>([]);
-  const [visibleRoomIds, setVisibleRoomIds] = useState<string[]>([]);
+  // Initialize visibleDoctorIds from localStorage if available
+  const [visibleDoctorIds, setVisibleDoctorIds] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("appointmentVisibleDoctorIds");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          // Validate that saved value is an array
+          if (Array.isArray(parsed)) {
+            return parsed; // Return saved value (will be validated by useEffect when doctorStaff loads)
+          }
+        } catch (e) {
+          // Swallow parse errors silently
+        }
+      }
+    }
+    return [];
+  });
+ 
+  // Initialize visibleRoomIds from localStorage if available
+  const [visibleRoomIds, setVisibleRoomIds] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("appointmentVisibleRoomIds");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          // Validate that saved value is an array
+          if (Array.isArray(parsed)) {
+            return parsed; // Return saved value (will be validated by useEffect when rooms loads)
+          }
+        } catch (e) {
+          // Swallow parse errors silently
+        }
+      }
+    }
+    return [];
+  });
   // Unified order for both doctors and rooms (format: "doctor:id" or "room:id")
   // Initialize from localStorage if available
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
@@ -398,6 +450,30 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       localStorage.setItem("appointmentColumnOrder", JSON.stringify(columnOrder));
     }
   }, [columnOrder]);
+
+  // Save visibleDoctorIds to localStorage whenever they change
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (visibleDoctorIds.length > 0) {
+        localStorage.setItem("appointmentVisibleDoctorIds", JSON.stringify(visibleDoctorIds));
+      } else {
+        // If empty, clear the saved value to persist the cleared state
+        localStorage.removeItem("appointmentVisibleDoctorIds");
+      }
+    }
+  }, [visibleDoctorIds]);
+
+  // Save visibleRoomIds to localStorage whenever they change
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (visibleRoomIds.length > 0) {
+        localStorage.setItem("appointmentVisibleRoomIds", JSON.stringify(visibleRoomIds));
+      } else {
+        // If empty, clear the saved value to persist the cleared state
+        localStorage.removeItem("appointmentVisibleRoomIds");
+      }
+    }
+  }, [visibleRoomIds]);
 
   // Memoized getAuthHeaders to prevent infinite loops
   const getAuthHeaders = useCallback((): Record<string, string> => {
@@ -699,7 +775,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     const userRole = getUserRole();
     const authToken = clinicToken || doctorToken || agentToken || staffToken || userToken;
 
-    // ✅ For admin role, grant full access (bypass permission checks)
+    // âœ… For admin role, grant full access (bypass permission checks)
     if (userRole === "admin") {
       if (!isMounted) return;
       setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
@@ -707,7 +783,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       return;
     }
 
-    // ✅ For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
+    // âœ… For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
     if (userRole === "clinic" || userRole === "doctor") {
       const fetchClinicPermissions = async () => {
         try {
@@ -934,7 +1010,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   useEffect(() => {
     if (!permissionsLoaded) return;
    
-    // ✅ Only fetch appointment data if user has read permission
+    // âœ… Only fetch appointment data if user has read permission
     if (!permissions.canRead) {
       setLoading(false);
       setError("You do not have permission to view appointment data");
@@ -997,7 +1073,15 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   useEffect(() => {
     setVisibleDoctorIds((prev) => {
       if (doctorStaff.length === 0) return [];
-      if (!doctorFilterTouchedRef.current || prev.length === 0) {
+     
+      // Check if there's a saved filter state in localStorage
+      const hasSavedFilter = typeof window !== "undefined" && localStorage.getItem("appointmentVisibleDoctorIds");
+     
+      // Only auto-populate if:
+      // 1. Filter was never touched AND
+      // 2. No saved filter exists in localStorage
+      // Note: Don't check prev.length === 0 here because that would override cleared filters
+      if (!doctorFilterTouchedRef.current && !hasSavedFilter) {
         const allIds = doctorStaff.map((doc) => doc._id);
         // Update unified column order - preserve saved order if available, otherwise add doctor columns at the end
         setColumnOrder((order) => {
@@ -1056,6 +1140,17 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       }
       const doctorIdSet = new Set(doctorStaff.map((doc) => doc._id));
       const filtered = prev.filter((id) => doctorIdSet.has(id));
+     
+      // If filtered result is different from prev, it means some IDs were removed (old/deleted doctors)
+      // In this case, update localStorage with the cleaned filtered list
+      if (filtered.length !== prev.length && typeof window !== "undefined") {
+        if (filtered.length > 0) {
+          localStorage.setItem("appointmentVisibleDoctorIds", JSON.stringify(filtered));
+        } else {
+          localStorage.removeItem("appointmentVisibleDoctorIds");
+        }
+      }
+     
       // Update unified order to match filtered list, preserving existing order where possible
       setColumnOrder((order) => {
         const filteredSet = new Set(filtered.map(id => `doctor:${id}`));
@@ -1079,7 +1174,15 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   useEffect(() => {
     setVisibleRoomIds((prev) => {
       if (rooms.length === 0) return [];
-      if (!roomFilterTouchedRef.current || prev.length === 0) {
+     
+      // Check if there's a saved filter state in localStorage
+      const hasSavedFilter = typeof window !== "undefined" && localStorage.getItem("appointmentVisibleRoomIds");
+     
+      // Only auto-populate if:
+      // 1. Filter was never touched AND
+      // 2. No saved filter exists in localStorage
+      // Note: Don't check prev.length === 0 here because that would override cleared filters
+      if (!roomFilterTouchedRef.current && !hasSavedFilter) {
         const allIds = rooms.map((room) => room._id);
         // Update unified column order - preserve saved order if available, otherwise add room columns at the end
         setColumnOrder((order) => {
@@ -1138,6 +1241,17 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       }
       const roomIdSet = new Set(rooms.map((room) => room._id));
       const filtered = prev.filter((id) => roomIdSet.has(id));
+     
+      // If filtered result is different from prev, it means some IDs were removed (old/deleted rooms)
+      // In this case, update localStorage with the cleaned filtered list
+      if (filtered.length !== prev.length && typeof window !== "undefined") {
+        if (filtered.length > 0) {
+          localStorage.setItem("appointmentVisibleRoomIds", JSON.stringify(filtered));
+        } else {
+          localStorage.removeItem("appointmentVisibleRoomIds");
+        }
+      }
+     
       // Update unified order to match filtered list, preserving existing order where possible
       setColumnOrder((order) => {
         const filteredSet = new Set(filtered.map(id => `room:${id}`));
@@ -1176,7 +1290,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
   // Fetch appointments when date changes
   const loadAppointments = useCallback(async () => {
-    // ✅ Only fetch appointments if user has read permission
+    // âœ… Only fetch appointments if user has read permission
     if (!permissions.canRead) {
       setAppointments([]);
       return;
@@ -1245,7 +1359,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       roomId?: string;
     }
   ) => {
-    // ✅ Check permission before updating
+    // âœ… Check permission before updating
     if (!permissions.canUpdate) {
       showErrorToast("You do not have permission to update appointments");
       return;
@@ -1306,7 +1420,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
   // Drag handlers for appointments
   const handleAppointmentDragStart = (e: React.DragEvent, appointmentId: string) => {
-    // ✅ Check permission before allowing drag
+    // âœ… Check permission before allowing drag
     if (!permissions.canUpdate) {
       e.preventDefault();
       showErrorToast("You do not have permission to move appointments");
@@ -1332,7 +1446,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     e.preventDefault();
     e.stopPropagation();
    
-    // ✅ Check permission before allowing drop
+    // âœ… Check permission before allowing drop
     if (!permissions.canUpdate) {
       showErrorToast("You do not have permission to move appointments");
       return;
@@ -1362,7 +1476,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     e.preventDefault();
     e.stopPropagation();
    
-    // ✅ Check permission before allowing drop
+    // âœ… Check permission before allowing drop
     if (!permissions.canUpdate) {
       showErrorToast("You do not have permission to move appointments");
       return;
@@ -1395,7 +1509,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     e.preventDefault();
     e.stopPropagation();
    
-    // ✅ Check permission before allowing drop
+    // âœ… Check permission before allowing drop
     if (!permissions.canUpdate) {
       showErrorToast("You do not have permission to move appointments");
       return;
@@ -1649,7 +1763,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
   // Helper function to open modal with selected time range (doctors)
   const openModalWithSelection = useCallback((startMinutes: number, endMinutes: number, doctorId: string) => {
-    // ✅ Check permission before opening booking modal
+    // âœ… Check permission before opening booking modal
     if (!permissions.canCreate) {
       showErrorToast("You do not have permission to book appointments");
       setTimeDragSelection({
@@ -1697,7 +1811,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
   // Helper function to open modal with selected time range (rooms)
   const openModalWithRoomSelection = useCallback((startMinutes: number, endMinutes: number, roomId: string) => {
-    // ✅ Check permission before opening booking modal
+    // âœ… Check permission before opening booking modal
     if (!permissions.canCreate) {
       showErrorToast("You do not have permission to book appointments");
       setRoomDragSelection({
@@ -1976,7 +2090,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
   // Unified drag and drop handlers for both doctor and room columns
   const handleColumnDragStart = (e: React.DragEvent, columnKey: string) => {
-    // ✅ Check permission before allowing column drag
+    // âœ… Check permission before allowing column drag
     if (!permissions.canUpdate) {
       showErrorToast("You do not have permission to reorder columns");
       e.preventDefault();
@@ -2022,7 +2136,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   const handleColumnDrop = (e: React.DragEvent, targetColumnKey: string) => {
     e.preventDefault();
    
-    // ✅ Check permission before allowing column swap
+    // âœ… Check permission before allowing column swap
     if (!permissions.canUpdate) {
       showErrorToast("You do not have permission to reorder columns");
       setDraggedColumnId(null);
@@ -2055,7 +2169,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
   // Time slot drag selection handlers (doctors)
   const handleTimeSlotMouseDown = (e: React.MouseEvent, doctorId: string, startMinutes: number) => {
-    // ✅ Check permission before allowing time slot selection
+    // âœ… Check permission before allowing time slot selection
     if (!permissions.canCreate) {
       showErrorToast("You do not have permission to book appointments");
       return;
@@ -2083,7 +2197,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
   // Time slot drag selection handlers (rooms)
   const handleRoomSlotMouseDown = (e: React.MouseEvent, roomId: string, startMinutes: number) => {
-    // ✅ Check permission before allowing time slot selection
+    // âœ… Check permission before allowing time slot selection
     if (!permissions.canCreate) {
       showErrorToast("You do not have permission to book appointments");
       return;
@@ -2361,7 +2475,7 @@ useEffect(() => {
                 <div>
                   <h1 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-900">Appointment Schedule</h1>
                   <p className="text-xs text-gray-700 dark:text-gray-800">
-                    {clinic?.name} • {clinic?.timings || "No timings set"}
+                    {clinic?.name} â€¢ {clinic?.timings || "No timings set"}
                   </p>
                 </div>
                 <div className="flex sm:flex-row sm:items-center gap-3">
@@ -2492,7 +2606,7 @@ useEffect(() => {
                           }
                           toast(`Viewing appointments for ${new Date(newDate).toLocaleDateString()}`, {
                             duration: 2000,
-                            icon: "ℹ️",
+                            icon: "â„¹ï¸ ",
                           });
                         }}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
@@ -2595,10 +2709,36 @@ useEffect(() => {
                               }
                               doctorFilterTouchedRef.current = true;
                               setVisibleDoctorIds([]);
+                              // Remove all doctor columns from column order
+                              setColumnOrder((order) => order.filter(item => !item.startsWith("doctor:")));
                             }}
                             disabled={!permissions.canUpdate}
                           >
                             Clear
+                          </button>
+                          <button
+                            type="button"
+                            className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 text-[10px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={() => {
+                              if (!permissions.canUpdate) {
+                                showErrorToast("You do not have permission to modify doctor filters");
+                                return;
+                              }
+                              doctorFilterTouchedRef.current = true;
+                              // Save current selection to localStorage
+                              if (typeof window !== "undefined") {
+                                if (visibleDoctorIds.length > 0) {
+                                  localStorage.setItem("appointmentVisibleDoctorIds", JSON.stringify(visibleDoctorIds));
+                                } else {
+                                  localStorage.removeItem("appointmentVisibleDoctorIds");
+                                }
+                              }
+                              toast.success("Doctor filter saved! Will persist after refresh.", { duration: 2000 });
+                              setDoctorFilterOpen(false);
+                            }}
+                            disabled={!permissions.canUpdate}
+                          >
+                            Save
                           </button>
                         </div>
                       </div>
@@ -2695,10 +2835,36 @@ useEffect(() => {
                               }
                               roomFilterTouchedRef.current = true;
                               setVisibleRoomIds([]);
+                              // Remove all room columns from column order
+                              setColumnOrder((order) => order.filter(item => !item.startsWith("room:")));
                             }}
                             disabled={!permissions.canUpdate}
                           >
                             Clear
+                          </button>
+                          <button
+                            type="button"
+                            className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 text-[10px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={() => {
+                              if (!permissions.canUpdate) {
+                                showErrorToast("You do not have permission to modify room filters");
+                                return;
+                              }
+                              roomFilterTouchedRef.current = true;
+                              // Save current selection to localStorage
+                              if (typeof window !== "undefined") {
+                                if (visibleRoomIds.length > 0) {
+                                  localStorage.setItem("appointmentVisibleRoomIds", JSON.stringify(visibleRoomIds));
+                                } else {
+                                  localStorage.removeItem("appointmentVisibleRoomIds");
+                                }
+                              }
+                              toast.success("Room filter saved! Will persist after refresh.", { duration: 2000 });
+                              setRoomFilterOpen(false);
+                            }}
+                            disabled={!permissions.canUpdate}
+                          >
+                            Save
                           </button>
                         </div>
                       </div>
@@ -2815,7 +2981,7 @@ useEffect(() => {
                     onMouseLeave={handleDoctorMouseLeave}
                         title={permissions.canUpdate ? "Drag to reorder columns" : "Column (no permission to reorder)"}
                 >
-                    {/* ✅ Only show doctor name if user has read permission */}
+                    {/* âœ… Only show doctor name if user has read permission */}
                     {permissions.canRead ? (
                       <div className="flex items-center gap-1">
                         <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-blue-50 dark:bg-blue-100 border border-blue-200 dark:border-blue-300 flex items-center justify-center text-blue-700 dark:text-blue-800 font-semibold text-[8px] sm:text-[9px] flex-shrink-0">
@@ -2875,11 +3041,11 @@ useEffect(() => {
                         }}
                         title={permissions.canUpdate ? "Drag to reorder columns" : "Column (no permission to reorder)"}
                 >
-                    {/* ✅ Only show room name if user has read permission */}
+                    {/* âœ… Only show room name if user has read permission */}
                     {permissions.canRead ? (
                       <div className="flex items-center gap-1">
                         <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-emerald-50 dark:bg-emerald-100 border border-emerald-200 dark:border-emerald-300 flex items-center justify-center text-emerald-700 dark:text-emerald-800 font-semibold text-[8px] sm:text-[9px] flex-shrink-0">
-                          🏥
+                          ðŸ ¥
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900 truncate">{room.name}</p>
@@ -3028,7 +3194,7 @@ useEffect(() => {
                                     }
                                   }}
                                   onClick={(_e) => {
-                                    // ✅ Check permission before opening booking modal
+                                    // âœ… Check permission before opening booking modal
                                     if (!permissions.canCreate) {
                                       showErrorToast("You do not have permission to book appointments");
                                       return;
@@ -3053,7 +3219,7 @@ useEffect(() => {
                             })}
                           </div>
 
-                          {/* ✅ Only show appointments if user has read permission */}
+                          {/* âœ… Only show appointments if user has read permission */}
                           {permissions.canRead && rowAppointments.length > 0
                             ? (() => {
                                 // Filter to only show appointments that START in this row to avoid duplication across rows
@@ -3303,7 +3469,7 @@ useEffect(() => {
                                     }
                                   }}
                                   onClick={(_e) => {
-                                    // ✅ Check permission before opening booking modal
+                                    // âœ… Check permission before opening booking modal
                                     if (!permissions.canCreate) {
                                       showErrorToast("You do not have permission to book appointments");
                                       return;
@@ -3328,7 +3494,7 @@ useEffect(() => {
                             })}
                           </div>
 
-                          {/* ✅ Only show appointments if user has read permission */}
+                          {/* âœ… Only show appointments if user has read permission */}
                           {permissions.canRead && roomAppointments.length > 0
                             ? (() => {
                                 // Filter to only show appointments that START in this row to avoid duplication across rows
@@ -3916,6 +4082,14 @@ useEffect(() => {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Doctor Only */}
+              <div className="space-y-0.5 pt-0.5 border-t border-gray-100 dark:border-gray-300">
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Dr:</span>
+                  <span className="text-[10px] text-gray-700 dark:text-gray-800 truncate">{hoveredAppointment.appointment.doctorName}</span>
+                </div>
               </div>
 
               {/* Follow Type */}

@@ -173,9 +173,7 @@ export default function AppointmentBookingModal({
   const [doctorDeptLoading, setDoctorDeptLoading] = useState(false);
   const [doctorDeptError, setDoctorDeptError] = useState("");
   const [referrals, setReferrals] = useState<Referral[]>([]);
-  const [services, setServices] = useState<
-    Array<{ _id: string; name: string }>
-  >([]);
+  const [services, setServices] = useState<Array<{ _id: string; name: string }>>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
 
