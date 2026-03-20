@@ -408,7 +408,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     }
     return [];
   });
-  
+ 
   // Initialize visibleRoomIds from localStorage if available
   const [visibleRoomIds, setVisibleRoomIds] = useState<string[]>(() => {
     if (typeof window !== "undefined") {
@@ -1073,10 +1073,10 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   useEffect(() => {
     setVisibleDoctorIds((prev) => {
       if (doctorStaff.length === 0) return [];
-      
+     
       // Check if there's a saved filter state in localStorage
       const hasSavedFilter = typeof window !== "undefined" && localStorage.getItem("appointmentVisibleDoctorIds");
-      
+     
       // Only auto-populate if:
       // 1. Filter was never touched AND
       // 2. No saved filter exists in localStorage
@@ -1140,7 +1140,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       }
       const doctorIdSet = new Set(doctorStaff.map((doc) => doc._id));
       const filtered = prev.filter((id) => doctorIdSet.has(id));
-      
+     
       // If filtered result is different from prev, it means some IDs were removed (old/deleted doctors)
       // In this case, update localStorage with the cleaned filtered list
       if (filtered.length !== prev.length && typeof window !== "undefined") {
@@ -1150,7 +1150,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           localStorage.removeItem("appointmentVisibleDoctorIds");
         }
       }
-      
+     
       // Update unified order to match filtered list, preserving existing order where possible
       setColumnOrder((order) => {
         const filteredSet = new Set(filtered.map(id => `doctor:${id}`));
@@ -1174,10 +1174,10 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   useEffect(() => {
     setVisibleRoomIds((prev) => {
       if (rooms.length === 0) return [];
-      
+     
       // Check if there's a saved filter state in localStorage
       const hasSavedFilter = typeof window !== "undefined" && localStorage.getItem("appointmentVisibleRoomIds");
-      
+     
       // Only auto-populate if:
       // 1. Filter was never touched AND
       // 2. No saved filter exists in localStorage
@@ -1241,7 +1241,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       }
       const roomIdSet = new Set(rooms.map((room) => room._id));
       const filtered = prev.filter((id) => roomIdSet.has(id));
-      
+     
       // If filtered result is different from prev, it means some IDs were removed (old/deleted rooms)
       // In this case, update localStorage with the cleaned filtered list
       if (filtered.length !== prev.length && typeof window !== "undefined") {
@@ -1251,7 +1251,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           localStorage.removeItem("appointmentVisibleRoomIds");
         }
       }
-      
+     
       // Update unified order to match filtered list, preserving existing order where possible
       setColumnOrder((order) => {
         const filteredSet = new Set(filtered.map(id => `room:${id}`));
@@ -2606,7 +2606,7 @@ useEffect(() => {
                           }
                           toast(`Viewing appointments for ${new Date(newDate).toLocaleDateString()}`, {
                             duration: 2000,
-                            icon: "â„¹ï¸",
+                            icon: "â„¹ï¸ ",
                           });
                         }}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
@@ -3045,7 +3045,7 @@ useEffect(() => {
                     {permissions.canRead ? (
                       <div className="flex items-center gap-1">
                         <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-emerald-50 dark:bg-emerald-100 border border-emerald-200 dark:border-emerald-300 flex items-center justify-center text-emerald-700 dark:text-emerald-800 font-semibold text-[8px] sm:text-[9px] flex-shrink-0">
-                          ðŸ¥
+                          ðŸ ¥
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900 truncate">{room.name}</p>
@@ -4148,4 +4148,3 @@ const ProtectedAppointmentPage: NextPageWithLayout = withClinicAuth(AppointmentP
 ProtectedAppointmentPage.getLayout = AppointmentPage.getLayout;
 
 export default ProtectedAppointmentPage;
-

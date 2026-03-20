@@ -76,6 +76,48 @@ export default async function handler(req, res) {
         }).lean();
       }
 
+      // Heuristic: handle "SubTreatment MainTreatment" without parentheses by scanning all treatments
+      if (!foundTreatment) {
+        const allTreatments = await Treatment.find({})
+          .select("name subcategories")
+          .lean();
+        const svc = String(service).toLowerCase().trim();
+        let bestMain = null;
+        for (const t of allTreatments) {
+          const mainLower = String(t.name || "").toLowerCase();
+          if (mainLower && svc.includes(mainLower)) {
+            if (!bestMain || mainLower.length > String(bestMain.name || "").length) {
+              bestMain = t;
+            }
+          }
+        }
+        if (bestMain) {
+          foundTreatment = bestMain;
+          const mainLower = String(bestMain.name || "").toLowerCase();
+          const remainder = svc.replace(mainLower, "").trim();
+          if (remainder) {
+            const candidate = bestMain.subcategories?.reduce(
+              (acc, sub) => {
+                const subLower = String(sub.name || "").toLowerCase();
+                if (
+                  subLower &&
+                  (remainder.includes(subLower) || subLower.includes(remainder)) &&
+                  subLower.length > (acc?.name?.length || 0)
+                ) {
+                  return sub;
+                }
+                return acc;
+              },
+              null
+            );
+            if (candidate) foundSubTreatment = candidate;
+          } else {
+            // No remainder -> treat as main-only match
+            foundSubTreatment = null;
+          }
+        }
+      }
+
       if (foundTreatment) {
         // Find the specific sub-treatment
         foundSubTreatment = foundTreatment.subcategories?.find((sub) =>
@@ -90,10 +132,35 @@ export default async function handler(req, res) {
             foundTreatment.name
           );
 
-          // Search for clinics that have this specific sub-treatment
+          // Respect treatment visibility flags (enabled true or missing)
+          const enabledTrueOrMissing = {
+            $or: [{ enabled: { $ne: false } }, { enabled: { $exists: false } }],
+          };
+
+          // Search for clinics that have this specific sub-treatment and are enabled
           query.$or = [
-            { "treatments.subTreatments.name": foundSubTreatment.name },
-            { "treatments.mainTreatment": foundTreatment.name },
+            {
+              treatments: {
+                $elemMatch: {
+                  mainTreatment: foundTreatment.name,
+                  ...enabledTrueOrMissing,
+                  subTreatments: {
+                    $elemMatch: {
+                      name: foundSubTreatment.name,
+                      ...enabledTrueOrMissing,
+                    },
+                  },
+                },
+              },
+            },
+            {
+              treatments: {
+                $elemMatch: {
+                  mainTreatment: foundTreatment.name,
+                  ...enabledTrueOrMissing,
+                },
+              },
+            },
             { name: { $regex: new RegExp(service, "i") } },
           ];
         } else {
@@ -102,8 +169,18 @@ export default async function handler(req, res) {
             "Sub-treatment not found, searching by main treatment:",
             foundTreatment.name
           );
+          const enabledTrueOrMissing = {
+            $or: [{ enabled: { $ne: false } }, { enabled: { $exists: false } }],
+          };
           query.$or = [
-            { "treatments.mainTreatment": foundTreatment.name },
+            {
+              treatments: {
+                $elemMatch: {
+                  mainTreatment: foundTreatment.name,
+                  ...enabledTrueOrMissing,
+                },
+              },
+            },
             { name: { $regex: new RegExp(service, "i") } },
           ];
         }
@@ -112,11 +189,29 @@ export default async function handler(req, res) {
         console.log(
           "Treatment not found in global model, using fallback search"
         );
+        const enabledTrueOrMissing = {
+          $or: [{ enabled: { $ne: false } }, { enabled: { $exists: false } }],
+        };
         query.$or = [
-          { "treatments.mainTreatment": { $regex: new RegExp(service, "i") } },
           {
-            "treatments.subTreatments.name": {
-              $regex: new RegExp(service, "i"),
+            treatments: {
+              $elemMatch: {
+                mainTreatment: { $regex: new RegExp(service, "i") },
+                ...enabledTrueOrMissing,
+              },
+            },
+          },
+          {
+            treatments: {
+              $elemMatch: {
+                ...enabledTrueOrMissing,
+                subTreatments: {
+                  $elemMatch: {
+                    name: { $regex: new RegExp(service, "i") },
+                    ...enabledTrueOrMissing,
+                  },
+                },
+              },
             },
           },
           { name: { $regex: new RegExp(service, "i") } },
@@ -125,10 +220,30 @@ export default async function handler(req, res) {
     } catch (error) {
       console.error("Error searching for treatment:", error);
       // Fallback to regex search with proper regex patterns
+      const enabledTrueOrMissing = {
+        $or: [{ enabled: { $ne: false } }, { enabled: { $exists: false } }],
+      };
       query.$or = [
-        { "treatments.mainTreatment": { $regex: new RegExp(service, "i") } },
         {
-          "treatments.subTreatments.name": { $regex: new RegExp(service, "i") },
+          treatments: {
+            $elemMatch: {
+              mainTreatment: { $regex: new RegExp(service, "i") },
+              ...enabledTrueOrMissing,
+            },
+          },
+        },
+        {
+          treatments: {
+            $elemMatch: {
+              ...enabledTrueOrMissing,
+              subTreatments: {
+                $elemMatch: {
+                  name: { $regex: new RegExp(service, "i") },
+                  ...enabledTrueOrMissing,
+                },
+              },
+            },
+          },
         },
         { name: { $regex: new RegExp(service, "i") } },
       ];
@@ -502,6 +617,39 @@ export default async function handler(req, res) {
         ramacareClinic.isDubaiPrioritized = true;
         clinics = [ramacareClinic, ...clinics];
       }
+    }
+
+    // Final safety filter for visibility if service is provided
+    if (service) {
+      const svcLower = String(service).toLowerCase().trim();
+      clinics = clinics.filter((clinic) => {
+        if (!Array.isArray(clinic.treatments)) return true;
+        return clinic.treatments.some((t) => {
+          const mainEnabled = t?.enabled !== false;
+          const mainNameLower = String(t?.mainTreatment || "").toLowerCase();
+          const subNames = Array.isArray(t?.subTreatments) ? t.subTreatments : [];
+          const anySubEnabledMatch = subNames.some((st) => {
+            const subEnabled = st?.enabled !== false;
+            const subLower = String(st?.name || "").toLowerCase();
+            if (!subEnabled) return false;
+            // direct or cross-includes
+            return (
+              subLower === svcLower ||
+              svcLower === `${subLower} ${mainNameLower}` ||
+              svcLower.includes(subLower) ||
+              subLower.includes(svcLower)
+            );
+          });
+          if (anySubEnabledMatch) return mainEnabled;
+          // main checks
+          if (!mainEnabled) return false;
+          return (
+            mainNameLower === svcLower ||
+            svcLower.includes(mainNameLower) ||
+            mainNameLower.includes(svcLower)
+          );
+        });
+      });
     }
 
     clinics = clinics.slice(0, locationInfo.isInternational ? 30 : 20);

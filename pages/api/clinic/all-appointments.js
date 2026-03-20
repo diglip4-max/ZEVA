@@ -72,13 +72,13 @@ export default async function handler(req, res) {
         const { checkAgentPermission } = await import("../agent/permissions-helper");
         const result = await checkAgentPermission(
           clinicUser._id,
-          "clinic_Appointment",
+          "clinic_ScheduledAppointment",
           "read"
         );
 
         // If module not found in permissions, allow by default (legacy behavior)
         if (!result.hasPermission && result.error && result.error.includes("not found in agent permissions")) {
-          console.log(`[all-appointments] Module clinic_Appointment not found in permissions for user ${clinicUser._id}, allowing access by default`);
+          console.log(`[all-appointments] Module clinic_ScheduledAppointment not found in permissions for user ${clinicUser._id}, allowing access by default`);
         } else if (!result.hasPermission) {
           return res.status(403).json({
             success: false,
@@ -338,6 +338,11 @@ export default async function handler(req, res) {
             model: "Service",
             select: "name",
           })
+          .populate({
+            path: "serviceIds",
+            model: "Service",
+            select: "name",
+          })
           .sort({ startDate: -1, fromTime: -1, createdAt: -1 })
           .skip(skip)
           .limit(limitNum)
@@ -403,6 +408,8 @@ export default async function handler(req, res) {
           roomName: room.name || "-",
           serviceId: apt.serviceId?._id?.toString() || "",
           serviceName: apt.serviceId?.name || "",
+          serviceIds: Array.isArray(apt.serviceIds) ? apt.serviceIds.map(s => s?._id?.toString()).filter(Boolean) : [],
+          serviceNames: Array.isArray(apt.serviceIds) ? apt.serviceIds.map(s => s?.name || "").filter(Boolean) : [],
           status: apt.status,
           followType: apt.followType,
           referral: apt.referral || "direct",

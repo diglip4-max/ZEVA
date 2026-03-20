@@ -191,7 +191,13 @@ export default async function handler(req, res) {
       offer.channels = data.channels ?? offer.channels;
       offer.utm = data.utm ?? offer.utm;
       offer.conditions = data.conditions ?? offer.conditions;
-      offer.status = data.status ?? offer.status;
+      if (data.enabled !== undefined) {
+        offer.enabled = Boolean(data.enabled);
+      }
+      // Keep status untouched unless explicitly provided for backward compatibility
+      if (data.status !== undefined) {
+        offer.status = data.status;
+      }
 
       if (treatmentIds.length > 0) offer.treatments = treatmentIds;
       if (subTreatments.length > 0) offer.subTreatments = subTreatments;

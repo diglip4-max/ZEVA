@@ -1,0 +1,721 @@
+"use client";
+import React, { useEffect, useState, useCallback } from "react";
+import axios from "axios";
+import withClinicAuth from "../../components/withClinicAuth";
+import ClinicLayout from "../../components/ClinicLayout";
+import type { NextPageWithLayout } from "../_app";
+import {
+  Search,
+  Calendar,
+  DollarSign,
+  Banknote,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  Package,
+  Stethoscope,
+  CreditCard,
+  User,
+  Plus,
+  X,
+  ListOrdered,
+  Receipt,
+  CheckCircle,
+} from "lucide-react";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface MultiPayment { paymentMethod: string; amount: number; }
+interface PackageTreatment { treatmentName: string; sessions: number; }
+interface MembershipInfo { name: string; price: number; }
+
+interface CashRecord {
+  _id: string;
+  invoiceNumber: string;
+  invoicedDate: string;
+  invoicedBy: string;
+  patientName: string;
+  mobileNumber: string;
+  emrNumber: string;
+  service: "Treatment" | "Package" | string;
+  treatment: string | null;
+  package: string | null;
+  selectedPackageTreatments: PackageTreatment[];
+  amount: number;
+  paid: number;
+  cashAmount: number;
+  paymentMethod: string;
+  multiplePayments: MultiPayment[];
+  isFreeConsultation: boolean;
+  membershipDiscountApplied: number;
+  membershipId: string | null;
+  membershipInfo: MembershipInfo | null;
+}
+
+interface ManualEntry {
+  _id: string;
+  name: string;
+  amount: number;
+  note: string;
+  createdAt: string;
+}
+
+interface Summary { totalCashIn: number; totalRecords: number; }
+interface Pagination { total: number; page: number; limit: number; totalPages: number; }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const TOKEN_KEYS = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
+const getToken = () => {
+  if (typeof window === "undefined") return null;
+  for (const k of TOKEN_KEYS) {
+    const v = localStorage.getItem(k) || sessionStorage.getItem(k);
+    if (v) return v;
+  }
+  return null;
+};
+const authHeaders = () => { const t = getToken(); return t ? { Authorization: `Bearer ${t}` } : {}; };
+
+const fmt = (n: number) =>
+  new Intl.NumberFormat("en-AE", { style: "currency", currency: "AED", minimumFractionDigits: 2 }).format(n);
+
+const fmtDate = (d: string) =>
+  new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+
+const fmtDateTime = (d: string) =>
+  new Date(d).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+// ─── Drawer component ─────────────────────────────────────────────────────────
+function Drawer({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
+  // Prevent body scroll when open
+  useEffect(() => {
+    if (open) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
+    return () => { document.body.style.overflow = ""; };
+  }, [open]);
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        onClick={onClose}
+      />
+      {/* Panel */}
+      <div
+        className={`fixed top-0 right-0 z-50 h-full w-full max-w-md bg-white dark:bg-gray-900 shadow-2xl flex flex-col transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white">{title}</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5">
+          {children}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+function PettyCashPage() {
+  // Patient billing records
+  const [records, setRecords] = useState<CashRecord[]>([]);
+  const [summary, setSummary] = useState<Summary>({ totalCashIn: 0, totalRecords: 0 });
+  const [pagination, setPagination] = useState<Pagination>({ total: 0, page: 1, limit: 50, totalPages: 1 });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // Manual petty cash entries
+  const [manualEntries, setManualEntries] = useState<ManualEntry[]>([]);
+  const [manualTotal, setManualTotal] = useState(0);
+  const [manualLoading, setManualLoading] = useState(false);
+
+  // Drawers
+  const [addDrawerOpen, setAddDrawerOpen] = useState(false);
+  const [manualDrawerOpen, setManualDrawerOpen] = useState(false);
+  const [patientDrawerOpen, setPatientDrawerOpen] = useState(false);
+
+  // Add form
+  const [addName, setAddName] = useState("");
+  const [addAmount, setAddAmount] = useState("");
+  const [addNote, setAddNote] = useState("");
+  const [addLoading, setAddLoading] = useState(false);
+  const [addError, setAddError] = useState("");
+  const [addSuccess, setAddSuccess] = useState(false);
+
+  // Filters
+  const today = new Date().toISOString().split("T")[0];
+  const [search, setSearch] = useState("");
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
+  const [page, setPage] = useState(1);
+
+  // ── Fetch patient billing cash records ────────────────────────────────────
+  const fetchData = useCallback(async (pg = 1) => {
+    setLoading(true);
+    setError("");
+    try {
+      const params: Record<string, string> = { page: String(pg), limit: "50" };
+      if (search.trim()) params.search = search.trim();
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+
+      const res = await axios.get("/api/clinic/pettycash-payments", {
+        headers: authHeaders(),
+        params,
+      });
+      if (res.data.success) {
+        setRecords(res.data.data);
+        setSummary(res.data.summary);
+        setPagination(res.data.pagination);
+      }
+    } catch (e: any) {
+      setError(e?.response?.data?.message || "Failed to load petty cash data");
+    } finally {
+      setLoading(false);
+    }
+  }, [search, startDate, endDate]);
+
+  // ── Fetch manual petty cash entries ───────────────────────────────────────
+  const fetchManual = useCallback(async () => {
+    setManualLoading(true);
+    try {
+      const params: Record<string, string> = {};
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+      const res = await axios.get("/api/clinic/manual-pettycash", {
+        headers: authHeaders(),
+        params,
+      });
+      if (res.data.success) {
+        setManualEntries(res.data.data);
+        setManualTotal(res.data.totalAmount || 0);
+      }
+    } catch {}
+    finally { setManualLoading(false); }
+  }, [startDate, endDate]);
+
+  useEffect(() => {
+    fetchData(page);
+  }, [page]);
+
+  useEffect(() => {
+    fetchManual();
+  }, [startDate, endDate]);
+
+  const handleSearch = () => { setPage(1); fetchData(1); };
+  const handleReset = () => {
+    setSearch(""); setStartDate(today); setEndDate(today); setPage(1);
+    setTimeout(() => { fetchData(1); fetchManual(); }, 0);
+  };
+
+  // ── Add manual entry ──────────────────────────────────────────────────────
+  const handleAdd = async () => {
+    setAddError("");
+    if (!addName.trim()) { setAddError("Name is required"); return; }
+    const amt = parseFloat(addAmount);
+    if (!amt || amt <= 0) { setAddError("Enter a valid amount"); return; }
+    setAddLoading(true);
+    try {
+      await axios.post("/api/clinic/manual-pettycash",
+        { name: addName.trim(), amount: amt, note: addNote },
+        { headers: { ...authHeaders(), "Content-Type": "application/json" } }
+      );
+      setAddSuccess(true);
+      setAddName(""); setAddAmount(""); setAddNote("");
+      fetchManual();
+      // refresh total
+      fetchData(page);
+      setTimeout(() => setAddSuccess(false), 3000);
+    } catch (e: any) {
+      setAddError(e?.response?.data?.message || "Failed to add entry");
+    } finally {
+      setAddLoading(false);
+    }
+  };
+
+  // Combined total (patient cash + manual)
+  const combinedTotal = summary.totalCashIn + manualTotal;
+
+  // ── Service info ──────────────────────────────────────────────────────────
+  const renderServiceInfo = (record: CashRecord) => {
+    if (record.membershipInfo) {
+      return (
+        <div className="flex flex-col gap-0.5">
+          <span className="inline-flex items-center gap-1 text-purple-700 font-medium text-xs"><CreditCard size={12} />Membership</span>
+          <span className="text-gray-800 text-xs font-semibold">{record.membershipInfo.name}</span>
+          <span className="text-gray-500 text-xs">{fmt(record.membershipInfo.price)}</span>
+          {record.membershipDiscountApplied > 0 && <span className="text-green-600 text-xs">Discount: {fmt(record.membershipDiscountApplied)}</span>}
+        </div>
+      );
+    }
+    if (record.service === "Package") {
+      return (
+        <div className="flex flex-col gap-0.5">
+          <span className="inline-flex items-center gap-1 text-blue-700 font-medium text-xs"><Package size={12} />Package</span>
+          <span className="text-gray-800 text-xs font-semibold">{record.package}</span>
+          {record.selectedPackageTreatments?.length > 0 && (
+            <div className="mt-0.5 flex flex-wrap gap-1">
+              {record.selectedPackageTreatments.map((t, i) => (
+                <span key={i} className="bg-blue-50 text-blue-700 border border-blue-200 rounded px-1.5 py-0.5 text-[10px]">
+                  {t.treatmentName}{t.sessions > 0 && ` ×${t.sessions}`}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+    return (
+      <div className="flex flex-col gap-0.5">
+        <span className="inline-flex items-center gap-1 text-teal-700 font-medium text-xs"><Stethoscope size={12} />Treatment</span>
+        <span className="text-gray-800 text-xs font-semibold">{record.treatment || "—"}</span>
+      </div>
+    );
+  };
+
+  const renderPaymentBadge = (record: CashRecord) => {
+    if (record.multiplePayments?.length > 0) {
+      return (
+        <div className="flex flex-wrap gap-1">
+          {record.multiplePayments.map((mp, i) => (
+            <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium border ${mp.paymentMethod === "Cash" ? "bg-green-50 text-green-700 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}`}>
+              {mp.paymentMethod}: {fmt(mp.amount)}
+            </span>
+          ))}
+        </div>
+      );
+    }
+    return <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium border bg-green-50 text-green-700 border-green-200">Cash: {fmt(record.cashAmount)}</span>;
+  };
+
+  // ─── Render ───────────────────────────────────────────────────────────────
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
+
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-green-100 rounded-lg">
+            <Banknote className="text-green-700" size={22} />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Petty Cash</h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Cash payments received from patients + manual entries</p>
+          </div>
+        </div>
+        {/* Add Petty Cash button */}
+        <button
+          onClick={() => setAddDrawerOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg shadow transition-colors"
+        >
+          <Plus size={15} />
+          Add Petty Cash
+        </button>
+      </div>
+
+      {/* ── Summary cards ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        {/* Combined Total */}
+        <div className="col-span-2 md:col-span-1 bg-gradient-to-br from-green-600 to-green-700 rounded-xl p-4 flex items-center gap-3 shadow-sm text-white">
+          <div className="p-2 bg-white/20 rounded-lg flex-shrink-0">
+            <DollarSign size={18} />
+          </div>
+          <div>
+            <p className="text-xs opacity-80">Total Cash In</p>
+            <p className="text-lg font-bold">{fmt(combinedTotal)}</p>
+          </div>
+        </div>
+        {/* Patient Cash */}
+        <div
+          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex items-center gap-3 shadow-sm cursor-pointer hover:border-blue-400 transition-colors"
+          onClick={() => setPatientDrawerOpen(true)}
+        >
+          <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
+            <Receipt className="text-blue-700" size={18} />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Patient Cash</p>
+            <p className="text-lg font-bold text-blue-700">{fmt(summary.totalCashIn)}</p>
+            <p className="text-[10px] text-gray-400">{summary.totalRecords} records · tap to view</p>
+          </div>
+        </div>
+        {/* Manual Entries */}
+        <div
+          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex items-center gap-3 shadow-sm cursor-pointer hover:border-purple-400 transition-colors"
+          onClick={() => setManualDrawerOpen(true)}
+        >
+          <div className="p-2 bg-purple-100 rounded-lg flex-shrink-0">
+            <ListOrdered className="text-purple-700" size={18} />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Manual Entries</p>
+            <p className="text-lg font-bold text-purple-700">{fmt(manualTotal)}</p>
+            <p className="text-[10px] text-gray-400">{manualEntries.length} entries · tap to view</p>
+          </div>
+        </div>
+        {/* Date Range */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex items-center gap-3 shadow-sm">
+          <div className="p-2 bg-orange-100 rounded-lg flex-shrink-0">
+            <Calendar className="text-orange-600" size={18} />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Date Range</p>
+            <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">{startDate ? fmtDate(startDate) : "—"}</p>
+            <p className="text-xs text-gray-500">→ {endDate ? fmtDate(endDate) : "—"}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Filters ── */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-5 shadow-sm">
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
+            <input
+              type="text"
+              placeholder="Search patient name or invoice..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-gray-500 whitespace-nowrap">From</label>
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+              className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400" />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-gray-500 whitespace-nowrap">To</label>
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+              className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400" />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleSearch} className="px-4 py-2 text-sm font-medium bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors">Search</button>
+            <button onClick={handleReset} className="px-3 py-2 text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors flex items-center gap-1">
+              <RefreshCw size={13} />Reset
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Error ── */}
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 mb-4 text-sm">{error}</div>}
+
+      {/* ── Table ── */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center py-20 gap-3 text-gray-400">
+            <RefreshCw className="animate-spin" size={20} />
+            <span className="text-sm">Loading records...</span>
+          </div>
+        ) : records.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+            <Banknote size={40} className="mb-3 opacity-40" />
+            <p className="text-sm font-medium">No cash payment records found</p>
+            <p className="text-xs mt-1">Try adjusting the date range or search query</p>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 dark:bg-gray-700/60 border-b border-gray-200 dark:border-gray-600">
+                    {["#", "Invoice", "Date", "Patient", "Service / Item", "Payment Breakdown", "Total Billed", "Cash Received"].map((h, i) => (
+                      <th key={h} className={`px-4 py-3 text-xs font-semibold whitespace-nowrap ${i < 7 ? "text-left text-gray-600 dark:text-gray-300" : "text-right text-green-700"}`}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {records.map((record, idx) => (
+                    <tr key={record._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                      <td className="px-4 py-3 text-xs text-gray-400">{(pagination.page - 1) * pagination.limit + idx + 1}</td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs font-mono text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">{record.invoiceNumber}</span>
+                        {record.invoicedBy && <p className="text-[10px] text-gray-400 mt-0.5">by {record.invoicedBy}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{fmtDate(record.invoicedDate)}</td>
+                      <td className="px-4 py-3">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{record.patientName || "—"}</p>
+                        {record.emrNumber && <p className="text-[10px] text-gray-400">EMR: {record.emrNumber}</p>}
+                        {record.mobileNumber && <p className="text-[10px] text-gray-400">{record.mobileNumber}</p>}
+                      </td>
+                      <td className="px-4 py-3 max-w-[200px]">
+                        {renderServiceInfo(record)}
+                        {record.isFreeConsultation && (
+                          <span className="mt-0.5 inline-block text-[10px] bg-amber-50 text-amber-700 border border-amber-200 rounded px-1.5 py-0.5">Free Consultation</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">{renderPaymentBadge(record)}</td>
+                      <td className="px-4 py-3 text-right"><span className="text-sm font-medium text-gray-700 dark:text-gray-300">{fmt(record.amount)}</span></td>
+                      <td className="px-4 py-3 text-right"><span className="text-sm font-bold text-green-700">{fmt(record.cashAmount)}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-green-50 dark:bg-green-900/20 border-t-2 border-green-200 dark:border-green-700">
+                    <td colSpan={7} className="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-200">Page Total (Cash):</td>
+                    <td className="px-4 py-3 text-right text-base font-bold text-green-700">{fmt(records.reduce((s, r) => s + r.cashAmount, 0))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            {pagination.totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-700">
+                <p className="text-xs text-gray-500">
+                  Showing {(pagination.page - 1) * pagination.limit + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} records
+                </p>
+                <div className="flex gap-2">
+                  <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={pagination.page <= 1}
+                    className="p-1.5 rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-100 transition-colors"><ChevronLeft size={15} /></button>
+                  <span className="text-xs text-gray-600 dark:text-gray-300 flex items-center px-2">{pagination.page} / {pagination.totalPages}</span>
+                  <button onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))} disabled={pagination.page >= pagination.totalPages}
+                    className="p-1.5 rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-100 transition-colors"><ChevronRight size={15} /></button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════
+          DRAWER 1: Add Petty Cash
+      ══════════════════════════════════════════════════════════════ */}
+      <Drawer open={addDrawerOpen} onClose={() => { setAddDrawerOpen(false); setAddError(""); setAddSuccess(false); }} title="Add Petty Cash">
+        <div className="flex flex-col gap-5">
+          {addSuccess && (
+            <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded-lg p-3 text-sm">
+              <CheckCircle size={16} />
+              Entry added successfully!
+            </div>
+          )}
+          {addError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">{addError}</div>
+          )}
+
+          {/* Name */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Office supplies, Snacks, Petrol..."
+              value={addName}
+              onChange={(e) => setAddName(e.target.value)}
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400"
+            />
+          </div>
+
+          {/* Amount */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Amount (AED) <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              value={addAmount}
+              onChange={(e) => setAddAmount(e.target.value)}
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400"
+            />
+          </div>
+
+          {/* Note (optional) */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Note <span className="text-xs text-gray-400">(optional)</span></label>
+            <textarea
+              rows={2}
+              placeholder="Any additional notes..."
+              value={addNote}
+              onChange={(e) => setAddNote(e.target.value)}
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400 resize-none"
+            />
+          </div>
+
+          <button
+            onClick={handleAdd}
+            disabled={addLoading}
+            className="w-full py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+          >
+            {addLoading ? <RefreshCw size={15} className="animate-spin" /> : <Plus size={15} />}
+            {addLoading ? "Adding..." : "Add to Petty Cash"}
+          </button>
+
+          {/* Preview of total after add */}
+          {addAmount && parseFloat(addAmount) > 0 && (
+            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-xs text-green-700">
+              New combined total will be: <span className="font-bold">{fmt(combinedTotal + parseFloat(addAmount))}</span>
+            </div>
+          )}
+        </div>
+      </Drawer>
+
+      {/* ══════════════════════════════════════════════════════════════
+          DRAWER 2: Manual Petty Cash Entries (Slider)
+      ══════════════════════════════════════════════════════════════ */}
+      <Drawer open={manualDrawerOpen} onClose={() => setManualDrawerOpen(false)} title="Manual Petty Cash Entries">
+        <div className="flex flex-col gap-4">
+          {/* Total */}
+          <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-purple-600 font-medium">Total Manual Cash</p>
+              <p className="text-2xl font-bold text-purple-700">{fmt(manualTotal)}</p>
+            </div>
+            <div className="p-3 bg-purple-100 rounded-xl">
+              <ListOrdered className="text-purple-700" size={22} />
+            </div>
+          </div>
+
+          {manualLoading ? (
+            <div className="flex items-center justify-center py-10 gap-2 text-gray-400">
+              <RefreshCw size={18} className="animate-spin" /><span className="text-sm">Loading...</span>
+            </div>
+          ) : manualEntries.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+              <ListOrdered size={36} className="mb-2 opacity-40" />
+              <p className="text-sm">No manual entries yet</p>
+              <button
+                onClick={() => { setManualDrawerOpen(false); setAddDrawerOpen(true); }}
+                className="mt-3 text-xs text-green-600 underline"
+              >Add one now</button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {manualEntries.map((entry, idx) => (
+                <div key={entry._id} className="flex items-start justify-between bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm">
+                  <div className="flex items-start gap-3">
+                    <div className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 text-xs font-bold text-purple-700">
+                      {idx + 1}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{entry.name}</p>
+                      {entry.note && <p className="text-xs text-gray-500 mt-0.5">{entry.note}</p>}
+                      <p className="text-[10px] text-gray-400 mt-1">{fmtDateTime(entry.createdAt)}</p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-purple-700 whitespace-nowrap ml-3">{fmt(entry.amount)}</span>
+                </div>
+              ))}
+              {/* Summary */}
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 flex justify-between items-center border border-gray-200 dark:border-gray-700">
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{manualEntries.length} entries</span>
+                <span className="text-base font-bold text-purple-700">{fmt(manualTotal)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </Drawer>
+
+      {/* ══════════════════════════════════════════════════════════════
+          DRAWER 3: Patient Cash Payments (Slider)
+      ══════════════════════════════════════════════════════════════ */}
+      <Drawer open={patientDrawerOpen} onClose={() => setPatientDrawerOpen(false)} title="Patient Cash Payments">
+        <div className="flex flex-col gap-4">
+          {/* Total */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-blue-600 font-medium">Total Patient Cash</p>
+              <p className="text-2xl font-bold text-blue-700">{fmt(summary.totalCashIn)}</p>
+            </div>
+            <div className="p-3 bg-blue-100 rounded-xl">
+              <Receipt className="text-blue-700" size={22} />
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-10 gap-2 text-gray-400">
+              <RefreshCw size={18} className="animate-spin" /><span className="text-sm">Loading...</span>
+            </div>
+          ) : records.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+              <Receipt size={36} className="mb-2 opacity-40" />
+              <p className="text-sm">No patient cash records</p>
+              <p className="text-xs mt-1">Try changing the date range</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {records.map((record, _) => (
+                <div key={record._id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm">
+                  {/* Patient + cash */}
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                        <User size={13} className="text-blue-700" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{record.patientName || "—"}</p>
+                        {record.emrNumber && <p className="text-[10px] text-gray-400">EMR: {record.emrNumber}</p>}
+                      </div>
+                    </div>
+                    <span className="text-sm font-bold text-green-700 whitespace-nowrap ml-2">{fmt(record.cashAmount)}</span>
+                  </div>
+
+                  {/* Service */}
+                  <div className="ml-9">
+                    {record.membershipInfo ? (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] bg-purple-50 text-purple-700 border border-purple-200 rounded px-1.5 py-0.5 font-medium">Membership</span>
+                        <span className="text-xs text-gray-700 font-semibold">{record.membershipInfo.name}</span>
+                        <span className="text-[10px] text-gray-500">{fmt(record.membershipInfo.price)}</span>
+                      </div>
+                    ) : record.service === "Package" ? (
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 rounded px-1.5 py-0.5 font-medium">Package</span>
+                          <span className="text-xs text-gray-700 font-semibold">{record.package}</span>
+                        </div>
+                        {record.selectedPackageTreatments?.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {record.selectedPackageTreatments.map((t, i) => (
+                              <span key={i} className="text-[10px] bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">
+                                {t.treatmentName}{t.sessions > 0 && ` ×${t.sessions}`}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] bg-teal-50 text-teal-700 border border-teal-200 rounded px-1.5 py-0.5 font-medium">Treatment</span>
+                        <span className="text-xs text-gray-700">{record.treatment || "—"}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <span className="text-[10px] font-mono text-gray-400">{record.invoiceNumber}</span>
+                      <span className="text-[10px] text-gray-400">{fmtDate(record.invoicedDate)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {/* Footer */}
+              <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 flex justify-between items-center border border-green-200 dark:border-green-700">
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{records.length} shown (page {pagination.page}/{pagination.totalPages})</span>
+                <span className="text-base font-bold text-green-700">{fmt(summary.totalCashIn)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </Drawer>
+
+    </div>
+  );
+}
+
+// ─── Layout & Auth ────────────────────────────────────────────────────────────
+PettyCashPage.getLayout = function PageLayout(page: React.ReactElement) {
+  return (
+    <ClinicLayout hideSidebar={false} hideHeader={false}>
+      {page}
+    </ClinicLayout>
+  );
+};
+
+const ProtectedPettyCashPage = withClinicAuth(PettyCashPage) as NextPageWithLayout;
+ProtectedPettyCashPage.getLayout = PettyCashPage.getLayout;
+
+export default ProtectedPettyCashPage;

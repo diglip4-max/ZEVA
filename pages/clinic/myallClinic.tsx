@@ -22,10 +22,12 @@ interface Clinic {
   treatments: Array<{
     mainTreatment: string;
     mainTreatmentSlug: string;
+    enabled?: boolean;
     subTreatments: Array<{
       name: string;
       slug: string;
       price?: number;
+      enabled?: boolean;
     }>;
   }>;
   photos: (string | File)[];
@@ -36,6 +38,7 @@ interface Clinic {
   totalReviews?: number;
   totalEnquiries?: number;
 }
+
 
 interface Treatment {
   _id: string;
@@ -161,6 +164,8 @@ function ClinicManagementDashboard(): ReactElement {
   const [docSizes, setDocSizes] = useState<Record<number, string>>({});
   const [branches, setBranches] = useState<Array<{ id: string; name: string; address: string; phone?: string; email?: string; primary?: boolean }>>([]);
   const [branchModal, setBranchModal] = useState<{ open: boolean; mode: 'add' | 'edit'; targetId?: string; name: string; address: string; phone: string; email: string }>({ open: false, mode: 'add', name: '', address: '', phone: '', email: '' });
+  const [offers, setOffers] = useState<Array<{ _id?: string; title: string; type: "percentage" | "fixed" | "free Consult"; value: number; currency?: string; startsAt: string; endsAt: string; enabled?: boolean; treatments?: Array<{ name: string }> }>>([]);
+  const [offersLoading] = useState(false);
 
   // Fetch clinics
   useEffect(() => {
@@ -395,6 +400,7 @@ function ClinicManagementDashboard(): ReactElement {
       const newTreatmentObj = {
         mainTreatment: t.name,
         mainTreatmentSlug: t.name.toLowerCase().replace(/\s+/g, '-'),
+        enabled: true,
         subTreatments: []
       };
       const updated = {
@@ -422,7 +428,8 @@ function ClinicManagementDashboard(): ReactElement {
           {
             name: sub.name,
             slug: sub.name.toLowerCase().replace(/\s+/g, '-'),
-            price: typeof sub.price === "number" && sub.price > 0 ? sub.price : undefined
+            price: typeof sub.price === "number" && sub.price > 0 ? sub.price : undefined,
+            enabled: true
           }
         ]
       };
@@ -865,6 +872,7 @@ function ClinicManagementDashboard(): ReactElement {
     const newTreatmentObj = {
       mainTreatment: newTreatment.trim(),
       mainTreatmentSlug: newTreatment.trim().toLowerCase().replace(/\s+/g, '-'),
+      enabled: true,
       subTreatments: []
     };
     setEditForm(prev => ({
@@ -888,7 +896,8 @@ function ClinicManagementDashboard(): ReactElement {
     const newSubTreatmentObj = {
       name: newSubTreatment.trim(),
       slug: newSubTreatment.trim().toLowerCase().replace(/\s+/g, '-'),
-      price: price > 0 ? price : undefined
+      price: price > 0 ? price : undefined,
+      enabled: true
     };
     setEditForm(prev => {
       const updatedTreatments = [...(prev.treatments || [])];
@@ -912,6 +921,34 @@ function ClinicManagementDashboard(): ReactElement {
     setTimeout(() => setCustomAdded(false), 2000);
     // Keep the selection active so the user can add more or see the list
     // setSelectedTreatmentIndex(null);
+  };
+
+  const toggleMainTreatment = (index: number, isOn: boolean) => {
+    setEditForm(prev => {
+      const updated = [...(prev.treatments || [])];
+      if (!updated[index]) return prev;
+      const current = { ...updated[index] };
+      current.enabled = !!isOn;
+      if (!isOn && Array.isArray(current.subTreatments)) {
+        current.subTreatments = current.subTreatments.map(st => ({ ...st, enabled: false }));
+      }
+      updated[index] = current;
+      return { ...prev, treatments: updated };
+    });
+  };
+
+  const toggleSubTreatment = (tIndex: number, sIndex: number, isOn: boolean) => {
+    setEditForm(prev => {
+      const updated = [...(prev.treatments || [])];
+      if (!updated[tIndex]) return prev;
+      const t = { ...updated[tIndex] };
+      if (!Array.isArray(t.subTreatments) || !t.subTreatments[sIndex]) return prev;
+      const sub = { ...t.subTreatments[sIndex], enabled: !!isOn };
+      t.subTreatments = [...t.subTreatments];
+      t.subTreatments[sIndex] = sub;
+      updated[tIndex] = t;
+      return { ...prev, treatments: updated };
+    });
   };
 
   const handleRemoveSubTreatment = (treatmentIndex: number, subIndex: number) => {
@@ -1398,38 +1435,56 @@ function ClinicManagementDashboard(): ReactElement {
                             key={index}
                             className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
                           >
-                            <div className="flex items-center justify-between mb-3">
-                              <span className="px-3 py-1.5 bg-teal-800 text-white rounded-full text-sm font-semibold">
-                                {treatment.mainTreatment}
-                              </span>
-                              <button
-                                onClick={() => handleRemoveTreatment(index)}
-                                className="text-red-500 hover:text-red-700 transition-colors p-1"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
+                            <div className="flex items-center justify-between mb-3 gap-3">
+                              <div className="flex items-center gap-3">
+                                <span className="px-3 py-1.5 bg-teal-800 text-white rounded-full text-sm font-semibold">
+                                  {treatment.mainTreatment}
+                                </span>
+                                <label className="flex items-center gap-1 text-xs text-teal-700">
+                                  <input
+                                    type="checkbox"
+                                    checked={treatment.enabled !== false}
+                                    onChange={(e) => toggleMainTreatment(index, e.target.checked)}
+                                  />
+                                  Show
+                                </label>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleRemoveTreatment(index)}
+                                  className="text-red-500 hover:text-red-700 transition-colors p-1"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
                             </div>
                             {treatment.subTreatments && treatment.subTreatments.length > 0 && (
                               <div className="flex flex-wrap gap-2 mb-3">
                                 {treatment.subTreatments.map((subTreatment: any, subIndex: number) => (
-                                  <span
+                                  <div
                                     key={subIndex}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-teal-700 rounded-full text-xs border border-gray-200"
+                                    className="inline-flex items-center gap-2 px-2.5 py-1 bg-gray-100 text-teal-700 rounded-full text-xs border border-gray-200"
                                   >
-                                    {subTreatment.name}
-                                    {typeof subTreatment.price === "number" &&
-                                      subTreatment.price > 0 && (
-                                        <span className="text-teal-800 font-bold">
-                                          د.إ{subTreatment.price}
-                                        </span>
-                                      )}
+                                    <span className="font-medium">{subTreatment.name}</span>
+                                    {typeof subTreatment.price === "number" && subTreatment.price > 0 && (
+                                      <span className="text-teal-800 font-bold">د.إ{subTreatment.price}</span>
+                                    )}
+                                    <label className="flex items-center gap-1 ml-1">
+                                      <input
+                                        type="checkbox"
+                                        checked={subTreatment.enabled !== false}
+                                        onChange={(e) => toggleSubTreatment(index, subIndex, e.target.checked)}
+                                        disabled={treatment.enabled === false}
+                                      />
+                                      Show
+                                    </label>
                                     <button
                                       onClick={() => handleRemoveSubTreatment(index, subIndex)}
-                                      className="text-red-500 hover:text-red-700 ml-1"
+                                      className="text-red-500 hover:text-red-700"
                                     >
                                       <X className="w-3 h-3" />
                                     </button>
-                                  </span>
+                                  </div>
                                 ))}
                               </div>
                             )}
@@ -2973,6 +3028,84 @@ function ClinicManagementDashboard(): ReactElement {
                                   </div>
                                 </div>
                               )}
+                              
+                              {/* Offers */}
+                              <div>
+                                <h4 className="text-sm font-semibold text-teal-800 mb-2">
+                                  Offers
+                                </h4>
+                                <div className="space-y-2">
+                                  {offersLoading && (
+                                    <div className="text-xs text-teal-600">Loading offers...</div>
+                                  )}
+                                  {!offersLoading && offers.length === 0 && (
+                                    <div className="text-xs text-teal-600">No offers found</div>
+                                  )}
+                                  {offers.map((offer, idx) => {
+                                    const isEnabled = offer.enabled !== false;
+                                    return (
+                                      <div key={offer._id || idx} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                        <div className="flex items-center justify-between gap-2">
+                                          <div>
+                                            <div className="text-sm font-semibold text-teal-900">
+                                              {offer.title}
+                                            </div>
+                                            <div className="text-[11px] text-teal-700">
+                                              {offer.type === "percentage" ? `${offer.value}%` :
+                                               offer.type === "fixed" ? `${offer.currency || "INR"} ${offer.value}` :
+                                               "Free Consult"}
+                                              {" · "}
+                                              {new Date(offer.startsAt).toLocaleDateString()} - {new Date(offer.endsAt).toLocaleDateString()}
+                                            </div>
+                                          </div>
+                                          {permissions.canUpdate && (
+                                            <label className="flex items-center gap-1 text-xs text-teal-700">
+                                              <input
+                                                type="checkbox"
+                                                checked={isEnabled}
+                                                onChange={async (e) => {
+                                                  const nextOn = !!e.target.checked;
+                                                  setOffers(prev => prev.map(o => o._id === offer._id ? { ...o, enabled: nextOn } : o));
+                                                  try {
+                                                    const authHeaders = getAuthHeaders();
+                                                    if (!authHeaders) return;
+                                                    const res = await axios.put(
+                                                      `/api/lead-ms/update-offer?id=${offer._id}`,
+                                                      { enabled: nextOn },
+                                                      { headers: { ...authHeaders, "Content-Type": "application/json" } }
+                                                    );
+                                                    if (!res?.data?.success) {
+                                                      throw new Error(res?.data?.message || "Failed to update offer");
+                                                    }
+                                                  } catch {
+                                                    toast.error("Failed to update offer status");
+                                                    setOffers(prev => prev.map(o => o._id === offer._id ? { ...o, enabled: offer.enabled } : o));
+                                                  }
+                                                }}
+                                              />
+                                              Toggle
+                                            </label>
+                                          )}
+                                        </div>
+                                        <div className="mt-2 flex flex-wrap gap-1">
+                                          <span className={`px-2 py-0.5 rounded-full text-[11px] border ${
+                                            isEnabled ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                                            "bg-yellow-50 text-yellow-700 border-yellow-200"
+                                          }`}>
+                                            {isEnabled ? "enabled" : "disabled"}
+                                          </span>
+                                          {Array.isArray(offer.treatments) && offer.treatments.length > 0 && (
+                                            <span className="px-2 py-0.5 rounded-full text-[11px] bg-white text-teal-700 border border-gray-200">
+                                              {offer.treatments.slice(0, 2).map(t => t.name).join(", ")}
+                                              {offer.treatments.length > 2 ? ` +${offer.treatments.length - 2}` : ""}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
 
                               {/* Treatments */}
                               {clinic.treatments && clinic.treatments.length > 0 && (
@@ -2981,38 +3114,135 @@ function ClinicManagementDashboard(): ReactElement {
                                     Treatments
                                   </h4>
                                   <div className={`space-y-2 ${clinic.treatments.length > 4 ? 'max-h-[28rem] sm:max-h-[36rem] overflow-y-auto pr-2 pb-1' : ''}`}>
-                                    {clinic.treatments.map((treatment, index) => (
-                                      <div
-                                        key={index}
-                                        className="bg-gray-50 rounded-lg p-3 border border-gray-200"
-                                      >
-                                        <div className="flex items-center gap-2 mb-2">
+                                    {clinic.treatments.map((treatment, tIndex) => (
+                                      <div key={tIndex} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                        <div className="flex items-center justify-between gap-2 mb-2">
                                           <span className="px-2 py-1 bg-teal-800 text-white rounded-full text-xs font-semibold">
                                             {treatment.mainTreatment}
                                           </span>
-                                        </div>
-                                        {treatment.subTreatments &&
-                                          treatment.subTreatments.length > 0 && (
-                                            <div className="flex flex-wrap gap-1.5">
-                                              {treatment.subTreatments.map(
-                                                (subTreatment, subIndex) => (
-                                                  <span
-                                                    key={subIndex}
-                                                    className="inline-flex items-center gap-1 px-2 py-1 bg-white text-teal-700 rounded-full text-xs border border-gray-200"
-                                                  >
-                                                    {subTreatment.name}
-                                                    {typeof subTreatment.price ===
-                                                      "number" &&
-                                                      subTreatment.price > 0 && (
-                                                        <span className="text-teal-800 font-bold">
-                                                          د.إ{subTreatment.price}
-                                                        </span>
-                                                      )}
-                                                  </span>
-                                                )
-                                              )}
-                                            </div>
+                                          {permissions.canUpdate && (
+                                            <label className="flex items-center gap-1 text-xs text-teal-700">
+                                              <input
+                                                type="checkbox"
+                                                checked={treatment.enabled !== false}
+                                                onChange={async (e) => {
+                                                  const checked = e.target.checked;
+                                                  // optimistic update
+                                                  setClinics(prev => {
+                                                    const next = [...prev];
+                                                    const c0 = { ...next[0] };
+                                                    const ts = [...(c0.treatments || [])];
+                                                    const curr = { ...ts[tIndex] };
+                                                    curr.enabled = checked;
+                                                    if (!checked && Array.isArray(curr.subTreatments)) {
+                                                      curr.subTreatments = curr.subTreatments.map(st => ({ ...st, enabled: false }));
+                                                    }
+                                                    ts[tIndex] = curr;
+                                                    c0.treatments = ts;
+                                                    next[0] = c0;
+                                                    return next;
+                                                  });
+                                                  try {
+                                                    const authHeaders = getAuthHeaders();
+                                                    if (!authHeaders) return;
+                                                    const base = clinics[0];
+                                                    const payload = {
+                                                      name: base.name,
+                                                      address: base.address,
+                                                      treatments: (clinics[0].treatments || []).map((t, i) =>
+                                                        i === tIndex
+                                                          ? {
+                                                              ...t,
+                                                              enabled: checked,
+                                                              subTreatments: (t.subTreatments || []).map(st =>
+                                                                checked ? st : { ...st, enabled: false }
+                                                              ),
+                                                            }
+                                                          : t
+                                                      ),
+                                                    };
+                                                    const res = await axios.put(`/api/clinics/${base._id}`, payload, {
+                                                      headers: { ...authHeaders, "Content-Type": "application/json" },
+                                                    });
+                                                    if (!res?.data?.success) {
+                                                      throw new Error(res?.data?.message || "Failed to update");
+                                                    }
+                                                  } catch {
+                                                    toast.error("Failed to update treatment visibility");
+                                                  }
+                                                }}
+                                              />
+                                              Toggle
+                                            </label>
                                           )}
+                                        </div>
+                                        {treatment.subTreatments && treatment.subTreatments.length > 0 && (
+                                          <div className="flex flex-wrap gap-1.5">
+                                            {treatment.subTreatments.map((subTreatment, sIndex) => (
+                                              <div
+                                                key={sIndex}
+                                                className="inline-flex items-center gap-2 px-2 py-1 bg-white text-teal-700 rounded-full text-xs border border-gray-200"
+                                              >
+                                                <span>{subTreatment.name}</span>
+                                                {typeof subTreatment.price === "number" && subTreatment.price > 0 && (
+                                                  <span className="text-teal-800 font-bold">د.إ{subTreatment.price}</span>
+                                                )}
+                                                {permissions.canUpdate && (
+                                                  <label className="flex items-center gap-1">
+                                                    <input
+                                                      type="checkbox"
+                                                      checked={subTreatment.enabled !== false}
+                                                      disabled={treatment.enabled === false}
+                                                      onChange={async (e) => {
+                                                        const checked = e.target.checked;
+                                                        // optimistic update
+                                                        setClinics(prev => {
+                                                          const next = [...prev];
+                                                          const c0 = { ...next[0] };
+                                                          const ts = [...(c0.treatments || [])];
+                                                          const curr = { ...ts[tIndex] };
+                                                          const subs = Array.isArray(curr.subTreatments) ? [...curr.subTreatments] : [];
+                                                          if (subs[sIndex]) subs[sIndex] = { ...subs[sIndex], enabled: checked };
+                                                          curr.subTreatments = subs;
+                                                          ts[tIndex] = curr;
+                                                          c0.treatments = ts;
+                                                          next[0] = c0;
+                                                          return next;
+                                                        });
+                                                        try {
+                                                          const authHeaders = getAuthHeaders();
+                                                          if (!authHeaders) return;
+                                                          const base = clinics[0];
+                                                          const updatedTreatments = (clinics[0].treatments || []).map((t, i) => {
+                                                            if (i !== tIndex) return t;
+                                                            const subs = (t.subTreatments || []).map((st, j) =>
+                                                              j === sIndex ? { ...st, enabled: checked } : st
+                                                            );
+                                                            return { ...t, subTreatments: subs };
+                                                          });
+                                                          const payload = {
+                                                            name: base.name,
+                                                            address: base.address,
+                                                            treatments: updatedTreatments,
+                                                          };
+                                                          const res = await axios.put(`/api/clinics/${base._id}`, payload, {
+                                                            headers: { ...authHeaders, "Content-Type": "application/json" },
+                                                          });
+                                                          if (!res?.data?.success) {
+                                                            throw new Error(res?.data?.message || "Failed to update");
+                                                          }
+                                                        } catch {
+                                                          toast.error("Failed to update sub-treatment visibility");
+                                                        }
+                                                      }}
+                                                    />
+                                                    Toggle
+                                                  </label>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
                                       </div>
                                     ))}
                                   </div>
@@ -3024,9 +3254,9 @@ function ClinicManagementDashboard(): ReactElement {
                                      Documents
                                    </h4>
                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                                     {clinic.documents.map((doc: any, dIdx: number) => {
-                                       const url = String(doc?.url || "");
-                                       const isImage = /\.(jpg|jpeg|png)$/i.test(url);
+                                    {clinic.documents.map((doc: any, dIdx: number) => {
+                                      const url = getDocumentUrl(String(doc?.url || ""));
+                                      const isImage = /\.(jpg|jpeg|png)$/i.test(url);
                                        return (
                                          <div
                                            key={dIdx}
@@ -3683,6 +3913,36 @@ const getImagePath = (photoPath: string | File) => {
   
   console.log("❌ Invalid photo path type:", typeof photoPath);
   return PLACEHOLDER_DATA_URI;
+};
+
+const getDocumentUrl = (docPath: string) => {
+  if (!docPath) return "";
+  let clean = String(docPath).trim().replace(/^['"`]+|['"`]+$/g, "").replace(/\\/g, "/");
+  const siteOrigin =
+    typeof window !== "undefined" && window.location?.origin
+      ? window.location.origin
+      : (process.env.NEXT_PUBLIC_SITE_ORIGIN || "http://localhost:3000");
+  const uploadsOrigin = process.env.NEXT_PUBLIC_UPLOADS_ORIGIN || siteOrigin;
+  try {
+    if (clean.startsWith("http://") || clean.startsWith("https://")) {
+      const u = new URL(clean);
+      if (u.host.includes("localhost:3000")) {
+        return `${uploadsOrigin}${u.pathname}`;
+      }
+      if (process.env.NODE_ENV !== "production" && u.host.includes("zeva360.com")) {
+        return `${uploadsOrigin}${u.pathname}`;
+      }
+      return clean;
+    }
+  } catch {}
+  if (clean.startsWith("/uploads/")) return `${uploadsOrigin}${clean}`;
+  if (clean.includes("uploads")) {
+    const idx = clean.indexOf("uploads");
+    return `${uploadsOrigin}/${clean.substring(idx)}`;
+  }
+  if (clean.startsWith("/")) return `${uploadsOrigin}${clean}`;
+  if (clean.length > 0) return `${uploadsOrigin}/uploads/clinic/${clean}`;
+  return "";
 };
 
 const PLACEHOLDER_DATA_URI = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f3f4f6'/%3E%3Ctext x='50' y='55' font-family='Arial' font-size='12' fill='%239ca3af' text-anchor='middle'%3ENo Image%3C/text%3E%3C/svg%3E";

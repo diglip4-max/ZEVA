@@ -28,6 +28,10 @@ export default async function handler(req, res) {
     }
 
     const treatmentQuery = treatment.trim();
+    const parenMatch = treatmentQuery.match(/^(.*?)\s*\((.*?)\)\s*$/);
+    const isSubWithMain = !!parenMatch;
+    const subNameFromQuery = isSubWithMain ? parenMatch[1].trim().toLowerCase() : null;
+    const mainNameFromQuery = isSubWithMain ? parenMatch[2].trim().toLowerCase() : null;
 
     // Fetch all approved clinics with their treatments
     const clinics = await Clinic.find({ isApproved: true })
@@ -62,16 +66,55 @@ export default async function handler(req, res) {
       }
     );
 
-    // Filter clinics that have the specified treatment (case-insensitive match on main treatment)
+    // Filter clinics that have the specified treatment enabled
     const matchingClinics = availableClinics.filter((clinic) => {
-      if (!clinic.treatments || !Array.isArray(clinic.treatments)) {
-        return false;
-      }
+      if (!Array.isArray(clinic.treatments)) return false;
+      const tq = treatmentQuery.toLowerCase().trim();
+      return clinic.treatments.some((t) => {
+        const mainEnabled = t?.enabled !== false;
+        const mainName = (t?.mainTreatment || "").trim().toLowerCase();
+        const subs = Array.isArray(t?.subTreatments) ? t.subTreatments : [];
 
-      // Check if any treatment's mainTreatment matches (case-insensitive)
-      return clinic.treatments.some((treatment) => {
-        const mainTreatment = treatment.mainTreatment?.trim() || "";
-        return mainTreatment.toLowerCase() === treatmentQuery.toLowerCase();
+        // Case 1: Exact main match
+        if (mainEnabled && mainName === tq) return true;
+
+        // Case 2: Sub with explicit "(Main)"
+        if (isSubWithMain) {
+          if (!mainEnabled || mainName !== mainNameFromQuery) return false;
+          return subs.some((st) => {
+            const subEnabled = st?.enabled !== false;
+            const subName = (st?.name || "").trim().toLowerCase();
+            return subEnabled && subName === subNameFromQuery;
+          });
+        }
+
+        // Case 3: Query is "Sub Main" (no parentheses)
+        if (mainEnabled && tq.includes(mainName)) {
+          const remainder = tq.replace(mainName, "").trim();
+          if (!remainder) return true; // treat as main-only
+          return subs.some((st) => {
+            const subEnabled = st?.enabled !== false;
+            const subName = (st?.name || "").trim().toLowerCase();
+            return (
+              subEnabled &&
+              (subName === remainder ||
+                remainder.includes(subName) ||
+                subName.includes(remainder))
+            );
+          });
+        }
+
+        // Case 4: Query contains sub name somewhere (tolerant match)
+        return subs.some((st) => {
+          const subEnabled = st?.enabled !== false;
+          const subName = (st?.name || "").trim().toLowerCase();
+          return (
+            subEnabled &&
+            (subName === tq ||
+              tq.includes(subName) ||
+              subName.includes(tq))
+          );
+        });
       });
     });
 

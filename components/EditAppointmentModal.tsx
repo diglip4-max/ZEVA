@@ -27,6 +27,7 @@ interface EditAppointmentModalProps {
     notes: string;
     treatment?: string;
     serviceId?: string | { _id: string } | null;
+    serviceIds?: string[];
   } | null;
   rooms: Array<{ _id: string; name: string }>;
   doctors: Array<{ _id: string; name: string }>;
@@ -145,10 +146,15 @@ export default function EditAppointmentModal({
       setEmergency(appointment.emergency || "no");
       setNotes(appointment.notes || "");
       setTreatment(appointment.treatment || "");
-      // Set selected service from appointment.serviceId if it exists
-      if ('serviceId' in appointment && appointment.serviceId) {
-        setSelectedServiceId(typeof appointment.serviceId === 'string' ? appointment.serviceId : appointment.serviceId._id);
-      }
+      const selected =
+        appointment.serviceId
+          ? (typeof appointment.serviceId === "string"
+              ? appointment.serviceId
+              : appointment.serviceId._id)
+          : (Array.isArray(appointment.serviceIds) && appointment.serviceIds.length > 0
+              ? appointment.serviceIds[0]
+              : "");
+      setSelectedServiceId(selected || "");
       setError("");
       setFieldErrors({});
     }
@@ -530,6 +536,8 @@ export default function EditAppointmentModal({
               />
             </div>
           </div>
+
+         
 
           {/* Action Buttons */}
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-200">

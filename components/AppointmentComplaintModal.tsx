@@ -58,6 +58,8 @@ interface AppointmentDetails {
   fromTime?: string;
   toTime?: string;
   status?: string;
+  serviceIds?: string[];
+  serviceNames?: string[];
 }
 
 interface AppointmentReportSummary {
@@ -651,6 +653,15 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       <span className="font-semibold">Status:</span>{" "}
                       {details.status || "-"}
                     </span>
+                    {Array.isArray(details.serviceNames) && details.serviceNames.length > 0 && (
+                      <>
+                        <span>•</span>
+                        <span>
+                          <span className="font-semibold">Treatments:</span>{" "}
+                          {details.serviceNames.join(", ")}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
 

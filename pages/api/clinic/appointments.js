@@ -150,6 +150,7 @@ export default async function handler(req, res) {
         .populate("doctorId", "name email")
         .populate("roomId", "name")
         .populate("serviceId", "name")
+        .populate("serviceIds", "name")
         .sort({ startDate: 1, fromTime: 1 })
         .lean();
 
@@ -270,6 +271,8 @@ export default async function handler(req, res) {
           doctorTreatments: doctorTreatmentsMap[apt.doctorId?._id?.toString()] || [],
           serviceId: apt.serviceId?._id?.toString() || null,
           serviceName: apt.serviceId?.name || null,
+          serviceIds: Array.isArray(apt.serviceIds) ? apt.serviceIds.map(s => s?._id?.toString()).filter(Boolean) : [],
+          serviceNames: Array.isArray(apt.serviceIds) ? apt.serviceIds.map(s => s?.name || "").filter(Boolean) : [],
           createdAt: apt.createdAt,
         })),
       });
@@ -517,6 +520,12 @@ export default async function handler(req, res) {
           return res.status(400).json({ success: false, message: "Invalid service selected" });
         }
       }
+      if (Array.isArray(req.body.serviceIds) && req.body.serviceIds.length > 0) {
+        const ids = req.body.serviceIds.filter(Boolean).map((id) => String(id));
+        const svcs = await Service.find({ _id: { $in: ids }, clinicId }).select("_id").lean();
+        const validIds = svcs.map((s) => s._id?.toString()).filter(Boolean);
+        appointmentData.serviceIds = validIds;
+      }
       console.log("💾 Appointment data being saved:", JSON.stringify(appointmentData, null, 2));
       
       const appointment = await Appointment.create(appointmentData);
@@ -536,6 +545,7 @@ export default async function handler(req, res) {
         .populate("doctorId", "name email")
         .populate("roomId", "name")
         .populate("serviceId", "name")
+        .populate("serviceIds", "name")
         .lean();
       
       console.log("📖 Populated appointment bookedFrom from DB:", populatedAppointment.bookedFrom);
@@ -585,6 +595,8 @@ export default async function handler(req, res) {
           doctorTreatments,
           serviceId: populatedAppointment.serviceId?._id?.toString() || null,
           serviceName: populatedAppointment.serviceId?.name || null,
+          serviceIds: Array.isArray(populatedAppointment.serviceIds) ? populatedAppointment.serviceIds.map(s => s?._id?.toString()).filter(Boolean) : [],
+          serviceNames: Array.isArray(populatedAppointment.serviceIds) ? populatedAppointment.serviceIds.map(s => s?.name || "").filter(Boolean) : [],
           patientInvoiceNumber: populatedAppointment.patientId?.invoiceNumber || null,
           patientEmrNumber: populatedAppointment.patientId?.emrNumber || null,
           patientGender: populatedAppointment.patientId?.gender || null,

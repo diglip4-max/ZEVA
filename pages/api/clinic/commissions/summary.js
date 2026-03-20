@@ -90,6 +90,8 @@ export default async function handler(req, res) {
             count: { $sum: 1 },
             lastCommissionPercent: { $last: "$commissionPercent" },
             lastReferralName: { $last: "$referralName" },
+            submittedCount: { $sum: { $cond: [{ $eq: ["$isSubmitted", true] }, 1, 0] } },
+            pendingApprovalCount: { $sum: { $cond: [{ $and: [{ $eq: ["$isSubmitted", true] }, { $eq: ["$isApproved", false] }] }, 1, 0] } },
           },
         },
         { $sort: { totalCommissionAmount: -1 } },
@@ -155,6 +157,8 @@ export default async function handler(req, res) {
           totalEarned: Number(g.totalCommissionAmount.toFixed(2)),
           totalPaid: Number(g.totalAmountPaid.toFixed(2)),
           count: g.count,
+          submittedCount: g.submittedCount || 0,
+          pendingApprovalCount: g.pendingApprovalCount || 0,
         });
       } else {
         const staffId = g._id;

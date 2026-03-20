@@ -519,6 +519,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
     }
   });
 
+  
+
   // Drag and drop state
   const [isEditMode, setIsEditMode] = useState(false);
   const [widgets, setWidgets] = useState<DashboardWidget[]>(() => {
@@ -6730,5 +6732,4 @@ const ProtectedDashboard: NextPageWithLayout = withClinicAuth(ClinicDashboard);
 
 // Reassign layout (TS-safe now)
 ProtectedDashboard.getLayout = ClinicDashboard.getLayout;
-
 export default ProtectedDashboard;

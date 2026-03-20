@@ -53,7 +53,7 @@ export default async function handler(req, res) {
     const transfersIn = Array.isArray(patient?.packageTransfers)
       ? patient.packageTransfers.filter(t => t.type === 'in')
       : [];
-    
+         
     // Get packages transferred OUT by this patient
     const transfersOut = Array.isArray(patient?.packageTransfers)
       ? patient.packageTransfers.filter(t => t.type === 'out')
@@ -71,6 +71,18 @@ export default async function handler(req, res) {
         packageId: t.packageId,
         packageName: t.packageName
       };
+    });
+
+    // Fetch names for all source patients in transfers
+    const sourceIds = Array.from(new Set(transfersIn.map(t => String(t.fromPatientId || "")).filter(Boolean)));
+    const sourcePatients = sourceIds.length
+      ? await PatientRegistration.find({ _id: { $in: sourceIds } }).select("firstName lastName").lean()
+      : [];
+    const sourceNameMap = {};
+    sourcePatients.forEach(sp => {
+      const fn = (sp.firstName || "").trim();
+      const ln = (sp.lastName || "").trim();
+      sourceNameMap[String(sp._id)] = `${fn} ${ln}`.trim() || "Unknown";
     });
 
     // Collect all patient IDs to query (current patient + source patients from transfers)
@@ -138,6 +150,8 @@ export default async function handler(req, res) {
           billingHistory: [],
           isTransferred: !!transferInfo,
           transferredFrom: transferInfo ? transferInfo.fromPatientId : null,
+          transferredFromName: transferInfo && transferInfo.fromPatientId ? (sourceNameMap[String(transferInfo.fromPatientId)] || null) : null,
+          transferredPackageName: transferInfo ? transferInfo.packageName || null : null,
           transferredSessions: transferInfo ? transferInfo.transferredSessions : 0,
         };
       }

@@ -119,6 +119,12 @@ const AppointmentSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    serviceIds: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Service",
+      },
+    ],
   },
   { timestamps: true },
 );
