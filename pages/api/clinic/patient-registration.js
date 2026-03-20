@@ -259,6 +259,29 @@ export default async function handler(req, res) {
         user.mobileNumber ||
         String(user._id);
 
+      // Determine clinicId from user
+      let clinicIdToUse = null;
+      if (user.role === 'admin') {
+        // For admin, clinicId is optional - they can create patients without clinic association
+        // Or you can require admin to select a clinic if needed
+        clinicIdToUse = null; // Admin-created patients won't have clinicId
+      } else if (user.role === 'clinic') {
+        // For clinic role, find their own clinic
+        const clinic = await Clinic.findOne({ owner: user._id });
+        clinicIdToUse = clinic ? clinic._id : null;
+      } else if (user.clinicId) {
+        // For agent/doctorStaff roles with clinicId
+        clinicIdToUse = user.clinicId;
+      }
+
+      // If no clinicId found and user is not admin, return error
+      if (!clinicIdToUse && user.role !== 'admin') {
+        return res.status(400).json({
+          success: false,
+          message: "Clinic ID is required but could not be determined from your account"
+        });
+      }
+
       if (
         !invoiceNumber ||
         !firstName ||
@@ -284,6 +307,7 @@ export default async function handler(req, res) {
         invoicedDate: new Date(),
         invoicedBy: computedInvoicedBy,
         userId: user._id,
+        clinicId: clinicIdToUse,
         emrNumber: emrNumber || "",
         firstName,
         lastName: lastName || "",

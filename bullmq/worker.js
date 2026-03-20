@@ -13,6 +13,9 @@ import axios from "axios";
 import Template from "../models/Template.js";
 import { handleWhatsappSendMessage } from "../services/whatsapp.js";
 import Message from "../models/Message.js";
+import Workflow from "../models/workflows/Workflow.js";
+import { processWorkflow } from "./workflow.js";
+import WorkflowAction from "../models/workflows/WorkflowAction.js";
 
 console.log("📌 Import Leads Worker Started...");
 dbConnect()
@@ -62,7 +65,7 @@ const importLeadsFromFileWorker = new Worker(
       for (let i = startIndex; i < leadsToInsert.length; i += BATCH_SIZE) {
         const batch = leadsToInsert.slice(i, i + BATCH_SIZE);
         console.log(
-          `📦 Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} leads`
+          `📦 Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} leads`,
         );
 
         try {
@@ -85,7 +88,7 @@ const importLeadsFromFileWorker = new Worker(
           }
         } catch (batchError) {
           console.warn(
-            `⚠ Batch insert error, falling back to single inserts...`
+            `⚠ Batch insert error, falling back to single inserts...`,
           );
 
           // Process leads individually
@@ -101,7 +104,7 @@ const importLeadsFromFileWorker = new Worker(
               console.error(
                 `❌ Failed: ${lead.phone || lead.email || "unknown"} - ${
                   err.message
-                }`
+                }`,
               );
             }
           }
@@ -132,7 +135,7 @@ const importLeadsFromFileWorker = new Worker(
 
       console.timeEnd(`Job-${job.id}`);
       console.log(
-        `🎉 Job ${job.id} completed. Inserted: ${totalInserted}/${leadsToInsert.length}`
+        `🎉 Job ${job.id} completed. Inserted: ${totalInserted}/${leadsToInsert.length}`,
       );
 
       return {
@@ -152,7 +155,7 @@ const importLeadsFromFileWorker = new Worker(
       max: 1,
       duration: 500,
     },
-  }
+  },
 );
 
 // Helper to add leads to segment
@@ -242,7 +245,7 @@ const whatsappTemplateWorker = new Worker(
               } else if (temp.type === "BODY") {
                 content = temp.text;
                 variables = (temp.example?.body_text || []).map(
-                  (_, index) => `{{${index + 1}}}`
+                  (_, index) => `{{${index + 1}}}`,
                 );
                 bodyVariableSampleValues = variables;
               } else if (temp.type === "FOOTER") {
@@ -304,11 +307,11 @@ const whatsappTemplateWorker = new Worker(
     } catch (error) {
       console.error(
         "Error fetching templates:",
-        error.response?.data || error.message
+        error.response?.data || error.message,
       );
     }
   },
-  { connection: redis, concurrency: 1 }
+  { connection: redis, concurrency: 1 },
 );
 
 const scheduleMessageWorker = new Worker(
@@ -344,7 +347,7 @@ const scheduleMessageWorker = new Worker(
   {
     connection: redis,
     concurrency: 1,
-  }
+  },
 );
 
 scheduleMessageWorker.on("completed", (job, returnValue) => {
@@ -355,3 +358,77 @@ scheduleMessageWorker.on("completed", (job, returnValue) => {
 scheduleMessageWorker.on("failed", (job, err) => {
   console.error(`❌ Job ${job?.id} failed:`, err.message);
 });
+
+// ------------------------------------------- WORKFLOW WORKERS -----------------------------------//
+export const workflowWorker = new Worker(
+  "workflowQueue",
+  async (job) => {
+    console.log("Processing workflow worker job: ", job.data);
+    const { workflowId, ...rest } = job.data;
+
+    try {
+      const workflow = await Workflow.findById(workflowId);
+      if (!workflow) {
+        throw new Error("Workflow not found");
+      }
+
+      // Process the workflow
+      await processWorkflow({
+        nodes: workflow.nodes,
+        edges: workflow.edges,
+      });
+
+      console.log(`Workflow ${workflowId} processed successfully`);
+      return { success: true, workflowId };
+    } catch (error) {
+      console.error(`❌ Workflow job ${workflowId} failed:`, error.message);
+      throw error;
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 10,
+  },
+);
+
+workflowWorker.on("completed", (job, returnValue) => {
+  console.log(`✅ Workflow job ${job.id} completed successfully`);
+  console.log(`✅ Workflow completed job response: ${returnValue}`);
+});
+
+workflowWorker.on("failed", (job, err) => {
+  console.error(`❌ Job ${job?.id} failed:`, err.message);
+});
+
+// ----------------------------------- ACTION WORKERS -----------------------------------//
+export const delayActionWorker = new Worker(
+  "delayActionQueue",
+  async (job) => {
+    console.log("Processing delay action worker job: ", job.data);
+    const { id: actionId, ...rest } = job.data;
+    const { delayInMs, ...actionData } = rest;
+
+    try {
+      const action = await WorkflowAction.findById(actionId);
+      if (!action) {
+        throw new Error("Action not found");
+      }
+
+      // Process the delay action
+      processWorkflow({
+        nodes: actionData.nodes,
+        edges: actionData.edges,
+      });
+
+      console.log(`Delay action ${actionId} processed successfully`);
+      return { success: true, actionId };
+    } catch (error) {
+      console.error(`❌ Delay action job ${actionId} failed:`, error.message);
+      throw error;
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 10,
+  },
+);

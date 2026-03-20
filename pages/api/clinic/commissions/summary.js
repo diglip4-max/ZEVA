@@ -60,10 +60,28 @@ export default async function handler(req, res) {
       }
     }
 
+    // Build date filter for match stage
+    const dateMatch = {};
+    if (req.query.date) {
+      const date = new Date(req.query.date);
+      const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+      dateMatch.createdAt = { $gte: startOfDay, $lte: endOfDay };
+    } else if (req.query.startDate && req.query.endDate) {
+      const startDate = new Date(req.query.startDate);
+      const endDate = new Date(req.query.endDate);
+      endDate.setHours(23, 59, 59, 999);
+      dateMatch.createdAt = { $gte: startDate, $lte: endDate };
+    }
+
     let grouped = [];
     if (source === "referral") {
+      const matchStage = { clinicId, $or: [{ source: "referral" }, { referralId: { $ne: null } }], referralId: { $ne: null } };
+      if (Object.keys(dateMatch).length > 0) {
+        Object.assign(matchStage, dateMatch);
+      }
       grouped = await Commission.aggregate([
-        { $match: { clinicId, $or: [{ source: "referral" }, { referralId: { $ne: null } }], referralId: { $ne: null } } },
+        { $match: matchStage },
         {
           $group: {
             _id: "$referralId",
@@ -79,8 +97,12 @@ export default async function handler(req, res) {
         { $sort: { totalCommissionAmount: -1 } },
       ]);
     } else if (source === "staff") {
+      const matchStage = { clinicId, $or: [{ source: "staff" }, { staffId: { $ne: null } }], staffId: { $ne: null } };
+      if (Object.keys(dateMatch).length > 0) {
+        Object.assign(matchStage, dateMatch);
+      }
       grouped = await Commission.aggregate([
-        { $match: { clinicId, $or: [{ source: "staff" }, { staffId: { $ne: null } }], staffId: { $ne: null } } },
+        { $match: matchStage },
         {
           $group: {
             _id: "$staffId",
@@ -95,8 +117,12 @@ export default async function handler(req, res) {
         { $sort: { totalCommissionAmount: -1 } },
       ]);
     } else {
+      const matchStage = { clinicId };
+      if (Object.keys(dateMatch).length > 0) {
+        Object.assign(matchStage, dateMatch);
+      }
       grouped = await Commission.aggregate([
-        { $match: { clinicId } },
+        { $match: matchStage },
         {
           $group: {
             _id: "$staffId",

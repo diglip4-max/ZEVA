@@ -12,8 +12,7 @@ import CreateOffer from '../../../models/CreateOffer';
 import PatientRegistration from '../../../models/PatientRegistration';
 import JobPosting from '../../../models/JobPosting';
 import User from '../../../models/Users';
-import jwt from 'jsonwebtoken';
-import { getUserFromReq } from '../lead-ms/auth';
+import { getAuthorizedStaffUser } from '../../../server/staff/authHelpers';
 import { getClinicIdFromUser, checkClinicPermission } from '../lead-ms/permissions-helper';
 
 export default async function handler(req, res) {
@@ -24,7 +23,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    const authUser = await getUserFromReq(req);
+    const authUser = await getAuthorizedStaffUser(req, {
+      allowedRoles: ["staff", "doctorStaff", "doctor", "clinic", "agent", "admin"],
+    });
     
     if (!authUser) {
       return res.status(401).json({ success: false, message: 'Unauthorized' });

@@ -148,37 +148,57 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
     freeQuantity: 0,
   });
 
-  // Update item calculations when relevant fields change
+  // Recalculate amounts whenever inputs change
   useEffect(() => {
-    const totalPrice = currentItem.quantity * currentItem.unitPrice;
+    const qty = Math.max(0, Number(currentItem.quantity) || 0);
+    const unit = Math.max(0, Number(currentItem.unitPrice) || 0);
+    const totalPrice = qty * unit;
 
-    // Calculate discount amount
+    let discountPct = Number(currentItem.discount || 0);
     let discountAmount = 0;
-    if (currentItem.discountType === "Fixed") {
-      discountAmount = currentItem.discount || 0;
-    } else if (currentItem.discountType === "Percentage") {
-      discountAmount = (totalPrice * (currentItem.discount || 0)) / 100;
+    if (currentItem.discountType === "Percentage") {
+      discountPct = Math.min(Math.max(discountPct, 0), 100);
+      discountAmount = (totalPrice * discountPct) / 100;
+    } else {
+      // Fixed
+      discountAmount = Math.min(Math.max(discountPct, 0), totalPrice);
     }
 
-    // Net price = totalPrice - discountAmount
-    const netPrice = totalPrice - discountAmount;
+    const netBeforeVat = totalPrice - discountAmount;
+    const vatPct = Math.max(0, Number(currentItem.vatPercentage || 0));
 
-    // VAT amount: if vatPercentage is set use it, otherwise use manual vatAmount
-    const vatAmount =
-      (currentItem.vatPercentage || 0) > 0
-        ? (netPrice * (currentItem.vatPercentage || 0)) / 100
-        : currentItem.vatAmount || 0;
-
-    // Net + VAT
-    const netPlusVat = netPrice + vatAmount;
+    let vatAmount = 0;
+    let netPrice = 0;
+    let netPlusVat = 0;
+    if (currentItem.vatType === "Inclusive") {
+      if (vatPct > 0) {
+        vatAmount = Number(((netBeforeVat * vatPct) / (100 + vatPct)).toFixed(2));
+      } else {
+        vatAmount = Math.max(0, Math.min(Number(currentItem.vatAmount || 0), netBeforeVat));
+      }
+      netPrice = Number((netBeforeVat - vatAmount).toFixed(2));
+      netPlusVat = Number(netBeforeVat.toFixed(2));
+    } else {
+      // Exclusive
+      if (vatPct > 0) {
+        vatAmount = Number(((netBeforeVat * vatPct) / 100).toFixed(2));
+      } else {
+        vatAmount = Math.max(0, Number(currentItem.vatAmount || 0));
+      }
+      netPrice = Number(netBeforeVat.toFixed(2));
+      netPlusVat = Number((netBeforeVat + vatAmount).toFixed(2));
+    }
 
     setCurrentItem((prev) => ({
       ...prev,
-      totalPrice: parseFloat(totalPrice.toFixed(2)),
-      discountAmount: parseFloat(discountAmount.toFixed(2)),
-      netPrice: parseFloat(netPrice.toFixed(2)),
-      vatAmount: parseFloat(vatAmount.toFixed(2)),
-      netPlusVat: parseFloat(netPlusVat.toFixed(2)),
+      quantity: qty,
+      unitPrice: unit,
+      totalPrice: Number(totalPrice.toFixed(2)),
+      discount: currentItem.discountType === "Percentage" ? discountPct : prev.discount,
+      discountAmount: Number(discountAmount.toFixed(2)),
+      netPrice,
+      vatAmount,
+      netPlusVat,
     }));
   }, [
     currentItem.quantity,
@@ -249,13 +269,18 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
     field: keyof PurchaseRecordItem,
     value: any
   ) => {
-    let discountAmount = 0;
-    if (field === "discount" && currentItem?.discountType === "Fixed") {
-      discountAmount = value || 0;
-    }
-    if (field === "discount" && currentItem?.discountType === "Percentage") {
-      discountAmount =
-        (currentItem.quantity * currentItem.unitPrice * (value || 0)) / 100;
+    // Clamp numeric entries
+    const numericFields: (keyof PurchaseRecordItem)[] = [
+      "quantity",
+      "unitPrice",
+      "discount",
+      "vatAmount",
+      "vatPercentage",
+      "freeQuantity",
+    ];
+    if (numericFields.includes(field)) {
+      value = Number(value || 0);
+      if (value < 0) value = 0;
     }
     if (field === "itemId") {
       const item = stockItems.find((i) => i._id === value);
@@ -277,7 +302,6 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
     setCurrentItem((prev) => ({
       ...prev,
       [field]: value,
-      ...(field === "discount" && { discountAmount }),
     }));
   };
 
@@ -287,6 +311,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
       return;
     }
 
+    // push recalculated snapshot
     setItems([...items, { ...currentItem }]);
     // Reset current item
     setCurrentItem({

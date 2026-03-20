@@ -177,8 +177,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [selectedComplaint, setSelectedComplaint] =
     useState<PreviousComplaint | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const token = getTokenByPath() || "";
-  const { uoms } = useUoms({ token });
   const [items, setItems] = useState<StockRow[]>([]);
   const [currentItem, setCurrentItem] = useState<StockRow>({
     itemId: "",
@@ -270,7 +268,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
         if (!response.data?.success) {
           setError(
-            response.data?.message || "Failed to load appointment report"
+            response.data?.message || "Failed to load appointment report",
           );
           return;
         }
@@ -307,7 +305,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         setPatientReports(
           Array.isArray(response.data.patientReports)
             ? response.data.patientReports
-            : []
+            : [],
         );
 
         // Fetch previous complaints for this patient
@@ -316,7 +314,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         }
       } catch (err: any) {
         setError(
-          err.response?.data?.message || "Failed to load appointment report"
+          err.response?.data?.message || "Failed to load appointment report",
         );
       } finally {
         setLoading(false);
@@ -332,7 +330,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           {
             headers,
             params: { patientId },
-          }
+          },
         );
 
         if (complaintsResponse.data?.success) {
@@ -368,7 +366,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
     if (!report || !report.reportId) {
       setError(
-        "Vitals report not found. Please fill the appointment report first, then add complaints."
+        "Vitals report not found. Please fill the appointment report first, then add complaints.",
       );
       return;
     }
@@ -390,7 +388,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           complaints: complaints.trim(),
           items: items || [],
         },
-        { headers }
+        { headers },
       );
 
       // Refresh previous complaints list
@@ -400,7 +398,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           {
             headers,
             params: { patientId: details.patientId },
-          }
+          },
         );
         if (complaintsResponse.data?.success) {
           setPreviousComplaints(complaintsResponse.data.complaints || []);
@@ -509,7 +507,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         },
       });
       setPreviousComplaints((prev) =>
-        prev.filter((pc) => pc._id !== complaint._id)
+        prev.filter((pc) => pc._id !== complaint._id),
       );
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to delete complaint");
@@ -546,7 +544,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     allocatedItems.find((si: any) => si._id === currentItem.itemId) || null;
   const availableForSelectedUom: number =
     selectedAllocatedItem?.quantitiesByUom?.find(
-      (q: any) => q?.uom === currentItem.uom
+      (q: any) => q?.uom === currentItem.uom,
     )?.quantity ?? 0;
   const exceedsAvailable =
     !!currentItem.uom &&
@@ -872,7 +870,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed flex items-center justify-between cursor-pointer bg-white h-10"
                             onClick={() =>
                               setIsAllocatedDropdownOpen(
-                                !isAllocatedDropdownOpen
+                                !isAllocatedDropdownOpen,
                               )
                             }
                           >
@@ -884,7 +882,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               }
                             >
                               {allocatedItems.find(
-                                (si: any) => si._id === currentItem.itemId
+                                (si: any) => si._id === currentItem.itemId,
                               )?.item?.name || "Select an item"}
                             </span>
                             <ChevronDown
@@ -990,7 +988,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           onChange={(e) =>
                             handleCurrentItemChange(
                               "description",
-                              e.target.value
+                              e.target.value,
                             )
                           }
                           placeholder="Description"
@@ -1037,15 +1035,15 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         >
                           <option value="">Select UOM</option>
                           {!allocatedItems?.find(
-                            (i) => i?._id === currentItem?.itemId
+                            (i) => i?._id === currentItem?.itemId,
                           ) ? (
                             <option value="">Loading UOMs...</option>
                           ) : allocatedItems?.find(
-                              (i) => i?._id === currentItem?.itemId
+                              (i) => i?._id === currentItem?.itemId,
                             ) && currentItem ? (
                             (
                               allocatedItems?.find(
-                                (i) => i?._id === currentItem?.itemId
+                                (i) => i?._id === currentItem?.itemId,
                               )?.quantitiesByUom || []
                             )?.map((i, index: number) => (
                               <option key={index.toString()} value={i.uom}>
@@ -1140,7 +1138,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         onChange={(e) =>
                                           handleEditingItemChange(
                                             "itemId",
-                                            e.target.value
+                                            e.target.value,
                                           )
                                         }
                                         className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
@@ -1166,7 +1164,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         onChange={(e) =>
                                           handleEditingItemChange(
                                             "description",
-                                            e.target.value
+                                            e.target.value,
                                           )
                                         }
                                         className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
@@ -1184,7 +1182,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         onChange={(e) =>
                                           handleEditingItemChange(
                                             "quantity",
-                                            e.target.value
+                                            e.target.value,
                                           )
                                         }
                                         className="w-24 px-2 py-1.5 text-sm border border-gray-300 rounded text-right"
@@ -1200,17 +1198,38 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         onChange={(e) =>
                                           handleEditingItemChange(
                                             "uom",
-                                            e.target.value
+                                            e.target.value,
                                           )
                                         }
                                         className="w-32 px-2 py-1.5 text-sm border border-gray-300 rounded"
                                       >
                                         <option value="">Select UOM</option>
-                                        {uoms.map((u: any) => (
-                                          <option key={u._id} value={u.name}>
-                                            {u.name}
+                                        {!allocatedItems?.find(
+                                          (i) => i?._id === editingItem?.itemId,
+                                        ) ? (
+                                          <option value="">
+                                            Loading UOMs...
                                           </option>
-                                        ))}
+                                        ) : allocatedItems?.find(
+                                            (i) =>
+                                              i?._id === editingItem?.itemId,
+                                          ) && editingItem ? (
+                                          (
+                                            allocatedItems?.find(
+                                              (i) =>
+                                                i?._id === editingItem?.itemId,
+                                            )?.quantitiesByUom || []
+                                          )?.map((i, index: number) => (
+                                            <option
+                                              key={index.toString()}
+                                              value={i.uom}
+                                            >
+                                              {i.uom}
+                                            </option>
+                                          ))
+                                        ) : (
+                                          <></>
+                                        )}
                                       </select>
                                     ) : (
                                       item.uom || "-"
@@ -1352,7 +1371,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                       )}
                                       {new Date(complaint.createdAt) >
                                         new Date(
-                                          Date.now() - 24 * 60 * 60 * 1000
+                                          Date.now() - 24 * 60 * 60 * 1000,
                                         ) && (
                                         <>
                                           <button
@@ -1382,7 +1401,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                             onClick={() => {
                                               setDeletedComplaint(complaint);
                                               setIsOpenDeleteComplaintModal(
-                                                true
+                                                true,
                                               );
                                             }}
                                             className="inline-flex items-center gap-1 px-2 py-1 border border-red-300 rounded text-red-700 hover:bg-red-50"
@@ -1499,8 +1518,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           items: updated.items || [],
                           createdAt: (updated as any).createdAt || pc.createdAt,
                         }
-                      : pc
-                  )
+                      : pc,
+                  ),
                 );
                 setIsEditModalOpen(false);
                 setEditingComplaint(null);
@@ -1562,7 +1581,7 @@ const EditComplaintModal: React.FC<{
   };
   const [note, setNote] = useState<string>(complaint.complaints || "");
   const [items, setItems] = useState<StockRow[]>(
-    Array.isArray(complaint.items) ? (complaint.items as any) : []
+    Array.isArray(complaint.items) ? (complaint.items as any) : [],
   );
   const [currentItem, setCurrentItem] = useState<StockRow>({
     itemId: "",
@@ -1688,7 +1707,7 @@ const EditComplaintModal: React.FC<{
           complaints: note.trim(),
           items,
         },
-        { headers }
+        { headers },
       );
       const updated = res.data?.complaint;
       if (res.data?.success && updated) {
@@ -1877,7 +1896,7 @@ const EditComplaintModal: React.FC<{
                                 onChange={(e) =>
                                   handleEditingItemChange(
                                     "itemId",
-                                    e.target.value
+                                    e.target.value,
                                   )
                                 }
                                 className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
@@ -1900,7 +1919,7 @@ const EditComplaintModal: React.FC<{
                                 onChange={(e) =>
                                   handleEditingItemChange(
                                     "description",
-                                    e.target.value
+                                    e.target.value,
                                   )
                                 }
                                 className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
@@ -1918,7 +1937,7 @@ const EditComplaintModal: React.FC<{
                                 onChange={(e) =>
                                   handleEditingItemChange(
                                     "quantity",
-                                    e.target.value
+                                    e.target.value,
                                   )
                                 }
                                 className="w-24 px-2 py-1.5 text-sm border border-gray-300 rounded text-right"

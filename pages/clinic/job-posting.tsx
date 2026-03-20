@@ -357,7 +357,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
           }}
         />
       </Head>
-      <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
+      <div className="min-h-screen bg-gray-50 p-1 sm:p-2">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -392,8 +392,8 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
         }}
       />
       {/* Compact Header */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-3">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3">
+      <div className="max-w-6xl mx-auto px-1 sm:px-2 mb-2">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <h1 className="text-lg sm:text-xl font-bold text-teal-900">Job Management</h1>
@@ -416,11 +416,11 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
       </div>
 
       {/* Compact Tabs */}
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <div className="bg-white rounded-lg border mt-1  border-gray-200 p-2 mb-1 inline-flex">
           <button
             onClick={() => setActiveTab('jobs')}
-            className={`px-2 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+            className={`px-1 py-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
               activeTab === 'jobs'
                 ? 'bg-teal-600 text-white'
                 : 'text-teal-700 hover:text-teal-900 hover:bg-teal-50'
@@ -484,7 +484,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
                   title: 'My Job Postings',
                   subtitle: 'Manage and review all your job listings posted as a clinic',
                   tokenKey,
-                  primaryColor: '"#1f2937"',
+                  primaryColor: '#2D9AA5',
                   emptyStateTitle: 'No Job Postings Yet',
                   emptyStateDescription: 'Start posting job opportunities to find new candidates.',
                   emptyStateButtonText: 'Post a New Job'

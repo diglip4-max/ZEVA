@@ -1,9 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, User, Crown, Stethoscope, Building2, Package, Gift, DoorOpen, UserPlus, GripVertical, Eye, EyeOff, Save, RotateCcw, Edit2, X, Undo2, Redo2, ChevronLeft, ChevronRight, LayoutDashboard, Home, Tag, Percent, ShoppingCart, Receipt, DollarSign, Wallet, Shield, UserCheck, UserCog, UserCircle, Award } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, LineChart, Line, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
+import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, User, Crown, Stethoscope, Building2, Package, Gift, DoorOpen, UserPlus, GripVertical, Eye, EyeOff, Save, RotateCcw, Edit2, X, Undo2, Redo2, ChevronLeft, ChevronRight, LayoutDashboard, Home, Tag, Percent, ShoppingCart, Receipt, DollarSign, Wallet, Shield, UserCheck, UserCog, UserCircle, Award, Download, RefreshCw, Clock } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, LineChart, Line, Tooltip, PieChart, Pie, Cell, Legend, AreaChart, Area } from 'recharts';
 import Stats from '../../components/Stats';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
+// import ServicePerformance from '../../components/clinic/ServicePerformance'; // Unused import
+import MembershipPackageReports from '../../components/clinic/MembershipPackageReports';
+import RoomUtilization from '../../components/clinic/RoomUtilization';
+import CancellationReports from '../../components/clinic/CancellationReports';
+import DoctorPerformance from '../../components/clinic/DoctorPerformance';
 import type { NextPageWithLayout } from '../_app';
 import axios from 'axios';
 import {
@@ -121,11 +126,19 @@ type WidgetType =
   | 'packages-offers'
   | 'primary-stats'
   | 'secondary-stats'
+  | 'appointment-status-overview'
+  | 'patient-reports'
+  | 'service-performance'
   | 'quick-actions'
+  | 'lead-status-charts'
   | 'status-charts'
+  | 'services-overview'
+  | 'membership-overview'
+  | 'commission-overview'
   | 'analytics-overview'
   | 'subscription-status'
-  | 'additional-stats';
+  | 'additional-stats'
+  | 'financial-reports';
 
 interface DashboardWidget {
   id: string;
@@ -152,7 +165,7 @@ interface ChartComponent {
   id: string;
   type: 'pie' | 'bar' | 'line' | 'combo';
   title: string;
-  section: 'status-charts' | 'analytics-overview';
+  section: 'status-charts' | 'services-overview' | 'membership-overview' | 'analytics-overview';
   order: number;
   visible: boolean;
 }
@@ -178,14 +191,21 @@ const DEFAULT_WIDGETS: DashboardWidget[] = [
   { id: '1', type: 'packages-offers', title: 'Packages & Offers', visible: true, order: 0 },
   { id: '2', type: 'primary-stats', title: 'Key Statistics', visible: true, order: 1 },
   { id: '3', type: 'secondary-stats', title: 'Additional Statistics', visible: true, order: 2 },
-  { id: '4', type: 'quick-actions', title: 'Quick Actions', visible: true, order: 3 },
-  { id: '5', type: 'status-charts', title: 'Status Breakdown Charts', visible: true, order: 4 },
-  { id: '6', type: 'analytics-overview', title: 'Analytics Overview', visible: true, order: 5 },
-  { id: '7', type: 'subscription-status', title: 'Subscription Status', visible: true, order: 6 },
-  { id: '8', type: 'additional-stats', title: 'Job & Blog Analytics', visible: true, order: 7 },
+  { id: 'financial', type: 'financial-reports', title: 'Financial Reports', visible: true, order: 3 },
+  { id: '9', type: 'appointment-status-overview', title: 'Appointment Status Overview', visible: true, order: 4 },
+  { id: '14', type: 'patient-reports', title: 'Patient Reports', visible: true, order: 5 },
+  { id: '10', type: 'lead-status-charts', title: 'Lead Status Charts', visible: true, order: 6 },
+  { id: '5', type: 'status-charts', title: 'Status Breakdown Charts', visible: true, order: 7 },
+  { id: '11', type: 'services-overview', title: 'Top Services & Packages', visible: true, order: 8 },
+  { id: '12', type: 'membership-overview', title: 'Most Purchased Membership', visible: true, order: 9 },
+  { id: '13', type: 'commission-overview', title: 'Commission Details', visible: true, order: 10 },
+  { id: '6', type: 'analytics-overview', title: 'Analytics Overview', visible: true, order: 11 },
+  { id: '7', type: 'subscription-status', title: 'Subscription Status', visible: true, order: 12 },
+  { id: '8', type: 'additional-stats', title: 'Job & Blog Analytics', visible: true, order: 13 },
+  { id: '4', type: 'quick-actions', title: 'Quick Actions', visible: true, order: 14 },
 ];
 
-const STORAGE_KEY = 'clinic-dashboard-layout';
+const STORAGE_KEY = 'clinic-dashboard-layout-v8'; // Financial Reports sabse uppar (before Appointment Status)
 
 const ClinicDashboard: NextPageWithLayout = () => {
   const [stats, setStats] = useState<Stats>({
@@ -225,6 +245,142 @@ const ClinicDashboard: NextPageWithLayout = () => {
  
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showCalendar, setShowCalendar] = useState<boolean>(false);
+  const [timeRangeFilter, setTimeRangeFilter] = useState<'today' | 'week' | 'month' | 'overall'>('today');
+  const [filteredAppointmentData, setFilteredAppointmentData] = useState<any[]>([]);
+  const [filteredLeadSourceData, setFilteredLeadSourceData] = useState<any[]>([]);
+  const [filteredLeadStatusData, setFilteredLeadStatusData] = useState<any[]>([]);
+  const [topPackagesData, setTopPackagesData] = useState<any[]>([]);
+  const [topServicesData, setTopServicesData] = useState<any[]>([]);
+  const [membershipData, setMembershipData] = useState<any[]>([]);
+  const [commissionData, setCommissionData] = useState<any[]>([]);
+  const [commissionPage, setCommissionPage] = useState<number>(1);
+  const COMMISSION_PAGE_SIZE = 10;
+  const [commissionTypeStats, setCommissionTypeStats] = useState<any[]>([]);
+  
+  // Financial Reports Data
+  const [financialData, setFinancialData] = useState({
+    revenueTrendData: [] as any[],
+    paymentMethodsData: [] as any[],
+    doctorRevenueData: [] as any[],
+    topServicesData: [] as any[],
+  });
+  const [financialLoading, setFinancialLoading] = useState<boolean>(false);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+  useEffect(() => {
+    const updateMobile = () => setIsMobile(typeof window !== 'undefined' && window.innerWidth < 640);
+    updateMobile();
+    window.addEventListener('resize', updateMobile);
+    return () => window.removeEventListener('resize', updateMobile);
+  }, []);
+  
+  // Patient Reports Data
+  const [patientDemographics, setPatientDemographics] = useState({
+    newVsReturning: [] as any[],
+    genderDistribution: [] as any[],
+    patientVisitFrequency: [] as any[],
+    topPatients: [] as any[],
+  });
+  
+  // Service Performance Data
+  const [servicePerformance, setServicePerformance] = useState({
+    mostBookedServices: [] as any[],
+    leastBookedServices: [] as any[],
+    serviceRevenueData: [] as any[],
+    conversionRateData: [] as any[],
+  });
+  const [servicePerformanceLoading, setServicePerformanceLoading] = useState<boolean>(false);
+  
+  // New filter states for Last 30 Days with options
+  const [searchQuery, setSearchQuery] = useState<string>('');
+ 
+  // Export dashboard data to CSV
+ 
+  // Export dashboard data to CSV
+  const handleExportDashboard = () => {
+    const headers = ['Module', 'Value', 'Label'];
+    const csvData = Object.entries(moduleStats).map(([key, stat]) => [
+      key,
+      stat.value,
+      stat.label
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `dashboard-export-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Refresh dashboard - reload page
+  const handleRefreshDashboard = () => {
+    window.location.reload();
+  };
+
+  // Function to check if a section matches the search query
+  const sectionMatchesSearch = (sectionNames: string[]): boolean => {
+    if (!searchQuery.trim()) return false;
+    const query = searchQuery.toLowerCase();
+    return sectionNames.some(name => name.toLowerCase().includes(query));
+  };
+
+  // Compute matching section IDs based on current search (memoized)
+  const matchingSectionIds = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    
+    const matches: string[] = [];
+    
+    // Check each section type
+    if (sectionMatchesSearch(['Appointment', 'Appointments', 'Reports'])) {
+      matches.push('appointment-status-overview');
+    }
+    if (sectionMatchesSearch(['Patient', 'Patients', 'Demographics'])) {
+      matches.push('patient-reports');
+    }
+    if (sectionMatchesSearch(['Service', 'Services', 'Performance', 'Booked'])) {
+      matches.push('services-overview');
+    }
+    if (sectionMatchesSearch(['Status', 'Charts', 'Breakdown'])) {
+      matches.push('status-charts');
+    }
+    if (sectionMatchesSearch(['Membership', 'Package', 'Packages'])) {
+      matches.push('membership-overview');
+    }
+    if (sectionMatchesSearch(['Commission'])) {
+      matches.push('commission-overview');
+    }
+    if (sectionMatchesSearch(['Analytics', 'Overview'])) {
+      matches.push('analytics-overview');
+    }
+    if (sectionMatchesSearch(['Subscription'])) {
+      matches.push('subscription-status');
+    }
+    if (sectionMatchesSearch(['Job', 'Blog', 'Additional'])) {
+      matches.push('additional-stats');
+    }
+    if (sectionMatchesSearch(['Quick', 'Actions'])) {
+      matches.push('quick-actions');
+    }
+    if (sectionMatchesSearch(['Doctor', 'Performance'])) {
+      matches.push('doctor-performance');
+    }
+    if (sectionMatchesSearch(['Room', 'Resource', 'Utilization'])) {
+      matches.push('room-utilization');
+    }
+    if (sectionMatchesSearch(['Cancellation', 'No-Show'])) {
+      matches.push('cancellation-reports');
+    }
+    
+    return matches;
+  }, [searchQuery]);
  
   // Close calendar when clicking outside
   useEffect(() => {
@@ -265,12 +421,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
     newDate.setDate(day);
    
     // Check if selected date is in the future
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time for comparison
+    const week = new Date();
+    week.setHours(0, 0, 0, 0); // Reset time for comparison
     const selectedDateTime = new Date(newDate);
     selectedDateTime.setHours(0, 0, 0, 0);
    
-    if (selectedDateTime > today) {
+    if (selectedDateTime > week) {
       // Don't allow future dates
       return;
     }
@@ -290,10 +446,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
 
   const isFutureDate = (day: number): boolean => {
     const dateToCheck = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), day);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const week = new Date();
+    week.setHours(0, 0, 0, 0);
     dateToCheck.setHours(0, 0, 0, 0);
-    return dateToCheck > today;
+    return dateToCheck > week;
   };
 
   const renderCalendar = () => {
@@ -349,7 +505,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
       leads: 0,
       reviews: 0,
       enquiries: 0,
-      applications: 0
+      applications: 0,
+      appointments: 0,
+      arrived: 0,
+      booked: 0,
+      cancelled: 0,
+      waiting: 0,
+      enquiry: 0
     },
     totals: {
       membership: 0,
@@ -396,7 +558,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const [activeId, setActiveId] = useState<string | null>(null);
  
   // Individual stat card state
-  const STAT_CARDS_STORAGE_KEY = 'clinic-dashboard-stat-cards-v3';
+  const STAT_CARDS_STORAGE_KEY = 'clinic-dashboard-stat-cards-v4';
   const [statCards, setStatCards] = useState<{ primary: StatCard[]; secondary: StatCard[] }>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(STAT_CARDS_STORAGE_KEY);
@@ -416,15 +578,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
         { id: 'p4', label: 'Subscription', value: '0%', icon: 'crown', moduleKey: 'subscription', gridType: 'primary' as const, order: 3, visible: false },
         { id: 'p5', label: 'Total Membership', value: 0, icon: 'users', moduleKey: 'membership', gridType: 'primary' as const, order: 4, visible: true },
         { id: 'p6', label: 'Total Jobs', value: 0, icon: 'briefcase', moduleKey: 'jobs', gridType: 'primary' as const, order: 5, visible: true },
+        { id: 'p7', label: 'Total Leads', value: 0, icon: 'users', moduleKey: 'leads', gridType: 'primary' as const, order: 6, visible: true },
       ],
       secondary: [
-        { id: 's1', label: 'Appointments', value: 0, icon: 'calendar', moduleKey: 'appointments', gridType: 'secondary' as const, order: 0, visible: true },
-        { id: 's2', label: 'Leads', value: 0, icon: 'users', moduleKey: 'leads', gridType: 'secondary' as const, order: 1, visible: true },
-        { id: 's3', label: 'Booked', value: 0, icon: 'calendar', moduleKey: 'booked', gridType: 'secondary' as const, order: 2, visible: true },
-        { id: 's4', label: 'Arrived', value: 0, icon: 'check', moduleKey: 'arrived', gridType: 'secondary' as const, order: 3, visible: true },
-        { id: 's5', label: 'Consultation', value: 0, icon: 'stethoscope', moduleKey: 'consultation', gridType: 'secondary' as const, order: 4, visible: true },
-        { id: 's6', label: 'Cancelled', value: 0, icon: 'x', moduleKey: 'cancelled', gridType: 'secondary' as const, order: 5, visible: true },
-        { id: 's7', label: ' Discharge', value: 0, icon: 'door', moduleKey: 'discharge', gridType: 'secondary' as const, order: 6, visible: true },
+        { id: 's1', label: 'Appointments', value: 0, icon: 'calendar', moduleKey: 'daily_appointments', gridType: 'secondary' as const, order: 0, visible: false },
         // New Daily Activity Cards
         { id: 's8', label: 'Patients', value: 0, icon: 'users', moduleKey: 'daily_patients', gridType: 'secondary' as const, order: 7, visible: true },
         { id: 's9', label: 'Jobs', value: 0, icon: 'briefcase', moduleKey: 'daily_jobs', gridType: 'secondary' as const, order: 8, visible: true },
@@ -442,6 +599,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const CHARTS_STORAGE_KEY = 'clinic-dashboard-charts-v2';
   const [chartComponents, setChartComponents] = useState<{
     'status-charts': ChartComponent[];
+    'services-overview': ChartComponent[];
+    'membership-overview': ChartComponent[];
     'analytics-overview': ChartComponent[];
   }>(() => {
     if (typeof window !== 'undefined') {
@@ -457,6 +616,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
               { id: 'chart-offer', type: 'pie' as const, title: 'Offer Status', section: 'status-charts' as const, order: 2, visible: true },
               { id: 'chart-daily-activities', type: 'pie' as const, title: 'Daily Activities', section: 'status-charts' as const, order: 3, visible: true },
             ],
+            'services-overview': [],
+            'membership-overview': [],
             'analytics-overview': [
               { id: 'chart-bar', type: 'bar' as const, title: 'Appointments, Leads, Offers & Jobs', section: 'analytics-overview' as const, order: 0, visible: true },
               { id: 'chart-line', type: 'line' as const, title: 'Reviews, Enquiries, Patients & Rooms', section: 'analytics-overview' as const, order: 1, visible: true },
@@ -1512,7 +1673,45 @@ const ClinicDashboard: NextPageWithLayout = () => {
         });
         const data: DashboardStatsResponse = await res.json();
         if (data.success) {
-          setStats(data.stats);
+          console.log('📊 Dashboard stats loaded, FORCE CLEARING offerStatusBreakdown...');
+          
+          // CRITICAL: Two-step clear to ensure no stale data shows
+          // Step 1: Clear immediately with functional update
+          setStats(prev => ({
+            ...prev,
+            offerStatusBreakdown: {}
+          }));
+          
+          console.log('⏳ Waiting for React to process clear...');
+          
+          // Step 2: After React processes the clear, set new data and fetch week's offers
+          setTimeout(() => {
+            console.log('🔄 Setting dashboard stats (offers cleared)...');
+            const statsWithoutOffers = { ...data.stats, offerStatusBreakdown: {} };
+            setStats(statsWithoutOffers);
+            
+            console.log('✅ Dashboard stats set, now fetching TODAY offers...');
+            
+            // Immediately fetch week's offer stats
+            const params: any = { filter: 'week' };
+            params.date = new Date().toISOString().split('T')[0];
+            
+            axios.get('/api/clinics/offerStats', {
+              params,
+              headers: { Authorization: `Bearer ${token}` }
+            }).then(res => {
+              console.log('📡 Today API Response:', res.data);
+              if (res.data.success) {
+                console.log('🎯 Setting week offer data:', res.data.offerStatusBreakdown);
+                setStats((prev) => ({
+                  ...prev,
+                  offerStatusBreakdown: res.data.offerStatusBreakdown || {}
+                }));
+              }
+            }).catch(error => {
+              console.error('❌ Error fetching week offer stats:', error);
+            });
+          }, 50); // Slight delay to ensure React processes the clear
         } else if (res.status === 403) {
           setStats({
             totalReviews: 0,
@@ -1562,7 +1761,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
 
     return () => clearInterval(timeInterval);
   }, [permissionsLoaded, moduleAccess.canRead, userRole]);
-
 
 
   const getGreeting = (): string => {
@@ -1730,24 +1928,24 @@ const ClinicDashboard: NextPageWithLayout = () => {
     ].filter(item => item.value > 0 || !statsLoading); // Only show items with data or while loading
   }, [stats.totalReviews, stats.totalEnquiries, stats.totalPatients, stats.totalRooms, statsLoading]);
 
-  // Prepare breakdown chart data
-  const appointmentStatusData = useMemo(() => {
-    // Use dailyStats for the chart - showing ALL appointment statuses
-    return [
-      { name: 'Booked', value: dailyStats.booked },
-      { name: 'Enquiry', value: dailyStats.enquiry },
-      { name: 'Discharge', value: dailyStats.discharge },
-      { name: 'Arrived', value: dailyStats.arrived },
-      { name: 'Consultation', value: dailyStats.consultation },
-      { name: 'Cancelled', value: dailyStats.cancelled },
-      { name: 'Approved', value: dailyStats.approved },
-      { name: 'Rescheduled', value: dailyStats.rescheduled },
-      { name: 'Waiting', value: dailyStats.waiting },
-      { name: 'Rejected', value: dailyStats.rejected },
-      { name: 'Completed', value: dailyStats.completed },
-    ];
-    // Note: Not filtering out zero values to show all statuses in chart
-  }, [dailyStats]);
+  // Prepare breakdown chart data (commented out as unused)
+  // const appointmentStatusData = useMemo(() => {
+  //   // Use dailyStats for the chart - showing ALL appointment statuses
+  //   return [
+  //     { name: 'Booked', value: dailyStats.booked },
+  //     { name: 'Enquiry', value: dailyStats.enquiry },
+  //     { name: 'Discharge', value: dailyStats.discharge },
+  //     { name: 'Arrived', value: dailyStats.arrived },
+  //     { name: 'Consultation', value: dailyStats.consultation },
+  //     { name: 'Cancelled', value: dailyStats.cancelled },
+  //     { name: 'Approved', value: dailyStats.approved },
+  //     { name: 'Rescheduled', value: dailyStats.rescheduled },
+  //     { name: 'Waiting', value: dailyStats.waiting },
+  //     { name: 'Rejected', value: dailyStats.rejected },
+  //     { name: 'Completed', value: dailyStats.completed },
+  //   ];
+  //   // Note: Not filtering out zero values to show all statuses in chart
+  // }, [dailyStats]);
 
   const dailyAppointmentChartData = useMemo(() => [
     { name: 'Booked', value: dailyStats.booked, fill: '#3b82f6' },
@@ -1757,36 +1955,64 @@ const ClinicDashboard: NextPageWithLayout = () => {
     { name: 'Discharge', value: dailyStats.discharge, fill: '#8b5cf6' },
   ], [dailyStats]);
 
-  const leadStatusData = useMemo(() => {
-    if (!stats.leadStatusBreakdown) return [];
-    return Object.entries(stats.leadStatusBreakdown).map(([status, count]) => ({
-      name: status,
-      value: count,
-    }));
-  }, [stats.leadStatusBreakdown]);
+  // const leadStatusData = useMemo(() => {
+  //   if (!stats.leadStatusBreakdown) return [];
+  //   return Object.entries(stats.leadStatusBreakdown).map(([status, count]) => ({
+  //     name: status,
+  //     value: count,
+  //   }));
+  // }, [stats.leadStatusBreakdown]);
 
   const offerStatusData = useMemo(() => {
-    if (!stats.offerStatusBreakdown) return [];
-    return Object.entries(stats.offerStatusBreakdown).map(([status, count]) => ({
+    console.log('🔍 offerStatusData recalculating...', stats.offerStatusBreakdown);
+    if (!stats.offerStatusBreakdown) {
+      console.log('⚠️ offerStatusBreakdown is null/undefined');
+      return [];
+    }
+    const result = Object.entries(stats.offerStatusBreakdown).map(([status, count]) => ({
       name: status,
       value: count,
     }));
+    console.log('✅ offerStatusData result:', result);
+    return result;
   }, [stats.offerStatusBreakdown]);
 
-  const dailyActivitiesData = useMemo(() => {
-    if (!dailyStats.daily) return [];
-    return [
-      { name: 'Patients', value: dailyStats.daily.patients },
-      { name: 'Jobs', value: dailyStats.daily.jobs },
-      { name: 'Offers', value: dailyStats.daily.offers },
-      { name: 'Leads', value: dailyStats.daily.leads },
-      { name: 'Reviews', value: dailyStats.daily.reviews },
-      { name: 'Enquiries', value: dailyStats.daily.enquiries },
-    ].filter(item => item.value > 0);
-  }, [dailyStats.daily]);
+  // const dailyActivitiesData = useMemo(() => {
+  //   if (!dailyStats.daily) return [];
+  //   return [
+  //     { name: 'Patients', value: dailyStats.daily.patients },
+  //     { name: 'Jobs', value: dailyStats.daily.jobs },
+  //     { name: 'Offers', value: dailyStats.daily.offers },
+  //     { name: 'Leads', value: dailyStats.daily.leads },
+  //     { name: 'Reviews', value: dailyStats.daily.reviews },
+  //     { name: 'Enquiries', value: dailyStats.daily.enquiries },
+  //   ].filter(item => item.value > 0);
+  // }, [dailyStats.daily]);
 
   // Colors for pie charts
   const pieColors = ['#2D9AA5', '#22c55e', '#a855f7', '#f97316', '#ec4899', '#6366f1', '#ef4444', '#10b981', '#3b82f6', '#f59e0b'];
+
+  // Helper function to get color for status
+  const getStatusColor = (status: string) => {
+    const colorMap: { [key: string]: string } = {
+      'Active': '#22c55e',
+      'Completed': '#10b981',
+      'Pending': '#f59e0b',
+      'Expired': '#ef4444',
+      'Cancelled': '#64748b',
+      'Draft': '#6366f1',
+      'Booked': '#3b82f6',
+      'Enquiry': '#06b6d4',
+      'Approved': '#22c55e',
+      'Arrived': '#84cc16',
+      'Consultation': '#eab308',
+      'Waiting': '#f97316',
+      'Rescheduled': '#a855f7',
+      'Discharge': '#ec4899',
+      'Rejected': '#64748b',
+    };
+    return colorMap[status] || '#6b7280';
+  };
 
   // Unified drag and drop handler - handles both widget-level and item-level drags
   const handleUnifiedDragStart = (event: DragStartEvent) => {
@@ -1891,6 +2117,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
           { id: 'chart-lead', type: 'pie' as const, title: 'Lead Status', section: 'status-charts' as const, order: 1, visible: true },
           { id: 'chart-offer', type: 'pie' as const, title: 'Offer Status', section: 'status-charts' as const, order: 2, visible: true },
         ],
+        'services-overview': [],
+        'membership-overview': [],
         'analytics-overview': [
           { id: 'chart-bar', type: 'bar' as const, title: 'Appointments, Leads, Offers & Jobs', section: 'analytics-overview' as const, order: 0, visible: true },
           { id: 'chart-line', type: 'line' as const, title: 'Reviews, Enquiries, Patients & Rooms', section: 'analytics-overview' as const, order: 1, visible: true },
@@ -2090,16 +2318,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
     }
   };
 
-  const toggleChartVisibility = (chartId: string) => {
-    setChartComponents((prev) => ({
-      'status-charts': prev['status-charts'].map(chart =>
-        chart.id === chartId ? { ...chart, visible: !chart.visible } : chart
-      ),
-      'analytics-overview': prev['analytics-overview'].map(chart =>
-        chart.id === chartId ? { ...chart, visible: !chart.visible } : chart
-      ),
-    }));
-  };
+  // const toggleChartVisibility = (chartId: string) => {
+  //   setChartComponents((prev) => ({
+  //     'status-charts': prev['status-charts'].map(chart =>
+  //       chart.id === chartId ? { ...chart, visible: !chart.visible } : chart
+  //     ),
+  //     'services-overview': prev['services-overview'] || [],
+  //     'membership-overview': prev['membership-overview'] || [],
+  //     'analytics-overview': prev['analytics-overview'].map(chart =>
+  //       chart.id === chartId ? { ...chart, visible: !chart.visible } : chart
+  //     ),
+  //   }));
+  // };
 
   // Package/Offer drag handlers
   const handlePackageOfferDragStart = (event: DragStartEvent) => {
@@ -2430,12 +2660,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
           console.log('API Response:', res.data);
           setDailyStats({
             ...res.data.stats,
-            daily: res.data.daily || { patients: 0, jobs: 0, offers: 0, leads: 0, reviews: 0, enquiries: 0 },
+            daily: res.data.daily || { patients: 0, jobs: 0, offers: 0, leads: 0, reviews: 0, enquiries: 0, applications: 0, appointments: 0, arrived: 0, booked: 0, cancelled: 0, waiting: 0, enquiry: 0 },
             totals: res.data.totals || { membership: 0, jobs: 0 }
           });
           console.log('Updated dailyStats:', {
             ...res.data.stats,
-            daily: res.data.daily || { patients: 0, jobs: 0, offers: 0, leads: 0, reviews: 0, enquiries: 0 },
+            daily: res.data.daily || { patients: 0, jobs: 0, offers: 0, leads: 0, reviews: 0, enquiries: 0, applications: 0, appointments: 0, arrived: 0, booked: 0, cancelled: 0, waiting: 0, enquiry: 0 },
             totals: res.data.totals || { membership: 0, jobs: 0 }
           });
         }
@@ -2447,31 +2677,545 @@ const ClinicDashboard: NextPageWithLayout = () => {
     fetchDailyStats();
   }, [selectedDate]);
 
-  // Fetch patient analytics stats
+  // Fetch filtered appointment stats (unified API for week, month, overall)
   useEffect(() => {
-    if (!permissionsLoaded || !moduleAccess.canRead) return;
-    const fetchPatientStats = async () => {
+    const fetchFilteredStats = async () => {
       try {
-        setPatientStatsLoading(true);
         const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
         if (!token) return;
-        const res = await axios.get('/api/clinic/reports/patient-stats', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.data.success) {
-          setPatientStats(res.data.data);
+
+        const params: any = { filter: timeRangeFilter };
+        
+        if (timeRangeFilter === 'week') {
+          params.date = selectedDate.toISOString().split('T')[0];
+        } else if (timeRangeFilter === 'month') {
+          const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+          const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+          params.startDate = startDate.toISOString().split('T')[0];
+          params.endDate = endDate.toISOString().split('T')[0];
         }
-      } catch (err) {
-        console.error('Error fetching patient stats:', err);
-      } finally {
-        setPatientStatsLoading(false);
+        // For 'overall' filter, no additional params needed - shows all-time data
+
+        const res = await axios.get('/api/clinics/appointmentStats', {
+          params,
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (res.data.success) {
+          setFilteredAppointmentData(res.data.data || []);
+        }
+      } catch (error) {
+        console.error('Error fetching filtered appointment stats:', error);
       }
     };
-    fetchPatientStats();
-  }, [permissionsLoaded, moduleAccess.canRead]);
+
+    fetchFilteredStats();
+  }, [timeRangeFilter, selectedDate]);
+
+  // Fetch filtered offer stats (week, month, overall) - runs on mount AND when filter changes
+  useEffect(() => {
+    console.log('🔵 Offer Filter Changed to:', timeRangeFilter);
+    
+    // Force clear previous offer status data completely
+    setStats(prev => {
+      const updated = {
+        ...prev,
+        offerStatusBreakdown: {}
+      };
+      console.log('🧹 Cleared offerStatusBreakdown');
+      return updated;
+    });
+
+    const fetchFilteredOfferStats = async () => {
+      try {
+        const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+        if (!token) {
+          console.log('⚠️ No token found');
+          return;
+        }
+
+        const params: any = { filter: timeRangeFilter };
+        
+        if (timeRangeFilter === 'week') {
+          params.date = new Date().toISOString().split('T')[0];
+          console.log('📅 Fetching TODAY offer stats for:', params.date);
+        } else if (timeRangeFilter === 'month') {
+          const now = new Date();
+          const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+          params.startDate = startDate.toISOString().split('T')[0];
+          params.endDate = endDate.toISOString().split('T')[0];
+          console.log('📅 Fetching MONTH offer stats:', params.startDate, 'to', params.endDate);
+        } else {
+          console.log('📅 Fetching OVERALL offer stats (all-time)');
+        }
+        // For 'overall' filter, no additional params needed - shows all-time data
+
+        const res = await axios.get('/api/clinics/offerStats', {
+          params,
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        console.log('📡 API Response:', res.data);
+        
+        if (res.data.success) {
+          console.log('✅ Setting offerStatusBreakdown:', res.data.offerStatusBreakdown);
+          // Update the offer status data based on filter
+          setStats((prev) => ({
+            ...prev,
+            offerStatusBreakdown: res.data.offerStatusBreakdown || {}
+          }));
+        }
+      } catch (error) {
+        console.error('❌ Error fetching filtered offer stats:', error);
+      }
+    };
+
+    fetchFilteredOfferStats();
+  }, [timeRangeFilter]);
+
+  // Fetch filtered lead stats (unified API for week, month, overall)
+  useEffect(() => {
+    const fetchFilteredLeadStats = async () => {
+      try {
+        const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+        if (!token) return;
+
+        const params: any = { filter: timeRangeFilter };
+        
+        if (timeRangeFilter === 'week') {
+          params.date = selectedDate.toISOString().split('T')[0];
+        } else if (timeRangeFilter === 'month') {
+          const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+          const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+          params.startDate = startDate.toISOString().split('T')[0];
+          params.endDate = endDate.toISOString().split('T')[0];
+        }
+        // For 'overall' filter, no additional params needed
+
+        const res = await axios.get('/api/clinics/leadStats', {
+          params,
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (res.data.success) {
+          setFilteredLeadSourceData(res.data.sourceData || []);
+          setFilteredLeadStatusData(res.data.statusData || []);
+        }
+      } catch (error) {
+        console.error('Error fetching filtered lead stats:', error);
+      }
+    };
+
+    fetchFilteredLeadStats();
+  }, [timeRangeFilter, selectedDate]);
+
+  // Fetch billing stats (Top 5 Services & Treatment Services)
+  useEffect(() => {
+    const fetchBillingStats = async () => {
+      try {
+        const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+        if (!token) return;
+
+        const params: any = { filter: timeRangeFilter };
+        
+        if (timeRangeFilter === 'week') {
+          params.date = selectedDate.toISOString().split('T')[0];
+        } else if (timeRangeFilter === 'month') {
+          const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+          const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+          params.startDate = startDate.toISOString().split('T')[0];
+          params.endDate = endDate.toISOString().split('T')[0];
+        }
+        // For 'overall' filter, no additional params needed
+
+        const res = await axios.get('/api/clinics/billingStats', {
+          params,
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        console.log('Billing Stats Response:', res.data);
+        if (res.data.success) {
+          setTopPackagesData(res.data.topPackagesData || []);
+          setTopServicesData(res.data.topServicesData || []);
+          console.log('Top Packages Data:', res.data.topPackagesData);
+          console.log('Top Services Data:', res.data.topServicesData);
+        }
+      } catch (error) {
+        console.error('Error fetching billing stats:', error);
+      }
+    };
+
+    fetchBillingStats();
+  }, [timeRangeFilter, selectedDate]);
+
+  // Fetch membership stats
+  useEffect(() => {
+    const fetchMembershipStats = async () => {
+      try {
+        const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+        if (!token) return;
+
+        const params: any = { filter: timeRangeFilter };
+        
+        if (timeRangeFilter === 'week') {
+          params.date = selectedDate.toISOString().split('T')[0];
+        } else if (timeRangeFilter === 'month') {
+          const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+          const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+          params.startDate = startDate.toISOString().split('T')[0];
+          params.endDate = endDate.toISOString().split('T')[0];
+        }
+        // For 'overall' filter, no additional params needed
+
+        const res = await axios.get('/api/clinics/membership-stats-new', {
+          params,
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        console.log('Membership Stats Response:', res.data);
+        if (res.data.success) {
+          setMembershipData(res.data.membershipData || []);
+          console.log('Membership Data:', res.data.membershipData);
+        }
+      } catch (error) {
+        console.error('Error fetching membership stats:', error);
+      }
+    };
+
+    fetchMembershipStats();
+  }, [timeRangeFilter, selectedDate]);
+
+  // Fetch commission data (summary for staff commissions)
+  useEffect(() => {
+    const fetchCommissionData = async () => {
+      try {
+        const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+        if (!token) return;
+
+        const params: any = { 
+          source: 'staff'
+        };
+        
+        if (timeRangeFilter === 'week') {
+          params.date = selectedDate.toISOString().split('T')[0];
+        } else if (timeRangeFilter === 'month') {
+          const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+          const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+          params.startDate = startDate.toISOString().split('T')[0];
+          params.endDate = endDate.toISOString().split('T')[0];
+        }
+        // For 'overall' filter, no additional params needed
+
+        console.log('📡 Fetching commission summary with params:', params);
+        
+        const res = await axios.get('/api/clinic/commissions/summary', {
+          params,
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        console.log('✅ Commission Summary Response:', res.data);
+        if (res.data.success) {
+          const items = res.data.items || [];
+          setCommissionData(items);
+          setCommissionPage(1); // Reset to first page when data changes
+          
+          // Calculate commission type statistics for graph
+          const typeStats = items.reduce((acc: any, item: any) => {
+            const type = item.commissionType || 'flat';
+            if (!acc[type]) {
+              acc[type] = {
+                name: type.replace(/_/g, ' '),
+                totalEarned: 0,
+                count: 0
+              };
+            }
+            acc[type].totalEarned += item.totalEarned || 0;
+            acc[type].count += item.count || 0;
+            return acc;
+          }, {});
+          
+          const chartData = Object.values(typeStats).map((stat: any) => ({
+            name: stat.name,
+            amount: stat.totalEarned,
+            count: stat.count
+          }));
+          
+          setCommissionTypeStats(chartData);
+          console.log('📊 Commission Type Stats:', chartData);
+        }
+      } catch (error: any) {
+        console.error('❌ Error fetching commission stats:', error.message);
+        // If no data or error, set empty array
+        setCommissionData([]);
+      }
+    };
+
+    fetchCommissionData();
+  }, [timeRangeFilter, selectedDate]);
+
+  // Fetch Financial Reports Data - Uses existing timeRangeFilter
+  useEffect(() => {
+    const fetchFinancialReports = async () => {
+      try {
+        setFinancialLoading(true);
+        const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+        if (!token) return;
+
+        console.log('📊 Fetching financial reports for', timeRangeFilter);
+        
+        // Calculate date range based on filter
+        const endDate = new Date();
+        let startDate = new Date();
+        
+        if (timeRangeFilter === 'today') {
+          // Today - set to start of day
+          startDate.setHours(0, 0, 0, 0);
+          console.log('📅 Today filter: Current day');
+        } else if (timeRangeFilter === 'week') {
+          // Last 7 days
+          startDate.setDate(endDate.getDate() - 7);
+          startDate.setHours(0, 0, 0, 0);
+          console.log('📅 Week filter: Last 7 days');
+        } else if (timeRangeFilter === 'month') {
+          // Last 30 days
+          startDate.setDate(endDate.getDate() - 30);
+          startDate.setHours(0, 0, 0, 0);
+          console.log('📅 Month filter: Last 30 days');
+        } else if (timeRangeFilter === 'overall') {
+          // Overall - use start of year
+          startDate = new Date(new Date().getFullYear(), 0, 1);
+          startDate.setHours(0, 0, 0, 0);
+          console.log('📅 Overall filter: Start of year', startDate.getFullYear());
+        } else {
+          // Default to today
+          startDate.setHours(0, 0, 0, 0);
+          console.log('📅 Default filter: Today');
+        }
+        
+        // Set end time to end of day
+        endDate.setHours(23, 59, 59, 999);
+        
+        console.log('📅 Calculated date range:', { 
+          filter: timeRangeFilter,
+          startDate: startDate.toISOString(), 
+          endDate: endDate.toISOString(),
+          startDateReadable: startDate.toLocaleDateString(),
+          endDateReadable: endDate.toLocaleDateString()
+        });
+        
+        // Fetch clinic financials + doctor-performance trend together
+        const [resFinancial, resPerf] = await Promise.all([
+          axios.get('/api/clinics/financialReports', {
+            headers: { Authorization: `Bearer ${token}` },
+            params: {
+              startDate: startDate.toISOString(),
+              endDate: endDate.toISOString(),
+              filter: timeRangeFilter
+            }
+          }),
+          axios.get('/api/clinics/doctor-performance', {
+            headers: { Authorization: `Bearer ${token}` },
+            params: { filter: timeRangeFilter }
+          })
+        ]);
+
+        const fin = resFinancial.data || {};
+        const perf = resPerf.data || {};
+        console.log('✅ Financial Reports Response:', fin);
+        console.log('✅ Doctor Performance Trend Response:', perf);
+
+        if (fin.success || perf.success) {
+          // Prefer revenueTrend from doctor-performance; fallback to existing if missing
+          const revenueTrendData = perf?.data?.revenueTrend ?? fin?.revenueTrendData ?? [];
+          // Doctor Revenue now sourced from doctor-performance
+          const doctorRevenueData = (perf?.data?.revenuePerDoctor || []).map((d: any) => ({
+            name: d.doctorName || 'Unknown Doctor',
+            revenue: Number(d.estimatedRevenue || 0),
+            sessions: d.completedAppointments || d.appointmentCount || 0
+          }));
+          // Keep sort by revenue desc for chart readability
+          doctorRevenueData.sort((a: any, b: any) => b.revenue - a.revenue);
+          setFinancialData({
+            revenueTrendData,
+            paymentMethodsData: fin?.paymentMethodsData || [],
+            doctorRevenueData,
+            topServicesData: fin?.topServicesData || [],
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching financial reports:', error);
+      } finally {
+        setFinancialLoading(false);
+      }
+    };
+
+    fetchFinancialReports();
+  }, [timeRangeFilter]);
+
+  // Fetch Patient Reports Data (uses timeRangeFilter like other sections)
+  useEffect(() => {
+    const fetchPatientReports = async () => {
+      try {
+        const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+        if (!token) return;
+
+        // Calculate date range based on timeRangeFilter (same as other sections)
+        const params: any = {};
+        if (timeRangeFilter === 'today') {
+          // Single day
+          params.date = selectedDate.toISOString().split('T')[0];
+          console.log('📅 Today filter:', params.date);
+        } else if (timeRangeFilter === 'week') {
+          // Last 7 days
+          const endDate = new Date(selectedDate);
+          const startDate = new Date(selectedDate);
+          startDate.setDate(startDate.getDate() - 6); // 7 days including today
+          params.startDate = startDate.toISOString().split('T')[0];
+          params.endDate = endDate.toISOString().split('T')[0];
+          console.log('📅 Week filter:', params.startDate, 'to', params.endDate);
+        } else if (timeRangeFilter === 'month') {
+          // Full month
+          const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+          const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+          params.startDate = startDate.toISOString().split('T')[0];
+          params.endDate = endDate.toISOString().split('T')[0];
+          console.log('📅 Month filter:', params.startDate, 'to', params.endDate);
+        }
+        // For 'overall', no date params - shows all data
+        console.log('📅 Patient reports params:', params);
+
+        // Get clinic ID from user context or localStorage
+        const clinicId = localStorage.getItem('clinic_id') || localStorage.getItem('clinicId');
+        
+        console.log('🏥 Fetching patient reports with clinicId:', clinicId);
+
+        const res = await axios.get('/api/clinics/patient-reports', {
+          params: {
+            ...params,
+            clinicId, // Pass as query param as fallback
+          },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'x-clinic-id': clinicId || '',
+          },
+        });
+
+        if (res.data.success) {
+          setPatientDemographics(res.data.data || {
+            newVsReturning: [],
+            genderDistribution: [],
+            patientVisitFrequency: [],
+            topPatients: [],
+          });
+        }
+      } catch (error: any) {
+        console.error('❌ Error fetching patient reports:', error.message);
+        console.error('Response data:', error.response?.data);
+        // Set empty data on error to prevent UI crashes
+        setPatientDemographics({
+          newVsReturning: [],
+          genderDistribution: [],
+          patientVisitFrequency: [],
+          topPatients: [],
+        });
+      }
+    };
+
+    fetchPatientReports();
+  }, [timeRangeFilter, selectedDate]);
+
+  // Fetch Service Performance Data
+  useEffect(() => {
+    const fetchServicePerformance = async () => {
+      try {
+        setServicePerformanceLoading(true);
+        
+        const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+        if (!token) return;
+
+        // Calculate date range based on timeRangeFilter
+        const params: any = {};
+        if (timeRangeFilter === 'week') {
+          params.date = selectedDate.toISOString().split('T')[0];
+        } else if (timeRangeFilter === 'month') {
+          const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+          const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+          params.startDate = startDate.toISOString().split('T')[0];
+          params.endDate = endDate.toISOString().split('T')[0];
+        }
+        // For 'overall', no date params - shows all data
+
+        // Get clinic ID from localStorage
+        const clinicId = localStorage.getItem('clinic_id') || localStorage.getItem('clinicId');
+        
+        console.log('🏥 Fetching service performance with clinicId:', clinicId);
+
+        const res = await axios.get('/api/clinic/service-performance', {
+          params: {
+            ...params,
+            clinicId,
+          },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'x-clinic-id': clinicId || '',
+          },
+        });
+
+        if (res.data.success) {
+          setServicePerformance(res.data.data || {
+            mostBookedServices: [],
+            leastBookedServices: [],
+            serviceRevenueData: [],
+            conversionRateData: [],
+          });
+          console.log('✅ Service performance data loaded:', res.data.data);
+        }
+      } catch (error: any) {
+        console.error('❌ Error fetching service performance:', error.message);
+        console.error('Response data:', error.response?.data);
+        setServicePerformance({
+          mostBookedServices: [],
+          leastBookedServices: [],
+          serviceRevenueData: [],
+          conversionRateData: [],
+        });
+      } finally {
+        setServicePerformanceLoading(false);
+      }
+    };
+
+    fetchServicePerformance();
+  }, [timeRangeFilter, selectedDate]);
 
   // Migration effect to ensure new components are added to existing localStorage state
   useEffect(() => {
+    // Migrate Widgets - Add Patient Reports widget
+    setWidgets(prev => {
+      const hasPatientReports = prev.some(w => w.type === 'patient-reports');
+      if (hasPatientReports) return prev; // Already exists
+
+      // Add patient-reports after appointment-status-overview
+      const updatedWidgets = [...prev];
+      const appointmentIndex = updatedWidgets.findIndex(w => w.type === 'appointment-status-overview');
+      
+      if (appointmentIndex !== -1) {
+        // Insert after appointment-status-overview
+        updatedWidgets.splice(appointmentIndex + 1, 0, {
+          id: '14',
+          type: 'patient-reports',
+          title: 'Patient Reports',
+          visible: true,
+          order: 4,
+        });
+        
+        // Reorder all widgets after insertion
+        return updatedWidgets.map((w, idx) => ({ ...w, order: idx }));
+      }
+      
+      return prev;
+    });
+
     // Migrate Stat Cards
     setStatCards(prev => {
       const hasMembership = prev.primary.some(c => c.moduleKey === 'membership');
@@ -2504,19 +3248,44 @@ const ClinicDashboard: NextPageWithLayout = () => {
       const newSecondary = [...prev.secondary];
       if (!hasDailyPatients) {
          newSecondary.push({ id: 's8', label: 'Patients', value: 0, icon: 'users', moduleKey: 'daily_patients', gridType: 'secondary' as const, order: 7, visible: true });
-         newSecondary.push({ id: 's9', label: 'Jobs', value: 0, icon: 'briefcase', moduleKey: 'daily_jobs', gridType: 'secondary' as const, order: 8, visible: true });
-         newSecondary.push({ id: 's10', label: 'Offers', value: 0, icon: 'gift', moduleKey: 'daily_offers', gridType: 'secondary' as const, order: 9, visible: true });
-         newSecondary.push({ id: 's11', label: 'Leads', value: 0, icon: 'users', moduleKey: 'daily_leads', gridType: 'secondary' as const, order: 10, visible: true });
-         newSecondary.push({ id: 's12', label: 'Applications', value: 0, icon: 'file-text', moduleKey: 'daily_applications', gridType: 'secondary' as const, order: 11, visible: true });
-         newSecondary.push({ id: 's13', label: 'Reviews', value: 0, icon: 'star', moduleKey: 'daily_reviews', gridType: 'secondary' as const, order: 12, visible: true });
-         newSecondary.push({ id: 's14', label: 'Enquiries', value: 0, icon: 'message-square', moduleKey: 'daily_enquiries', gridType: 'secondary' as const, order: 13, visible: true });
+         newSecondary.push({ id: 's9', label: 'Offers', value: 0, icon: 'gift', moduleKey: 'daily_offers', gridType: 'secondary' as const, order: 8, visible: true });
+         newSecondary.push({ id: 's10', label: 'Arrived', value: 0, icon: 'check-circle', moduleKey: 'daily_arrived', gridType: 'secondary' as const, order: 9, visible: true });
+         newSecondary.push({ id: 's11', label: 'Booked', value: 0, icon: 'calendar-check', moduleKey: 'daily_booked', gridType: 'secondary' as const, order: 10, visible: true });
+         newSecondary.push({ id: 's12', label: 'Cancelled', value: 0, icon: 'calendar-x', moduleKey: 'daily_cancelled', gridType: 'secondary' as const, order: 11, visible: true });
+         newSecondary.push({ id: 's13', label: 'Waiting', value: 0, icon: 'clock', moduleKey: 'daily_waiting', gridType: 'secondary' as const, order: 12, visible: true });
+         newSecondary.push({ id: 's14', label: 'Enquiry', value: 0, icon: 'message-square', moduleKey: 'daily_enquiry', gridType: 'secondary' as const, order: 13, visible: true });
       } else {
-         if (!hasDailyApplications) {
-            newSecondary.push({ id: 's12', label: 'Applications', value: 0, icon: 'file-text', moduleKey: 'daily_applications', gridType: 'secondary' as const, order: 11, visible: true });
-         }
-         if (!hasDailyReviews) {
-            newSecondary.push({ id: 's13', label: 'Reviews', value: 0, icon: 'star', moduleKey: 'daily_reviews', gridType: 'secondary' as const, order: 12, visible: true });
-            newSecondary.push({ id: 's14', label: 'Enquiries', value: 0, icon: 'message-square', moduleKey: 'daily_enquiries', gridType: 'secondary' as const, order: 13, visible: true });
+         // Check for old cards and replace them
+         const hasOldCards = prev.secondary.some(c => {
+            const oldKeys = ['daily_applications', 'daily_reviews', 'daily_enquiries', 'daily_jobs', 'daily_leads', 'daily_enquiry'];
+            return c.moduleKey !== undefined && oldKeys.includes(c.moduleKey);
+         });
+         if (hasOldCards) {
+            // Remove old cards
+            const filteredSecondary = prev.secondary.filter(c => {
+               const oldKeys = ['daily_applications', 'daily_reviews', 'daily_enquiries', 'daily_jobs', 'daily_leads', 'daily_enquiry'];
+               return c.moduleKey === undefined || !oldKeys.includes(c.moduleKey);
+            });
+            // Add new cards if not present
+            if (!filteredSecondary.some(c => c.moduleKey === 'daily_arrived')) {
+               filteredSecondary.push({ id: 's10', label: 'Arrived', value: 0, icon: 'check-circle', moduleKey: 'daily_arrived', gridType: 'secondary' as const, order: 9, visible: true });
+            }
+            if (!filteredSecondary.some(c => c.moduleKey === 'daily_booked')) {
+               filteredSecondary.push({ id: 's11', label: 'Booked', value: 0, icon: 'calendar-check', moduleKey: 'daily_booked', gridType: 'secondary' as const, order: 10, visible: true });
+            }
+            if (!filteredSecondary.some(c => c.moduleKey === 'daily_cancelled')) {
+               filteredSecondary.push({ id: 's12', label: 'Cancelled', value: 0, icon: 'calendar-x', moduleKey: 'daily_cancelled', gridType: 'secondary' as const, order: 11, visible: true });
+            }
+            if (!filteredSecondary.some(c => c.moduleKey === 'daily_waiting')) {
+               filteredSecondary.push({ id: 's13', label: 'Waiting', value: 0, icon: 'clock', moduleKey: 'daily_waiting', gridType: 'secondary' as const, order: 12, visible: true });
+            }
+            if (!filteredSecondary.some(c => c.moduleKey === 'daily_enquiry')) {
+               filteredSecondary.push({ id: 's14', label: 'Enquiry', value: 0, icon: 'message-square', moduleKey: 'daily_enquiry', gridType: 'secondary' as const, order: 13, visible: true });
+            }
+            return {
+               primary: updatedPrimary,
+               secondary: filteredSecondary
+            };
          }
       }
 
@@ -2538,6 +3307,32 @@ const ClinicDashboard: NextPageWithLayout = () => {
         ...prev,
         'status-charts': newStatusCharts
       };
+    });
+
+    // Migrate Widgets - Add Commission Details widget
+    setWidgets(prev => {
+      const hasCommission = prev.some(w => w.type === 'commission-overview');
+      if (hasCommission) return prev;
+
+      const newWidgets = [...prev];
+      // Insert commission widget after membership-overview
+      const membershipIndex = newWidgets.findIndex(w => w.type === 'membership-overview');
+      if (membershipIndex !== -1) {
+        newWidgets.splice(membershipIndex + 1, 0, {
+          id: '13',
+          type: 'commission-overview',
+          title: 'Commission Details',
+          visible: true,
+          order: membershipIndex + 1
+        });
+        // Reorder remaining widgets
+        for (let i = membershipIndex + 2; i < newWidgets.length; i++) {
+          newWidgets[i].order = i;
+        }
+      }
+
+      console.log('✅ Migrated widgets, added commission widget:', newWidgets);
+      return newWidgets;
     });
   }, []);
 
@@ -2564,6 +3359,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
             break;
           case 'jobs':
             value = dailyStats.totals?.jobs || 0;
+            break;
+          case 'leads':
+            value = stats.totalLeads || 0;
             break;
         }
         return { ...card, value };
@@ -2596,25 +3394,34 @@ const ClinicDashboard: NextPageWithLayout = () => {
           case 'daily_patients':
             value = dailyStats.daily.patients || 0;
             break;
-          case 'daily_jobs':
-            console.log('Setting daily_jobs value:', dailyStats.daily.jobs || 0);
-            value = dailyStats.daily.jobs || 0;
+          case 'daily_appointments':
+            // Calculate total appointments from all statuses
+            const booked = dailyStats.daily.booked || 0;
+            const cancelled = dailyStats.daily.cancelled || 0;
+            const arrived = dailyStats.daily.arrived || 0;
+            const waiting = dailyStats.daily.waiting || 0;
+            const enquiry = dailyStats.daily.enquiry || 0;
+            value = booked + cancelled + arrived + waiting + enquiry;
+            console.log('Total Appointments:', value, '(Booked:', booked, '+ Cancelled:', cancelled, '+ Arrived:', arrived, '+ Waiting:', waiting, '+ Enquiry:', enquiry, ')');
             break;
           case 'daily_offers':
             console.log('Setting daily_offers value:', dailyStats.daily.offers || 0);
             value = dailyStats.daily.offers || 0;
             break;
-          case 'daily_leads':
-            value = dailyStats.daily.leads || 0;
+          case 'daily_arrived':
+            value = dailyStats.daily.arrived || 0;
             break;
-          case 'daily_applications':
-            value = dailyStats.daily.applications || 0;
+          case 'daily_booked':
+            value = dailyStats.daily.booked || 0;
             break;
-          case 'daily_reviews':
-            value = dailyStats.daily.reviews || 0;
+          case 'daily_cancelled':
+            value = dailyStats.daily.cancelled || 0;
             break;
-          case 'daily_enquiries':
-            value = dailyStats.daily.enquiries || 0;
+          case 'daily_waiting':
+            value = dailyStats.daily.waiting || 0;
+            break;
+          case 'daily_enquiry':
+            value = dailyStats.daily.enquiry || 0;
             break;
         }
         return { ...card, value };
@@ -2867,65 +3674,65 @@ const ClinicDashboard: NextPageWithLayout = () => {
     );
   };
 
-  // Sortable Chart Component
-  const SortableChart: React.FC<{
-    chart: ChartComponent;
-    children: React.ReactNode;
-  }> = ({ chart, children }) => {
-    const {
-      attributes,
-      listeners,
-      setNodeRef,
-      transform,
-      transition,
-      isDragging,
-    } = useSortable({ id: chart.id });
+  // Sortable Chart Component (commented out as unused)
+  // const SortableChart: React.FC<{
+  //   chart: ChartComponent;
+  //   children: React.ReactNode;
+  // }> = ({ chart, children }) => {
+  //   const {
+  //     attributes,
+  //     listeners,
+  //     setNodeRef,
+  //     transform,
+  //     transition,
+  //     isDragging,
+  //   } = useSortable({ id: chart.id });
 
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-      opacity: isDragging ? 0.5 : 1,
-    };
+  //   const style = {
+  //     transform: CSS.Transform.toString(transform),
+  //     transition,
+  //     opacity: isDragging ? 0.5 : 1,
+  //   };
 
-    if (!chart.visible && !isEditMode) {
-      return null;
-    }
+  //   if (!chart.visible && !isEditMode) {
+  //     return null;
+  //   }
 
-    return (
-      <div
-        ref={setNodeRef}
-        style={style}
-        className={`relative ${isDragging ? 'z-50' : ''} ${!chart.visible ? 'opacity-50' : ''}`}
-      >
-        {isEditMode && (
-          <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
-            <button
-              onClick={() => toggleChartVisibility(chart.id)}
-              className="p-1 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-              title={chart.visible ? 'Hide chart' : 'Show chart'}
-            >
-              {chart.visible ? (
-                <Eye className="w-3 h-3 text-gray-600" />
-              ) : (
-                <EyeOff className="w-3 h-3 text-gray-400" />
-              )}
-            </button>
-            <div
-              {...attributes}
-              {...listeners}
-              className="p-1.5 bg-orange-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:bg-orange-600 transition-colors"
-              title="Drag to move chart"
-            >
-              <GripVertical className="w-3.5 h-3.5 text-white" />
-            </div>
-          </div>
-        )}
-        <div className={isEditMode ? 'pl-14' : ''}>
-          {children}
-        </div>
-      </div>
-    );
-  };
+  //   return (
+  //     <div
+  //       ref={setNodeRef}
+  //       style={style}
+  //       className={`relative ${isDragging ? 'z-50' : ''} ${!chart.visible ? 'opacity-50' : ''}`}
+  //     >
+  //       {isEditMode && (
+  //         <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
+  //           <button
+  //             onClick={() => toggleChartVisibility(chart.id)}
+  //             className="p-1 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+  //             title={chart.visible ? 'Hide chart' : 'Show chart'}
+  //           >
+  //             {chart.visible ? (
+  //               <Eye className="w-3 h-3 text-gray-600" />
+  //             ) : (
+  //               <EyeOff className="w-3 h-3 text-gray-400" />
+  //             )}
+  //           </button>
+  //           <div
+  //             {...attributes}
+  //             {...listeners}
+  //             className="p-1.5 bg-orange-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:bg-orange-600 transition-colors"
+  //             title="Drag to move chart"
+  //           >
+  //             <GripVertical className="w-3.5 h-3.5 text-white" />
+  //           </div>
+  //         </div>
+  //       )}
+  //       <div className={isEditMode ? 'pl-14' : ''}>
+  //         {children}
+  //       </div>
+  //     </div>
+  //   );
+  // };
 
   // Sortable Stat Card Component
   const SortableStatCard: React.FC<{
@@ -2969,18 +3776,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
 
     const paddingClass = gridSize === 'compact' ? 'p-3' : gridSize === 'spacious' ? 'p-6' : 'p-4';
        
-    // Check if this is a Today's Data card
-    const isTodayCard = card.moduleKey?.startsWith('daily_');
-    const cardBackground = isTodayCard ? 'bg-teal-100' : 'bg-white';
-    const containerBackground = 'bg-white';
-   
     return (
       <div
         ref={setNodeRef}
         style={style}
-        className={`relative h-full ${isDragging ? 'z-50 ring-2 ring-teal-500 ring-opacity-50' : ''} ${!card.visible ? 'opacity-50' : ''} ${containerBackground}`}
+        className={`relative h-full ${isDragging ? 'z-50 ring-2 ring-teal-500 ring-opacity-50' : ''} ${!card.visible ? 'opacity-50' : ''} bg-white`}
       >
-        <div className={`${cardBackground} rounded-xl ${paddingClass} border-2 ${isDragging ? 'border-teal-500' : 'border-gray-200'} shadow-sm hover:shadow-xl transition-all duration-300 group relative overflow-hidden h-full flex flex-col justify-between`}>
+        <div className={`${paddingClass} border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 group relative overflow-hidden h-full flex flex-col justify-between`}>
           {isEditMode && (
             <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
               <button
@@ -2988,7 +3790,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   e.stopPropagation();
                   toggleCardVisibility(card.id);
                 }}
-                className="p-1 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors z-40"
+                className="p-1 bg-white rounded-full shadow border border-gray-200 hover:bg-gray-50 transition-colors z-40"
                 title={card.visible ? 'Hide card' : 'Show card'}
               >
                 {card.visible ? (
@@ -3000,7 +3802,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               <div
                 {...attributes}
                 {...listeners}
-                className="p-2 bg-gradient-to-br from-teal-500 to-teal-600 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:from-teal-600 hover:to-teal-700 transition-all transform hover:scale-110 z-40"
+                className="p-2 bg-teal-500 rounded-full shadow cursor-grab active:cursor-grabbing hover:bg-teal-600 transition-colors transform hover:scale-105 z-40"
                 title="Drag to move or swap cards"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -3008,20 +3810,20 @@ const ClinicDashboard: NextPageWithLayout = () => {
               </div>
             </div>
           )}
-          <div className="absolute top-2 right-2 bg-gradient-to-r from-green-600 to-green-700 text-white px-2 py-0.5 text-[10px] font-semibold rounded-full flex items-center gap-1 z-10">
+          <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-0.5 text-[10px] font-semibold rounded-full flex items-center gap-1 z-10">
             <CheckCircle2 className="w-2.5 h-2.5" />
             ACTIVE
           </div>
           <div className={`pt-4 ${isEditMode ? 'pl-14' : ''}`}>
             <div className="flex items-center justify-between mb-2">
-              <div className="p-2 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg group-hover:from-gray-200 group-hover:to-gray-300 transition-all">
+              <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors">
                 <div className="text-gray-700">{iconMap[card.icon] || <Activity className="w-5 h-5" />}</div>
               </div>
             </div>
             <h3 className="text-[10px] font-medium text-gray-600 mb-1.5 uppercase tracking-wide">{card.label}</h3>
             {statsLoading ? (
               <div className="flex items-center gap-1.5">
-                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-800"></div>
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600"></div>
                 <span className="text-[11px] text-gray-600">Loading...</span>
               </div>
             ) : (
@@ -3107,8 +3909,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
             <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
               <button
                 onClick={() => {
-                  const today = new Date();
-                  setSelectedDate(today);
+                  const week = new Date();
+                  setSelectedDate(week);
                 }}
                 className="px-2 py-1 hover:bg-gray-100 rounded text-gray-600 transition-colors text-xs font-medium"
                 title="Go to Today"
@@ -3234,6 +4036,119 @@ const ClinicDashboard: NextPageWithLayout = () => {
           )}
         </div>
 
+        {/* Filter Bar - Department, Doctor, Service, Last 30 Days */}
+        <div className="mb-6 bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Search Bar */}
+            <div className="flex-1 min-w-[200px]">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search reports..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                />
+                <svg
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Export Button */}
+            <button
+              onClick={handleExportDashboard}
+              className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium"
+              title="Export dashboard data"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export</span>
+            </button>
+
+            {/* Refresh Button */}
+            <button
+              onClick={handleRefreshDashboard}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
+              title="Refresh dashboard"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Refresh</span>
+            </button>
+
+            {/* Time Range Filter */}
+            <select
+              value={timeRangeFilter}
+              onChange={(e) => setTimeRangeFilter(e.target.value as 'today' | 'week' | 'month' | 'overall')}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              title="Select time range for all graphs"
+            >
+              <option value="today">Today</option>
+              <option value="week">Week</option>
+              <option value="month">Month</option>
+              <option value="overall">Overall</option>
+            </select>
+
+            {/* Clear Filters Button */}
+            {(searchQuery || timeRangeFilter !== 'today') && (
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setTimeRangeFilter('today');
+                }}
+                className="flex items-center gap-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-colors text-sm font-medium"
+                title="Clear all filters"
+              >
+                <X className="w-4 h-4" />
+                <span>Clear All</span>
+              </button>
+            )}
+          </div>
+
+          {/* Active Filters Display */}
+          {(searchQuery || timeRangeFilter !== 'today') && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+              <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Active filters:</span>
+              {searchQuery && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md text-xs font-medium">
+                  Search: {searchQuery}
+                  <button onClick={() => setSearchQuery('')} className="hover:bg-blue-200 dark:hover:bg-blue-800/50 rounded-full p-0.5">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {timeRangeFilter === 'week' && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-md text-xs font-medium">
+                  Week
+                  <button onClick={() => setTimeRangeFilter('today')} className="hover:bg-indigo-200 dark:hover:bg-indigo-800/50 rounded-full p-0.5">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {timeRangeFilter === 'month' && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-md text-xs font-medium">
+                  Month
+                  <button onClick={() => setTimeRangeFilter('today')} className="hover:bg-green-200 dark:hover:bg-green-800/50 rounded-full p-0.5">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {timeRangeFilter === 'overall' && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-md text-xs font-medium">
+                  Overall
+                  <button onClick={() => setTimeRangeFilter('today')} className="hover:bg-red-200 dark:hover:bg-red-800/50 rounded-full p-0.5">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Unified Drag and Drop Context - handles both widget-level and item-level drags */}
         <DndContext
           sensors={sensors}
@@ -3254,7 +4169,17 @@ const ClinicDashboard: NextPageWithLayout = () => {
           >
             <div className={`space-y-6 ${isEditMode ? 'pl-12' : ''}`}>
               {widgets
-                .sort((a, b) => a.order - b.order)
+                .sort((a, b) => {
+                  // If searching and section matches, move it to top
+                  if (searchQuery.trim() && matchingSectionIds.length > 0) {
+                    const aMatches = matchingSectionIds.includes(a.type);
+                    const bMatches = matchingSectionIds.includes(b.type);
+                    
+                    if (aMatches && !bMatches) return -1; // a goes first
+                    if (!aMatches && bMatches) return 1;  // b goes first
+                  }
+                  return a.order - b.order; // Default sort by order
+                })
                 .map((widget) => {
                   const widgetContent = (() => {
                     switch (widget.type) {
@@ -3353,12 +4278,252 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                 })}
         </div>
                         );
-                     
+                      
+                      case 'financial-reports':
+                        // Financial Reports Section - Revenue, Payments, and Financial Performance
+                        if (financialLoading) {
+                          return (
+                            <div className="mb-8 p-8 text-center">
+                              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                              <p className="mt-4 text-gray-600">Loading financial reports...</p>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="mb-8">
+                            <div className="mb-5">
+                              <h2 className="text-xl font-bold text-black mb-1">Financial Reports</h2>
+                              <p className="text-sm text-gray-500">Track revenue, payments, and financial performance</p>
+                            </div>
+                        
+                        {/* 2x2 Grid Layout */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          
+                          {/* Card 1: Revenue Trend (Line Chart) */}
+                          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                            <div className="mb-4">
+                              <h3 className="text-base font-bold text-black">Revenue Trend</h3>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {timeRangeFilter === 'overall' ? 'Monthly revenue vs target' : 'Daily revenue vs target'}
+                              </p>
+                            </div>
+                            <div className="h-72">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <LineChart
+                                  data={financialData.revenueTrendData || []}
+                                  margin={{ top: 20, right: 20, left: 0, bottom: 60 }}
+                                >
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                  <XAxis
+                                    dataKey="name"
+                                    angle={-45}
+                                    textAnchor="end"
+                                    height={60}
+                                    tick={{ fontSize: 10, fill: '#374151', fontWeight: '500' }}
+                                    stroke="#6b7280"
+                                  />
+                                  <YAxis 
+                                    tick={{ fontSize: 10, fill: '#374151' }}
+                                    stroke="#6b7280"
+                                    tickFormatter={(value) => `₹${(value/1000).toFixed(0)}K`}
+                                  />
+                                  <Tooltip
+                                    contentStyle={{
+                                      backgroundColor: '#fff',
+                                      border: '1px solid #e5e7eb',
+                                      borderRadius: '8px',
+                                      fontSize: '12px',
+                                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                    }}
+                                    labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
+                                    formatter={(value: any) => [`₹${value.toLocaleString()}`, '']}
+                                  />
+                                  <Legend 
+                                    wrapperStyle={{ 
+                                      fontSize: '10px', 
+                                      paddingTop: '10px',
+                                      color: '#4b5563'
+                                    }}
+                                  />
+                                  <Line
+                                    type="monotone"
+                                    dataKey="revenue"
+                                    stroke="#3b82f6"
+                                    strokeWidth={3}
+                                    dot={{ fill: '#3b82f6', r: 4 }}
+                                    activeDot={{ r: 6 }}
+                                    name="Revenue"
+                                  />
+                                  <Line
+                                    type="monotone"
+                                    dataKey="target"
+                                    stroke="#10b981"
+                                    strokeWidth={2}
+                                    strokeDasharray="5 5"
+                                    dot={false}
+                                    name="Target"
+                                  />
+                                </LineChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+
+                          {/* Card 2: Payment Methods (Donut Chart) */}
+                          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                            <div className="mb-4">
+                              <h3 className="text-base font-bold text-black">Payment Methods</h3>
+                              <p className="text-xs text-gray-500 mt-1">Distribution by payment type</p>
+                            </div>
+                            <div className="h-72 sm:h-72">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                  <Pie
+                                    data={financialData.paymentMethodsData || []}
+                                    cx={isMobile ? "50%" : "40%"}
+                                    cy="50%"
+                                    innerRadius={isMobile ? 40 : 50}
+                                    outerRadius={isMobile ? 70 : 80}
+                                    paddingAngle={5}
+                                    dataKey="value"
+                                    nameKey="name"
+                                    labelLine={false}
+                                  >
+                                    {(financialData.paymentMethodsData || []).map((entry: any, index: number) => (
+                                      <Cell key={`cell-${index}`} fill={entry.color} />
+                                    ))}
+                                  </Pie>
+                                  <Tooltip
+                                    contentStyle={{
+                                      backgroundColor: '#fff',
+                                      border: '1px solid #e5e7eb',
+                                      borderRadius: '8px',
+                                      fontSize: '12px',
+                                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                    }}
+                                    formatter={(value: any, name: any) => [`${value}%`, name || 'Payment Method']}
+                                  />
+                                  <Legend 
+                                    layout={isMobile ? "horizontal" : "vertical"}
+                                    verticalAlign={isMobile ? "bottom" : "middle"}
+                                    align={isMobile ? "center" : "right"}
+                                    wrapperStyle={{ 
+                                      fontSize: isMobile ? '10px' : '11px',
+                                      paddingLeft: isMobile ? '0px' : '20px',
+                                      color: '#4b5563',
+                                      lineHeight: '20px'
+                                    }}
+                                    formatter={(value: any) => {
+                                      const item = (financialData.paymentMethodsData || []).find((d: any) => d.name === value);
+                                      return `${value}: ${item ? item.value : 0}%`;
+                                    }}
+                                  />
+                                </PieChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+
+                          {/* Card 3: Doctor Revenue (Bar Chart) */}
+                          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                            <div className="mb-4">
+                              <h3 className="text-base font-bold text-black">Doctor Revenue</h3>
+                              <p className="text-xs text-gray-500 mt-1">Revenue generated by each doctor</p>
+                            </div>
+                            <div className="h-72">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart
+                                  data={financialData.doctorRevenueData.length > 0 ? financialData.doctorRevenueData : []}
+                                  margin={{ top: 5, right: 20, left: 0, bottom: 60 }}
+                                >
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                                  <XAxis 
+                                    dataKey="name" 
+                                    tick={{ fontSize: 10, fill: '#6b7280' }}
+                                    angle={-45}
+                                    textAnchor="end"
+                                    height={80}
+                                  />
+                                  <YAxis 
+                                    tick={{ fontSize: 10, fill: '#6b7280' }}
+                                    tickFormatter={(value) => `₹${(value/1000).toFixed(0)}K`}
+                                  />
+                                  <Tooltip
+                                    contentStyle={{
+                                      backgroundColor: '#fff',
+                                      border: '1px solid #e5e7eb',
+                                      borderRadius: '8px',
+                                      fontSize: '12px',
+                                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                    }}
+                                    labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
+                                    formatter={(value: any, name: any) => {
+                                      if (name === 'revenue') {
+                                        return [`₹${value.toLocaleString()}`, 'Revenue'];
+                                      }
+                                      return [value, name];
+                                    }}
+                                  />
+                                  <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
+                                  <Bar
+                                    dataKey="revenue"
+                                    fill="#3b82f6"
+                                    name="Revenue"
+                                    radius={[6, 6, 0, 0]}
+                                  />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+
+                          {/* Card 4: Top Services Revenue (Table) */}
+                          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                            <div className="mb-4">
+                              <h3 className="text-base font-bold text-black">Top Services Revenue</h3>
+                              <p className="text-xs text-gray-500 mt-1">Best-performing services by revenue</p>
+                            </div>
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full">
+                                <thead className="bg-gray-50 sticky top-0">
+                                  <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Service Name</th>
+                                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Sessions</th>
+                                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Revenue</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                  {financialData.topServicesData.length > 0 ? (
+                                    financialData.topServicesData.slice(0, 5).map((service, index) => (
+                                      <tr key={index} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                          <span className="text-sm font-medium text-gray-900">{service.name || 'N/A'}</span>
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-center">
+                                          <span className="text-sm text-gray-700">{typeof service.sessions === 'number' ? service.sessions : 0}</span>
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-right">
+                                          <span className="text-sm font-semibold text-teal-600">₹{(typeof service.revenue === 'number' ? service.revenue : 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </td>
+                                      </tr>
+                                    ))
+                                  ) : (
+                                    <tr>
+                                      <td colSpan={3} className="px-4 py-8 text-center text-gray-500">
+                                        No service data available
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+                          </div>
+                        );
+                      
                       case 'primary-stats':
                         const primaryCards = statCards.primary.sort((a, b) => a.order - b.order);
                         const gapClass = gridSize === 'compact' ? 'gap-1.5' : gridSize === 'spacious' ? 'gap-4' : 'gap-3';
                         return (
-                              <div className={`grid grid-cols-2 sm:grid-cols-4 ${gapClass}`}>
+                              <div className={`grid grid-cols-2 sm:grid-cols-5 ${gapClass}`}>
                                 {primaryCards.map((card) => (
                                   <SortableStatCard key={card.id} card={card} />
                                 ))}
@@ -3370,38 +4535,404 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         const dailyCards = secondaryCards.filter(card => card.moduleKey?.startsWith('daily_'));
                         const otherCards = secondaryCards.filter(card => !card.moduleKey?.startsWith('daily_'));
                         const gapClass2 = gridSize === 'compact' ? 'gap-1.5' : gridSize === 'spacious' ? 'gap-4' : 'gap-3';
+                        
+                        // Icon mapping for Today's Data section
+                        const iconMap: { [key: string]: React.ReactNode } = {
+                          calendar: <Calendar className="w-5 h-5" />,
+                          users: <Users className="w-5 h-5" />,
+                          stethoscope: <Stethoscope className="w-5 h-5" />,
+                          briefcase: <Briefcase className="w-5 h-5" />,
+                          'file-text': <FileText className="w-5 h-5" />,
+                          crown: <Crown className="w-5 h-5" />,
+                          gift: <Gift className="w-5 h-5" />,
+                          package: <Package className="w-5 h-5" />,
+                          star: <Star className="w-5 h-5" />,
+                          mail: <Mail className="w-5 h-5" />,
+                          'check-circle': <CheckCircle2 className="w-5 h-5" />,
+                          'calendar-check': <Calendar className="w-5 h-5" />,
+                          'calendar-x': <X className="w-5 h-5" />,
+                          clock: <Clock className="w-5 h-5" />,
+                          'message-square': <MessageSquare className="w-5 h-5" />,
+                        };
+
+                        // Get appointment status label
+                        const getAppointmentStatusLabel = (moduleKey: string | undefined, originalLabel: string) => {
+                          if (!moduleKey) return originalLabel;
+                          
+                          // Map appointment status module keys to their display names
+                          const appointmentStatusMap: { [key: string]: string } = {
+                            'daily_appointments': 'Appointments',
+                            'daily_arrived': 'Appointments (Arrived)',
+                            'daily_booked': 'Appointments (Booked)',
+                            'daily_cancelled': 'Appointments (Cancelled)',
+                            'daily_waiting': 'Appointments (Waiting)',
+                            'daily_enquiry': 'Appointments (Enquiry)'
+                          };
+                          
+                          return appointmentStatusMap[moduleKey] || originalLabel;
+                        };
+
+                        // Gradient backgrounds for different metrics
+                        const getGradientBg = (moduleKey: string | undefined) => {
+                          if (!moduleKey) return 'from-gray-500 to-slate-500';
+                          if (moduleKey === 'daily_patients') return 'from-green-500 to-emerald-500';
+                          if (moduleKey === 'daily_offers') return 'from-pink-500 to-rose-500';
+                          if (moduleKey === 'daily_arrived') return 'from-blue-500 to-cyan-500';
+                          if (moduleKey === 'daily_booked') return 'from-purple-500 to-indigo-500';
+                          if (moduleKey === 'daily_cancelled') return 'from-red-500 to-rose-500';
+                          if (moduleKey === 'daily_waiting') return 'from-orange-500 to-amber-500';
+                          if (moduleKey === 'daily_enquiry') return 'from-teal-500 to-green-500';
+                          if (moduleKey.includes('appointment')) return 'from-blue-500 to-cyan-500';
+                          if (moduleKey.includes('patient')) return 'from-green-500 to-emerald-500';
+                          if (moduleKey.includes('doctor')) return 'from-purple-500 to-pink-500';
+                          if (moduleKey.includes('job')) return 'from-orange-500 to-red-500';
+                          if (moduleKey.includes('lead')) return 'from-indigo-500 to-purple-500';
+                          if (moduleKey.includes('membership')) return 'from-yellow-500 to-orange-500';
+                          if (moduleKey.includes('offer')) return 'from-pink-500 to-rose-500';
+                          if (moduleKey.includes('package')) return 'from-teal-500 to-green-500';
+                          if (moduleKey.includes('review')) return 'from-amber-500 to-yellow-500';
+                          return 'from-gray-500 to-slate-500';
+                        };
+
                         return (
-                              <div className="space-y-4">
-                                {/* Today's Data Heading and All Cards - moved to top */}
-                                {dailyCards.length > 0 && (
-                                  <div>
-                                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Today's Data ({selectedDate.toLocaleDateString('en-GB').replace(/\//g, '-')})</h3>
-                                    <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 ${gapClass2}`}>
-                                      {dailyCards.map((card) => (
-                                        <SortableStatCard key={card.id} card={card} />
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                                                       
-                                {/* Other secondary cards - now below Today's Data */}
+                              <div className="space-y-6">
+                                {/* Other secondary cards - 5 column grid */}
                                 {otherCards.length > 0 && (
-                                  <div className="mt-6">
-                                    <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 ${gapClass2}`}>
+                                  <div>
+                                    <div className={`grid grid-cols-2 sm:grid-cols-5 ${gapClass2}`}>
                                       {otherCards.map((card) => (
                                         <SortableStatCard key={card.id} card={card} />
                                       ))}
                                     </div>
                                   </div>
                                 )}
+                                
+                                {/* Today's Data Section - Compact Design */}
+                                {dailyCards.length > 0 && (
+                                  <div className="mt-8">
+                                    <div className="relative mb-3">
+                                      <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                                        <div className="w-full border-t-2 border-gray-200"></div>
+                                      </div>
+                                      <div className="relative flex justify-center">
+                                        <span className="px-4 bg-gray-50 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                          Today's Activity
+                                        </span>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Grid Layout for Today's Cards - 4 columns */}
+                                    <div className={`grid grid-cols-2 sm:grid-cols-4 ${gapClass2}`}>
+                                      {dailyCards.map((card, index) => (
+                                        <div
+                                          key={card.id}
+                                          className="group relative overflow-hidden rounded-lg bg-white shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-0.5"
+                                          style={{ animationDelay: `${index * 50}ms` }}
+                                        >
+                                          <div className="flex flex-col items-center p-4">
+                                            {/* Gradient Icon Circle */}
+                                            <div className={`w-14 h-14 bg-gradient-to-br ${getGradientBg(card.moduleKey)} rounded-full flex items-center justify-center relative overflow-hidden mb-3 shadow-md group-hover:shadow-lg transition-shadow duration-300`}>
+                                              <div className="absolute inset-0 bg-white opacity-20 transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+                                              <div className="text-white p-2 relative z-10">
+                                                {iconMap[card.icon] || <Activity className="w-5 h-5" />}
+                                              </div>
+                                            </div>
+                                            
+                                            {/* Content */}
+                                            <div className="text-center w-full">
+                                              {card.moduleKey === 'daily_appointments' ? (
+                                                <>
+                                                  <h4 className="text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1 line-clamp-2 min-h-[20px]">
+                                                    Appointments
+                                                  </h4>
+                                                  <div className="flex items-center justify-center gap-1">
+                                                    <p className="text-xl font-bold text-gray-900">
+                                                      {card.value}
+                                                    </p>
+                                                    {card.value === 0 && (
+                                                      <span className="text-[10px] text-gray-400 italic">No data</span>
+                                                    )}
+                                                  </div>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <h4 className="text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1 line-clamp-2 min-h-[20px]">
+                                                    {getAppointmentStatusLabel(card.moduleKey, card.label)}
+                                                  </h4>
+                                                  <div className="flex items-center justify-center gap-1">
+                                                    <p className="text-xl font-bold text-gray-900">
+                                                      {card.value}
+                                                    </p>
+                                                    {card.value === 0 && (
+                                                      <span className="text-[10px] text-gray-400 italic">No data</span>
+                                                    )}
+                                                  </div>
+                                                </>
+                                              )}
+                                            </div>
+                                            
+                                            {/* Bottom Accent Line */}
+                                            <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r ${getGradientBg(card.moduleKey)} transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-500`}></div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
+                        );
+
+                      case 'financial-reports':
+                        // Financial Reports Section - Revenue, Payments, and Financial Performance
+                        return (
+                          <div className="mb-8">
+                            <h2 className="text-xl font-bold text-black mb-1">Financial Reports</h2>
+                            <p className="text-sm text-gray-500 mb-5">Track revenue, payments, and financial performance</p>
+                            
+                            {/* 2x2 Grid Layout */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                              
+                              {/* Card 1: Revenue Trend (Line Chart) */}
+                              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                                <div className="mb-4">
+                                  <h3 className="text-base font-bold text-black">Revenue Trend</h3>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    {timeRangeFilter === 'overall' ? 'Monthly revenue vs target' : 'Daily revenue vs target'}
+                                  </p>
+                                </div>
+                                <div className="h-72">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart
+                                      data={financialData.revenueTrendData || []}
+                                      margin={{ top: 20, right: 20, left: 0, bottom: 60 }}
+                                    >
+                                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                      <XAxis
+                                        dataKey="name"
+                                        angle={-45}
+                                        textAnchor="end"
+                                        height={60}
+                                        tick={{ fontSize: 10, fill: '#374151', fontWeight: '500' }}
+                                        stroke="#6b7280"
+                                      />
+                                      <YAxis 
+                                        tick={{ fontSize: 10, fill: '#374151' }}
+                                        stroke="#6b7280"
+                                        tickFormatter={(value) => `₹${(value/1000).toFixed(0)}K`}
+                                      />
+                                      <Tooltip
+                                        contentStyle={{
+                                          backgroundColor: '#fff',
+                                          border: '1px solid #e5e7eb',
+                                          borderRadius: '8px',
+                                          fontSize: '12px',
+                                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                        }}
+                                        labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
+                                        formatter={(value: any) => [`₹${value.toLocaleString()}`, '']}
+                                      />
+                                      <Legend 
+                                        wrapperStyle={{ 
+                                          fontSize: '10px', 
+                                          paddingTop: '10px',
+                                          color: '#4b5563'
+                                        }}
+                                      />
+                                      <Line
+                                        type="monotone"
+                                        dataKey="revenue"
+                                        stroke="#3b82f6"
+                                        strokeWidth={3}
+                                        dot={{ fill: '#3b82f6', r: 4 }}
+                                        activeDot={{ r: 6 }}
+                                        name="Revenue"
+                                      />
+                                      <Line
+                                        type="monotone"
+                                        dataKey="target"
+                                        stroke="#10b981"
+                                        strokeWidth={2}
+                                        strokeDasharray="5 5"
+                                        dot={false}
+                                        name="Target"
+                                      />
+                                    </LineChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+
+                              {/* Card 2: Payment Methods (Donut Chart) */}
+                              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                                <div className="mb-4">
+                                  <h3 className="text-base font-bold text-black">Payment Methods</h3>
+                                  <p className="text-xs text-gray-500 mt-1">Distribution by payment type</p>
+                                </div>
+                                <div className="h-72">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                      <Pie
+                                        data={[
+                                          { name: 'Card Payment', value: 35, color: '#3b82f6' },
+                                          { name: 'Cash', value: 25, color: '#10b981' },
+                                          { name: 'Online Transfer', value: 30, color: '#f59e0b' },
+                                          { name: 'Tabby', value: 10, color: '#8b5cf6' }
+                                        ]}
+                                        cx="40%"
+                                        cy="50%"
+                                        innerRadius={50}
+                                        outerRadius={80}
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                        nameKey="name"
+                                        labelLine={false}
+                                      >
+                                        {[
+                                          { name: 'Card Payment', value: 35, color: '#3b82f6' },
+                                          { name: 'Cash', value: 25, color: '#10b981' },
+                                          { name: 'Online Transfer', value: 30, color: '#f59e0b' },
+                                          { name: 'Tabby', value: 10, color: '#8b5cf6' }
+                                        ].map((entry, index) => (
+                                          <Cell key={`cell-${index}`} fill={entry.color} />
+                                        ))}
+                                      </Pie>
+                                      <Tooltip
+                                        contentStyle={{
+                                          backgroundColor: '#fff',
+                                          border: '1px solid #e5e7eb',
+                                          borderRadius: '8px',
+                                          fontSize: '12px',
+                                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                        }}
+                                        formatter={(value: any, name: any) => [`${value}%`, name || 'Payment Method']}
+                                      />
+                                      <Legend 
+                                        layout="vertical"
+                                        verticalAlign="middle"
+                                        align="right"
+                                        wrapperStyle={{ 
+                                          fontSize: '11px', 
+                                          paddingLeft: '20px',
+                                          color: '#4b5563',
+                                          lineHeight: '24px'
+                                        }}
+                                        formatter={(value: any) => {
+                                          const data = [
+                                            { name: 'Card Payment', value: 35, color: '#3b82f6' },
+                                            { name: 'Cash', value: 25, color: '#10b981' },
+                                            { name: 'Online Transfer', value: 30, color: '#f59e0b' },
+                                            { name: 'Tabby', value: 10, color: '#8b5cf6' }
+                                          ];
+                                          const item = data.find((d) => d.name === value);
+                                          return `${value}: ${item ? item.value : 0}%`;
+                                        }}
+                                      />
+                                    </PieChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+
+                              {/* Card 3: Doctor Revenue (Bar Chart) */}
+                              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                                <div className="mb-4">
+                                  <h3 className="text-base font-bold text-black">Doctor Revenue</h3>
+                                  <p className="text-xs text-gray-500 mt-1">Revenue generated by each doctor</p>
+                                </div>
+                                <div className="h-72">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                      data={financialData.doctorRevenueData.length > 0 ? financialData.doctorRevenueData : []}
+                                      margin={{ top: 5, right: 20, left: 0, bottom: 60 }}
+                                    >
+                                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                                      <XAxis 
+                                        dataKey="name" 
+                                        tick={{ fontSize: 10, fill: '#6b7280' }}
+                                        angle={-45}
+                                        textAnchor="end"
+                                        height={80}
+                                      />
+                                      <YAxis 
+                                        tick={{ fontSize: 10, fill: '#6b7280' }}
+                                        tickFormatter={(value) => `₹${(value/1000).toFixed(0)}K`}
+                                      />
+                                      <Tooltip
+                                        contentStyle={{
+                                          backgroundColor: '#fff',
+                                          border: '1px solid #e5e7eb',
+                                          borderRadius: '8px',
+                                          fontSize: '12px',
+                                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                        }}
+                                        labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
+                                        formatter={(value: any, name: any) => {
+                                          if (name === 'revenue') {
+                                            return [`₹${value.toLocaleString()}`, 'Revenue'];
+                                          }
+                                          return [value, name];
+                                        }}
+                                      />
+                                      <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
+                                      <Bar
+                                        dataKey="revenue"
+                                        fill="#3b82f6"
+                                        name="Revenue"
+                                        radius={[6, 6, 0, 0]}
+                                      />
+                                    </BarChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+
+                              {/* Card 4: Top Services Revenue (Table) */}
+                              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                                <div className="mb-4">
+                                  <h3 className="text-base font-bold text-black">Top Services Revenue</h3>
+                                  <p className="text-xs text-gray-500 mt-1">Best-performing services by revenue</p>
+                                </div>
+                                <div className="overflow-x-auto">
+                                  <table className="min-w-full">
+                                    <thead className="bg-gray-50 sticky top-0">
+                                      <tr>
+                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Service Name</th>
+                                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Sessions</th>
+                                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Revenue</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200">
+                                      {financialData.topServicesData.length > 0 ? (
+                                        financialData.topServicesData.slice(0, 5).map((service, index) => (
+                                          <tr key={index} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                              <span className="text-sm font-medium text-gray-900">{service.name || 'N/A'}</span>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-center">
+                                              <span className="text-sm text-gray-700">{typeof service.sessions === 'number' ? service.sessions : 0}</span>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-right">
+                                              <span className="text-sm font-semibold text-teal-600">₹{(typeof service.revenue === 'number' ? service.revenue : 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            </td>
+                                          </tr>
+                                        ))
+                                      ) : (
+                                        <tr>
+                                          <td colSpan={3} className="px-4 py-8 text-center text-gray-500">
+                                            No service data available
+                                          </td>
+                                        </tr>
+                                      )}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         );
                      
                       case 'quick-actions':
                         return (
             <div>
               <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 mb-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Quick Actions</h3>
+                <h3 className="text-base font-bold text-black mb-4">Quick Actions</h3>
                 <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
                   {quickActions.map((action, idx) => {
                     return (
@@ -3428,226 +4959,1342 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   })}
                 </div>
               </div>
-             
-              {/* Appointment Status Bar Chart */}
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-                <h3 className="text-sm font-semibold text-teal-800 mb-4">Appointment Status Overview</h3>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={appointmentStatusData}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis
-                        dataKey="name"
-                        angle={-45}
-                        textAnchor="end"
-                        height={60}
-                        interval={0}
-                        tick={{ fontSize: 10 }}
-                      />
-                      <YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip
-                        formatter={(value) => [value, 'Count']}
-                        labelStyle={{ fontWeight: 'bold' }}
-                      />
-                      <Bar
-                        dataKey="value"
-                        fill="#0d9488"
-                        radius={[4, 4, 0, 0]}
-                        minPointSize={2}
-                      >
-                        <LabelList
-                          dataKey="value"
-                          position="top"
-                          style={{ fontSize: 10, fill: '#374151' }}
-                          formatter={(value) => {
-                            if (typeof value === 'number' && value > 0) {
-                              return value;
-                            }
-                            return '0';
-                          }}
-                        />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
             </div>
                         );
 
-                      case 'status-charts':
-                        const statusCharts = chartComponents['status-charts'].sort((a, b) => a.order - b.order);
+                      case 'appointment-status-overview':
+                        // Prepare data for bar chart (Consultation, Waiting, Rescheduled, Discharge, Rejected, Cancelled)
+                        const barChartData = filteredAppointmentData.length > 0 ? filteredAppointmentData.filter(item => 
+                          ['Consultation', 'Waiting', 'Rescheduled', 'Discharge', 'Rejected', 'Cancelled'].includes(item.name)
+                        ) : [
+                          { name: 'Consultation', value: dailyStats.consultation, fill: '#eab308' },
+                          { name: 'Waiting', value: dailyStats.waiting, fill: '#f97316' },
+                          { name: 'Rescheduled', value: dailyStats.rescheduled, fill: '#a855f7' },
+                          { name: 'Discharge', value: dailyStats.discharge, fill: '#ec4899' },
+                          { name: 'Rejected', value: dailyStats.rejected, fill: '#64748b' },
+                          { name: 'Cancelled', value: dailyStats.cancelled, fill: '#ef4444' },
+                        ];
+
+                        // Prepare data for line chart (remaining statuses)
+                        const lineChartData = filteredAppointmentData.length > 0 ? filteredAppointmentData.filter(item => 
+                          !['Consultation', 'Waiting', 'Rescheduled', 'Discharge', 'Rejected', 'Cancelled'].includes(item.name)
+                        ).map(item => ({
+                          ...item,
+                          target: Math.max(item.value * 1.2, 100) // Target is 20% higher or minimum 100
+                        })) : [
+                          { name: 'Booked', value: dailyStats.booked, target: Math.max(dailyStats.booked * 1.2, 100) },
+                          { name: 'Enquiry', value: dailyStats.enquiry, target: Math.max(dailyStats.enquiry * 1.2, 100) },
+                          { name: 'Approved', value: dailyStats.approved, target: Math.max(dailyStats.approved * 1.2, 100) },
+                          { name: 'Arrived', value: dailyStats.arrived, target: Math.max(dailyStats.arrived * 1.2, 100) },
+                          { name: 'Completed', value: dailyStats.completed, target: Math.max(dailyStats.completed * 1.2, 100) },
+                        ];
+
+                        // Calculate totals (commented out as unused)
+                        // const totalBarChart = barChartData.reduce((sum, item) => sum + item.value, 0);
+                        // const totalLineChart = lineChartData.reduce((sum, item) => sum + item.value, 0);
+                        // const totalAppointments = totalBarChart + totalLineChart;
+
                         return (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                                {statusCharts.map((chart) => {
-                                  if (chart.id === 'chart-appointment' && appointmentStatusData.length > 0) {
-                                    return (
-                                      <SortableChart key={chart.id} chart={chart}>
-                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 overflow-hidden">
-                  <h3 className="text-sm font-semibold text-teal-800 mb-4">Appointment Status Overview</h3>
-                  <div className="h-56">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={appointmentStatusData}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis
-                          dataKey="name"
-                          angle={-45}
-                          textAnchor="end"
-                          height={60}
-                          interval={0}
-                          tick={{ fontSize: 10 }}
-                        />
-                        <YAxis tick={{ fontSize: 10 }} />
-                        <Tooltip
-                          formatter={(value) => [value, 'Count']}
-                          labelStyle={{ fontWeight: 'bold' }}
-                        />
-                        <Bar
-                          dataKey="value"
-                          fill="#0d9488"
-                          radius={[4, 4, 0, 0]}
-                        >
-                          <LabelList
-                            dataKey="value"
-                            position="top"
-                            style={{ fontSize: 10, fill: '#374151' }}
-                          />
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-                                      </SortableChart>
-                                    );
-                                  }
-                                  if (chart.id === 'chart-lead' && leadStatusData.length > 0) {
-                                    return (
-                                      <SortableChart key={chart.id} chart={chart}>
-                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 overflow-hidden">
-                  <h3 className="text-sm font-semibold text-teal-800 mb-4">Lead Status</h3>
-                  <div className="h-56">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart margin={{ top: 10, right: 20, bottom: 40, left: 20 }}>
-                        <Pie
-                          data={leadStatusData}
-                          cx="50%"
-                          cy="45%"
-                          labelLine={false}
-                          label={false}
-                          outerRadius={55}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {leadStatusData.map((_entry, index) => (
-                            <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                        <Legend
-                          wrapperStyle={{ fontSize: '10px', paddingTop: '15px' }}
-                          iconType="circle"
-                          formatter={(value: any, entry: any) => {
-                            const v = Number(entry?.payload?.value ?? 0);
-                            const total = leadStatusData.reduce((sum, d) => sum + Number(d.value || 0), 0);
-                            const pct = total ? (v / total) * 100 : 0;
-                            return `${value}: ${pct.toFixed(0)}%`;
-                          }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-                                      </SortableChart>
-                                    );
-                                  }
-                                  if (chart.id === 'chart-offer' && offerStatusData.length > 0) {
-                                    return (
-                                      <SortableChart key={chart.id} chart={chart}>
-                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 overflow-hidden">
-                  <h3 className="text-sm font-semibold text-teal-800 mb-4">Offer Status</h3>
-                  <div className="h-56">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart margin={{ top: 10, right: 20, bottom: 40, left: 20 }}>
-                        <Pie
-                          data={offerStatusData}
-                          cx="50%"
-                          cy="45%"
-                          labelLine={false}
-                          label={false}
-                          outerRadius={55}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {offerStatusData.map((_entry, index) => (
-                            <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                        <Legend
-                          wrapperStyle={{ fontSize: '10px', paddingTop: '15px' }}
-                          iconType="circle"
-                          formatter={(value: any, entry: any) => {
-                            const v = Number(entry?.payload?.value ?? 0);
-                            const total = offerStatusData.reduce((sum, d) => sum + Number(d.value || 0), 0);
-                            const pct = total ? (v / total) * 100 : 0;
-                            return `${value}: ${pct.toFixed(0)}%`;
-                          }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-                                      </SortableChart>
-                                    );
-                                  }
-                                  if (chart.id === 'chart-daily-activities' && dailyActivitiesData.length > 0) {
-                                    return (
-                                      <SortableChart key={chart.id} chart={chart}>
-                                        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 overflow-hidden">
-                                          <h3 className="text-sm font-semibold text-teal-800 mb-4">Daily Activities</h3>
-                                          <div className="h-56">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                              <PieChart margin={{ top: 10, right: 20, bottom: 40, left: 20 }}>
-                                                <Pie
-                                                  data={dailyActivitiesData}
-                                                  cx="50%"
-                                                  cy="45%"
-                                                  labelLine={false}
-                                                  label={false}
-                                                  outerRadius={55}
-                                                  fill="#8884d8"
-                                                  dataKey="value"
-                                                >
-                                                  {dailyActivitiesData.map((_entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
-                                                  ))}
-                                                </Pie>
-                                                <Tooltip />
-                                                <Legend
-                                                  wrapperStyle={{ fontSize: '10px', paddingTop: '15px' }}
-                                                  iconType="circle"
-                                                  formatter={(value: any, entry: any) => {
-                                                    const v = Number(entry?.payload?.value ?? 0);
-                                                    const total = dailyActivitiesData.reduce((sum, d) => sum + Number(d.value || 0), 0);
-                                                    const pct = total ? (v / total) * 100 : 0;
-                                                    return `${value}: ${pct.toFixed(0)}%`;
-                                                  }}
-                                                />
-                                              </PieChart>
-                                            </ResponsiveContainer>
+                          <div>
+                            {/* Main Header - Plain heading without box */}
+                            <div className="mb-4">
+                              <div className={`flex items-center justify-between ${searchQuery.trim() && sectionMatchesSearch(['Appointment', 'Appointments', 'Reports']) ? 'bg-blue-100 p-3 rounded-lg' : ''}`}>
+                                <div>
+                                  <h3 className="text-xl font-bold text-black">
+                                    Appointment Reports
+                                    {timeRangeFilter === 'month' && ` - ${selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' })}`}
+                                    {timeRangeFilter === 'overall' && ' (All Time)'}
+                                  </h3>
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    Monitor bookings, cancellations, and scheduling patterns
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Split Layout: Two Separate Boxes */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                              {/* Left Side - Line Chart Box (Appointments Trend) */}
+                              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                                    <h3 className="text-base font-bold text-black">Appointments Trend</h3>
+                                <div className="h-72">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart
+                                      data={lineChartData}
+                                      margin={{ top: 20, right: 20, left: 0, bottom: 60 }}
+                                    >
+                                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                      <XAxis
+                                        dataKey="name"
+                                        angle={-45}
+                                        textAnchor="end"
+                                        height={60}
+                                        tick={{ fontSize: 10, fill: '#374151', fontWeight: '500' }}
+                                        stroke="#6b7280"
+                                      />
+                                      <YAxis 
+                                        tick={{ fontSize: 10, fill: '#374151' }}
+                                        stroke="#6b7280"
+                                        allowDecimals={false}
+                                      />
+                                      <Tooltip
+                                        contentStyle={{
+                                          backgroundColor: '#fff',
+                                          border: '1px solid #e5e7eb',
+                                          borderRadius: '8px',
+                                          fontSize: '12px',
+                                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                        }}
+                                        labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
+                                      />
+                                      <Legend 
+                                        wrapperStyle={{ 
+                                          fontSize: '10px', 
+                                          paddingTop: '10px',
+                                          color: '#4b5563'
+                                        }}
+                                      />
+                                      <Line
+                                        type="monotone"
+                                        dataKey="value"
+                                        stroke="#3b82f6"
+                                        strokeWidth={3}
+                                        dot={{ fill: '#3b82f6', r: 5 }}
+                                        activeDot={{ r: 7 }}
+                                        name="Appointments"
+                                      />
+                                      <Line
+                                        type="monotone"
+                                        dataKey="target"
+                                        stroke="#10b981"
+                                        strokeWidth={2}
+                                        strokeDasharray="5 5"
+                                        dot={false}
+                                        name="Target"
+                                      />
+                                    </LineChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+
+                              {/* Right Side - Bar Chart Box (Appointment Status) */}
+                              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+<h3 className="text-base font-bold text-black">Appointment Status</h3>
+                                <div className="h-72">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                      data={barChartData}
+                                      margin={{ top: 20, right: 20, left: 0, bottom: 60 }}
+                                    >
+                                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                      <XAxis
+                                        dataKey="name"
+                                        angle={-45}
+                                        textAnchor="end"
+                                        height={60}
+                                        tick={{ fontSize: 10, fill: '#374151', fontWeight: '500' }}
+                                        stroke="#6b7280"
+                                      />
+                                      <YAxis 
+                                        tick={{ fontSize: 10, fill: '#374151' }}
+                                        stroke="#6b7280"
+                                        allowDecimals={false}
+                                      />
+                                      <Tooltip
+                                        contentStyle={{
+                                          backgroundColor: '#fff',
+                                          border: '1px solid #e5e7eb',
+                                          borderRadius: '8px',
+                                          fontSize: '12px',
+                                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                        }}
+                                        labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
+                                      />
+                                      <Bar
+                                        dataKey="value"
+                                        radius={[6, 6, 0, 0]}
+                                        minPointSize={2}
+                                      >
+                                        {barChartData.map((entry, index) => (
+                                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                                        ))}
+                                        <LabelList
+                                          dataKey="value"
+                                          position="top"
+                                          style={{ 
+                                            fontSize: '11px', 
+                                            fill: '#1f2937',
+                                            fontWeight: '600'
+                                          }}
+                                        />
+                                      </Bar>
+                                    </BarChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+
+                      case 'patient-reports':
+                        // Patient Reports Section - Updated Layout
+                        return (
+                          <div className="mb-8">
+                            <h2 className="text-xl font-bold text-black mb-1">Patient Reports</h2>
+                            <p className="text-sm text-gray-500 mb-5">Analyze patient demographics and behavior patterns</p>
+                            {/* Top Row - New vs Old Patients Bar Chart */}
+                            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
+                              <div className="mb-4">
+                                <h3 className="text-base font-bold text-black">New vs Old Patients</h3>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {timeRangeFilter === 'week' && 'Weekly patient acquisition trends'}
+                                  {timeRangeFilter === 'month' && 'Monthly patient acquisition trends'}
+                                  {timeRangeFilter === 'overall' && 'Overall patient acquisition trends'}
+                                  {timeRangeFilter === 'today' && 'Today patient acquisition trends'}
+                                </p>
+                              </div>
+                              <div className="h-72">
+                                {patientDemographics.newVsReturning && patientDemographics.newVsReturning.length > 0 ? (
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={patientDemographics.newVsReturning} margin={{ top: 20, right: 20, left: 0, bottom: 60 }}>
+                                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                      <XAxis
+                                        dataKey="month"
+                                        angle={-45}
+                                        textAnchor="end"
+                                        height={60}
+                                        tick={{ fontSize: 10, fill: '#374151', fontWeight: '500' }}
+                                        stroke="#6b7280"
+                                      />
+                                      <YAxis 
+                                        tick={{ fontSize: 10, fill: '#374151' }}
+                                        stroke="#6b7280"
+                                        allowDecimals={false}
+                                      />
+                                      <Tooltip
+                                        contentStyle={{
+                                          backgroundColor: '#fff',
+                                          border: '1px solid #e5e7eb',
+                                          borderRadius: '8px',
+                                          fontSize: '12px',
+                                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                        }}
+                                        labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
+                                      />
+                                      <Legend 
+                                        wrapperStyle={{ 
+                                          fontSize: '10px', 
+                                          paddingTop: '10px',
+                                          color: '#4b5563'
+                                        }}
+                                      />
+                                      <Bar
+                                        dataKey="newPatients"
+                                        fill="#3b82f6"
+                                        name="New Patients"
+                                        radius={[4, 4, 0, 0]}
+                                      />
+                                      <Bar
+                                        dataKey="returningPatients"
+                                        fill="#10b981"
+                                        name="Old Patients"
+                                        radius={[4, 4, 0, 0]}
+                                      />
+                                    </BarChart>
+                                  </ResponsiveContainer>
+                                ) : (
+                                  <div className="h-full flex items-center justify-center text-gray-400">
+                                    <p className="text-sm">No patient data available</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Bottom Row - Gender Distribution and Top Patients Side by Side */}
+                            {/* Only show this row if there's gender data OR top patients data */}
+                            {(patientDemographics.genderDistribution && patientDemographics.genderDistribution.length > 0) || 
+                             (patientDemographics.topPatients && patientDemographics.topPatients.length > 0) ? (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Left - Gender Distribution Donut Chart */}
+                                {patientDemographics.genderDistribution && patientDemographics.genderDistribution.length > 0 && (
+                                  <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                                    <div className="mb-4">
+                                      <h3 className="text-base font-bold text-black">Gender Distribution</h3>
+                                      <p className="text-xs text-gray-500 mt-1">Patient demographics by gender</p>
+                                    </div>
+                                    <div className="h-64 sm:h-72">
+                                      <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                          <Pie
+                                            data={patientDemographics.genderDistribution}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={isMobile ? 50 : 60}
+                                            outerRadius={isMobile ? 85 : 100}
+                                            paddingAngle={5}
+                                            dataKey="percentage"
+                                            nameKey="name"
+                                            label={isMobile ? false : ({ name, value }) => `${name}: ${((value || 0) * 100).toFixed(0)}%`}
+                                            labelLine={false}
+                                          >
+                                            {patientDemographics.genderDistribution.map((_entry: any, index: number) => (
+                                              <Cell key={`cell-${index}`} fill={['#ec4899', '#3b82f6'][index % 2]} />
+                                            ))}
+                                          </Pie>
+                                          <Tooltip
+                                            contentStyle={{
+                                              backgroundColor: '#fff',
+                                              border: '1px solid #e5e7eb',
+                                              borderRadius: '8px',
+                                              fontSize: '12px',
+                                              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                            }}
+                                          />
+                                          <Legend 
+                                            wrapperStyle={{ 
+                                              fontSize: '10px', 
+                                              paddingTop: '10px',
+                                              color: '#4b5563'
+                                            }}
+                                          />
+                                        </PieChart>
+                                      </ResponsiveContainer>
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {/* Right - Top Patients Table */}
+                                {patientDemographics.topPatients && patientDemographics.topPatients.length > 0 && (
+                                  <div className={`bg-white rounded-lg border border-gray-200 shadow-sm p-6 ${patientDemographics.genderDistribution && patientDemographics.genderDistribution.length > 0 ? '' : 'md:col-span-2'}`}>
+                                    <div className="mb-4">
+                                      <h3 className="text-base font-bold text-black">Top Patients (VIP)</h3>
+                                      <p className="text-xs text-gray-500 mt-1">Highest billing revenue generators</p>
+                                    </div>
+                                <div className="overflow-x-auto" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                                  {patientDemographics.topPatients && patientDemographics.topPatients.length > 0 ? (
+                                    <table className="min-w-full">
+                                      <thead className="bg-gray-50 sticky top-0">
+                                        <tr>
+                                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Patient Name</th>
+                                          <th className="px-4 py-2 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Billings</th>
+                                          <th className="px-4 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Revenue</th>
+                                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Last Billing</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-gray-200">
+                                        {patientDemographics.topPatients.map((patient: any, index: number) => (
+                                          <tr key={index} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-sm font-medium text-gray-900">{patient.name}</span>
+                                                {patient.badge === 'VIP' && (
+                                                  <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">VIP</span>
+                                                )}
+                                                {patient.badge === 'Gold' && (
+                                                  <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-semibold rounded-full">Gold</span>
+                                                )}
+                                                {patient.badge === 'Silver' && (
+                                                  <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-semibold rounded-full">Silver</span>
+                                                )}
+                                              </div>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-center">
+                                              <span className="text-sm font-semibold text-teal-600 block">{patient.billingCount}</span>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-right">
+                                              <span className="text-sm font-semibold text-gray-900">₹{patient.totalRevenue?.toLocaleString()}</span>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                              <span className="text-sm text-gray-600">{new Date(patient.lastBillingDate).toLocaleDateString()}</span>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  ) : (
+                                    <div className="h-full flex items-center justify-center text-gray-400">
+                                      <p className="text-sm">No top patients data available</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                                )}
+                              </div>
+                            ) : null}
+
+                            {/* Patient Visit Frequency Section - Full Width */}
+                            <div className="bg-white rounded-lg border border-gray-200 shadow-sm mt-9 p-6">
+                              <div className="mb-4">
+                                <h3 className="text-base font-bold text-black">Patient Visit Frequency</h3>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {timeRangeFilter === 'week' && 'Weekly distribution by number of visits'}
+                                  {timeRangeFilter === 'month' && 'Monthly distribution by number of visits'}
+                                  {timeRangeFilter === 'overall' && 'Overall distribution by number of visits'}
+                                  {timeRangeFilter === 'today' && 'Today distribution by number of visits'}
+                                </p>
+                              </div>
+                              <div className="h-72">
+                                {patientDemographics.patientVisitFrequency && patientDemographics.patientVisitFrequency.length > 0 ? (
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={patientDemographics.patientVisitFrequency} margin={{ top: 20, right: 20, left: 0, bottom: 60 }}>
+                                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                      <XAxis
+                                        dataKey="name"
+                                        angle={-45}
+                                        textAnchor="end"
+                                        height={60}
+                                        tick={{ fontSize: 10, fill: '#374151', fontWeight: '500' }}
+                                        stroke="#6b7280"
+                                      />
+                                      <YAxis 
+                                        tick={{ fontSize: 10, fill: '#374151' }}
+                                        stroke="#6b7280"
+                                        allowDecimals={false}
+                                      />
+                                      <Tooltip
+                                        contentStyle={{
+                                          backgroundColor: '#fff',
+                                          border: '1px solid #e5e7eb',
+                                          borderRadius: '8px',
+                                          fontSize: '12px',
+                                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                        }}
+                                        labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
+                                      />
+                                      <Legend 
+                                        wrapperStyle={{ 
+                                          fontSize: '10px', 
+                                          paddingTop: '10px',
+                                          color: '#4b5563'
+                                        }}
+                                      />
+                                      <Bar
+                                        dataKey="value"
+                                        fill="#8b5cf6"
+                                        name="Number of Patients"
+                                        radius={[4, 4, 0, 0]}
+                                      />
+                                    </BarChart>
+                                  </ResponsiveContainer>
+                                ) : (
+                                  <div className="h-full flex items-center justify-center text-gray-400">
+                                    <p className="text-sm">No visit frequency data available</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Service Performance Section */}
+                            <h2 className="text-xl font-bold text-black mt-9 mb-1">Service Performance</h2>
+                            <p className="text-sm text-gray-500 mb-5">
+                              {timeRangeFilter === 'week' && 'Weekly service bookings, revenue, and conversion rates'}
+                              {timeRangeFilter === 'month' && 'Monthly service bookings, revenue, and conversion rates'}
+                              {timeRangeFilter === 'overall' && 'Overall service bookings, revenue, and conversion rates'}
+                              {timeRangeFilter === 'today' && 'Today service bookings, revenue, and conversion rates'}
+                            </p>
+
+                            {servicePerformanceLoading ? (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 h-80 flex items-center justify-center">
+                                  <div className="text-center">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 mx-auto"></div>
+                                    <p className="text-sm text-gray-500 mt-2">Loading service performance...</p>
+                                  </div>
+                                </div>
+                                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 h-80"></div>
+                                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 h-80"></div>
+                                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 h-80"></div>
+                              </div>
+                            ) : (
+                              <>
+                                {/* Top Row - 2 Cards */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                              {/* Most Booked Services */}
+                              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                                <div className="mb-4">
+                                  <h3 className="text-base font-bold text-black">Most Booked Services</h3>
+                                  <p className="text-xs text-gray-500 mt-1">Top performing treatments</p>
+                                </div>
+                                <div className="h-72 flex items-center justify-center">
+                                  {servicePerformance.mostBookedServices && servicePerformance.mostBookedServices.length > 0 ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                      <BarChart 
+                                        data={servicePerformance.mostBookedServices} 
+                                        layout="vertical"
+                                        margin={{ top: 10, right: 40, left: 20, bottom: 20 }}
+                                      >
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                        <XAxis 
+                                          type="number"
+                                          tick={{ fontSize: 10, fill: '#374151' }}
+                                          stroke="#6b7280"
+                                          allowDecimals={false}
+                                        />
+                                        <YAxis 
+                                          type="category"
+                                          dataKey="name"
+                                          tick={{ fontSize: 10, fill: '#374151', fontWeight: '500' }}
+                                          stroke="#6b7280"
+                                          width={100}
+                                        />
+                                        <Tooltip
+                                          contentStyle={{
+                                            backgroundColor: '#fff',
+                                            border: '1px solid #e5e7eb',
+                                            borderRadius: '8px',
+                                            fontSize: '12px',
+                                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                          }}
+                                        />
+                                        <Bar
+                                          dataKey="bookings"
+                                          fill="url(#blueGradient)"
+                                          name="Bookings"
+                                          radius={[0, 4, 4, 0]}
+                                          barSize={24}
+                                        >
+                                          <defs>
+                                            <linearGradient id="blueGradient" x1="0" y1="0" x2="1" y2="0">
+                                              <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.8} />
+                                              <stop offset="100%" stopColor="#3b82f6" stopOpacity={1} />
+                                            </linearGradient>
+                                          </defs>
+                                        </Bar>
+                                      </BarChart>
+                                    </ResponsiveContainer>
+                                  ) : (
+                                    <div className="h-full flex items-center justify-center text-gray-400">
+                                      <p className="text-sm">No booking data available</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Least Booked Services */}
+                              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                                <div className="mb-4">
+                                  <h3 className="text-base font-bold text-black">Least Booked Services</h3>
+                                  <p className="text-xs text-gray-500 mt-1">Needs attention</p>
+                                </div>
+                                <div className="space-y-2 max-h-72 overflow-y-auto">
+                                  {servicePerformance.leastBookedServices && servicePerformance.leastBookedServices.length > 0 ? (
+                                    servicePerformance.leastBookedServices.map((service: any, index: number) => {
+                                      const getStatusColor = () => {
+                                        if (service.change < -5) return 'bg-red-50 border-red-200';
+                                        if (service.change < 0) return 'bg-yellow-50 border-yellow-200';
+                                        return 'bg-blue-50 border-blue-200';
+                                      };
+
+                                      return (
+                                        <div key={index} className={`flex items-center justify-between p-3 rounded-lg border ${getStatusColor()}`}>
+                                          <div className="flex-1">
+                                            <p className="text-sm font-semibold text-gray-900">{service.name}</p>
+                                            <p className="text-xs text-gray-600 mt-0.5">{service.bookings} bookings this month</p>
+                                          </div>
+                                          <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                            service.change < -5 ? 'bg-red-100 text-red-700' :
+                                            service.change < 0 ? 'bg-yellow-100 text-yellow-700' :
+                                            'bg-blue-100 text-blue-700'
+                                          }`}>
+                                            {service.change > 0 ? '+' : ''}{service.change}%
                                           </div>
                                         </div>
-                                      </SortableChart>
-                                    );
-                                  }
-                                  return null;
-                                })}
+                                      );
+                                    })
+                                  ) : (
+                                    <div className="h-full flex items-center justify-center text-gray-400">
+                                      <p className="text-sm">No service data available</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Bottom Row - 2 Cards */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                              {/* Service Revenue Table */}
+                              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                                <div className="mb-4">
+                                  <h3 className="text-base font-bold text-black">Service Revenue Table</h3>
+                                  <p className="text-xs text-gray-500 mt-1">Detailed performance metrics</p>
+                                </div>
+                                <div className="overflow-x-auto">
+                                  {servicePerformance.serviceRevenueData && servicePerformance.serviceRevenueData.length > 0 ? (
+                                    <table className="min-w-full">
+                                      <thead className="bg-gray-50 sticky top-0">
+                                        <tr>
+                                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Service Name</th>
+                                          <th className="px-3 py-2 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Bookings</th>
+                                          <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Avg Price</th>
+                                          <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Revenue</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-gray-200">
+                                        {servicePerformance.serviceRevenueData.slice(0, 5).map((service: any, index: number) => (
+                                          <tr key={index} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-3 py-2 whitespace-nowrap">
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-xs text-yellow-500">★</span>
+                                                <span className="text-sm font-medium text-gray-900">{service.serviceName}</span>
+                                              </div>
+                                            </td>
+                                            <td className="px-3 py-2 whitespace-nowrap text-center">
+                                              <span className="text-sm text-gray-700">{service.bookings}</span>
+                                            </td>
+                                            <td className="px-3 py-2 whitespace-nowrap text-right">
+                                              <span className="text-sm text-gray-700">₹{service.avgPrice?.toLocaleString()}</span>
+                                            </td>
+                                            <td className="px-3 py-2 whitespace-nowrap text-right">
+                                              <span className="text-sm font-semibold text-teal-600">₹{service.revenue?.toLocaleString()}</span>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  ) : (
+                                    <div className="h-full flex items-center justify-center text-gray-400">
+                                      <p className="text-sm">No revenue data available</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Treatment Conversion Rate */}
+                              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                                <div className="mb-4">
+                                  <h3 className="text-base font-bold text-black">Treatment Conversion Rate</h3>
+                                  <p className="text-xs text-gray-500 mt-1">Consultation to booking success</p>
+                                </div>
+                                <div className="h-72">
+                                  {servicePerformance.conversionRateData && servicePerformance.conversionRateData.length > 0 ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                      <BarChart data={servicePerformance.conversionRateData} margin={{ top: 10, right: 20, left: 0, bottom: 60 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                        <XAxis
+                                          dataKey="name"
+                                          angle={-45}
+                                          textAnchor="end"
+                                          height={60}
+                                          tick={{ fontSize: 10, fill: '#374151', fontWeight: '500' }}
+                                          stroke="#6b7280"
+                                        />
+                                        <YAxis 
+                                          tick={{ fontSize: 10, fill: '#374151' }}
+                                          stroke="#6b7280"
+                                          unit="%"
+                                          domain={[0, 100]}
+                                        />
+                                        <Tooltip
+                                          contentStyle={{
+                                            backgroundColor: '#fff',
+                                            border: '1px solid #e5e7eb',
+                                            borderRadius: '8px',
+                                            fontSize: '12px',
+                                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                          }}
+                                          formatter={(value: any) => [`${value}%`, 'Conversion Rate']}
+                                        />
+                                        <Legend 
+                                          wrapperStyle={{ 
+                                            fontSize: '10px', 
+                                            paddingTop: '10px',
+                                            color: '#4b5563'
+                                          }}
+                                        />
+                                        <Bar
+                                          dataKey="conversionRate"
+                                          fill="url(#greenGradient)"
+                                          name="Conversion Rate"
+                                          radius={[8, 8, 0, 0]}
+                                        >
+                                          <defs>
+                                            <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
+                                              <stop offset="0%" stopColor="#10b981" stopOpacity={0.8} />
+                                              <stop offset="100%" stopColor="#10b981" stopOpacity={1} />
+                                            </linearGradient>
+                                          </defs>
+                                        </Bar>
+                                      </BarChart>
+                                    </ResponsiveContainer>
+                                  ) : (
+                                    <div className="h-full flex items-center justify-center text-gray-400">
+                                      <p className="text-sm">No conversion data available</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                              </>
+                            )}
+
+                          {/* Membership & Package Reports Section */}
+                          <div className="mt-9">
+                            <MembershipPackageReports timeRange={timeRangeFilter as 'week' | 'month' | 'overall'} />
+                          </div>
+
+                          {/* Doctor Performance Analytics Section */}
+                          <div className="mt-9">
+                            <DoctorPerformance timeRange={timeRangeFilter as 'week' | 'month' | 'overall'} selectedDate={selectedDate} />
+                          </div>
+
+                          {/* Room & Resource Usage Section */}
+                          <div className="mt-9">
+                            <RoomUtilization timeRange={timeRangeFilter as 'week' | 'month' | 'overall'} selectedDate={selectedDate} />
+                          </div>
+
+                          {/* Cancellation & No-Show Reports Section */}
+                          <div className="mt-9">
+                            <CancellationReports timeRange={timeRangeFilter as 'week' | 'month' | 'overall'} selectedDate={selectedDate} />
+                          </div>
+                        </div>
+                        );
+
+                      case 'lead-status-charts':
+                        return (
+                          <div>
+                            {/* Main Header - Plain heading without box */}
+                            <div className="mb-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h3 className="text-xl font-bold text-black">
+                                    Lead Analytics
+                                    {timeRangeFilter === 'month' && ` - ${selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' })}`}
+                                    {timeRangeFilter === 'overall' && ' (All Time)'}
+                                  </h3>
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    Track lead sources and status distribution
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Split Layout: Two Separate Boxes */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                              {/* Left Side - Lead Source Wise */}
+                              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                                <h3 className="text-base font-bold text-black">Lead Source Wise</h3>
+                                <div className="h-72">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                      <Pie
+                                        data={filteredLeadSourceData.length > 0 ? filteredLeadSourceData : [{ name: 'No Data', value: 0 }]}
+                                        cx="50%"
+                                        cy="50%"
+                                        labelLine={false}
+                                        label={({ name, percent }) => {
+                                          const displayName = (name && name.length > 12) ? name.substring(0, 10) + '...' : (name || '');
+                                          return `${displayName}: ${((percent ?? 0) * 100).toFixed(0)}%`;
+                                        }}
+                                        outerRadius={70}
+                                        fill="#8884d8"
+                                        dataKey="value"
+                                        paddingAngle={2}
+                                      >
+                                        {(filteredLeadSourceData.length > 0 ? filteredLeadSourceData : [{ name: 'No Data', value: 0 }]).map((entry: any, index: number) => (
+                                          <Cell key={`cell-${index}`} fill={entry.fill || '#e5e7eb'} />
+                                        ))}
+                                      </Pie>
+                                      <Tooltip 
+                                        contentStyle={{
+                                          backgroundColor: '#fff',
+                                          border: '1px solid #e5e7eb',
+                                          borderRadius: '8px',
+                                          fontSize: '12px',
+                                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                        }}
+                                        labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
+                                      />
+                                      <Legend 
+                                        wrapperStyle={{ 
+                                          fontSize: '10px', 
+                                          paddingTop: '10px',
+                                          color: '#4b5563'
+                                        }}
+                                      />
+                                    </PieChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+
+                              {/* Right Side - Lead Status Wise */}
+                              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                                <h3 className="text-base font-bold text-black">Lead Status Wise</h3>
+                                <div className="h-72">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                      <Pie
+                                        data={filteredLeadStatusData.length > 0 ? filteredLeadStatusData : [{ name: 'No Data', value: 0 }]}
+                                        cx="50%"
+                                        cy="50%"
+                                        labelLine={false}
+                                        label={({ name, percent }) => {
+                                          const displayName = (name && name.length > 12) ? name.substring(0, 10) + '...' : (name || '');
+                                          return `${displayName}: ${((percent ?? 0) * 100).toFixed(0)}%`;
+                                        }}
+                                        outerRadius={70}
+                                        fill="#8884d8"
+                                        dataKey="value"
+                                        paddingAngle={2}
+                                      >
+                                        {(filteredLeadStatusData.length > 0 ? filteredLeadStatusData : [{ name: 'No Data', value: 0 }]).map((entry: any, index: number) => (
+                                          <Cell key={`cell-${index}`} fill={entry.fill || '#e5e7eb'} />
+                                        ))}
+                                      </Pie>
+                                      <Tooltip 
+                                        contentStyle={{
+                                          backgroundColor: '#fff',
+                                          border: '1px solid #e5e7eb',
+                                          borderRadius: '8px',
+                                          fontSize: '12px',
+                                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                        }}
+                                        labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
+                                      />
+                                      <Legend 
+                                        wrapperStyle={{ 
+                                          fontSize: '10px', 
+                                          paddingTop: '10px',
+                                          color: '#4b5563'
+                                        }}
+                                      />
+                                    </PieChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Date Display */}
+                            <div className="mt-3 text-xs text-gray-500 text-center">
+                              {timeRangeFilter === 'month' && (
+                                <span>Showing data for: {selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
+                              )}
+                              {timeRangeFilter === 'overall' && (
+                                <span>Showing all-time accumulated data</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+
+                      case 'status-charts':
+                        // Calculate total offers (commented out as unused)
+                        // const totalOffers = offerStatusData.reduce((sum, item) => sum + item.value, 0);
+                        
+                        return (
+                          <div>
+                            {/* Main Header - Plain heading without box */}
+                            <div className="mb-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h3 className="text-xl font-bold text-black">
+                                    Offer Status
+                                    {timeRangeFilter === 'month' && ` - ${new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}`}
+                                    {timeRangeFilter === 'overall' && ' (All Time)'}
+                                  </h3>
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    Track offer distribution and status
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Offer Status Cards Grid */}
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-3">
+                                  {offerStatusData.map((status) => (
+                                    <div 
+                                      key={status.name}
+                                      className="text-center p-3 rounded-lg border hover:shadow-md transition-all"
+                                      style={{
+                                        backgroundColor: `${getStatusColor(status.name)}10`,
+                                        borderColor: `${getStatusColor(status.name)}30`
+                                      }}
+                                    >
+                                      <div className="text-xs font-medium mb-1" style={{ color: getStatusColor(status.name) }}>
+                                        {status.name}
+                                      </div>
+                                      <div className="text-2xl font-bold" style={{ color: getStatusColor(status.name) }}>
+                                        {status.value}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                                
+                                {/* Pie Chart - In Div Box */}
+                                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                                  <h3 className="text-base font-bold text-black mb-2">Offer Status Distribution</h3>
+                                  <div className="h-72">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                                      <Pie
+                                        data={offerStatusData}
+                                        cx="50%"
+                                        cy="50%"
+                                        labelLine={false}
+                                        label={({ name, value }) => `${name}: ${value}`}
+                                        outerRadius={80}
+                                        fill="#8884d8"
+                                        dataKey="value"
+                                      >
+                                        {offerStatusData.map((_entry, index) => (
+                                          <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
+                                        ))}
+                                      </Pie>
+                                      <Tooltip />
+                                      <Legend
+                                        wrapperStyle={{ fontSize: '11px', paddingTop: '15px' }}
+                                        iconType="circle"
+                                      />
+                                    </PieChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+                          </div>
+                        );
+                     
+                      case 'services-overview':
+                        // Always show the section, even if empty
+                        return (
+                          <div>
+                            {/* Main Header - Plain heading without box */}
+                            <div className="mb-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h3 className="text-xl font-bold text-black">
+                                    Top 5 Services
+                                    {timeRangeFilter === 'month' && ` - ${selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' })}`}
+                                    {timeRangeFilter === 'overall' && ' (All Time)'}
+                                  </h3>
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    Track top performing services and packages
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Top 5 Packages Graph - Multi-Series Line Chart */}
+            <div className="mb-6">
+                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                  <h3 className="text-base font-bold text-black mb-4">Top 5 Packages</h3>
+                  <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={topPackagesData.length > 0 ? topPackagesData : [{ name: 'No Data', totalAmount: 0, count: 0 }]}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis
+                        dataKey="name"
+                        tick={{ fontSize: 9 }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                        interval={0}
+                      />
+                      <YAxis yAxisId="left" tick={{ fontSize: 10 }} />
+                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} />
+                      <Tooltip
+                        formatter={(value: any, name: any) => {
+                          if (name === 'totalAmount') {
+                            return [`$${value.toLocaleString()}`, 'Total Amount'];
+                          }
+                          return [value, name === 'count' ? 'Count' : name];
+                        }}
+                        labelStyle={{ fontWeight: 'bold' }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: '11px' }} />
+                      <Line
+                        yAxisId="left"
+                        type="monotone"
+                        dataKey="totalAmount"
+                        name="Total Amount"
+                        stroke="#0d9488"
+                        strokeWidth={2}
+                        dot={{ fill: '#0d9488', r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                      <Line
+                        yAxisId="right"
+                        type="monotone"
+                        dataKey="count"
+                        name="Count"
+                        stroke="#f59e0b"
+                        strokeWidth={2}
+                        dot={{ fill: '#f59e0b', r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              </div>
+            
+            {/* Top 5 Services Graph - Multi-Series Line Chart */}
+            <div className="mb-6">
+                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                  <h3 className="text-base font-bold text-black mb-4">Top 5 Services</h3>
+                  <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={topServicesData.length > 0 ? topServicesData : [{ name: 'No Data', totalAmount: 0, count: 0 }]}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis
+                        dataKey="name"
+                        tick={{ fontSize: 9 }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                        interval={0}
+                      />
+                      <YAxis yAxisId="left" tick={{ fontSize: 10 }} />
+                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} />
+                      <Tooltip
+                        formatter={(value: any, name: any) => {
+                          if (name === 'totalAmount') {
+                            return [`$${value.toLocaleString()}`, 'Total Amount'];
+                          }
+                          return [value, name === 'count' ? 'Count' : name];
+                        }}
+                        labelStyle={{ fontWeight: 'bold' }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: '11px' }} />
+                      <Line
+                        yAxisId="left"
+                        type="monotone"
+                        dataKey="totalAmount"
+                        name="Total Amount"
+                        stroke="#2563eb"
+                        strokeWidth={2}
+                        dot={{ fill: '#2563eb', r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                      <Line
+                        yAxisId="right"
+                        type="monotone"
+                        dataKey="count"
+                        name="Count"
+                        stroke="#dc2626"
+                        strokeWidth={2}
+                        dot={{ fill: '#dc2626', r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              </div>
+            
+            {/* Date Display */}
+            <div className="mt-4 text-xs text-gray-500 text-center">
+              {timeRangeFilter === 'month' && (
+                <span>Showing data for: {selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
+              )}
+              {timeRangeFilter === 'overall' && (
+                <span>Showing all-time accumulated data</span>
+              )}
             </div>
+          </div>
+                        );
+                      
+                      case 'membership-overview':
+                        // Always show the section, even if empty
+                        return (
+                          <div>
+                            {/* Main Header - Plain heading without box */}
+                            <div className="mb-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h3 className="text-xl font-bold text-black">
+                                    Most Purchased Membership
+                                    {timeRangeFilter === 'month' && ` - ${selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' })}`}
+                                    {timeRangeFilter === 'overall' && ' (All Time)'}
+                                  </h3>
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    Track membership package purchases and revenue
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Membership Data Card */}
+                            <div className="bg-white rounded-[16px] border border-gray-200 shadow-sm p-5 mb-6">
+                              {/* Membership Data - Area Chart (different from other charts) */}
+            <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={membershipData.length > 0 ? membershipData : [{ name: 'No Data', count: 0, totalRevenue: 0 }]}>
+                    <defs>
+                      <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#7c3aed" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fontSize: 10}}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                      interval={0}
+                    />
+                    <YAxis tick={{ fontSize: 10 }} />
+                    <Tooltip
+                      formatter={(value: any, name: any) => {
+                        if (name === 'totalRevenue') {
+                          return [`$${value.toLocaleString()}`, 'Total Revenue'];
+                        }
+                        return [value, name === 'count' ? 'Purchases' : name];
+                      }}
+                      labelStyle={{ fontWeight: 'bold', fontSize: '11px' }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '11px' }} />
+                    <Area
+                      type="monotone"
+                      dataKey="count"
+                      name="Purchases"
+                      stroke="#f59e0b"
+                      fillOpacity={1}
+                      fill="url(#colorCount)"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="totalRevenue"
+                      name="Total Revenue"
+                      stroke="#7c3aed"
+                      fillOpacity={1}
+                      fill="url(#colorRevenue)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            
+            {/* Date Display */}
+            <div className="mt-4 text-xs text-gray-500 text-center">
+              {timeRangeFilter === 'month' && (
+                <span>Showing data for: {selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
+              )}
+              {timeRangeFilter === 'overall' && (
+                <span>Showing all-time accumulated data</span>
+              )}
+            </div>
+          </div>
+        </div>
+                        );
+                     
+                      case 'commission-overview':
+                        // Data is already grouped by staff from API
+                        const commissionRows = commissionData.map((item: any) => ({
+                          name: item.name || 'Unknown Staff',
+                          commissionType: item.commissionType || 'flat',
+                          totalAmountPaid: item.totalPaid || 0,
+                          totalCommissionAmount: item.totalEarned || 0,
+                          count: item.count || 0
+                        }));
+
+                        // Pagination logic
+                        const totalPages = Math.ceil(commissionRows.length / COMMISSION_PAGE_SIZE);
+                        const startIndex = (commissionPage - 1) * COMMISSION_PAGE_SIZE;
+                        const endIndex = startIndex + COMMISSION_PAGE_SIZE;
+                        const paginatedRows = commissionRows.slice(startIndex, endIndex);
+
+                        return (
+                          <div>
+                            {/* Main Header - Plain heading without box */}
+                            <div className="mb-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h3 className="text-xl font-bold text-black">
+                                    Commission Details
+                                    {timeRangeFilter === 'month' && ` - ${selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' })}`}
+                                    {timeRangeFilter === 'overall' && ' (All Time)'}
+                                  </h3>
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    Track staff commissions and earnings
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Commission Table Card */}
+                            <div className="bg-white rounded-[16px] border border-gray-200 shadow-sm p-5 mb-6">
+                            
+                            {/* Commission Table */}
+                            {commissionRows.length > 0 ? (
+                              <div>
+                                <div className="overflow-x-auto" style={{ minHeight: '280px' }}>
+                                  <table className="w-full text-sm">
+                                    <thead>
+                                      <tr className="border-b-2 border-gray-200">
+                                        <th className="text-left py-3 px-4 font-semibold text-gray-700">Name</th>
+                                        <th className="text-left py-3 px-4 font-semibold text-gray-700">Commission Type</th>
+                                        <th className="text-left py-3 px-4 font-semibold text-gray-700">Amount Paid</th>
+                                        <th className="text-left py-3 px-4 font-semibold text-gray-700">Commission Amount</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {paginatedRows.map((row: any, index) => (
+                                        <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                                          <td className="py-3 px-4 text-gray-900">{row.name}</td>
+                                          <td className="py-3 px-4">
+                                            <span className="inline-block px-2 py-1 bg-teal-100 text-teal-800 rounded text-xs font-medium capitalize">
+                                              {row.commissionType.replace(/_/g, ' ')}
+                                            </span>
+                                          </td>
+                                          <td className="py-3 px-4 text-gray-900 font-medium">₹{row.totalAmountPaid.toLocaleString()}</td>
+                                          <td className="py-3 px-4 text-teal-700 font-bold">₹{row.totalCommissionAmount.toLocaleString()}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                                
+                                {/* Pagination Controls */}
+                                {totalPages > 1 && (
+                                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+                                    <div className="text-xs text-gray-600">
+                                      Showing {startIndex + 1} to {Math.min(endIndex, commissionRows.length)} of {commissionRows.length} entries
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => setCommissionPage(prev => Math.max(1, prev - 1))}
+                                        disabled={commissionPage === 1}
+                                        className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                                          commissionPage === 1
+                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                            : 'bg-teal-600 text-white hover:bg-teal-700'
+                                        }`}
+                                      >
+                                        ← Previous
+                                      </button>
+                                      
+                                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                                        <button
+                                          key={page}
+                                          onClick={() => setCommissionPage(page)}
+                                          className={`px-3 py-1 text-xs font-medium rounded transition-colors min-w-[32px] ${
+                                            commissionPage === page
+                                              ? 'bg-teal-700 text-white'
+                                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                          }`}
+                                        >
+                                          {page}
+                                        </button>
+                                      ))}
+                                      
+                                      <button
+                                        onClick={() => setCommissionPage(prev => Math.min(totalPages, prev + 1))}
+                                        disabled={commissionPage === totalPages}
+                                        className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                                          commissionPage === totalPages
+                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                            : 'bg-teal-600 text-white hover:bg-teal-700'
+                                        }`}
+                                      >
+                                        Next →
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="h-48 flex flex-col items-center justify-center text-gray-400">
+                                <div className="flex flex-col items-center gap-3">
+                                  {/* Empty state icon */}
+                                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                  </div>
+                                  <p className="text-sm font-medium text-gray-500">No commission data available for the selected period</p>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Commission Type Performance Graph */}
+                            {commissionTypeStats.length > 0 && (
+                              <div className="mt-6 pt-6 border-t border-gray-200">
+                                <h4 className="text-sm font-semibold text-gray-700 mb-4">Commission Type Performance</h4>
+                                <div className="h-72">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={commissionTypeStats}>
+                                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                      <XAxis
+                                        dataKey="name"
+                                        tick={{ fontSize: 10, fontWeight: '500' }}
+                                        angle={-45}
+                                        textAnchor="end"
+                                        height={80}
+                                        interval={0}
+                                        stroke="#6b7280"
+                                        tickFormatter={(value) => {
+                                          // Split long names into multiple lines
+                                          if (value && value.length > 15) {
+                                            const words = value.split(' ');
+                                            if (words.length >= 2) {
+                                              return words.slice(0, Math.ceil(words.length / 2)).join(' ') + '\n' + words.slice(Math.ceil(words.length / 2)).join(' ');
+                                            }
+                                          }
+                                          return value;
+                                        }}
+                                      />
+                                      <YAxis
+                                        tick={{ fontSize: 11 }}
+                                        stroke="#6b7280"
+                                        width={60}
+                                        tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`}
+                                      />
+                                      <Tooltip
+                                        formatter={(value: any, name: any) => {
+                                          if (name === 'amount') {
+                                            return [`₹${value.toLocaleString()}`, 'Total Earned'];
+                                          }
+                                          if (name === 'count') {
+                                            return [value, 'Transactions'];
+                                          }
+                                          return [value, name];
+                                        }}
+                                        labelStyle={{ fontWeight: 'bold', fontSize: '12px' }}
+                                        contentStyle={{
+                                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                          border: '1px solid #e5e7eb',
+                                          borderRadius: '8px',
+                                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                        }}
+                                      />
+                                      <Legend wrapperStyle={{ fontSize: '11px' }} />
+                                      <Line
+                                        type="monotone"
+                                        dataKey="amount"
+                                        name="Total Earned"
+                                        stroke="#0d9488"
+                                        strokeWidth={3}
+                                        dot={{ fill: '#0d9488', strokeWidth: 2, r: 5 }}
+                                        activeDot={{ r: 7 }}
+                                      />
+                                      <Line
+                                        type="monotone"
+                                        dataKey="count"
+                                        name="Transactions"
+                                        stroke="#f59e0b"
+                                        strokeWidth={3}
+                                        dot={{ fill: '#f59e0b', strokeWidth: 2, r: 5 }}
+                                        activeDot={{ r: 7 }}
+                                      />
+                                    </LineChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Date Display */}
+                            <div className="mt-4 text-xs text-gray-500 text-center">
+                              {timeRangeFilter === 'month' && (
+                                <span>Showing data for: {selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
+                              )}
+                              {timeRangeFilter === 'overall' && (
+                                <span>Showing all-time accumulated data</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                         );
                      
                       case 'analytics-overview':
@@ -3655,11 +6302,29 @@ const ClinicDashboard: NextPageWithLayout = () => {
                           return null;
                         }
                         return (
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
-            <h3 className="text-base font-semibold text-teal-800 mb-6">Analytics Overview</h3>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              <div className="h-80">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Appointments, Leads, Offers & Jobs</h4>
+                          <div>
+                            {/* Main Header - Plain heading without box */}
+                            <div className="mb-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h3 className="text-xl font-bold text-black">
+                                    Analytics Overview
+                                    {timeRangeFilter === 'month' && ` - ${selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' })}`}
+                                    {timeRangeFilter === 'overall' && ' (All Time)'}
+                                  </h3>
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    Comprehensive clinic performance metrics
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Analytics Cards Grid */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                              {/* Left Side - Bar Chart Box (Appointments, Leads, Offers & Jobs) */}
+                              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                                <h3 className="text-base font-bold text-black">Appointments, Leads, Offers & Jobs</h3>
+                                <div className="h-72">
                 {modulesChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={modulesChartData} margin={{ top: 10, right: 20, left: 10, bottom: 40 }}>
@@ -3713,8 +6378,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
               </div>
                 )}
               </div>
-              <div className="h-80">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Reviews, Enquiries, Patients & Rooms</h4>
+                              </div>
+                              
+                              {/* Right Side - Line Chart Box (Reviews, Enquiries, Patients & Rooms) */}
+                              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                                <h3 className="text-base font-bold text-black">Reviews, Enquiries, Patients & Rooms</h3>
+                                <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={statsChartData} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -3749,9 +6418,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   </LineChart>
                 </ResponsiveContainer>
               </div>
-            </div>
-            <div className="h-80">
-              <h3 className="text-base font-semibold text-teal-800 mb-4">Active vs Inactive</h3>
+                              </div>
+                            </div>
+                            
+                            {/* Active vs Inactive - Single Div */}
+                            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 mb-4">
+                              <h3 className="text-base font-bold text-black mb-4">Active vs Inactive</h3>
+                              <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={[
@@ -3803,6 +6476,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               </ResponsiveContainer>
             </div>
           </div>
+                            </div>
                         );
 
                       case 'subscription-status':
@@ -3810,12 +6484,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
         <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-200 shadow-lg p-6 mb-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-gradient-to-br from-teal-500 to-teal-600 rounded-lg shadow-md">
-                <Crown className="w-6 h-6 text-white" />
-              </div>
+            
               <div>
-                <h3 className="text-lg font-bold text-teal-800">Subscription Status</h3>
-                <p className="text-xs text-gray-500">Manage your module access</p>
+                <h3 className="text-base font-bold text-black">Subscription Status</h3>
+                <p className="text-xs text-gray-500 mt-1">Manage your module access</p>
               </div>
             </div>
             <div className="text-right">
@@ -3899,9 +6571,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Activity className="w-5 h-5 text-gray-600" />
-                <span className="text-sm font-semibold text-teal-800">Module Summary</span>
+                <span className="text-base font-bold text-black">Module Summary</span>
               </div>
-              <span className="text-lg font-bold text-teal-800">{subscriptionSummary.totalModules} Total</span>
+              <span className="text-sm text-gray-600">{subscriptionSummary.totalModules} Total</span>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center p-3 bg-green-50 rounded-lg border border-green-100">

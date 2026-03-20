@@ -115,6 +115,8 @@ export default async function handler(req, res) {
       referral,
       emergency,
       notes,
+      treatment,
+      serviceId,
     } = req.body;
 
     // Validate required fields
@@ -221,6 +223,8 @@ export default async function handler(req, res) {
       referral: referral || "No",
       emergency: emergency || "no",
       notes: notes || "",
+      treatment: treatment || "",
+      serviceId: serviceId || null,
     };
 
     // If status is "Arrived", set arrivedAt timestamp

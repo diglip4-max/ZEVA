@@ -50,7 +50,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quantityErrors, setQuantityErrors] = useState<Record<string, string>>(
-    {}
+    {},
   );
 
   const [selectedType, _setSelectedType] =
@@ -63,14 +63,14 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
   const recordDropdownRef = useRef<HTMLDivElement>(null);
   const [selectedRecordId, setSelectedRecordId] = useState<string>("");
   const [selectedRecord, setSelectedRecord] = useState<PurchaseRecord | null>(
-    null
+    null,
   );
 
   const [locations, setLocations] = useState<StockLocation[]>([]);
   const [defaultUserId, setDefaultUserId] = useState<string>("");
   const [defaultLocationId, setDefaultLocationId] = useState<string>("");
   const [defaultExpiryDate, setDefaultExpiryDate] = useState<string>(
-    new Date().toISOString().split("T")[0]
+    new Date().toISOString().split("T")[0],
   );
 
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
@@ -111,14 +111,14 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
           limit: "500",
           sortBy: "date",
           sortOrder: "desc",
-          status: "Allocated",
+          status: "Delivered",
           search: recordSearch,
         });
         const res = await axios.get(
           `/api/stocks/purchase-records?${params.toString()}`,
           {
             headers,
-          }
+          },
         );
         let list: PurchaseRecord[] = res.data?.data?.records || [];
         setRecords(list);
@@ -138,7 +138,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
         setFetchRecordsLoading(false);
       }
     },
-    [headers, selectedType, isOpen, recordSearch]
+    [headers, selectedType, isOpen, recordSearch],
   );
 
   const fetchRecordDetail = useCallback(
@@ -156,7 +156,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
         const q: Record<string, number> = {};
         (pr.items || []).forEach((it) => {
           const key = it._id || it.itemId || "";
-          if (key) q[key] = it.quantity || 1;
+          if (key) q[key] = (it.quantity || 0) + (it.freeQuantity || 0);
         });
         setQuantities(q);
       } catch (err: unknown) {
@@ -174,7 +174,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
       } finally {
       }
     },
-    [headers]
+    [headers],
   );
 
   const fetchLocations = useCallback(async () => {
@@ -224,7 +224,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
   const validateItemQuantity = (
     key: string,
     qty: number,
-    maxQty: number
+    maxQty: number,
   ): boolean => {
     if (qty > maxQty) {
       setQuantityErrors((prev) => ({
@@ -250,7 +250,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
 
   const toggleItem = (key: string) => {
     setSelectedItemIds((prev) =>
-      prev.includes(key) ? prev.filter((id) => id !== key) : [...prev, key]
+      prev.includes(key) ? prev.filter((id) => id !== key) : [...prev, key],
     );
   };
 
@@ -313,7 +313,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
     idx: number,
     field: "userId" | "qty" | "locationId" | "expiryDate",
     value: string | number,
-    maxQty?: number
+    maxQty?: number,
   ) => {
     setAllocations((prev) => {
       const next = { ...prev };
@@ -326,7 +326,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
       if (field === "qty" && maxQty) {
         const totalOtherSplits = list.reduce(
           (sum, sp, i) => (i !== idx ? sum + (sp.qty || 0) : sum),
-          0
+          0,
         );
         const newTotal =
           totalOtherSplits +
@@ -381,15 +381,15 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
 
     const exceedItem = selectedItemIds.find((id) => {
       const item = selectedRecord.items?.find(
-        (it) => (it._id || it.itemId) === id
+        (it) => (it._id || it.itemId) === id,
       );
       const selectedQty = quantities[id] || 0;
-      const maxQty = item?.quantity || 0;
+      const maxQty = (item?.quantity || 0) + (item?.freeQuantity || 0);
       return selectedQty > maxQty;
     });
     if (exceedItem) {
       setError(
-        "Selected quantity exceeds available quantity in purchase order"
+        "Selected quantity exceeds available quantity in purchase order",
       );
       return;
     }
@@ -401,23 +401,23 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
       const target = quantities[id] || 0;
       if (total > target) {
         setError(
-          "Total allocated quantity exceeds selected allocation quantity for an item"
+          "Total allocated quantity exceeds selected allocation quantity for an item",
         );
         return;
       }
       const hasInvalid = splits.some(
-        (sp) => !sp.userId || !sp.locationId || !sp.expiryDate || sp.qty <= 0
+        (sp) => !sp.userId || !sp.locationId || !sp.expiryDate || sp.qty <= 0,
       );
       if (hasInvalid) {
         setError(
-          "Each split must include user, location, expiry and a positive quantity"
+          "Each split must include user, location, expiry and a positive quantity",
         );
         return;
       }
       if (total < target) {
         if (!defaultUserId || !defaultLocationId || !defaultExpiryDate) {
           setError(
-            "Remaining quantity detected. Select default user, location and expiry to auto-allocate remainder."
+            "Remaining quantity detected. Select default user, location and expiry to auto-allocate remainder.",
           );
           return;
         }
@@ -431,7 +431,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
       const allocatedStockItems: AllocatedStockItem[] = [];
       for (const id of selectedItemIds) {
         const item = selectedRecord.items?.find(
-          (it) => (it._id || it.itemId) === id
+          (it) => (it._id || it.itemId) === id,
         );
         const target = quantities[id] || 0;
         const splits = allocations[id] || [];
@@ -467,7 +467,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
       const res = await axios.post(
         `/api/stocks/allocated-stock-items/add`,
         payload,
-        { headers }
+        { headers },
       );
 
       // set records to empty array
@@ -719,7 +719,8 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
                         if (!key) return null;
                         const checked = selectedItemIds.includes(key);
                         const qty = quantities[key] ?? it.quantity ?? 1;
-                        const maxQty = it.quantity || 0;
+                        const maxQty =
+                          (it.quantity || 0) + (it?.freeQuantity || 0);
                         const splits = allocations[key] || [];
                         const allocatedSum = getTotalAllocatedForItem(key);
                         const hasError = quantityErrors[key];
@@ -745,7 +746,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
                                 </div>
                               </td>
                               <td className="px-3 py-2 text-sm text-gray-600">
-                                {it.quantity}
+                                {it.quantity + (it?.freeQuantity || 0)}
                               </td>
                               <td className="px-3 py-2">
                                 <div className="flex flex-col">
@@ -753,12 +754,12 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
                                     type="number"
                                     min={0}
                                     max={maxQty}
-                                    value={qty}
+                                    value={maxQty}
                                     onChange={(e) =>
                                       setItemQty(
                                         key,
                                         Number(e.target.value),
-                                        maxQty
+                                        maxQty,
                                       )
                                     }
                                     className={`w-24 px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 ${
@@ -775,7 +776,8 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
                                     </span>
                                   )}
                                   <div className="text-[10px] text-gray-500 mt-1">
-                                    Allocated: {allocatedSum} / {qty}
+                                    Allocated: {allocatedSum} / {maxQty}, ({qty}
+                                    -Qty and {it.freeQuantity || 0}-FreeQty)
                                   </div>
                                 </div>
                               </td>
@@ -794,7 +796,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
                                               key,
                                               i,
                                               "userId",
-                                              e.target.value
+                                              e.target.value,
                                             )
                                           }
                                           className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
@@ -816,7 +818,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
                                               key,
                                               i,
                                               "locationId",
-                                              e.target.value
+                                              e.target.value,
                                             )
                                           }
                                           className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
@@ -841,7 +843,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
                                               key,
                                               i,
                                               "expiryDate",
-                                              e.target.value
+                                              e.target.value,
                                             )
                                           }
                                           className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
@@ -860,7 +862,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
                                               i,
                                               "qty",
                                               Number(e.target.value),
-                                              maxQty
+                                              maxQty,
                                             )
                                           }
                                           className={`w-full px-2 py-1.5 text-sm border rounded focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 ${

@@ -140,12 +140,12 @@ export default async function handler(req, res) {
         }
 
         // reduce quantity from allocated item
-        const stockItemId = allocatedItem?.item?.itemId;
         const remainedQtyByUom = await reduceQuantity(
           allocatedItem.quantitiesByUom,
           item.uom,
           item.quantity,
-          stockItemId,
+          allocatedItem?.item?.level0,
+          allocatedItem?.item?.packagingStructure,
         );
         let reducedQtyByUom = [];
         for (let i = 0; i < remainedQtyByUom.length; i++) {

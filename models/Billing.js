@@ -1,27 +1,36 @@
 import mongoose from "mongoose";
 
-const multiplePaymentSchema = new mongoose.Schema({
-  paymentMethod: {
-    type: String,
-    enum: ["Cash", "Card", "BT", "Tabby", "Tamara"],
-    required: true,
+const multiplePaymentSchema = new mongoose.Schema(
+  {
+    paymentMethod: {
+      type: String,
+      enum: ["Cash", "Card", "BT", "Tabby", "Tamara"],
+      required: true,
+    },
+    amount: { type: Number, required: true, min: 0 },
   },
-  amount: { type: Number, required: true, min: 0 },
-}, { _id: false });
+  { _id: false },
+);
 
-const paymentHistorySchema = new mongoose.Schema({
-  amount: { type: Number, required: true, min: 0 },
-  paid: { type: Number, required: true, min: 0 },
-  pending: { type: Number, required: true, min: 0 },
-  paymentMethod: {
-    type: String,
-    enum: ["Cash", "Card", "BT", "Tabby", "Tamara"],
-    required: true,
+const paymentHistorySchema = new mongoose.Schema(
+  {
+    amount: { type: Number, required: true, min: 0 },
+    paid: { type: Number, required: true, min: 0 },
+    pending: { type: Number, required: true, min: 0 },
+    paymentMethod: {
+      type: String,
+      enum: ["Cash", "Card", "BT", "Tabby", "Tamara"],
+      required: true,
+    },
+    multiplePayments: [multiplePaymentSchema],
+    status: {
+      type: String,
+      enum: ["Active", "Cancelled", "Completed", "Rejected", "Released"],
+    },
+    updatedAt: { type: Date, default: Date.now },
   },
-  multiplePayments: [multiplePaymentSchema],
-  status: { type: String, enum: ["Active", "Cancelled", "Completed", "Rejected", "Released"] },
-  updatedAt: { type: Date, default: Date.now },
-}, { _id: false });
+  { _id: false },
+);
 
 const billingSchema = new mongoose.Schema(
   {
@@ -34,8 +43,6 @@ const billingSchema = new mongoose.Schema(
     appointmentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Appointment",
-      required: true,
-      index: true,
     },
     patientId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -73,7 +80,7 @@ const billingSchema = new mongoose.Schema(
     // Service details
     service: {
       type: String,
-      enum: ["Package", "Treatment"],
+      enum: ["Package", "Treatment", "Service"],
       required: true,
     },
     treatment: {
@@ -95,12 +102,14 @@ const billingSchema = new mongoose.Schema(
       min: 0,
     },
     // Package-specific: Track which treatments and their sessions
-    selectedPackageTreatments: [{
-      treatmentName: { type: String, trim: true },
-      treatmentSlug: { type: String, trim: true },
-      sessions: { type: Number, min: 0, default: 0 },
-      _id: false
-    }],
+    selectedPackageTreatments: [
+      {
+        treatmentName: { type: String, trim: true },
+        treatmentSlug: { type: String, trim: true },
+        sessions: { type: Number, min: 0, default: 0 },
+        _id: false,
+      },
+    ],
     // Payment details
     amount: {
       type: Number,
@@ -133,6 +142,23 @@ const billingSchema = new mongoose.Schema(
       type: Number,
       default: 0,
       min: 0,
+    },
+
+    // Amount of previous advance applied to this invoice
+    pastAdvance: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    pastAdvanceUsed: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    pastAdvanceType: {
+      type: String,
+      enum: ["50% Offer", "54% Offer", "159 Flat", ""],
+      default: "",
     },
     paymentMethod: {
       type: String,
@@ -168,7 +194,7 @@ const billingSchema = new mongoose.Schema(
       min: 0,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // Pre-save hook to calculate pending
@@ -184,7 +210,10 @@ billingSchema.pre("save", function (next) {
 
   // If multiplePayments are present, sum them as total paid
   if (this.multiplePayments && this.multiplePayments.length > 0) {
-    this.paid = this.multiplePayments.reduce((sum, mp) => sum + Number(mp.amount || 0), 0);
+    this.paid = this.multiplePayments.reduce(
+      (sum, mp) => sum + Number(mp.amount || 0),
+      0,
+    );
   }
 
   // Effective due after applying previous advance to this invoice
@@ -198,9 +227,8 @@ billingSchema.pre("save", function (next) {
 });
 
 // Indexes for faster queries
-billingSchema.index({ clinicId: 1, appointmentId: 1 });
 billingSchema.index({ patientId: 1 });
 billingSchema.index({ invoiceNumber: 1 });
 
-export default mongoose.models.Billing || mongoose.model("Billing", billingSchema);
-
+export default mongoose.models.Billing ||
+  mongoose.model("Billing", billingSchema);

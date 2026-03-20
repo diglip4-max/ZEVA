@@ -189,6 +189,52 @@ const PurchaseRecordSchema = new mongoose.Schema(
           type: Number,
           default: 0,
         },
+        freeQuantityExpiryDate: {
+          type: Date,
+          default: null,
+        },
+
+        // packaging structure
+        level0: {
+          price: {
+            type: Number,
+            default: 0,
+          },
+          uom: {
+            type: String,
+            trim: true,
+          },
+        },
+        packagingStructure: {
+          level1: {
+            quantity: {
+              type: Number,
+              default: 1,
+            },
+            price: {
+              type: Number,
+              default: 0,
+            },
+            uom: {
+              type: String,
+              trim: true,
+            },
+          },
+          level2: {
+            quantity: {
+              type: Number,
+              default: 1,
+            },
+            price: {
+              type: Number,
+              default: 0,
+            },
+            uom: {
+              type: String,
+              trim: true,
+            },
+          },
+        },
       },
     ],
     createdBy: {

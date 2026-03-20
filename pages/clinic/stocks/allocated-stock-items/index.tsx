@@ -126,8 +126,8 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
     AllocatedItem | undefined
   >(undefined);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | AllocStatus>("all");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [statusFilter, setStatusFilter] = useState<"All" | AllocStatus>("All");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [items, setItems] = useState<AllocatedItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -135,6 +135,13 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
   const [limit] = useState(12);
   const [totalResults, setTotalResults] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [analytics, setAnalytics] = useState({
+    total: 0,
+    inUseNow: 0,
+    expired: 0,
+    usedToday: 0,
+    expiringSoon: 0,
+  });
 
   const headers = useMemo(() => getAuthHeaders() || {}, []);
 
@@ -145,7 +152,7 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
       const params = new URLSearchParams({
         page: pageNum.toString(),
         limit: limit.toString(),
-        ...(statusFilter !== "all" ? { status: statusFilter } : {}),
+        ...(statusFilter !== "All" ? { status: statusFilter } : {}),
         ...(searchTerm ? { search: searchTerm } : {}),
         sort: "-allocatedAt",
       });
@@ -181,8 +188,29 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
     }
   };
 
+  const fetchAnalytics = async () => {
+    try {
+      const { data } = await axios.get(
+        `/api/stocks/allocated-stock-items/analytics`,
+        { headers },
+      );
+      if (data?.success && data.analytics) {
+        setAnalytics({
+          total: data.analytics.total || 0,
+          inUseNow: data.analytics.inUseNow || 0,
+          expired: data.analytics.expired || 0,
+          usedToday: data.analytics.usedToday || 0,
+          expiringSoon: data.analytics.expiringSoon || 0,
+        });
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   useEffect(() => {
     fetchAllocated(1);
+    fetchAnalytics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, searchTerm, limit]);
 
@@ -198,28 +226,7 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
     "Deleted",
   ];
 
-  const analytics = useMemo(() => {
-    const total = totalResults;
-    const inUse = items.filter((i) => i.status === "In_Use").length;
-    const usedToday = items.filter((i) => {
-      const d = new Date(i.allocatedAt);
-      const now = new Date();
-      return (
-        d.getFullYear() === now.getFullYear() &&
-        d.getMonth() === now.getMonth() &&
-        d.getDate() === now.getDate() &&
-        i.status === "Used"
-      );
-    }).length;
-    const expiringSoon = items.filter((i) => {
-      if (!i.expiryDate) return false;
-      const exp = new Date(i.expiryDate);
-      const now = new Date();
-      const diff = (exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-      return diff >= 0 && diff <= 30;
-    }).length;
-    return { total, inUse, usedToday, expiringSoon };
-  }, [items, totalResults]);
+  // analytics now loaded from backend
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -259,11 +266,17 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
                 icon: BeakerIcon,
                 color: "blue",
               },
+              // {
+              //   label: "In Use Now",
+              //   value: String(analytics.inUseNow),
+              //   icon: ClockIcon,
+              //   color: "yellow",
+              // },
               {
-                label: "In Use Now",
-                value: String(analytics.inUse),
-                icon: ClockIcon,
-                color: "yellow",
+                label: "Expired",
+                value: String(analytics.expired),
+                icon: ExclamationTriangleIcon,
+                color: "gray",
               },
               {
                 label: "Used Today",
@@ -324,7 +337,11 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
               <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
                 <button
                   onClick={() => setViewMode("grid")}
-                  className={`p-2 ${viewMode === "grid" ? "bg-blue-50 text-blue-600" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                  className={`p-2 ${
+                    viewMode === "grid"
+                      ? "bg-blue-50 text-blue-600"
+                      : "bg-white text-gray-600 hover:bg-gray-50"
+                  }`}
                 >
                   <svg
                     className="w-5 h-5"
@@ -342,7 +359,11 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
                 </button>
                 <button
                   onClick={() => setViewMode("list")}
-                  className={`p-2 ${viewMode === "list" ? "bg-blue-50 text-blue-600" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                  className={`p-2 ${
+                    viewMode === "list"
+                      ? "bg-blue-50 text-blue-600"
+                      : "bg-white text-gray-600 hover:bg-gray-50"
+                  }`}
                 >
                   <svg
                     className="w-5 h-5"
@@ -570,112 +591,116 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
         ) : (
           // List View
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Item
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Location
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Quantity
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Allocated By
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Allocated At
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {items.map((item) => (
-                  <tr
-                    key={item._id}
-                    className="hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-semibold text-xs">
-                          {(item.item?.name || "?").charAt(0)}
-                        </div>
-                        <div className="ml-3">
-                          <div className="text-sm font-medium text-gray-900">
-                            {item.item?.name || "-"}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {item.item?.code || "-"}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {item.user?.name || "-"}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {item.user?.role || "-"}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item?.location?.location || "-"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item?.quantity || "-"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <StatusBadge status={item?.status} />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item?.allocatedBy?.name || "-"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item?.createdAt ? formatDate(item?.createdAt) : "-"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 space-x-3">
-                      <button
-                        onClick={() => {
-                          setSelectedAllocatedItem(item);
-                          setIsOpenViewModal(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        View
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedAllocatedItem(item);
-                          setIsOpenEditModal(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedAllocatedItem(item);
-                          setIsOpenDeleteModal(true);
-                        }}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        Delete
-                      </button>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Item
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      User
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Location
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Quantity
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Allocated By
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Allocated At
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {items.map((item) => (
+                    <tr
+                      key={item._id}
+                      className="hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-semibold text-xs">
+                            {(item.item?.name || "?").charAt(0)}
+                          </div>
+                          <div className="ml-3">
+                            <div className="text-sm font-medium text-gray-900">
+                              {item.item?.name || "-"}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {item.item?.code || "-"}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {item.user?.name || "-"}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {item.user?.role || "-"}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item?.location?.location || "-"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item?.quantitiesByUom
+                          ?.map((uom) => `${uom.quantity} ${uom.uom}`)
+                          .join(", ")}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <StatusBadge status={item?.status} />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item?.allocatedBy?.name || "-"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item?.createdAt ? formatDate(item?.createdAt) : "-"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 space-x-3">
+                        <button
+                          onClick={() => {
+                            setSelectedAllocatedItem(item);
+                            setIsOpenViewModal(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedAllocatedItem(item);
+                            setIsOpenEditModal(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedAllocatedItem(item);
+                            setIsOpenDeleteModal(true);
+                          }}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

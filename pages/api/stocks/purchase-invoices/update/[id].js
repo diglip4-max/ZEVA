@@ -60,6 +60,7 @@ export default async function handler(req, res) {
       notes,
       status,
       attachmentUrl,
+      paymentMethod,
       paidAmount,
       remainingAmount,
     } = req.body;
@@ -81,6 +82,7 @@ export default async function handler(req, res) {
     if (status !== undefined && invoice.status !== "Deleted")
       invoice.status = status;
     if (attachmentUrl !== undefined) invoice.attachmentUrl = attachmentUrl;
+    if (paymentMethod !== undefined) invoice.paymentMethod = paymentMethod || "";
     if (paidAmount !== undefined) invoice.paidAmount = Number(paidAmount) || 0;
     if (remainingAmount !== undefined)
       invoice.remainingAmount = Number(remainingAmount) || 0;

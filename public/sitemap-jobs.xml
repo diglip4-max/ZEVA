@@ -21,6 +21,11 @@
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>  <url>
+    <loc>http://localhost:3000/job-details/specialist-noida-sector-59-1</loc>
+    <lastmod>2026-03-07T07:34:30.099Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>  <url>
     <loc>http://localhost:3000/job-details/specialist-noida-sector-63</loc>
     <lastmod>2026-02-10T07:49:20.150Z</lastmod>
     <changefreq>weekly</changefreq>

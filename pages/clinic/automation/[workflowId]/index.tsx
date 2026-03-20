@@ -1,0 +1,1297 @@
+import React, {
+  ReactElement,
+  useCallback,
+  useState,
+  useRef,
+  useEffect,
+} from "react";
+import ReactFlow, {
+  addEdge,
+  Background,
+  Controls,
+  MiniMap,
+  useNodesState,
+  useEdgesState,
+  Connection,
+  Edge,
+  Handle,
+  Position,
+  Panel,
+  ReactFlowProvider,
+} from "reactflow";
+import "reactflow/dist/style.css";
+import {
+  Zap,
+  Play,
+  Settings,
+  X,
+  Plus,
+  Save,
+  ArrowLeft,
+  Search,
+  UserPlus,
+  Calendar,
+  MessageSquare,
+  Clock,
+  Database,
+  Filter,
+  Split,
+  Tag,
+  Trash2,
+  Pencil,
+  Webhook,
+} from "lucide-react";
+import { useRouter } from "next/router";
+import { NextPageWithLayout } from "@/pages/_app";
+import ClinicLayout from "@/components/ClinicLayout";
+import withClinicAuth from "@/components/withClinicAuth";
+import { clsx, type ClassValue } from "clsx";
+import { Workflow } from "@/types/workflows";
+import axios from "axios";
+import { getFormatedTime, getTokenByPath } from "@/lib/helper";
+import { FaUserEdit, FaWhatsapp } from "react-icons/fa";
+import EditWorkflow from "../_components/EditWorkflow";
+import DeleteConfirmation from "../_components/DeleteConfirmation";
+import DelayActionModal from "../_components/DelayActionModal";
+import RestApiActionModal from "../_components/RestApiActionModal";
+import FilterConditionModal from "../_components/FilterConditionModal";
+import IfElseConditionModal from "../_components/IfElseConditionModal";
+import WebhookTriggerModal from "../_components/WebhookTriggerModal";
+import AssignOwnerActionModal from "../_components/AssignOwnerActionModal";
+import AddToSegmentActionModal from "../_components/AddToSegmentActionModal";
+import AiComposerActionModal from "../_components/AiComposerActionModal";
+import SendWhatsappActionModal from "../_components/SendWhatsappActionModal";
+
+// Utility for tailwind classes
+function cn(...inputs: ClassValue[]) {
+  return clsx(inputs);
+}
+
+const actionIcons: { [key: string]: React.ElementType } = {
+  "Send WhatsApp": FaWhatsapp,
+  Delay: Clock,
+  "Rest API": Database,
+  "AI Composer": Zap,
+  "Add Tag": Tag,
+  "Assign Owner": UserPlus,
+  "Add To Segment": UserPlus,
+};
+
+// --- Custom Node Components ---
+
+const NodeWrapper = ({
+  children,
+  selected,
+  title,
+  icon: Icon,
+  color,
+  description,
+  onDelete,
+  onEdit,
+}: {
+  children?: React.ReactNode;
+  selected?: boolean;
+  title: string;
+  icon: any;
+  color: string;
+  description?: string;
+  onDelete?: () => void;
+  onEdit?: () => void;
+}) => (
+  <div
+    className={cn(
+      "min-w-[250px] bg-white rounded-lg shadow-sm border transition-all duration-200 group/node",
+      selected
+        ? "border-blue-500 ring-2 ring-blue-100 shadow-md"
+        : "border-gray-200 hover:border-gray-300 hover:shadow-md",
+    )}
+  >
+    <div className="flex items-center p-3 gap-3">
+      <div
+        className={cn(
+          "p-2 rounded text-white shrink-0 shadow-sm",
+          color.replace("bg-", "bg-"),
+        )}
+      >
+        <Icon className="w-4 h-4" />
+      </div>
+      <div className="flex-1 min-w-0 pr-6">
+        <h4 className="text-[13px] font-semibold text-gray-800 truncate leading-tight">
+          {title}
+        </h4>
+        {description && (
+          <p className="text-[10px] text-gray-400 truncate mt-0.5 font-medium">
+            {description}
+          </p>
+        )}
+      </div>
+
+      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover/node:opacity-100 transition-opacity">
+        {onEdit && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+            className="p-1 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
+            title="Edit node"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+        )}
+        {onDelete && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+            title="Delete node"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+    </div>
+    {children}
+  </div>
+);
+
+const TriggerNode = ({ id, data, selected }: any) => (
+  <NodeWrapper
+    selected={selected}
+    title={data.label || "Trigger"}
+    icon={Zap}
+    color={data.color || "bg-amber-500"}
+    description="Starts the workflow"
+    onDelete={() => data.onDeleteNode(id)}
+    onEdit={() => data.onEditNode(id)}
+  >
+    <Handle
+      type="source"
+      position={Position.Right}
+      className="!w-2 !h-2 !bg-amber-500 !border-2 !border-white !-right-1.5"
+    />
+  </NodeWrapper>
+);
+
+const ActionNode = ({ id, data, selected }: any) => {
+  const Icon = actionIcons[data.label] || Play;
+  const isDelay =
+    data.label === "Delay" || data.label === "Wait" || data.subType === "delay";
+  const delayDesc = data.delayValue
+    ? `Wait ${data.delayValue} ${data.delayUnit}`
+    : "Performs an operation";
+
+  return (
+    <NodeWrapper
+      selected={selected}
+      title={data.label || "Action"}
+      icon={Icon}
+      color={data.color || "bg-blue-500"}
+      description={isDelay ? delayDesc : "Performs an operation"}
+      onDelete={() => data.onDeleteNode(id)}
+      onEdit={() => data.onEditNode(id)}
+    >
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!w-2 !h-2 !bg-blue-500 !border-2 !border-white !-left-1.5"
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!w-2 !h-2 !bg-blue-500 !border-2 !border-white !-right-1.5"
+      />
+    </NodeWrapper>
+  );
+};
+
+const ConditionNode = ({ id, data, selected }: any) => (
+  <NodeWrapper
+    selected={selected}
+    title={data.label || "Condition"}
+    icon={Filter}
+    color={data.color || "bg-purple-500"}
+    description="Branching logic"
+    onDelete={() => data.onDeleteNode(id)}
+    onEdit={() => data.onEditNode(id)}
+  >
+    <Handle
+      type="target"
+      position={Position.Left}
+      className="!w-2 !h-2 !bg-purple-500 !border-2 !border-white !-left-1.5"
+    />
+    <div className="absolute right-0 top-0 bottom-0 flex flex-col justify-around py-2">
+      <div className="relative group/handle">
+        <Handle
+          type="source"
+          position={Position.Right}
+          id="true"
+          className="!w-2 !h-2 !bg-green-500 !border-2 !border-white !-right-1.5 !top-1/2"
+        />
+        <span className="absolute -left-5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-green-500 opacity-0 group-hover/node:opacity-100 transition-opacity">
+          YES
+        </span>
+      </div>
+      <div className="relative mt-2 group/handle">
+        <Handle
+          type="source"
+          position={Position.Right}
+          id="false"
+          className="!w-2 !h-2 !bg-red-500 !border-2 !border-white !-right-1.5 !top-1/2"
+        />
+        <span className="absolute -left-4 top-1/2 -translate-y-1/2 text-[9px] font-bold text-red-500 opacity-0 group-hover/node:opacity-100 transition-opacity">
+          NO
+        </span>
+      </div>
+    </div>
+  </NodeWrapper>
+);
+
+// --- Sidebar Components ---
+
+const SidebarItem = ({
+  icon: Icon,
+  label,
+  description,
+  type,
+  subType,
+  color,
+  onDragStart,
+}: any) => (
+  <div
+    className="group flex items-center gap-3 p-2.5 mb-1.5 rounded-lg bg-white border border-gray-100 hover:border-blue-200 hover:shadow-sm transition-all cursor-grab active:cursor-grabbing"
+    onDragStart={(event) => onDragStart(event, type, subType, label, color)}
+    draggable
+  >
+    <div className={cn("p-1.5 rounded text-white shrink-0 shadow-sm", color)}>
+      <Icon className="w-3.5 h-3.5" />
+    </div>
+    <div className="flex-1 min-w-0">
+      <div className="text-[12px] font-semibold text-gray-700 leading-none">
+        {label}
+      </div>
+      <div className="text-[10px] text-gray-500 line-clamp-2 mt-0.5">
+        {description?.length > 25
+          ? `${description.slice(0, 25)}...`
+          : description}
+      </div>
+    </div>
+    <Plus className="w-3.5 h-3.5 text-gray-300 group-hover:text-blue-500 transition-colors" />
+  </div>
+);
+
+// --- Main Page Component ---
+
+const nodeTypes = {
+  trigger: TriggerNode,
+  action: ActionNode,
+  condition: ConditionNode,
+};
+
+let nodeCounter = 0;
+const getId = () => `node_${nodeCounter++}`;
+
+// Debounce utility
+function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+
+  return (...args: Parameters<F>): Promise<ReturnType<F>> =>
+    new Promise((resolve) => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+
+      timeout = setTimeout(() => resolve(func(...args)), waitFor);
+    });
+}
+
+const WorkflowEditor = () => {
+  const router = useRouter();
+  const { workflowId } = router.query;
+  const reactFlowWrapper = useRef<HTMLDivElement>(null);
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [workflow, setWorkflow] = useState<Workflow | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [delayModal, setDelayModal] = useState<{
+    show: boolean;
+    actionId: string | null;
+  }>({
+    show: false,
+    actionId: null,
+  });
+  const [restApiModal, setRestApiModal] = useState<{
+    show: boolean;
+    actionId: string | null;
+  }>({
+    show: false,
+    actionId: null,
+  });
+  const [filterModal, setFilterModal] = useState<{
+    show: boolean;
+    conditionId: string | null;
+  }>({
+    show: false,
+    conditionId: null,
+  });
+  const [ifelseModal, setIfelseModal] = useState<{
+    show: boolean;
+    conditionId: string | null;
+  }>({
+    show: false,
+    conditionId: null,
+  });
+  const [webhookModal, setWebhookModal] = useState<{
+    show: boolean;
+    triggerId: string | null;
+  }>({
+    show: false,
+    triggerId: null,
+  });
+  const [assignOwnerModal, setAssignOwnerModal] = useState<{
+    show: boolean;
+    actionId: string | null;
+  }>({
+    show: false,
+    actionId: null,
+  });
+  const [addToSegmentModal, setAddToSegmentModal] = useState<{
+    show: boolean;
+    actionId: string | null;
+  }>({
+    show: false,
+    actionId: null,
+  });
+  const [aiComposerModal, setAiComposerModal] = useState<{
+    show: boolean;
+    actionId: string | null;
+  }>({
+    show: false,
+    actionId: null,
+  });
+  const [sendWhatsappModal, setSendWhatsappModal] = useState<{
+    show: boolean;
+    actionId: string | null;
+  }>({
+    show: false,
+    actionId: null,
+  });
+  const [deleteModal, setDeleteModal] = useState<{
+    show: boolean;
+    nodeId: string | null;
+    isLoading: boolean;
+  }>({
+    show: false,
+    nodeId: null,
+    isLoading: false,
+  });
+  const [errorModal, setErrorModal] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+  }>({
+    show: false,
+    title: "",
+    message: "",
+  });
+
+  const onDeleteNode = useCallback((nodeId: string) => {
+    setDeleteModal({
+      show: true,
+      nodeId: nodeId,
+      isLoading: false,
+    });
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    const nodeId = deleteModal.nodeId;
+    if (!nodeId) return;
+
+    const nodeToDelete = nodes.find((n) => n.id === nodeId);
+    if (!nodeToDelete) return;
+
+    setDeleteModal((prev) => ({ ...prev, isLoading: true }));
+
+    try {
+      const dbId = nodeToDelete.data.id;
+      const nodeType = nodeToDelete.type;
+      const token = getTokenByPath();
+
+      if (dbId) {
+        let apiEndpoint = "";
+        if (nodeType === "trigger") {
+          apiEndpoint = `/api/workflows/triggers/delete/${dbId}`;
+        } else if (nodeType === "action") {
+          apiEndpoint = `/api/workflows/actions/delete/${dbId}`;
+        } else if (nodeType === "condition") {
+          apiEndpoint = `/api/workflows/conditions/delete/${dbId}`;
+        }
+
+        if (apiEndpoint) {
+          await axios.delete(apiEndpoint, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        }
+      }
+
+      // Update Flow State
+      setNodes((nds) => nds.filter((node) => node.id !== nodeId));
+      setEdges((eds) =>
+        eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId),
+      );
+
+      setDeleteModal({ show: false, nodeId: null, isLoading: false });
+    } catch (err: any) {
+      console.error("Error deleting node:", err);
+      setDeleteModal((prev) => ({ ...prev, isLoading: false }));
+      setErrorModal({
+        show: true,
+        title: "Delete Failed",
+        message:
+          err.response?.data?.message || "Failed to delete from database.",
+      });
+    }
+  }, [deleteModal.nodeId, nodes, setNodes, setEdges]);
+
+  const onEditNode = useCallback(
+    (nodeId: string) => {
+      setNodes((nds) => {
+        const node = nds.find((n) => n.id === nodeId);
+        if (
+          node &&
+          (node.data.label === "Wait" ||
+            node.data.label === "Delay" ||
+            node.data.subType === "delay")
+        ) {
+          setDelayModal({
+            show: true,
+            actionId: node.data.id,
+          });
+        } else if (
+          node &&
+          (node.data.label === "Send WhatsApp" ||
+            node.data.subType === "send_whatsapp")
+        ) {
+          setSendWhatsappModal({
+            show: true,
+            actionId: node.data.id,
+          });
+        } else if (
+          node &&
+          (node.data.label === "Rest API" || node.data.subType === "rest_api")
+        ) {
+          setRestApiModal({
+            show: true,
+            actionId: node.data.id,
+          });
+        } else if (
+          node &&
+          (node.data.label === "Filter" || node.data.subType === "filter")
+        ) {
+          setFilterModal({
+            show: true,
+            conditionId: node.data.id,
+          });
+        } else if (
+          node &&
+          (node.data.label === "If/Else" || node.data.subType === "if_else")
+        ) {
+          setIfelseModal({
+            show: true,
+            conditionId: node.data.id,
+          });
+        } else if (
+          node &&
+          (node.data.label === "Webhook Received" ||
+            node.data.subType === "webhook_received")
+        ) {
+          setWebhookModal({
+            show: true,
+            triggerId: node.data.id,
+          });
+        } else if (
+          node &&
+          (node.data.label === "Assign Owner" ||
+            node.data.subType === "assign_owner")
+        ) {
+          setAssignOwnerModal({
+            show: true,
+            actionId: node.data.id,
+          });
+        } else if (
+          node &&
+          (node.data.label === "Add To Segment" ||
+            node.data.subType === "add_to_segment")
+        ) {
+          setAddToSegmentModal({
+            show: true,
+            actionId: node.data.id,
+          });
+        } else if (
+          node &&
+          (node.data.label === "AI Composer" ||
+            node.data.subType === "ai_composer")
+        ) {
+          setAiComposerModal({
+            show: true,
+            actionId: node.data.id,
+          });
+        } else if (node) {
+          alert(`Edit functionality for node ${nodeId} is coming soon!`);
+        }
+        return nds;
+      });
+    },
+    [setNodes],
+  );
+
+  const fetchWorkflow = useCallback(async () => {
+    if (!workflowId) return;
+    try {
+      const token = getTokenByPath();
+      const { data } = await axios.get(`/api/workflows/${workflowId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (data.success) {
+        const wf = data.data;
+        setWorkflow(wf || null);
+
+        // Restore nodes, edges, and viewport if they exist
+        if (wf?.nodes?.length > 0) {
+          // Update node counter based on existing IDs to prevent duplicates
+          const maxId = wf.nodes.reduce((max: number, node: any) => {
+            const num = parseInt(node.id.split("_")[1]);
+            return isNaN(num) ? max : Math.max(max, num);
+          }, -1);
+          nodeCounter = maxId + 1;
+
+          setNodes(
+            wf.nodes.map((node: any) => ({
+              ...node,
+              data: {
+                ...node.data,
+                onDeleteNode,
+                onEditNode,
+              },
+            })),
+          );
+        }
+        if (wf?.edges?.length > 0) {
+          setEdges(wf.edges);
+        }
+      } else {
+        console.error("Error fetching workflow:", data.message);
+      }
+    } catch (err) {
+      console.error("Error fetching workflow:", err);
+    }
+  }, [workflowId, onDeleteNode, onEditNode, setNodes, setEdges]);
+
+  const handleSave = useCallback(async () => {
+    if (reactFlowInstance) {
+      const flow = reactFlowInstance.toObject();
+      try {
+        const token = getTokenByPath();
+        const { data } = await axios.put(
+          `/api/workflows/${workflowId}`,
+          {
+            nodes: flow.nodes,
+            edges: flow.edges,
+            viewport: flow.viewport,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+        if (data.success) {
+          console.log("Workflow saved successfully");
+          alert("Workflow saved successfully!");
+        } else {
+          console.error("Error saving workflow:", data.message);
+          alert("Failed to save workflow.");
+        }
+      } catch (err) {
+        console.error("Error saving workflow:", err);
+        alert("Failed to save workflow.");
+      }
+    }
+  }, [reactFlowInstance, workflowId]);
+
+  const handleAutoSave = useCallback(async () => {
+    if (reactFlowInstance) {
+      const flow = reactFlowInstance.toObject();
+      try {
+        const token = getTokenByPath();
+        await axios.put(
+          `/api/workflows/${workflowId}`,
+          {
+            nodes: flow.nodes,
+            edges: flow.edges,
+            viewport: flow.viewport,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+      } catch (err) {
+        console.error("Auto-save failed:", err);
+      }
+    }
+  }, [reactFlowInstance, workflowId]);
+
+  const debouncedAutoSave = useCallback(debounce(handleAutoSave, 1000), [
+    handleAutoSave,
+  ]);
+
+  const isInitialLoad = useRef(true);
+
+  useEffect(() => {
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false;
+      return;
+    }
+    if (nodes.length > 0 || edges.length > 0) {
+      debouncedAutoSave();
+    }
+  }, [nodes, edges, debouncedAutoSave]);
+
+  useEffect(() => {
+    fetchWorkflow();
+  }, [workflowId]);
+
+  const defaultEdgeOptions = {
+    style: { strokeDasharray: "5,5", strokeWidth: 2 },
+    animated: true,
+  };
+
+  const onConnect = useCallback(
+    (params: Connection | Edge) =>
+      setEdges((eds) =>
+        addEdge(
+          {
+            ...params,
+            style: { strokeDasharray: "5,5", strokeWidth: 2 },
+            animated: true,
+          },
+          eds,
+        ),
+      ),
+    [setEdges],
+  );
+
+  const onDragStart = (
+    event: any,
+    nodeType: string,
+    subType: string,
+    label: string,
+    color: string,
+  ) => {
+    event.dataTransfer.setData(
+      "application/reactflow",
+      JSON.stringify({ nodeType, subType, label, color }),
+    );
+    event.dataTransfer.effectAllowed = "move";
+  };
+
+  const onDrop = useCallback(
+    async (event: any) => {
+      event.preventDefault();
+
+      if (!reactFlowWrapper.current || !reactFlowInstance) return;
+
+      const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
+      const dataStr = event.dataTransfer.getData("application/reactflow");
+
+      if (!dataStr) return;
+
+      const { nodeType, subType, label, color } = JSON.parse(dataStr);
+
+      // Check for single trigger rule
+      if (nodeType === "trigger") {
+        const hasTrigger = nodes.some((n) => n.type === "trigger");
+        if (hasTrigger) {
+          setErrorModal({
+            show: true,
+            title: "Action Restricted",
+            message: "Only one trigger is allowed in a workflow.",
+          });
+          return;
+        }
+      }
+
+      const position = reactFlowInstance.project({
+        x: event.clientX - reactFlowBounds.left,
+        y: event.clientY - reactFlowBounds.top,
+      });
+
+      // --- Create in Database ---
+      let dbRecordId = "";
+      try {
+        const token = getTokenByPath();
+        let apiEndpoint = "";
+        let payload: any = {};
+
+        if (nodeType === "trigger") {
+          apiEndpoint = `/api/workflows/triggers/${workflowId}`;
+          payload = { name: label, type: subType };
+        } else if (nodeType === "action") {
+          apiEndpoint = `/api/workflows/actions/${workflowId}`;
+          payload = { name: label, type: subType, parameters: {} };
+        } else if (nodeType === "condition") {
+          apiEndpoint = `/api/workflows/conditions/${workflowId}`;
+          payload = { type: subType, conditions: [] };
+        }
+
+        console.log(`Creating ${nodeType}:`, payload);
+        console.log({
+          apiEndpoint,
+          payload,
+        });
+
+        const { data } = await axios.post(apiEndpoint, payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        console.log(`Created ${nodeType} with ID:`, dbRecordId);
+        console.log({ responseData: data });
+
+        if (data.success) {
+          dbRecordId = data.data._id;
+        } else {
+          console.error(`Error creating ${nodeType}:`, data.message);
+          return;
+        }
+      } catch (err) {
+        console.error(`Error creating ${nodeType}:`, err);
+        return;
+      }
+
+      const newNode = {
+        id: getId(),
+        type: nodeType,
+        position,
+        data: {
+          label,
+          subType,
+          color,
+          id: dbRecordId, // MongoDB ID
+          onDeleteNode,
+          onEditNode,
+        },
+      };
+
+      setNodes((nds) => nds.concat(newNode));
+    },
+    [reactFlowInstance, setNodes, nodes, onDeleteNode, onEditNode, workflowId],
+  );
+
+  const onDragOver = useCallback((event: any) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-64px)] bg-gray-50 overflow-hidden">
+      {/* Top Bar */}
+      <div className="h-16 bg-white border-b border-gray-200 px-6 flex items-center justify-between shrink-0 shadow-sm z-10">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => router.back()}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <div className="flex items-center gap-2 group/header">
+              <h1 className="text-lg font-bold text-gray-900">
+                {(workflow?.name || "")?.length > 20
+                  ? `${workflow?.name.slice(0, 20)}...`
+                  : workflow?.name || "Untitled Workflow"}
+              </h1>
+              <button
+                onClick={() => setIsEditModalOpen(true)}
+                className="opacity-0 group-hover/header:opacity-100 p-1 hover:bg-gray-100 rounded-md transition-all text-gray-400 hover:text-blue-600"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+              <span
+                className={`px-2 py-0.5 rounded-full ${workflow?.status === "Active" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}
+                text-[10px] font-bold uppercase tracking-wider`}
+              >
+                {workflow?.status}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500">
+              Last saved {getFormatedTime(workflow?.updatedAt || "")}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-all shadow-sm">
+            <Play className="w-4 h-4" />
+            Test Flow
+          </button>
+          <button
+            onClick={handleSave}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 rounded-xl text-sm font-semibold text-white hover:bg-blue-700 transition-all shadow-md shadow-blue-200"
+          >
+            <Save className="w-4 h-4" />
+            Save Changes
+          </button>
+          <div className="w-px h-6 bg-gray-200 mx-1" />
+          <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500">
+            <Settings className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Sidebar */}
+        <div
+          className={cn(
+            "bg-white border-r border-gray-200 transition-all duration-300 flex flex-col z-10 shadow-xl",
+            isSidebarOpen ? "w-80" : "w-0 overflow-hidden border-none",
+          )}
+        >
+          <div className="p-6 flex-1 overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-widest">
+                Nodes Library
+              </h2>
+              <button
+                onClick={() => setIsSidebarOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="relative mb-6">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search nodes..."
+                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              />
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-[10px] font-bold text-gray-400 uppercase mb-3 tracking-widest">
+                  Triggers
+                </h3>
+
+                {workflow?.entity === "Lead" && (
+                  <>
+                    <SidebarItem
+                      type="trigger"
+                      subType="new_lead"
+                      label="New Lead"
+                      description="When a new lead is added"
+                      icon={UserPlus}
+                      color="bg-amber-500"
+                      onDragStart={onDragStart}
+                    />
+                    <SidebarItem
+                      type="trigger"
+                      subType="update_lead"
+                      label="Update Lead"
+                      description="When a lead is updated"
+                      icon={FaUserEdit}
+                      color="bg-yellow-500"
+                      onDragStart={onDragStart}
+                    />
+                  </>
+                )}
+
+                {workflow?.entity === "Appointment" && (
+                  <SidebarItem
+                    type="trigger"
+                    subType="appointment"
+                    label="Appointment"
+                    description="When an appointment is booked"
+                    icon={Calendar}
+                    color="bg-amber-500"
+                    onDragStart={onDragStart}
+                  />
+                )}
+
+                {workflow?.entity === "Message" && (
+                  <SidebarItem
+                    type="trigger"
+                    subType="incoming_message"
+                    label="Incoming Message"
+                    description="When an incoming message is received"
+                    icon={MessageSquare}
+                    color="bg-green-500"
+                    onDragStart={onDragStart}
+                  />
+                )}
+                {workflow?.entity === "Webhook" && (
+                  <SidebarItem
+                    type="trigger"
+                    subType="webhook_received"
+                    label="Webhook Received"
+                    description="When a webhook is received"
+                    icon={Webhook}
+                    color="bg-red-500"
+                    onDragStart={onDragStart}
+                  />
+                )}
+              </div>
+
+              <div>
+                <h3 className="text-[10px] font-bold text-gray-400 uppercase mb-3 tracking-widest">
+                  Conditions
+                </h3>
+                <SidebarItem
+                  type="condition"
+                  subType="filter"
+                  label="Filter"
+                  description="Filter based on criteria"
+                  icon={Filter}
+                  color="bg-purple-500"
+                  onDragStart={onDragStart}
+                />
+                <SidebarItem
+                  type="condition"
+                  subType="if_else"
+                  label="If/Else"
+                  description="Branch the workflow"
+                  icon={Split}
+                  color="bg-orange-500"
+                  onDragStart={onDragStart}
+                />
+              </div>
+
+              <div>
+                <h3 className="text-[10px] font-bold text-gray-400 uppercase mb-3 tracking-widest">
+                  Actions
+                </h3>
+
+                <SidebarItem
+                  type="action"
+                  subType="send_whatsapp"
+                  label="Send WhatsApp"
+                  description="Send a whatsapp templated message"
+                  icon={FaWhatsapp}
+                  color="bg-green-500"
+                  onDragStart={onDragStart}
+                />
+                <SidebarItem
+                  type="action"
+                  subType="delay"
+                  label="Delay"
+                  description="Delay for specific time"
+                  icon={Clock}
+                  color="bg-red-500"
+                  onDragStart={onDragStart}
+                />
+                <SidebarItem
+                  type="action"
+                  subType="rest_api"
+                  label="Rest API"
+                  description="Call a REST API"
+                  icon={Database}
+                  color="bg-blue-500"
+                  onDragStart={onDragStart}
+                />
+                <SidebarItem
+                  type="action"
+                  subType="ai_composer"
+                  label="AI Composer"
+                  description="Compose AI responses"
+                  icon={Zap}
+                  color="bg-yellow-500"
+                  onDragStart={onDragStart}
+                />
+                {workflow?.entity === "Lead" && (
+                  <SidebarItem
+                    type="action"
+                    subType="add_tag"
+                    label="Add Tag"
+                    description="Add a tag to the lead"
+                    icon={Tag}
+                    color="bg-blue-500"
+                    onDragStart={onDragStart}
+                  />
+                )}
+
+                {workflow?.entity === "Lead" && (
+                  <SidebarItem
+                    type="action"
+                    subType="assign_owner"
+                    label="Assign Owner"
+                    description="Assign the lead to a specific owner"
+                    icon={UserPlus}
+                    color="bg-purple-500"
+                    onDragStart={onDragStart}
+                  />
+                )}
+
+                {workflow?.entity === "Lead" && (
+                  <SidebarItem
+                    type="action"
+                    subType="add_to_segment"
+                    label="Add To Segment"
+                    description="Add the lead to a specific segment"
+                    icon={UserPlus}
+                    color="bg-green-500"
+                    onDragStart={onDragStart}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {!isSidebarOpen && (
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="absolute left-4 top-4 z-20 p-2 bg-white rounded-xl shadow-lg border border-gray-100 text-gray-500 hover:text-blue-600 transition-all"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        )}
+
+        {/* Canvas */}
+        <div className="flex-1 h-full" ref={reactFlowWrapper}>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onInit={setReactFlowInstance}
+            onDrop={onDrop}
+            onDragOver={onDragOver}
+            nodeTypes={nodeTypes}
+            defaultEdgeOptions={defaultEdgeOptions}
+            fitView
+            snapToGrid={true}
+            snapGrid={[12, 12]}
+          >
+            <Background
+              color="#e2e8f0"
+              variant={"dots" as any}
+              gap={24}
+              size={1.5}
+            />
+            <Controls className="!bg-white !border-none !shadow-xl !rounded-xl overflow-hidden" />
+            <MiniMap
+              className="!bg-white !rounded-xl !shadow-xl !border-gray-100"
+              nodeColor={(n: any) => {
+                if (n.type === "trigger") return "#f59e0b";
+                if (n.type === "condition") return "#a855f7";
+                return "#3b82f6";
+              }}
+            />
+            <Panel
+              position="top-right"
+              className="bg-white/80 backdrop-blur-sm p-2 rounded-xl border border-gray-100 shadow-sm flex items-center gap-2"
+            >
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2">
+                Flow View
+              </span>
+              <div className="flex gap-1">
+                <button className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+                  <Split className="w-4 h-4" />
+                </button>
+                <button className="p-1.5 hover:bg-gray-100 text-gray-400 rounded-lg">
+                  <Database className="w-4 h-4" />
+                </button>
+              </div>
+            </Panel>
+          </ReactFlow>
+        </div>
+      </div>
+
+      {/* Error Modal */}
+      {errorModal.show && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm transition-opacity"
+            onClick={() => setErrorModal({ ...errorModal, show: false })}
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 transform transition-all border border-gray-100 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 bg-amber-50 rounded-xl">
+                <Zap className="w-6 h-6 text-amber-500" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  {errorModal.title}
+                </h3>
+                <p className="text-sm text-gray-500 font-medium">
+                  {errorModal.message}
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setErrorModal({ ...errorModal, show: false })}
+                className="px-6 py-2.5 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-gray-800 transition-all shadow-lg shadow-gray-200"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Workflow Modal */}
+      <EditWorkflow
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        workflow={workflow}
+        onUpdate={(updatedWf) => setWorkflow(updatedWf)}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmation
+        isOpen={deleteModal.show}
+        isLoading={deleteModal.isLoading}
+        onClose={() =>
+          setDeleteModal({ show: false, nodeId: null, isLoading: false })
+        }
+        onConfirm={handleConfirmDelete}
+        title="Delete Node?"
+        message="This will permanently delete this node and its connections from your workflow."
+      />
+
+      {/* Delay Action Modal */}
+      <DelayActionModal
+        isOpen={delayModal.show}
+        onClose={() => setDelayModal({ show: false, actionId: null })}
+        actionId={delayModal.actionId}
+        onUpdate={() => {
+          fetchWorkflow();
+          console.log("Delay action updated");
+        }}
+      />
+      {/* Rest API Action Modal */}
+      <RestApiActionModal
+        isOpen={restApiModal.show}
+        onClose={() => setRestApiModal({ show: false, actionId: null })}
+        actionId={restApiModal.actionId}
+        onUpdate={() => {
+          fetchWorkflow();
+          console.log("Rest API action updated");
+        }}
+      />
+
+      {/* Filter Condition Modal */}
+      <FilterConditionModal
+        isOpen={filterModal.show}
+        onClose={() => setFilterModal({ show: false, conditionId: null })}
+        conditionId={filterModal.conditionId}
+        onUpdate={() => {
+          fetchWorkflow();
+          console.log("Filter condition updated");
+        }}
+      />
+
+      {/* If/Else Condition Modal */}
+      <IfElseConditionModal
+        isOpen={ifelseModal.show}
+        onClose={() => setIfelseModal({ show: false, conditionId: null })}
+        conditionId={ifelseModal.conditionId}
+        onUpdate={() => {
+          fetchWorkflow();
+          console.log("If/Else condition updated");
+        }}
+      />
+
+      {/* Webhook Trigger Modal */}
+      <WebhookTriggerModal
+        isOpen={webhookModal.show}
+        onClose={() => setWebhookModal({ show: false, triggerId: null })}
+        triggerId={webhookModal.triggerId}
+        onUpdate={() => {
+          fetchWorkflow();
+          console.log("Webhook trigger updated");
+        }}
+      />
+
+      {/* Assign Owner Action Modal */}
+      <AssignOwnerActionModal
+        isOpen={assignOwnerModal.show}
+        onClose={() => setAssignOwnerModal({ show: false, actionId: null })}
+        actionId={assignOwnerModal.actionId}
+        onUpdate={() => {
+          fetchWorkflow();
+          console.log("Assign owner action updated");
+        }}
+      />
+
+      {/* Add To Segment Action Modal */}
+      <AddToSegmentActionModal
+        isOpen={addToSegmentModal.show}
+        onClose={() => setAddToSegmentModal({ show: false, actionId: null })}
+        actionId={addToSegmentModal.actionId}
+        onUpdate={() => {
+          fetchWorkflow();
+          console.log("Add to segment action updated");
+        }}
+      />
+
+      {/* AI Composer Action Modal */}
+      <AiComposerActionModal
+        isOpen={aiComposerModal.show}
+        onClose={() => setAiComposerModal({ show: false, actionId: null })}
+        actionId={aiComposerModal.actionId}
+        onUpdate={() => {
+          fetchWorkflow();
+          console.log("AI composer action updated");
+        }}
+      />
+
+      {/* Send WhatsApp Action Modal */}
+      <SendWhatsappActionModal
+        isOpen={sendWhatsappModal.show}
+        onClose={() => setSendWhatsappModal({ show: false, actionId: null })}
+        actionId={sendWhatsappModal.actionId}
+        onUpdate={() => {
+          fetchWorkflow();
+          console.log("Send WhatsApp action updated");
+        }}
+      />
+    </div>
+  );
+};
+
+const WorkflowEditPage: NextPageWithLayout = () => {
+  return (
+    <ReactFlowProvider>
+      <WorkflowEditor />
+    </ReactFlowProvider>
+  );
+};
+
+// Layout configuration
+WorkflowEditPage.getLayout = function getLayout(page: ReactElement) {
+  return (
+    <ClinicLayout hideSidebar={true} hideHeader={false}>
+      {page}
+    </ClinicLayout>
+  );
+};
+
+// Export protected page with auth
+const ProtectedWorkflowEditPage = withClinicAuth(
+  WorkflowEditPage,
+) as NextPageWithLayout;
+ProtectedWorkflowEditPage.getLayout = WorkflowEditPage.getLayout;
+
+export default ProtectedWorkflowEditPage;

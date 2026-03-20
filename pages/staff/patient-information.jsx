@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
-import { Package, TrendingUp, Eye, Search, ChevronLeft, ChevronRight, X, AlertCircle, CheckCircle2, Info, Edit3, User, DollarSign, Mail, Phone, Calendar, FileText, MapPin, Building2, CreditCard, Trash2, Download, Activity, ClipboardList, ChevronDown, ChevronUp } from "lucide-react";
+import { Package, TrendingUp, Eye, Search, ChevronLeft, ChevronRight, X, AlertCircle, CheckCircle2, Info, Edit3, User, DollarSign, Mail, Phone, Calendar, FileText, MapPin, Building2, CreditCard, Trash2, Download, Activity, ClipboardList, ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { useRouter } from "next/router";
 import ClinicLayout from '../../components/staffLayout';
 import withClinicAuth from '../../components/withStaffAuth';
+import AddPatientAdvancePaymentModal from "@/components/patient/AddPatientAdvancePaymentModal";
+import AddPatientPastAdvancePaymentModal from "@/components/patient/AddPatientPastAdvancePaymentModal";
 
 const TOKEN_PRIORITY = [
   "clinicToken",
@@ -93,8 +95,8 @@ const PackageUsageModal = ({ isOpen, onClose, patient, packageUsageData, loading
               </p>
             </div>
           </div>
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors"
           >
             <X className="w-4 h-4" />
@@ -159,47 +161,44 @@ const PackageUsageModal = ({ isOpen, onClose, patient, packageUsageData, loading
                           <Activity className="w-3.5 h-3.5 text-teal-500" />
                           Treatment Sessions
                         </h5>
-                        
+
                         {pkg.treatments && pkg.treatments.length > 0 ? (
                           <div className="space-y-2.5">
                             {pkg.treatments.map((treatment, tIndex) => {
-                              const usagePercent = treatment.maxSessions 
+                              const usagePercent = treatment.maxSessions
                                 ? Math.round((treatment.totalUsedSessions / treatment.maxSessions) * 100)
                                 : 0;
                               const isFullyUsed = treatment.maxSessions && treatment.totalUsedSessions >= treatment.maxSessions;
                               const remainingSessions = (treatment.maxSessions || 0) - (treatment.totalUsedSessions || 0);
-                              
+
                               return (
-                                <div 
-                                  key={treatment.treatmentSlug || tIndex} 
-                                  className={`rounded-lg border p-2.5 ${
-                                    isFullyUsed 
-                                      ? 'bg-green-50 border-green-200' 
-                                      : remainingSessions > 0 
-                                        ? 'bg-amber-50 border-amber-200' 
-                                        : 'bg-gray-50 border-gray-200'
-                                  }`}
+                                <div
+                                  key={treatment.treatmentSlug || tIndex}
+                                  className={`rounded-lg border p-2.5 ${isFullyUsed
+                                    ? 'bg-green-50 border-green-200'
+                                    : remainingSessions > 0
+                                      ? 'bg-amber-50 border-amber-200'
+                                      : 'bg-gray-50 border-gray-200'
+                                    }`}
                                 >
                                   <div className="flex items-center justify-between mb-1.5">
                                     <div className="flex items-center gap-1.5">
-                                      <div className={`w-4.5 h-4.5 rounded-full flex items-center justify-center text-[9px] font-bold ${
-                                        isFullyUsed 
-                                          ? 'bg-green-500 text-white' 
-                                          : remainingSessions > 0 
-                                            ? 'bg-amber-500 text-white' 
-                                            : 'bg-gray-400 text-white'
-                                      }`}>
+                                      <div className={`w-4.5 h-4.5 rounded-full flex items-center justify-center text-[9px] font-bold ${isFullyUsed
+                                        ? 'bg-green-500 text-white'
+                                        : remainingSessions > 0
+                                          ? 'bg-amber-500 text-white'
+                                          : 'bg-gray-400 text-white'
+                                        }`}>
                                         {tIndex + 1}
                                       </div>
                                       <span className="font-medium text-gray-900 text-sm">{treatment.treatmentName}</span>
                                     </div>
-                                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
-                                      isFullyUsed 
-                                        ? 'bg-green-100 text-green-700' 
-                                        : remainingSessions > 0 
-                                          ? 'bg-amber-100 text-amber-700' 
-                                          : 'bg-gray-100 text-gray-600'
-                                    }`}>
+                                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${isFullyUsed
+                                      ? 'bg-green-100 text-green-700'
+                                      : remainingSessions > 0
+                                        ? 'bg-amber-100 text-amber-700'
+                                        : 'bg-gray-100 text-gray-600'
+                                      }`}>
                                       {isFullyUsed ? 'Complete' : remainingSessions > 0 ? `${remainingSessions} left` : '0 left'}
                                     </span>
                                   </div>
@@ -213,14 +212,13 @@ const PackageUsageModal = ({ isOpen, onClose, patient, packageUsageData, loading
                                       </span>
                                     </div>
                                     <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                                      <div 
-                                        className={`h-full rounded-full transition-all duration-500 ${
-                                          isFullyUsed 
-                                            ? 'bg-green-500' 
-                                            : remainingSessions > 0 
-                                              ? 'bg-amber-500' 
-                                              : 'bg-gray-400'
-                                        }`}
+                                      <div
+                                        className={`h-full rounded-full transition-all duration-500 ${isFullyUsed
+                                          ? 'bg-green-500'
+                                          : remainingSessions > 0
+                                            ? 'bg-amber-500'
+                                            : 'bg-gray-400'
+                                          }`}
                                         style={{ width: `${Math.min(usagePercent, 100)}%` }}
                                       />
                                     </div>
@@ -232,8 +230,8 @@ const PackageUsageModal = ({ isOpen, onClose, patient, packageUsageData, loading
                                       <p className="text-[9px] font-medium text-gray-600 mb-1">Session History:</p>
                                       <div className="space-y-0.5">
                                         {treatment.usageDetails.map((detail, dIndex) => (
-                                          <div 
-                                            key={dIndex} 
+                                          <div
+                                            key={dIndex}
                                             className="flex items-center justify-between text-[10px] bg-white/60 rounded px-1.5 py-0.5"
                                           >
                                             <div className="flex items-center gap-0.5">
@@ -307,8 +305,8 @@ const PackageUsageModal = ({ isOpen, onClose, patient, packageUsageData, loading
 
         {/* Footer */}
         <div className="sticky bottom-0 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200 px-3 py-2.5">
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="w-full px-3 py-2.5 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-lg font-bold transition-all duration-200 shadow-md transform hover:scale-[1.02] text-sm"
           >
             Close
@@ -320,12 +318,39 @@ const PackageUsageModal = ({ isOpen, onClose, patient, packageUsageData, loading
 };
 
 const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packages = [], onViewPackageUsage, transferNameMap = {}, membershipUsageMap = {} }) => {
-  const [balance, setBalance] = useState({ pendingBalance: null, advanceBalance: null });
+  const [balance, setBalance] = useState({
+    pendingBalance: 0,
+    advanceBalance: 0,
+    pastAdvanceBalance: 0,
+    pastAdvance50PercentBalance: 0,
+    pastAdvance54PercentBalance: 0,
+    pastAdvance159FlatBalance: 0,
+  });
   const [balanceLoading, setBalanceLoading] = useState(false);
+  const [showAddAdvancePaymentModal, setShowAddAdvancePaymentModal] = useState(false);
+  const [showAddPastAdvancePayment50PercentModal, setShowAddPastAdvancePayment50PercentModal] = useState(false);
+  const [showAddPastAdvancePayment54PercentModal, setShowAddPastAdvancePayment54PercentModal] = useState(false);
+  const [showAddPastAdvancePayment159FlatModal, setShowAddPastAdvancePayment159FlatModal] = useState(false);
 
   const formatAEDLocal = (v) => {
     if (typeof v !== "number" || Number.isNaN(v) || v === null) return "—";
     try { return `د.إ${v.toLocaleString()}`; } catch { return `د.إ${v}`; }
+  };
+
+  const fetchPatientBalance = async (patientId) => {
+    const headers = getAuthHeaders();
+    if (!headers) return;
+    try {
+      const res = await axios.get(`/api/clinic/patient-balance/${patientId}`, { headers });
+      const data = res?.data?.balances || {};
+      return {
+        pendingBalance: Number(data.pendingBalance || 0),
+        advanceBalance: Number(data.advanceBalance || 0),
+        pastAdvanceBalance: Number(data.pastAdvanceBalance || 0),
+      };
+    } catch {
+      return { pendingBalance: 0, advanceBalance: 0, pastAdvanceBalance: 0 };
+    }
   };
 
   useEffect(() => {
@@ -341,11 +366,15 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
           setBalance({
             pendingBalance: Number(data.pendingBalance || 0),
             advanceBalance: Number(data.advanceBalance || 0),
+            pastAdvanceBalance: Number(data.pastAdvanceBalance || 0),
+            pastAdvance50PercentBalance: Number(data.pastAdvance50PercentBalance || 0),
+            pastAdvance54PercentBalance: Number(data.pastAdvance54PercentBalance || 0),
+            pastAdvance159FlatBalance: Number(data.pastAdvance159FlatBalance || 0),
           });
         }
       } catch {
         if (!cancelled) {
-          setBalance({ pendingBalance: 0, advanceBalance: 0 });
+          setBalance({ pendingBalance: 0, advanceBalance: 0, pastAdvanceBalance: 0, pastAdvance50PercentBalance: 0, pastAdvance54PercentBalance: 0, pastAdvance159FlatBalance: 0 });
         }
       } finally {
         if (!cancelled) setBalanceLoading(false);
@@ -399,405 +428,511 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
     }
   })();
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-[95vw] md:max-w-6xl my-4 md:my-8 animate-scaleIn max-h-[95vh] sm:max-h-[92vh] md:max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="sticky top-0 bg-gradient-to-r from-teal-600 to-cyan-600 px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 z-10 rounded-t-xl text-white">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center font-bold">
-              <span className="text-sm">
-                {(patient?.firstName?.[0] || '').toUpperCase()}
-              </span>
-            </div>
-            <div className="min-w-0">
-              <h3 className="text-lg font-bold truncate">Patient Profile</h3>
-              <p className="text-[11px] text-white/80 truncate">{patient ? `${patient.firstName} ${patient.lastName}` : ''}</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            {isPriority && (
-              <span className="inline-flex px-2 py-0.5 rounded-full bg-white/20 text-white text-[11px] font-semibold shadow-sm">
-                Priority
-              </span>
-            )}
-            {isExpired && (
-              <span className="inline-flex px-2 py-0.5 rounded-full bg-red-500/30 text-white text-[11px] font-semibold shadow-sm">
-                Expired
-              </span>
-            )}
-            {patient?.emrNumber && (
-              <span className="px-2 py-0.5 rounded-full bg-white/15 text-[11px] font-semibold">
-                EMR: {patient.emrNumber}
-              </span>
-            )}
-            {patient?.invoiceNumber && (
-              <span className="px-2 py-0.5 rounded-full bg-white/15 text-[11px] font-semibold">
-                Inv: {patient.invoiceNumber}
-              </span>
-            )}
-            <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors flex-shrink-0"><X className="w-5 h-5" /></button>
-          </div>
-        </div>
-        <div className="p-4 sm:p-6 space-y-3 flex-1 overflow-y-auto bg-gradient-to-b from-gray-50 to-white">
-          {/* Personal & Contact Info Card */}
-          <div className="bg-gradient-to-br from-white to-teal-50 rounded-xl border border-gray-200 p-4 shadow-md">
-            <div className="flex items-center gap-1.5 mb-2.5">
-              <User className="w-4 h-4 text-teal-600" />
-              <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wide">Patient Info</h4>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-              <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Full Name</span> <span className="font-medium text-gray-900 text-sm">{patient.firstName} {patient.lastName}</span></div>
-              <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Gender</span> <span className="font-medium text-gray-900 text-sm">{patient.gender || '-'}</span></div>
-              <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Email</span> <span className="font-medium text-blue-600 text-sm">{patient.email}</span></div>
-              <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Mobile</span> <span className="font-medium text-gray-900 text-sm">{patient.mobileNumber}</span></div>
-              <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Patient Type</span> <span className="font-medium text-gray-900 text-sm">{patient.patientType}</span></div>
-              <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Referred By</span> <span className="font-medium text-gray-900 text-sm">{patient.referredBy || 'N/A'}</span></div>
-              {patient.doctor && <div className="flex flex-col md:col-span-2"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Doctor</span> <span className="font-medium text-gray-900 text-sm">{patient.doctor}</span></div>}
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-100 text-amber-700 text-[11px] font-semibold">
-                <DollarSign className="w-3 h-3" />
-                {balanceLoading && balance.pendingBalance === null ? "Pending: ..." : `Pending: ${formatAEDLocal(balance.pendingBalance)}`}
-              </span>
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-100 text-emerald-700 text-[11px] font-semibold">
-                <DollarSign className="w-3 h-3" />
-                {balanceLoading && balance.advanceBalance === null ? "Advance: ..." : `Advance: ${formatAEDLocal(balance.advanceBalance)}`}
-              </span>
-            </div>
-          </div>
-
-          {/* Invoice & Insurance Info Card */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <div className="bg-gradient-to-br from-white to-cyan-50 rounded-xl border border-gray-200 p-4 shadow-md">
-              <div className="flex items-center gap-1.5 mb-2.5">
-                <FileText className="w-4 h-4 text-cyan-600" />
-                <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wide">Invoice</h4>
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-[95vw] md:max-w-6xl my-4 md:my-8 animate-scaleIn max-h-[95vh] sm:max-h-[92vh] md:max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="sticky top-0 bg-gradient-to-r from-teal-600 to-cyan-600 px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 z-10 rounded-t-xl text-white">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center font-bold">
+                <span className="text-sm">
+                  {(patient?.firstName?.[0] || '').toUpperCase()}
+                </span>
               </div>
-              <div className="space-y-2.5">
-                <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Invoice Number</span> <span className="font-medium text-gray-900 text-sm">{patient.invoiceNumber}</span></div>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Issued By</span> <span className="font-medium text-gray-900 text-sm">{patient.invoicedBy}</span></div>
-                  <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Issue Date</span> <span className="font-medium text-gray-900 text-sm">{patient.invoicedDate ? new Date(patient.invoicedDate).toLocaleDateString() : '-'}</span></div>
+              <div className="min-w-0">
+                <h3 className="text-lg font-bold truncate">Patient Profile</h3>
+                <p className="text-[11px] text-white/80 truncate">{patient ? `${patient.firstName} ${patient.lastName}` : ''}</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              {isPriority && (
+                <span className="inline-flex px-2 py-0.5 rounded-full bg-white/20 text-white text-[11px] font-semibold shadow-sm">
+                  Priority
+                </span>
+              )}
+              {isExpired && (
+                <span className="inline-flex px-2 py-0.5 rounded-full bg-red-500/30 text-white text-[11px] font-semibold shadow-sm">
+                  Expired
+                </span>
+              )}
+              {patient?.emrNumber && (
+                <span className="px-2 py-0.5 rounded-full bg-white/15 text-[11px] font-semibold">
+                  EMR: {patient.emrNumber}
+                </span>
+              )}
+              {patient?.invoiceNumber && (
+                <span className="px-2 py-0.5 rounded-full bg-white/15 text-[11px] font-semibold">
+                  Inv: {patient.invoiceNumber}
+                </span>
+              )}
+              <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors flex-shrink-0"><X className="w-5 h-5" /></button>
+            </div>
+          </div>
+          <div className="p-4 sm:p-6 space-y-3 flex-1 overflow-y-auto bg-gradient-to-b from-gray-50 to-white">
+            {/* Personal & Contact Info Card */}
+            <div className="bg-gradient-to-br from-white to-teal-50 rounded-xl border border-gray-200 p-4 shadow-md">
+              <div className="flex items-center gap-1.5 mb-2.5">
+                <User className="w-4 h-4 text-teal-600" />
+                <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wide">Patient Info</h4>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Full Name</span> <span className="font-medium text-gray-900 text-sm">{patient.firstName} {patient.lastName}</span></div>
+                <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Gender</span> <span className="font-medium text-gray-900 text-sm">{patient.gender || '-'}</span></div>
+                <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Email</span> <span className="font-medium text-blue-600 text-sm">{patient.email}</span></div>
+                <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Mobile</span> <span className="font-medium text-gray-900 text-sm">{patient.mobileNumber}</span></div>
+                <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Patient Type</span> <span className="font-medium text-gray-900 text-sm">{patient.patientType}</span></div>
+                <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Referred By</span> <span className="font-medium text-gray-900 text-sm">{patient.referredBy || 'N/A'}</span></div>
+                {patient.doctor && <div className="flex flex-col md:col-span-2"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Doctor</span> <span className="font-medium text-gray-900 text-sm">{patient.doctor}</span></div>}
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-100 text-amber-700 text-[11px] font-semibold">
+                  <DollarSign className="w-3 h-3" />
+                  {balanceLoading && balance.pendingBalance === null ? "Pending: ..." : `Pending: ${formatAEDLocal(balance.pendingBalance)}`}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-100 text-emerald-700 text-[11px] font-semibold">
+                  <DollarSign className="w-3 h-3" />
+                  {balanceLoading && balance.advanceBalance === null ? "Advance: ..." : `Advance: ${formatAEDLocal(balance.advanceBalance)}`}
+                </span>
+                {/* <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-100 text-emerald-700 text-[11px] font-semibold">
+                  <DollarSign className="w-3 h-3" />
+                  {balanceLoading && balance.pastAdvanceBalance === null ? "Past Advance: ..." : `Past Advance: ${formatAEDLocal(balance.pastAdvanceBalance)}`}
+                </span> */}
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-100 text-amber-700 text-[11px] font-semibold">
+                  <DollarSign className="w-3 h-3" />
+                  {balanceLoading && balance.pastAdvance50PercentBalance === null ? "Past Advance 50%: ..." : `Past Advance 50%: ${formatAEDLocal(balance.pastAdvance50PercentBalance)}`}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-blue-100 text-blue-700 text-[11px] font-semibold">
+                  <DollarSign className="w-3 h-3" />
+                  {balanceLoading && balance.pastAdvance54PercentBalance === null ? "Past Advance 54%: ..." : `Past Advance 54%: ${formatAEDLocal(balance.pastAdvance54PercentBalance)}`}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-purple-100 text-purple-700 text-[11px] font-semibold">
+                  <DollarSign className="w-3 h-3" />
+                  {balanceLoading && balance.pastAdvance159FlatBalance === null ? "Past Advance 159 Flat: ..." : `Past Advance 159 Flat: ${formatAEDLocal(balance.pastAdvance159FlatBalance)}`}
+                </span>
+
+                <button
+                  onClick={() => setShowAddAdvancePaymentModal(true)}
+                  className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-md transition-all duration-200 hover:bg-green-700 hover:shadow-lg active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Advance Balance</span>
+                </button>
+                <button
+                  onClick={() => setShowAddPastAdvancePayment50PercentModal(true)}
+                  className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white shadow-md transition-all duration-200 hover:bg-amber-700 hover:shadow-lg active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add 50% Past Advance Balance</span>
+                </button>
+                <button
+                  onClick={() => setShowAddPastAdvancePayment54PercentModal(true)}
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-md transition-all duration-200 hover:bg-blue-700 hover:shadow-lg active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add 54% Past Advance Balance</span>
+                </button>
+                <button
+                  onClick={() => setShowAddPastAdvancePayment159FlatModal(true)}
+                  className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white shadow-md transition-all duration-200 hover:bg-purple-700 hover:shadow-lg active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add 159 Flat Past Advance Balance</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Invoice & Insurance Info Card */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <div className="bg-gradient-to-br from-white to-cyan-50 rounded-xl border border-gray-200 p-4 shadow-md">
+                <div className="flex items-center gap-1.5 mb-2.5">
+                  <FileText className="w-4 h-4 text-cyan-600" />
+                  <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wide">Invoice</h4>
                 </div>
-                <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">EMR Number</span> <span className="font-medium text-gray-900 text-sm">{patient.emrNumber || 'N/A'}</span></div>
+                <div className="space-y-2.5">
+                  <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Invoice Number</span> <span className="font-medium text-gray-900 text-sm">{patient.invoiceNumber}</span></div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Issued By</span> <span className="font-medium text-gray-900 text-sm">{patient.invoicedBy}</span></div>
+                    <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Issue Date</span> <span className="font-medium text-gray-900 text-sm">{patient.invoicedDate ? new Date(patient.invoicedDate).toLocaleDateString() : '-'}</span></div>
+                  </div>
+                  <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">EMR Number</span> <span className="font-medium text-gray-900 text-sm">{patient.emrNumber || 'N/A'}</span></div>
+                </div>
               </div>
-            </div>
 
-            <div className="bg-gradient-to-br from-white to-purple-50 rounded-lg border border-gray-200 p-3 shadow-sm">
-              <div className="flex items-center gap-1.5 mb-2.5">
-                <Info className="w-4 h-4 text-purple-600" />
-                <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wide">Insurance</h4>
-              </div>
-              <div className="space-y-2.5">
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Insurance Status</span> <span className={`font-medium text-sm ${patient.insurance === 'Yes' ? 'text-green-600' : 'text-red-600'}`}>{patient.insurance || 'No'}</span></div>
-                  {patient.insurance === 'Yes' && (
-                    <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Insurance Type</span> <span className="font-medium text-gray-900 text-sm">{patient.insuranceType || '-'}</span></div>
+              <div className="bg-gradient-to-br from-white to-purple-50 rounded-lg border border-gray-200 p-3 shadow-sm">
+                <div className="flex items-center gap-1.5 mb-2.5">
+                  <Info className="w-4 h-4 text-purple-600" />
+                  <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wide">Insurance</h4>
+                </div>
+                <div className="space-y-2.5">
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Insurance Status</span> <span className={`font-medium text-sm ${patient.insurance === 'Yes' ? 'text-green-600' : 'text-red-600'}`}>{patient.insurance || 'No'}</span></div>
+                    {patient.insurance === 'Yes' && (
+                      <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Insurance Type</span> <span className="font-medium text-gray-900 text-sm">{patient.insuranceType || '-'}</span></div>
+                    )}
+                  </div>
+                  {patient.insurance === 'Yes' && patient.insuranceType === 'Advance' && (
+                    <div className="space-y-2 pt-2 border-t border-gray-200 mt-2">
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Advance</span> <span className="font-medium text-gray-900 text-sm">د.إ{patient.advanceGivenAmount?.toLocaleString() || 0}</span></div>
+                        <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Co-Pay %</span> <span className="font-medium text-gray-900 text-sm">{patient.coPayPercent || 0}%</span></div>
+                      </div>
+                      <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Due</span> <span className="font-medium text-gray-900 text-sm">د.إ{patient.needToPay?.toLocaleString() || 0}</span></div>
+                    </div>
+                  )}
+                  {patient.insurance === 'Yes' && patient.advanceClaimStatus && (
+                    <div className="flex flex-col pt-2 border-t border-gray-200 mt-2">
+                      <span className="text-[11px] font-semibold text-gray-600 mb-0.5">Claim Status</span>
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${patient.advanceClaimStatus === 'Released' ? 'bg-green-100 text-green-800' : patient.advanceClaimStatus === 'Approved by doctor' ? 'bg-blue-100 text-blue-800' : patient.advanceClaimStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
+                        {patient.advanceClaimStatus}
+                      </span>
+                    </div>
                   )}
                 </div>
-                {patient.insurance === 'Yes' && patient.insuranceType === 'Advance' && (
-                  <div className="space-y-2 pt-2 border-t border-gray-200 mt-2">
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Advance</span> <span className="font-medium text-gray-900 text-sm">د.إ{patient.advanceGivenAmount?.toLocaleString() || 0}</span></div>
-                      <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Co-Pay %</span> <span className="font-medium text-gray-900 text-sm">{patient.coPayPercent || 0}%</span></div>
-                    </div>
-                    <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Due</span> <span className="font-medium text-gray-900 text-sm">د.إ{patient.needToPay?.toLocaleString() || 0}</span></div>
-                  </div>
-                )}
-                {patient.insurance === 'Yes' && patient.advanceClaimStatus && (
-                  <div className="flex flex-col pt-2 border-t border-gray-200 mt-2">
-                    <span className="text-[11px] font-semibold text-gray-600 mb-0.5">Claim Status</span>
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${patient.advanceClaimStatus === 'Released' ? 'bg-green-100 text-green-800' : patient.advanceClaimStatus === 'Approved by doctor' ? 'bg-blue-100 text-blue-800' : patient.advanceClaimStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
-                      {patient.advanceClaimStatus}
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
-          </div>
-          
-          {/* Membership & Package Cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
-            {/* Membership Card */}
-            <div className="bg-gradient-to-br from-white to-green-50 rounded-lg border border-gray-200 p-3 shadow-sm">
-              <div className="flex items-center justify-between mb-2.5">
-                <div className="flex items-center gap-1.5">
-                  <CreditCard className="w-4 h-4 text-green-600" />
-                  <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wide">Membership</h4>
+
+            {/* Membership & Package Cards */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+              {/* Membership Card */}
+              <div className="bg-gradient-to-br from-white to-green-50 rounded-lg border border-gray-200 p-3 shadow-sm">
+                <div className="flex items-center justify-between mb-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <CreditCard className="w-4 h-4 text-green-600" />
+                    <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wide">Membership</h4>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2 mb-2.5 pb-2 border-b border-gray-200">
-                <span className="text-xs font-semibold text-gray-700 w-20">Status:</span>
-                <span className={`font-bold text-sm ${patient.membership === 'Yes' ? 'text-green-600' : 'text-red-600'}`}>
-                  {patient.membership || 'No'}</span>
-              </div>
-              {(() => {
-                const existing = Array.isArray(patient.memberships) ? patient.memberships : [];
-                const transferredIns = (patient.membershipTransfers || [])
-                  .filter(t => t.type === 'in')
-                  .map(t => ({ membershipId: t.membershipId, startDate: t.startDate, endDate: t.endDate, _fromTransfer: true }));
-                const displayMemberships = [...existing];
-                transferredIns.forEach(t => {
-                  const dup = displayMemberships.some(m =>
-                    String(m.membershipId) === String(t.membershipId) &&
-                    (!!m.startDate ? String(m.startDate) === String(t.startDate) : true) &&
-                    (!!m.endDate ? String(m.endDate) === String(t.endDate) : true)
-                  );
-                  if (!dup) displayMemberships.push(t);
-                });
-                return displayMemberships.length > 0 && (
-                <div className="space-y-2.5">
-                  <div className="text-xs font-semibold text-gray-800 mb-2">Active Plans</div>
-                  <div className="space-y-2.5">
-                    {displayMemberships.map((m, idx) => {
-                      const plan = memberships.find((x) => x._id === m.membershipId);
-                      const end = m.endDate ? new Date(m.endDate) : null;
-                      const start = m.startDate ? new Date(m.startDate) : null;
-                      const expired = end ? end < new Date() : false;
-                      const isActive = !expired && start && start <= new Date();
-                      
-                      return (
-                        <div key={`${m.membershipId}-${idx}`} className={`rounded-lg border overflow-hidden ${expired ? 'border-red-200 bg-gradient-to-r from-red-50 to-pink-50' : isActive ? 'border-green-200 bg-gradient-to-r from-green-50 to-emerald-50' : 'border-gray-200 bg-gradient-to-r from-gray-50 to-slate-50'}`}>
-                          {/* Membership Header */}
-                          <div className="px-2.5 py-2 bg-gradient-to-r from-gray-100 to-gray-50 border-b border-gray-200">
-                            <div className="flex items-center justify-between">
-                              <h4 className="text-xs font-bold text-gray-900">{plan?.name || m.membershipId}</h4>
-                              <div className="flex items-center gap-1.5">
-                                {isActive && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 shadow-sm">
-                                    Active
-                                  </span>
+                <div className="flex items-center gap-2 mb-2.5 pb-2 border-b border-gray-200">
+                  <span className="text-xs font-semibold text-gray-700 w-20">Status:</span>
+                  <span className={`font-bold text-sm ${patient.membership === 'Yes' ? 'text-green-600' : 'text-red-600'}`}>
+                    {patient.membership || 'No'}</span>
+                </div>
+                {(() => {
+                  const existing = Array.isArray(patient.memberships) ? patient.memberships : [];
+                  const transferredIns = (patient.membershipTransfers || [])
+                    .filter(t => t.type === 'in')
+                    .map(t => ({ membershipId: t.membershipId, startDate: t.startDate, endDate: t.endDate, _fromTransfer: true }));
+                  const displayMemberships = [...existing];
+                  transferredIns.forEach(t => {
+                    const dup = displayMemberships.some(m =>
+                      String(m.membershipId) === String(t.membershipId) &&
+                      (!!m.startDate ? String(m.startDate) === String(t.startDate) : true) &&
+                      (!!m.endDate ? String(m.endDate) === String(t.endDate) : true)
+                    );
+                    if (!dup) displayMemberships.push(t);
+                  });
+                  return displayMemberships.length > 0 && (
+                    <div className="space-y-2.5">
+                      <div className="text-xs font-semibold text-gray-800 mb-2">Active Plans</div>
+                      <div className="space-y-2.5">
+                        {displayMemberships.map((m, idx) => {
+                          const plan = memberships.find((x) => x._id === m.membershipId);
+                          const end = m.endDate ? new Date(m.endDate) : null;
+                          const start = m.startDate ? new Date(m.startDate) : null;
+                          const expired = end ? end < new Date() : false;
+                          const isActive = !expired && start && start <= new Date();
+
+                          return (
+                            <div key={`${m.membershipId}-${idx}`} className={`rounded-lg border overflow-hidden ${expired ? 'border-red-200 bg-gradient-to-r from-red-50 to-pink-50' : isActive ? 'border-green-200 bg-gradient-to-r from-green-50 to-emerald-50' : 'border-gray-200 bg-gradient-to-r from-gray-50 to-slate-50'}`}>
+                              {/* Membership Header */}
+                              <div className="px-2.5 py-2 bg-gradient-to-r from-gray-100 to-gray-50 border-b border-gray-200">
+                                <div className="flex items-center justify-between">
+                                  <h4 className="text-xs font-bold text-gray-900">{plan?.name || m.membershipId}</h4>
+                                  <div className="flex items-center gap-1.5">
+                                    {isActive && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 shadow-sm">
+                                        Active
+                                      </span>
+                                    )}
+                                    {expired && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-red-100 to-pink-100 text-red-800 shadow-sm">
+                                        Expired
+                                      </span>
+                                    )}
+                                    {!isActive && !expired && start && start > new Date() && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-800 shadow-sm">
+                                        Upcoming
+                                      </span>
+                                    )}
+                                    {(patient.membershipTransfers || []).filter(t => String(t.membershipId) === String(m.membershipId)).map((t, ti) => (
+                                      <span key={ti} className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${t.type === 'out' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'} shadow-sm`}>
+                                        {t.type === 'out' ? 'Transferred to' : 'Transferred from'} {transferNameMap[String(t.toPatientId)] || transferNameMap[String(t.fromPatientId)] || ''}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Membership Details */}
+                              <div className="p-2.5">
+                                <div className="grid grid-cols-2 gap-2.5 mb-2.5">
+                                  <div>
+                                    <span className="text-[10px] text-gray-600 block mb-0.5">Start Date</span>
+                                    <span className="font-medium text-gray-900 text-sm">{m.startDate ? new Date(m.startDate).toLocaleDateString() : '-'}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-gray-600 block mb-0.5">End Date</span>
+                                    <span className={`font-medium text-sm ${expired ? 'text-red-700 font-bold' : 'text-gray-900'}`}>
+                                      {m.endDate ? new Date(m.endDate).toLocaleDateString() : '-'}
+                                    </span>
+                                  </div>
+                                  {plan?.price !== undefined && (
+                                    <div>
+                                      <span className="text-[10px] text-gray-600 block mb-0.5">Price</span>
+                                      <span className="font-bold text-gray-900 text-sm">د.إ{plan.price?.toLocaleString()}</span>
+                                    </div>
+                                  )}
+                                  {plan?.durationMonths && (
+                                    <div>
+                                      <span className="text-[10px] text-gray-600 block mb-0.5">Duration</span>
+                                      <span className="font-medium text-gray-900 text-sm">{plan.durationMonths} months</span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {(() => {
+                                  const key = `${m.membershipId}|${m.startDate}|${m.endDate}`;
+                                  const usage = membershipUsageMap[key];
+                                  if (!usage || usage.isExpired || (usage.totalFreeConsultations || 0) === 0) return null;
+                                  const total = usage.totalFreeConsultations || 0;
+                                  const used = usage.usedFreeConsultations || 0;
+                                  const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+                                  return (
+                                    <div className="mb-2">
+                                      <div className="flex items-center justify-between text-[10px] text-gray-700 mb-0.5">
+                                        <span>Free consultations used</span>
+                                        <span className="font-semibold text-gray-900">{used}/{total}</span>
+                                      </div>
+                                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                        <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${pct}%` }} />
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+                                {plan?.benefits && (
+                                  <div className="pt-2 border-t border-gray-200">
+                                    <h5 className="text-[10px] font-bold text-gray-800 mb-1.5">Benefits:</h5>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {plan.benefits.freeConsultations > 0 && (
+                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 shadow-sm">
+                                          {plan.benefits.freeConsultations} Free Consultations
+                                        </span>
+                                      )}
+                                      {plan.benefits.discountPercentage > 0 && (
+                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-gradient-to-r from-purple-100 to-violet-100 text-purple-800 shadow-sm">
+                                          {plan.benefits.discountPercentage * 100}% Discount
+                                        </span>
+                                      )}
+                                      {plan.benefits.priorityBooking && (
+                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-800 shadow-sm">
+                                          Priority Booking
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
                                 )}
-                                {expired && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-red-100 to-pink-100 text-red-800 shadow-sm">
-                                    Expired
-                                  </span>
-                                )}
-                                {!isActive && !expired && start && start > new Date() && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-800 shadow-sm">
-                                    Upcoming
-                                  </span>
-                                )}
-                                {(patient.membershipTransfers || []).filter(t => String(t.membershipId) === String(m.membershipId)).map((t, ti) => (
-                                  <span key={ti} className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${t.type === 'out' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'} shadow-sm`}>
-                                    {t.type === 'out' ? 'Transferred to' : 'Transferred from'} {transferNameMap[String(t.toPatientId)] || transferNameMap[String(t.fromPatientId)] || ''}
-                                  </span>
-                                ))}
                               </div>
                             </div>
-                          </div>
-                          
-                          {/* Membership Details */}
-                          <div className="p-2.5">
-                            <div className="grid grid-cols-2 gap-2.5 mb-2.5">
-                              <div>
-                                <span className="text-[10px] text-gray-600 block mb-0.5">Start Date</span>
-                                <span className="font-medium text-gray-900 text-sm">{m.startDate ? new Date(m.startDate).toLocaleDateString() : '-'}</span>
-                              </div>
-                              <div>
-                                <span className="text-[10px] text-gray-600 block mb-0.5">End Date</span>
-                                <span className={`font-medium text-sm ${expired ? 'text-red-700 font-bold' : 'text-gray-900'}`}>
-                                  {m.endDate ? new Date(m.endDate).toLocaleDateString() : '-'}
-                                </span>
-                              </div>
-                              {plan?.price !== undefined && (
-                                <div>
-                                  <span className="text-[10px] text-gray-600 block mb-0.5">Price</span>
-                                  <span className="font-bold text-gray-900 text-sm">د.إ{plan.price?.toLocaleString()}</span>
-                                </div>
-                              )}
-                              {plan?.durationMonths && (
-                                <div>
-                                  <span className="text-[10px] text-gray-600 block mb-0.5">Duration</span>
-                                  <span className="font-medium text-gray-900 text-sm">{plan.durationMonths} months</span>
-                                </div>
-                              )}
-                            </div>
-                            
-                            {(() => {
-                              const key = `${m.membershipId}|${m.startDate}|${m.endDate}`;
-                              const usage = membershipUsageMap[key];
-                              if (!usage || usage.isExpired || (usage.totalFreeConsultations || 0) === 0) return null;
-                              const total = usage.totalFreeConsultations || 0;
-                              const used = usage.usedFreeConsultations || 0;
-                              const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+                          );
+                        })}
+                      </div>
+                      {(patient.membershipTransfers || []).length > 0 && (
+                        <div className="mt-2.5 border-t border-gray-200 pt-2">
+                          <div className="text-xs font-semibold text-gray-800 mb-1.5">Transfer History</div>
+                          <div className="space-y-1.5">
+                            {patient.membershipTransfers.map((t, i) => {
+                              const mname = t.membershipName || (memberships.find(x => String(x._id) === String(t.membershipId))?.name) || t.membershipId;
                               return (
-                                <div className="mb-2">
-                                  <div className="flex items-center justify-between text-[10px] text-gray-700 mb-0.5">
-                                    <span>Free consultations used</span>
-                                    <span className="font-semibold text-gray-900">{used}/{total}</span>
+                                <div key={i} className="flex items-center justify-between text-[10px]">
+                                  <div className={`${t.type === 'out' ? 'text-red-700' : 'text-green-700'} font-medium`}>
+                                    {mname} • {t.type === 'out' ? 'Transferred to' : 'Transferred from'} {transferNameMap[String(t.toPatientId)] || transferNameMap[String(t.fromPatientId)] || ''}
                                   </div>
-                                  <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                                    <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${pct}%` }} />
+                                  <div className="text-gray-600">
+                                    {t.transferredFreeConsultations || 0} consultations • {new Date(t.transferDate).toLocaleDateString()}
                                   </div>
                                 </div>
-                              );
-                            })()}
-                            {plan?.benefits && (
-                              <div className="pt-2 border-t border-gray-200">
-                                <h5 className="text-[10px] font-bold text-gray-800 mb-1.5">Benefits:</h5>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {plan.benefits.freeConsultations > 0 && (
-                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 shadow-sm">
-                                      {plan.benefits.freeConsultations} Free Consultations
-                                    </span>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Package Card */}
+              <div className="bg-gradient-to-br from-white to-teal-50 rounded-lg border border-gray-200 p-3 shadow-sm">
+                <div className="flex items-center justify-between mb-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <Package className="w-4 h-4 text-teal-600" />
+                    <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wide">Package</h4>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mb-2.5 pb-2 border-b border-gray-200">
+                  <span className="text-xs font-semibold text-gray-700 w-20">Status:</span>
+                  <span className={`font-bold text-sm ${patient.package === 'Yes' ? 'text-teal-600' : 'text-red-600'}`}>
+                    {patient.package || 'No'}</span>
+                </div>
+                {(Array.isArray(patient.packages) ? patient.packages : []).length > 0 && (
+                  <div className="space-y-2.5">
+                    <div className="text-xs font-semibold text-gray-800 mb-2">Active Packages</div>
+                    <div className="space-y-2.5">
+                      {patient.packages.map((p, idx) => {
+                        const pkg = packages.find((x) => x._id === p.packageId);
+                        const assignedDate = p.assignedDate ? new Date(p.assignedDate) : null;
+                        return (
+                          <div key={`${p.packageId}-${idx}`} className="rounded-lg border border-gray-200 bg-gradient-to-r from-white to-gray-50 overflow-hidden shadow-sm">
+                            {/* Package Header */}
+                            <div className="px-2.5 py-2 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                              <div className="flex items-center justify-between">
+                                <h4 className="text-xs font-bold text-gray-900">{pkg?.name || p.packageId}</h4>
+                                <div className="flex items-center gap-1.5">
+                                  {assignedDate && (
+                                    <div className="text-[9px] font-medium text-gray-600 bg-white px-1.5 py-0.5 rounded-full shadow-sm">
+                                      {assignedDate.toLocaleDateString()}
+                                    </div>
                                   )}
-                                  {plan.benefits.discountPercentage > 0 && (
-                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-gradient-to-r from-purple-100 to-violet-100 text-purple-800 shadow-sm">
-                                      {plan.benefits.discountPercentage * 100}% Discount
+                                  {(patient.packageTransfers || []).filter(t => String(t.packageId) === String(p.packageId)).map((t, ti) => (
+                                    <span key={ti} className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${t.type === 'out' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'} shadow-sm`}>
+                                      {t.type === 'out' ? 'Transferred to' : 'Transferred from'} {transferNameMap[String(t.toPatientId)] || transferNameMap[String(t.fromPatientId)] || ''}
                                     </span>
-                                  )}
-                                  {plan.benefits.priorityBooking && (
-                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-800 shadow-sm">
-                                      Priority Booking
-                                    </span>
-                                  )}
+                                  ))}
+                                  <button
+                                    onClick={() => onViewPackageUsage && onViewPackageUsage(patient, pkg)}
+                                    className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-gradient-to-r from-teal-50 to-cyan-50 hover:from-teal-100 hover:to-cyan-100 text-teal-700 text-[10px] font-semibold rounded-full transition-all duration-200 shadow-sm"
+                                    title="View package session usage"
+                                  >
+                                    <Activity className="w-2.5 h-2.5" />
+                                    Usage
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Package Details */}
+                            {pkg && (
+                              <div className="p-2.5">
+                                <div className="grid grid-cols-2 gap-2.5">
+                                  <div>
+                                    <span className="text-[10px] text-gray-600 block mb-0.5">Package Price</span>
+                                    <span className="font-bold text-gray-900 text-sm">د.إ{pkg.price?.toLocaleString()}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-gray-600 block mb-0.5">Total Price</span>
+                                    <span className="font-bold text-gray-900 text-sm">د.إ{(pkg.totalPrice || pkg.price)?.toLocaleString()}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-gray-600 block mb-0.5">Total Sessions</span>
+                                    <span className="font-bold text-gray-900 text-sm">{pkg.totalSessions || 0}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-gray-600 block mb-0.5">Per Session</span>
+                                    <span className="font-bold text-gray-900 text-sm">د.إ{pkg.sessionPrice?.toLocaleString()}</span>
+                                  </div>
                                 </div>
                               </div>
                             )}
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {(patient.membershipTransfers || []).length > 0 && (
-                    <div className="mt-2.5 border-t border-gray-200 pt-2">
-                      <div className="text-xs font-semibold text-gray-800 mb-1.5">Transfer History</div>
-                      <div className="space-y-1.5">
-                        {patient.membershipTransfers.map((t, i) => {
-                          const mname = t.membershipName || (memberships.find(x => String(x._id) === String(t.membershipId))?.name) || t.membershipId;
-                          return (
-                          <div key={i} className="flex items-center justify-between text-[10px]">
-                            <div className={`${t.type === 'out' ? 'text-red-700' : 'text-green-700'} font-medium`}>
-                              {mname} • {t.type === 'out' ? 'Transferred to' : 'Transferred from'} {transferNameMap[String(t.toPatientId)] || transferNameMap[String(t.fromPatientId)] || ''}
-                            </div>
-                            <div className="text-gray-600">
-                              {t.transferredFreeConsultations || 0} consultations • {new Date(t.transferDate).toLocaleDateString()}
-                            </div>
-                          </div>
-                        )})}
-                      </div>
+                        );
+                      })}
                     </div>
-                  )}
-                </div>
-                );
-              })()}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Package Card */}
-            <div className="bg-gradient-to-br from-white to-teal-50 rounded-lg border border-gray-200 p-3 shadow-sm">
-              <div className="flex items-center justify-between mb-2.5">
-                <div className="flex items-center gap-1.5">
-                  <Package className="w-4 h-4 text-teal-600" />
-                  <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wide">Package</h4>
+            {/* Payment History Section */}
+            {patient.paymentHistory?.length > 0 && (
+              <div className="bg-gradient-to-br from-white to-amber-50 rounded-lg border border-gray-200 p-3 shadow-sm">
+                <div className="flex items-center gap-1.5 mb-2.5">
+                  <CreditCard className="w-4 h-4 text-amber-600" />
+                  <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wide">Payments</h4>
                 </div>
-              </div>
-              <div className="flex items-center gap-2 mb-2.5 pb-2 border-b border-gray-200">
-                <span className="text-xs font-semibold text-gray-700 w-20">Status:</span>
-                <span className={`font-bold text-sm ${patient.package === 'Yes' ? 'text-teal-600' : 'text-red-600'}`}>
-                  {patient.package || 'No'}</span>
-              </div>
-              {(Array.isArray(patient.packages) ? patient.packages : []).length > 0 && (
                 <div className="space-y-2.5">
-                  <div className="text-xs font-semibold text-gray-800 mb-2">Active Packages</div>
-                  <div className="space-y-2.5">
-                    {patient.packages.map((p, idx) => {
-                      const pkg = packages.find((x) => x._id === p.packageId);
-                      const assignedDate = p.assignedDate ? new Date(p.assignedDate) : null;
-                      return (
-                        <div key={`${p.packageId}-${idx}`} className="rounded-lg border border-gray-200 bg-gradient-to-r from-white to-gray-50 overflow-hidden shadow-sm">
-                          {/* Package Header */}
-                          <div className="px-2.5 py-2 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                            <div className="flex items-center justify-between">
-                              <h4 className="text-xs font-bold text-gray-900">{pkg?.name || p.packageId}</h4>
-                              <div className="flex items-center gap-1.5">
-                                {assignedDate && (
-                                  <div className="text-[9px] font-medium text-gray-600 bg-white px-1.5 py-0.5 rounded-full shadow-sm">
-                                    {assignedDate.toLocaleDateString()}
-                                  </div>
-                                )}
-                                {(patient.packageTransfers || []).filter(t => String(t.packageId) === String(p.packageId)).map((t, ti) => (
-                                  <span key={ti} className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${t.type === 'out' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'} shadow-sm`}>
-                                    {t.type === 'out' ? 'Transferred to' : 'Transferred from'} {transferNameMap[String(t.toPatientId)] || transferNameMap[String(t.fromPatientId)] || ''}
-                                  </span>
-                                ))}
-                                <button
-                                  onClick={() => onViewPackageUsage && onViewPackageUsage(patient, pkg)}
-                                  className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-gradient-to-r from-teal-50 to-cyan-50 hover:from-teal-100 hover:to-cyan-100 text-teal-700 text-[10px] font-semibold rounded-full transition-all duration-200 shadow-sm"
-                                  title="View package session usage"
-                                >
-                                  <Activity className="w-2.5 h-2.5" />
-                                  Usage
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {/* Package Details */}
-                          {pkg && (
-                            <div className="p-2.5">
-                              <div className="grid grid-cols-2 gap-2.5">
-                                <div>
-                                  <span className="text-[10px] text-gray-600 block mb-0.5">Package Price</span>
-                                  <span className="font-bold text-gray-900 text-sm">د.إ{pkg.price?.toLocaleString()}</span>
-                                </div>
-                                <div>
-                                  <span className="text-[10px] text-gray-600 block mb-0.5">Total Price</span>
-                                  <span className="font-bold text-gray-900 text-sm">د.إ{(pkg.totalPrice || pkg.price)?.toLocaleString()}</span>
-                                </div>
-                                <div>
-                                  <span className="text-[10px] text-gray-600 block mb-0.5">Total Sessions</span>
-                                  <span className="font-bold text-gray-900 text-sm">{pkg.totalSessions || 0}</span>
-                                </div>
-                                <div>
-                                  <span className="text-[10px] text-gray-600 block mb-0.5">Per Session</span>
-                                  <span className="font-bold text-gray-900 text-sm">د.إ{pkg.sessionPrice?.toLocaleString()}</span>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {patient.paymentHistory.map((p, i) => (
+                    <div key={p._id} className="bg-gradient-to-r from-gray-50 to-amber-50 rounded-lg p-2.5 border border-gray-200">
+                      <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-200">
+                        <span className="font-bold text-gray-900 text-sm">#{i + 1}</span>
+                        <span className="text-xs text-gray-700">{new Date(p.updatedAt).toLocaleString()}</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <div className="flex flex-col"><span className="text-[10px] text-gray-600">Amount</span> <span className="font-bold text-gray-900 text-sm">د.إ{p.amount?.toLocaleString()}</span></div>
+                        <div className="flex flex-col"><span className="text-[10px] text-gray-600">Paid</span> <span className="font-bold text-gray-900 text-sm">د.إ{p.paid?.toLocaleString()}</span></div>
+                        <div className="flex flex-col"><span className="text-[10px] text-gray-600">Advance</span> <span className="font-bold text-gray-900 text-sm">د.إ{p.advance?.toLocaleString()}</span></div>
+                        <div className="flex flex-col"><span className="text-[10px] text-gray-600">Pending</span> <span className="font-bold text-gray-900 text-sm">د.إ{p.pending?.toLocaleString()}</span></div>
+                        <div className="flex flex-col"><span className="text-[10px] text-gray-600">Paying</span> <span className="font-bold text-gray-900 text-sm">د.إ{p.paying?.toLocaleString()}</span></div>
+                        <div className="flex flex-col"><span className="text-[10px] text-gray-600">Method</span> <span className="font-medium text-gray-900 text-sm">{p.paymentMethod}</span></div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
-          
-          {/* Payment History Section */}
-          {patient.paymentHistory?.length > 0 && (
-            <div className="bg-gradient-to-br from-white to-amber-50 rounded-lg border border-gray-200 p-3 shadow-sm">
-              <div className="flex items-center gap-1.5 mb-2.5">
-                <CreditCard className="w-4 h-4 text-amber-600" />
-                <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wide">Payments</h4>
-              </div>
-              <div className="space-y-2.5">
-                {patient.paymentHistory.map((p, i) => (
-                  <div key={p._id} className="bg-gradient-to-r from-gray-50 to-amber-50 rounded-lg p-2.5 border border-gray-200">
-                    <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-200">
-                      <span className="font-bold text-gray-900 text-sm">#{i + 1}</span>
-                      <span className="text-xs text-gray-700">{new Date(p.updatedAt).toLocaleString()}</span>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      <div className="flex flex-col"><span className="text-[10px] text-gray-600">Amount</span> <span className="font-bold text-gray-900 text-sm">د.إ{p.amount?.toLocaleString()}</span></div>
-                      <div className="flex flex-col"><span className="text-[10px] text-gray-600">Paid</span> <span className="font-bold text-gray-900 text-sm">د.إ{p.paid?.toLocaleString()}</span></div>
-                      <div className="flex flex-col"><span className="text-[10px] text-gray-600">Advance</span> <span className="font-bold text-gray-900 text-sm">د.إ{p.advance?.toLocaleString()}</span></div>
-                      <div className="flex flex-col"><span className="text-[10px] text-gray-600">Pending</span> <span className="font-bold text-gray-900 text-sm">د.إ{p.pending?.toLocaleString()}</span></div>
-                      <div className="flex flex-col"><span className="text-[10px] text-gray-600">Paying</span> <span className="font-bold text-gray-900 text-sm">د.إ{p.paying?.toLocaleString()}</span></div>
-                      <div className="flex flex-col"><span className="text-[10px] text-gray-600">Method</span> <span className="font-medium text-gray-900 text-sm">{p.paymentMethod}</span></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="sticky bottom-0 bg-gradient-to-r from-gray-50 to-gray-100 border-t px-4 py-2.5 rounded-b-xl">
-          <button onClick={onClose} className="w-full px-4 py-2.5 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-lg font-bold transition-all duration-200 shadow-md transform hover:scale-[1.02] text-sm">Close</button>
+          <div className="sticky bottom-0 bg-gradient-to-r from-gray-50 to-gray-100 border-t px-4 py-2.5 rounded-b-xl">
+            <button onClick={onClose} className="w-full px-4 py-2.5 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-lg font-bold transition-all duration-200 shadow-md transform hover:scale-[1.02] text-sm">Close</button>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Add Advance Payment Modal */}
+      <AddPatientAdvancePaymentModal
+        isOpen={showAddAdvancePaymentModal}
+        onClose={() => setShowAddAdvancePaymentModal(false)}
+        patientId={patient._id}
+        patientName={patient.name}
+        onSuccess={async (newBillingRecord) => {
+          // Refresh your balance data here
+          console.log("Advance payment recorded:", newBillingRecord);
+          const balances = await fetchPatientBalance(patient._id);
+          setBalance(balances);
+        }}
+
+      />
+
+      <AddPatientPastAdvancePaymentModal
+        isOpen={showAddPastAdvancePayment50PercentModal}
+        onClose={() => setShowAddPastAdvancePayment50PercentModal(false)}
+        patientId={patient._id}
+        patientName={patient.name}
+        onSuccess={async (data) => {
+          console.log("Historical balance recorded:", data);
+          // Refresh patient balances
+          const balances = await fetchPatientBalance(patient._id);
+          setBalance(balances);
+        }}
+        pastAdvanceType="50% Offer"
+        primaryColor="amber"
+      />
+      <AddPatientPastAdvancePaymentModal
+        isOpen={showAddPastAdvancePayment54PercentModal}
+        onClose={() => setShowAddPastAdvancePayment54PercentModal(false)}
+        patientId={patient._id}
+        patientName={patient.name}
+        onSuccess={async (data) => {
+          console.log("Historical balance recorded:", data);
+          // Refresh patient balances
+          const balances = await fetchPatientBalance(patient._id);
+          setBalance(balances);
+        }}
+        pastAdvanceType="54% Offer"
+        primaryColor="blue"
+      />
+      <AddPatientPastAdvancePaymentModal
+        isOpen={showAddPastAdvancePayment159FlatModal}
+        onClose={() => setShowAddPastAdvancePayment159FlatModal(false)}
+        patientId={patient._id}
+        patientName={patient.name}
+        onSuccess={async (data) => {
+          console.log("Historical balance recorded:", data);
+          // Refresh patient balances
+          const balances = await fetchPatientBalance(patient._id);
+          setBalance(balances);
+        }}
+        pastAdvanceType="159 Flat"
+        primaryColor="purple"
+      />
+    </>
   );
 };
 
@@ -863,11 +998,11 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
   // Filter patients by search query and additional filters
   const filteredPatients = useMemo(() => {
     let result = patients;
-    
+
     // Apply search query filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(patient => 
+      result = result.filter(patient =>
         (patient.firstName && patient.firstName.toLowerCase().includes(query)) ||
         (patient.lastName && patient.lastName.toLowerCase().includes(query)) ||
         (patient.mobileNumber && patient.mobileNumber.includes(query)) ||
@@ -876,7 +1011,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
         (patient.email && patient.email.toLowerCase().includes(query))
       );
     }
-    
+
     // Apply previous memberships filter
     if (filterPreviousMemberships !== "all") {
       result = result.filter(patient => {
@@ -884,14 +1019,14 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
           if (patient.membership !== 'Yes' || !patient.membershipEndDate) return false;
           try { return new Date(patient.membershipEndDate) < new Date(); } catch { return false; }
         })();
-        
+
         const hasPreviousMembership = patient.membership === 'Yes' && (() => {
           if (patient.membership !== 'Yes' || !patient.membershipEndDate) return false;
           try { return new Date(patient.membershipEndDate) < new Date(); } catch { return false; }
         })();
-        
+
         const hasNoMembership = patient.membership !== 'Yes';
-        
+
         switch (filterPreviousMemberships) {
           case "active":
             return hasActiveMembership;
@@ -904,22 +1039,22 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
         }
       });
     }
-    
+
     // Apply priority filter
     if (filterPriority !== "all") {
       result = result.filter(patient => {
         const hasPriorityPlan = (patient.membership === 'Yes' && memberships.find(m => m._id === patient.membershipId)?.benefits?.priorityBooking) ||
-        (Array.isArray(patient.memberships) && patient.memberships.length > 0 && patient.memberships.some(m => {
-          const membership = memberships.find(mem => mem._id === m.membershipId);
-          return membership?.benefits?.priorityBooking;
-        }));
+          (Array.isArray(patient.memberships) && patient.memberships.length > 0 && patient.memberships.some(m => {
+            const membership = memberships.find(mem => mem._id === m.membershipId);
+            return membership?.benefits?.priorityBooking;
+          }));
         const isExpired = (() => {
           if (patient.membership !== 'Yes' || !patient.membershipEndDate) return false;
           try { return new Date(patient.membershipEndDate) < new Date(); } catch { return false; }
         })();
-        
+
         const isPriority = hasPriorityPlan && !isExpired && !patient.transferredOutMembershipPriority;
-        
+
         switch (filterPriority) {
           case "priority":
             return isPriority;
@@ -930,10 +1065,10 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
         }
       });
     }
-    
+
     return result;
   }, [patients, searchQuery, filterPreviousMemberships, filterPriority, memberships]);
-  
+
   const totalPages = Math.ceil(filteredPatients.length / pageSize);
   const displayedPatients = filteredPatients.slice((page - 1) * pageSize, page * pageSize);
 
@@ -941,7 +1076,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
   const totalPatients = patients.length;
   const activePatients = patients.filter(p => p.status === 'Active' || p.applicationStatus === 'Active').length;
 
-  
+
 
   const fetchPatients = async (showSuccessToast = true) => {
     const headers = getAuthHeaders();
@@ -997,7 +1132,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                 const name = `${(data.firstName || "").trim()} ${(data.lastName || "").trim()}`.trim() || data.emrNumber || pid;
                 map[pid] = name;
               }
-            } catch {}
+            } catch { }
           })
         );
       } finally {
@@ -1058,7 +1193,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
   }, [detailsModal.isOpen, detailsModal.patient]);
 
   useEffect(() => { fetchPatients(); }, [routeContext]);
-  
+
   useEffect(() => {
     const headers = getAuthHeaders();
     if (!headers) return;
@@ -1140,9 +1275,9 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
   // Fetch package usage data for a patient
   const fetchPackageUsage = async (patient, specificPackage = null) => {
     if (!patient || !patient._id) return;
-    
+
     setPackageUsageModal({ isOpen: true, patient, data: null, loading: true, selectedPackage: specificPackage });
-    
+
     try {
       const headers = getAuthHeaders();
       if (!headers) {
@@ -1150,29 +1285,29 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
         setPackageUsageModal(prev => ({ ...prev, loading: false }));
         return;
       }
-      
+
       const response = await axios.get(`/api/clinic/package-usage/${patient._id}`, { headers });
-      
+
       if (response.data.success) {
         if (specificPackage) {
           // Filter to show only the selected package
           const specificPackageData = response.data.packageUsage?.find(pkg => pkg.packageName === specificPackage.name);
-          setPackageUsageModal(prev => ({ 
-            ...prev, 
+          setPackageUsageModal(prev => ({
+            ...prev,
             data: [{
               ...specificPackageData,
               packageName: specificPackage.name,
               packageId: specificPackage._id,
               packageDetails: specificPackage
             }],
-            loading: false 
+            loading: false
           }));
         } else {
           // Show all packages
-          setPackageUsageModal(prev => ({ 
-            ...prev, 
+          setPackageUsageModal(prev => ({
+            ...prev,
             data: response.data.packageUsage || [],
-            loading: false 
+            loading: false
           }));
         }
       } else {
@@ -1263,7 +1398,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
         transferNameMap={transferNameMap}
         membershipUsageMap={membershipUsageMap}
       />
-      
+
       {/* Package Usage Modal */}
       <PackageUsageModal
         isOpen={packageUsageModal.isOpen}
@@ -1273,7 +1408,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
         loading={packageUsageModal.loading}
         selectedPackage={packageUsageModal.selectedPackage}
       />
-      
+
       {/* Delete Success Modal */}
       {deleteSuccessModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
@@ -1305,7 +1440,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
           </div>
         </div>
       )}
-      
+
       <div className={hideHeader ? "p-2 sm:p-3" : "min-h-screen bg-gray-50 p-2 sm:p-3"}>
         <div className="w-full space-y-1">
           {/* Header Section */}
@@ -1319,7 +1454,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
               </div>
             </div>
           )}
-          
+
           {/* Simple Search Bar */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
             <div className="flex flex-col sm:flex-row gap-3">
@@ -1336,7 +1471,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm text-gray-900"
                 />
               </div>
-              
+
               {/* Filter Controls */}
               <div className="flex flex-col sm:flex-row gap-3">
                 <select
@@ -1352,7 +1487,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                   <option value="previous">Previous Memberships</option>
                   <option value="none">No Membership</option>
                 </select>
-                
+
                 <select
                   value={filterPriority}
                   onChange={(e) => {
@@ -1366,7 +1501,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                   <option value="non-priority">Non-Priority Only</option>
                 </select>
               </div>
-              
+
               {/* <button
                 onClick={exportPatientsToCSV}
                 className="inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm font-medium"
@@ -1448,50 +1583,49 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                         displayedPatients.map((patient) => (
                           <tr
                             key={patient._id}
-                            className={`border-b border-gray-100 transition-colors ${
-                              (() => {
-                                const hasPriorityPlan = (patient.membership === 'Yes' && memberships.find(m => m._id === patient.membershipId)?.benefits?.priorityBooking) ||
+                            className={`border-b border-gray-100 transition-colors ${(() => {
+                              const hasPriorityPlan = (patient.membership === 'Yes' && memberships.find(m => m._id === patient.membershipId)?.benefits?.priorityBooking) ||
                                 (Array.isArray(patient.memberships) && patient.memberships.length > 0 && patient.memberships.some(m => {
                                   const membership = memberships.find(mem => mem._id === m.membershipId);
                                   return membership?.benefits?.priorityBooking;
                                 }));
-                                const isExpired = (() => {
-                                  if (patient.membership !== 'Yes' || !patient.membershipEndDate) return false;
-                                  try { return new Date(patient.membershipEndDate) < new Date(); } catch { return false; }
-                                })();
-                                return hasPriorityPlan && !isExpired && !patient.transferredOutMembershipPriority;
-                              })()
-                                ? 'bg-amber-50 border-l-4 border-amber-500'
-                                : ''
-                            }`}
+                              const isExpired = (() => {
+                                if (patient.membership !== 'Yes' || !patient.membershipEndDate) return false;
+                                try { return new Date(patient.membershipEndDate) < new Date(); } catch { return false; }
+                              })();
+                              return hasPriorityPlan && !isExpired && !patient.transferredOutMembershipPriority;
+                            })()
+                              ? 'bg-amber-50 border-l-4 border-amber-500'
+                              : ''
+                              }`}
                           >
                             <td className="py-3 px-3">
                               <p className="text-xs font-medium text-gray-900">
                                 {patient.firstName} {patient.lastName}
                                 {(() => {
                                   const hasPriorityPlan = (patient.membership === 'Yes' && memberships.find(m => m._id === patient.membershipId)?.benefits?.priorityBooking) ||
-                                  (Array.isArray(patient.memberships) && patient.memberships.length > 0 && patient.memberships.some(m => {
-                                    const membership = memberships.find(mem => mem._id === m.membershipId);
-                                    return membership?.benefits?.priorityBooking;
-                                  }));
+                                    (Array.isArray(patient.memberships) && patient.memberships.length > 0 && patient.memberships.some(m => {
+                                      const membership = memberships.find(mem => mem._id === m.membershipId);
+                                      return membership?.benefits?.priorityBooking;
+                                    }));
                                   const isExpired = (() => {
                                     if (patient.membership !== 'Yes' || !patient.membershipEndDate) return false;
                                     try { return new Date(patient.membershipEndDate) < new Date(); } catch { return false; }
                                   })();
                                   return hasPriorityPlan && !isExpired && !patient.transferredOutMembershipPriority;
                                 })() && (
-                                  <span className="ml-2 inline-flex px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-medium">
-                                    Priority
-                                  </span>
-                                )}
+                                    <span className="ml-2 inline-flex px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-medium">
+                                      Priority
+                                    </span>
+                                  )}
                                 {(() => {
                                   if (patient.membership !== 'Yes' || !patient.membershipEndDate) return false;
                                   try { return new Date(patient.membershipEndDate) < new Date(); } catch { return false; }
                                 })() && (
-                                  <span className="ml-2 inline-flex px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-medium">
-                                    Expired
-                                  </span>
-                                )}
+                                    <span className="ml-2 inline-flex px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-medium">
+                                      Expired
+                                    </span>
+                                  )}
                               </p>
                             </td>
                             <td className="py-3 px-3">

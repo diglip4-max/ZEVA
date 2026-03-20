@@ -25,8 +25,13 @@ interface EditAppointmentModalProps {
     referral: string;
     emergency: string;
     notes: string;
+<<<<<<< HEAD
     serviceId?: string | null;
     serviceIds?: string[];
+=======
+    treatment?: string;
+    serviceId?: string | { _id: string } | null;
+>>>>>>> e4074e3e6226b3586a058de23c28e3a9d42785b0
   } | null;
   rooms: Array<{ _id: string; name: string }>;
   doctors: Array<{ _id: string; name: string }>;
@@ -52,6 +57,10 @@ export default function EditAppointmentModal({
   const [referral, setReferral] = useState<string>("direct");
   const [emergency, setEmergency] = useState<string>("no");
   const [notes, setNotes] = useState<string>("");
+  const [treatment, setTreatment] = useState<string>("");
+  const [selectedServiceId, setSelectedServiceId] = useState<string>("");
+  const [services, setServices] = useState<Array<{ _id: string; name: string }>>([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -74,9 +83,31 @@ export default function EditAppointmentModal({
     }
   };
 
+  const loadServices = async () => {
+    try {
+      setServicesLoading(true);
+      const res = await axios.get("/api/clinic/services", {
+        headers: getAuthHeaders(),
+      });
+      if (res.data.success) {
+        const list = Array.isArray(res.data.services)
+          ? res.data.services
+          : [];
+        setServices(list.map((s: any) => ({ _id: s._id, name: s.name })));
+      } else {
+        setServices([]);
+      }
+    } catch (e) {
+      setServices([]);
+    } finally {
+      setServicesLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
       fetchReferrals();
+      loadServices();
     }
   }, [isOpen]);
   useEffect(() => {
@@ -144,6 +175,11 @@ export default function EditAppointmentModal({
       setReferral(referralValue);
       setEmergency(appointment.emergency || "no");
       setNotes(appointment.notes || "");
+      setTreatment(appointment.treatment || "");
+      // Set selected service from appointment.serviceId if it exists
+      if ('serviceId' in appointment && appointment.serviceId) {
+        setSelectedServiceId(typeof appointment.serviceId === 'string' ? appointment.serviceId : appointment.serviceId._id);
+      }
       setError("");
       setFieldErrors({});
       const initId =
@@ -189,6 +225,10 @@ export default function EditAppointmentModal({
           referral,
           emergency,
           notes,
+<<<<<<< HEAD
+=======
+          treatment,
+>>>>>>> e4074e3e6226b3586a058de23c28e3a9d42785b0
           serviceId: selectedServiceId || undefined,
         },
         { headers }
@@ -455,6 +495,37 @@ export default function EditAppointmentModal({
                 <p className="mt-0.5 text-xs text-red-600 dark:text-red-600">{fieldErrors.toTime}</p>
               )}
             </div>
+          </div>
+
+          {/* Treatment Selection (Optional) */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">
+              Treatment (Optional)
+            </label>
+            <select
+              value={selectedServiceId}
+              onChange={(e) => {
+                setSelectedServiceId(e.target.value);
+                if (fieldErrors.serviceId) {
+                  setFieldErrors({ ...fieldErrors, serviceId: "" });
+                }
+              }}
+              className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-white text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={servicesLoading}
+            >
+              <option value="">Select a treatment (optional)</option>
+              {services.map((svc) => (
+                <option key={svc._id} value={svc._id}>
+                  {svc.name}
+                </option>
+              ))}
+            </select>
+            {servicesLoading && (
+              <p className="mt-1 text-xs text-gray-500">Loading treatments...</p>
+            )}
+            {fieldErrors.serviceId && (
+              <p className="mt-0.5 text-xs text-red-600 dark:text-red-600">{fieldErrors.serviceId}</p>
+            )}
           </div>
 
           {/* Referral, Emergency, Notes - In one row */}

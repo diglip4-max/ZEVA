@@ -22,7 +22,7 @@ const UOMSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ["Active", "Inactive", "Allocated"],
-      default: "Allocated",
+      default: "Active",
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
