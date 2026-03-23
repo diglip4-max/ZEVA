@@ -428,6 +428,62 @@ export default async function handler(req, res) {
       .slice(0, 5);
     console.log("topAgentCommissionResultCount", topAgentCommission.length, "ids", topAgentCommission.map((x) => x.staffId));
 
+    // New: Highest billing in memberships and packages per doctor staff
+    const packageBillingAgg = await Billing.aggregate([
+      {
+        $match: {
+          ...(clinicId ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : {}),
+          invoicedDate: { $gte: startAt, $lte: endAt },
+          service: "Package"
+        }
+      },
+      {
+        $group: {
+          _id: "$doctorId",
+          amount: { $sum: { $ifNull: ["$paid", 0] } },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { amount: -1 } },
+      { $limit: 5 }
+    ]);
+
+    const topPackageBilling = packageBillingAgg.map(r => ({
+      staffId: String(r._id || ""),
+      name: staffMap.get(String(r._id))?.name || "Unknown",
+      amount: Math.round(Number(r.amount || 0)),
+      count: r.count
+    }));
+
+    const membershipBillingAgg = await Billing.aggregate([
+      {
+        $match: {
+          ...(clinicId ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : {}),
+          invoicedDate: { $gte: startAt, $lte: endAt },
+          $or: [
+            { membershipDiscountApplied: { $gt: 0 } },
+            { isFreeConsultation: true }
+          ]
+        }
+      },
+      {
+        $group: {
+          _id: "$doctorId",
+          amount: { $sum: { $ifNull: ["$paid", 0] } },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { amount: -1 } },
+      { $limit: 5 }
+    ]);
+
+    const topMembershipBilling = membershipBillingAgg.map(r => ({
+      staffId: String(r._id || ""),
+      name: staffMap.get(String(r._id))?.name || "Unknown",
+      amount: Math.round(Number(r.amount || 0)),
+      count: r.count
+    }));
+
     return res.status(200).json({
       success: true,
       data: {
@@ -436,6 +492,8 @@ export default async function handler(req, res) {
         top5Details: detailsTop5,
         topDoctorStaffCommission,
         topAgentCommission,
+        topPackageBilling,
+        topMembershipBilling
       },
     });
   } catch (err) {

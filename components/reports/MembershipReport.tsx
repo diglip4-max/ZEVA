@@ -8,6 +8,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+import ExportButtons from "./ExportButtons";
 
 type HeadersRecord = { [key: string]: string | undefined };
 
@@ -85,8 +86,33 @@ export default function MembershipReport({ startDate, endDate, headers }: Props)
     [top]
   );
 
+  const membershipExportData = useMemo(() => {
+    // Combine top memberships and active memberships
+    const topMemberships = top.map(t => ({
+      "Type": "Top Membership (Revenue)",
+      "Membership Name": t.membershipName || "Unnamed",
+      "Detail": `Count: ${t.count}, Revenue: AED ${Math.round(t.totalRevenue || 0)}`
+    }));
+
+    const activeMemberships = rows.map(r => ({
+      "Type": "Active Membership",
+      "Membership Name": r.membershipName || "-",
+      "Detail": `Patient: ${r.patientName || "-"}, Start: ${r.startDate ? new Date(r.startDate).toLocaleDateString() : "-"}, End: ${r.endDate ? new Date(r.endDate).toLocaleDateString() : "-"}, Status: ${r.status}, Revenue: AED ${Math.round(r.totalRevenue || 0)}`
+    }));
+
+    return [...topMemberships, ...activeMemberships];
+  }, [rows, top]);
+
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <ExportButtons
+          data={membershipExportData}
+          filename={`membership_report_${startDate}_to_${endDate}`}
+          headers={["Type", "Membership Name", "Detail"]}
+          title="Membership Performance Report"
+        />
+      </div>
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-800">Top Memberships (Revenue)</h3>
@@ -107,22 +133,37 @@ export default function MembershipReport({ startDate, endDate, headers }: Props)
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-800">Membership Reports</h3>
-          <div className="flex items-center gap-2">
-            <button
-              className="px-3 py-1.5 rounded border text-sm"
-              disabled={page <= 1}
-              onClick={() => fetchData(Math.max(1, page - 1))}
-            >
-              Prev
-            </button>
-            <span className="text-sm text-gray-700">Page {page}</span>
-            <button
-              className="px-3 py-1.5 rounded border text-sm"
-              disabled={!hasNext}
-              onClick={() => fetchData(page + 1)}
-            >
-              Next
-            </button>
+          <div className="flex items-center gap-4">
+            <ExportButtons
+              data={rows.map(r => ({
+                "Membership Name": r.membershipName || "-",
+                "Patient Name": r.patientName || "-",
+                "Start Date": r.startDate ? new Date(r.startDate).toLocaleDateString() : "-",
+                "Expiry Date": r.endDate ? new Date(r.endDate).toLocaleDateString() : "-",
+                "Status": r.status || "-",
+                "Total Revenue (AED)": Math.round(r.totalRevenue || 0),
+              }))}
+              filename={`membership_report_${startDate}_to_${endDate}`}
+              headers={["Membership Name", "Patient Name", "Start Date", "Expiry Date", "Status", "Total Revenue (AED)"]}
+              title="Membership Performance Report"
+            />
+            <div className="flex items-center gap-2 border-l pl-4">
+              <button
+                className="px-3 py-1.5 rounded border text-sm"
+                disabled={page <= 1}
+                onClick={() => fetchData(Math.max(1, page - 1))}
+              >
+                Prev
+              </button>
+              <span className="text-sm text-gray-700">Page {page}</span>
+              <button
+                className="px-3 py-1.5 rounded border text-sm"
+                disabled={!hasNext}
+                onClick={() => fetchData(page + 1)}
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
         <div className="overflow-x-auto">

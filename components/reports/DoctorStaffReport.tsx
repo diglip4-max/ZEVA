@@ -8,6 +8,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+import ExportButtons from "./ExportButtons";
 
 type HeadersRecord = { [key: string]: string | undefined };
 
@@ -29,6 +30,13 @@ type DetailRow = {
   invoiced: number;
   rescheduled: number;
   totalPatients: number;
+};
+
+type BillingRow = {
+  staffId: string;
+  name: string;
+  amount: number;
+  count: number;
 };
 
 type CommissionRow = {
@@ -57,6 +65,8 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
   const [details, setDetails] = useState<DetailRow[]>([]);
   const [topDoctorStaffCommission, setTopDoctorStaffCommission] = useState<CommissionRow[]>([]);
   const [topAgentCommission, setTopAgentCommission] = useState<CommissionRow[]>([]);
+  const [topPackageBilling, setTopPackageBilling] = useState<BillingRow[]>([]);
+  const [topMembershipBilling, setTopMembershipBilling] = useState<BillingRow[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -82,6 +92,8 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
       setDetails(json.data?.top5Details || []);
       setTopDoctorStaffCommission(json.data?.topDoctorStaffCommission || []);
       setTopAgentCommission(json.data?.topAgentCommission || []);
+      setTopPackageBilling(json.data?.topPackageBilling || []);
+      setTopMembershipBilling(json.data?.topMembershipBilling || []);
     } finally {
       setLoading(false);
     }
@@ -114,8 +126,52 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
     [details]
   );
 
+  const doctorStaffExportData = useMemo(() => {
+    const combinedData = details.map(d => {
+      const revenue = revenues.find(r => r.staffId === d.staffId);
+      const commission = topDoctorStaffCommission.find(c => c.staffId === d.staffId);
+      const packageBilling = topPackageBilling.find(p => p.staffId === d.staffId);
+      const membershipBilling = topMembershipBilling.find(m => m.staffId === d.staffId);
+      return {
+        "Doctor Staff": d.staffName || "Unknown",
+        "Total Appointments": d.totalAppointments || 0,
+        "Booked": d.booked || 0,
+        "Cancelled": d.cancelled || 0,
+        "Completed": d.completed || 0,
+        "Invoiced": d.invoiced || 0,
+        "Rescheduled": d.rescheduled || 0,
+        "Total Patients": d.totalPatients || 0,
+        "Revenue (AED)": Math.round(revenue?.revenue || 0),
+        "Total Commission (AED)": Math.round(commission?.totalCommission || 0),
+        "Package Billing (AED)": Math.round(packageBilling?.amount || 0),
+        "Membership Billing (AED)": Math.round(membershipBilling?.amount || 0),
+      };
+    });
+
+    return combinedData;
+  }, [details, revenues, topDoctorStaffCommission, topPackageBilling, topMembershipBilling]);
+
   return (
     <div className="space-y-8">
+      <div className="flex justify-end">
+        <ExportButtons
+          data={doctorStaffExportData}
+          filename={`doctor_staff_report_${startDate}_to_${endDate}`}
+          headers={[
+            "Doctor Staff",
+            "Total Appointments",
+            "Booked",
+            "Cancelled",
+            "Completed",
+            "Invoiced",
+            "Rescheduled",
+            "Total Patients",
+            "Revenue (AED)",
+            "Total Commission (AED)",
+          ]}
+          title="Doctor Staff Performance Report"
+        />
+      </div>
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-800">Doctor Staff by Bookings</h3>
@@ -177,6 +233,68 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="text-lg font-semibold text-gray-800 mb-3">Highest Billing in Packages</h3>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Package Revenue</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoices</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {topPackageBilling.map((r) => (
+                <tr key={r.staffId}>
+                  <td className="px-4 py-2 text-sm">{r.name}</td>
+                  <td className="px-4 py-2 text-sm font-medium">{currency(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm">{r.count}</td>
+                </tr>
+              ))}
+              {!topPackageBilling.length && (
+                <tr>
+                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
+                    No package billing data for selected period
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="text-lg font-semibold text-gray-800 mb-3">Highest Billing in Memberships</h3>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Membership Revenue</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoices</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {topMembershipBilling.map((r) => (
+                <tr key={r.staffId}>
+                  <td className="px-4 py-2 text-sm">{r.name}</td>
+                  <td className="px-4 py-2 text-sm font-medium">{currency(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm">{r.count}</td>
+                </tr>
+              ))}
+              {!topMembershipBilling.length && (
+                <tr>
+                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
+                    No membership billing data for selected period
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

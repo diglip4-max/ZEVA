@@ -649,11 +649,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   const [dragOverDoctorId, setDragOverDoctorId] = useState<string | null>(null);
   const [dragOverTimeSlot, setDragOverTimeSlot] = useState<{ doctorId: string; minutes: number } | null>(null);
 
-  // Central helper: log errors silently without showing toast popups
-  const showErrorToast = (_message: string) => {
-    // Requirement: do not show any axios error in toaster or noisy console logs on this page.
-    // Intentionally left blank to silently swallow UI error notifications.
-    // If needed for debugging, temporarily add a console.log here.
+  // Central helper: show errors in toast for debugging permissions
+  const showErrorToast = (message: string) => {
+    // Show toast for permission related errors or debugging
+    if (message.toLowerCase().includes("permission") || message.toLowerCase().includes("error")) {
+      toast.error(message, { duration: 3000 });
+    }
+    console.error("Appointment Page Error:", message);
   };
 
 
@@ -721,9 +723,9 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     setPermissionsLoaded(true);
   }, [isAgentRoute, agentPermissions, agentPermissionsLoading]);
 
-  // Helper function to get user role from token
-  const getUserRole = (): string | null => {
-    if (typeof window === "undefined") return null;
+  // Helper function to get user info from token
+  const getUserInfo = (): { role: string | null; id: string | null } => {
+    if (typeof window === "undefined") return { role: null, id: null };
     try {
       for (const key of TOKEN_PRIORITY) {
         const token = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
@@ -738,16 +740,24 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                 .join('')
             );
             const decoded = JSON.parse(jsonPayload);
-            return decoded.role || decoded.userRole || null;
+            return {
+              role: decoded.role || decoded.userRole || null,
+              id: decoded.userId || decoded.id || null
+            };
           } catch (e) {
             continue;
           }
         }
       }
     } catch (error) {
-      console.error("Error getting user role:", error);
+      console.error("Error getting user info:", error);
     }
-    return null;
+    return { role: null, id: null };
+  };
+
+  // Helper function to get user role from token
+  const getUserRole = (): string | null => {
+    return getUserInfo().role;
   };
 
   // Handle clinic permissions - clinic, doctor have admin-level permissions; agent/doctorStaff need checks
@@ -896,6 +906,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     if (agentToken || staffToken || userToken) {
       const fetchPermissions = async () => {
         try {
+          console.log("Fetching Agent/Staff Permissions for clinic_Appointment...");
           setPermissionsLoaded(false);
           // Use agent permissions API for agent/doctorStaff
           const res = await axios.get("/api/agent/get-module-permissions", {
@@ -903,20 +914,38 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
             headers: { Authorization: `Bearer ${agentStaffToken}` }
           });
           const data = res.data;
+          console.log("Agent Permissions API Response:", data);
          
           if (!isMounted) return;
+          
+          // Default to true if module not found in permissions (matches backend logic)
+          if (!data?.permissions && data?.error?.includes("not found in agent permissions")) {
+            console.log("Module not found in permissions, granting full access by default");
+            setPermissions({
+              canRead: true,
+              canCreate: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+            return;
+          }
+
           const actions = data?.permissions?.actions || data?.data?.moduleActions || {};
-          const canAll =
-            actions.all === true ||
-            actions.all === "true" ||
-            String(actions.all || "").toLowerCase() === "true";
-          setPermissions({
-            canRead: canAll || actions.read === true,
-            canCreate: canAll || actions.create === true,
-            canUpdate: canAll || actions.update === true,
-            canDelete: canAll || actions.delete === true,
-          });
-        } catch (err) {
+          const isTrue = (val: any) => val === true || val === "true" || String(val || "").toLowerCase() === "true";
+          
+          const canAll = isTrue(actions.all);
+          
+          const newPerms = {
+            canRead: canAll || isTrue(actions.read),
+            canCreate: canAll || isTrue(actions.create),
+            canUpdate: canAll || isTrue(actions.update),
+            canDelete: canAll || isTrue(actions.delete),
+          };
+          
+          console.log("Final Agent/Staff Permissions:", newPerms);
+          setPermissions(newPerms);
+        } catch (err: any) {
+          console.error("Error fetching agent permissions:", err);
           // Swallow agent permission errors; they will just result in no extra access
           setPermissions({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
         } finally {
@@ -1028,7 +1057,17 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
         if (res.data.success) {
           setClinic(res.data.clinic);
-          setDoctorStaff(res.data.doctorStaff || []);
+          let fetchedDoctorStaff = res.data.doctorStaff || [];
+          const userInfo = getUserInfo();
+         
+          // If the user is a doctorStaff, filter to show only their column
+          if (userInfo.role === "doctorStaff" && userInfo.id) {
+            fetchedDoctorStaff = fetchedDoctorStaff.filter((doc: any) => doc._id === userInfo.id);
+            // Don't hide rooms from state entirely, as they are needed for the booking modal
+            // But hide room filters and room columns (handled in visibility logic)
+          }
+         
+          setDoctorStaff(fetchedDoctorStaff);
           setRooms(res.data.rooms || []);
 
           // Parse timings and generate time slots
@@ -1174,6 +1213,12 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   useEffect(() => {
     setVisibleRoomIds((prev) => {
       if (rooms.length === 0) return [];
+
+      const userInfo = getUserInfo();
+      // If the user is a doctorStaff, hide all room columns by default
+      if (userInfo.role === "doctorStaff") {
+        return [];
+      }
      
       // Check if there's a saved filter state in localStorage
       const hasSavedFilter = typeof window !== "undefined" && localStorage.getItem("appointmentVisibleRoomIds");
@@ -2650,7 +2695,7 @@ useEffect(() => {
               </div>
               {(doctorStaff.length > 0 || rooms.length > 0) && (
             <div className="flex flex-wrap gap-2">
-              {doctorStaff.length > 0 && (
+              {doctorStaff.length > 0 && getUserInfo().role !== "doctorStaff" && (
                 <div className="relative" ref={doctorFilterRef}>
                   <button
                     type="button"
@@ -2776,7 +2821,7 @@ useEffect(() => {
                   )}
                 </div>
               )}
-              {rooms.length > 0 && (
+              {rooms.length > 0 && getUserInfo().role !== "doctorStaff" && (
                 <div className="relative" ref={roomFilterRef}>
                   <button
                     type="button"
@@ -3194,6 +3239,16 @@ useEffect(() => {
                                     }
                                   }}
                                   onClick={(_e) => {
+                                    console.log("Slot clicked:", {
+                                      canBookSlot,
+                                      canCreate: permissions.canCreate,
+                                      isDragging: timeDragSelection.isDragging,
+                                      draggedAppointmentId,
+                                      subStartMinutes,
+                                      currentMinutes,
+                                      isToday,
+                                      isPastDay
+                                    });
                                     // âœ… Check permission before opening booking modal
                                     if (!permissions.canCreate) {
                                       showErrorToast("You do not have permission to book appointments");
@@ -3212,6 +3267,8 @@ useEffect(() => {
                                         selectedDate,
                                         bookedFrom: "doctor",
                                       });
+                                    } else if (!canBookSlot) {
+                                       showErrorToast("This slot cannot be booked. Check date/time or availability.");
                                     }
                                   }}
                                 />
@@ -3328,6 +3385,8 @@ useEffect(() => {
                                                     appointmentRef.current = item.apt;
                                                     setSelectedAppointment(item.apt);
                                                     setEditModalOpen(true);
+                                                  } else {
+                                                    showErrorToast("You do not have permission to edit appointments");
                                                   }
                                                 }}
                                                 title={`${item.apt.patientName} - ${formatTime(item.apt.fromTime)} - ${formatTime(item.apt.toTime)}`}
@@ -3469,6 +3528,16 @@ useEffect(() => {
                                     }
                                   }}
                                   onClick={(_e) => {
+                                    console.log("Room slot clicked:", {
+                                      canBookSlot,
+                                      canCreate: permissions.canCreate,
+                                      isDragging: roomDragSelection.isDragging,
+                                      draggedAppointmentId,
+                                      subStartMinutes,
+                                      currentMinutes,
+                                      isToday,
+                                      isPastDay
+                                    });
                                     // âœ… Check permission before opening booking modal
                                     if (!permissions.canCreate) {
                                       showErrorToast("You do not have permission to book appointments");
@@ -3487,6 +3556,8 @@ useEffect(() => {
                                         selectedDate,
                                         bookedFrom: "room",
                                       });
+                                    } else if (!canBookSlot) {
+                                       showErrorToast("This slot cannot be booked. Check date/time or availability.");
                                     }
                                   }}
                                 />
@@ -3607,6 +3678,8 @@ useEffect(() => {
                                                     appointmentRef.current = item.apt;
                                                     setSelectedAppointment(item.apt);
                                                     setEditModalOpen(true);
+                                                  } else {
+                                                    showErrorToast("You do not have permission to edit appointments");
                                                   }
                                                 }}
                                                 title={`${item.apt.patientName} - ${formatTime(item.apt.fromTime)} - ${formatTime(item.apt.toTime)}`}

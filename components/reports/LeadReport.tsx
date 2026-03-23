@@ -8,6 +8,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+import ExportButtons from "./ExportButtons";
 
 type HeadersRecord = { [key: string]: string | undefined };
 
@@ -104,8 +105,51 @@ export default function LeadReport({ startDate, endDate, headers }: Props) {
     [statuses]
   );
 
+  const leadExportData = useMemo(() => {
+    // Combine data from different sections into a single export format
+    const ownerData = owners.map((o) => ({
+      "Section": "Lead Conversion by Owner",
+      "Name": o.ownerName || "Unassigned",
+      "Stats": `Total: ${o.total}, Converted: ${o.converted}, Ratio: ${Math.round((o.conversionRatio || 0) * 1000) / 10}%`
+    }));
+
+    const treatmentData = treatments.map((t) => ({
+      "Section": "Top Treatments",
+      "Name": t.name || "Unknown",
+      "Stats": `Count: ${t.count}`
+    }));
+
+    const sourceData = sources.map((s) => ({
+      "Section": "Top Sources",
+      "Name": s.source || "Unknown",
+      "Stats": `Count: ${s.count}`
+    }));
+
+    const statusData = statuses.map((s) => ({
+      "Section": "Lead Status Breakdown",
+      "Name": s.status || "Unknown",
+      "Stats": `Count: ${s.count}`
+    }));
+
+    const genderData = genders.map((g) => ({
+      "Section": "Gender Distribution",
+      "Name": g.gender || "Unknown",
+      "Stats": `Count: ${g.count}`
+    }));
+
+    return [...ownerData, ...treatmentData, ...sourceData, ...statusData, ...genderData];
+  }, [owners, treatments, sources, statuses, genders]);
+
   return (
     <div className="space-y-8">
+      <div className="flex justify-end">
+        <ExportButtons
+          data={leadExportData}
+          filename={`lead_report_${startDate}_to_${endDate}`}
+          headers={["Section", "Name", "Stats"]}
+          title="Lead Conversion Detailed Report"
+        />
+      </div>
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-800">Conversion by Owner</h3>

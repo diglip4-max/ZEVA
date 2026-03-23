@@ -25,13 +25,9 @@ interface EditAppointmentModalProps {
     referral: string;
     emergency: string;
     notes: string;
-<<<<<<< HEAD
-    serviceId?: string | null;
-    serviceIds?: string[];
-=======
     treatment?: string;
     serviceId?: string | { _id: string } | null;
->>>>>>> e4074e3e6226b3586a058de23c28e3a9d42785b0
+    serviceIds?: string[];
   } | null;
   rooms: Array<{ _id: string; name: string }>;
   doctors: Array<{ _id: string; name: string }>;
@@ -58,17 +54,14 @@ export default function EditAppointmentModal({
   const [emergency, setEmergency] = useState<string>("no");
   const [notes, setNotes] = useState<string>("");
   const [treatment, setTreatment] = useState<string>("");
-  const [selectedServiceId, setSelectedServiceId] = useState<string>("");
   const [services, setServices] = useState<Array<{ _id: string; name: string }>>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
+  const [selectedServiceId, setSelectedServiceId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const [referrals, setReferrals] = useState<Array<{ _id: string; firstName: string; lastName: string }>>([]);
-  const [services, setServices] = useState<Array<{ _id: string; name: string }>>([]);
-  const [servicesLoading, setServicesLoading] = useState(false);
-  const [selectedServiceId, setSelectedServiceId] = useState<string>("");
 
   const fetchReferrals = async () => {
     try {
@@ -110,29 +103,6 @@ export default function EditAppointmentModal({
       loadServices();
     }
   }, [isOpen]);
-  useEffect(() => {
-    const loadServices = async () => {
-      try {
-        setServicesLoading(true);
-        const res = await axios.get("/api/clinic/services", {
-          headers: getAuthHeaders(),
-        });
-        if (res.data.success) {
-          const list = Array.isArray(res.data.services) ? res.data.services : [];
-          setServices(list.map((s: any) => ({ _id: s._id, name: s.name })));
-        } else {
-          setServices([]);
-        }
-      } catch (e) {
-        setServices([]);
-      } finally {
-        setServicesLoading(false);
-      }
-    };
-    if (isOpen) {
-      loadServices();
-    }
-  }, [isOpen, getAuthHeaders]);
 
   useEffect(() => {
     const fetchPatientReferral = async () => {
@@ -176,17 +146,20 @@ export default function EditAppointmentModal({
       setEmergency(appointment.emergency || "no");
       setNotes(appointment.notes || "");
       setTreatment(appointment.treatment || "");
-      // Set selected service from appointment.serviceId if it exists
-      if ('serviceId' in appointment && appointment.serviceId) {
-        setSelectedServiceId(typeof appointment.serviceId === 'string' ? appointment.serviceId : appointment.serviceId._id);
+      
+      // Set selected service
+      let initialServiceId = "";
+      if (appointment.serviceIds && Array.isArray(appointment.serviceIds) && appointment.serviceIds.length > 0) {
+        initialServiceId = appointment.serviceIds[0];
+      } else if (appointment.serviceId) {
+        initialServiceId = typeof appointment.serviceId === "string" 
+          ? appointment.serviceId 
+          : appointment.serviceId._id;
       }
+      setSelectedServiceId(initialServiceId);
+
       setError("");
       setFieldErrors({});
-      const initId =
-        Array.isArray(appointment.serviceIds) && appointment.serviceIds.length > 0
-          ? appointment.serviceIds[0]
-          : appointment.serviceId || "";
-      setSelectedServiceId(initId || "");
     }
   }, [appointment]);
 
@@ -225,10 +198,7 @@ export default function EditAppointmentModal({
           referral,
           emergency,
           notes,
-<<<<<<< HEAD
-=======
           treatment,
->>>>>>> e4074e3e6226b3586a058de23c28e3a9d42785b0
           serviceId: selectedServiceId || undefined,
         },
         { headers }

@@ -225,6 +225,70 @@ export default async function handler(req, res) {
             { $project: { status: "$_id", count: 1 } },
             { $sort: { count: -1 } },
           ],
+          cancelledAppointments: [
+            { $match: { status: { $in: statusCancelled } } },
+            { $lookup: { from: "patients", localField: "patientId", foreignField: "_id", as: "patient" } },
+            { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
+            { 
+              $project: { 
+                patientName: { 
+                  $let: { 
+                    vars: { 
+                      joinedName: { $ifNull: ["$patient.name", { $concat: ["$patient.firstName", " ", "$patient.lastName"] }] },
+                      denormalizedName: "$patientName"
+                    },
+                    in: { 
+                      $ifNull: [ 
+                        "$$joinedName", 
+                        { 
+                          $cond: { 
+                            if: { $and: [ { $ne: ["$$denormalizedName", null] }, { $ne: ["$$denormalizedName", ""] } ] }, 
+                            then: "$$denormalizedName", 
+                            else: "Patient Name Missing" 
+                          } 
+                        }
+                      ]
+                    }
+                  }
+                },
+                serviceName: "$svc.name", 
+                treatment: "$treatment", 
+                notes: "$notes" 
+              }
+            }
+          ],
+          noShowAppointments: [
+            { $match: { status: { $in: statusNoShow } } },
+            { $lookup: { from: "patients", localField: "patientId", foreignField: "_id", as: "patient" } },
+            { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
+            { 
+              $project: { 
+                patientName: { 
+                  $let: { 
+                    vars: { 
+                      joinedName: { $ifNull: ["$patient.name", { $concat: ["$patient.firstName", " ", "$patient.lastName"] }] },
+                      denormalizedName: "$patientName"
+                    },
+                    in: { 
+                      $ifNull: [ 
+                        "$$joinedName", 
+                        { 
+                          $cond: { 
+                            if: { $and: [ { $ne: ["$$denormalizedName", null] }, { $ne: ["$$denormalizedName", ""] } ] }, 
+                            then: "$$denormalizedName", 
+                            else: "Patient Name Missing" 
+                          } 
+                        }
+                      ]
+                    }
+                  }
+                },
+                serviceName: "$svc.name", 
+                treatment: "$treatment", 
+                notes: "$notes" 
+              }
+            }
+          ]
         },
       },
     ]).toArray();
@@ -290,6 +354,8 @@ export default async function handler(req, res) {
         summary: (out.summary && out.summary[0]) || { totalAppointments: 0, completedAppointments: 0, cancelledAppointments: 0, noShowAppointments: 0 },
         doctorReport: out.doctorReport || [],
         statusCounts: statusCountsAll,
+        cancelledAppointments: out.cancelledAppointments || [],
+        noShowAppointments: out.noShowAppointments || [],
         filters: { doctors, departments },
       },
     });

@@ -8,6 +8,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+import ExportButtons from "./ExportButtons";
 
 type HeadersRecord = { [key: string]: string | undefined };
 
@@ -131,8 +132,60 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
   };
   const [pendingPayments, setPendingPayments] = useState<PendingItem[]>([]);
 
+  const revenueExportData = useMemo(() => {
+    // Combine various revenue breakdowns
+    const doctorData = revenueByDoctor.map(r => ({
+      "Category": "Revenue by Doctor",
+      "Name/Method": r.name || "Unknown",
+      "Amount (AED)": Math.round(r.amount || 0),
+      "Detail": ""
+    }));
+
+    const serviceData = revenueByService.map(r => ({
+      "Category": "Revenue by Service",
+      "Name/Method": r.name || "Unknown",
+      "Amount (AED)": Math.round(r.amount || 0),
+      "Detail": ""
+    }));
+
+    const deptData = revenueByDepartment.map(r => ({
+      "Category": "Revenue by Department",
+      "Name/Method": r.name || "Unknown",
+      "Amount (AED)": Math.round(r.amount || 0),
+      "Detail": ""
+    }));
+
+    const methodData = revenueByPaymentMethod.map(r => ({
+      "Category": "Revenue by Payment Method",
+      "Name/Method": r.method || "Unknown",
+      "Amount (AED)": Math.round(r.amount || 0),
+      "Detail": ""
+    }));
+
+    const paymentList = payments.map(p => ({
+      "Category": "Recent Payment",
+      "Name/Method": p.patientName || "Unknown",
+      "Amount (AED)": Math.round(p.amount || 0),
+      "Detail": `Invoice: ${p.invoiceNumber}, Service: ${p.service}, Method: ${p.paymentMethod}, Date: ${p.paymentDate ? new Date(p.paymentDate).toLocaleDateString() : "N/A"}`
+    }));
+
+    const summaryData = [
+      { "Category": "TOTAL REVENUE", "Name/Method": "Grand Total", "Amount (AED)": Math.round(totalRevenue || 0), "Detail": "" }
+    ];
+
+    return [...summaryData, ...doctorData, ...serviceData, ...deptData, ...methodData, ...paymentList];
+  }, [revenueByDoctor, revenueByService, revenueByDepartment, revenueByPaymentMethod, payments, totalRevenue]);
+
   return (
     <div className="space-y-8">
+      <div className="flex justify-end">
+        <ExportButtons
+          data={revenueExportData}
+          filename={`revenue_report_${startDate}_to_${endDate}`}
+          headers={["Category", "Name/Method", "Amount (AED)", "Detail"]}
+          title="Revenue Detailed Report"
+        />
+      </div>
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-800">Revenue Summary</h3>

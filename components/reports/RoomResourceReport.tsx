@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import ExportButtons from "./ExportButtons";
 
 type HeadersRecord = { [key: string]: string | undefined };
 
@@ -54,6 +55,17 @@ export default function RoomResourceReport({ startDate, endDate, headers }: Prop
 
   return (
     <div className="space-y-8">
+      <div className="flex justify-end">
+        <ExportButtons
+          data={rooms.map((r) => ({
+            "Room Name": r.roomName || "Unknown",
+            "Total Bookings": r.totalBookings || 0,
+          }))}
+          filename={`room_report_${startDate}_to_${endDate}`}
+          headers={["Room Name", "Total Bookings"]}
+          title="Room Bookings Report"
+        />
+      </div>
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-800">Room Bookings</h3>

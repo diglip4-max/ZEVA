@@ -8,6 +8,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+import ExportButtons from "./ExportButtons";
 
 type HeadersRecord = { [key: string]: string | undefined };
 
@@ -102,8 +103,73 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
     [data.revenueByPatient]
   );
 
+  const patientExportData = useMemo(() => {
+    const visitedData = data.topVisited || [];
+    const membershipData = data.membershipByPatient || [];
+    const packageData = data.packageByPatient || [];
+    const pendingData = data.highestPending || [];
+    const advanceData = data.highestAdvance || [];
+    const revenueData = data.revenueByPatient || [];
+
+    // Get all unique patient IDs across all datasets
+    const allPatientIds = Array.from(new Set([
+      ...visitedData.map((p: any) => p.patientId),
+      ...membershipData.map((p: any) => p.patientId),
+      ...packageData.map((p: any) => p.patientId),
+      ...pendingData.map((p: any) => p.patientId),
+      ...advanceData.map((p: any) => p.patientId),
+      ...revenueData.map((p: any) => p.patientId),
+    ])).filter(id => id);
+
+    const combined = allPatientIds.map((patientId: any) => {
+      const visited = visitedData.find((p: any) => p.patientId === patientId);
+      const membership = membershipData.find((p: any) => p.patientId === patientId);
+      const pkg = packageData.find((p: any) => p.patientId === patientId);
+      const pending = pendingData.find((p: any) => p.patientId === patientId);
+      const advance = advanceData.find((p: any) => p.patientId === patientId);
+      const revenue = revenueData.find((p: any) => p.patientId === patientId);
+
+      const patientName = visited?.patientName || membership?.patientName || pkg?.patientName || 
+                         pending?.patientName || advance?.patientName || revenue?.patientName || "Unknown";
+
+      return {
+        "Patient Name": patientName,
+        "Total Visits": visited?.visits || 0,
+        "Total Revenue (AED)": Math.round(revenue?.revenue || 0),
+        "Membership Revenue (AED)": Math.round(membership?.membershipRevenue || 0),
+        "Package Revenue (AED)": Math.round(pkg?.revenue || 0),
+        "Pending Amount (AED)": Math.round(pending?.pending || 0),
+        "Advance Amount (AED)": Math.round(advance?.advance || 0),
+      };
+    });
+
+    // If no specific patient data, at least export the summary stats
+    if (combined.length === 0 && data.summary) {
+      return [{
+        "Category": "Patient Summary",
+        "Total Patients": data.summary.totalPatients || 0,
+        "New Patients": data.summary.newPatients || 0,
+        "Returning Patients": data.summary.returningPatients || 0,
+      }];
+    }
+
+    return combined;
+  }, [data]);
+
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <ExportButtons
+          data={patientExportData}
+          filename={`patient_report_${startDate}_to_${endDate}`}
+          headers={
+            patientExportData.length > 0 && "Patient Name" in patientExportData[0]
+              ? ["Patient Name", "Total Visits", "Total Revenue (AED)", "Membership Revenue (AED)", "Package Revenue (AED)", "Pending Amount (AED)", "Advance Amount (AED)"]
+              : ["Category", "Total Patients", "New Patients", "Returning Patients"]
+          }
+          title="Patient Detailed Report"
+        />
+      </div>
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-800">Most Visited Patients</h3>

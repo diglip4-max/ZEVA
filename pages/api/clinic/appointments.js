@@ -328,8 +328,14 @@ export default async function handler(req, res) {
         }
       };
       requireField(patientId, "patientId", "Patient");
-      requireField(doctorId, "doctorId", "Doctor");
-      requireField(roomId, "roomId", "Room");
+      // Either doctorId or roomId is required, but both are checked individually below
+      // requireField(doctorId, "doctorId", "Doctor");
+      // requireField(roomId, "roomId", "Room");
+      if (!doctorId && !roomId) {
+        errors.doctorId = "Either Doctor or Room is required";
+        missingFields.push("doctorId");
+        missingFieldLabels.push("Doctor or Room");
+      }
       requireField(status, "status", "Status");
       requireField(followType, "followType", "Follow Type");
       requireField(startDate, "startDate", "Appointment Date");

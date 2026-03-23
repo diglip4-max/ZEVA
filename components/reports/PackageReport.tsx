@@ -8,6 +8,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+import ExportButtons from "./ExportButtons";
 
 type HeadersRecord = { [key: string]: string | undefined };
 
@@ -98,8 +99,33 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     }
   }
 
+  const packageExportData = useMemo(() => {
+    // Combine top packages and sold packages
+    const topPackages = rows.map(r => ({
+      "Type": "Top Package (Revenue)",
+      "Package Name": r.packageName || "Unnamed",
+      "Detail": `Bookings: ${r.totalBookings}, Revenue: AED ${Math.round(r.totalRevenue || 0)}`
+    }));
+
+    const soldPackages = soldRows.map(r => ({
+      "Type": "Package Sold",
+      "Package Name": r.packageName || "-",
+      "Detail": `Patient: ${r.patientName || "-"}, Doctor: ${r.doctorName || "-"}, Sessions: ${r.sessionsUsed || 0}/${r.totalSessions || 0}, Status: ${r.paymentStatus || "-"}`
+    }));
+
+    return [...topPackages, ...soldPackages];
+  }, [rows, soldRows]);
+
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <ExportButtons
+          data={packageExportData}
+          filename={`package_report_${startDate}_to_${endDate}`}
+          headers={["Type", "Package Name", "Detail"]}
+          title="Package Report"
+        />
+      </div>
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-800">Top Packages (Revenue)</h3>
@@ -134,22 +160,38 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-800">Package Reports — Track Packages Sold</h3>
-          <div className="flex items-center gap-2">
-            <button
-              className="px-3 py-1.5 rounded border text-sm"
-              disabled={page <= 1}
-              onClick={() => fetchPackagesSold(Math.max(1, page - 1))}
-            >
-              Prev
-            </button>
-            <span className="text-sm text-gray-700">Page {page}</span>
-            <button
-              className="px-3 py-1.5 rounded border text-sm"
-              disabled={!hasNext}
-              onClick={() => fetchPackagesSold(page + 1)}
-            >
-              Next
-            </button>
+          <div className="flex items-center gap-4">
+            <ExportButtons
+              data={soldRows.map(r => ({
+                "Package Name": r.packageName || "-",
+                "Patient Name": r.patientName || "-",
+                "Doctor Name": r.doctorName || "-",
+                "Total Sessions": r.totalSessions ?? "-",
+                "Sessions Used": r.sessionsUsed ?? 0,
+                "Remaining Sessions": Math.max(0, (r.totalSessions || 0) - (r.sessionsUsed || 0)),
+                "Payment Status": r.paymentStatus || "-",
+              }))}
+              filename={`package_report_${startDate}_to_${endDate}`}
+              headers={["Package Name", "Patient Name", "Doctor Name", "Total Sessions", "Sessions Used", "Remaining Sessions", "Payment Status"]}
+              title="Package Sales Report"
+            />
+            <div className="flex items-center gap-2 border-l pl-4">
+              <button
+                className="px-3 py-1.5 rounded border text-sm"
+                disabled={page <= 1}
+                onClick={() => fetchPackagesSold(Math.max(1, page - 1))}
+              >
+                Prev
+              </button>
+              <span className="text-sm text-gray-700">Page {page}</span>
+              <button
+                className="px-3 py-1.5 rounded border text-sm"
+                disabled={!hasNext}
+                onClick={() => fetchPackagesSold(page + 1)}
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
         <div className="overflow-x-auto">

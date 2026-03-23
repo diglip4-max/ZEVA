@@ -8,6 +8,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+import ExportButtons from "./ExportButtons";
 
 type DepartmentRow = {
   departmentId: string | null;
@@ -113,12 +114,36 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
     [deptData]
   );
 
+  const departmentExportData = useMemo(() => {
+    return deptData.map(d => {
+      const deptId = d.departmentId ? String(d.departmentId) : "";
+      const topSvcs = topServices[deptId] || [];
+      const topSvcNames = topSvcs.slice(0, 3).map(s => s.serviceName).join(", ");
+
+      return {
+        "Department Name": d.departmentName || "Unassigned",
+        "Total Bookings": d.totalBookings || 0,
+        "Total Revenue (AED)": Math.round(d.totalRevenue || 0),
+        "Average Price (AED)": Math.round(d.avgPrice || 0),
+        "Top Services": topSvcNames || "None",
+      };
+    });
+  }, [deptData, topServices]);
+
   return (
     <div className="space-y-8">
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-800">Department Performance</h2>
-          {loading && <span className="text-sm text-gray-500">Loading…</span>}
+          <div className="flex items-center gap-3">
+            {loading && <span className="text-sm text-gray-500">Loading…</span>}
+            <ExportButtons
+              data={departmentExportData}
+              filename={`department_report_${startDate}_to_${endDate}`}
+              headers={["Department Name", "Total Bookings", "Total Revenue (AED)", "Average Price (AED)", "Top Services"]}
+              title="Department Performance Report"
+            />
+          </div>
         </div>
         <div className="w-full" style={{ height: 360 }}>
           <ResponsiveContainer width="100%" height="100%">

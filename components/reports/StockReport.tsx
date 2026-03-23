@@ -16,6 +16,7 @@ import {
   LineChart,
   Line,
 } from "recharts";
+import ExportButtons from "./ExportButtons";
 
 type HeadersRecord = { [key: string]: string | undefined };
 
@@ -78,7 +79,7 @@ interface TopSupplier {
   invoiceTotal: number;
 }
 
-function SupplierReport({ headers }: Props) {
+function SupplierReport({ startDate, endDate, headers }: Props) {
   const [loading, setLoading] = useState(false);
   const [totalSuppliers, setTotalSuppliers] = useState(0);
   const [statusStats, setStatusStats] = useState<SupplierStats[]>([]);
@@ -107,6 +108,30 @@ function SupplierReport({ headers }: Props) {
     }
   }
 
+  const supplierExportData = useMemo(() => {
+    const summary = [{
+      "Category": "Supplier Summary",
+      "Total Suppliers": totalSuppliers,
+      "Total Invoice": Math.round(overallStats?.totalInvoice || 0),
+      "Total Paid": Math.round(overallStats?.totalPaid || 0),
+      "Total Balance": Math.round(overallStats?.totalBalance || 0),
+    }];
+
+    const topList = topSuppliers.map(s => ({
+      "Category": "Top Supplier",
+      "Name": s.name || "-",
+      "Invoice Total": s.invoiceTotal || 0,
+    }));
+
+    const statusList = statusStats.map(s => ({
+      "Category": "Supplier Status",
+      "Name": s.name || "-",
+      "Count": s.count || 0,
+    }));
+
+    return [...summary, ...topList, ...statusList];
+  }, [totalSuppliers, overallStats, topSuppliers, statusStats]);
+
   if (loading) return <div className="p-10 text-center">Loading Supplier Report...</div>;
 
   const graphData = [
@@ -127,7 +152,15 @@ function SupplierReport({ headers }: Props) {
   ];
 
   return (
-    <div className="space-y-6 mt-6">
+    <div className="space-y-6">
+      <div className="flex justify-end">
+        <ExportButtons
+          data={supplierExportData}
+          filename={`supplier_report_${startDate}_to_${endDate}`}
+          headers={["Category", "Name/Count", "Value/Total"]}
+          title="Supplier Performance Report"
+        />
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <p className="text-sm text-gray-500 mb-1">Total Suppliers</p>
@@ -187,6 +220,7 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
     locations: any[];
   }>({ total: 0, statusStats: [], locations: [] });
   const [purchaseRecordTypeStats, setPurchaseRecordTypeStats] = useState<{ name: string; count: number }[]>([]);
+  const [detailedPurchaseRequests, setDetailedPurchaseRequests] = useState<any[]>([]);
   const [grnStats, setGrnStats] = useState<{
     total: number;
     sourceStats: { name: string; count: number }[];
@@ -208,8 +242,14 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
     statusStats: { name: string; count: number }[];
     userStats: { name: string; totalAllocated: number; totalUsed: number }[];
   }>({ statusStats: [], userStats: [] });
+  const [transferStats, setTransferStats] = useState<{
+    records: any[];
+    statusStats: { name: string; count: number }[];
+  }>({ records: [], statusStats: [] });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isPISidebarOpen, setIsPISidebarOpen] = useState(false);
+  const [isPRSidebarOpen, setIsPRSidebarOpen] = useState(false);
+  const [isLowStockSidebarOpen, setIsLowStockSidebarOpen] = useState(false);
   const [summary, setSummary] = useState({ 
     totalItems: 0, 
     totalQuantity: 0, 
@@ -218,7 +258,8 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
     totalPurchaseRequests: 0,
     totalGRNs: 0,
     totalPurchaseInvoices: 0,
-    totalConsumptions: 0
+    totalConsumptions: 0,
+    totalTransfers: 0
   });
   const [minQtyFilter, setMinQtyFilter] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
@@ -244,20 +285,23 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
       setUomTimeline(json.data.uomTimeline || []);
       setLocationStats(json.data.locationStats || { total: 0, statusStats: [], locations: [] });
       setPurchaseRecordTypeStats(json.data.purchaseRecordTypeStats || []);
+      setDetailedPurchaseRequests(json.data.detailedPurchaseRequests || []);
       setGrnStats(json.data.grnStats || { total: 0, sourceStats: [], statusStats: [], recentInvoicedGRNs: [] });
       setPurchaseInvoiceStats(json.data.purchaseInvoiceStats || { total: 0, statusStats: [], recentInvoices: [], topPaidGRNs: [] });
       setConsumptionStats(json.data.consumptionStats || { records: [], itemBreakdown: [], doctorStats: [] });
-      setAllocationStats(json.data.allocationStats || { statusStats: [], userStats: [] });
-      setSummary(json.data.summary || { 
-        totalItems: 0, 
-        totalQuantity: 0, 
-        totalUOMs: 0, 
-        totalLocations: 0,
-        totalPurchaseRequests: 0,
-        totalGRNs: 0,
-        totalPurchaseInvoices: 0,
-        totalConsumptions: 0
-      });
+        setAllocationStats(json.data.allocationStats || { statusStats: [], userStats: [] });
+        setTransferStats(json.data.transferStats || { records: [], statusStats: [] });
+        setSummary(json.data.summary || { 
+          totalItems: 0, 
+          totalQuantity: 0, 
+          totalUOMs: 0, 
+          totalLocations: 0,
+          totalPurchaseRequests: 0,
+          totalGRNs: 0,
+          totalPurchaseInvoices: 0,
+          totalConsumptions: 0,
+          totalTransfers: 0
+        });
     } finally {
       setLoading(false);
     }
@@ -279,12 +323,35 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
     return Math.max(maxQty, 100);
   }, [items]);
 
+  const stockExportData = useMemo(() => {
+    return items.map((item) => ({
+      "Item Name": item.name || "-",
+      "Code": item.code || "-",
+      "Type": item.type || "-",
+      "Brand": item.brand || "-",
+      "Current Quantity": item.currentQuantity || 0,
+      "Min Quantity": item.minQuantity || 0,
+      "Max Quantity": item.maxQuantity || 0,
+      "Cost Price": item.level0?.costPrice || 0,
+      "Sale Price": item.level0?.salePrice || 0,
+      "Status": item.status || "-",
+    }));
+  }, [items]);
+
   if (loading) return <div className="p-10 text-center">Loading Stock Report...</div>;
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <ExportButtons
+          data={stockExportData}
+          filename={`stock_report_${startDate}_to_${endDate}`}
+          headers={["Item Name", "Code", "Type", "Brand", "Current Quantity", "Min Quantity", "Max Quantity", "Cost Price", "Sale Price", "Status"]}
+          title="Stock Inventory Report"
+        />
+      </div>
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-9 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-10 gap-4">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <p className="text-sm text-gray-500 mb-1">Total Stock Items</p>
           <h3 className="text-2xl font-bold text-gray-800">{summary.totalItems}</h3>
@@ -297,7 +364,10 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
           <p className="text-sm text-gray-500 mb-1">Total UOMs</p>
           <h3 className="text-2xl font-bold text-blue-600">{summary.totalUOMs}</h3>
         </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <div 
+          className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:border-orange-300 transition-colors"
+          onClick={() => setIsPRSidebarOpen(true)}
+        >
           <p className="text-sm text-gray-500 mb-1">Purchase Requests</p>
           <h3 className="text-2xl font-bold text-orange-600">{summary.totalPurchaseRequests}</h3>
         </div>
@@ -324,6 +394,13 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
           <h3 className="text-2xl font-bold text-indigo-600">{summary.totalConsumptions}</h3>
         </div>
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <p className="text-sm text-gray-500 mb-1">Stock Transfers</p>
+          <h3 className="text-2xl font-bold text-teal-600">{summary.totalTransfers}</h3>
+        </div>
+        <div 
+          className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:border-red-300 transition-colors"
+          onClick={() => setIsLowStockSidebarOpen(true)}
+        >
           <p className="text-sm text-gray-500 mb-1">Low Stock Alerts</p>
           <h3 className="text-2xl font-bold text-red-600">
             {items.filter(i => (i.currentQuantity || 0) <= (i.minQuantity || 0)).length}
@@ -957,7 +1034,220 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
         </div>
       </div>
 
-      <SupplierReport headers={headers} />
+      {/* Direct Stock Transfer Analysis Section */}
+      <div className="space-y-6">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <h4 className="text-xl font-bold text-gray-800 mb-6">Direct Stock Transfer Analysis</h4>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Status Graph */}
+            <div className="lg:col-span-1 space-y-4">
+              <h5 className="text-md font-semibold text-gray-700">Transfer Status Distribution</h5>
+              <div className="h-[250px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={transferStats.statusStats}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="count"
+                      label={({ name, count }) => `${name}: ${count}`}
+                    >
+                      {transferStats.statusStats.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Transfer Records Table */}
+            <div className="lg:col-span-2 space-y-4">
+              <h5 className="text-md font-semibold text-gray-700">Recent Stock Transfer Records</h5>
+              <div className="border rounded-lg overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse min-w-[500px]">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="px-3 py-2">Transfer No</th>
+                      <th className="px-3 py-2">Date</th>
+                      <th className="px-3 py-2">From Branch</th>
+                      <th className="px-3 py-2">To Branch</th>
+                      <th className="px-3 py-2">Transferred By</th>
+                      <th className="px-3 py-2">Status</th>
+                      <th className="px-3 py-2 text-right">Items</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {transferStats.records.map((record: any) => (
+                      <tr key={record._id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-3 py-2 font-bold text-teal-600">{record.directStockTransferNo}</td>
+                        <td className="px-3 py-2">{new Date(record.date).toLocaleDateString()}</td>
+                        <td className="px-3 py-2">{record.fromBranch?.name || "N/A"}</td>
+                        <td className="px-3 py-2">{record.toBranch?.name || "N/A"}</td>
+                        <td className="px-3 py-2">{record.createdBy?.name || "N/A"}</td>
+                        <td className="px-3 py-2">
+                          <span className={`px-2 py-1 rounded-full text-[10px] font-medium ${
+                            record.status === 'Completed' ? 'bg-green-100 text-green-700' :
+                            record.status === 'Draft' ? 'bg-gray-100 text-gray-700' :
+                            'bg-blue-100 text-blue-700'
+                          }`}>
+                            {record.status}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <span className="font-bold">{record.items?.length || 0} items</span>
+                        </td>
+                      </tr>
+                    ))}
+                    {transferStats.records.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="px-3 py-10 text-center text-gray-500 italic">
+                          No stock transfer records found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <SupplierReport startDate={startDate} endDate={endDate} headers={headers} />
+
+      {/* Sidebar for Low Stock Alerts */}
+      <AnimatePresence>
+        {isLowStockSidebarOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsLowStockSidebarOpen(false)}
+              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50"
+            />
+            {/* Sidebar */}
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-[60] overflow-y-auto"
+            >
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold text-gray-800">Low Stock Items</h3>
+                  <button
+                    onClick={() => setIsLowStockSidebarOpen(false)}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  >
+                    <X className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {items.filter(i => (i.currentQuantity || 0) <= (i.minQuantity || 0)).length > 0 ? (
+                    items.filter(i => (i.currentQuantity || 0) <= (i.minQuantity || 0)).map((item: any) => (
+                      <div key={item._id} className="p-4 bg-red-50 rounded-lg border border-red-100">
+                        <div className="flex justify-between items-center">
+                          <p className="font-semibold text-red-800">{item.name}</p>
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-red-600">{item.currentQuantity}</p>
+                            <p className="text-[10px] text-gray-500">Min: {item.minQuantity}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-10">
+                      <p className="text-gray-500 italic">No items are currently low on stock.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Sidebar for Purchase Requests */}
+      <AnimatePresence>
+        {isPRSidebarOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsPRSidebarOpen(false)}
+              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50"
+            />
+            {/* Sidebar */}
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-[60] overflow-y-auto"
+            >
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold text-gray-800">Purchase Requests</h3>
+                  <button
+                    onClick={() => setIsPRSidebarOpen(false)}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  >
+                    <X className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
+
+                {detailedPurchaseRequests.length > 0 ? (
+                  <div className="space-y-4">
+                    {detailedPurchaseRequests.map((pr: any) => (
+                      <div key={pr._id} className="p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-orange-300 transition-colors">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded">
+                            {pr.orderNo}
+                          </span>
+                          <span className="text-[10px] text-gray-400">
+                            {new Date(pr.date).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-sm font-semibold text-gray-700">
+                            Requested By: {pr.createdBy?.name || "Unknown"}
+                          </p>
+                          <div className="mt-2 pt-2 border-t border-gray-200">
+                            <p className="text-xs font-semibold text-gray-600 mb-1">Items Requested:</p>
+                            <ul className="list-disc list-inside text-xs text-gray-500 pl-2">
+                              {pr.items?.map((item: any, idx: number) => (
+                                <li key={idx} className="truncate">
+                                  {item.itemId?.name || "Unknown Item"} - Qty: {item.quantity}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-10">
+                    <p className="text-gray-500 italic">No purchase requests found.</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Sidebar for Recent Invoiced GRNs */}
       <AnimatePresence>

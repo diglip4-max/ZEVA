@@ -8,6 +8,7 @@ import PurchaseRecord from "../../../../models/stocks/PurchaseRecord";
 import GRN from "../../../../models/stocks/GRN";
 import PurchaseInvoice from "../../../../models/stocks/PurchaseInvoice";
 import MaterialConsumption from "../../../../models/stocks/MaterialConsumption";
+import DirectStockTransfer from "../../../../models/stocks/DirectStockTransfer";
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
 
 export default async function handler(req, res) {
@@ -140,6 +141,12 @@ export default async function handler(req, res) {
     }));
 
     const totalPurchaseRequests = purchaseRecordTypeDistribution["Purchase_Request"] || 0;
+
+    const detailedPurchaseRequests = await PurchaseRecord.find({ clinicId, type: "Purchase_Request" })
+      .populate("createdBy", "name")
+      .populate("items.itemId", "name")
+      .sort({ date: -1 })
+      .lean();
 
     // GRN Stats
     const grns = await GRN.find({ clinicId }).populate('purchasedOrder', 'type').lean();
@@ -322,6 +329,7 @@ export default async function handler(req, res) {
              locations: stockLocations
          },
          purchaseRecordTypeStats,
+         detailedPurchaseRequests,
          grnStats: {
            total: totalGRNs,
            sourceStats: grnSourceStats,
@@ -343,6 +351,19 @@ export default async function handler(req, res) {
            statusStats: allocationStatusStats,
            userStats: userAllocationStats
          },
+         transferStats: {
+           records: await DirectStockTransfer.find({ clinicId })
+             .populate("fromBranch", "name")
+             .populate("toBranch", "name")
+             .populate("createdBy", "name")
+             .sort({ date: -1 })
+             .lean(),
+           statusStats: await DirectStockTransfer.aggregate([
+             { $match: { clinicId } },
+             { $group: { _id: "$status", count: { $sum: 1 } } },
+             { $project: { name: "$_id", count: 1, _id: 0 } }
+           ])
+         },
          summary: {
              totalItems: itemsWithQuantity.length,
              totalQuantity: allocatedQuantities.reduce((acc, curr) => acc + curr.totalQuantity, 0),
@@ -351,7 +372,8 @@ export default async function handler(req, res) {
              totalPurchaseRequests,
              totalGRNs,
              totalPurchaseInvoices,
-             totalConsumptions: materialConsumptions.length
+             totalConsumptions: materialConsumptions.length,
+             totalTransfers: await DirectStockTransfer.countDocuments({ clinicId })
          }
        },
      });
