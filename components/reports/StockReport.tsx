@@ -18,7 +18,7 @@ import {
 } from "recharts";
 import ExportButtons from "./ExportButtons";
 
-type HeadersRecord = { [key: string]: string | undefined };
+type HeadersRecord = Record<string, string>;
 
 interface Props {
   startDate: string;
@@ -462,12 +462,12 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent = 0 }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="count"
                 >
-                  {typeStats.map((entry, index) => (
+                  {typeStats.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -637,9 +637,9 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                       outerRadius={100}
                       paddingAngle={5}
                       dataKey="count"
-                      label={({ name, count }) => `${name}: ${count}`}
+                      label={(props) => `${props.name}: ${String((props as any).value ?? (props as any).payload?.count ?? 0)}`}
                     >
-                      {locationStats.statusStats.map((entry, index) => (
+                      {locationStats.statusStats.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
@@ -717,9 +717,9 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                       outerRadius={100}
                       paddingAngle={5}
                       dataKey="count"
-                      label={({ name, count }) => `${name}: ${count}`}
+                      label={(props) => `${props.name}: ${String((props as any).value ?? (props as any).payload?.count ?? 0)}`}
                     >
-                      {grnStats.sourceStats.map((entry, index) => (
+                      {grnStats.sourceStats.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
@@ -794,9 +794,9 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                       outerRadius={100}
                       paddingAngle={5}
                       dataKey="count"
-                      label={({ name, count }) => `${name}: ${count}`}
+                      label={(props) => `${props.name}: ${String((props as any).value ?? (props as any).payload?.count ?? 0)}`}
                     >
-                      {purchaseInvoiceStats.statusStats.map((entry, index) => (
+                      {purchaseInvoiceStats.statusStats.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
@@ -853,7 +853,7 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
               <YAxis />
               <Tooltip />
               <Bar dataKey="count" fill="#8884d8" radius={[4, 4, 0, 0]}>
-                {purchaseRecordTypeStats.map((entry, index) => (
+                {purchaseRecordTypeStats.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Bar>
@@ -1000,9 +1000,9 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                       outerRadius={100}
                       paddingAngle={5}
                       dataKey="count"
-                      label={({ name, count }) => `${name}: ${count}`}
+                      label={(props) => `${props.name}: ${String((props as any).value ?? (props as any).payload?.count ?? 0)}`}
                     >
-                      {allocationStats.statusStats.map((entry, index) => (
+                      {allocationStats.statusStats.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>

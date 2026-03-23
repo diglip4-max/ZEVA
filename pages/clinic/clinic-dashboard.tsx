@@ -519,26 +519,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     }
   });
 
-  // Patient analytics state
-  const [patientStats, setPatientStats] = useState<{
-    topVisited: Array<{ patientId: string; patientName: string; visits: number }>;
-    membershipByPatient: Array<{ patientId: string; patientName: string; membershipRevenue: number; count: number }>;
-    packageByPatient: Array<{ patientId: string; patientName: string; revenue: number; count: number }>;
-    highestPending: Array<{ patientId: string; patientName: string; pending: number }>;
-    highestAdvance: Array<{ patientId: string; patientName: string; advance: number }>;
-    revenueByPatient: Array<{ patientId: string; patientName: string; revenue: number }>;
-    summary: { totalPatients: number; newPatients: number; returningPatients: number };
-  }>({
-    topVisited: [],
-    membershipByPatient: [],
-    packageByPatient: [],
-    highestPending: [],
-    highestAdvance: [],
-    revenueByPatient: [],
-    summary: { totalPatients: 0, newPatients: 0, returningPatients: 0 },
-  });
-  const [patientStatsLoading, setPatientStatsLoading] = useState(false);
-  const [patientSlide, setPatientSlide] = useState(0);
+  
 
   // Drag and drop state
   const [isEditMode, setIsEditMode] = useState(false);

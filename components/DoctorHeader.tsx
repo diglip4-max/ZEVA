@@ -36,12 +36,25 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
     }
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('doctorToken');
-    localStorage.removeItem('doctorUser');
-    sessionStorage.removeItem('doctorToken');
-    sessionStorage.removeItem('doctorEmailForReset');
-    window.location.href = '/doctor/login';
+  const handleLogout = async () => {
+    try {
+      const token =
+        localStorage.getItem('doctorToken') ||
+        sessionStorage.getItem('doctorToken');
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          keepalive: true,
+        }).catch(() => {});
+      }
+    } finally {
+      localStorage.removeItem('doctorToken');
+      localStorage.removeItem('doctorUser');
+      sessionStorage.removeItem('doctorToken');
+      sessionStorage.removeItem('doctorEmailForReset');
+      window.location.href = '/doctor/login';
+    }
   };
 
   const getInitials = (name: string) => {

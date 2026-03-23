@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, ReactElement, useMemo } from "react";
 import { toast, Toaster } from "react-hot-toast";
 import axios from "axios";
-import { Building2, Edit3, X, Plus, Camera, ChevronLeft, ChevronRight, Clock, MapPin, DollarSign, Users, Star, Heart, Activity, Check } from "lucide-react";
+import { Building2, Edit3, X, Plus, ChevronLeft, ChevronRight, Clock, MapPin, DollarSign, Users, Star, Heart, Activity, Check, FileText, Upload, Eye, Download, Trash2, AlertCircle, Palette, CreditCard, Calendar as CalendarIcon, MessageSquare, Plug, Save } from "lucide-react";
 import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import type { NextPageWithLayout } from "../_app";
@@ -9,6 +9,7 @@ import Loader from "@/components/Loader";
 import { getUserRole } from "@/lib/helper";
 import { getAuthHeaders } from "@/lib/helper";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
+import { GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api";
 
 // Types
 interface Clinic {
@@ -38,22 +39,6 @@ interface Clinic {
   totalEnquiries?: number;
 }
 
-interface Offer {
-  _id: string;
-  title: string;
-  description?: string;
-  type: "percentage" | "fixed" | "free Consult";
-  value: number;
-  currency?: string;
-  code?: string;
-  slug?: string;
-  startsAt: string;
-  endsAt: string;
-  status?: "draft" | "active" | "paused" | "expired" | "archived";
-  enabled?: boolean;
-  treatments?: Array<{ _id: string; name: string; slug: string }>;
-  subTreatments?: Array<{ treatmentId: string; slug: string; name: string }>;
-}
 
 interface Treatment {
   _id: string;
@@ -93,10 +78,10 @@ interface Treatment {
 //   );
 // };
 
-function ClinicManagementDashboard() {
+function ClinicManagementDashboard(): ReactElement {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(true);
   const [editingClinicId, setEditingClinicId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Clinic>>({});
   const [newTreatment, setNewTreatment] = useState("");
@@ -123,6 +108,64 @@ function ClinicManagementDashboard() {
   const [reviewsData, setReviewsData] = useState<any>(null);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [customAdded, setCustomAdded] = useState(false);
+  const [activeTab, setActiveTab] = useState<
+    'General Info' | 'Contact' | 'Documents' | 'Listing' | 'Clinic Timing' |
+    'Branches' | 'Notifications' | 'Branding' | 'Integrations'
+  >('General Info');
+  const [contactForm, setContactForm] = useState({ phone: '', whatsapp: '', email: '', website: '' });
+  const [listingVisibility, setListingVisibility] = useState({
+    showServices: true,
+    showPrices: true,
+    showStaff: true,
+    showReviews: true,
+    enableOnlineBooking: true,
+    featuredListing: false,
+  });
+  const [timing, setTiming] = useState([
+    { day: 'Monday', open: true, opening: '09:00', closing: '18:00', breakStart: '13:00', breakEnd: '14:00' },
+    { day: 'Tuesday', open: false, opening: '', closing: '', breakStart: '', breakEnd: '' },
+    { day: 'Wednesday', open: false, opening: '', closing: '', breakStart: '', breakEnd: '' },
+    { day: 'Thursday', open: true, opening: '09:00', closing: '18:00', breakStart: '13:00', breakEnd: '14:00' },
+    { day: 'Friday', open: false, opening: '', closing: '', breakStart: '', breakEnd: '' },
+    { day: 'Saturday', open: true, opening: '12:00', closing: '20:00', breakStart: '', breakEnd: '' },
+    { day: 'Sunday', open: false, opening: '', closing: '', breakStart: '', breakEnd: '' },
+  ]);
+  const [generalInfo, setGeneralInfo] = useState({
+    slug: '',
+    tagline: '',
+    description: ''
+  });
+  const [notificationSettings, setNotificationSettings] = useState({
+    email: true,
+    whatsapp: false,
+    appointments: true,
+    leads: true,
+    invoiceReminders: false,
+    marketingUpdates: false,
+  });
+  const [brandPrimary, setBrandPrimary] = useState<string>("#14B8A6");
+  const [brandSecondary, setBrandSecondary] = useState<string>("#5eead4");
+  const [invoiceLogoPreview, setInvoiceLogoPreview] = useState<string | null>(null);
+  const [integrations, setIntegrations] = useState({
+    whatsapp: { connected: true, lastSynced: "2 hours ago" },
+    payment: { connected: true, lastSynced: "Just now" },
+    googleCalendar: { connected: false, lastSynced: null as null | string },
+    sms: { connected: false, lastSynced: null as null | string },
+  });
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: 28.474389, lng: 77.50399 });
+  const { isLoaded: mapsLoaded } = useJsApiLoader({ googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "" });
+  const btnBase = "inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-semibold transition-all";
+  const btnPrimary = `${btnBase} bg-teal-600 text-white hover:bg-teal-700 shadow-sm`;
+  const btnSecondary = `${btnBase} bg-white text-gray-800 border border-gray-200 hover:bg-gray-100`;
+  const [stateSnapshot, setStateSnapshot] = useState<any | null>(null);
+  const [docPreview, setDocPreview] = useState<{ open: boolean; url: string; name: string; isImage: boolean }>({ open: false, url: "", name: "", isImage: false });
+  const [docSizes, setDocSizes] = useState<Record<number, string>>({});
+  const [branches, setBranches] = useState<Array<{ id: string; name: string; address: string; phone?: string; email?: string; primary?: boolean }>>([]);
+  const [branchModal, setBranchModal] = useState<{ open: boolean; mode: 'add' | 'edit'; targetId?: string; name: string; address: string; phone: string; email: string }>({ open: false, mode: 'add', name: '', address: '', phone: '', email: '' });
+  const [offers, setOffers] = useState<Array<{ _id?: string; title: string; type: "percentage" | "fixed" | "free Consult"; value: number; currency?: string; startsAt: string; endsAt: string; enabled?: boolean; treatments?: Array<{ name: string }> }>>([]);
+  const [offersLoading] = useState(false);
 
   // Fetch clinics
   useEffect(() => {
@@ -189,28 +232,160 @@ function ClinicManagementDashboard() {
     fetchAvailableTreatments();
   }, []);
 
-  const [offers, setOffers] = useState<Offer[]>([]);
-  const [offersLoading, setOffersLoading] = useState(false);
   useEffect(() => {
-    const fetchOffers = async () => {
-      try {
-        setOffersLoading(true);
-        const authHeaders = getAuthHeaders();
-        if (!authHeaders) return;
-        const res = await axios.get("/api/lead-ms/get-create-offer", { headers: authHeaders });
-        if (res?.data?.success && Array.isArray(res.data.offers)) {
-          setOffers(res.data.offers);
-        } else {
-          setOffers([]);
-        }
-      } catch (err) {
-        setOffers([]);
-      } finally {
-        setOffersLoading(false);
+    if (!coverPreview && editForm?.photos && (editForm.photos as any[]).length > 0) {
+      const photosArray = editForm.photos as any[];
+      const idx = Math.min(Math.max(currentPhotoIndex, 0), Math.max(photosArray.length - 1, 0));
+      const viewingPhoto = photosArray[idx] || photosArray[0];
+      if (viewingPhoto) {
+        const src = getImagePath(viewingPhoto);
+        setCoverPreview(src);
       }
+    }
+  }, [editForm.photos, currentPhotoIndex, coverPreview]);
+
+  useEffect(() => {
+    const c = clinics?.[0];
+    if (!c) return;
+    if (!editingClinicId) {
+      setEditingClinicId(c._id);
+    }
+    setEditForm(prev => {
+      const hasAny = Object.keys(prev || {}).length > 0;
+      return hasAny ? prev : { ...c };
+    });
+    setGeneralInfo(prev => ({
+      slug: (prev.slug || (c as any).slug || "").trim(),
+      tagline: (prev.tagline || (c as any).tagline || "").trim(),
+      description: (prev.description || (c as any).description || "").trim(),
+    }));
+    setContactForm(prev => ({
+      phone: (prev.phone || (c as any).phone || "").trim(),
+      whatsapp: (prev.whatsapp || (c as any).whatsapp || "").trim(),
+      email: (prev.email || (c as any).email || "").trim(),
+      website: (prev.website || (c as any).website || "").trim(),
+    }));
+    if (!stateSnapshot) {
+      setStateSnapshot({
+        editForm: { ...c },
+        generalInfo: { 
+          slug: ((c as any).slug || "").trim(), 
+          tagline: ((c as any).tagline || "").trim(), 
+          description: ((c as any).description || "").trim() 
+        },
+        contactForm: {
+          phone: ((c as any).phone || "").trim(),
+          whatsapp: ((c as any).whatsapp || "").trim(),
+          email: ((c as any).email || "").trim(),
+          website: ((c as any).website || "").trim(),
+        },
+        listingVisibility,
+        timing,
+        notificationSettings,
+        brandPrimary,
+        brandSecondary,
+        logoPreview,
+        coverPreview,
+        integrations,
+      });
+    }
+    setBranches(prev => {
+      if (prev.length === 0) {
+        return [{
+          id: 'primary',
+          name: (c as any).name || 'Main Clinic',
+          address: (c as any).address || '',
+          phone: contactForm.phone || '',
+          email: contactForm.email || '',
+          primary: true
+        }];
+      }
+      return prev;
+    });
+  }, [clinics]);
+
+  const locateOnMap = () => {
+    if (!mapsLoaded) {
+      setMapCenter({ lat: 28.474389, lng: 77.50399 });
+      return;
+    }
+    const addr = (editForm.address || "").trim() || "Pari Chowk, Noida";
+    const g = new window.google.maps.Geocoder();
+    g.geocode({ address: addr }, (res, status) => {
+      if (status === "OK" && res && res[0]) {
+        const loc = res[0].geometry.location;
+        setMapCenter({ lat: loc.lat(), lng: loc.lng() });
+      } else {
+        setMapCenter({ lat: 28.474389, lng: 77.50399 });
+      }
+    });
+  };
+
+  const isDirty = useMemo(() => {
+    if (!stateSnapshot) return false;
+    const current = {
+      editForm,
+      generalInfo,
+      contactForm,
+      listingVisibility,
+      timing,
+      notificationSettings,
+      brandPrimary,
+      brandSecondary,
+      logoPreview,
+      coverPreview,
+      integrations,
     };
-    fetchOffers();
-  }, []);
+    const saved = {
+      editForm: stateSnapshot.editForm,
+      generalInfo: stateSnapshot.generalInfo,
+      contactForm: stateSnapshot.contactForm,
+      listingVisibility: stateSnapshot.listingVisibility,
+      timing: stateSnapshot.timing,
+      notificationSettings: stateSnapshot.notificationSettings,
+      brandPrimary: stateSnapshot.brandPrimary,
+      brandSecondary: stateSnapshot.brandSecondary,
+      logoPreview: stateSnapshot.logoPreview,
+      coverPreview: stateSnapshot.coverPreview,
+      integrations: stateSnapshot.integrations,
+    };
+    try {
+      return JSON.stringify(current) !== JSON.stringify(saved);
+    } catch {
+      return true;
+    }
+  }, [
+    editForm,
+    generalInfo,
+    contactForm,
+    listingVisibility,
+    timing,
+    notificationSettings,
+    brandPrimary,
+    brandSecondary,
+    logoPreview,
+    coverPreview,
+    integrations,
+    stateSnapshot,
+  ]);
+  useEffect(() => {
+    const fetchSize = async (u: string, idx: number) => {
+      try {
+        const r = await fetch(u, { method: "HEAD" });
+        const len = r.headers.get("content-length");
+        if (len) {
+          const kb = (parseInt(len, 10) / 1024).toFixed(1) + " KB";
+          setDocSizes((p) => ({ ...p, [idx]: kb }));
+        }
+      } catch {}
+    };
+    (editForm.documents || []).forEach((d: any, i: number) => {
+      const u = String(d?.url || "");
+      if (u && !docSizes[i]) {
+        fetchSize(u, i);
+      }
+    });
+  }, [editForm.documents]);
 
   const addTreatmentFromAvailable = (t: Treatment) => {
     if (!t?.name) return;
@@ -333,26 +508,7 @@ function ClinicManagementDashboard() {
     setEditForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const removePhotoAt = (index: number) => {
-    setEditForm((prev) => {
-      const arr = [...(prev.photos || [])];
-      if (index < 0 || index >= arr.length) return prev;
-      const target = arr[index];
-      const updated = arr.filter((_, i) => i !== index);
-      setSelectedFiles((sf) => {
-        if (target instanceof File) {
-          return sf.filter((f) => f !== target);
-        }
-        return sf;
-      });
-      setCurrentPhotoIndex((cp) => {
-        const nextLen = updated.length;
-        if (nextLen === 0) return 0;
-        return Math.min(cp, nextLen - 1);
-      });
-      return { ...prev, photos: updated };
-    });
-  };
+  // removed unused removePhotoAt to satisfy strict TS rules
 
   // Handle edit click
   const handleEdit = (clinic: Clinic) => {
@@ -376,13 +532,43 @@ function ClinicManagementDashboard() {
     setCurrentPhotoIndex(sanitizedPhotos.length > 0 ? sanitizedPhotos.length - 1 : 0);
     console.log("📝 Edit form initialized with:", { ...clinic });
     console.log("📝 Edit form photos:", clinic.photos);
+    setTimeout(() => {
+      setStateSnapshot({
+        editForm: { ...clinic, photos: sanitizedPhotos as any },
+        generalInfo,
+        contactForm,
+        listingVisibility,
+        timing,
+        notificationSettings,
+        brandPrimary,
+        brandSecondary,
+        logoPreview,
+        coverPreview,
+        integrations,
+      });
+    }, 0);
   };
 
   // Handle cancel
   const handleCancel = () => {
-    setIsEditing(false);
-    setEditingClinicId(null);
-    setEditForm({});
+    console.log('🔴 Cancel clicked - Resetting form');
+    if (stateSnapshot) {
+      setEditForm(stateSnapshot.editForm || {});
+      setGeneralInfo(stateSnapshot.generalInfo || { slug: "", tagline: "", description: "" });
+      setContactForm(stateSnapshot.contactForm || { phone: "", whatsapp: "", email: "", website: "" });
+      setListingVisibility(stateSnapshot.listingVisibility || listingVisibility);
+      setTiming(stateSnapshot.timing || timing);
+      setNotificationSettings(stateSnapshot.notificationSettings || notificationSettings);
+      setLogoPreview(stateSnapshot.logoPreview || null);
+      setCoverPreview(stateSnapshot.coverPreview || null);
+      setIntegrations(stateSnapshot.integrations || integrations);
+      setBrandPrimary(stateSnapshot.brandPrimary || brandPrimary);
+      setBrandSecondary(stateSnapshot.brandSecondary || brandSecondary);
+    }
+    setSelectedFiles([]);
+    setNewDocName("");
+    setNewDocFile(null);
+    toast.success("Changes cancelled");
   };
 
   const handleAddDocument = () => {
@@ -415,19 +601,16 @@ function ClinicManagementDashboard() {
     });
   };
 
-  const handleRenameExistingDocument = (index: number, value: string) => {
-    setEditForm((prev) => {
-      const docs = [...(prev.documents || [])];
-      if (docs[index]) {
-        docs[index] = { ...docs[index], name: value };
-      }
-      return { ...prev, documents: docs };
-    });
-  };
+  // removed unused handleRenameExistingDocument to satisfy strict TS rules
 
   // Handle update
   const handleUpdate = async () => {
-    if (!editingClinicId) return;
+    console.log('🟢 Save Changes clicked');
+    if (!editingClinicId) {
+      console.error('❌ No clinic ID found');
+      toast.error("No clinic selected for update");
+      return;
+    }
     setUpdating(true);
     try {
       const authHeaders = getAuthHeaders();
@@ -480,6 +663,14 @@ function ClinicManagementDashboard() {
         const form = new FormData();
         form.append("name", safeName);
         form.append("address", safeAddress);
+        const slugToSave = (generalInfo.slug || editForm.slug || "").trim();
+        if (slugToSave) form.append("slug", slugToSave);
+        form.append("tagline", (generalInfo.tagline || "").trim());
+        form.append("description", (generalInfo.description || "").trim());
+        form.append("phone", (contactForm.phone || "").trim());
+        form.append("whatsapp", (contactForm.whatsapp || "").trim());
+        form.append("email", (contactForm.email || "").trim());
+        form.append("website", (contactForm.website || "").trim());
         if (editForm.pricing) form.append("pricing", editForm.pricing.trim());
         if (editForm.timings) form.append("timings", editForm.timings.trim());
         if (editForm.servicesName)
@@ -554,6 +745,13 @@ function ClinicManagementDashboard() {
         const cleanUpdateData = {
           name: safeName,
           address: safeAddress,
+          ...(generalInfo.slug && { slug: generalInfo.slug.trim() }),
+          tagline: (generalInfo.tagline || "").trim(),
+          description: (generalInfo.description || "").trim(),
+          phone: (contactForm.phone || "").trim(),
+          whatsapp: (contactForm.whatsapp || "").trim(),
+          email: (contactForm.email || "").trim(),
+          website: (contactForm.website || "").trim(),
           ...(editForm.pricing && { pricing: editForm.pricing.trim() }),
           ...(editForm.timings && { timings: editForm.timings.trim() }),
           ...(editForm.servicesName && { servicesName: editForm.servicesName }),
@@ -613,10 +811,7 @@ function ClinicManagementDashboard() {
         }
       }
       toast.success("Clinic updated successfully");
-      setIsEditing(false);
-      setEditingClinicId(null);
-      setEditForm({});
-      setSelectedFiles([]);
+      console.log('✅ Update successful, refreshing data...');
       const refreshResponse = await axios.get("/api/clinics/myallClinic", {
         headers: authHeaders,
       });
@@ -638,6 +833,22 @@ function ClinicManagementDashboard() {
         setClinics(clinicObj ? [clinicObj] : []);
         if (clinicObj && Array.isArray(clinicObj.photos) && clinicObj.photos.length > 0) {
           setCurrentPhotoIndex(clinicObj.photos.length - 1);
+        }
+        if (clinicObj) {
+          setEditForm({ ...clinicObj });
+          setStateSnapshot({
+            editForm: { ...clinicObj },
+            generalInfo,
+            contactForm,
+            listingVisibility,
+            timing,
+            notificationSettings,
+            brandPrimary,
+            brandSecondary,
+            logoPreview,
+            coverPreview,
+            integrations,
+          });
         }
       }
     } catch (error: any) {
@@ -758,8 +969,6 @@ function ClinicManagementDashboard() {
   };
 
   if (loading) return <Loader />;
-
-  // Show access denied if read permission is false
   if (permissionsLoaded && !permissions.canRead) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -779,6 +988,7 @@ function ClinicManagementDashboard() {
     );
   }
 
+  // Main component render
   return (
     <div className="min-h-screen bg-gray-50">
       <Toaster
@@ -795,136 +1005,175 @@ function ClinicManagementDashboard() {
       />
       <div className="p-3 sm:p-4 lg:p-5 space-y-3 lg:space-y-4">
         {/* Header - Enhanced */}
-        <div className="bg-white rounded-xl p-4 sm:p-5 shadow-lg">
+        <div className="bg-white rounded-xl p-4 sm:p-5 shadow-lg relative">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-             
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-                  Health Center Management
-                </h1>
-                <p className="text-teal-600 text-sm">
-                  Manage your clinic profile and services
-                </p>
+            <div className="flex items-center gap-3 ">
+              <div className="space-y-1 ">
+                <div className="flex items-center gap-2 ">
+                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Manage Health Center</h1>
+                  {isDirty ? (
+                    <span className="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-amber-100 text-amber-700 rounded-full border border-amber-200">
+                      Unsaved Changes
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full border border-green-200">
+                      Saved
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-gray-600">Configure your clinic settings and preferences</p>
               </div>
             </div>
-            {clinics.length > 0 && !isEditing && permissions.canUpdate && (
+            <div className="flex items-center gap-2 sm:absolute sm:top-4 sm:right-5">
               <button
-                onClick={() => handleEdit(clinics[0])}
-                className="self-end sm:self-auto px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+                onClick={handleCancel}
+                className={btnSecondary}
               >
-                <Edit3 className="w-4 h-4" />
-                <span className="hidden sm:inline">Edit Profile</span>
+                <X className="w-4 h-4 mr-1.5" />
+                Cancel
               </button>
-            )}
+              <button
+                onClick={handleUpdate}
+                disabled={updating}
+                className={`${btnPrimary} disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                <Save className="w-4 h-4 mr-1.5" />
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs - Positioned below header */}
+        <div className="px-3 py-4 max-w-7xl">
+          <div className="flex items-center gap-2 h-10 rounded-full bg-white/80 border border-gray-200 shadow-sm px-2 overflow-x-auto whitespace-nowrap">
+            {(['General Info','Contact','Documents','Listing','Clinic Timing','Branches','Notifications','Branding','Integrations'] as const).map(tab => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`h-7 px-3 rounded-full text-sm font-medium transition-all ${
+                  activeTab === tab
+                    ? 'bg-teal-600 text-white shadow-sm'
+                    : 'bg-transparent text-gray-800 hover:bg-gray-100'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
         </div>
 
         {isEditing ? (
-          <div className="max-w-7xl mx-auto">
-            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-5">
-              {/* Header - Enhanced */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-teal-800 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Edit3 className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-teal-900">
-                      Edit Clinic Profile
-                    </h2>
-                    <p className="text-teal-600 text-sm">
-                      Update your clinic information and services
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleCancel}
-                  className="self-end sm:self-auto p-2 text-teal-500 hover:text-teal-700 hover:bg-teal-100 rounded-lg transition-all"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+          <div className="px-3">
+              {/* Content below tabs */}
 
-              {/* Grid Layout - 3 Columns */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-                {/* Left Column - Basic Info */}
-                <div className="lg:col-span-2 space-y-5">
-                  <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
-                    <h3 className="text-lg font-bold text-teal-900 mb-4 flex items-center gap-2">
-                      <Building2 className="w-5 h-5 text-teal-700" />
-                      Basic Information
-                    </h3>
+              {/* General Info */}
+              <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 ${activeTab === 'General Info' ? '' : 'hidden'}`}>
+                {/* Left Column - Basic Info (full width on large screens) */}
+                <div className="lg:col-span-3 space-y-6">
+                  <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm w-full">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4">Basic Information</h3>
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-semibold text-teal-700 mb-2">
-                          Clinic Name
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Clinic Name</label>
                         <input
                           type="text"
                           value={editForm.name || ""}
                           onChange={(e) => handleInputChange("name", e.target.value)}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white transition-all"
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                           placeholder="Enter clinic name"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-teal-700 mb-2">
-                          Address
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Username / Slug</label>
+                        <input
+                          type="text"
+                          value={generalInfo.slug || editForm.slug || ""}
+                          onChange={(e) => setGeneralInfo(prev => ({ ...prev, slug: e.target.value }))}
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          placeholder="zeva-health"
+                        />
+                        <div className="mt-1 text-sm">
+                          <span className="text-gray-600">Preview: </span>
+                          <span className="text-teal-600">zeva.com/{(generalInfo.slug || editForm.slug || '').trim() || 'slug'}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Tagline</label>
+                        <input
+                          type="text"
+                          value={generalInfo.tagline}
+                          onChange={(e) => setGeneralInfo(prev => ({ ...prev, tagline: e.target.value }))}
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          placeholder="Your Health, Our Priority"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                         <textarea
-                          value={editForm.address || ""}
-                          onChange={(e) => handleInputChange("address", e.target.value)}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white transition-all"
-                          placeholder="Enter clinic address"
+                          value={generalInfo.description}
+                          onChange={(e) => setGeneralInfo(prev => ({ ...prev, description: e.target.value }))}
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          placeholder="Premium healthcare services in Dubai"
                           rows={3}
                         />
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-semibold text-teal-700 mb-2">
-                            Pricing
-                          </label>
-                          <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                              <svg
-                                className="w-4 h-4 text-teal-500"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                                xmlns="http://www.w3.org/2000/svg"
-                              >
-                                <text
-                                  x="2"
-                                  y="16"
-                                  fontSize="20"
-                                  fontWeight="bold"
-                                  fill="currentColor"
-                                >
-                                  د.إ
-                                </text>
-                              </svg>
-                            </div>
-                            <input
-                              type="text"
-                              value={editForm.pricing || ""}
-                              onChange={(e) => handleInputChange("pricing", e.target.value)}
-                              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white transition-all"
-                              placeholder="د.إ500 - د.إ2000"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-semibold text-teal-700 mb-2">
-                            Timings
-                          </label>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm w-full">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4">Media</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-sm font-medium text-gray-700 mb-2">Clinic Logo</div>
+                        <label className="relative block overflow-hidden border-2 border-dashed border-teal-200 rounded-xl p-6 sm:p-5 min-h-[220px] sm:min-h-[240px] text-center hover:border-teal-300 hover:bg-teal-50/30 transition flex items-center justify-center">
                           <input
-                            type="text"
-                            value={editForm.timings || ""}
-                            onChange={(e) => handleInputChange("timings", e.target.value)}
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white transition-all"
-                            placeholder="9:00 AM - 8:00 PM"
+                            type="file"
+                            accept="image/jpeg,image/jpg,image/png"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (!f) return;
+                              const url = URL.createObjectURL(f);
+                              setLogoPreview(url);
+                            }}
                           />
-                        </div>
+                          {logoPreview ? (
+                            <img src={logoPreview} alt="Logo" className="absolute inset-0 w-full h-full object-contain" />
+                          ) : (
+                            <div className="text-gray-600 text-base sm:text-lg flex flex-col items-center justify-center">
+                              <Upload className="w-8 h-8 text-teal-500 mb-2" />
+                              <span className="font-medium">Click to upload logo</span>
+                              <div className="text-xs sm:text-sm text-gray-500 mt-1">PNG, JPG up to 5MB</div>
+                            </div>
+                          )}
+                        </label>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-700 mb-2">Cover Image</div>
+                        <label className="relative block overflow-hidden border-2 border-dashed border-teal-200 rounded-xl p-6 sm:p-5 min-h-[220px] sm:min-h-[240px] text-center hover:border-teal-300 hover:bg-teal-50/30 transition flex items-center justify-center">
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/jpg,image/png"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (!f) return;
+                              const url = URL.createObjectURL(f);
+                              setCoverPreview(url);
+                            }}
+                          />
+                          {coverPreview ? (
+                            <img src={coverPreview} alt="Cover" className="absolute inset-0 w-full h-full object-contain" />
+                          ) : (
+                            <div className="text-gray-600 text-base sm:text-lg flex flex-col items-center justify-center">
+                              <Upload className="w-8 h-8 text-teal-500 mb-2" />
+                              <span className="font-medium">Click to upload cover</span>
+                              <div className="text-xs sm:text-sm text-gray-500 mt-1">PNG, JPG up to 5MB</div>
+                            </div>
+                          )}
+                        </label>
                       </div>
                     </div>
                   </div>
@@ -971,25 +1220,25 @@ function ClinicManagementDashboard() {
                     </div>
                   </div> */}
 
-                  {/* Treatments Section */}
-                  <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
+                  {/* Treatments Section (hidden in General Info UI; functionality unchanged) */}
+                  {false && (<div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
                     <h3 className="text-lg font-bold text-teal-900 mb-4 flex items-center gap-2">
                       <Activity className="w-5 h-5 text-teal-700" />
                       Treatments
                     </h3>
-                    {selectedTreatmentIndex !== null && editForm.treatments?.[selectedTreatmentIndex] && (
+                    {selectedTreatmentIndex != null && editForm.treatments && (editForm.treatments as any[])?.[selectedTreatmentIndex as number] && (
                       <div className="mb-3 bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
                         <div className="flex items-center justify-between mb-2">
                           <span className="px-3 py-1.5 bg-teal-800 text-white rounded-full text-sm font-semibold">
-                            {editForm.treatments[selectedTreatmentIndex].mainTreatment}
+                            {(editForm.treatments as any[])[selectedTreatmentIndex as number].mainTreatment}
                           </span>
                           <span className="text-[11px] text-teal-700">
-                            {(editForm.treatments[selectedTreatmentIndex].subTreatments || []).length} selected
+                            {((editForm.treatments as any[])[selectedTreatmentIndex as number].subTreatments || []).length} selected
                           </span>
                         </div>
-                        {editForm.treatments[selectedTreatmentIndex].subTreatments && editForm.treatments[selectedTreatmentIndex].subTreatments.length > 0 && (
+                        {(editForm.treatments as any[])[selectedTreatmentIndex as number].subTreatments && (editForm.treatments as any[])[selectedTreatmentIndex as number].subTreatments.length > 0 && (
                           <div className="flex flex-wrap gap-2">
-                            {editForm.treatments[selectedTreatmentIndex].subTreatments.map((sub: any, sIdx: number) => (
+                            {((editForm.treatments as any[])[selectedTreatmentIndex as number].subTreatments || []).map((sub: any, sIdx: number) => (
                               <span
                                 key={sIdx}
                                 className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-teal-700 rounded-full text-xs border border-gray-200"
@@ -999,7 +1248,7 @@ function ClinicManagementDashboard() {
                                   <span className="text-teal-800 font-bold">د.إ{sub.price}</span>
                                 )}
                                 <button
-                                  onClick={() => handleRemoveSubTreatment(selectedTreatmentIndex, sIdx)}
+                                  onClick={() => handleRemoveSubTreatment(selectedTreatmentIndex as number, sIdx)}
                                   className="text-red-500 hover:text-red-700 ml-1"
                                 >
                                   <X className="w-3 h-3" />
@@ -1394,387 +1643,1271 @@ function ClinicManagementDashboard() {
                         ))}
                       </div>
                     </div>
-                  </div>
+                  </div>)}
                 </div>
+              </div>
 
-                {/* Right Column - Photos */}
-                <div className="space-y-5">
-                  <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
-                    <h3 className="text-lg font-bold text-teal-900 mb-4 flex items-center gap-2">
-                      <Camera className="w-5 h-5 text-teal-700" />
-                      Clinic Photos
-                    </h3>
-                    {/* Photo Upload - Multiple Images */}
-                    <div className="space-y-4">
-                      <label className="flex items-center gap-2 text-sm font-medium text-teal-700">
-                        <Camera className="w-4 h-4" />
-                        Health Center Photos (Multiple)
-                      </label>
-                      <div className="relative border-2 border-dashed border-gray-200 rounded-xl p-6 sm:p-8 text-center hover:border-[#2D9AA5]/50 hover:bg-[#2D9AA5]/5 transition-all">
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/jpg,image/png"
-                          multiple
-                          onChange={(e) => {
-                            if (e.target.files && e.target.files.length > 0) {
-                              const rawFiles = Array.from(e.target.files);
-                              const allowedTypes = new Set(["image/jpeg", "image/jpg", "image/png"]);
-                              const maxSize = 5 * 1024 * 1024;
-                              const validFiles: File[] = [];
-                              const invalids: string[] = [];
-                              rawFiles.forEach((f) => {
-                                if (!allowedTypes.has((f.type || "").toLowerCase())) {
-                                  invalids.push(`${f.name}: unsupported type ${f.type || "unknown"}`);
-                                  return;
-                                }
-                                if (f.size > maxSize) {
-                                  invalids.push(`${f.name}: exceeds 5MB`);
-                                  return;
-                                }
-                                validFiles.push(f);
-                              });
-                              if (invalids.length > 0) {
-                                toast.error(`Invalid files:\n${invalids.join("\n")}`);
-                              }
-                              if (validFiles.length === 0) return;
-                              const filesArray = validFiles;
-                              setSelectedFiles(filesArray);
-                              const baseLen = (editForm.photos || []).length;
-                              handleInputChange("photos", [
-                                ...(editForm.photos || []),
-                                ...filesArray,
-                              ]);
-                              setCurrentPhotoIndex(baseLen + filesArray.length - 1);
-                              toast.success(`${filesArray.length} photo(s) selected`);
-                            }
-                          }}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              {/* Contact */}
+              {activeTab === 'Contact' && (
+                <div className="space-y-4">
+                  <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
+                    <h3 className="text-lg font-bold text-teal-900 mb-3">Contact Details</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                        <input 
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" 
+                          value={contactForm.phone} 
+                          onChange={(e) => setContactForm({...contactForm, phone: e.target.value})}
+                          placeholder="+91 1234569870"
                         />
-                        <div className="space-y-3">
-                          <Camera className="w-8 h-8 text-teal-400 mx-auto" />
-                          <div>
-                            <p className="font-medium text-teal-700">
-                              Click to upload clinic photos
-                            </p>
-                            <p className="text-xs text-teal-500 mt-1">
-                              JPG, PNG up to 5MB each
-                            </p>
-                          </div>
-                        </div>
                       </div>
-
-                      {selectedFiles.length > 0 && (
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium text-teal-700">Selected Files:</p>
-                          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
-                            {selectedFiles.map((file, index) => {
-                              const url = URL.createObjectURL(file);
-                              return (
-                                <div key={index} className="relative group border-2 rounded-lg overflow-hidden">
-                                  <img
-                                    src={url}
-                                    alt={file.name}
-                                    className="w-full h-24 object-cover"
-                                    onLoad={() => URL.revokeObjectURL(url)}
-                                    onError={(e) => {
-                                      const img = e.currentTarget as HTMLImageElement;
-                                      img.onerror = null;
-                                      img.src = PLACEHOLDER_DATA_URI;
-                                    }}
-                                  />
-                                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <span className="text-[11px] text-white px-2 py-1 rounded">{file.name}</span>
-                                  </div>
-                                  <button
-                                    type="button"
-                                  onClick={() => {
-                                      const photosArr = editForm.photos || [];
-                                      const photoIndex = photosArr.findIndex((p: any) => p === file);
-                                      if (photoIndex !== -1) {
-                                        removePhotoAt(photoIndex);
-                                      } else {
-                                        const fileIndices = photosArr
-                                          .map((p: any, i: number) => (p instanceof File ? i : -1))
-                                          .filter((i: number) => i !== -1);
-                                        const mappedIndex = fileIndices[index] ?? -1;
-                                        if (mappedIndex !== -1) removePhotoAt(mappedIndex);
-                                      }
-                                  }}
-                                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
-                                    title="Remove file"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Current Photos Preview */}
-                      {editForm.photos && editForm.photos.length > 0 && (
-                        <div className="space-y-4">
-                          <p className="text-sm font-medium text-teal-700">
-                            Current Photos:
-                          </p>
-                          
-                          {/* Main Display Photo with Navigation */}
-                          <div className="mb-4">
-                            <p className="text-xs text-teal-600 mb-2">Display Photo:</p>
-                            <div className="relative group inline-block">
-                              {(() => {
-                                const photosArray = editForm.photos || [];
-                                const safeIndex = Math.min(
-                                  Math.max(currentPhotoIndex, 0),
-                                  photosArray.length - 1
-                                );
-                                const viewingPhoto = photosArray.length > 0 
-                                  ? photosArray[safeIndex] 
-                                  : null;
-
-                                if (!viewingPhoto) {
-                                  return (
-                                    <div className="relative w-full max-w-md h-64 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center">
-                                      <Camera className="w-8 h-8 text-teal-400" />
-                                    </div>
-                                  );
-                                }
-
-                                return (
-                                  <div className="relative w-full max-w-md h-64 rounded-lg overflow-hidden border-2 border-teal-500 bg-white">
-                                    <img
-                                      src={getImagePath(viewingPhoto)}
-                                      alt={`Clinic photo ${safeIndex + 1}`}
-                                      className="w-full h-full object-contain object-center"
-                                      onError={(e) => {
-                                        const img = e.currentTarget as HTMLImageElement;
-                                        img.onerror = null;
-                                        img.src = PLACEHOLDER_DATA_URI;
-                                      }}
-                                    />
-                                    <div className="absolute top-2 left-2 bg-teal-600 text-white text-xs px-2 py-1 rounded-full">
-                                      {safeIndex + 1}/{photosArray.length}
-                                    </div>
-                                    {photosArray.length > 1 && (
-                                      <>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setCurrentPhotoIndex((prev) =>
-                                              Math.max(prev - 1, 0)
-                                            );
-                                          }}
-                                          className="absolute top-1/2 -translate-y-1/2 left-2 bg-teal-800 text-white rounded-full p-2 hover:bg-teal-900 transition-colors opacity-0 group-hover:opacity-100 shadow-lg z-10 disabled:opacity-50"
-                                          title="Previous photo"
-                                          disabled={safeIndex <= 0}
-                                        >
-                                          <ChevronLeft className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setCurrentPhotoIndex((prev) =>
-                                              Math.min(
-                                                prev + 1,
-                                                photosArray.length - 1
-                                              )
-                                            );
-                                          }}
-                                          className="absolute top-1/2 -translate-y-1/2 right-2 bg-teal-800 text-white rounded-full p-2 hover:bg-teal-900 transition-colors opacity-0 group-hover:opacity-100 shadow-lg z-10 disabled:opacity-50"
-                                          title="Next photo"
-                                          disabled={safeIndex >= photosArray.length - 1}
-                                        >
-                                          <ChevronRight className="w-4 h-4" />
-                                        </button>
-                                      </>
-                                    )}
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        removePhotoAt(safeIndex);
-                                        toast.success("Photo removed");
-                                      }}
-                                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100 shadow-lg z-10"
-                                      title="Remove photo"
-                                    >
-                                      <X className="w-4 h-4" />
-                                    </button>
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                          </div>
-
-                          {/* All Photos Grid - Larger Thumbnails */}
-                          <div>
-                            <p className="text-xs text-teal-600 mb-2">All Photos ({editForm.photos?.length || 0}):</p>
-                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
-                              {(editForm.photos || []).map((photo, index) => (
-                                <div 
-                                  key={index} 
-                                  className={`relative group border-2 rounded-lg overflow-hidden cursor-pointer transition-all ${
-                                    index === currentPhotoIndex 
-                                      ? 'border-teal-500 ring-2 ring-teal-200 scale-105' 
-                                      : 'border-gray-200 hover:border-teal-300'
-                                  }`}
-                                  onClick={() => setCurrentPhotoIndex(index)}
-                                >
-                                  <img
-                                    src={getImagePath(photo)}
-                                    alt={`Clinic photo ${index + 1}`}
-                                    className="w-16 h-16 object-cover object-center"
-                                    onError={(e) => {
-                                      const img = e.currentTarget as HTMLImageElement;
-                                      img.onerror = null;
-                                      img.src = PLACEHOLDER_DATA_URI;
-                                    }}
-                                  />
-                                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setCurrentPhotoIndex(index);
-                                      }}
-                                      className="text-white hover:text-teal-300 transition-colors"
-                                      title="View photo"
-                                    >
-                                      {/* <Eye className="w-6 h-6" /> */}
-                                    </button>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      removePhotoAt(index);
-                                      toast.success("Photo removed");
-                                    }}
-                                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
-                                    title="Remove photo"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Error messages are shown via toast popup only */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp Number</label>
+                        <input 
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" 
+                          value={contactForm.whatsapp} 
+                          onChange={(e) => setContactForm({...contactForm, whatsapp: e.target.value})}
+                          placeholder="+91 1234567890"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                        <input 
+                          type="email"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" 
+                          value={contactForm.email} 
+                          onChange={(e) => setContactForm({...contactForm, email: e.target.value})}
+                          placeholder="clinic@example.com"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Website URL</label>
+                        <input 
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" 
+                          value={contactForm.website} 
+                          onChange={(e) => setContactForm({...contactForm, website: e.target.value})}
+                          placeholder="https://www.clinic.com"
+                        />
+                      </div>
                     </div>
                   </div>
+                  <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
+                    <h3 className="text-lg font-bold text-teal-900 mb-3">Location</h3>
+                    <div className="space-y-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                    <div className="flex gap-2">
+                      <input 
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" 
+                        value={editForm.address || ''}
+                        onChange={(e) => setEditForm({...editForm, address: e.target.value})}
+                        placeholder="Enter clinic address"
+                      />
+                      <button
+                        type="button"
+                        onClick={locateOnMap}
+                        className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-sm font-medium"
+                      >
+                        Locate on Map
+                      </button>
+                    </div>
+                    <div className="rounded-xl border border-gray-200 overflow-hidden">
+                      {mapsLoaded ? (
+                        <GoogleMap
+                          mapContainerStyle={{ width: "100%", height: "260px" }}
+                          center={mapCenter}
+                          zoom={14}
+                        >
+                          <Marker position={mapCenter} />
+                        </GoogleMap>
+                      ) : (
+                        <div className="p-6 bg-teal-50 text-center text-teal-700">
+                          <MapPin className="w-8 h-8 mx-auto mb-2" />
+                          <p className="font-medium">Map loading…</p>
+                        </div>
+                      )}
+                    </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-                  {/* Documents Section */}
-                  <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
-                    <h3 className="text-lg font-bold text-teal-900 mb-4 flex items-center gap-2">
-                      <svg className="w-5 h-5 text-teal-700" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                        <path d="M7 2a2 2 0 0 0-2 2v16l7-3 7 3V4a2 2 0 0 0-2-2H7z" />
-                      </svg>
-                      Add Documents
-                    </h3>
-                    <div className="space-y-4">
-                      {/* Add new document row */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Documents */}
+              {activeTab === 'Documents' && (
+                <div className="space-y-6">
+                  {/* Header with Upload Button */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-900">Business Documents</h2>
+                      <p className="text-sm text-gray-500 mt-1">Manage your clinic's official documents and certifications</p>
+                    </div>
+                    <label className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all cursor-pointer shadow-sm">
+                      <Upload className="w-4 h-4" />
+                      <span className="font-medium">Upload New</span>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,.doc,.docx,.txt,image/jpeg,image/jpg,image/png"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] || null;
+                          if (f) {
+                            setNewDocFile(f);
+                            setNewDocName(f.name.split('.')[0]);
+                            toast.success("File selected. Click Add Document to upload.");
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+
+                  {/* Document Grid */}
+                  {(editForm.documents && editForm.documents.length > 0) ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+                      {(editForm.documents || []).map((doc: any, idx: number) => {
+                        const url = String(doc?.url || "");
+                        const hasUrl = url && url.length > 0;
+                        const isImage = /\.(jpg|jpeg|png)$/i.test(url);
+                        const fileName = doc?.name || `Document ${idx + 1}`;
+                        const fileSize = doc?.file ? `${(doc.file.size / 1024).toFixed(1)} KB` : (docSizes[idx] || doc.size || 'N/A');
+                        const fileType = isImage ? 'Image' : (url.split('.').pop() || doc.type || 'PDF').toUpperCase();
+                        const uploadDate = doc.createdAt ? new Date(doc.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Recently';
+                        const isPending = !hasUrl && doc.file; // New document not yet saved
+                        
+                        return (
+                          <div key={idx} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-all relative">
+                            {/* Status Badge */}
+                            <div className="absolute top-3 right-3">
+                              {isPending ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-orange-100 text-orange-700 rounded-full">
+                                  <AlertCircle className="w-3 h-3" />
+                                  Pending
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                                  <Check className="w-3 h-3" />
+                                  Valid
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Document Icon & Info */}
+                            <div className="flex items-start gap-3 mb-3">
+                              <div className="w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                {isImage && hasUrl ? (
+                                  <img src={url} alt={fileName} className="w-full h-full object-cover" />
+                                ) : (
+                                  <FileText className="w-6 h-6 text-teal-600" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0 pt-0.5">
+                                <h3 className="text-sm font-semibold text-gray-900 truncate">{fileName}</h3>
+                                <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                                  <span>{fileType}</span>
+                                  <span>•</span>
+                                  <span>{fileSize}</span>
+                                </div>
+                                <div className="mt-1 text-xs text-gray-400">
+                                  Uploaded {uploadDate}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
+                              {hasUrl ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (isImage) {
+                                        setDocPreview({ open: true, url, name: fileName, isImage: true });
+                                      } else {
+                                        window.open(url, "_blank", "noopener,noreferrer");
+                                      }
+                                    }}
+                                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-all"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    View
+                                  </button>
+                                  <a
+                                    href={url}
+                                    download
+                                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-all"
+                                  >
+                                    <Download className="w-3.5 h-3.5" />
+                                    Download
+                                  </a>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    disabled
+                                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-400 bg-gray-100 border border-gray-200 rounded-lg cursor-not-allowed opacity-60"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    View
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled
+                                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-400 bg-gray-100 border border-gray-200 rounded-lg cursor-not-allowed opacity-60"
+                                  >
+                                    <Download className="w-3.5 h-3.5" />
+                                    Download
+                                  </button>
+                                </>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveExistingDocument(idx)}
+                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                title="Delete document"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                            
+                            {/* Save Notice */}
+                            {isPending && (
+                              <div className="mt-3 pt-3 border-t border-gray-100">
+                                <p className="text-xs text-orange-600 text-center">
+                                  ⚠️ Click "Update Profile" to save this document
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
+                      <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                      <h3 className="text-lg font-semibold text-gray-900">No documents yet</h3>
+                      <p className="text-sm text-gray-500 mt-1">Upload your first business document to get started</p>
+                      {clinics.length > 0 && (
+                        <p className="text-xs text-orange-600 mt-2">Note: Click Edit on your clinic to manage documents</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Drag & Drop Upload Area */}
+                  <div 
+                    className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-teal-400 hover:bg-teal-50/30 transition-all"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.add('border-teal-500', 'bg-teal-50');
+                    }}
+                    onDragLeave={(e) => {
+                      e.currentTarget.classList.remove('border-teal-500', 'bg-teal-50');
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.remove('border-teal-500', 'bg-teal-50');
+                      const files = Array.from(e.dataTransfer.files);
+                      if (files.length === 0) return;
+                      
+                      const file = files[0];
+                      const allowedTypes = [".pdf", ".doc", ".docx", ".txt", ".jpg", ".jpeg", ".png"];
+                      const fileExt = "." + file.name.split('.').pop()?.toLowerCase();
+                      
+                      if (!allowedTypes.includes(fileExt)) {
+                        toast.error("Invalid file type. Supported: PDF, DOC, DOCX, TXT, JPG, PNG");
+                        return;
+                      }
+                      
+                      if (file.size > 5 * 1024 * 1024) {
+                        toast.error("File size exceeds 5MB");
+                        return;
+                      }
+                      
+                      setNewDocFile(file);
+                      setNewDocName(file.name.split('.')[0]);
+                      toast.success(`File "${file.name}" ready to upload`);
+                    }}
+                  >
+                    <div className="max-w-md mx-auto">
+                      <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Upload className="w-8 h-8 text-teal-600" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Upload New Document</h3>
+                      <p className="text-sm text-gray-500 mb-4">
+                        Drag and drop your files here, or click to browse
+                      </p>
+                      <p className="text-xs text-gray-400 mb-4">
+                        Supported formats: PDF, DOC, DOCX, TXT, JPG, PNG (Max 5MB)
+                      </p>
+                      
+                      {/* Quick Upload Form */}
+                      <div className="flex flex-col sm:flex-row gap-3 max-w-lg mx-auto">
                         <input
                           type="text"
                           placeholder="Document name"
                           value={newDocName}
                           onChange={(e) => setNewDocName(e.target.value)}
-                          className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm"
+                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
                         />
-                        <input
-                          type="file"
-                          onChange={(e) => {
-                            const f = e.target.files?.[0] || null;
-                            setNewDocFile(f);
-                          }}
-                          accept=".pdf,.doc,.docx,.txt,image/jpeg,image/jpg,image/png"
-                          className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm"
-                        />
+                        <label className="flex-1 relative">
+                          <input
+                            type="file"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            accept=".pdf,.doc,.docx,.txt,image/jpeg,image/jpg,image/png"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0] || null;
+                              setNewDocFile(f);
+                              if (f && !newDocName) {
+                                setNewDocName(f.name.split('.')[0]);
+                              }
+                            }}
+                          />
+                          <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 text-center hover:bg-gray-50 transition-all">
+                            {newDocFile ? (
+                              <span className="text-teal-700 font-medium">✓ {newDocFile.name}</span>
+                            ) : (
+                              "Choose File"
+                            )}
+                          </div>
+                        </label>
                         <button
                           type="button"
                           onClick={handleAddDocument}
-                          className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm"
+                          disabled={!newDocName.trim() || !newDocFile}
+                          className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Add Document
                         </button>
                       </div>
-
-                      {/* Existing and pending documents list */}
-                      {(editForm.documents && editForm.documents.length > 0) ? (
-                        <div className="space-y-2">
-                          {editForm.documents!.map((doc: any, idx: number) => (
-                            <div key={idx} className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded-lg">
-                              <input
-                                type="text"
-                                value={doc.name || ""}
-                                onChange={(e) => handleRenameExistingDocument(idx, e.target.value)}
-                                className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                              />
-                              {doc.url ? (
-                                <a
-                                  href={typeof doc.url === "string" ? getDocumentUrl(doc.url) : "#"}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-xs text-teal-700 underline"
-                                >
-                                  View
-                                </a>
-                              ) : doc.file ? (
-                                <span className="text-xs text-teal-700">
-                                  {(doc.file as File).name}
-                                </span>
-                              ) : null}
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveExistingDocument(idx)}
-                                className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-teal-700">No documents added yet.</p>
-                      )}
-                      <p className="text-xs text-teal-600">
-                        Supported: PDF, DOC, DOCX, TXT, JPG, PNG. Documents save on Update Profile.
-                      </p>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Action Buttons - Enhanced */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-6 mt-6 border-t border-gray-200">
-                <button
-                  onClick={handleUpdate}
-                  disabled={updating}
-                  className="order-2 sm:order-1 px-4 py-2 bg-teal-800 text-white rounded-lg hover:bg-teal-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium transition-colors shadow-sm hover:shadow-md text-sm"
-                >
-                  {updating ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      <span>Updating...</span>
-                    </>
-                  ) : (
-                    "Update Profile"
-                  )}
-                </button>
-                <button
-                  onClick={handleCancel}
-                  className="order-1 sm:order-2 px-4 py-2 bg-teal-100 text-teal-700 rounded-lg hover:bg-teal-200 font-medium transition-colors text-sm"
-                >
-                  Cancel
-                </button>
-              </div>
+              {/* Listing */}
+              {activeTab === 'Listing' && (
+                <div className="w-full">
+                  {/* Main Card */}
+                  <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden ">
+                    {/* Card Header */}
+                    <div className="p-6 border-b border-gray-100">
+                      <h2 className="text-2xl font-bold text-gray-900 mb-2">Marketplace Visibility</h2>
+                      <p className="text-sm text-gray-500">Control what information is visible on your public marketplace profile</p>
+                      
+                      {/* Info Alert Box */}
+                      <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+                        <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                          <h3 className="text-base font-normal text-blue-900">These settings control visibility on Zeva marketplace</h3>
+                          <p className="text-sm text-blue-800 font-medium">Changes will be reflected on your public profile within 24 hours</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Settings List */}
+                    <div className="divide-y divide-gray-100">
+                      {/* Show Services */}
+                      <div className="p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                        <div className="flex-1">
+                          <h4 className="text-base font-semibold text-gray-900">Show Services</h4>
+                          <p className="text-sm text-gray-500 mt-1">Display your clinic's services on the marketplace</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="sr-only peer" 
+                            checked={listingVisibility.showServices as boolean} 
+                            onChange={() => {
+                              setListingVisibility(prev => ({ ...prev, showServices: !prev.showServices }));
+                              toast.success(`Services will be ${!listingVisibility.showServices ? 'shown' : 'hidden'} on marketplace`);
+                            }}
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                        </label>
+                      </div>
+
+                      {/* Show Prices */}
+                      <div className="p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                        <div className="flex-1">
+                          <h4 className="text-base font-semibold text-gray-900">Show Prices</h4>
+                          <p className="text-sm text-gray-500 mt-1">Display treatment prices publicly</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="sr-only peer" 
+                            checked={listingVisibility.showPrices as boolean} 
+                            onChange={() => {
+                              setListingVisibility(prev => ({ ...prev, showPrices: !prev.showPrices }));
+                              toast.success(`Prices will be ${!listingVisibility.showPrices ? 'shown' : 'hidden'}`);
+                            }}
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                        </label>
+                      </div>
+
+                      {/* Show Staff */}
+                      <div className="p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                        <div className="flex-1">
+                          <h4 className="text-base font-semibold text-gray-900">Show Staff</h4>
+                          <p className="text-sm text-gray-500 mt-1">Display doctor and staff profiles</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="sr-only peer" 
+                            checked={listingVisibility.showStaff as boolean} 
+                            onChange={() => {
+                              setListingVisibility(prev => ({ ...prev, showStaff: !prev.showStaff }));
+                              toast.success(`Staff profiles will be ${!listingVisibility.showStaff ? 'shown' : 'hidden'}`);
+                            }}
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                        </label>
+                      </div>
+
+                      {/* Show Reviews */}
+                      <div className="p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                        <div className="flex-1">
+                          <h4 className="text-base font-semibold text-gray-900">Show Reviews</h4>
+                          <p className="text-sm text-gray-500 mt-1">Display patient reviews and ratings</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="sr-only peer" 
+                            checked={listingVisibility.showReviews as boolean} 
+                            onChange={() => {
+                              setListingVisibility(prev => ({ ...prev, showReviews: !prev.showReviews }));
+                              toast.success(`Reviews will be ${!listingVisibility.showReviews ? 'shown' : 'hidden'}`);
+                            }}
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                        </label>
+                      </div>
+
+                      {/* Enable Online Booking */}
+                      <div className="p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                        <div className="flex-1">
+                          <h4 className="text-base font-semibold text-gray-900">Enable Online Booking</h4>
+                          <p className="text-sm text-gray-500 mt-1">Allow patients to book appointments online</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="sr-only peer" 
+                            checked={listingVisibility.enableOnlineBooking as boolean} 
+                            onChange={() => {
+                              setListingVisibility(prev => ({ ...prev, enableOnlineBooking: !prev.enableOnlineBooking }));
+                              toast.success(`Online booking ${!listingVisibility.enableOnlineBooking ? 'enabled' : 'disabled'}`);
+                            }}
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                        </label>
+                      </div>
+
+                      {/* Featured Listing */}
+                      <div className="p-5 flex items-center justify-between hover:bg-gray-50 transition-colors bg-gray-50">
+                        <div className="flex-1">
+                          <h4 className="text-base font-semibold text-gray-900">Featured Listing</h4>
+                          <p className="text-sm text-gray-500 mt-1">Highlight your clinic at the top of search results</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="sr-only peer" 
+                            checked={listingVisibility.featuredListing as boolean} 
+                            onChange={() => {
+                              setListingVisibility(prev => ({ ...prev, featuredListing: !prev.featuredListing }));
+                            }}
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Helper Text */}
+                  <div className="mt-4 text-center">
+                    
+                  </div>
+                </div>
+              )}
+
+              {/* Branches */}
+              {activeTab === 'Branches' && (
+                <div className="w-full">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-900">Branch Management</h2>
+                      <p className="text-sm text-gray-500 mt-1">Manage your clinic locations and branches</p>
+                    </div>
+                    <button 
+                      onClick={() => setBranchModal({ open: true, mode: 'add', name: '', address: '', phone: '', email: '' })}
+                      className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-sm font-medium shadow-sm flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add New Branch
+                    </button>
+                  </div>
+
+                  {/* Branch Cards */}
+                  <div className="space-y-4 mb-6">
+                    {/* Main Branch - Primary (from form) */}
+                    <div className="bg-white border-2 border-teal-200 rounded-xl p-5 shadow-sm relative">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <h3 className="text-lg font-bold text-gray-900">{editForm.name || "Main Clinic"}</h3>
+                          <span className="px-3 py-1 bg-teal-100 text-teal-800 text-xs font-semibold rounded-full">
+                            Primary
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => setBranchModal({ open: true, mode: 'edit', targetId: 'primary', name: String(editForm.name || ''), address: String(editForm.address || ''), phone: contactForm.phone || '', email: contactForm.email || '' })}
+                            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button 
+                            disabled
+                            className="p-2 text-red-400 bg-gray-100 rounded-lg cursor-not-allowed"
+                            title="Cannot delete primary branch"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="flex items-start gap-2">
+                            <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
+                            <div>
+                              <p className="text-xs font-medium text-gray-500">Address</p>
+                              <p className="text-sm text-gray-900">{editForm.address || "Not set"}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <svg className="w-5 h-5 text-gray-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
+                            <div>
+                              <p className="text-xs font-medium text-gray-500">Phone</p>
+                              <p className="text-sm text-gray-900">{contactForm.phone || "Not set"}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <svg className="w-5 h-5 text-gray-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            <div>
+                              <p className="text-xs font-medium text-gray-500">Email</p>
+                              <p className="text-sm text-gray-900">{contactForm.email || "Not set"}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
+                          
+                        </div>
+                      </div>
+                    </div>
+                    {/* Other branches */}
+                    {branches.filter(b => !b.primary).map(b => (
+                      <div key={b.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm relative">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <h3 className="text-lg font-bold text-gray-900">{b.name}</h3>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button 
+                              onClick={() => setBranchModal({ open: true, mode: 'edit', targetId: b.id, name: b.name, address: b.address, phone: b.phone || '', email: b.email || '' })}
+                              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => setBranches(prev => prev.filter(x => x.id !== b.id))}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                              title="Delete branch"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="flex items-start gap-2">
+                            <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
+                            <div>
+                              <p className="text-xs font-medium text-gray-500">Address</p>
+                              <p className="text-sm text-gray-900">{b.address || "Not set"}</p>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-gray-500">Phone</p>
+                            <p className="text-sm text-gray-900">{b.phone || "Not set"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-gray-500">Email</p>
+                            <p className="text-sm text-gray-900">{b.email || "Not set"}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add Another Branch */}
+                  <div className="border-2 mt-9 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-teal-400 hover:bg-teal-50/30 transition-all">
+                    <div className="max-w-md mx-auto">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Plus className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Add Another Branch</h3>
+                      <p className="text-sm text-gray-500 mb-4">Expand your clinic network by adding a new location</p>
+                      <button 
+                        onClick={() => setBranchModal({ open: true, mode: 'add', name: '', address: '', phone: '', email: '' })}
+                        className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-sm font-medium"
+                      >
+                        Create New Branch
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Clinic Timing */}
+              {activeTab === 'Clinic Timing' && (
+                <div className="w-full">
+                  {/* Single Unified Container */}
+                  <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                    {/* Header Section */}
+                    <div className="p-6 border-b border-gray-100">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                          <h2 className="text-2xl font-bold text-gray-900">Clinic Working Hours</h2>
+                          <p className="text-sm text-gray-500 mt-1">Set your clinic's availability for each day of the week</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const baseTime = timing[0];
+                            // Validate Monday timings before applying
+                            if (baseTime.open && (!baseTime.opening || !baseTime.closing)) {
+                              toast.error("Monday must have opening and closing times");
+                              return;
+                            }
+                            setTiming(prev => prev.map((t, idx) => 
+                              idx === 0 ? t : { 
+                                ...t, 
+                                open: baseTime.open, 
+                                opening: baseTime.opening, 
+                                closing: baseTime.closing, 
+                                breakStart: baseTime.breakStart, 
+                                breakEnd: baseTime.breakEnd 
+                              }
+                            ));
+                            toast.success("Monday schedule applied to all days");
+                          }}
+                          className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-sm font-medium shadow-sm flex items-center gap-2 whitespace-nowrap"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          Apply Monday to All
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Timing Cards - All Days in Same Container */}
+                    <div className="divide-y divide-gray-100">
+                      {timing.map((t, idx) => (
+                        <div key={t.day} className={`p-5 transition-all ${t.open ? 'bg-blue-50/50' : 'bg-white'}`}>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input 
+                                  type="checkbox" 
+                                  className="sr-only peer" 
+                                  checked={t.open} 
+                                  onChange={() => {
+                                    setTiming(prev => {
+                                      const copy = [...prev];
+                                      copy[idx] = { ...copy[idx], open: !copy[idx].open };
+                                      return copy;
+                                    });
+                                  }}
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                              </label>
+                              <span className="text-base font-semibold text-gray-900 w-24">{t.day}</span>
+                            </div>
+                            {!t.open && (
+                              <span className="text-sm text-gray-500 font-medium px-3 py-1 bg-gray-100 rounded-full">Closed</span>
+                            )}
+                          </div>
+                          
+                          {t.open && (
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 ml-14 animate-fadeIn">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1">
+                                 
+                                  Opening Time
+                                </label>
+                                <input 
+                                  type="time" 
+                                  value={t.opening} 
+                                  onChange={(e) => {
+                                    setTiming(prev => {
+                                      const copy = [...prev];
+                                      copy[idx] = { ...copy[idx], opening: e.target.value };
+                                      return copy;
+                                    });
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm bg-white"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1">
+                                 
+                                  Closing Time
+                                </label>
+                                <input 
+                                  type="time" 
+                                  value={t.closing} 
+                                  onChange={(e) => {
+                                    setTiming(prev => {
+                                      const copy = [...prev];
+                                      copy[idx] = { ...copy[idx], closing: e.target.value };
+                                      return copy;
+                                    });
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm bg-white"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1">
+                                 
+                                  Break Start
+                                </label>
+                                <input 
+                                  type="time" 
+                                  value={t.breakStart} 
+                                  onChange={(e) => {
+                                    setTiming(prev => {
+                                      const copy = [...prev];
+                                      copy[idx] = { ...copy[idx], breakStart: e.target.value };
+                                      return copy;
+                                    });
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm bg-white placeholder-gray-400"
+                                  placeholder="Optional"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1">
+                                 
+                                  Break End
+                                </label>
+                                <input 
+                                  type="time" 
+                                  value={t.breakEnd} 
+                                  onChange={(e) => {
+                                    setTiming(prev => {
+                                      const copy = [...prev];
+                                      copy[idx] = { ...copy[idx], breakEnd: e.target.value };
+                                      return copy;
+                                    });
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm bg-white placeholder-gray-400"
+                                  placeholder="Optional"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Helper Text */}
+                  <div className="mt-4 text-center">
+                    
+                  </div>
+                </div>
+              )}
+
+              {/* Notifications */}
+              {activeTab === 'Notifications' && (
+                <div className="w-full">
+                  {/* Header */}
+                  <div className="mb-6">
+                    <h2 className="text-2xl font-bold text-gray-900">Notification Preferences</h2>
+                    <p className="text-sm text-gray-500 mt-1">Manage how you receive notifications and updates</p>
+                  </div>
+
+                  {/* Notification Settings Card */}
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div className="divide-y divide-gray-100">
+                      
+                      {/* Email Notifications */}
+                      <div className="p-6 hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center flex-shrink-0">
+                              <svg className="w-6 h-6 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <h3 className="text-base font-semibold text-gray-900">Email Notifications</h3>
+                              <p className="text-sm text-gray-500 mt-0.5">Receive important updates via email</p>
+                            </div>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              className="sr-only peer" 
+                              checked={notificationSettings.email}
+                              onChange={(e) => setNotificationSettings(prev => ({ ...prev, email: e.target.checked }))}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* WhatsApp Notifications */}
+                      <div className="p-6 hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center flex-shrink-0">
+                              <svg className="w-6 h-6 text-teal-600" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                              </svg>
+                            </div>
+                            <div>
+                              <h3 className="text-base font-semibold text-gray-900">WhatsApp Alerts</h3>
+                              <p className="text-sm text-gray-500 mt-0.5">Get instant notifications on WhatsApp</p>
+                            </div>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              className="sr-only peer" 
+                              checked={notificationSettings.whatsapp}
+                              onChange={(e) => setNotificationSettings(prev => ({ ...prev, whatsapp: e.target.checked }))}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Appointment Notifications */}
+                      <div className="p-6 hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center flex-shrink-0">
+                              <svg className="w-6 h-6 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <h3 className="text-base font-semibold text-gray-900">Appointment Alerts</h3>
+                              <p className="text-sm text-gray-500 mt-0.5">Notifications for new bookings and cancellations</p>
+                            </div>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              className="sr-only peer" 
+                              checked={notificationSettings.appointments}
+                              onChange={(e) => setNotificationSettings(prev => ({ ...prev, appointments: e.target.checked }))}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Lead Notifications */}
+                      <div className="p-6 hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center flex-shrink-0">
+                              <svg className="w-6 h-6 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <h3 className="text-base font-semibold text-gray-900">Lead Notifications</h3>
+                              <p className="text-sm text-gray-500 mt-0.5">Alerts when new leads submit inquiries</p>
+                            </div>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              className="sr-only peer" 
+                              checked={notificationSettings.leads}
+                              onChange={(e) => setNotificationSettings(prev => ({ ...prev, leads: e.target.checked }))}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Marketing Notifications */}
+                      <div className="p-6 hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center flex-shrink-0">
+                              <svg className="w-6 h-6 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <h3 className="text-base font-semibold text-gray-900">Invoice Reminders</h3>
+                              <p className="text-sm text-gray-500 mt-0.5">Payment reminders and invoice notifications</p>
+                            </div>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              className="sr-only peer" 
+                              checked={notificationSettings.invoiceReminders}
+                              onChange={(e) => setNotificationSettings(prev => ({ ...prev, invoiceReminders: e.target.checked }))}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* SMS Notifications */}
+                      <div className="p-6 hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center flex-shrink-0">
+                              <svg className="w-6 h-6 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <h3 className="text-base font-semibold text-gray-900">Marketing Updates</h3>
+                              <p className="text-sm text-gray-500 mt-0.5">Tips, news, and product updates from Zeva</p>
+                            </div>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              className="sr-only peer" 
+                              checked={notificationSettings.marketingUpdates}
+                              onChange={(e) => setNotificationSettings(prev => ({ ...prev, marketingUpdates: e.target.checked }))}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                          </label>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Branding */}
+              {activeTab === 'Branding' && (
+                <div className="space-y-6">
+                  {/* Brand Colors */}
+                  <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                          <Palette className="w-5 h-5 text-teal-600" />
+                          Brand Colors
+                        </h3>
+                        <p className="text-sm text-gray-500">Customize your clinic's brand identity</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Primary */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Primary Color</label>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="color"
+                            value={brandPrimary}
+                            onChange={(e) => setBrandPrimary(e.target.value)}
+                            className="w-12 h-10 rounded-lg border border-gray-300 p-1 cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={brandPrimary}
+                            onChange={(e) => setBrandPrimary(e.target.value)}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">Used for buttons, links, and primary elements</p>
+                      </div>
+                      {/* Secondary */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Secondary Color</label>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="color"
+                            value={brandSecondary}
+                            onChange={(e) => setBrandSecondary(e.target.value)}
+                            className="w-12 h-10 rounded-lg border border-gray-300 p-1 cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={brandSecondary}
+                            onChange={(e) => setBrandSecondary(e.target.value)}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">Used for accents and highlights</p>
+                      </div>
+                    </div>
+                    {/* Preview */}
+                    <div className="mt-6">
+                      <h4 className="text-sm font-semibold text-gray-900 mb-3">Color Preview</h4>
+                      <div className="bg-white rounded-lg border border-gray-200 p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <div
+                              className="h-10 rounded-lg"
+                              style={{ backgroundColor: brandPrimary }}
+                            />
+                            <p className="text-xs text-center text-gray-600 mt-2">Primary</p>
+                          </div>
+                          <div>
+                            <div
+                              className="h-10 rounded-lg"
+                              style={{ backgroundColor: brandSecondary }}
+                            />
+                            <p className="text-xs text-center text-gray-600 mt-2">Secondary</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Invoice Branding */}
+                  <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">Invoice Branding</h3>
+                        <p className="text-sm text-gray-500">Logo that appears on invoices and receipts</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      {/* Upload area */}
+                      <div className="lg:col-span-3">
+                        <label className="block">
+                          <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-teal-400 hover:bg-teal-50/30 transition-all cursor-pointer">
+                            <Upload className="w-8 h-8 text-gray-400 mx-auto mb-3" />
+                            <p className="text-sm text-gray-600">Click to upload invoice logo</p>
+                            <p className="text-xs text-gray-400 mt-1">PNG, JPG • Recommended size: 400x100px</p>
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0] || null;
+                              if (f) {
+                                const url = URL.createObjectURL(f);
+                                setInvoiceLogoPreview(url);
+                                toast.success("Invoice logo selected");
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+
+                      {/* Invoice Preview */}
+                      <div className="lg:col-span-3">
+                        <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                          <h4 className="text-sm font-semibold text-gray-900 mb-3">Invoice Preview</h4>
+                          <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-4">
+                              <div className="w-24 h-10 bg-gray-100 rounded flex items-center justify-center overflow-hidden">
+                                {invoiceLogoPreview ? (
+                                  <img src={invoiceLogoPreview} alt="logo" className="max-h-10 object-contain" />
+                                ) : (
+                                  <span className="text-xs text-gray-500">Logo</span>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs text-gray-500">INVOICE</p>
+                                <p className="text-xs text-gray-400">#INV-2026-001</p>
+                              </div>
+                            </div>
+                            <div className="text-sm">
+                              <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                                <span className="text-gray-600">Consultation Fee</span>
+                                <span className="font-semibold text-gray-900">AED 500.00</span>
+                              </div>
+                              <div className="flex items-center justify-between py-2">
+                                <span className="font-semibold text-gray-900">Total</span>
+                                <span className="font-semibold text-gray-900">AED 500.00</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Integrations */}
+              {activeTab === 'Integrations' && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-1">Integrations</h3>
+                    <p className="text-sm text-gray-500">Connect third‑party services to enhance functionality</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all p-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center">
+                            <MessageSquare className="w-5 h-5 text-teal-600" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">WhatsApp Business API</p>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-green-50 text-green-700 rounded-full border border-green-200 mt-1">
+                              <Check className="w-3.5 h-3.5" />
+                              Connected
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-500 mb-4">Send automated appointment reminders and notifications</p>
+                      <p className="text-xs text-gray-400 mb-4">Last synced: 2 hours ago</p>
+                      <div className="flex gap-2">
+                        <button
+                          className="flex-1 h-10 rounded-full bg-gray-50 border border-gray-200 text-gray-800 text-sm font-semibold hover:bg-gray-100"
+                          onClick={() => toast.success('WhatsApp settings opened')}
+                        >
+                          Configure
+                        </button>
+                        <button
+                          className="h-10 px-4 rounded-full bg-rose-100 text-rose-700 text-sm font-semibold hover:bg-rose-200"
+                          onClick={() => {
+                            setIntegrations(prev => ({ ...prev, whatsapp: { connected: false, lastSynced: "" } }));
+                            toast.success('WhatsApp disconnected');
+                          }}
+                        >
+                          Disconnect
+                        </button>
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all p-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center">
+                            <CreditCard className="w-5 h-5 text-teal-600" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">Payment Gateway</p>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-green-50 text-green-700 rounded-full border border-green-200 mt-1">
+                              <Check className="w-3.5 h-3.5" />
+                              Connected
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-500 mb-4">Accept online payments for appointments and services</p>
+                      <p className="text-xs text-gray-400 mb-4">Last synced: Just now</p>
+                      <div className="flex gap-2">
+                        <button
+                          className="flex-1 h-10 rounded-full bg-gray-50 border border-gray-200 text-gray-800 text-sm font-semibold hover:bg-gray-100"
+                          onClick={() => toast.success('Payment settings opened')}
+                        >
+                          Configure
+                        </button>
+                        <button
+                          className="h-10 px-4 rounded-full bg-rose-100 text-rose-700 text-sm font-semibold hover:bg-rose-200"
+                          onClick={() => {
+                            setIntegrations(prev => ({ ...prev, payment: { connected: false, lastSynced: "" } }));
+                            toast.success('Payment gateway disconnected');
+                          }}
+                        >
+                          Disconnect
+                        </button>
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all p-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center">
+                            <CalendarIcon className="w-5 h-5 text-teal-600" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">Google Calendar</p>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded-full border border-gray-200 mt-1">
+                              <X className="w-3.5 h-3.5" />
+                              Not Connected
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-500 mb-6">Sync appointments with Google Calendar</p>
+                      <button
+                        className="w-full h-10 rounded-full bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700"
+                        onClick={() => {
+                          setIntegrations(prev => ({ ...prev, googleCalendar: { connected: true, lastSynced: 'Just now' } }));
+                          toast.success('Google Calendar connected');
+                        }}
+                      >
+                        Connect
+                      </button>
+                    </div>
+                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all p-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center">
+                            <MessageSquare className="w-5 h-5 text-teal-600" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">SMS Provider</p>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded-full border border-gray-200 mt-1">
+                              <X className="w-3.5 h-3.5" />
+                              Not Connected
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-500 mb-6">Send SMS notifications to patients</p>
+                      <button
+                        className="w-full h-10 rounded-full bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700"
+                        onClick={() => {
+                          setIntegrations(prev => ({ ...prev, sms: { connected: true, lastSynced: 'Just now' } }));
+                          toast.success('SMS provider connected');
+                        }}
+                      >
+                        Connect
+                      </button>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
+                    <div className="w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center mx-auto mb-3">
+                      <Plug className="w-6 h-6 text-teal-600" />
+                    </div>
+                    <p className="text-lg font-semibold text-gray-900">Need a Custom Integration?</p>
+                    <p className="text-sm text-gray-500 mt-1">Contact our support team to discuss custom integration options</p>
+                    <button
+                      className="mt-4 h-10 px-5 rounded-full bg-white text-gray-800 border border-gray-200 hover:bg-gray-100 text-sm font-semibold"
+                      onClick={() => toast.success('Support contacted')}
+                    >
+                      Contact Support
+                    </button>
+                  </div>
+                </div>
+              )}
+
             </div>
-          </div>
-        ) : (
-          <div className="w-full">
+          ) : (
+            <div className="w-full">
             {/* Show permission denied message if no read permission (only for agent/doctorStaff, not clinic/doctor) */}
             {(() => {
               const userRole = getUserRole();
@@ -2575,6 +3708,115 @@ function ClinicManagementDashboard() {
                 </div>
               );
             })()}
+          </div>
+        )}
+        {docPreview.open && docPreview.isImage && (
+          <div className="fixed inset-0 z-50 bg-black/20 flex items-center justify-center p-4">
+            <div className="relative bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setDocPreview({ open: false, url: "", name: "", isImage: false })}
+                className="absolute top-3 right-3 p-2 rounded-full bg-white/90 border border-gray-200 hover:bg-gray-50"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5 text-gray-700" />
+              </button>
+              <div className="p-4 border-b border-gray-100">
+                <h4 className="text-sm font-semibold text-gray-900">{docPreview.name}</h4>
+              </div>
+              <div className="w-full max-h-[80vh] bg-white flex items-center justify-center">
+                <img src={docPreview.url} alt={docPreview.name} className="w-full h-[80vh] object-cover" />
+              </div>
+            </div>
+          </div>
+        )}
+        {branchModal.open && (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+            <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {branchModal.mode === 'add' ? 'Add Branch' : 'Edit Branch'}
+                </h3>
+                <button
+                  onClick={() => setBranchModal(prev => ({ ...prev, open: false }))}
+                  className="p-2 rounded-lg hover:bg-gray-100"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="px-5 py-4 space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Branch Name</label>
+                  <input
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    value={branchModal.name}
+                    onChange={e => setBranchModal(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g. Sector 18 Clinic"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                  <input
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    value={branchModal.address}
+                    onChange={e => setBranchModal(prev => ({ ...prev, address: e.target.value }))}
+                    placeholder="Complete address"
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                    <input
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      value={branchModal.phone}
+                      onChange={e => setBranchModal(prev => ({ ...prev, phone: e.target.value }))}
+                      placeholder="+91 ..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      value={branchModal.email}
+                      onChange={e => setBranchModal(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="branch@example.com"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-end gap-2">
+                <button
+                  onClick={() => setBranchModal(prev => ({ ...prev, open: false }))}
+                  className="px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (!branchModal.name.trim()) {
+                      toast.error("Branch name is required");
+                      return;
+                    }
+                    if (branchModal.mode === 'edit') {
+                      if (branchModal.targetId === 'primary') {
+                        setEditForm(prev => ({ ...prev, name: branchModal.name, address: branchModal.address }));
+                        setContactForm(prev => ({ ...prev, phone: branchModal.phone, email: branchModal.email }));
+                      } else if (branchModal.targetId) {
+                        setBranches(prev => prev.map(b => b.id === branchModal.targetId ? { ...b, name: branchModal.name, address: branchModal.address, phone: branchModal.phone, email: branchModal.email } : b));
+                      }
+                    } else {
+                      const id = String(Date.now());
+                      setBranches(prev => [...prev, { id, name: branchModal.name, address: branchModal.address, phone: branchModal.phone, email: branchModal.email }]);
+                    }
+                    setBranchModal(prev => ({ ...prev, open: false }));
+                    toast.success(branchModal.mode === 'add' ? "Branch added" : "Branch updated");
+                  }}
+                  className="px-4 py-2 rounded-lg bg-teal-600 text-white hover:bg-teal-700 text-sm font-semibold"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

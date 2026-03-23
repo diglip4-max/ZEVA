@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import ExportButtons from "./ExportButtons";
 
-type HeadersRecord = { [key: string]: string | undefined };
+type HeadersRecord = Record<string, string>;
 
 function currency(n: number) {
   try {
@@ -136,7 +136,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
               <YAxis />
-              <Tooltip formatter={(v: number) => currency(v)} />
+              <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
               <Bar dataKey="revenue" fill="#2D9AA5" />
             </BarChart>
           </ResponsiveContainer>

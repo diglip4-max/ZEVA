@@ -33,6 +33,12 @@ const ClinicSchema = new mongoose.Schema(
       type: { type: String, enum: ["Point"], default: "Point" },
       coordinates: { type: [Number], required: true },
     },
+    tagline: { type: String, default: "" },
+    description: { type: String, default: "" },
+    phone: { type: String, default: "" },
+    whatsapp: { type: String, default: "" },
+    email: { type: String, default: "" },
+    website: { type: String, default: "" },
     isApproved: { type: Boolean, default: false },
     declined: { type: Boolean, default: false },
     slug: { 

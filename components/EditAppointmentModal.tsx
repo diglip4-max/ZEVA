@@ -146,18 +146,15 @@ export default function EditAppointmentModal({
       setEmergency(appointment.emergency || "no");
       setNotes(appointment.notes || "");
       setTreatment(appointment.treatment || "");
-      
-      // Set selected service
-      let initialServiceId = "";
-      if (appointment.serviceIds && Array.isArray(appointment.serviceIds) && appointment.serviceIds.length > 0) {
-        initialServiceId = appointment.serviceIds[0];
-      } else if (appointment.serviceId) {
-        initialServiceId = typeof appointment.serviceId === "string" 
-          ? appointment.serviceId 
-          : appointment.serviceId._id;
-      }
-      setSelectedServiceId(initialServiceId);
-
+      const selected =
+        appointment.serviceId
+          ? (typeof appointment.serviceId === "string"
+              ? appointment.serviceId
+              : appointment.serviceId._id)
+          : (Array.isArray(appointment.serviceIds) && appointment.serviceIds.length > 0
+              ? appointment.serviceIds[0]
+              : "");
+      setSelectedServiceId(selected || "");
       setError("");
       setFieldErrors({});
     }
@@ -540,24 +537,7 @@ export default function EditAppointmentModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-2">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">Treatments</label>
-              <select
-                value={selectedServiceId}
-                onChange={(e) => setSelectedServiceId(e.target.value)}
-                className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs bg-white text-gray-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                disabled={servicesLoading}
-              >
-                <option value="">Select a treatment (optional)</option>
-                {services.map((svc) => (
-                  <option key={svc._id} value={svc._id}>
-                    {svc.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+         
 
           {/* Action Buttons */}
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-200">

@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import ExportButtons from "./ExportButtons";
 
-type HeadersRecord = { [key: string]: string | undefined };
+type HeadersRecord = Record<string, string>;
 
 function currency(n: number) {
   try {
@@ -198,7 +198,7 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
                 <YAxis />
-                <Tooltip formatter={(v: number) => currency(v)} />
+                <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
                 <Bar dataKey="revenue" fill="#10B981" />
               </BarChart>
             </ResponsiveContainer>
@@ -215,7 +215,7 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
                 <YAxis />
-                <Tooltip formatter={(v: number) => currency(v)} />
+                <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
                 <Bar dataKey="revenue" fill="#0EA5E9" />
               </BarChart>
             </ResponsiveContainer>
@@ -310,7 +310,7 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
               <YAxis />
-              <Tooltip formatter={(v: number) => currency(v)} />
+              <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
               <Bar dataKey="revenue" fill="#8B5CF6" />
             </BarChart>
           </ResponsiveContainer>

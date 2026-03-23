@@ -148,6 +148,6 @@ ReportPage.getLayout = function PageLayout(page: React.ReactNode) {
 };
 
 const Protected = withClinicAuth(ReportPage as any);
-Protected.getLayout = ReportPage.getLayout;
+(Protected as any).getLayout = ReportPage.getLayout;
 
 export default Protected;

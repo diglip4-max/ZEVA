@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import ExportButtons from "./ExportButtons";
 
-type HeadersRecord = { [key: string]: string | undefined };
+type HeadersRecord = Record<string, string>;
 
 interface Props {
   startDate: string;
@@ -161,7 +161,7 @@ export default function LeadReport({ startDate, endDate, headers }: Props) {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
               <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-              <Tooltip formatter={(v: number, k) => (k === "ratio" ? `${v}%` : v)} />
+              <Tooltip formatter={(v: any, k: any) => (k === "ratio" ? `${Number(v || 0)}%` : v)} />
               <Bar dataKey="ratio" fill="#2D9AA5" />
             </BarChart>
           </ResponsiveContainer>
@@ -178,7 +178,7 @@ export default function LeadReport({ startDate, endDate, headers }: Props) {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
               <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-              <Tooltip formatter={(v: number, k) => (k === "ratio" ? `${v}%` : v)} />
+              <Tooltip formatter={(v: any, k: any) => (k === "ratio" ? `${Number(v || 0)}%` : v)} />
               <Bar dataKey="ratio" fill="#10B981" />
             </BarChart>
           </ResponsiveContainer>
@@ -212,7 +212,7 @@ export default function LeadReport({ startDate, endDate, headers }: Props) {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
               <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-              <Tooltip formatter={(v: number, k) => (k === "ratio" ? `${v}%` : v)} />
+              <Tooltip formatter={(v: any, k: any) => (k === "ratio" ? `${Number(v || 0)}%` : v)} />
               <Bar dataKey="ratio" fill="#FB923C" />
             </BarChart>
           </ResponsiveContainer>

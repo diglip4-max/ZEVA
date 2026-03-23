@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
@@ -639,7 +639,7 @@ function PettyCashPage() {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {records.map((record, idx) => (
+              {records.map((record, _) => (
                 <div key={record._id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm">
                   {/* Patient + cash */}
                   <div className="flex items-start justify-between mb-2">

@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Trash2,
   X,
+  UserX,
   Eye,
   Upload,
 } from 'lucide-react';
@@ -701,6 +702,27 @@ const ManageAgentsPage = () => {
       setTotalRevenue(null);
     } finally {
       setViewLoading(false);
+    }
+  }
+
+  async function handleDeactivate(userId) {
+    const authHeaders = getAuthHeaders();
+    if (!authHeaders) return;
+    try {
+      if (!userId) return;
+      const confirmed = window.confirm("Are you sure you want to deactivate and delete this profile?");
+      if (!confirmed) return;
+      await axios.delete("/api/lead-ms/delete-agent", {
+        headers: authHeaders,
+        data: { agentId: userId }
+      });
+      toast.success("Profile deleted");
+      setViewAgent(null);
+      setViewProfile(null);
+      setActivity(null);
+      await loadAll(false);
+    } catch (e) {
+      toast.error(e?.response?.data?.message || "Failed to deactivate");
     }
   }
 
@@ -2184,8 +2206,13 @@ const ManageAgentsPage = () => {
                           <Upload className="w-4 h-4" />
                           Upload Document
                         </button>
-                        <button type="button" className="px-4 py-2.5 bg-white hover:bg-red-50 text-red-700 rounded-full text-sm font-medium border border-red-300 transition-colors flex items-center gap-2">
-                          <X className="w-4 h-4" />
+                        <button
+                          type="button"
+                          onClick={() => handleDeactivate(viewAgent?._id)}
+                          className="px-4 py-2.5 bg-white hover:bg-red-50 text-red-600 border border-red-200 rounded-full text-sm font-medium transition-colors flex items-center gap-2"
+                          title="Deactivate and delete"
+                        >
+                          <UserX className="w-4 h-4" />
                           Deactivate
                         </button>
                       </div>
@@ -2193,42 +2220,71 @@ const ManageAgentsPage = () => {
                   </div>
                   <div className={`grid grid-cols-1 sm:grid-cols-2 ${viewAgent?.role === 'agent' ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-4`}>
                     {viewAgent?.role !== 'agent' && (
-                      <div className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-xl p-5">
-                        <div className="flex items-center gap-2 text-xs opacity-90">
-                          <CalendarCheck className="w-4 h-4" />
-                          <span>Total Appointments</span>
+                      <div className="bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-2xl p-5 shadow-sm border border-white/10">
+                        <div className="flex items-center gap-4">
+                          <div className="bg-white/20 rounded-xl p-3">
+                            <CalendarCheck className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="text-3xl font-bold leading-tight">{totalAppointments !== null ? totalAppointments : '—'}</div>
+                            <div className="text-xs opacity-90 mt-1">Total Appointments</div>
+                          </div>
                         </div>
-                        <div className="mt-2 text-3xl font-bold">{totalAppointments !== null ? totalAppointments : '—'}</div>
                       </div>
                     )}
-                    <div className="bg-white border border-gray-200 rounded-xl p-5">
-                      <div className="flex items-center gap-2 text-xs text-teal-700">
-                        <DollarSign className="w-4 h-4" />
-                        <span>Revenue Generated</span>
-                      </div>
-                      <div className="mt-2 text-3xl font-bold text-teal-900">
-                        {totalRevenue !== null ? `AED ${Number(totalRevenue || 0).toLocaleString()}` : '—'}
-                      </div>
-                    </div>
-                    <div className="bg-white border border-gray-200 rounded-xl p-5">
-                      <div className="flex items-center gap-2 text-xs text-teal-700">
-                        <Percent className="w-4 h-4" />
-                        <span>Commission Earned</span>
-                      </div>
-                      <div className="mt-2 text-3xl font-bold text-teal-900">
-                        {totalCommission != null ? `AED ${Number(totalCommission || 0).toLocaleString()}` : '—'}
-                      </div>
-                      <div className="text-xs text-teal-700 mt-1">
-                        {commissionPercent != null ? `Profile: ${Number(commissionPercent)}%` : 'Profile: —'}
+                    <div className="bg-gradient-to-br from-emerald-500 to-green-600 text-white rounded-2xl p-5 shadow-sm border border-white/10">
+                      <div className="flex items-center gap-4">
+                        <div className="bg-white/20 rounded-xl p-3">
+                          <DollarSign className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="text-3xl font-bold leading-tight">
+                            {totalRevenue !== null ? `$${Number(totalRevenue || 0).toLocaleString()}` : '—'}
+                          </div>
+                          <div className="text-xs opacity-90 mt-1">Revenue Generated</div>
+                        </div>
                       </div>
                     </div>
-                    <div className="bg-blue-600 text-white rounded-xl p-5">
-                      <div className="flex items-center gap-2 text-xs opacity-90">
-                        <FileStack className="w-4 h-4" />
-                        <span>Documents Uploaded</span>
+                    <div className="bg-gradient-to-br from-sky-300 to-blue-400 text-white rounded-2xl p-5 shadow-sm border border-white/10">
+                      <div className="flex items-center gap-4">
+                        <div className="bg-white/30 rounded-xl p-3">
+                          <Percent className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="text-3xl font-bold leading-tight">
+                            {totalCommission != null ? `$${Number(totalCommission || 0).toLocaleString()}` : '—'}
+                          </div>
+                          <div className="text-xs opacity-90 mt-1">Commission Earned</div>
+                          <div className="text-[11px] opacity-90 mt-1">
+                            {commissionPercent != null ? `Profile: ${Number(commissionPercent)}%` : 'Profile: —'}
+                          </div>
+                        </div>
                       </div>
-                      <div className="mt-2 text-3xl font-bold">
-                        {((viewProfile?.idDocumentFrontUrl?1:0)+(viewProfile?.idDocumentBackUrl?1:0)+(viewProfile?.passportDocumentFrontUrl?1:0)+(viewProfile?.passportDocumentBackUrl?1:0)+(viewProfile?.employeeVisaFrontUrl?1:0)+(viewProfile?.employeeVisaBackUrl?1:0)+(viewProfile?.contractFrontUrl?1:0)+(viewProfile?.contractBackUrl?1:0)+(Array.isArray(viewProfile?.otherDocuments)?viewProfile.otherDocuments.filter(d=>d?.url).length:0))}
+                    </div>
+                    <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl p-5 shadow-sm border border-white/10">
+                      <div className="flex items-center gap-4">
+                        <div className="bg-white/20 rounded-xl p-3">
+                          <FileStack className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="text-3xl font-bold leading-tight">
+                            {
+                              ((viewProfile?.idDocumentFrontUrl ? 1 : 0) +
+                              (viewProfile?.idDocumentBackUrl ? 1 : 0) +
+                              (viewProfile?.passportDocumentFrontUrl ? 1 : 0) +
+                              (viewProfile?.passportDocumentBackUrl ? 1 : 0) +
+                              (viewProfile?.employeeVisaFrontUrl ? 1 : 0) +
+                              (viewProfile?.employeeVisaBackUrl ? 1 : 0) +
+                              // Count Labour Contract tile (Visa & Legal) and Contract Front separately to match visible cards
+                              (viewProfile?.contractFrontUrl ? 2 : 0) +
+                              (viewProfile?.contractBackUrl ? 1 : 0) +
+                              (Array.isArray(viewProfile?.otherDocuments)
+                                ? viewProfile.otherDocuments.filter(d => d && d.url && String(d.url).trim().length > 0).length
+                                : 0))
+                            }
+                          </div>
+                          <div className="text-xs opacity-90 mt-1">Documents Uploaded</div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2237,10 +2293,10 @@ const ManageAgentsPage = () => {
                       <div className="text-base font-semibold text-teal-900 mb-4">Identity & Passport Documents</div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="rounded-xl border border-gray-200 overflow-hidden">
-                          <div className="h-40 bg-gray-50 flex items-center justify-center p-2">
+                          <div className="h-56 sm:h-60 lg:h-64 bg-gray-50 overflow-hidden">
                             {viewProfile?.idDocumentFrontUrl ? (
                               /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.idDocumentFrontUrl) ? (
-                                <img src={viewProfile.idDocumentFrontUrl} alt="Identity Front" className="h-full w-full object-contain" />
+                                <img src={viewProfile.idDocumentFrontUrl} alt="Identity Front" className="h-full w-full object-cover" />
                               ) : (
                                 <a href={viewProfile.idDocumentFrontUrl} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
                               )
@@ -2251,10 +2307,10 @@ const ManageAgentsPage = () => {
                           <div className="px-4 py-2 text-sm text-teal-900">Identity Card Front</div>
                         </div>
                         <div className="rounded-xl border border-gray-200 overflow-hidden">
-                          <div className="h-40 bg-gray-50 flex items-center justify-center p-2">
+                          <div className="h-56 sm:h-60 lg:h-64 bg-gray-50 overflow-hidden">
                             {viewProfile?.idDocumentBackUrl ? (
                               /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.idDocumentBackUrl) ? (
-                                <img src={viewProfile.idDocumentBackUrl} alt="Identity Back" className="h-full w-full object-contain" />
+                                <img src={viewProfile.idDocumentBackUrl} alt="Identity Back" className="h-full w-full object-cover" />
                               ) : (
                                 <a href={viewProfile.idDocumentBackUrl} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
                               )
@@ -2265,10 +2321,10 @@ const ManageAgentsPage = () => {
                           <div className="px-4 py-2 text-sm text-teal-900">Identity Card Back</div>
                         </div>
                         <div className="rounded-xl border border-gray-200 overflow-hidden">
-                          <div className="h-40 bg-gray-50 flex items-center justify-center p-2">
+                          <div className="h-56 sm:h-60 lg:h-64 bg-gray-50 overflow-hidden">
                             {viewProfile?.passportDocumentFrontUrl ? (
                               /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.passportDocumentFrontUrl) ? (
-                                <img src={viewProfile.passportDocumentFrontUrl} alt="Passport Front" className="h-full w-full object-contain" />
+                                <img src={viewProfile.passportDocumentFrontUrl} alt="Passport Front" className="h-full w-full object-cover" />
                               ) : (
                                 <a href={viewProfile.passportDocumentFrontUrl} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
                               )
@@ -2279,10 +2335,10 @@ const ManageAgentsPage = () => {
                           <div className="px-4 py-2 text-sm text-teal-900">Passport Front</div>
                         </div>
                         <div className="rounded-xl border border-gray-200 overflow-hidden">
-                          <div className="h-40 bg-gray-50 flex items-center justify-center p-2">
+                          <div className="h-56 sm:h-60 lg:h-64 bg-gray-50 overflow-hidden">
                             {viewProfile?.passportDocumentBackUrl ? (
                               /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.passportDocumentBackUrl) ? (
-                                <img src={viewProfile.passportDocumentBackUrl} alt="Passport Back" className="h-full w-full object-contain" />
+                                <img src={viewProfile.passportDocumentBackUrl} alt="Passport Back" className="h-full w-full object-cover" />
                               ) : (
                                 <a href={viewProfile.passportDocumentBackUrl} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
                               )
@@ -2300,8 +2356,8 @@ const ManageAgentsPage = () => {
                         <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-teal-900 flex items-center justify-between">
                           <span>Current Status</span>
                           <span className="inline-flex items-center gap-2">
-                            <span className={`h-2 w-2 rounded-full ${activeStatus ? 'bg-emerald-500' : 'bg-gray-400'}`} />
-                            {activeStatus ? 'Online' : 'Offline'}
+                            <span className={`h-2 w-2 rounded-full ${activity?.currentStatus === 'ONLINE' ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                            {activity?.currentStatus === 'ONLINE' ? 'Online' : 'Offline'}
                           </span>
                         </div>
                         <div className={`mt-3 rounded-lg ${activeStatus ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-gray-50 text-teal-900'} px-3 py-3 text-sm flex items-center justify-between`}>
@@ -2378,10 +2434,10 @@ const ManageAgentsPage = () => {
                     <div className="text-base font-semibold text-teal-900 mb-4">Visa & Legal Files</div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div className="rounded-xl border border-gray-200 overflow-hidden">
-                        <div className="h-40 bg-gray-50 flex items-center justify-center p-2">
+                        <div className="h-56 sm:h-60 lg:h-64 bg-gray-50 overflow-hidden">
                           {viewProfile?.employeeVisaFrontUrl ? (
                             /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.employeeVisaFrontUrl) ? (
-                              <img src={viewProfile.employeeVisaFrontUrl} alt="Employee Visa Front" className="h-full w-full object-contain" />
+                              <img src={viewProfile.employeeVisaFrontUrl} alt="Employee Visa Front" className="h-full w-full object-cover" />
                             ) : (
                               <a href={viewProfile.employeeVisaFrontUrl} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
                             )
@@ -2392,10 +2448,10 @@ const ManageAgentsPage = () => {
                         <div className="px-4 py-2 text-sm text-teal-900">Employee Visa Front</div>
                       </div>
                       <div className="rounded-xl border border-gray-200 overflow-hidden">
-                        <div className="h-40 bg-gray-50 flex items-center justify-center p-2">
+                        <div className="h-56 sm:h-60 lg:h-64 bg-gray-50 overflow-hidden">
                           {viewProfile?.employeeVisaBackUrl ? (
                             /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.employeeVisaBackUrl) ? (
-                              <img src={viewProfile.employeeVisaBackUrl} alt="Employee Visa Back" className="h-full w-full object-contain" />
+                              <img src={viewProfile.employeeVisaBackUrl} alt="Employee Visa Back" className="h-full w-full object-cover" />
                             ) : (
                               <a href={viewProfile.employeeVisaBackUrl} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
                             )
@@ -2406,10 +2462,10 @@ const ManageAgentsPage = () => {
                         <div className="px-4 py-2 text-sm text-teal-900">Employee Visa Back</div>
                       </div>
                       <div className="rounded-xl border border-gray-200 overflow-hidden">
-                        <div className="h-40 bg-gray-50 flex items-center justify-center p-2">
+                        <div className="h-56 sm:h-60 lg:h-64 bg-gray-50 overflow-hidden">
                           {viewProfile?.contractFrontUrl ? (
                             isImageUrl(viewProfile.contractFrontUrl) ? (
-                              <img src={viewProfile.contractFrontUrl} alt="Labour Contract" className="h-full w-full object-contain" />
+                              <img src={viewProfile.contractFrontUrl} alt="Labour Contract" className="h-full w-full object-cover" />
                             ) : isPdfUrl(viewProfile.contractFrontUrl) ? (
                               <object data={viewProfile.contractFrontUrl} type="application/pdf" className="h-full w-full">
                                 <a href={viewProfile.contractFrontUrl} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
@@ -2529,10 +2585,10 @@ const ManageAgentsPage = () => {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="rounded-xl border border-gray-200 overflow-hidden">
-                        <div className="h-40 bg-gray-50 flex items-center justify-center p-2">
+                        <div className="h-56 sm:h-60 lg:h-64 bg-gray-50 overflow-hidden">
                           {viewProfile?.contractFrontUrl ? (
                             isImageUrl(viewProfile.contractFrontUrl) ? (
-                              <img src={viewProfile.contractFrontUrl} alt="Contract Front" className="h-full w-full object-contain" />
+                              <img src={viewProfile.contractFrontUrl} alt="Contract Front" className="h-full w-full object-cover" />
                             ) : isPdfUrl(viewProfile.contractFrontUrl) ? (
                               <object data={viewProfile.contractFrontUrl} type="application/pdf" className="h-full w-full">
                                 <a href={viewProfile.contractFrontUrl} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
@@ -2547,10 +2603,10 @@ const ManageAgentsPage = () => {
                         <div className="px-4 py-2 text-sm text-teal-900">Contract Front</div>
                       </div>
                       <div className="rounded-xl border border-gray-200 overflow-hidden">
-                        <div className="h-40 bg-gray-50 flex items-center justify-center p-2">
+                        <div className="h-56 sm:h-60 lg:h-64 bg-gray-50 overflow-hidden">
                           {viewProfile?.contractBackUrl ? (
                             isImageUrl(viewProfile.contractBackUrl) ? (
-                              <img src={viewProfile.contractBackUrl} alt="Contract Back" className="h-full w-full object-contain" />
+                              <img src={viewProfile.contractBackUrl} alt="Contract Back" className="h-full w-full object-cover" />
                             ) : isPdfUrl(viewProfile.contractBackUrl) ? (
                               <object data={viewProfile.contractBackUrl} type="application/pdf" className="h-full w-full">
                                 <a href={viewProfile.contractBackUrl} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>

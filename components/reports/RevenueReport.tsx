@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import ExportButtons from "./ExportButtons";
 
-type HeadersRecord = { [key: string]: string | undefined };
+type HeadersRecord = Record<string, string>;
 
 interface Props {
   startDate: string;
