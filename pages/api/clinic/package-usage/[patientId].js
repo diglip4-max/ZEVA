@@ -196,6 +196,8 @@ export default async function handler(req, res) {
             invoiceNumber: billing.invoiceNumber,
             sessions: treatment.sessions || 0,
             date: billing.createdAt,
+            amount: billing.amount || 0,
+            paid: billing.paid || 0,
             isFromSourcePatient: isFromSourcePatient,
             sourcePatientId: isFromSourcePatient ? billing.patientId : null,
           });
