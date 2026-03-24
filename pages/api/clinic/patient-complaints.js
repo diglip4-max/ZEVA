@@ -42,7 +42,14 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "POST") {
-    let { appointmentId, appointmentReportId, complaints, items } = req.body;
+    let {
+      appointmentId,
+      appointmentReportId,
+      complaints,
+      items,
+      beforeImage,
+      afterImage,
+    } = req.body;
 
     if (
       !appointmentId ||
@@ -142,6 +149,8 @@ export default async function handler(req, res) {
         appointmentReportId: appointmentReportId,
         complaints: complaints.trim(),
         items: items || [],
+        beforeImage: beforeImage || null,
+        afterImage: afterImage || null,
       });
 
       return res.status(200).json({
@@ -156,6 +165,8 @@ export default async function handler(req, res) {
           appointmentReportId: complaint.appointmentReportId,
           complaints: complaint.complaints,
           items: complaint.items || [],
+          beforeImage: complaint.beforeImage,
+          afterImage: complaint.afterImage,
           createdAt: complaint.createdAt,
           updatedAt: complaint.updatedAt,
         },
@@ -198,6 +209,8 @@ export default async function handler(req, res) {
           appointmentReportId: c.appointmentReportId,
           complaints: c.complaints,
           items: c.items || [],
+          beforeImage: c.beforeImage,
+          afterImage: c.afterImage,
           createdAt: c.createdAt,
           updatedAt: c.updatedAt,
         })),
@@ -211,7 +224,8 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "PATCH") {
-    const { complaintId, complaints, items } = req.body || {};
+    const { complaintId, complaints, items, beforeImage, afterImage } =
+      req.body || {};
     if (!complaintId) {
       return res
         .status(400)
@@ -240,6 +254,12 @@ export default async function handler(req, res) {
       if (Array.isArray(items)) {
         existing.items = items;
       }
+      if (typeof beforeImage === "string") {
+        existing.beforeImage = beforeImage;
+      }
+      if (typeof afterImage === "string") {
+        existing.afterImage = afterImage;
+      }
       await existing.save();
 
       return res.status(200).json({
@@ -254,6 +274,8 @@ export default async function handler(req, res) {
           appointmentReportId: existing.appointmentReportId,
           complaints: existing.complaints,
           items: existing.items || [],
+          beforeImage: existing.beforeImage,
+          afterImage: existing.afterImage,
           createdAt: existing.createdAt,
           updatedAt: existing.updatedAt,
         },

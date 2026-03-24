@@ -99,6 +99,8 @@ interface Appointment {
   notes: string;
   serviceId?: string | { _id: string };
   serviceName?: string | null;
+  serviceIds?: string[];
+  serviceNames?: string[];
   bookedFrom?: "doctor" | "room"; // Track which column the appointment was booked from
   doctorTreatments?: Array<{
     mainTreatment: string;
@@ -3408,14 +3410,13 @@ useEffect(() => {
                                                       <span className="text-[13px] font-[600] text-black mb-[2px] block">
                                                         {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
                                                       </span>
-                                                      {item.apt.serviceName && (
+                                                      {item.apt.serviceNames && item.apt.serviceNames.length > 0 ? (
+                                                        <span className="text-[12px] font-[400] text-black opacity-[0.8] block truncate">
+                                                          {item.apt.serviceNames.join(", ")}
+                                                        </span>
+                                                      ) : item.apt.serviceName && (
                                                         <span className="text-[12px] font-[400] text-black opacity-[0.8] block truncate">
                                                           {item.apt.serviceName}
-                                                        </span>
-                                                      )}
-                                                      {item.apt.doctorTreatments && item.apt.doctorTreatments.length > 0 && (
-                                                        <span className="text-[12px] font-[500] text-black block truncate">
-                                                          {item.apt.doctorTreatments[0].mainTreatment}
                                                         </span>
                                                       )}
                                                     </div>
@@ -3701,14 +3702,13 @@ useEffect(() => {
                                                       <span className="text-[13px] font-[600] text-black mb-[2px] block">
                                                         {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
                                                       </span>
-                                                      {item.apt.serviceName && (
+                                                      {item.apt.serviceNames && item.apt.serviceNames.length > 0 ? (
+                                                        <span className="text-[12px] font-[400] text-black opacity-[0.8] block truncate">
+                                                          {item.apt.serviceNames.join(", ")}
+                                                        </span>
+                                                      ) : item.apt.serviceName && (
                                                         <span className="text-[12px] font-[400] text-black opacity-[0.8] block truncate">
                                                           {item.apt.serviceName}
-                                                        </span>
-                                                      )}
-                                                      {item.apt.doctorTreatments && item.apt.doctorTreatments.length > 0 && (
-                                                        <span className="text-[12px] font-[500] text-black block truncate">
-                                                          {item.apt.doctorTreatments[0].mainTreatment}
                                                         </span>
                                                       )}
                                                     </div>
@@ -4123,46 +4123,19 @@ useEffect(() => {
                   <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Dr:</span>
                   <span className="text-[10px] text-gray-700 dark:text-gray-800 truncate">{hoveredAppointment.appointment.doctorName}</span>
                 </div>
-                {hoveredAppointment.appointment.serviceName && (
+                {hoveredAppointment.appointment.serviceNames && hoveredAppointment.appointment.serviceNames.length > 0 ? (
+                  <div className="flex items-start gap-1">
+                    <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Services:</span>
+                    <span className="text-[10px] text-gray-700 dark:text-gray-800 leading-tight">
+                      {hoveredAppointment.appointment.serviceNames.join(", ")}
+                    </span>
+                  </div>
+                ) : hoveredAppointment.appointment.serviceName && (
                   <div className="flex items-center gap-1">
                     <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Service:</span>
                     <span className="text-[10px] text-gray-700 dark:text-gray-800 truncate">{hoveredAppointment.appointment.serviceName}</span>
                   </div>
                 )}
-                {hoveredAppointment.appointment.doctorTreatments && hoveredAppointment.appointment.doctorTreatments.length > 0 && (
-                  <div className="flex items-start gap-1 pt-0.5">
-                    <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Treatments:</span>
-                    <div className="flex-1">
-                      {hoveredAppointment.appointment.doctorTreatments.map((treatment, index) => (
-                        <div key={index} className="mb-1">
-                          <span className="text-[10px] text-gray-700 dark:text-gray-800 font-medium block">
-                            {treatment.mainTreatment}
-                          </span>
-                          {treatment.subTreatments && treatment.subTreatments.length > 0 && (
-                            <div className="ml-2 mt-0.5">
-                              {treatment.subTreatments.map((sub, subIndex) => (
-                                <span
-                                  key={subIndex}
-                                  className="inline-block text-[9px] bg-gray-100 dark:bg-gray-200 text-gray-700 dark:text-gray-800 px-1.5 py-0.5 rounded mr-1 mb-1"
-                                >
-                                  {sub.name}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Doctor Only */}
-              <div className="space-y-0.5 pt-0.5 border-t border-gray-100 dark:border-gray-300">
-                <div className="flex items-center gap-1">
-                  <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Dr:</span>
-                  <span className="text-[10px] text-gray-700 dark:text-gray-800 truncate">{hoveredAppointment.appointment.doctorName}</span>
-                </div>
               </div>
 
               {/* Follow Type */}

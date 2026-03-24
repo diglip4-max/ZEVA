@@ -27,6 +27,8 @@ interface Appointment {
   roomName: string;
   serviceId?: string | null;
   serviceName?: string | null;
+  serviceIds?: string[];
+  serviceNames?: string[];
   status: string;
   followType: string;
   referral: string;
@@ -457,6 +459,47 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       }));
     }
   }, [appointment, isOpen]);
+
+  // Initialize selected treatments from appointment when both are available
+  useEffect(() => {
+    if (isOpen && appointment && treatments.length > 0 && selectedTreatments.length === 0) {
+      const initialTreatments: SelectedTreatment[] = [];
+      
+      // Handle multiple services (serviceNames / serviceIds)
+      if (appointment.serviceNames && appointment.serviceNames.length > 0) {
+        appointment.serviceNames.forEach((name, index) => {
+          const slug = appointment.serviceIds?.[index];
+          if (name && slug) {
+            // Find matching treatment in the loaded treatments list to get the correct price
+            const matchingTreatment = treatments.find(t => t.slug === slug || t.name === name);
+            initialTreatments.push({
+              treatmentName: name,
+              treatmentSlug: slug,
+              price: matchingTreatment?.price || 0,
+              quantity: 1,
+              totalPrice: matchingTreatment?.price || 0,
+            });
+          }
+        });
+      } 
+      // Fallback to single service (serviceName / serviceId)
+      else if (appointment.serviceName && appointment.serviceId) {
+        const slug = typeof appointment.serviceId === 'string' ? appointment.serviceId : appointment.serviceId._id;
+        const matchingTreatment = treatments.find(t => t.slug === slug || t.name === appointment.serviceName);
+        initialTreatments.push({
+          treatmentName: appointment.serviceName,
+          treatmentSlug: slug,
+          price: matchingTreatment?.price || 0,
+          quantity: 1,
+          totalPrice: matchingTreatment?.price || 0,
+        });
+      }
+
+      if (initialTreatments.length > 0) {
+        setSelectedTreatments(initialTreatments);
+      }
+    }
+  }, [isOpen, appointment, treatments]);
 
   // Fetch and override referredBy with patient's referral name when available
   useEffect(() => {
@@ -1433,7 +1476,19 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         {formData.emrNumber || appointment?.emrNumber || "-"}
                       </span>
                     </span>
-                    {appointment?.serviceName ? (
+                    {appointment?.serviceNames && appointment.serviceNames.length > 0 ? (
+                      <>
+                        <span className="mx-1 text-gray-400">|</span>
+                        <span>
+                          <span className="text-gray-600 dark:text-gray-600 font-medium">
+                            Treatments:
+                          </span>{" "}
+                          <span className="font-semibold text-gray-900 dark:text-gray-900">
+                            {appointment.serviceNames.join(", ")}
+                          </span>
+                        </span>
+                      </>
+                    ) : appointment?.serviceName ? (
                       <>
                         <span className="mx-1 text-gray-400">|</span>
                         <span>

@@ -64,62 +64,32 @@ export default async function handler(req, res) {
     const staffMap = new Map(staffList.map((s) => [String(s._id), { name: s.name || "Unknown", email: s.email || "" }]));
     console.log("staffListCount", staffList.length);
 
-    const baseAppointmentFilterCreatedBy = {
+    const baseAppointmentFilter = {
       ...(clinicId ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : {}),
-      createdBy: { $in: staffIds },
+      doctorId: { $in: staffIds },
       startDate: { $gte: startAt, $lte: endAt },
     };
 
-    // First try attribution by who booked (createdBy)
-    let bookingsAgg = await Appointment.aggregate([
-      { $match: baseAppointmentFilterCreatedBy },
+    const bookingsAgg = await Appointment.aggregate([
+      { $match: baseAppointmentFilter },
+      {
+        $addFields: {
+          isBooked: { $cond: [{ $eq: [{ $toLower: "$status" }, "booked"] }, 1, 0] },
+          isCancelled: { $cond: [{ $in: [{ $toLower: "$status" }, ["cancelled", "canceled"]] }, 1, 0] },
+          isCompleted: { $cond: [{ $eq: [{ $toLower: "$status" }, "completed"] }, 1, 0] },
+          isInvoiced: { $cond: [{ $in: [{ $toLower: "$status" }, ["invoice", "invoiced"]] }, 1, 0] },
+          isRescheduled: { $cond: [{ $eq: [{ $toLower: "$status" }, "rescheduled"] }, 1, 0] },
+        },
+      },
       {
         $group: {
-          _id: "$createdBy",
+          _id: "$doctorId",
           totalAppointments: { $sum: 1 },
-          bookedCount: {
-            $sum: {
-              $cond: [{ $eq: [{ $toLower: "$status" }, "booked"] }, 1, 0],
-            },
-          },
-          cancelledCount: {
-            $sum: {
-              $cond: [
-                {
-                  $or: [
-                    { $eq: [{ $toLower: "$status" }, "cancelled"] },
-                    { $eq: [{ $toLower: "$status" }, "canceled"] },
-                  ],
-                },
-                1,
-                0,
-              ],
-            },
-          },
-          completedCount: {
-            $sum: {
-              $cond: [{ $eq: [{ $toLower: "$status" }, "completed"] }, 1, 0],
-            },
-          },
-          invoicedCount: {
-            $sum: {
-              $cond: [
-                {
-                  $or: [
-                    { $eq: [{ $toLower: "$status" }, "invoice"] },
-                    { $eq: [{ $toLower: "$status" }, "invoiced"] },
-                  ],
-                },
-                1,
-                0,
-              ],
-            },
-          },
-          rescheduledCount: {
-            $sum: {
-              $cond: [{ $eq: [{ $toLower: "$status" }, "rescheduled"] }, 1, 0],
-            },
-          },
+          bookedCount: { $sum: "$isBooked" },
+          cancelledCount: { $sum: "$isCancelled" },
+          completedCount: { $sum: "$isCompleted" },
+          invoicedCount: { $sum: "$isInvoiced" },
+          rescheduledCount: { $sum: "$isRescheduled" },
           uniquePatients: { $addToSet: "$patientId" },
         },
       },
@@ -138,131 +108,39 @@ export default async function handler(req, res) {
       { $sort: { totalAppointments: -1 } },
     ]);
 
-    // Fallback: if nothing found, attribute by doctorId (some clinics store doctorStaff in doctorId)
-    let groupField = "createdBy";
-    if (!bookingsAgg.length) {
-      const baseAppointmentFilterDoctor = {
-        ...(clinicId ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : {}),
-        doctorId: { $in: staffIds },
-        startDate: { $gte: startAt, $lte: endAt },
-      };
-
-      bookingsAgg = await Appointment.aggregate([
-        { $match: baseAppointmentFilterDoctor },
-        {
-          $group: {
-            _id: "$doctorId",
-            totalAppointments: { $sum: 1 },
-            bookedCount: {
-              $sum: {
-                $cond: [{ $eq: [{ $toLower: "$status" }, "booked"] }, 1, 0],
-              },
-            },
-            cancelledCount: {
-              $sum: {
-                $cond: [
-                  {
-                    $or: [
-                      { $eq: [{ $toLower: "$status" }, "cancelled"] },
-                      { $eq: [{ $toLower: "$status" }, "canceled"] },
-                    ],
-                  },
-                  1,
-                  0,
-                ],
-              },
-            },
-            completedCount: {
-              $sum: {
-                $cond: [{ $eq: [{ $toLower: "$status" }, "completed"] }, 1, 0],
-              },
-            },
-            invoicedCount: {
-              $sum: {
-                $cond: [
-                  {
-                    $or: [
-                      { $eq: [{ $toLower: "$status" }, "invoice"] },
-                      { $eq: [{ $toLower: "$status" }, "invoiced"] },
-                    ],
-                  },
-                  1,
-                  0,
-                ],
-              },
-            },
-            rescheduledCount: {
-              $sum: {
-                $cond: [{ $eq: [{ $toLower: "$status" }, "rescheduled"] }, 1, 0],
-              },
-            },
-            uniquePatients: { $addToSet: "$patientId" },
-          },
-        },
-        {
-          $project: {
-            _id: 1,
-            totalAppointments: 1,
-            bookedCount: 1,
-            cancelledCount: 1,
-            completedCount: 1,
-            invoicedCount: 1,
-            rescheduledCount: 1,
-            totalPatients: { $size: "$uniquePatients" },
-          },
-        },
-        { $sort: { totalAppointments: -1 } },
-      ]);
-      groupField = "doctorId";
-    }
-
     const leaderboard = bookingsAgg.map((row) => ({
       staffId: String(row._id),
       staffName: staffMap.get(String(row._id))?.name || "Unknown",
       totalAppointments: row.totalAppointments || 0,
     }));
 
-    const top5Ids = bookingsAgg.slice(0, 5).map((r) => r._id);
-    let revenueByStaff = [];
-    if (top5Ids.length) {
-      const revenueAgg = await Billing.aggregate([
-        {
-          $match: {
-            ...(clinicId ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : {}),
-            invoicedDate: { $gte: startAt, $lte: endAt },
-          },
+    const revenueAgg = await Billing.aggregate([
+      {
+        $match: {
+          ...(clinicId ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : {}),
+          invoicedDate: { $gte: startAt, $lte: endAt },
+          doctorId: { $in: staffIds },
+          doctorId: { $ne: null },
         },
-        {
-          $lookup: {
-            from: "appointments",
-            localField: "appointmentId",
-            foreignField: "_id",
-            as: "appointment",
-          },
+      },
+      {
+        $group: {
+          _id: "$doctorId",
+          revenue: { $sum: { $ifNull: ["$paid", 0] } },
+          invoices: { $sum: 1 },
         },
-        { $unwind: "$appointment" },
-        {
-          $match: groupField === "createdBy"
-            ? { "appointment.createdBy": { $in: top5Ids } }
-            : { "appointment.doctorId": { $in: top5Ids } },
-        },
-        {
-          $group: {
-            _id: groupField === "createdBy" ? "$appointment.createdBy" : "$appointment.doctorId",
-            revenue: { $sum: { $ifNull: ["$paid", 0] } },
-            invoices: { $sum: 1 },
-          },
-        },
-        { $sort: { revenue: -1 } },
-      ]);
-      revenueByStaff = revenueAgg.map((r) => ({
-        staffId: String(r._id),
-        staffName: staffMap.get(String(r._id))?.name || "Unknown",
-        revenue: Math.round(Number(r.revenue || 0)),
-        invoices: r.invoices || 0,
-      }));
-    }
-    console.log("bookingsAggCount", bookingsAgg.length, "groupField", groupField);
+      },
+      { $sort: { revenue: -1 } },
+      { $limit: 5 },
+    ]);
+
+    const revenueByStaff = revenueAgg.map((r) => ({
+      staffId: String(r._id),
+      staffName: staffMap.get(String(r._id))?.name || "Unknown",
+      revenue: Math.round(Number(r.revenue || 0)),
+      invoices: r.invoices || 0,
+    }));
+    console.log("bookingsAggCount", bookingsAgg.length);
     console.log("revenueByStaffCount", revenueByStaff.length);
 
     const detailsTop5 = bookingsAgg.slice(0, 5).map((row) => ({
@@ -434,7 +312,8 @@ export default async function handler(req, res) {
         $match: {
           ...(clinicId ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : {}),
           invoicedDate: { $gte: startAt, $lte: endAt },
-          service: "Package"
+          service: "Package",
+          doctorId: { $ne: null },
         }
       },
       {
@@ -463,7 +342,8 @@ export default async function handler(req, res) {
           $or: [
             { membershipDiscountApplied: { $gt: 0 } },
             { isFreeConsultation: true }
-          ]
+          ],
+          doctorId: { $ne: null },
         }
       },
       {

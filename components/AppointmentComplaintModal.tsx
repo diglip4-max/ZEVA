@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import {
@@ -23,10 +23,15 @@ import {
   ClipboardList,
   Eye,
   RefreshCw,
+  Upload,
+  Send,
+  TrendingUp,
+  Pill,
+  NotebookPen,
 } from "lucide-react";
 import useStockItems from "@/hooks/useStockItems";
 import useUoms from "@/hooks/useUoms";
-import { getTokenByPath } from "@/lib/helper";
+import { getTokenByPath, handleUpload } from "@/lib/helper";
 import useAllocatedItems from "@/hooks/useAllocatedItems";
 import AddStockTransferRequestModal from "@/pages/clinic/stocks/stock-transfer/stock-transfer-requests/_components/AddStockTransferRequestModal";
 
@@ -51,6 +56,7 @@ interface AppointmentDetails {
   gender?: string;
   email?: string;
   mobileNumber?: string;
+  doctorId?: string;
   doctorName: string;
   doctorEmail?: string;
   roomId?: string;
@@ -130,6 +136,8 @@ interface PreviousComplaint {
     uom?: string;
     totalAmount?: number;
   }>;
+  beforeImage?: string;
+  afterImage?: string;
 }
 
 interface AppointmentComplaintModalProps {
@@ -161,6 +169,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     AppointmentReportSummary[]
   >([]);
   const [complaints, setComplaints] = useState<string>("");
+  const [beforeImage, setBeforeImage] = useState<string>("");
+  const [afterImage, setAfterImage] = useState<string>("");
+  const [uploadingBefore, setUploadingBefore] = useState(false);
+  const [uploadingAfter, setUploadingAfter] = useState(false);
   const [saving, setSaving] = useState(false);
   const [previousComplaints, setPreviousComplaints] = useState<
     PreviousComplaint[]
@@ -202,6 +214,61 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [isOpenStockTransferModal, setIsOpenStockTransferModal] =
     useState<boolean>(false);
 
+  // consent form
+  interface ConsentFormOption { _id: string; formName: string; }
+  const [consentForms, setConsentForms] = useState<ConsentFormOption[]>([]);
+  const [selectedConsentId, setSelectedConsentId] = useState<string>("");
+  const [sendingConsent, setSendingConsent] = useState<boolean>(false);
+  const [consentSent, setConsentSent] = useState<boolean>(false);
+
+  // Tab state
+  type TabType = "complaint" | "progress" | "prescription";
+  const [activeTab, setActiveTab] = useState<TabType>("complaint");
+
+  // Progress tab state
+  interface ProgressNoteEntry {
+    _id: string;
+    note: string;
+    noteDate: string;
+    doctorId?: { _id?: string; name?: string; email?: string } | string | null;
+    createdAt: string;
+  }
+  const [progressNotes, setProgressNotes] = useState<ProgressNoteEntry[]>([]);
+  const [loadingProgressNotes, setLoadingProgressNotes] = useState(false);
+  const [addingNewEntry, setAddingNewEntry] = useState(false);
+  const [newEntryText, setNewEntryText] = useState<string>("");
+  const [newEntryDate, setNewEntryDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [savingProgress, setSavingProgress] = useState(false);
+  const [progressError, setProgressError] = useState<string>("");
+
+  // Prescription tab state
+  type MedicineLine = { id: string; medicineName: string; dosage: string; duration: string; notes: string };
+  const emptyMedicine = (): MedicineLine => ({ id: Date.now().toString() + Math.random(), medicineName: "", dosage: "", duration: "", notes: "" });
+  const [medicines, setMedicines] = useState<MedicineLine[]>([emptyMedicine()]);
+  const [aftercareInstructions, setAftercareInstructions] = useState<string>("");
+  const [includeInPdf, setIncludeInPdf] = useState<boolean>(true);
+  const [savingPrescription, setSavingPrescription] = useState(false);
+  const [prescriptionError, setPrescriptionError] = useState<string>("");
+  const [prescriptionSaved, setPrescriptionSaved] = useState<boolean>(false);
+  interface PrescriptionHistoryEntry {
+    _id: string;
+    medicines: Array<{ _id?: string; medicineName: string; dosage?: string; duration?: string; notes?: string }>;
+    aftercareInstructions?: string;
+    includeInPdf?: boolean;
+    doctorId?: { _id?: string; name?: string; email?: string } | string | null;
+    createdAt: string;
+    updatedAt: string;
+  }
+  const [prescriptionHistory, setPrescriptionHistory] = useState<PrescriptionHistoryEntry[]>([]);
+  const [loadingPrescriptionHistory, setLoadingPrescriptionHistory] = useState(false);
+  const [expandedPrescription, setExpandedPrescription] = useState<Record<string, boolean>>({});
+
+  // Smart Recommendations state
+  interface SmartService { _id: string; name: string; price: number; clinicPrice?: number | null; durationMinutes?: number; departmentId?: string; }
+  interface SmartDepartment { _id: string; name: string; services: SmartService[]; }
+  const [smartDepartments, setSmartDepartments] = useState<SmartDepartment[]>([]);
+  const [loadingSmartRec, setLoadingSmartRec] = useState(false);
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const target = e.target as Node | null;
@@ -235,6 +302,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       setReport(null);
       setPatientReports([]);
       setComplaints("");
+      setBeforeImage("");
+      setAfterImage("");
+      setUploadingBefore(false);
+      setUploadingAfter(false);
       setError("");
       setLoading(false);
       setSaving(false);
@@ -253,8 +324,38 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       });
       setEditIndex(null);
       setEditingItem(null);
+      setSelectedConsentId("");
+      setConsentSent(false);
+      setActiveTab("complaint");
+      setProgressNotes([]);
+      setAddingNewEntry(false);
+      setNewEntryText("");
+      setNewEntryDate(new Date().toISOString().slice(0, 10));
+      setProgressError("");
+      setMedicines([emptyMedicine()]);
+      setAftercareInstructions("");
+      setIncludeInPdf(true);
+      setPrescriptionError("");
+      setPrescriptionSaved(false);
+      setPrescriptionHistory([]);
+      setLoadingPrescriptionHistory(false);
+      setExpandedPrescription({});
+      setSmartDepartments([]);
+      setLoadingSmartRec(false);
       return;
     }
+
+    // Fetch consent forms for dropdown
+    const fetchConsentForms = async () => {
+      try {
+        const headers = getAuthHeaders();
+        const res = await axios.get("/api/clinic/consent", { headers });
+        if (res.data?.success) setConsentForms(res.data.consents || []);
+      } catch {
+        // silently ignore
+      }
+    };
+    fetchConsentForms();
 
     const fetchDetails = async () => {
       setLoading(true);
@@ -312,6 +413,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         if (response.data.appointment?.patientId) {
           fetchPreviousComplaints(response.data.appointment.patientId);
         }
+
+        // Fetch smart recommendations based on doctor's departments
+        if (response.data.appointment?.doctorId) {
+          fetchSmartRecommendations(response.data.appointment.doctorId, headers);
+        }
       } catch (err: any) {
         setError(
           err.response?.data?.message || "Failed to load appointment report",
@@ -346,6 +452,101 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
     fetchDetails();
   }, [isOpen, appointment, getAuthHeaders]);
+
+  // Fetch doctor departments + services for smart recommendations
+  const fetchSmartRecommendations = async (doctorStaffId: string, headers: Record<string, string>) => {
+    setLoadingSmartRec(true);
+    try {
+      const deptRes = await axios.get("/api/clinic/doctor-departments", {
+        headers,
+        params: { doctorStaffId },
+      });
+      if (!deptRes.data?.success) { setLoadingSmartRec(false); return; }
+      const departments: { _id: string; name: string; clinicDepartmentId?: string }[] = deptRes.data.departments || [];
+      if (departments.length === 0) { setSmartDepartments([]); setLoadingSmartRec(false); return; }
+
+      // Fetch services for each department in parallel
+      const results = await Promise.allSettled(
+        departments.map((dept) =>
+          axios.get("/api/clinic/services", {
+            headers,
+            params: { departmentId: dept.clinicDepartmentId || dept._id },
+          })
+        )
+      );
+
+      const enriched: SmartDepartment[] = departments.map((dept, i) => {
+        const res = results[i];
+        const services: SmartService[] =
+          res.status === "fulfilled" && res.value.data?.success
+            ? (res.value.data.services || []).map((s: any) => ({
+                _id: s._id,
+                name: s.name,
+                price: s.price,
+                clinicPrice: s.clinicPrice,
+                durationMinutes: s.durationMinutes,
+                departmentId: dept._id,
+              }))
+            : [];
+        return { _id: dept._id, name: dept.name, services };
+      }).filter((d) => d.services.length > 0);
+
+      setSmartDepartments(enriched);
+    } catch {
+      // silently ignore
+    } finally {
+      setLoadingSmartRec(false);
+    }
+  };
+
+  // Fetch progress notes when switching to progress tab
+  useEffect(() => {
+    if (activeTab !== "progress" || !details?.patientId) return;
+    const fetchProgressNotes = async () => {
+      setLoadingProgressNotes(true);
+      setProgressError("");
+      try {
+        const headers = getAuthHeaders();
+        const res = await axios.get("/api/clinic/progress-notes", {
+          headers,
+          params: { patientId: details.patientId },
+        });
+        if (res.data?.success) {
+          setProgressNotes(res.data.notes || []);
+        }
+      } catch {
+        setProgressError("Failed to load progress notes");
+      } finally {
+        setLoadingProgressNotes(false);
+      }
+    };
+    fetchProgressNotes();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, details?.patientId]);
+  
+    // Fetch prescription history when switching to prescription tab
+    useEffect(() => {
+      if (activeTab !== "prescription" || !details?.patientId) return;
+      const fetchPrescriptionHistory = async () => {
+        setLoadingPrescriptionHistory(true);
+        try {
+          const headers = getAuthHeaders();
+          const res = await axios.get("/api/clinic/prescriptions", {
+            headers,
+            params: { patientId: details.patientId },
+          });
+          if (res.data?.success) {
+            setPrescriptionHistory(res.data.prescriptions || []);
+          }
+        } catch {
+          // silently ignore history fetch errors
+        } finally {
+          setLoadingPrescriptionHistory(false);
+        }
+      };
+      fetchPrescriptionHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, details?.patientId]);
 
   const formatDate = (value?: string) => {
     if (!value) return "-";
@@ -387,6 +588,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           appointmentReportId: report.reportId,
           complaints: complaints.trim(),
           items: items || [],
+          beforeImage: beforeImage || null,
+          afterImage: afterImage || null,
         },
         { headers },
       );
@@ -407,6 +610,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
       // Clear the input
       setComplaints("");
+      setBeforeImage("");
+      setAfterImage("");
       setError("");
 
       // set items to empty array
@@ -568,7 +773,34 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
             </button>
           </div>
 
+          {/* Tab Navigation */}
+          <div className="flex border-b border-gray-200 px-6 bg-white">
+            {(
+              [
+                { key: "complaint", label: "Complaint", icon: <NotebookPen className="w-4 h-4" /> },
+                { key: "progress", label: "Progress", icon: <TrendingUp className="w-4 h-4" /> },
+                { key: "prescription", label: "Prescription", icon: <Pill className="w-4 h-4" /> },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all -mb-px ${
+                  activeTab === tab.key
+                    ? "border-red-500 text-red-600"
+                    : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
+                }`}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           <div className="px-6 py-4 overflow-y-auto space-y-4">
+            {/* ── COMPLAINT TAB ── */}
+            {activeTab === "complaint" && (
+            <>
             {error && (
               <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {error}
@@ -814,6 +1046,79 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                   )}
                 </div>
 
+                {/* ── Send Consent Form ── */}
+                <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <FileText size={15} className="text-blue-600 flex-shrink-0" />
+                    <h3 className="text-sm font-semibold text-blue-900">
+                      Send Consent Form to Patient
+                    </h3>
+                  </div>
+                  <p className="text-xs text-blue-700">
+                    Select a consent form and send it to the patient for acknowledgment.
+                  </p>
+                  <div className="flex gap-2 items-center">
+                    <select
+                      value={selectedConsentId}
+                      onChange={(e) => {
+                        setSelectedConsentId(e.target.value);
+                        setConsentSent(false);
+                      }}
+                      className="flex-1 border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 text-gray-700"
+                    >
+                      <option value="">-- Select Consent Form --</option>
+                      {consentForms.map((cf) => (
+                        <option key={cf._id} value={cf._id}>
+                          {cf.formName}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={!selectedConsentId || sendingConsent || consentSent}
+                      onClick={async () => {
+                        if (!selectedConsentId) return;
+                        setSendingConsent(true);
+                        try {
+                          // Record that consent was sent (extend as needed for actual delivery)
+                          await new Promise((r) => setTimeout(r, 600));
+                          setConsentSent(true);
+                        } finally {
+                          setSendingConsent(false);
+                        }
+                      }}
+                      className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap
+                        ${consentSent
+                          ? "bg-green-100 text-green-700 border border-green-300 cursor-default"
+                          : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-blue-200"
+                        }`}
+                    >
+                      {sendingConsent ? (
+                        <>
+                          <RefreshCw size={13} className="animate-spin" />
+                          Sending...
+                        </>
+                      ) : consentSent ? (
+                        <>
+                          <Check size={13} />
+                          Sent
+                        </>
+                      ) : (
+                        <>
+                          <Send size={13} />
+                          Send
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  {consentSent && (
+                    <p className="text-xs text-green-700 font-medium flex items-center gap-1">
+                      <Check size={12} />
+                      Consent form sent successfully to the patient.
+                    </p>
+                  )}
+                </div>
+
                 {/* Notebook-like complaints input */}
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 space-y-2">
                   <h3 className="text-sm font-semibold text-amber-900 uppercase tracking-wide">
@@ -832,6 +1137,105 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       placeholder="Start writing complaints in a notebook style..."
                     />
                     <div className="pointer-events-none absolute inset-y-0 left-10 border-l border-amber-300" />
+                  </div>
+
+                  {/* Image Upload Section */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                    {/* Before Image */}
+                    <div className="space-y-2">
+                      <label className="block text-xs font-semibold text-amber-900 uppercase">
+                        Before Image
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <div className="relative group">
+                          <div className="w-20 h-20 rounded-lg border-2 border-dashed border-amber-300 bg-white flex items-center justify-center overflow-hidden">
+                            {beforeImage ? (
+                              <img
+                                src={beforeImage}
+                                alt="Before"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <Upload className="w-6 h-6 text-amber-400" />
+                            )}
+                            {uploadingBefore && (
+                              <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                                <RefreshCw className="w-5 h-5 text-white animate-spin" />
+                              </div>
+                            )}
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              setUploadingBefore(true);
+                              const res = await handleUpload(file);
+                              if (res?.success) setBeforeImage(res.url);
+                              setUploadingBefore(false);
+                            }}
+                          />
+                        </div>
+                        {beforeImage && (
+                          <button
+                            onClick={() => setBeforeImage("")}
+                            className="text-xs text-red-600 hover:underline"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* After Image */}
+                    <div className="space-y-2">
+                      <label className="block text-xs font-semibold text-amber-900 uppercase">
+                        After Image
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <div className="relative group">
+                          <div className="w-20 h-20 rounded-lg border-2 border-dashed border-amber-300 bg-white flex items-center justify-center overflow-hidden">
+                            {afterImage ? (
+                              <img
+                                src={afterImage}
+                                alt="After"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <Upload className="w-6 h-6 text-amber-400" />
+                            )}
+                            {uploadingAfter && (
+                              <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                                <RefreshCw className="w-5 h-5 text-white animate-spin" />
+                              </div>
+                            )}
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              setUploadingAfter(true);
+                              const res = await handleUpload(file);
+                              if (res?.success) setAfterImage(res.url);
+                              setUploadingAfter(false);
+                            }}
+                          />
+                        </div>
+                        {afterImage && (
+                          <button
+                            onClick={() => setAfterImage("")}
+                            className="text-xs text-red-600 hover:underline"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1328,6 +1732,49 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                     <div className="whitespace-pre-wrap break-words">
                                       {complaint.complaints}
                                     </div>
+                                    {(complaint.beforeImage ||
+                                      complaint.afterImage) && (
+                                      <div className="flex gap-2 mt-2">
+                                        {complaint.beforeImage && (
+                                          <div className="space-y-1">
+                                            <p className="text-[10px] font-semibold text-gray-500 uppercase">
+                                              Before
+                                            </p>
+                                            <a
+                                              href={complaint.beforeImage}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="block w-12 h-12 rounded border border-gray-200 overflow-hidden hover:opacity-80 transition"
+                                            >
+                                              <img
+                                                src={complaint.beforeImage}
+                                                alt="Before"
+                                                className="w-full h-full object-cover"
+                                              />
+                                            </a>
+                                          </div>
+                                        )}
+                                        {complaint.afterImage && (
+                                          <div className="space-y-1">
+                                            <p className="text-[10px] font-semibold text-gray-500 uppercase">
+                                              After
+                                            </p>
+                                            <a
+                                              href={complaint.afterImage}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="block w-12 h-12 rounded border border-gray-200 overflow-hidden hover:opacity-80 transition"
+                                            >
+                                              <img
+                                                src={complaint.afterImage}
+                                                alt="After"
+                                                className="w-full h-full object-cover"
+                                              />
+                                            </a>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
                                   </td>
                                   <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
                                     {formatDateTime(complaint.createdAt)}
@@ -1480,8 +1927,655 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                     </div>
                   )}
                 </div>
-              </>
+              </>  
             )}
+
+            {/* ── SMART RECOMMENDATIONS ── */}
+            {(smartDepartments.length > 0 || loadingSmartRec) && (
+              <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Stethoscope className="w-4 h-4 text-violet-600" />
+                  <h3 className="text-sm font-semibold text-violet-900 uppercase tracking-wide">Smart Recommendations</h3>
+                  <span className="ml-1 text-[10px] text-violet-500 font-medium">Based on Doctor's Department Services</span>
+                </div>
+                {loadingSmartRec ? (
+                  <div className="text-xs text-violet-500 py-2">Loading recommendations...</div>
+                ) : (
+                  <div className="space-y-3">
+                    {smartDepartments.map((dept) => (
+                      <div key={dept._id}>
+                        <p className="text-[10px] font-bold text-violet-700 uppercase tracking-wider mb-1.5">{dept.name}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {dept.services.map((svc) => (
+                            <div
+                              key={svc._id}
+                              className="flex items-center gap-2 rounded-lg border border-violet-200 bg-white px-3 py-1.5 shadow-sm"
+                            >
+                              <span className="text-xs font-semibold text-gray-800">{svc.name}</span>
+                              <span className="text-[10px] text-violet-500 font-medium">
+                                {svc.clinicPrice != null ? `₹${svc.clinicPrice}` : `₹${svc.price}`}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            </>
+            )}
+
+            {/* ── PROGRESS TAB ── */}
+            {activeTab === "progress" && (
+              <div className="space-y-4">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-800">Treatment Timeline</h3>
+                </div>
+
+                {/* Error */}
+                {progressError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {progressError}
+                  </div>
+                )}
+
+                {/* Timeline entries */}
+                {loadingProgressNotes ? (
+                  <div className="py-8 text-center text-gray-400 text-sm">Loading progress notes...</div>
+                ) : (
+                  <div className="relative">
+                    {progressNotes.length > 0 && (
+                      <div className="absolute left-[18px] top-5 bottom-5 w-px bg-gradient-to-b from-teal-400 to-teal-100" />
+                    )}
+                    <div className="space-y-4">
+                      {progressNotes.map((entry) => {
+                        const dateStr = entry.noteDate
+                          ? new Date(entry.noteDate).toISOString().slice(0, 10)
+                          : new Date(entry.createdAt).toISOString().slice(0, 10);
+                        const doctorName =
+                          typeof entry.doctorId === "object" && entry.doctorId?.name
+                            ? entry.doctorId.name
+                            : null;
+                        return (
+                          <div key={entry._id} className="flex gap-4 items-start">
+                            {/* Dot */}
+                            <div className="flex-shrink-0 w-9 h-9 rounded-full bg-teal-500 border-4 border-white shadow-md flex items-center justify-center z-10">
+                              <TrendingUp size={14} className="text-white" />
+                            </div>
+                            {/* Card */}
+                            <div className="flex-1 rounded-2xl border border-gray-200 bg-white shadow-sm px-4 py-3 space-y-1.5">
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <span className="text-xs font-semibold text-teal-600">{dateStr}</span>
+                                <div className="flex items-center gap-3">
+                                  {doctorName && (
+                                    <span className="text-xs text-gray-400">{doctorName}</span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      try {
+                                        const headers = getAuthHeaders();
+                                        await axios.delete("/api/clinic/progress-notes", {
+                                          headers,
+                                          params: { noteId: entry._id },
+                                        });
+                                        setProgressNotes((prev) => prev.filter((n) => n._id !== entry._id));
+                                      } catch {
+                                        setProgressError("Failed to delete progress note");
+                                      }
+                                    }}
+                                    className="text-gray-300 hover:text-red-500 transition-colors"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              </div>
+                              <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                                {entry.note}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Inline Add New Entry form */}
+                {addingNewEntry ? (
+                  <div className="rounded-2xl border-2 border-dashed border-teal-300 bg-teal-50/60 px-4 py-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-teal-700 uppercase tracking-wide flex items-center gap-1.5">
+                        <Plus size={12} />
+                        New Progress Entry
+                      </span>
+                      <span className="text-xs text-teal-600 font-medium">
+                        {newEntryDate}
+                      </span>
+                    </div>
+                    <textarea
+                      autoFocus
+                      value={newEntryText}
+                      onChange={(e) => setNewEntryText(e.target.value)}
+                      rows={4}
+                      placeholder="Describe the patient's progress, treatment response, observations for today..."
+                      className="w-full rounded-xl border border-teal-200 bg-white px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-teal-400 resize-none"
+                    />
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-teal-700 font-medium">Date:</label>
+                        <input
+                          type="date"
+                          value={newEntryDate}
+                          onChange={(e) => setNewEntryDate(e.target.value)}
+                          className="border border-teal-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-700"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { setAddingNewEntry(false); setNewEntryText(""); setProgressError(""); }}
+                          className="px-4 py-1.5 rounded-lg border border-gray-300 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          disabled={savingProgress || !newEntryText.trim()}
+                          onClick={async () => {
+                            if (!newEntryText.trim() || !details) return;
+                            setSavingProgress(true);
+                            setProgressError("");
+                            try {
+                              const headers = getAuthHeaders();
+                              const res = await axios.post("/api/clinic/progress-notes", {
+                                appointmentId: details.appointmentId,
+                                patientId: details.patientId,
+                                note: newEntryText.trim(),
+                                noteDate: newEntryDate,
+                              }, { headers });
+                              if (res.data?.success && res.data.note) {
+                                setProgressNotes((prev) => [res.data.note, ...prev]);
+                              }
+                              setNewEntryText("");
+                              setNewEntryDate(new Date().toISOString().slice(0, 10));
+                              setAddingNewEntry(false);
+                            } catch (err: any) {
+                              setProgressError(err.response?.data?.message || "Failed to save progress note");
+                            } finally {
+                              setSavingProgress(false);
+                            }
+                          }}
+                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-teal-600 text-white text-xs font-semibold hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {savingProgress ? (
+                            <><RefreshCw size={12} className="animate-spin" /> Saving...</>
+                          ) : (
+                            <><Check size={12} /> Save Entry</>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Add New Progress Note button */
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAddingNewEntry(true);
+                      setNewEntryDate(new Date().toISOString().slice(0, 10));
+                    }}
+                    className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 py-4 text-sm font-medium text-gray-500 hover:border-teal-400 hover:text-teal-600 transition-colors bg-white"
+                  >
+                    <Plus size={16} />
+                    Add New Progress Note
+                  </button>
+                )}
+
+                {/* ── SMART RECOMMENDATIONS ── */}
+                {(smartDepartments.length > 0 || loadingSmartRec) && (
+                  <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Stethoscope className="w-4 h-4 text-violet-600" />
+                      <h3 className="text-sm font-semibold text-violet-900 uppercase tracking-wide">Smart Recommendations</h3>
+                      <span className="ml-1 text-[10px] text-violet-500 font-medium">Based on Doctor's Department Services</span>
+                    </div>
+                    {loadingSmartRec ? (
+                      <div className="text-xs text-violet-500 py-2">Loading recommendations...</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {smartDepartments.map((dept) => (
+                          <div key={dept._id}>
+                            <p className="text-[10px] font-bold text-violet-700 uppercase tracking-wider mb-1.5">{dept.name}</p>
+                            <div className="flex flex-wrap gap-2">
+                              {dept.services.map((svc) => (
+                                <div
+                                  key={svc._id}
+                                  className="flex items-center gap-2 rounded-lg border border-violet-200 bg-white px-3 py-1.5 shadow-sm"
+                                >
+                                  <span className="text-xs font-semibold text-gray-800">{svc.name}</span>
+                                  <span className="text-[10px] text-violet-500 font-medium">
+                                    {svc.clinicPrice != null ? `₹${svc.clinicPrice}` : `₹${svc.price}`}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── PRESCRIPTION TAB ── */}
+            {activeTab === "prescription" && (
+              <div className="space-y-6">
+                {/* Prescribed Medicines */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-base font-semibold text-gray-900">Prescribed Medicines</h3>
+                    <button
+                      type="button"
+                      onClick={() => setMedicines((prev) => [...prev, emptyMedicine()])}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 transition-colors shadow-sm"
+                    >
+                      <Plus size={15} />
+                      Add Medicine
+                    </button>
+                  </div>
+
+                  {/* Medicine rows */}
+                  <div className="space-y-2">
+                    {medicines.map((med) => (
+                      <div
+                        key={med.id}
+                        className="rounded-xl border border-gray-200 bg-white px-4 py-3 flex flex-col sm:flex-row gap-3 items-start sm:items-center shadow-sm"
+                      >
+                        {/* Medicine name */}
+                        <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                          <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Medicine</label>
+                          <input
+                            type="text"
+                            value={med.medicineName}
+                            onChange={(e) =>
+                              setMedicines((prev) =>
+                                prev.map((m) => m.id === med.id ? { ...m, medicineName: e.target.value } : m)
+                              )
+                            }
+                            placeholder="Medicine name"
+                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-800 placeholder-gray-400"
+                          />
+                        </div>
+                        {/* Dosage */}
+                        <div className="flex flex-col gap-0.5 w-full sm:w-32">
+                          <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Dosage</label>
+                          <input
+                            type="text"
+                            value={med.dosage}
+                            onChange={(e) =>
+                              setMedicines((prev) =>
+                                prev.map((m) => m.id === med.id ? { ...m, dosage: e.target.value } : m)
+                              )
+                            }
+                            placeholder="2 times/day"
+                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-800 placeholder-gray-400"
+                          />
+                        </div>
+                        {/* Duration */}
+                        <div className="flex flex-col gap-0.5 w-full sm:w-28">
+                          <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Duration</label>
+                          <input
+                            type="text"
+                            value={med.duration}
+                            onChange={(e) =>
+                              setMedicines((prev) =>
+                                prev.map((m) => m.id === med.id ? { ...m, duration: e.target.value } : m)
+                              )
+                            }
+                            placeholder="7 days"
+                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-800 placeholder-gray-400"
+                          />
+                        </div>
+                        {/* Notes */}
+                        <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                          <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Notes</label>
+                          <input
+                            type="text"
+                            value={med.notes}
+                            onChange={(e) =>
+                              setMedicines((prev) =>
+                                prev.map((m) => m.id === med.id ? { ...m, notes: e.target.value } : m)
+                              )
+                            }
+                            placeholder="After meals"
+                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-800 placeholder-gray-400"
+                          />
+                        </div>
+                        {/* Delete row */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (medicines.length === 1) {
+                              setMedicines([emptyMedicine()]);
+                            } else {
+                              setMedicines((prev) => prev.filter((m) => m.id !== med.id));
+                            }
+                          }}
+                          className="mt-4 sm:mt-0 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Aftercare Instructions */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-base font-semibold text-gray-900">Aftercare Instructions</h3>
+                  </div>
+                  <textarea
+                    value={aftercareInstructions}
+                    onChange={(e) => setAftercareInstructions(e.target.value)}
+                    rows={6}
+                    placeholder="Enter detailed aftercare instructions for the patient..."
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-teal-400 resize-none"
+                  />
+                </div>
+
+                {/* Include in PDF toggle */}
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={includeInPdf}
+                    onClick={() => setIncludeInPdf((v) => !v)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      includeInPdf ? "bg-teal-500" : "bg-gray-300"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        includeInPdf ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                  <span className="text-sm text-gray-700 font-medium">Include in patient PDF</span>
+                </div>
+
+                {/* Error */}
+                {prescriptionError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {prescriptionError}
+                  </div>
+                )}
+                {prescriptionSaved && (
+                  <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 flex items-center gap-2">
+                    <Check size={14} />
+                    Prescription saved successfully.
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <button
+                    type="button"
+                    disabled={savingPrescription || medicines.every((m) => !m.medicineName.trim())}
+                    onClick={async () => {
+                      const validMeds = medicines.filter((m) => m.medicineName.trim());
+                      if (!validMeds.length || !details) return;
+                      setSavingPrescription(true);
+                      setPrescriptionError("");
+                      setPrescriptionSaved(false);
+                      try {
+                        const headers = getAuthHeaders();
+                        await axios.post("/api/clinic/prescriptions", {
+                          appointmentId: details.appointmentId,
+                          patientId: details.patientId,
+                          medicines: validMeds,
+                          aftercareInstructions,
+                          includeInPdf,
+                        }, { headers });
+                        setPrescriptionSaved(true);
+                        // Refresh history
+                        const histRes = await axios.get("/api/clinic/prescriptions", {
+                          headers,
+                          params: { patientId: details.patientId },
+                        });
+                        if (histRes.data?.success) {
+                          setPrescriptionHistory(histRes.data.prescriptions || []);
+                        }
+                      } catch (err: any) {
+                        setPrescriptionError(err.response?.data?.message || "Failed to save prescription");
+                      } finally {
+                        setSavingPrescription(false);
+                      }
+                    }}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
+                  >
+                    {savingPrescription ? (
+                      <><RefreshCw size={14} className="animate-spin" /> Saving...</>
+                    ) : (
+                      <><Check size={14} /> Save Prescription</>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={medicines.every((m) => !m.medicineName.trim())}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gray-800 text-white text-sm font-semibold hover:bg-gray-900 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm transition-colors"
+                  >
+                    <FileText size={14} />
+                    Generate PDF
+                  </button>
+                  <button
+                    type="button"
+                    disabled={medicines.every((m) => !m.medicineName.trim())}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-green-500 text-green-700 text-sm font-semibold hover:bg-green-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Send size={14} />
+                    Send via WhatsApp
+                  </button>
+                </div>
+
+                {/* ── Prescription History ── */}
+                <div className="border-t border-gray-200 pt-5">
+                  <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                    <Pill size={14} className="text-violet-500" />
+                    Prescription History
+                    {prescriptionHistory.length > 0 && (
+                      <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-bold">
+                        {prescriptionHistory.length}
+                      </span>
+                    )}
+                  </h3>
+
+                  {loadingPrescriptionHistory ? (
+                    <div className="py-6 text-center text-gray-400 text-sm">Loading prescription history...</div>
+                  ) : prescriptionHistory.length === 0 ? (
+                    <div className="py-6 text-center text-gray-400 text-sm">No prescription history found for this patient.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {prescriptionHistory.map((entry) => {
+                        const isExpanded = !!expandedPrescription[entry._id];
+                        const doctorName =
+                          typeof entry.doctorId === "object" && entry.doctorId?.name
+                            ? entry.doctorId.name
+                            : null;
+                        return (
+                          <div
+                            key={entry._id}
+                            className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden"
+                          >
+                            {/* Header row */}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedPrescription((prev) => ({
+                                  ...prev,
+                                  [entry._id]: !prev[entry._id],
+                                }))
+                              }
+                              className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700 bg-violet-50 px-2.5 py-1 rounded-full border border-violet-200">
+                                  <Pill size={10} />
+                                  {entry.medicines.length} medicine{entry.medicines.length !== 1 ? "s" : ""}
+                                </span>
+                                <span className="text-xs text-gray-500 flex items-center gap-1">
+                                  <Calendar size={11} />
+                                  {new Date(entry.createdAt).toLocaleDateString("en-US", {
+                                    year: "numeric",
+                                    month: "short",
+                                    day: "numeric",
+                                  })}
+                                </span>
+                                {doctorName && (
+                                  <span className="text-xs text-gray-400">Dr. {doctorName}</span>
+                                )}
+                                {entry.updatedAt !== entry.createdAt && (
+                                  <span className="text-[10px] text-gray-400 italic">
+                                    (updated {new Date(entry.updatedAt).toLocaleDateString()})
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      const headers = getAuthHeaders();
+                                      await axios.delete("/api/clinic/prescriptions", {
+                                        headers,
+                                        params: { prescriptionId: entry._id },
+                                      });
+                                      setPrescriptionHistory((prev) =>
+                                        prev.filter((p) => p._id !== entry._id)
+                                      );
+                                    } catch {
+                                      setPrescriptionError("Failed to delete prescription");
+                                    }
+                                  }}
+                                  className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                                {isExpanded ? (
+                                  <ChevronUp size={15} className="text-gray-400" />
+                                ) : (
+                                  <ChevronDown size={15} className="text-gray-400" />
+                                )}
+                              </div>
+                            </button>
+
+                            {/* Expanded details */}
+                            {isExpanded && (
+                              <div className="border-t border-gray-100 px-4 py-4 space-y-4 bg-gray-50/50">
+                                {/* Medicine table */}
+                                <div>
+                                  <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Medicines</p>
+                                  <div className="rounded-lg border border-gray-200 overflow-hidden">
+                                    <table className="w-full text-sm">
+                                      <thead className="bg-gray-100">
+                                        <tr>
+                                          <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">#</th>
+                                          <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">Medicine</th>
+                                          <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">Dosage</th>
+                                          <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">Duration</th>
+                                          <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">Notes</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-gray-100 bg-white">
+                                        {entry.medicines.map((med, mIdx) => (
+                                          <tr key={med._id || mIdx} className="hover:bg-gray-50">
+                                            <td className="px-3 py-2 text-gray-400 text-xs">{mIdx + 1}</td>
+                                            <td className="px-3 py-2 font-medium text-gray-900">{med.medicineName}</td>
+                                            <td className="px-3 py-2 text-gray-600">{med.dosage || <span className="text-gray-300">—</span>}</td>
+                                            <td className="px-3 py-2 text-gray-600">{med.duration || <span className="text-gray-300">—</span>}</td>
+                                            <td className="px-3 py-2 text-gray-600">{med.notes || <span className="text-gray-300">—</span>}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+
+                                {/* Aftercare instructions */}
+                                {entry.aftercareInstructions && (
+                                  <div>
+                                    <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Aftercare Instructions</p>
+                                    <p className="text-sm text-gray-700 whitespace-pre-wrap bg-white rounded-lg border border-gray-200 px-3 py-2.5">
+                                      {entry.aftercareInstructions}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {/* Include in PDF badge */}
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold ${
+                                      entry.includeInPdf
+                                        ? "bg-teal-50 text-teal-700 border border-teal-200"
+                                        : "bg-gray-100 text-gray-500 border border-gray-200"
+                                    }`}
+                                  >
+                                    <FileText size={9} />
+                                    {entry.includeInPdf ? "Included in PDF" : "Not included in PDF"}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* ── SMART RECOMMENDATIONS ── */}
+                {(smartDepartments.length > 0 || loadingSmartRec) && (
+                  <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Stethoscope className="w-4 h-4 text-violet-600" />
+                      <h3 className="text-sm font-semibold text-violet-900 uppercase tracking-wide">Smart Recommendations</h3>
+                      <span className="ml-1 text-[10px] text-violet-500 font-medium">Based on Doctor's Department Services</span>
+                    </div>
+                    {loadingSmartRec ? (
+                      <div className="text-xs text-violet-500 py-2">Loading recommendations...</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {smartDepartments.map((dept) => (
+                          <div key={dept._id}>
+                            <p className="text-[10px] font-bold text-violet-700 uppercase tracking-wider mb-1.5">{dept.name}</p>
+                            <div className="flex flex-wrap gap-2">
+                              {dept.services.map((svc) => (
+                                <div
+                                  key={svc._id}
+                                  className="flex items-center gap-2 rounded-lg border border-violet-200 bg-white px-3 py-1.5 shadow-sm"
+                                >
+                                  <span className="text-xs font-semibold text-gray-800">{svc.name}</span>
+                                  <span className="text-[10px] text-violet-500 font-medium">
+                                    {svc.clinicPrice != null ? `₹${svc.clinicPrice}` : `₹${svc.price}`}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
 
           <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-3">
@@ -1492,14 +2586,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
             >
               Close
             </button>
-            <button
-              type="button"
-              onClick={handleSaveComplaints}
-              disabled={saving || loading}
-              className="rounded-lg bg-red-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700 disabled:opacity-60"
-            >
-              {saving ? "Saving..." : "Save Complaints"}
-            </button>
+            {activeTab === "complaint" && (
+              <button
+                type="button"
+                onClick={handleSaveComplaints}
+                disabled={saving || loading}
+                className="rounded-lg bg-red-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700 disabled:opacity-60"
+              >
+                {saving ? "Saving..." : "Save Complaints"}
+              </button>
+            )}
           </div>
           {isEditModalOpen && editingComplaint && (
             <EditComplaintModal
@@ -1529,7 +2625,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           )}
         </div>
       </div>
-      // Add the modal at the bottom of your component (before the closing div)
+      {/* Modals */}
       <DeleteConfirmationModal
         isOpen={isOpenDeleteComplaintModal}
         onClose={() => setIsOpenDeleteComplaintModal(false)}

@@ -117,6 +117,7 @@ export default async function handler(req, res) {
       notes,
       treatment,
       serviceId,
+      serviceIds,
     } = req.body;
 
     // Validate required fields
@@ -225,6 +226,7 @@ export default async function handler(req, res) {
       notes: notes || "",
       treatment: treatment || "",
       serviceId: serviceId || null,
+      serviceIds: Array.isArray(serviceIds) ? serviceIds : (serviceId ? [serviceId] : []),
     };
 
     // If status is "Arrived", set arrivedAt timestamp
@@ -240,6 +242,8 @@ export default async function handler(req, res) {
       .populate("patientId", "firstName lastName mobileNumber email emrNumber")
       .populate("doctorId", "name email")
       .populate("roomId", "name")
+      .populate("serviceId", "name")
+      .populate("serviceIds", "name")
       .lean();
 
     return res.status(200).json({
