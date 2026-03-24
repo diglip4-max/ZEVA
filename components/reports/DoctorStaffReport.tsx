@@ -76,7 +76,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
   async function fetchData() {
     setLoading(true);
     try {
-      const qs = new URLSearchParams({ startDate, endDate }).toString();
+      const qs = new URLSearchParams({ startDate, endDate: new Date(endDate).toISOString() }).toString();
       const res = await fetch(`/api/clinic/reports/doctor-staff-performance?${qs}`, { headers });
       const json = await res.json();
       if (!res.ok || !json.success) {
@@ -101,21 +101,21 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
 
   const chartBookings = useMemo(
     () =>
-      (leaders || []).map((d) => ({
+      (details || []).map((d) => ({
         name: d.staffName || "Unknown",
         bookings: d.totalAppointments || 0,
       })),
-    [leaders]
+    [details]
   );
 
-  const chartRevenue = useMemo(
-    () =>
-      (revenues || []).map((d) => ({
-        name: d.staffName || "Unknown",
-        revenue: Math.round(d.revenue || 0),
-      })),
-    [revenues]
-  );
+  const chartRevenue = useMemo(() => {
+    const maxRevenue = Math.max(...revenues.map((r) => r.revenue));
+    return (revenues || []).map((d) => ({
+      name: d.staffName || "Unknown",
+      revenue: Math.round(d.revenue || 0),
+      normalizedRevenue: maxRevenue > 0 ? (d.revenue / maxRevenue) * 100 : 0,
+    }));
+  }, [revenues]);
 
   const chartPatients = useMemo(
     () =>
@@ -203,6 +203,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                 <YAxis />
                 <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
                 <Bar dataKey="revenue" fill="#0EA5E9" />
+                <Bar dataKey="normalizedRevenue" fill="#8884d8" name="Normalized Revenue" unit="%" />
               </BarChart>
             </ResponsiveContainer>
           </div>

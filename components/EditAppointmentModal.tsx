@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { X, Loader2, Calendar, Clock, AlertCircle } from "lucide-react";
+import { X, Loader2, Calendar, Clock, AlertCircle, ChevronDown, Check } from "lucide-react";
 import { APPOINTMENT_STATUS_OPTIONS } from "../data/appointmentStatusOptions";
 import { ModalPortal } from "../lib/modalPortal";
 
@@ -56,7 +56,8 @@ export default function EditAppointmentModal({
   const [treatment, setTreatment] = useState<string>("");
   const [services, setServices] = useState<Array<{ _id: string; name: string }>>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
-  const [selectedServiceId, setSelectedServiceId] = useState<string>("");
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [isServicesOpen, setIsServicesOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -146,15 +147,18 @@ export default function EditAppointmentModal({
       setEmergency(appointment.emergency || "no");
       setNotes(appointment.notes || "");
       setTreatment(appointment.treatment || "");
-      const selected =
-        appointment.serviceId
-          ? (typeof appointment.serviceId === "string"
-              ? appointment.serviceId
-              : appointment.serviceId._id)
-          : (Array.isArray(appointment.serviceIds) && appointment.serviceIds.length > 0
-              ? appointment.serviceIds[0]
-              : "");
-      setSelectedServiceId(selected || "");
+      
+      const ids: string[] = [];
+      if (appointment.serviceId) {
+        ids.push(typeof appointment.serviceId === "string" ? appointment.serviceId : appointment.serviceId._id);
+      }
+      if (Array.isArray(appointment.serviceIds)) {
+        appointment.serviceIds.forEach(id => {
+          if (id && !ids.includes(id)) ids.push(id);
+        });
+      }
+      setSelectedServiceIds(ids);
+      
       setError("");
       setFieldErrors({});
     }
@@ -196,7 +200,8 @@ export default function EditAppointmentModal({
           emergency,
           notes,
           treatment,
-          serviceId: selectedServiceId || undefined,
+          serviceId: selectedServiceIds.length > 0 ? selectedServiceIds[0] : undefined,
+          serviceIds: selectedServiceIds,
         },
         { headers }
       );
@@ -465,30 +470,86 @@ export default function EditAppointmentModal({
           </div>
 
           {/* Treatment Selection (Optional) */}
-          <div>
+          <div className="relative">
             <label className="block text-xs font-medium text-gray-700 mb-1.5">
-              Treatment (Optional)
+              Treatments (Optional)
             </label>
-            <select
-              value={selectedServiceId}
-              onChange={(e) => {
-                setSelectedServiceId(e.target.value);
-                if (fieldErrors.serviceId) {
-                  setFieldErrors({ ...fieldErrors, serviceId: "" });
-                }
-              }}
-              className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-white text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={servicesLoading}
+            <div
+              className={`w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-white text-gray-900 dark:text-gray-900 cursor-pointer flex justify-between items-center transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
+                isServicesOpen ? "ring-2 ring-blue-500 border-blue-500" : ""
+              }`}
+              onClick={() => setIsServicesOpen(!isServicesOpen)}
             >
-              <option value="">Select a treatment (optional)</option>
-              {services.map((svc) => (
-                <option key={svc._id} value={svc._id}>
-                  {svc.name}
-                </option>
-              ))}
-            </select>
-            {servicesLoading && (
-              <p className="mt-1 text-xs text-gray-500">Loading treatments...</p>
+              <div className="flex flex-wrap gap-1">
+                {selectedServiceIds.length > 0 ? (
+                  selectedServiceIds.map((id) => {
+                    const svc = services.find((s) => s._id === id);
+                    return (
+                      <span
+                        key={id}
+                        className="bg-gray-100 text-gray-800 px-2 py-0.5 rounded-md flex items-center gap-1"
+                      >
+                        {svc?.name || "Unknown"}
+                        <X
+                          className="w-2.5 h-2.5 cursor-pointer hover:text-red-500"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedServiceIds(selectedServiceIds.filter((sid) => sid !== id));
+                          }}
+                        />
+                      </span>
+                    );
+                  })
+                ) : (
+                  <span className="text-gray-400">Select treatments (optional)</span>
+                )}
+              </div>
+              <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isServicesOpen ? "rotate-180" : ""}`} />
+            </div>
+
+            {isServicesOpen && (
+              <div className="absolute z-[1000] mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                {servicesLoading ? (
+                  <div className="p-3 text-center text-xs text-gray-500">
+                    <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                    Loading treatments...
+                  </div>
+                ) : services.length > 0 ? (
+                  <div className="py-1">
+                    {services.map((svc) => {
+                      const isSelected = selectedServiceIds.includes(svc._id);
+                      return (
+                        <div
+                          key={svc._id}
+                          className={`px-3 py-2 text-xs cursor-pointer flex items-center justify-between hover:bg-gray-100 ${
+                            isSelected ? "bg-gray-50 text-gray-900 font-medium" : "text-gray-700"
+                          }`}
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedServiceIds(selectedServiceIds.filter((id) => id !== svc._id));
+                            } else {
+                              setSelectedServiceIds([...selectedServiceIds, svc._id]);
+                            }
+                          }}
+                        >
+                          <span>{svc.name}</span>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-blue-600" />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-3 text-center text-xs text-gray-500 italic">
+                    No treatments found
+                  </div>
+                )}
+              </div>
+            )}
+            {isServicesOpen && (
+              <div
+                className="fixed inset-0 z-[999]"
+                onClick={() => setIsServicesOpen(false)}
+              />
             )}
             {fieldErrors.serviceId && (
               <p className="mt-0.5 text-xs text-red-600 dark:text-red-600">{fieldErrors.serviceId}</p>

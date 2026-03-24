@@ -433,23 +433,32 @@ export default async function handler(req, res) {
       // Validation 2: Check for duplicate booking for the same patient
       // Prevent same patient from being booked in the same room OR with the same doctor at the same time
       // This ensures that if booked under Doctor column (with room), it blocks re-booking under Room column (for same patient)
-      const duplicateAppointment = await Appointment.findOne({
+      const duplicateQuery = {
         clinicId,
         patientId, // Same patient
         startDate: { $gte: startOfDay, $lte: endOfDay },
         fromTime,
         toTime,
-        $or: [
-          { roomId: roomId },
-          { doctorId: doctorId }
-        ]
-      });
+        $or: []
+      };
 
-      if (duplicateAppointment) {
-        return res.status(400).json({
-          success: false,
-          message: "This appointment already exists",
-        });
+      if (roomId) {
+        duplicateQuery.$or.push({ roomId: roomId });
+      }
+      if (doctorId) {
+        duplicateQuery.$or.push({ doctorId: doctorId });
+      }
+
+      // Only run duplicate check if we have either roomId or doctorId
+      if (duplicateQuery.$or.length > 0) {
+        const duplicateAppointment = await Appointment.findOne(duplicateQuery);
+
+        if (duplicateAppointment) {
+          return res.status(400).json({
+            success: false,
+            message: "This appointment already exists",
+          });
+        }
       }
 
       // Validation 3 removed for clinic, agent, and doctorStaff roles (handled below)
@@ -459,7 +468,7 @@ export default async function handler(req, res) {
       // Skip the "different doctor same room/time" validation for these roles
       // Keep restriction for other roles (e.g., doctor, staff, unknown)
       // Note: "same doctor same room/time" restriction still applies to prevent duplicate bookings by the same doctor
-      if (!["clinic", "agent", "doctorStaff"].includes(clinicUser.role)) {
+      if (roomId && !["clinic", "agent", "doctorStaff"].includes(clinicUser.role)) {
         const differentDoctorSameRoomAppointment = await Appointment.findOne({
           clinicId,
           roomId,
