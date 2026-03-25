@@ -41,12 +41,27 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: "Clinic not found" });
       }
 
-      const timings = clinic.timings || "";
+      const timings = clinic.timings;
+
+      // New schema: timings is an array — no legacy custom string stored here
+      if (Array.isArray(timings)) {
+        return res.status(200).json({
+          success: true,
+          appointmentTimeSlots: {
+            useCustomTimeSlots: false,
+            customStartTime: "",
+            customEndTime: "",
+          },
+        });
+      }
+
+      // Legacy: timings is a string — check for custom time slot format
+      const timingsStr = (typeof timings === "string" ? timings : "") || "";
       
       // Check if timings is in custom format: "H:MM AM - H:MM PM" or "HH:MM AM - HH:MM PM"
       // Examples: "8:00 AM - 11:00 PM", "08:00 AM - 11:00 PM"
       const customTimeRegex = /^(\d{1,2}):(\d{2})\s*(AM|PM)\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM)$/i;
-      const customMatch = timings.trim().match(customTimeRegex);
+      const customMatch = timingsStr.trim().match(customTimeRegex);
       
       if (customMatch) {
         // Custom time slots format - return in 12-hour format with AM/PM as stored
@@ -74,10 +89,10 @@ export default async function handler(req, res) {
           success: true,
           appointmentTimeSlots: {
             useCustomTimeSlots: true,
-            customStartTime: start12Hour, // Return in 12-hour format with AM/PM (e.g., "10:00 PM")
-            customEndTime: end12Hour, // Return in 12-hour format with AM/PM (e.g., "11:00 PM")
-            customStartTime24: start24, // Also provide 24-hour format for UI time input
-            customEndTime24: end24, // Also provide 24-hour format for UI time input
+            customStartTime: start12Hour,
+            customEndTime: end12Hour,
+            customStartTime24: start24,
+            customEndTime24: end24,
           },
         });
       } else {
@@ -151,11 +166,18 @@ export default async function handler(req, res) {
         return `${hour12}:${String(min).padStart(2, "0")} ${period}`;
       };
 
+      // If timings is now an array (new weekly schema), do NOT overwrite it with a string.
+      // Store custom time slot preference in a separate field or just skip the timings update.
+      const existingIsArray = Array.isArray(existingClinic.timings);
+
       // Update clinic timings field
       // If custom time slots are enabled, store as "H:MM AM - H:MM PM" format
       // Otherwise, keep existing timings or set to empty
-      let updatedTimings = "";
-      if (useCustomTimeSlots && customStartTime && customEndTime) {
+      let updatedTimings;
+      if (existingIsArray) {
+        // New schema: keep the array as-is, don't overwrite with custom string
+        updatedTimings = existingClinic.timings;
+      } else if (useCustomTimeSlots && customStartTime && customEndTime) {
         // Convert 24-hour format to 12-hour format with AM/PM
         const start12Hour = convertTo12Hour(customStartTime);
         const end12Hour = convertTo12Hour(customEndTime);
@@ -163,10 +185,11 @@ export default async function handler(req, res) {
       } else {
         // Keep existing timings if available and not in custom format
         const customTimeRegex = /^(\d{1,2}):(\d{2})\s*(AM|PM)\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM)$/i;
-        if (existingClinic.timings && !customTimeRegex.test(existingClinic.timings.trim())) {
-          updatedTimings = existingClinic.timings; // Keep original format
+        const existingStr = typeof existingClinic.timings === "string" ? existingClinic.timings : "";
+        if (existingStr && !customTimeRegex.test(existingStr.trim())) {
+          updatedTimings = existingStr;
         } else {
-          updatedTimings = ""; // Clear if was custom format
+          updatedTimings = "";
         }
       }
 

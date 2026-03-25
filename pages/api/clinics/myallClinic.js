@@ -120,10 +120,12 @@ export default async function handler(req, res) {
       clinic.treatments = clinic.treatments.map((treatment) => ({
         mainTreatment: treatment.mainTreatment,
         mainTreatmentSlug: treatment.mainTreatmentSlug,
+        enabled: treatment.enabled !== false, // preserve enabled flag
         subTreatments: (treatment.subTreatments || []).map((sub) => ({
           name: sub.name,
           slug: sub.slug,
           price: sub.price || 0,
+          enabled: sub.enabled !== false, // preserve sub enabled flag
         })),
       }));
     }

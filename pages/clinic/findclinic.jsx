@@ -2123,24 +2123,28 @@ export default function Home() {
                                                             {clinic.name}
                                                         </div>
                                                         <div className="text-amber-500 text-sm font-semibold whitespace-nowrap">
-                                                            ★ {reviewsLoaded ? (clinicReviews[clinic._id]?.averageRating || 0).toFixed(1) : "0.0"}
+                                                            {clinic.listingVisibility?.showReviews !== false && (
+                                                                <>★ {reviewsLoaded ? (clinicReviews[clinic._id]?.averageRating || 0).toFixed(1) : "0.0"}</>
+                                                            )}
                                                         </div>
                                                     </div>
 
                                                     <div className="mt-2 flex flex-wrap gap-2">
-                                                        {clinic.services?.slice(0, 2).map((s) => (
-                                                            <span
-                                                                key={s}
-                                                                className="text-[10px] px-2 py-1 bg-teal-50 text-teal-800 rounded-full font-medium"
-                                                            >
-                                                                {s}
-                                                            </span>
-                                                        )) || (
-                                                            <>
-                                                                <span className="text-[10px] px-2 py-1 bg-teal-50 text-teal-800 rounded-full font-medium">Healthcare</span>
-                                                                <span className="text-[10px] px-2 py-1 bg-teal-50 text-teal-800 rounded-full font-medium">Wellness</span>
-                                                            </>
-                                                        )}
+                                                        {clinic.listingVisibility?.showServices !== false ? (
+                                                            clinic.services?.slice(0, 2).map((s) => (
+                                                                <span
+                                                                    key={s}
+                                                                    className="text-[10px] px-2 py-1 bg-teal-50 text-teal-800 rounded-full font-medium"
+                                                                >
+                                                                    {s}
+                                                                </span>
+                                                            )) || (
+                                                                <>
+                                                                    <span className="text-[10px] px-2 py-1 bg-teal-50 text-teal-800 rounded-full font-medium">Healthcare</span>
+                                                                    <span className="text-[10px] px-2 py-1 bg-teal-50 text-teal-800 rounded-full font-medium">Wellness</span>
+                                                                </>
+                                                            )
+                                                        ) : null}
                                                     </div>
 
                                                     <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
@@ -2148,15 +2152,19 @@ export default function Home() {
                                                         <span className="truncate">{clinic.address}</span>
                                                     </div>
 
-                                                    {/* Fee and Actions */}
+                                                    {/* Fee and Actions — always visible */}
                                                     <div className="mt-auto pt-4 flex justify-between items-center">
+                                                        {/* Prices — only when toggle is on */}
+                                                        {clinic.listingVisibility?.showPrices !== false ? (
                                                         <div>
                                                             <div className="text-[10px] text-gray-500 font-medium">Starting from</div>
                                                             <div className="font-bold text-blue-700 text-sm">
                                                                 {clinic.pricing ? `AED ${clinic.pricing}` : "AED —"}
                                                             </div>
                                                         </div>
-                                                        
+                                                        ) : <div />}
+
+                                                        {/* Location icon + View Details — always visible */}
                                                         <div className="flex gap-2 items-center">
                                                             {(() => {
                                                                 const mapsHref = clinic.address
@@ -2164,7 +2172,7 @@ export default function Home() {
                                                                     : clinic.location?.coordinates?.length === 2
                                                                     ? `https://www.google.com/maps/dir/?api=1&destination=${clinic.location.coordinates[1]},${clinic.location.coordinates[0]}`
                                                                     : null;
-                                                               
+
                                                                 return mapsHref ? (
                                                                     <a
                                                                         href={mapsHref}
@@ -2178,7 +2186,7 @@ export default function Home() {
                                                                     </a>
                                                                 ) : null;
                                                             })()}
-                                                            
+
                                                             <a
                                                                 href={clinic.slug && clinic.slugLocked
                                                                     ? `/clinics/${clinic.slug}`

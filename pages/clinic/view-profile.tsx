@@ -522,15 +522,25 @@ const ViewProfile: NextPageWithLayout = () => {
           </h2>
           {clinicProfile?.timings ? (
             <div className="space-y-2">
-              <p className="text-gray-700 dark:text-gray-300 break-words">
-                <span className="font-medium">Days:</span>{' '}
-                <span className="break-all">{clinicProfile.timings.days?.join(', ') || 'N/A'}</span>
-              </p>
-              <p className="text-gray-700 dark:text-gray-300">
-                <span className="font-medium">Time:</span>{' '}
-                <span className="break-all">{clinicProfile.timings.openingTime || 'N/A'} -{' '}
-                {clinicProfile.timings.closingTime || 'N/A'}</span>
-              </p>
+              {Array.isArray(clinicProfile.timings) ? (
+                // New weekly schedule schema
+                (clinicProfile.timings as any[]).map((t: any) => (
+                  <div key={t.day} className="flex items-center justify-between text-sm">
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-28">{t.day}</span>
+                    {t.isOpen ? (
+                      <span className="text-gray-600 dark:text-gray-400">
+                        {t.openingTime} &ndash; {t.closingTime}
+                        {t.breakStart && t.breakEnd ? ` (Break: ${t.breakStart} - ${t.breakEnd})` : ''}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 dark:text-gray-500">Closed</span>
+                    )}
+                  </div>
+                ))
+              ) : (
+                // Legacy string format
+                <p className="text-gray-700 dark:text-gray-300">{clinicProfile.timings as any}</p>
+              )}
             </div>
           ) : (
             <p className="text-gray-500 dark:text-gray-400">No timings specified</p>

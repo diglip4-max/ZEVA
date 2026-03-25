@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
+import AddPatientAdvancePaymentModal from '@/components/patient/AddPatientAdvancePaymentModal';
+import AddPatientPastAdvancePaymentModal from '@/components/patient/AddPatientPastAdvancePaymentModal';
 
 const TOKEN_PRIORITY = [
   "clinicToken",
@@ -48,7 +50,6 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
   const [insuranceClaims, setInsuranceClaims] = useState<any[]>([]);
   const [loadingInsurance, setLoadingInsurance] = useState(false);
   const [mediaDocuments, setMediaDocuments] = useState<any[]>([]);
-  const [mediaFilter, setMediaFilter] = useState('all');
   const [loadingMedia, setLoadingMedia] = useState(false);
   const [doctorsNotes, setDoctorsNotes] = useState<any[]>([]);
   const [communicationLogs, setCommunicationLogs] = useState<any[]>([]);
@@ -57,6 +58,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
   // Stats state - fetched on mount
   const [statsData, setStatsData] = useState({
     totalVisits: 0,
+    completedVisits: 0,
     completedInvoices: 0,
     cancelledNoShow: 0,
     activePackages: 0,
@@ -72,16 +74,33 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
     advanceBalance: 0
   });
 
+  // Advance & Pending balance state
+  const [balance, setBalance] = useState({
+    pendingBalance: 0,
+    advanceBalance: 0,
+    pastAdvanceBalance: 0,
+    pastAdvance50PercentBalance: 0,
+    pastAdvance54PercentBalance: 0,
+    pastAdvance159FlatBalance: 0,
+  });
+  const [balanceLoading, setBalanceLoading] = useState(false);
+  const [showAddAdvancePaymentModal, setShowAddAdvancePaymentModal] = useState(false);
+  const [showAddPastAdvancePayment50PercentModal, setShowAddPastAdvancePayment50PercentModal] = useState(false);
+  const [showAddPastAdvancePayment54PercentModal, setShowAddPastAdvancePayment54PercentModal] = useState(false);
+  const [showAddPastAdvancePayment159FlatModal, setShowAddPastAdvancePayment159FlatModal] = useState(false);
+  const [treatmentFilter, setTreatmentFilter] = useState<'all' | 'ongoing' | 'completed'>('all');
+
   if (!patientData) return null;
 
   const tabs = [
     { id: 'overview', label: 'Overview' },
+    { id: 'treatments', label: 'Treatments' },
     { id: 'billing', label: 'Billing' },
     { id: 'appointments', label: 'Appointments' },
     { id: 'packages-memberships', label: 'Packages & Memberships' },
     { id: 'insurance', label: 'Insurance' },
     { id: 'media', label: 'Media & Documents' },
-    { id: 'notes', label: 'Notes & Communication' }
+    { id: 'advance', label: 'Advance & Pending Balance' }
   ];
 
   // Mock data for demonstration (can be replaced with real API calls later)
@@ -130,25 +149,122 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
     }
   ];
 
-  const timelineItems = [
-    { icon: Calendar, title: 'Appointment Scheduled', subtitle: 'Regular checkup with Dr. Smith', date: 'Mar 20, 2026 at 10:00 AM', color: 'bg-blue-500' },
-    { icon: DollarSign, title: 'Payment Received', subtitle: '$250 via Credit Card', date: 'Mar 18, 2026 at 2:30 PM', color: 'bg-green-500' },
-    { icon: Activity, title: 'Treatment Completed', subtitle: 'Dental Cleaning Session #3', date: 'Mar 15, 2026 at 11:00 AM', color: 'bg-purple-500' },
-    { icon: AlertTriangle, title: 'Appointment Rescheduled', subtitle: 'Changed from Mar 10 to Mar 20', date: 'Mar 8, 2026 at 9:15 AM', color: 'bg-yellow-500' },
-    { icon: Shield, title: 'Insurance Claim Submitted', subtitle: 'Claim #INS-2026-001234', date: 'Mar 5, 2026 at 4:00 PM', color: 'bg-teal-500' }
-  ];
+  // Activity Timeline — built from real appointments + billing data
+  const timelineItems = (() => {
+    const items: { icon: any; title: string; subtitle: string; date: string; color: string }[] = [];
 
-  const alerts = [
-    { type: 'warning', icon: AlertTriangle, message: 'Appointment reschedule requested', color: 'bg-yellow-50 border-yellow-200 text-yellow-800' },
-    { type: 'danger', icon: AlertCircle, message: 'Outstanding payment of $150', color: 'bg-red-50 border-red-200 text-red-800' },
-    { type: 'info', icon: Info, message: 'Membership expires in 30 days', color: 'bg-blue-50 border-blue-200 text-blue-800' }
-  ];
+    // From appointments (sorted newest first)
+    const sortedApts = [...(appointments || [])].sort(
+      (a: any, b: any) => new Date(b.startDate || b.createdAt).getTime() - new Date(a.startDate || a.createdAt).getTime()
+    ).slice(0, 5);
 
-  const behaviorMetrics = [
-    { label: 'Visit Frequency', value: 75, color: 'bg-green-500' },
-    { label: 'No-Show Rate', value: 12, color: 'bg-red-500' },
-    { label: 'Engagement Score', value: 88, color: 'bg-blue-500' }
-  ];
+    sortedApts.forEach((apt: any) => {
+      const status = (apt.status || apt.appointmentStatus || '').toLowerCase();
+      const dateStr = apt.registeredDate ||
+        (apt.startDate ? new Date(apt.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
+      const time = apt.fromTime ? ` at ${apt.fromTime}` : '';
+      const doctor = apt.doctorName ? `with ${apt.doctorName}` : '';
+
+      if (status === 'completed' || status === 'discharge') {
+        items.push({ icon: Activity, title: 'Treatment Completed', subtitle: `${apt.treatmentName || apt.serviceName || 'Appointment'}${doctor ? ' ' + doctor : ''}`, date: dateStr + time, color: 'bg-purple-500' });
+      } else if (status === 'rescheduled') {
+        items.push({ icon: AlertTriangle, title: 'Appointment Rescheduled', subtitle: `${apt.treatmentName || 'Appointment'}${doctor ? ' ' + doctor : ''}`, date: dateStr + time, color: 'bg-yellow-500' });
+      } else if (status === 'cancelled' || status === 'rejected') {
+        items.push({ icon: XCircle, title: 'Appointment Cancelled', subtitle: `${apt.treatmentName || 'Appointment'}${doctor ? ' ' + doctor : ''}`, date: dateStr + time, color: 'bg-red-500' });
+      } else {
+        items.push({ icon: Calendar, title: `Appointment ${apt.status || 'Scheduled'}`, subtitle: `${apt.treatmentName || apt.serviceName || 'Appointment'}${doctor ? ' ' + doctor : ''}`, date: dateStr + time, color: 'bg-blue-500' });
+      }
+    });
+
+    // From billing — add payment entries
+    const billings = Array.isArray(billingHistory) ? billingHistory : [];
+    billings.slice(0, 3).forEach((b: any) => {
+      if (b.paid > 0) {
+        const dateStr = b.invoicedDate || (b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
+        items.push({ icon: DollarSign, title: 'Payment Received', subtitle: `د.إ${b.paid.toLocaleString()} — ${b.invoiceNumber || ''}`, date: dateStr, color: 'bg-green-500' });
+      }
+    });
+
+    // Sort all by date desc, keep top 8
+    return items.slice(0, 8);
+  })();
+
+  // Alerts — computed from real data
+  const alerts = (() => {
+    const list: { type: string; icon: any; message: string }[] = [];
+
+    // Outstanding payment alert
+    const outstanding = patientData?.outstanding || 0;
+    if (outstanding > 0) {
+      list.push({ type: 'danger', icon: AlertCircle, message: `Outstanding payment of د.إ${Number(outstanding).toLocaleString()}` });
+    }
+
+    // Rescheduled appointment alert
+    const hasRescheduled = (appointments || []).some(
+      (a: any) => (a.status || a.appointmentStatus || '').toLowerCase() === 'rescheduled'
+    );
+    if (hasRescheduled) {
+      list.push({ type: 'warning', icon: AlertTriangle, message: 'Appointment reschedule requested' });
+    }
+
+    // Pending invoice alert
+    const hasPendingInvoice = Array.isArray(billingHistory) && billingHistory.some(
+      (b: any) => (b.status || '').toLowerCase() === 'pending' || (b.pending > 0)
+    );
+    if (hasPendingInvoice) {
+      list.push({ type: 'warning', icon: AlertTriangle, message: 'Pending invoice payment' });
+    }
+
+    // Membership expiry
+    if (patientData?.membershipEndDate) {
+      try {
+        const end = new Date(patientData.membershipEndDate);
+        const now = new Date();
+        const daysLeft = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysLeft > 0 && daysLeft <= 30) {
+          list.push({ type: 'info', icon: Info, message: `Membership expires in ${daysLeft} days` });
+        } else if (daysLeft <= 0) {
+          list.push({ type: 'danger', icon: AlertCircle, message: 'Membership has expired' });
+        }
+      } catch {}
+    }
+
+    // Insurance active
+    if (patientData?.insurance === 'Yes') {
+      list.push({ type: 'info', icon: Info, message: `Insurance: ${patientData?.insuranceType || 'Active'}` });
+    }
+
+    if (list.length === 0) {
+      list.push({ type: 'info', icon: Info, message: 'No active alerts for this patient' });
+    }
+
+    return list;
+  })();
+
+  // Patient Behavior — using statsData (from Total Visits card) for accuracy
+  const behaviorMetrics = (() => {
+    const total = statsData.totalVisits;                    // from Total Visits card
+    const completedCount = statsData.completedVisits;       // actual completed/discharge/approved
+    const cancelled = statsData.cancelledNoShow;            // from Cancelled/No Show card
+
+    // Visit bar fills based on totalVisits (every visit = 10%, max 100%)
+    const visitBarValue = Math.min(100, total * 10);
+
+    const noShowRate = total > 0 ? Math.min(100, Math.round((cancelled / total) * 100)) : 0;
+
+    // Engagement score
+    let engagementScore = 0;
+    if (patientData?.email) engagementScore += 20;
+    if (patientData?.mobile) engagementScore += 20;
+    if (total > 0) engagementScore += 30;
+    if (completedCount > 0) engagementScore += 20;
+    if (patientData?.membership === 'Yes') engagementScore += 10;
+
+    return [
+      { label: `Visit Completion Rate`, value: visitBarValue, displayValue: total, color: 'bg-green-500' },
+      { label: 'No-Show Rate', value: noShowRate, displayValue: null, color: 'bg-red-500' },
+    ];
+  })();
 
   const getInitials = (first: string, last: string) => {
     return `${first?.charAt(0) || ''}${last?.charAt(0) || ''}`.toUpperCase();
@@ -162,6 +278,14 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
       fetchAppointments();
     }
   }, [activeTab, appointmentFilter]);
+
+  // Fetch appointments + billing for Treatments tab
+  useEffect(() => {
+    if (activeTab === 'treatments' && patientData?._id) {
+      fetchAppointments();
+      fetchBillingHistory();
+    }
+  }, [activeTab]);
 
   // Fetch packages and memberships when packages-memberships tab is active
   useEffect(() => {
@@ -189,12 +313,22 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
     if (activeTab === 'media' && patientData?._id) {
       fetchMediaDocuments();
     }
-  }, [activeTab, mediaFilter]);
+  }, [activeTab]);
 
-  // Fetch notes and communication when notes tab is active
+  // Fetch notes and communication when notes tab is active (commented out - replaced by Advance & Pending)
+  // useEffect(() => {
+  //   if (activeTab === 'notes' && patientData?._id) {
+  //     fetchNotesAndCommunication();
+  //   }
+  // }, [activeTab]);
+
+  // Fetch patient balance when advance tab is active
   useEffect(() => {
-    if (activeTab === 'notes' && patientData?._id) {
-      fetchNotesAndCommunication();
+    if (activeTab === 'advance' && patientData?._id) {
+      setBalanceLoading(true);
+      fetchPatientBalance(patientData._id).then((data) => {
+        if (data) setBalance(data as typeof balance);
+      }).finally(() => setBalanceLoading(false));
     }
   }, [activeTab]);
 
@@ -202,6 +336,18 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
   useEffect(() => {
     if (patientData?._id) {
       fetchOverviewData();
+      fetchAppointments();   // also load appointments for Overview timeline
+      fetchBillingHistory(); // also load billing for Overview financial/timeline
+      // Fetch real advance & pending balances for Financial Snapshot
+      fetchPatientBalance(patientData._id).then((data: any) => {
+        if (data) {
+          setFinancialData((prev: any) => ({
+            ...prev,
+            advanceBalance: data.advanceBalance || 0,
+            pendingPayment: data.pendingBalance || prev.pendingPayment,
+          }));
+        }
+      });
     }
   }, [patientData?._id]);
 
@@ -381,33 +527,18 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
 
   const calculateFinancialSnapshot = (billings: any[]) => {
     let totalSpent = 0;
-    let pendingPayment = 0;
-    let advanceBalance = 0;
 
     billings.forEach((billing: any) => {
-      const amount = parseFloat(billing.amount) || 0;
-      const paidAmount = parseFloat(billing.paidAmount) || 0;
-      const status = billing.status?.toLowerCase() || '';
-
-      // Total spent - sum of all paid amounts
-      totalSpent += paidAmount;
-
-      // Pending payment - unpaid or partially paid invoices
-      if (['pending', 'unpaid', 'partial'].includes(status)) {
-        pendingPayment += (amount - paidAmount);
-      }
-
-      // Advance balance - overpayments or credits
-      if (paidAmount > amount) {
-        advanceBalance += (paidAmount - amount);
-      }
+      // Use `billing.paid` — the actual paid field from Billing model
+      const paid = parseFloat(billing.paid) || 0;
+      totalSpent += paid;
     });
 
-    setFinancialData({
+    setFinancialData((prev: any) => ({
+      ...prev,
       totalSpent: Math.round(totalSpent),
-      pendingPayment: Math.round(pendingPayment),
-      advanceBalance: Math.round(advanceBalance)
-    });
+      // pendingPayment and advanceBalance come from /api/clinic/patient-balance on mount
+    }));
   };
 
   const fetchOverviewData = async () => {
@@ -420,16 +551,18 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
       const oneYearAgo = new Date();
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
-      // Fetch appointments + package-usage in parallel
-      const [appointmentsRes, packageUsageRes] = await Promise.all([
+      // Fetch appointments + package-usage + billing in parallel
+      const [appointmentsRes, packageUsageRes, billingRes] = await Promise.all([
         axios.get(
           `/api/clinic/all-appointments?page=1&limit=1000&fromDate=${oneYearAgo.toISOString().split('T')[0]}&toDate=${today}`,
           { headers }
         ),
-        axios.get(`/api/clinic/package-usage/${patientData._id}`, { headers }).catch(() => ({ data: { success: false } }))
+        axios.get(`/api/clinic/package-usage/${patientData._id}`, { headers }).catch(() => ({ data: { success: false } })),
+        axios.get(`/api/clinic/billing-history/${patientData._id}`, { headers }).catch(() => ({ data: { success: false } }))
       ]);
 
       let totalVisits = 0;
+      let completedVisits = 0;
       let completedInvoices = 0;
       let cancelledNoShow = 0;
       let activePackages = 0;
@@ -447,22 +580,36 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
           if (['cancelled', 'rejected', 'no show', 'no-show'].includes(status)) {
             cancelledNoShow += 1;
           }
+          if (['completed', 'discharge', 'approved'].includes(status)) {
+            completedVisits += 1;
+          }
         });
       }
 
-      // Calculate from package-usage API (accurate per-patient data)
+      // Calculate active packages from patientData.packages (one entry per assigned package)
+      // and pending sessions from package-usage API (sums remaining across all name-groups)
+      const assignedPackages: any[] = patientData?.packages || [];
+      activePackages = assignedPackages.length;
       if (packageUsageRes.data.success) {
         const packageUsage: any[] = packageUsageRes.data.packageUsage || [];
         packageUsage.forEach((pkg: any) => {
-          const remaining = pkg.remainingSessions ?? 0;
-          if (remaining > 0) activePackages += 1;
-          pendingSessions += remaining;
+          pendingSessions += pkg.remainingSessions ?? 0;
         });
       }
 
-      // Billing invoices completed
-      if (billingHistory && billingHistory.length > 0) {
-        completedInvoices = billingHistory.filter((b: any) => b.paid >= b.amount && b.amount > 0).length;
+      // Completed invoices + Total Spent — from billing-history API
+      if (billingRes.data.success) {
+        const billings: any[] = billingRes.data.billings || [];
+        completedInvoices = billings.filter(
+          (b: any) => (b.status || '').toLowerCase() === 'paid' || (b.paid >= b.amount && b.amount > 0)
+        ).length;
+
+        // Total Spent = sum of all paid amounts (same as "Total Paid" in Billing tab)
+        const totalSpent = billings.reduce((sum: number, b: any) => sum + (Number(b.paid) || 0), 0);
+        setFinancialData((prev: any) => ({
+          ...prev,
+          totalSpent: Math.round(totalSpent),
+        }));
       }
 
       // Insurance
@@ -470,6 +617,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
 
       setStatsData({
         totalVisits,
+        completedVisits,
         completedInvoices,
         cancelledNoShow,
         activePackages,
@@ -548,100 +696,35 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
       const headers = getAuthHeaders();
       if (!headers) return;
 
-      // Try to fetch from media/documents API endpoint
-      const response = await axios.get('/api/clinic/patient-documents', { 
+      // Fetch before/after images from patient-complaints API
+      const response = await axios.get('/api/clinic/patient-complaints', {
         headers,
         params: { patientId: patientData._id }
       });
-      
+
       if (response.data.success) {
-        setMediaDocuments(response.data.documents || []);
+        // Map complaints that have before/after images
+        const mediaItems = (response.data.complaints || [])
+          .filter((c: any) => c.beforeImage || c.afterImage)
+          .map((c: any) => ({
+            _id: c._id,
+            complaints: c.complaints,
+            beforeImage: c.beforeImage || null,
+            afterImage: c.afterImage || null,
+            doctorName: c.doctorId?.name || 'Doctor',
+            appointmentDate: c.appointmentId?.startDate || c.createdAt,
+            visitId: c.appointmentId?.visitId || null,
+            createdAt: c.createdAt,
+          }));
+        setMediaDocuments(mediaItems);
       }
     } catch (error: any) {
-      console.error('Error fetching media documents:', error.message);
-      // Set mock data for demonstration if API fails
-      setMediaDocuments([
-        {
-          _id: '1',
-          type: 'image',
-          category: 'Before/After',
-          title: 'Laser Hair Removal - Before',
-          description: 'Initial session - back view',
-          url: '/api/placeholder/400/300',
-          thumbnailUrl: '/api/placeholder/400/300',
-          date: '2026-03-15',
-          treatmentName: 'Laser Hair Removal'
-        },
-        {
-          _id: '2',
-          type: 'image',
-          category: 'Before/After',
-          title: 'Laser Hair Removal - After',
-          description: 'After 5 sessions - back view',
-          url: '/api/placeholder/400/300',
-          thumbnailUrl: '/api/placeholder/400/300',
-          date: '2026-03-20',
-          treatmentName: 'Laser Hair Removal'
-        },
-        {
-          _id: '3',
-          type: 'image',
-          category: 'Before/After',
-          title: 'Skin Rejuvenation - Before',
-          description: 'Pre-treatment facial',
-          url: '/api/placeholder/400/300',
-          thumbnailUrl: '/api/placeholder/400/300',
-          date: '2026-02-10',
-          treatmentName: 'Skin Rejuvenation'
-        },
-        {
-          _id: '4',
-          type: 'image',
-          category: 'Before/After',
-          title: 'Skin Rejuvenation - After',
-          description: 'Post-treatment results',
-          url: '/api/placeholder/400/300',
-          thumbnailUrl: '/api/placeholder/400/300',
-          date: '2026-03-01',
-          treatmentName: 'Skin Rejuvenation'
-        },
-        {
-          _id: '5',
-          type: 'document',
-          category: 'Medical Records',
-          title: 'Treatment Consent Form',
-          description: 'Signed consent for laser treatment',
-          url: '/documents/consent-form.pdf',
-          fileType: 'pdf',
-          date: '2026-01-15'
-        },
-        {
-          _id: '6',
-          type: 'form',
-          category: 'Forms',
-          title: 'Patient Medical History',
-          description: 'Complete medical history form',
-          url: '/forms/medical-history.pdf',
-          fileType: 'pdf',
-          date: '2026-01-10'
-        }
-      ]);
+      console.error('Error fetching before/after images:', error.message);
+      setMediaDocuments([]);
     } finally {
       setLoadingMedia(false);
     }
   };
-
-  const filterMediaDocuments = (items: any[], filter: string) => {
-    if (filter === 'all') return items;
-    return items.filter((item: any) => {
-      if (filter === 'images') return item.type === 'image';
-      if (filter === 'documents') return item.type === 'document';
-      if (filter === 'forms') return item.type === 'form';
-      return true;
-    });
-  };
-
-  const filteredMedia = filterMediaDocuments(mediaDocuments, mediaFilter);
 
   const fetchNotesAndCommunication = async () => {
     try {
@@ -754,6 +837,30 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
     }
   };
 
+  const fetchPatientBalance = async (patientId: string) => {
+    const headers = getAuthHeaders();
+    if (!headers) return;
+    try {
+      const res = await axios.get(`/api/clinic/patient-balance/${patientId}`, { headers });
+      const data = res?.data?.balances || {};
+      return {
+        pendingBalance: Number(data.pendingBalance || 0),
+        advanceBalance: Number(data.advanceBalance || 0),
+        pastAdvanceBalance: Number(data.pastAdvanceBalance || 0),
+        pastAdvance50PercentBalance: Number(data.pastAdvance50PercentBalance || 0),
+        pastAdvance54PercentBalance: Number(data.pastAdvance54PercentBalance || 0),
+        pastAdvance159FlatBalance: Number(data.pastAdvance159FlatBalance || 0),
+      };
+    } catch {
+      return { pendingBalance: 0, advanceBalance: 0, pastAdvanceBalance: 0, pastAdvance50PercentBalance: 0, pastAdvance54PercentBalance: 0, pastAdvance159FlatBalance: 0 };
+    }
+  };
+
+  const formatAED = (v: number) => {
+    if (typeof v !== 'number' || Number.isNaN(v)) return '—';
+    try { return `د.إ${v.toLocaleString()}`; } catch { return `د.إ${v}`; }
+  };
+
   const filterAppointments = (appointmentsList: any[], filter: string) => {
     if (filter === 'all') return appointmentsList;
     return appointmentsList.filter((apt: any) => {
@@ -816,78 +923,74 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
         
         {/* Patient Profile Header Card */}
         <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4 mb-4">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            {/* Left: Avatar + Info */}
             <div className="flex items-start gap-3">
               {/* Avatar */}
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-400 to-cyan-500 flex items-center justify-center text-white text-xl font-bold shadow-lg flex-shrink-0">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-teal-400 to-cyan-500 flex items-center justify-center text-white text-xl font-bold shadow-lg flex-shrink-0">
                 {getInitials(patientData.firstName, patientData.lastName)}
               </div>
               
               {/* Patient Info */}
-              <div className="flex-1">
-                <h2 className="text-xl font-bold text-gray-900">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-base sm:text-xl font-bold text-gray-900 truncate">
                   {`${patientData.firstName || ''} ${patientData.lastName || ''}`.trim()}
                 </h2>
-                
-                {/* Basic Information - Single Vertical Column */}
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-2 text-xs sm:text-sm">
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-3.5 h-3.5 text-gray-500" />
-                    <span className="text-gray-600 font-medium">Email:</span>
-                    <span className="text-gray-900 truncate">{patientData.email || 'N/A'}</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 mt-1.5 text-xs">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Mail className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                    <span className="text-gray-500 font-medium flex-shrink-0">Email:</span>
+                    <span className="text-gray-800 truncate">{patientData.email || 'N/A'}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-3.5 h-3.5 text-gray-500" />
-                    <span className="text-gray-600 font-medium">Mobile:</span>
-                    <span className="text-gray-900">{patientData.countryCode || '+91'} {patientData.mobileNumber || 'N/A'}</span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Phone className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                    <span className="text-gray-500 font-medium flex-shrink-0">Mobile:</span>
+                    <span className="text-gray-800">{patientData.countryCode || '+91'} {patientData.mobileNumber || 'N/A'}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <User className="w-3.5 h-3.5 text-gray-500" />
-                    <span className="text-gray-600 font-medium">Gender:</span>
-                    <span className="text-gray-900">{patientData.gender || 'N/A'}</span>
+                  <div className="flex items-center gap-1.5">
+                    <User className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                    <span className="text-gray-500 font-medium flex-shrink-0">Gender:</span>
+                    <span className="text-gray-800">{patientData.gender || 'N/A'}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-3.5 h-3.5 text-gray-500" />
-                    <span className="text-gray-600 font-medium">EMR:</span>
-                    <span className="text-gray-900 font-semibold">{patientData.emrNumber || 'N/A'}</span>
+                  <div className="flex items-center gap-1.5">
+                    <FileText className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                    <span className="text-gray-500 font-medium flex-shrink-0">EMR:</span>
+                    <span className="text-gray-800 font-semibold">{patientData.emrNumber || 'N/A'}</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Financial Summary & Action Buttons */}
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <div className="text-center lg:text-right">
-                  <div className="text-[10px] sm:text-xs text-gray-600 mb-0.5 font-medium">LTV</div>
-                  <div className="text-xl sm:text-2xl font-bold text-gray-900">$2,450</div>
-                </div>
-                <div className="text-center lg:text-right">
-                  <div className="text-[10px] sm:text-xs text-gray-600 mb-0.5 font-medium">Outstanding</div>
-                  <div className="text-xl sm:text-2xl font-bold text-red-600">$150</div>
-                </div>
-                <div className="text-center lg:text-right">
-                  <div className="text-[10px] sm:text-xs text-gray-600 mb-0.5 font-medium">Wallet</div>
-                  <div className="text-xl sm:text-2xl font-bold text-green-600">$320</div>
-                </div>
-                <div className="text-center lg:text-right">
-                  <div className="text-[10px] sm:text-xs text-gray-600 mb-0.5 font-medium">Last Visit</div>
-                  <div className="text-base sm:text-lg font-bold text-gray-900">Mar 15</div>
+            {/* Right: Last Visit + Add Payment */}
+            <div className="flex items-center gap-4 flex-shrink-0">
+              {/* Last Visit */}
+              <div className="text-center">
+                <div className="text-[12px] font-semibold text-gray-800 font-medium mb-0.5">Last Visit</div>
+                <div className="flex items-center gap-1 text-sm sm:text-base font-bold text-gray-900">
+                  <Calendar className="w-3.5 h-3.5 text-gray-600 flex-shrink-0" />
+                  {(() => {
+                    if (!appointments || appointments.length === 0) return 'N/A';
+                    const sorted = [...appointments].sort((a: any, b: any) => {
+                      const da = new Date(a.startDate || a.createdAt).getTime();
+                      const db = new Date(b.startDate || b.createdAt).getTime();
+                      return db - da;
+                    });
+                    const last: any = sorted[0];
+                    if (last.startDate) return new Date(last.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    if (last.createdAt) return new Date(last.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    return 'N/A';
+                  })()}
                 </div>
               </div>
-              
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button className="inline-flex items-center gap-1.5 px-3 py-2.5 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-lg hover:from-teal-600 hover:to-cyan-700 transition-all shadow-md font-medium text-xs whitespace-nowrap">
-                  <Plus className="w-3.5 h-3.5" />
-                  New Booking
-                </button>
-               
-                <button className="inline-flex items-center gap-1.5 px-3 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all shadow-sm font-medium text-xs whitespace-nowrap">
-                  <DollarSign className="w-3.5 h-3.5" />
-                  Add Payment
-                </button>
-              </div>
+
+              {/* Add Payment Button — teal gradient, opens Advance & Pending tab */}
+              <button
+                onClick={() => setActiveTab('advance')}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-lg hover:from-teal-600 hover:to-cyan-700 transition-all shadow-md font-medium text-xs whitespace-nowrap"
+              >
+                <DollarSign className="w-3.5 h-3.5" />
+                Add Payment
+              </button>
             </div>
           </div>
         </div>
@@ -1940,283 +2043,388 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
 
               </div>
             ) : activeTab === 'media' ? (
-              /* Media & Documents Tab Content */
+              /* Media & Documents - Before/After Images */
               <div className="space-y-4">
-                {/* Filter Tabs */}
-                <div className="flex items-center gap-2 overflow-x-auto pb-2">
-                  {[
-                    { key: 'all', label: 'All' },
-                    { key: 'images', label: 'Images' },
-                    { key: 'documents', label: 'Documents' },
-                    { key: 'forms', label: 'Forms' }
-                  ].map((filter) => (
-                    <button
-                      key={filter.key}
-                      onClick={() => setMediaFilter(filter.key)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
-                        mediaFilter === filter.key
-                          ? 'bg-green-600 text-white shadow-md'
-                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {filter.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Before & After Images Section */}
                 {loadingMedia ? (
-                  <div className="flex items-center justify-center py-12">
+                  <div className="flex items-center justify-center py-16">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
                   </div>
-                ) : filteredMedia.length === 0 ? (
-                  <div className="text-center py-12">
-                    <FileImage className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-600 font-medium">No media or documents found</p>
+                ) : mediaDocuments.length === 0 ? (
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div className="h-1.5 bg-gradient-to-r from-teal-400 to-cyan-400" />
+                    <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-teal-50 to-cyan-100 border-2 border-teal-200 flex items-center justify-center mb-4">
+                        <FileImage className="w-9 h-9 text-teal-400" />
+                      </div>
+                      <h3 className="text-lg font-bold text-gray-800 mb-2">No Before/After Images</h3>
+                      <p className="text-gray-500 text-sm max-w-xs">
+                        Before and after images will appear here once added via the appointment complaint form.
+                      </p>
+                    </div>
                   </div>
                 ) : (
-                  <>
-                    {/* Images Grid */}
-                    {filteredMedia.filter((item: any) => item.type === 'image').length > 0 && (
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                          <FileImage className="w-5 h-5 text-teal-600" />
-                          Before & After Images
-                        </h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                          {filteredMedia.filter((item: any) => item.type === 'image').map((media: any, index: number) => (
-                            <div key={index} className="group bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300">
-                              {/* Image Container */}
-                              <div className="relative aspect-square overflow-hidden bg-gray-100">
-                                <img
-                                  src={media.thumbnailUrl || media.url || '/api/placeholder/400/300'}
-                                  alt={media.title}
-                                  className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300"
-                                />
-                                {/* Overlay on hover */}
-                                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-opacity duration-300" />
-                              </div>
-                              
-                              {/* Caption Area */}
-                              <div className="p-3">
-                                <div className="mb-1">
-                                  <span className="text-xs font-semibold text-teal-600 uppercase tracking-wide">
-                                    {media.category}
-                                  </span>
-                                </div>
-                                <h4 className="text-sm font-semibold text-gray-900 mb-1 line-clamp-2">
-                                  {media.title}
-                                </h4>
-                                <p className="text-xs text-gray-600 mb-2 line-clamp-2">
-                                  {media.description || media.treatmentName}
-                                </p>
-                                <div className="flex items-center gap-1 text-xs text-gray-500">
-                                  <Calendar className="w-3 h-3" />
-                                  <span>
-                                    {media.date ? new Date(media.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                  <div className="space-y-5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FileImage className="w-5 h-5 text-teal-600" />
+                      <h3 className="text-base font-bold text-gray-900">Before & After Images</h3>
+                      <span className="ml-auto px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">
+                        {mediaDocuments.length} Record{mediaDocuments.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
 
-                    {/* Documents and Forms Section */}
-                    {filteredMedia.filter((item: any) => item.type !== 'image').length > 0 && (
-                      <div className="mt-6">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                          <FileText className="w-5 h-5 text-blue-600" />
-                          Documents & Forms
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {filteredMedia.filter((item: any) => item.type !== 'image').map((doc: any, index: number) => (
-                            <div key={index} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow">
-                              <div className="flex items-start gap-3">
-                                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center flex-shrink-0">
-                                  <FileText className="w-6 h-6 text-blue-600" />
+                    {mediaDocuments.map((item: any, index: number) => (
+                      <div key={item._id || index} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        {/* Card Header */}
+                        <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center">
+                            <Activity className="w-4 h-4 text-teal-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold text-gray-900 truncate">
+                              {item.complaints || 'Complaint Record'}
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
+                              {item.doctorName && (
+                                <span className="flex items-center gap-1">
+                                  <User className="w-3 h-3" />
+                                  {item.doctorName}
+                                </span>
+                              )}
+                              {item.appointmentDate && (
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  {new Date(item.appointmentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Before / After Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+                          {/* Before */}
+                          <div className="p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">BEFORE</span>
+                            </div>
+                            {item.beforeImage ? (
+                              <div className="relative rounded-xl overflow-hidden bg-gray-100 aspect-video group">
+                                <img
+                                  src={item.beforeImage}
+                                  alt="Before"
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                  onError={(e: any) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                                />
+                                <div className="hidden absolute inset-0 items-center justify-center bg-gray-100 text-gray-400 text-xs">
+                                  Image not available
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="mb-1">
-                                    <span className="text-xs font-semibold text-blue-600 uppercase tracking-wide">
-                                      {doc.category}
-                                    </span>
-                                  </div>
-                                  <h4 className="text-sm font-semibold text-gray-900 truncate mb-1">
-                                    {doc.title}
-                                  </h4>
-                                  <p className="text-xs text-gray-600 truncate mb-2">
-                                    {doc.description}
-                                  </p>
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-1 text-xs text-gray-500">
-                                      <Calendar className="w-3 h-3" />
-                                      <span>
-                                        {doc.date ? new Date(doc.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
-                                      </span>
-                                    </div>
-                                    <button className="text-xs text-teal-600 hover:text-teal-700 font-medium">
-                                      View
-                                    </button>
-                                  </div>
+                                <a
+                                  href={item.beforeImage}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2.5 py-1 rounded-full hover:bg-opacity-80 transition-all"
+                                >
+                                  View Full
+                                </a>
+                              </div>
+                            ) : (
+                              <div className="aspect-video rounded-xl bg-gray-50 border-2 border-dashed border-gray-200 flex items-center justify-center">
+                                <div className="text-center">
+                                  <FileImage className="w-8 h-8 text-gray-300 mx-auto mb-1" />
+                                  <span className="text-xs text-gray-400">No before image</span>
                                 </div>
                               </div>
+                            )}
+                          </div>
+
+                          {/* After */}
+                          <div className="p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">AFTER</span>
                             </div>
-                          ))}
+                            {item.afterImage ? (
+                              <div className="relative rounded-xl overflow-hidden bg-gray-100 aspect-video group">
+                                <img
+                                  src={item.afterImage}
+                                  alt="After"
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                  onError={(e: any) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                                />
+                                <div className="hidden absolute inset-0 items-center justify-center bg-gray-100 text-gray-400 text-xs">
+                                  Image not available
+                                </div>
+                                <a
+                                  href={item.afterImage}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2.5 py-1 rounded-full hover:bg-opacity-80 transition-all"
+                                >
+                                  View Full
+                                </a>
+                              </div>
+                            ) : (
+                              <div className="aspect-video rounded-xl bg-gray-50 border-2 border-dashed border-gray-200 flex items-center justify-center">
+                                <div className="text-center">
+                                  <FileImage className="w-8 h-8 text-gray-300 mx-auto mb-1" />
+                                  <span className="text-xs text-gray-400">No after image</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    )}
-                  </>
+                    ))}
+                  </div>
                 )}
               </div>
-            ) : activeTab === 'notes' ? (
-              /* Notes & Communication Tab Content */
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {loadingNotes ? (
-                  <div className="col-span-2 flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
-                  </div>
-                ) : (
-                  <>
-                    {/* Left Column - Doctor's Notes */}
-                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                          <FileText className="w-5 h-5 text-teal-600" />
-                          Doctor's Notes
-                        </h3>
+            ) : activeTab === 'treatments' ? (
+              /* Treatments Tab — derived from appointments + billing */
+              (() => {
+                // Build treatment list from appointments, cross-ref with billing for status
+                const paidInvoiceAptIds = new Set(
+                  (billingHistory || [])
+                    .filter((b: any) => b.paid >= b.amount && b.amount > 0)
+                    .map((b: any) => b.appointmentId?._id || b.appointmentId)
+                    .filter(Boolean)
+                );
+
+                const treatmentItems = (appointments || []).map((apt: any) => {
+                  const isPaid = paidInvoiceAptIds.has(apt._id);
+                  const treatmentStatus = isPaid ? 'completed' : 'ongoing';
+                  const treatmentName =
+                    (Array.isArray(apt.serviceNames) && apt.serviceNames.length > 0
+                      ? apt.serviceNames.join(', ')
+                      : null) ||
+                    apt.serviceName ||
+                    apt.treatmentName ||
+                    apt.treatment ||
+                    'Consultation';
+                  const doctorName =
+                    apt.doctorName ||
+                    apt.doctorId?.name ||
+                    apt.doctor ||
+                    'Doctor';
+                  const date =
+                    apt.registeredDate ||
+                    (apt.startDate ? new Date(apt.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null) ||
+                    (apt.createdAt ? new Date(apt.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A');
+
+                  return { apt, treatmentName, doctorName, date, treatmentStatus };
+                });
+
+                const filtered = treatmentItems.filter((t: any) =>
+                  treatmentFilter === 'all' ? true : t.treatmentStatus === treatmentFilter
+                );
+
+                return (
+                  <div className="space-y-4">
+                    {/* Filter Chips */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {(['all', 'ongoing', 'completed'] as const).map((f) => (
+                        <button
+                          key={f}
+                          onClick={() => setTreatmentFilter(f)}
+                          className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors capitalize ${
+                            treatmentFilter === f
+                              ? 'bg-teal-600 text-white'
+                              : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          {f.charAt(0).toUpperCase() + f.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Loading state */}
+                    {loadingAppointments ? (
+                      <div className="flex items-center justify-center py-16">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
                       </div>
-                                  
-                      {doctorsNotes.length === 0 ? (
-                        <div className="text-center py-12">
-                          <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                          <p className="text-gray-600 font-medium">No doctor notes found</p>
+                    ) : filtered.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-16">
+                        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                          <Package className="w-8 h-8 text-gray-400" />
                         </div>
-                      ) : (
-                        <div className="space-y-4 max-h-[600px] overflow-y-auto scrollbar-hide pr-2">
-                          {doctorsNotes.map((note: any, index: number) => (
-                            <div key={index} className="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
-                              {/* Note Header */}
-                              <div className="flex items-start gap-3 mb-3">
-                                {/* Doctor Avatar/Icon */}
-                                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                                  <User className="w-5 h-5 text-green-600" />
+                        <p className="text-sm font-medium text-gray-500">No treatments found</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {treatmentFilter === 'all' ? 'No appointments booked yet' : `No ${treatmentFilter} treatments`}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {filtered.map((item: any, index: number) => {
+                          const isCompleted = item.treatmentStatus === 'completed';
+                          return (
+                            <div
+                              key={item.apt._id || index}
+                              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:shadow-md transition-shadow"
+                            >
+                              {/* Header */}
+                              <div className="flex items-start justify-between mb-3">
+                                <div>
+                                  <h4 className="text-base font-bold text-gray-900">{item.treatmentName}</h4>
+                                  <p className="text-sm text-gray-500 mt-0.5">{item.doctorName}</p>
                                 </div>
-                                            
-                                {/* Doctor Info */}
-                                <div className="flex-1">
-                                  <div className="flex items-start justify-between">
-                                    <div>
-                                      <h4 className="font-semibold text-gray-900">{note.doctorName}</h4>
-                                      <p className="text-xs text-gray-600 mt-0.5">{note.treatmentName}</p>
-                                    </div>
-                                    <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
-                                      {note.date ? new Date(note.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
-                                    </span>
-                                  </div>
-                                </div>
+                                <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                                  isCompleted
+                                    ? 'bg-green-50 text-green-700 border border-green-200'
+                                    : 'bg-blue-50 text-blue-700 border border-blue-200'
+                                }`}>
+                                  {isCompleted ? (
+                                    <CheckCircle className="w-3.5 h-3.5" />
+                                  ) : (
+                                    <Clock className="w-3.5 h-3.5" />
+                                  )}
+                                  {isCompleted ? 'Completed' : 'Ongoing'}
+                                </span>
                               </div>
-                                          
-                              {/* Note Content */}
-                              <div className="ml-13 pl-13">
-                                <p className="text-sm text-gray-700 leading-relaxed mb-3">
-                                  {note.note}
-                                </p>
-                                            
-                                {/* Tags */}
-                                {note.tags && note.tags.length > 0 && (
-                                  <div className="flex flex-wrap gap-2">
-                                    {note.tags.map((tag: string, tagIndex: number) => (
-                                      <span
-                                        key={tagIndex}
-                                        className="px-2 py-1 bg-teal-50 text-teal-700 text-xs font-medium rounded"
-                                      >
-                                        {tag}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
+
+                              {/* Date */}
+                              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                                <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+                                <span>Started: {item.date}</span>
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-            
-                    {/* Right Column - Communication Logs */}
-                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                          <MessageSquare className="w-5 h-5 text-blue-600" />
-                          Communication Logs
-                        </h3>
+                          );
+                        })}
                       </div>
-                                  
-                      {communicationLogs.length === 0 ? (
-                        <div className="text-center py-12">
-                          <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                          <p className="text-gray-600 font-medium">No communication logs found</p>
+                    )}
+                  </div>
+                );
+              })()
+            ) : activeTab === 'advance' ? (
+              /* Advance & Pending Tab Content */
+              <div className="space-y-5">
+                {/* Balance Cards Row */}
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                  <div className="h-1 bg-gradient-to-r from-teal-400 to-cyan-400" />
+                  <div className="p-5">
+                    <h3 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <DollarSign className="w-5 h-5 text-teal-600" />
+                      Balance Summary
+                    </h3>
+                    {balanceLoading ? (
+                      <div className="flex items-center gap-2 py-4">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-teal-600" />
+                        <span className="text-sm text-gray-500">Loading balances...</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-3">
+                        {/* Pending */}
+                        <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
+                          <DollarSign className="w-3.5 h-3.5 text-amber-600" />
+                          <span className="text-xs font-bold text-amber-700">Pending: {formatAED(balance.pendingBalance)}</span>
                         </div>
-                      ) : (
-                        <div className="space-y-3 max-h-[600px] overflow-y-auto scrollbar-hide pr-2">
-                          {communicationLogs.map((log: any, index: number) => {
-                            const iconConfig: Record<string, { bg: string; icon: any; color: string }> = {
-                              'whatsapp': { bg: 'bg-green-100', icon: MessageCircle, color: 'text-green-600' },
-                              'email': { bg: 'bg-blue-100', icon: Mail, color: 'text-blue-600' },
-                              'sms': { bg: 'bg-purple-100', icon: Smartphone, color: 'text-purple-600' }
-                            };
-                            const config = iconConfig[log.type?.toLowerCase()] || iconConfig['sms'];
-                            const IconComponent = config.icon;
-            
-                            return (
-                              <div key={index} className={`p-3 rounded-lg border ${config.bg} bg-opacity-30 border-opacity-50`}>
-                                <div className="flex items-start gap-3">
-                                  {/* Icon */}
-                                  <div className={`w-8 h-8 rounded-lg ${config.bg} flex items-center justify-center flex-shrink-0`}>
-                                    <IconComponent className={`w-4 h-4 ${config.color}`} />
-                                  </div>
-                                              
-                                  {/* Content */}
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-start justify-between mb-1">
-                                      <div className="flex-1">
-                                        <h4 className="font-semibold text-gray-900 text-sm truncate">
-                                          {log.title}
-                                        </h4>
-                                        <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">
-                                          {log.message}
-                                        </p>
-                                      </div>
-                                      <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
-                                        {log.timestamp ? new Date(log.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                                      </span>
-                                    </div>
-                                                
-                                    {/* Status Badge */}
-                                    {log.status && (
-                                      <div className="mt-2">
-                                        <span className={`px-2 py-0.5 text-xs font-medium rounded capitalize ${
-                                          log.status === 'delivered' ? 'bg-green-100 text-green-700' :
-                                          log.status === 'read' ? 'bg-blue-100 text-blue-700' :
-                                          log.status === 'opened' ? 'bg-purple-100 text-purple-700' :
-                                          log.status === 'clicked' ? 'bg-orange-100 text-orange-700' :
-                                          'bg-gray-100 text-gray-700'
-                                        }`}>
-                                          {log.status}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
+                        {/* Advance */}
+                        <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200">
+                          <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="text-xs font-bold text-emerald-700">Advance: {formatAED(balance.advanceBalance)}</span>
                         </div>
-                      )}
-                    </div>
-                  </>
-                )}
+                        {/* Past Advance 50% */}
+                        <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
+                          <DollarSign className="w-3.5 h-3.5 text-amber-600" />
+                          <span className="text-xs font-bold text-amber-700">Past Advance 50%: {formatAED(balance.pastAdvance50PercentBalance)}</span>
+                        </div>
+                        {/* Past Advance 54% */}
+                        <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200">
+                          <DollarSign className="w-3.5 h-3.5 text-blue-600" />
+                          <span className="text-xs font-bold text-blue-700">Past Advance 54%: {formatAED(balance.pastAdvance54PercentBalance)}</span>
+                        </div>
+                        {/* Past Advance 159 Flat */}
+                        <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-purple-50 border border-purple-200">
+                          <DollarSign className="w-3.5 h-3.5 text-purple-600" />
+                          <span className="text-xs font-bold text-purple-700">Past Advance 159 Flat: {formatAED(balance.pastAdvance159FlatBalance)}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                  <h3 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-teal-600" />
+                    Add Payment
+                  </h3>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => setShowAddAdvancePaymentModal(true)}
+                      className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:bg-green-700 hover:shadow-lg active:scale-95"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Advance Balance
+                    </button>
+                    <button
+                      onClick={() => setShowAddPastAdvancePayment50PercentModal(true)}
+                      className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:bg-amber-700 hover:shadow-lg active:scale-95"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add 50% Past Advance Balance
+                    </button>
+                    <button
+                      onClick={() => setShowAddPastAdvancePayment54PercentModal(true)}
+                      className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:bg-blue-700 hover:shadow-lg active:scale-95"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add 54% Past Advance Balance
+                    </button>
+                    <button
+                      onClick={() => setShowAddPastAdvancePayment159FlatModal(true)}
+                      className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:bg-purple-700 hover:shadow-lg active:scale-95"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add 159 Flat Past Advance Balance
+                    </button>
+                  </div>
+                </div>
+
+                {/* Modals */}
+                <AddPatientAdvancePaymentModal
+                  isOpen={showAddAdvancePaymentModal}
+                  onClose={() => setShowAddAdvancePaymentModal(false)}
+                  patientId={patientData._id}
+                  patientName={`${patientData.firstName} ${patientData.lastName}`}
+                  onSuccess={async () => {
+                    const updated = await fetchPatientBalance(patientData._id);
+                    if (updated) setBalance(updated as typeof balance);
+                  }}
+                />
+                <AddPatientPastAdvancePaymentModal
+                  isOpen={showAddPastAdvancePayment50PercentModal}
+                  onClose={() => setShowAddPastAdvancePayment50PercentModal(false)}
+                  patientId={patientData._id}
+                  patientName={`${patientData.firstName} ${patientData.lastName}`}
+                  onSuccess={async () => {
+                    const updated = await fetchPatientBalance(patientData._id);
+                    if (updated) setBalance(updated as typeof balance);
+                  }}
+                  pastAdvanceType="50% Offer"
+                  primaryColor="amber"
+                />
+                <AddPatientPastAdvancePaymentModal
+                  isOpen={showAddPastAdvancePayment54PercentModal}
+                  onClose={() => setShowAddPastAdvancePayment54PercentModal(false)}
+                  patientId={patientData._id}
+                  patientName={`${patientData.firstName} ${patientData.lastName}`}
+                  onSuccess={async () => {
+                    const updated = await fetchPatientBalance(patientData._id);
+                    if (updated) setBalance(updated as typeof balance);
+                  }}
+                  pastAdvanceType="54% Offer"
+                  primaryColor="blue"
+                />
+                <AddPatientPastAdvancePaymentModal
+                  isOpen={showAddPastAdvancePayment159FlatModal}
+                  onClose={() => setShowAddPastAdvancePayment159FlatModal(false)}
+                  patientId={patientData._id}
+                  patientName={`${patientData.firstName} ${patientData.lastName}`}
+                  onSuccess={async () => {
+                    const updated = await fetchPatientBalance(patientData._id);
+                    if (updated) setBalance(updated as typeof balance);
+                  }}
+                  pastAdvanceType="159 Flat"
+                  primaryColor="purple"
+                />
               </div>
             ) : (
               /* Default Overview Tab - Compact Professional Dashboard */
@@ -2274,27 +2482,22 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                           </div>
                           <div>
                             <div className="text-xs text-gray-600 font-medium">Total Spent</div>
-                            <div className="text-lg font-bold text-gray-900">${financialData.totalSpent.toLocaleString()}</div>
+                            <div className="text-lg font-bold text-gray-900">د.إ{financialData.totalSpent.toLocaleString()}</div>
                           </div>
                         </div>
                       </div>
                                           
                       {/* Pending Payment */}
-                      <div className="flex items-center justify-between p-2 bg-red-50 border border-red-100 rounded-md">
+                      <div className="flex items-center p-2 bg-red-50 border border-red-100 rounded-md">
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center">
                             <CreditCard className="w-3.5 h-3.5 text-red-600 flex-shrink-0" />
                           </div>
                           <div>
                             <div className="text-xs text-gray-700 font-medium">Pending Payment</div>
-                            <div className="text-lg font-bold text-red-600">${financialData.pendingPayment.toLocaleString()}</div>
+                            <div className="text-lg font-bold text-red-600">{formatAED(balance.pendingBalance)}</div>
                           </div>
                         </div>
-                        {financialData.pendingPayment > 0 && (
-                          <button className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded transition-colors whitespace-nowrap">
-                            Pay Now
-                          </button>
-                        )}
                       </div>
                                           
                       {/* Advance Balance */}
@@ -2305,14 +2508,9 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                           </div>
                           <div>
                             <div className="text-xs text-gray-700 font-medium">Advance Balance</div>
-                            <div className="text-lg font-bold text-teal-600">${financialData.advanceBalance.toLocaleString()}</div>
+                            <div className="text-lg font-bold text-teal-600">{formatAED(balance.advanceBalance)}</div>
                           </div>
                         </div>
-                        {financialData.advanceBalance > 0 && (
-                          <button className="px-2.5 py-1 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold rounded transition-colors whitespace-nowrap">
-                            Add Funds
-                          </button>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -2361,29 +2559,24 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                     </h3>
                                         
                     <div className="space-y-2">
-                      {behaviorMetrics.map((metric, index) => (
+                      {behaviorMetrics.map((metric: any, index: number) => (
                         <div key={index}>
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-xs text-gray-600 font-medium">{metric.label}</span>
-                            <span className="text-sm font-bold text-gray-900">{metric.value}%</span>
+                            <span className="text-sm font-bold text-gray-900">
+                              {metric.displayValue !== null && metric.displayValue !== undefined
+                                ? `${metric.displayValue}%`
+                                : `${metric.value}%`}
+                            </span>
                           </div>
-                          <div className="w-full bg-gray-200 rounded-full h-1.5">
+                          <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
                             <div
                               className={`h-1.5 rounded-full ${metric.color} transition-all duration-500`}
-                              style={{ width: `${metric.value}%` }}
+                              style={{ width: `${Math.min(100, metric.value)}%` }}
                             />
                           </div>
                         </div>
                       ))}
-                    </div>
-                    
-                    <div className="mt-2 pt-2 border-t border-gray-100">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-gray-600 font-medium">Patient Status</span>
-                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-semibold rounded-full">
-                          ✓ Active
-                        </span>
-                      </div>
                     </div>
                   </div>
               

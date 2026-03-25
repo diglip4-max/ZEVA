@@ -497,6 +497,40 @@ export default async function handler(req, res) {
         documentNames = updateData.documentNames;
       }
 
+      // Parse timings: handle legacy string format OR JSON string from FormData
+      if (typeof updateData.timings === 'string') {
+        try {
+          const parsed = JSON.parse(updateData.timings);
+          if (Array.isArray(parsed)) {
+            updateData.timings = parsed;
+          } else {
+            // Legacy plain string like "8:00 AM - 9:00 PM" — drop it, keep existing
+            delete updateData.timings;
+          }
+        } catch {
+          // Not valid JSON (e.g. "8:00 AM - 9:00 PM") — remove to avoid cast error
+          delete updateData.timings;
+        }
+      }
+
+      // Validate each timing entry is a proper object
+      if (Array.isArray(updateData.timings)) {
+        const VALID_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+        const isValid = updateData.timings.every(
+          (t) => t && typeof t === 'object' && VALID_DAYS.includes(t.day)
+        );
+        if (!isValid) delete updateData.timings;
+      }
+
+      // Parse listingVisibility from JSON string (FormData) or keep as object (JSON body)
+      if (typeof updateData.listingVisibility === 'string') {
+        try {
+          updateData.listingVisibility = JSON.parse(updateData.listingVisibility);
+        } catch {
+          delete updateData.listingVisibility;
+        }
+      }
+
       if (typeof updateData.location === "string") {
         try {
           updateData.location = JSON.parse(updateData.location);
