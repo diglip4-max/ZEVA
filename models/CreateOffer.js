@@ -33,6 +33,7 @@ const OfferSchema = new Schema({
     enum: ["draft", "active", "paused", "expired", "archived"],
     default: "draft",
   },
+  enabled: { type: Boolean, default: true },
 
   // 🔹 Store selected treatments
   treatments: [{ type: Schema.Types.ObjectId, ref: "Treatment" }],
@@ -59,4 +60,7 @@ OfferSchema.pre("save", function (next) {
 });
 
 // ✅ Export the model correctly
-export default mongoose.models.Offer || mongoose.model("Offer", OfferSchema);
+if (mongoose.models.Offer) {
+  delete mongoose.models.Offer;
+}
+export default mongoose.model("Offer", OfferSchema);

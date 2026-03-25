@@ -60,6 +60,8 @@ export default async function handler(req, res) {
           "firstName lastName emrNumber gender mobileNumber email",
         )
         .populate("doctorId", "name email")
+        .populate("serviceId", "name")
+        .populate("serviceIds", "name")
         .lean();
 
       if (!appointment) {
@@ -146,6 +148,15 @@ export default async function handler(req, res) {
           fromTime: appointment.fromTime,
           toTime: appointment.toTime,
           status: appointment.status,
+          serviceId: appointment.serviceId?._id?.toString() || null,
+          serviceName: appointment.serviceId?.name || null,
+          serviceIds: Array.isArray(appointment.serviceIds) ? appointment.serviceIds.map(s => s?._id?.toString()).filter(Boolean) : [],
+          serviceNames: (() => {
+            const fromServiceIds = Array.isArray(appointment.serviceIds) ? appointment.serviceIds.map(s => s?.name || "").filter(Boolean) : [];
+            const fromServiceId = appointment.serviceId?.name || "";
+            const combined = fromServiceId ? [fromServiceId, ...fromServiceIds.filter(n => n !== fromServiceId)] : fromServiceIds;
+            return combined;
+          })(),
         },
         report: report
           ? {

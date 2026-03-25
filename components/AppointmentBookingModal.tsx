@@ -9,6 +9,8 @@ import {
   Calendar,
   Building2,
   AlertCircle,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 import { APPOINTMENT_STATUS_OPTIONS } from "../data/appointmentStatusOptions";
 import { ModalPortal } from "../lib/modalPortal";
@@ -173,11 +175,10 @@ export default function AppointmentBookingModal({
   const [doctorDeptLoading, setDoctorDeptLoading] = useState(false);
   const [doctorDeptError, setDoctorDeptError] = useState("");
   const [referrals, setReferrals] = useState<Referral[]>([]);
-  const [services, setServices] = useState<
-    Array<{ _id: string; name: string }>
-  >([]);
+  const [services, setServices] = useState<Array<{ _id: string; name: string }>>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
-  const [selectedServiceId, setSelectedServiceId] = useState<string>("");
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [isServicesOpen, setIsServicesOpen] = useState(false);
 
   // Whenever the selected slot changes (or modal reopens), sync the times
   useEffect(() => {
@@ -530,7 +531,8 @@ export default function AppointmentBookingModal({
           referral,
           emergency,
           notes,
-          serviceId: selectedServiceId || undefined,
+          serviceId: selectedServiceIds.length > 0 ? selectedServiceIds[0] : undefined,
+          serviceIds: selectedServiceIds,
           bookedFrom: valueToSend, // Use the determined value - ensure it's "room" or "doctor"
           customTimeSlots: customTimeSlots
             ? {
@@ -593,7 +595,7 @@ export default function AppointmentBookingModal({
     setReferral("No");
     setEmergency("no");
     setNotes("");
-    setSelectedServiceId("");
+    setSelectedServiceIds([]);
     setError("");
     setFieldErrors({});
   };
@@ -874,23 +876,89 @@ export default function AppointmentBookingModal({
             </div>
 
             {/* Treatment Selection (Optional) */}
-            <div>
+            <div className="relative">
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
-                Treatment (Optional)
+                Treatments (Optional)
               </label>
-              <select
-                value={selectedServiceId}
-                onChange={(e) => setSelectedServiceId(e.target.value)}
-                className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
-                disabled={servicesLoading}
+              <div
+                className={`w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 cursor-pointer flex justify-between items-center transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
+                  isServicesOpen ? "ring-2 ring-gray-500 dark:ring-gray-600 border-gray-500 dark:border-gray-600" : ""
+                }`}
+                onClick={() => setIsServicesOpen(!isServicesOpen)}
               >
-                <option value="">Select a treatment (optional)</option>
-                {services.map((svc) => (
-                  <option key={svc._id} value={svc._id}>
-                    {svc.name}
-                  </option>
-                ))}
-              </select>
+                <div className="flex flex-wrap gap-1">
+                  {selectedServiceIds.length > 0 ? (
+                    selectedServiceIds.map((id) => {
+                      const svc = services.find((s) => s._id === id);
+                      return (
+                        <span
+                          key={id}
+                          className="bg-gray-100 dark:bg-gray-200 text-gray-800 dark:text-gray-900 px-2 py-0.5 rounded-md flex items-center gap-1"
+                        >
+                          {svc?.name || "Unknown"}
+                          <X
+                            className="w-2.5 h-2.5 cursor-pointer hover:text-red-500"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedServiceIds(selectedServiceIds.filter((sid) => sid !== id));
+                            }}
+                          />
+                        </span>
+                      );
+                    })
+                  ) : (
+                    <span className="text-gray-400 dark:text-gray-500">
+                      Select treatments (optional)
+                    </span>
+                  )}
+                </div>
+                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isServicesOpen ? "rotate-180" : ""}`} />
+              </div>
+
+              {isServicesOpen && (
+                <div className="absolute z-[1002] mt-1 w-full bg-white dark:bg-gray-50 border border-gray-200 dark:border-gray-300 rounded-lg shadow-xl max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-1">
+                  {servicesLoading ? (
+                    <div className="p-3 text-center text-xs text-gray-500">
+                      <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                      Loading treatments...
+                    </div>
+                  ) : services.length > 0 ? (
+                    <div className="py-1">
+                      {services.map((svc) => {
+                        const isSelected = selectedServiceIds.includes(svc._id);
+                        return (
+                          <div
+                            key={svc._id}
+                            className={`px-3 py-2 text-xs cursor-pointer flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-200 ${
+                              isSelected ? "bg-gray-50 dark:bg-gray-100 text-gray-900 font-medium" : "text-gray-700 dark:text-gray-800"
+                            }`}
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedServiceIds(selectedServiceIds.filter((id) => id !== svc._id));
+                              } else {
+                                setSelectedServiceIds([...selectedServiceIds, svc._id]);
+                              }
+                            }}
+                          >
+                            <span>{svc.name}</span>
+                            {isSelected && <Check className="w-3.5 h-3.5 text-green-600" />}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-3 text-center text-xs text-gray-500 italic">
+                      No treatments found
+                    </div>
+                  )}
+                </div>
+              )}
+              {isServicesOpen && (
+                <div
+                  className="fixed inset-0 z-[1001]"
+                  onClick={() => setIsServicesOpen(false)}
+                />
+              )}
             </div>
 
             {/* Search Patient */}

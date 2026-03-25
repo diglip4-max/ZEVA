@@ -4,6 +4,7 @@ import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
 import { checkClinicPermission } from "../lead-ms/permissions-helper";
 import { checkAgentPermission } from "../agent/permissions-helper";
 import Clinic from "../../../models/Clinic";
+import { generateEmrNumber } from "../../../lib/generateEmrNumber";
 
 const hasRole = (user, roles = []) => roles.includes(user.role);
 
@@ -19,8 +20,56 @@ export default async function handler(req, res) {
     return res.status(err.status || 401).json({ success: false, message: err.message || "Authentication error" });
   }
 
-  // ---------------- GET: list/filter patients ----------------  
+  // ---------------- GET: list/filter patients OR generate EMR OR get invoicedBy ----------------  
   if (req.method === "GET") {
+    // Check if requesting Invoiced By user details
+    if (req.query.getInvoicedBy === 'true') {
+      try {
+        // Allow clinic, staff, admin, agent, and doctorStaff roles
+        if (!hasRole(user, ["clinic", "staff", "admin", "agent", "doctorStaff", "doctor"])) {
+          return res.status(403).json({ success: false, message: "Access denied" });
+        }
+
+        // Return current user's name for invoiced by field
+        return res.status(200).json({
+          success: true,
+          invoicedBy: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || "Unknown",
+          userId: user._id,
+        });
+      } catch (error) {
+        console.error("Error fetching invoiced by:", error);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to fetch invoiced by",
+        });
+      }
+    }
+
+    // Check if requesting EMR number generation
+    if (req.query.generateEmr === 'true') {
+      try {
+        // Allow clinic, staff, admin, agent, and doctorStaff roles
+        if (!hasRole(user, ["clinic", "staff", "admin", "agent", "doctorStaff", "doctor"])) {
+          return res.status(403).json({ success: false, message: "Access denied" });
+        }
+
+        // Generate next sequential EMR number
+        const emrNumber = await generateEmrNumber();
+
+        return res.status(200).json({
+          success: true,
+          emrNumber: emrNumber,
+        });
+      } catch (error) {
+        console.error("Error generating EMR number:", error);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to generate EMR number",
+        });
+      }
+    }
+
+    // Otherwise, proceed with listing patients
     // Allow clinic, staff, admin, agent, and doctorStaff roles
     if (!hasRole(user, ["clinic", "staff", "admin", "agent", "doctorStaff", "doctor"])) {
       return res.status(403).json({ success: false, message: "Access denied" });

@@ -37,6 +37,14 @@ const PatientComplainsSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    beforeImage: {
+      type: String,
+      trim: true,
+    },
+    afterImage: {
+      type: String,
+      trim: true,
+    },
     items: [
       {
         itemId: {

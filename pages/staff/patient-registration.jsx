@@ -98,9 +98,135 @@ const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, type = "war
 
 const paymentMethods = ["Cash", "Card", "BT", "Tabby", "Tamara"];
 
+const COUNTRY_CODES = [
+  { code: "+1", name: "United States", flag: "🇺🇸" },
+  { code: "+1", name: "Canada", flag: "🇨🇦" },
+  { code: "+7", name: "Russia", flag: "🇷🇺" },
+  { code: "+7", name: "Kazakhstan", flag: "🇰🇿" },
+  { code: "+20", name: "Egypt", flag: "🇪🇬" },
+  { code: "+27", name: "South Africa", flag: "🇿🇦" },
+  { code: "+30", name: "Greece", flag: "🇬🇷" },
+  { code: "+31", name: "Netherlands", flag: "🇳🇱" },
+  { code: "+32", name: "Belgium", flag: "🇧🇪" },
+  { code: "+33", name: "France", flag: "🇫🇷" },
+  { code: "+34", name: "Spain", flag: "🇪🇸" },
+  { code: "+39", name: "Italy", flag: "🇮🇹" },
+  { code: "+40", name: "Romania", flag: "🇷🇴" },
+  { code: "+41", name: "Switzerland", flag: "🇨🇭" },
+  { code: "+44", name: "United Kingdom", flag: "🇬🇧" },
+  { code: "+45", name: "Denmark", flag: "🇩🇰" },
+  { code: "+46", name: "Sweden", flag: "🇸🇪" },
+  { code: "+47", name: "Norway", flag: "🇳🇴" },
+  { code: "+48", name: "Poland", flag: "🇵🇱" },
+  { code: "+49", name: "Germany", flag: "🇩🇪" },
+  { code: "+52", name: "Mexico", flag: "🇲🇽" },
+  { code: "+55", name: "Brazil", flag: "🇧🇷" },
+  { code: "+60", name: "Malaysia", flag: "🇲🇾" },
+  { code: "+61", name: "Australia", flag: "🇦🇺" },
+  { code: "+62", name: "Indonesia", flag: "🇮🇩" },
+  { code: "+63", name: "Philippines", flag: "🇵🇭" },
+  { code: "+64", name: "New Zealand", flag: "🇳🇿" },
+  { code: "+65", name: "Singapore", flag: "🇸🇬" },
+  { code: "+66", name: "Thailand", flag: "🇹🇭" },
+  { code: "+81", name: "Japan", flag: "🇯🇵" },
+  { code: "+82", name: "South Korea", flag: "🇰🇷" },
+  { code: "+84", name: "Vietnam", flag: "🇻🇳" },
+  { code: "+86", name: "China", flag: "🇨🇳" },
+  { code: "+90", name: "Turkey", flag: "🇹🇷" },
+  { code: "+91", name: "India", flag: "🇮🇳" },
+  { code: "+92", name: "Pakistan", flag: "🇵🇰" },
+  { code: "+93", name: "Afghanistan", flag: "🇦🇫" },
+  { code: "+94", name: "Sri Lanka", flag: "🇱🇰" },
+  { code: "+95", name: "Myanmar", flag: "🇲🇲" },
+  { code: "+98", name: "Iran", flag: "🇮🇷" },
+  { code: "+971", name: "United Arab Emirates", flag: "🇦🇪" },
+  { code: "+972", name: "Israel", flag: "🇮🇱" },
+  { code: "+973", name: "Bahrain", flag: "🇧🇭" },
+  { code: "+974", name: "Qatar", flag: "🇶🇦" },
+  { code: "+975", name: "Bhutan", flag: "🇧🇹" },
+  { code: "+976", name: "Mongolia", flag: "🇲🇳" },
+  { code: "+977", name: "Nepal", flag: "🇳🇵" },
+  { code: "+880", name: "Bangladesh", flag: "🇧🇩" },
+  { code: "+994", name: "Azerbaijan", flag: "🇦🇿" },
+  { code: "+996", name: "Kyrgyzstan", flag: "🇰🇬" },
+];
+
+// Country + Phone input with searchable dropdown
+const CountryPhoneInput = ({ countryCode, phone, onCountryChange, onPhoneChange }) => {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const options = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return COUNTRY_CODES;
+    return COUNTRY_CODES.filter(
+      c =>
+        c.name.toLowerCase().includes(q) ||
+        c.code.replace("+","").includes(q)
+    );
+  }, [query]);
+  const selected = useMemo(() => COUNTRY_CODES.find(c => c.code === countryCode) || COUNTRY_CODES.find(c => c.code === "+971"), [countryCode]);
+  return (
+    <div className="relative w-full">
+      <div className={`flex items-center border border-gray-300 rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-teal-600`}>
+        <button
+          type="button"
+          onClick={() => setOpen(v => !v)}
+          className="flex items-center gap-2 px-2 py-1 bg-gray-50 hover:bg-gray-100 focus:outline-none"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+        >
+          <span className="text-lg leading-none">{selected?.flag || "🏳️"}</span>
+          <span className="text-[11px] text-gray-800">{selected?.code || "+971"}</span>
+          <svg className="w-3 h-3 text-gray-600" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.25 8.29a.75.75 0 01-.02-1.08z"/></svg>
+        </button>
+        <input
+          type="tel"
+          value={phone}
+          onChange={e => onPhoneChange(e.target.value)}
+          maxLength={10}
+          inputMode="numeric"
+          pattern="[0-9]*"
+          className="flex-1 px-2 py-1 text-[10px] focus:outline-none"
+          placeholder="10-digit number"
+        />
+      </div>
+      {open && (
+        <div className="absolute z-20 mt-1 w-full max-h-56 overflow-auto bg-white border border-gray-200 rounded-md shadow-lg">
+          <div className="p-2 border-b border-gray-100">
+            <input
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search country or code"
+              className="w-full px-2 py-1 text-[10px] border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-600"
+            />
+          </div>
+          <ul role="listbox">
+            {options.map((c, idx) => (
+              <li
+                key={`${c.code}-${c.name}-${idx}`}
+                role="option"
+                onClick={() => {
+                  onCountryChange(c.code);
+                  setOpen(false);
+                }}
+                className={`flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-gray-50 ${c.code === selected?.code ? 'bg-teal-50' : ''}`}
+              >
+                <span className="text-lg leading-none">{c.flag}</span>
+                <span className="text-[11px] text-gray-800 flex-1">{c.name}</span>
+                <span className="text-[11px] text-gray-600">{c.code}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const INITIAL_FORM_DATA = {
   invoiceNumber: "", emrNumber: "", firstName: "", lastName: "", email: "",
-  mobileNumber: "", gender: "", patientType: "", referredBy: "No",
+  mobileNumber: "", countryCode: "+91", gender: "", patientType: "", referredBy: "No",
   insurance: "No", advanceGivenAmount: "", coPayPercent: "", advanceClaimStatus: "Pending",
   insuranceType: "Paid",
   membership: "No", membershipStartDate: "", membershipEndDate: "", membershipId: "",
@@ -109,7 +235,7 @@ const INITIAL_FORM_DATA = {
   packages: []
 };
 
-const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
+const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => {
   const [currentUser, setCurrentUser] = useState({ name: "", role: "" });
   const [formData, setFormData] = useState(INITIAL_FORM_DATA);
   const [autoFields, setAutoFields] = useState({
@@ -127,6 +253,9 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
   const [memberships, setMemberships] = useState([]);
   const [packages, setPackages] = useState([]);
   const [referrals, setReferrals] = useState([]);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [membershipPackagesEnabled, setMembershipPackagesEnabled] = useState(true);
+  const [insuranceEnabled, setInsuranceEnabled] = useState(false);
 
   const formatDate = useCallback((dateObj) => {
     const y = dateObj.getFullYear();
@@ -135,7 +264,6 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
     return `${y}-${m}-${d}`;
   }, []);
 
-  // Toast functions
   const showToast = useCallback((message, type = "success") => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
@@ -145,6 +273,43 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
   const removeToast = useCallback((id) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
+
+  useEffect(() => {
+    if (!formData.emrNumber) {
+      // Generate EMR number on component mount or when EMR is empty
+      const token = getStoredToken();
+      if (token) {
+        const headers = getAuthHeaders();
+        if (headers) {
+          fetch("/api/clinic/patient-registration?generateEmr=true", { headers })
+            .then(res => res.json())
+            .then(data => {
+              if (data.success && data.emrNumber) {
+                setFormData(prev => ({ ...prev, emrNumber: data.emrNumber }));
+              }
+            })
+            .catch(error => {
+              console.error("Error fetching EMR number:", error);
+              // Fallback: generate locally
+              const fallbackEmr = `EMR-${Date.now()}`;
+              setFormData(prev => ({ ...prev, emrNumber: fallbackEmr }));
+            });
+        }
+      }
+    }
+  }, []);
+
+  const handleNext = useCallback(() => {
+    const errs = {};
+    if (!formData.firstName?.trim()) errs.firstName = "First name is required";
+    if (!formData.mobileNumber?.trim() || formData.mobileNumber.length !== 10) errs.mobileNumber = "Enter 10-digit number";
+    setErrors(errs);
+    if (Object.keys(errs).length === 0) {
+      setCurrentStep(2);
+    } else {
+      showToast("Please complete required fields", "error");
+    }
+  }, [formData, showToast]);
 
   // Fetch data
   useEffect(() => {
@@ -157,15 +322,19 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
     const isClinicRoute = typeof window !== 'undefined' && window.location.pathname?.startsWith('/clinic/');
     const apiEndpoint = isClinicRoute ? "/api/clinic/patient-registration" : "/api/staff/patient-registration";
     
-    fetch(apiEndpoint, { headers })
+    // Fetch invoiced by from API
+    fetch(`${apiEndpoint}?getInvoicedBy=true`, { headers })
       .then(res => res.json())
       .then(data => {
-        if (data.success) {
-          setCurrentUser(data.data);
-          setAutoFields(prev => ({ ...prev, invoicedBy: data.data.name }));
+        if (data.success && data.invoicedBy) {
+          setAutoFields(prev => ({ ...prev, invoicedBy: data.invoicedBy }));
+          console.log('Fetched invoicedBy:', data.invoicedBy);
         }
       })
-      .catch(() => showToast("Failed to fetch user details", "error"));
+      .catch((err) => {
+        console.error('Failed to fetch invoicedBy:', err);
+        showToast("Failed to fetch user details", "error");
+      });
   }, [showToast]);
 
   useEffect(() => {
@@ -341,9 +510,16 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
   const handleInputChange = useCallback((e) => {
     const { name, value } = e.target;
     
-    // Handle mobileNumber - allow any digits (no length restriction for clinic route)
+    // Country code
+    if (name === "countryCode") {
+      setFormData(prev => ({ ...prev, countryCode: value }));
+      if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
+      return;
+    }
+
+    // Handle mobileNumber - digits only, max 10
     if (name === "mobileNumber") {
-      const numericValue = value.replace(/\D/g, '');
+      const numericValue = value.replace(/\D/g, '').slice(0, 10);
       setFormData(prev => ({ ...prev, [name]: numericValue }));
       if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
       return;
@@ -456,6 +632,7 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
     // Unified validation: Only First Name and Mobile Number are mandatory for all roles
     if (!firstName.trim()) newErrors.firstName = "Required";
     if (!mobileNumber.trim()) newErrors.mobileNumber = "Required";
+    else if (mobileNumber.replace(/\D/g, '').length !== 10) newErrors.mobileNumber = "Enter 10-digit number";
     
     // Optional fields validation if provided
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = "Invalid email";
@@ -630,149 +807,149 @@ return (
     <ToastContainer toasts={toasts} removeToast={removeToast} />
     <ConfirmModal {...confirmModal} onCancel={() => setConfirmModal({ isOpen: false, action: null })} onConfirm={confirmModal.action} />
 
-    <div className={isCompact ? "" : "min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6"}>
-      <div className={isCompact ? "w-full" : "max-w-7xl mx-auto"}>
-        <div className={`bg-white ${isCompact ? '' : 'rounded-lg shadow-sm border border-gray-200'} ${isCompact ? 'p-0' : 'p-4 sm:p-6 md:p-8'}`}>
-          
-          {/* Header - Hidden in compact mode */}
+    <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-3 sm:py-4">
+      <div className="w-full">
+        <div className={`bg-white ${isCompact ? '' : 'rounded-2xl shadow-sm border border-gray-200'} ${isCompact ? 'p-0' : 'p-4 sm:p-6'}`}>
           {!isCompact && (
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 pb-2 border-b border-gray-200">
-              <div className="mb-1 sm:mb-0">
-                <h1 className="text-sm font-bold text-gray-900 flex items-center gap-1">
-                  <FileText className="w-3 h-3 text-gray-700" />
-                  Patient Registration
-                </h1>
-                <p className="text-[9px] text-gray-700 mt-0.5">Complete patient and invoice details</p>
-              </div>
-              {autoFields.invoicedBy && (
-                <div className="text-left sm:text-right">
-                  <div className="text-[9px] text-gray-700">Logged in as:</div>
-                  <div className="font-semibold text-[10px] text-gray-700">{autoFields.invoicedBy}</div>
-                  {currentUser.role && <div className="text-[9px] text-gray-700">{currentUser.role}</div>}
+            <>
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Register New Patient</h1>
+                  <p className="text-xs sm:text-sm text-gray-600 mt-1">Quick patient entry for Zeva clinic</p>
                 </div>
-              )}
-            </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onCancel) onCancel();
+                    }}
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg border border-gray-300 bg-white text-gray-800 text-xs sm:text-sm hover:bg-gray-50 transition-colors whitespace-nowrap"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-teal-600 text-white text-xs sm:text-sm hover:bg-teal-700 transition-colors whitespace-nowrap"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 sm:mb-6 mb-4 bg-gray-50 rounded-xl p-3 sm:p-4 border border-gray-200">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <span className={`inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full text-xs font-bold ${currentStep === 1 ? 'bg-teal-600 text-white' : currentStep > 1 ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                    1
+                  </span>
+                  <span className={`text-xs sm:text-sm font-medium ${currentStep === 1 ? 'text-gray-900' : currentStep > 1 ? 'text-green-700' : 'text-gray-500'}`}>
+                    Patient Info
+                  </span>
+                </div>
+                <div className="flex-1 h-px bg-gray-300 hidden sm:block"></div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <span className={`inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full text-xs font-bold ${currentStep === 2 ? 'bg-teal-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                    2
+                  </span>
+                  <span className={`text-xs sm:text-sm font-medium ${currentStep === 2 ? 'text-gray-900' : 'text-gray-500'}`}>
+                    Additional Details
+                  </span>
+                </div>
+              </div>
+            </>
           )}
 
-          <div className="space-y-2">
-            
-            {/* Invoice Information */}
-            <div className={`bg-white ${isCompact ? '' : 'rounded-lg'} ${isCompact ? 'p-0' : 'p-2'} border border-gray-200`}>
-              <h2 className={`text-xs font-semibold text-gray-900 mb-1 flex items-center gap-1`}>
-                <Calendar className={`w-3 h-3 text-gray-700`} />
-                Invoice Information
-              </h2>
-              <div className={`flex flex-wrap gap-2 items-end`}>
-                <div className="flex-1 min-w-[120px]">
-                  <label className={`block text-[10px] mb-0.5 font-medium text-gray-700`}>
-                    Invoice Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="invoiceNumber"
-                    value={formData.invoiceNumber}
-                    onChange={handleInputChange}
-                    className={`text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 ${errors.invoiceNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
-                  />
-                  {errors.invoiceNumber && (
-                    <p className="text-red-500 text-[9px] mt-0.5 flex items-center gap-0.5">
-                      <AlertCircle className="w-2.5 h-2.5" />{errors.invoiceNumber}
-                    </p>
-                  )}
-                </div>
-                <div className="flex-1 min-w-[120px]">
-                  <label className={`block text-[10px] mb-0.5 font-medium text-gray-700`}>Invoiced Date</label>
-                  <input
-                    type="text"
-                    value={new Date(autoFields.invoicedDate).toLocaleString()}
-                    disabled
-                    className={`w-full px-2 py-1 text-[10px] bg-gray-50 border border-gray-300 rounded-md text-gray-700`}
-                  />
-                </div>
-                <div className="flex-1 min-w-[120px]">
-                  <label className={`block text-[10px] mb-0.5 font-medium text-gray-700`}>Invoiced By</label>
-                  <input
-                    type="text"
-                    value={autoFields.invoicedBy}
-                    disabled
-                    className={`w-full px-2 py-1 text-[10px] bg-gray-50 border border-gray-300 rounded-md text-gray-700`}
-                  />
-                </div>
-              </div>
-            </div>
+          <div className={`${isCompact ? '' : 'grid grid-cols-1 lg:grid-cols-3 gap-4'}`}>
+            <div className={`${isCompact ? '' : 'lg:col-span-2 space-y-3'}`}>
 
-            {/* EMR Search */}
-            {(() => {
-              const isClinicRoute = typeof window !== 'undefined' && window.location.pathname?.startsWith('/clinic/');
-              const isAutoGenerated = isClinicRoute && isCompact;
-              
-              return (
-                <div className={`bg-indigo-50 rounded-lg p-2 border border-indigo-200`}>
-                  <h2 className={`text-xs font-semibold text-gray-900 mb-1 flex items-center gap-1`}>
-                    <Search className={`w-3 h-3 text-gray-700`} />
-                    {isAutoGenerated ? "EMR Number (Auto-generated)" : "Search Patient by EMR"}
-                  </h2>
-                  <div className={`flex items-center gap-2`}>
-                    <input
-                      type="text"
-                      name="emrNumber"
-                      value={formData.emrNumber}
-                      onChange={handleInputChange}
-                      placeholder="Enter EMR Number"
-                      disabled={isAutoGenerated}
-                      className={`flex-1 px-2 py-1 text-[10px] border border-indigo-300 rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 text-gray-900 ${isAutoGenerated ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                    />
-                    {!isAutoGenerated && (
-                      <button
-                        type="button"
-                        onClick={fetchEMRData}
-                        disabled={fetching || !formData.emrNumber.trim()}
-                        className={`px-2 py-1 text-[10px] rounded-md text-white font-medium transition flex items-center justify-center gap-1 whitespace-nowrap ${fetching || !formData.emrNumber.trim() ? "bg-gray-400 cursor-not-allowed" : "bg-gray-900 hover:bg-gray-800"}`}
-                      >
-                        <Search className="w-3 h-3" />
-                        {fetching ? "Searching..." : "Search"}
-                      </button>
-                    )}
-                  </div>
-                  {!isAutoGenerated && (
-                    <p className="text-[9px] text-gray-800 mt-1">💡 Search by EMR to auto-fill or enter manually below</p>
-                  )}
-                </div>
-              );
-            })()}
+            {currentStep === 1 && (
+            <>
+            
 
             {/* Patient Information */}
-            <div className={`bg-white rounded-lg p-2 border border-gray-200`}>
-              <h2 className={`text-xs font-semibold text-gray-900 mb-1 flex items-center gap-1`}>
+            <div className={`bg-white rounded-lg p-3 sm:p-4 border border-gray-200`}>
+              <h2 className={`text-xs font-semibold text-gray-900 mb-3 flex items-center gap-1`}>
                 <User className={`w-3 h-3 text-gray-700`} />
                 Patient Information
               </h2>
-              <div className={`flex flex-wrap gap-2 items-end`}>
+              
+              {/* First Row: First Name, Last Name, Mobile Number - Responsive Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 mb-3">
+                {/* First Name */}
+                <div>
+                  <label className={`block text-[10px] mb-1 font-medium text-gray-700`}>
+                    First Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="firstName"
+                    value={formData.firstName}
+                    onChange={handleInputChange}
+                    className={`w-full px-2.5 py-1 text-sm border rounded-md focus:ring-1 focus:ring-teal-600 focus:border-teal-600 ${errors.firstName ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                    placeholder="First name"
+                  />
+                  {errors.firstName && (
+                    <p className="text-red-500 text-[9px] mt-1 flex items-center gap-0.5">
+                      <AlertCircle className="w-2.5 h-2.5" />{errors.firstName}
+                    </p>
+                  )}
+                </div>
+
+                {/* Last Name */}
+                <div>
+                  <label className={`block text-[10px] mb-1 font-medium text-gray-700`}>
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    name="lastName"
+                    value={formData.lastName}
+                    onChange={handleInputChange}
+                    className={`w-full px-2.5 py-1 text-sm border rounded-md focus:ring-1 focus:ring-teal-600 focus:border-teal-600 border-gray-300`}
+                    placeholder="Last name"
+                  />
+                </div>
+
+                {/* Mobile Number with Country Selector - Compact */}
+                <div>
+                  <label className={`block text-[10px] mb-1 font-medium text-gray-700`}>
+                    Mobile Number <span className="text-red-500">*</span>
+                  </label>
+                  <CountryPhoneInput
+                    countryCode={formData.countryCode}
+                    phone={formData.mobileNumber}
+                    onCountryChange={(code) => setFormData(prev => ({ ...prev, countryCode: code }))}
+                    onPhoneChange={(val) => setFormData(prev => ({ ...prev, mobileNumber: String(val).replace(/\D/g,"").slice(0,10) }))}
+                  />
+                  {errors.mobileNumber && (
+                    <p className="text-red-500 text-[9px] mt-1 flex items-center gap-0.5">
+                      <AlertCircle className="w-2.5 h-2.5" />{errors.mobileNumber}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Second Row: Gender, Patient Type, Referred By - Responsive */}
+              <div className={`flex flex-col sm:flex-row sm:flex-wrap sm:gap-3 gap-2 mb-3`}>
                 {(() => {
-                  const baseFields = [
-                    { name: "emrNumber", label: "EMR Number", required: true },
-                    { name: "firstName", label: "First Name", required: true },
-                    { name: "lastName", label: "Last Name", required: false },
-                    { name: "email", label: "Email", type: "email", required: false },
-                    { name: "mobileNumber", label: canViewMobile ? "Mobile Number" : "Mobile (Restricted)", type: "tel", required: true },
+                  const secondRowFields = [
                     { name: "gender", label: "Gender", type: "select", options: ["Male", "Female", "Other"], required: false },
                     { name: "patientType", label: "Patient Type", type: "select", options: ["New", "Old"], required: false },
                     { name: "referredBy", label: "Referred By" }
                   ];
-                  return baseFields;
+                  return secondRowFields;
                 })().map(field => (
-                  <div key={field.name} className="flex-1 min-w-[120px]">
+                  <div key={field.name} className="w-full sm:flex-1 sm:min-w-[140px]">
                     <label className={`block text-[10px] mb-0.5 font-medium text-gray-700`}>
-                      {field.label} {field.required && <span className="text-red-500">*</span>}
+                      {field.label}
                     </label>
                     {field.name === "referredBy" ? (
                       <select
                         name="referredBy"
                         value={formData.referredBy === "No" ? "" : formData.referredBy}
                         onChange={handleInputChange}
-                        className={`text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 ${errors.referredBy ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                        className={`text-gray-900 w-full px-2 py-1.5 text-sm border rounded-md focus:ring-1 focus:ring-teal-600 focus:border-teal-600 ${errors.referredBy ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
                       >
-                        <option value="" disabled hidden>Select Referred By</option>
+                        <option value="" disabled hidden>Select referral</option>
                         {referrals.map((r) => {
                           const displayName = `${(r.firstName || "").trim()} ${(r.lastName || "").trim()}`.trim() || (r.email || r.phone || "Unknown");
                           return (
@@ -787,33 +964,261 @@ return (
                         name={field.name}
                         value={formData[field.name] || ""}
                         onChange={handleInputChange}
-                        className={`text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 ${errors[field.name] ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                        className={`text-gray-900 w-full px-2 py-1.5 text-sm border rounded-md focus:ring-1 focus:ring-teal-600 focus:border-teal-600 ${errors[field.name] ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
                       >
-                        <option value="">Select {field.label}</option>
+                        <option value="">Select</option>
                         {field.options.filter(opt => opt !== "").map(opt => <option key={opt} value={opt}>{opt}</option>)}
                       </select>
-                    ) : (
-                      <input
-                        type={field.type || "text"}
-                        name={field.name}
-                        value={formData[field.name]}
-                        onChange={handleInputChange}
-                        className={`w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 text-gray-900 ${errors[field.name] ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
-                        placeholder={field.label}
-                      />
-                    )}
-                    {errors[field.name] && (
-                      <p className="text-red-500 text-[9px] mt-0.5 flex items-center gap-0.5">
-                        <AlertCircle className="w-2.5 h-2.5" />{errors[field.name]}
-                      </p>
-                    )}
+                    ) : null}
                   </div>
                 ))}
               </div>
-            </div>
 
-            {/* Membership */}
-            <div className={`bg-white rounded-lg p-2 border border-gray-200`}>
+              {/* Email Field */}
+              <div className="mb-3">
+                <label className={`block text-[10px] mb-1 font-medium text-gray-700`}>Email (Optional)</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className="w-full px-2.5 py-2 text-sm border rounded-md focus:ring-1 focus:ring-teal-600 focus:border-teal-600 text-gray-900 border-gray-300"
+                  placeholder="patient@email.com"
+                />
+              </div>
+
+              {/* EMR & Invoice Number Display - Auto-generated - Responsive */}
+              <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 pt-3 border-t border-gray-200">
+                <div className="flex items-center gap-2 bg-teal-50 px-3 py-2 rounded-md border border-teal-200 w-full sm:w-auto">
+                  <FileText className="w-3.5 h-3.5 text-teal-600 flex-shrink-0" />
+                  <span className="text-[10px] font-medium text-teal-800">EMR:</span>
+                  <span className="text-[10px] font-bold text-teal-900">{formData.emrNumber || "EMR-—"}</span>
+                  <span className="text-[9px] text-teal-600">(Auto)</span>
+                </div>
+              </div>
+            </div>
+            </>
+            )}
+
+            {currentStep === 2 && (
+            <>
+            <div className="bg-white rounded-lg p-4 border border-gray-200">
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-sm font-semibold text-gray-900">Additional Details</h2>
+                <button type="button" onClick={() => setCurrentStep(1)} className="text-[12px] text-teal-700 hover:underline">← Back to Patient Info</button>
+              </div>
+              <div className="space-y-2">
+                <div className="border rounded-md">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-gray-50">
+                    <div className="text-[11px] font-semibold text-gray-900">Membership & Packages</div>
+                    <button
+                      type="button"
+                      onClick={() => setMembershipPackagesEnabled(v => !v)}
+                      className={`w-8 h-5 rounded-full ${membershipPackagesEnabled ? 'bg-teal-600' : 'bg-gray-300'} relative transition-colors duration-200`}
+                      aria-label="Toggle Membership & Packages"
+                    >
+                      <span className={`absolute top-0.5 ${membershipPackagesEnabled ? 'right-0.5' : 'left-0.5'} w-4 h-4 rounded-full bg-white shadow transition-all duration-200`}></span>
+                    </button>
+                  </div>
+                  {/* Fixed height container - always same minimum size */}
+                  <div className={`transition-all duration-300 overflow-hidden ${membershipPackagesEnabled ? 'max-h-[2000px]' : 'max-h-0'}`} style={{ minHeight: membershipPackagesEnabled ? 'auto' : '120px' }}>
+                    <div className="p-4" style={{ opacity: membershipPackagesEnabled ? 1 : 0, transition: 'opacity 0.3s' }}>
+                      {/* Membership */}
+                      <div className="bg-white rounded-lg p-2 border border-gray-200">
+                        <h2 className={`text-[11px] font-medium text-gray-900 mb-1`}>Select Membership</h2>
+                        <div className={`flex flex-wrap gap-2 items-end`}>
+                          <div className="flex-1 min-w-[120px]">
+                            <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Membership</label>
+                            <select
+                              name="membership"
+                              value={formData.membership}
+                              onChange={handleInputChange}
+                              className="text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 border-gray-300"
+                            >
+                              <option value="No">No</option>
+                              <option value="Yes">Yes</option>
+                            </select>
+                          </div>
+                          {formData.membership === "Yes" && (
+                            <div className="flex-1 min-w-[120px]">
+                              <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Select Membership <span className="text-red-500">*</span></label>
+                              <select
+                                name="membershipId"
+                                value={formData.membershipId}
+                                onChange={handleInputChange}
+                                className={`text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-indigo-500 ${errors.membershipId ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                              >
+                                <option value="">Select membership</option>
+                                {memberships.filter(m => m.isActive !== false).map(m => (
+                                  <option key={m._id} value={m._id}>
+                                    {m.name}
+                                  </option>
+                                ))}
+                              </select>
+                              {errors.membershipId && (
+                                <p className="text-red-500 text-[9px] mt-0.5 flex items-center gap-0.5">
+                                  <AlertCircle className="w-2.5 h-2.5" />{errors.membershipId}
+                                </p>
+                              )}
+                              </div>
+                          )}
+                          {formData.membership === "Yes" && (
+                            <>
+                              <div className="flex-1 min-w-[120px]">
+                                <label className={`block text-[10px] mb-0.5 font-medium text-gray-700`}>
+                                  Membership Start Date <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  type="date"
+                                  name="membershipStartDate"
+                                  value={formData.membershipStartDate}
+                                  onChange={handleInputChange}
+                                  className={`w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-indigo-500 text-gray-900 ${errors.membershipStartDate ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                                />
+                              </div>
+                              <div className="flex-1 min-w-[120px]">
+                                <label className={`block text-[10px] mb-0.5 font-medium text-gray-700`}>
+                                  Membership End Date <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  type="date"
+                                  name="membershipEndDate"
+                                  value={formData.membershipEndDate}
+                                  onChange={handleInputChange}
+                                  className={`w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-indigo-500 text-gray-900 ${errors.membershipEndDate ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                                />
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Packages */}
+                      <div className={`bg-white rounded-lg p-3 border border-gray-200 mt-2`}>
+                        <h2 className={`text-[11px] font-medium text-gray-900 mb-1`}>Select Package</h2>
+                        <div className={`flex flex-wrap gap-2 items-end`}>
+                          <div className="flex-1 min-w-[120px]">
+                            <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Package</label>
+                            <select
+                              name="package"
+                              value={formData.package}
+                              onChange={handleInputChange}
+                              className="text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 border-gray-300"
+                            >
+                              <option value="No">No</option>
+                              <option value="Yes">Yes</option>
+                            </select>
+                          </div>
+                          {formData.package === "Yes" && (
+                            <div className="flex-1 min-w-[120px]">
+                              <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Choose Package <span className="text-red-500">*</span></label>
+                              <select
+                                name="packageId"
+                                value={formData.packageId}
+                                onChange={handleInputChange}
+                                className={`text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-indigo-500 ${errors.packageId ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                              >
+                                <option value="">Select package</option>
+                                {packages.map(p => (
+                                  <option key={p._id} value={p._id}>
+                                    {p.name}
+                                  </option>
+                                ))}
+                              </select>
+                              {errors.packageId && (
+                                <p className="text-red-500 text-[9px] mt-0.5 flex items-center gap-0.5">
+                                  <AlertCircle className="w-2.5 h-2.5" />{errors.packageId}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="border rounded-md mt-2">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-gray-50">
+                    <div className="text-[11px] font-semibold text-gray-900">Insurance</div>
+                    <button
+                      type="button"
+                      onClick={() => setInsuranceEnabled(v => !v)}
+                      className={`w-8 h-5 rounded-full ${insuranceEnabled ? 'bg-teal-600' : 'bg-gray-300'} relative transition-colors duration-200`}
+                      aria-label="Toggle Insurance"
+                    >
+                      <span className={`absolute top-0.5 ${insuranceEnabled ? 'right-0.5' : 'left-0.5'} w-4 h-4 rounded-full bg-white shadow transition-all duration-200`}></span>
+                    </button>
+                  </div>
+                  {/* Fixed height container - always same minimum size */}
+                  <div className={`transition-all duration-300 overflow-hidden ${insuranceEnabled ? 'max-h-[2000px]' : 'max-h-0'}`} style={{ minHeight: insuranceEnabled ? 'auto' : '100px' }}>
+                    <div className="p-2" style={{ opacity: insuranceEnabled ? 1 : 0, transition: 'opacity 0.3s' }}>
+                      {/* Insurance Details (existing block) */}
+                      <div className={`flex flex-wrap gap-2 items-end`}>
+                        <div className="flex-1 min-w-[120px]">
+                          <label className={`block text-[10px] mb-0.5 font-medium text-gray-700`}>Insurance</label>
+                          <select name="insurance" value={formData.insurance} onChange={handleInputChange} className="w-full px-2 py-1 text-[10px] border border-gray-300 rounded-md focus:ring-1 focus:ring-indigo-500 text-gray-900">
+                            <option value="No">No</option>
+                            <option value="Yes">Yes</option>
+                          </select>
+                        </div>
+                        {formData.insurance === 'Yes' && (
+                          <>
+                            <div className="flex-1 min-w-[120px]">
+                              <label className={`block text-[10px] mb-0.5 font-medium text-gray-700`}>Type</label>
+                              <select name="insuranceType" value={formData.insuranceType} onChange={handleInputChange} className="w-full px-2 py-1 text-[10px] border border-gray-300 rounded-md focus:ring-1 focus:ring-indigo-500 text-gray-900">
+                                <option value="Paid">Paid</option>
+                                <option value="Advance">Advance</option>
+                              </select>
+                            </div>
+                            {formData.insuranceType === 'Advance' && (
+                              <>
+                                <div className="flex-1 min-w-[120px]">
+                                  <label className={`block text-[10px] mb-0.5 font-medium text-gray-700`}>Advance Payment Amount</label>
+                                  <input 
+                                    type="number" 
+                                    name="advanceGivenAmount" 
+                                    value={formData.advanceGivenAmount || ""} 
+                                    onChange={handleInputChange}
+                                    className={`w-full px-2 py-1 text-[10px] border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 text-gray-900`} 
+                                    placeholder="0"
+                                    step="0.01"
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-[120px]">
+                                  <label className={`block text-[10px] mb-0.5 font-medium text-gray-700`}>Co-Pay % <span className="text-red-500">*</span></label>
+                                  <input 
+                                    type="number" 
+                                    name="coPayPercent" 
+                                    value={formData.coPayPercent} 
+                                    onChange={handleInputChange} 
+                                    className={`w-full px-2 py-1 text-[10px] border rounded-md text-gray-900 ${errors.coPayPercent ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} 
+                                    placeholder="0-100" 
+                                    min="0" 
+                                    max="100" 
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-[120px]">
+                                  <label className={`block text-[10px] mb-0.5 font-medium text-gray-700`}>Need to Pay (Auto)</label>
+                                  <input 
+                                    type="text" 
+                                    value={`د.إ ${calculatedFields.needToPay.toFixed(2)}`} 
+                                    disabled 
+                                    className="w-full px-2 py-1 text-[10px] bg-gray-50 border border-gray-300 rounded-md text-gray-900 font-semibold" 
+                                  />
+                                </div>
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            </>
+            )}
+            {false && ( <div className={`bg-white rounded-lg p-2 border border-gray-200`}>
               <h2 className={`text-xs font-semibold text-gray-900 mb-1`}>Membership</h2>
               <div className={`flex flex-wrap gap-2 items-end`}>
                 <div className="flex-1 min-w-[120px]">
@@ -921,10 +1326,10 @@ return (
                   </>
                 )}
               </div>
-            </div>
+            </div> ) }
 
             {/* Packages */}
-            <div className={`bg-white rounded-lg p-2 border border-gray-200`}>
+            {false && ( <div className={`bg-white rounded-lg p-2 border border-gray-200`}>
               <h2 className={`text-xs font-semibold text-gray-900 mb-1`}>Packages</h2>
               <div className={`flex flex-wrap gap-2 items-end`}>
                 <div className="flex-1 min-w-[120px]">
@@ -963,7 +1368,7 @@ return (
                   </div>
                 )}
               </div>
-            </div>
+            </div> ) }
               {(Array.isArray(formData.packages) ? formData.packages : []).length > 0 && (
                 <div className="mt-1 border border-gray-200 rounded p-2">
                   <div className="text-[10px] font-semibold text-gray-900 mb-1">Added Packages</div>
@@ -994,7 +1399,7 @@ return (
             
 
             {/* Insurance Details */}
-            <div className={`bg-white rounded-lg p-2 border border-gray-200`}>
+            {false && ( <div className={`bg-white rounded-lg p-2 border border-gray-200`}>
               <h2 className={`text-xs font-semibold text-gray-900 mb-1`}>Insurance Details</h2>
               <div className={`flex flex-wrap gap-2 items-end`}>
                 <div className="flex-1 min-w-[120px]">
@@ -1055,25 +1460,72 @@ return (
                   </>
                 )}
               </div>
+            </div> ) }
+
+
+            {/* Bottom Actions */}
+            {!isCompact && (
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-0 pt-3 sm:pt-2">
+                <button 
+                  type="button" 
+                  onClick={resetForm} 
+                  className="w-full sm:w-auto px-3 sm:px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-800 text-xs sm:text-sm hover:bg-gray-50 transition-colors"
+                >
+                  Reset
+                </button>
+                {currentStep === 1 ? (
+                  <button 
+                    type="button" 
+                    onClick={handleNext} 
+                    className="w-full sm:w-auto px-4 sm:px-5 py-2 rounded-lg bg-teal-600 text-white text-xs sm:text-sm hover:bg-teal-700 transition-colors"
+                  >
+                    Next →
+                  </button>
+                ) : (
+                  <div className="inline-flex gap-2 w-full sm:w-auto">
+                    <button 
+                      type="button" 
+                      onClick={() => setCurrentStep(1)} 
+                      className="flex-1 sm:flex-none px-3 sm:px-5 py-2 rounded-lg border border-gray-300 bg-white text-gray-800 text-xs sm:text-sm hover:bg-gray-50 transition-colors"
+                    >
+                      ← Previous
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={handleSubmit} 
+                      className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded-lg bg-teal-600 text-white text-xs sm:text-sm hover:bg-teal-700 transition-colors"
+                    >
+                      ✓ Save
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             </div>
 
-
-            {/* Actions */}
-            <div className="flex justify-end gap-2 pt-1">
-              <button 
-                type="button" 
-                onClick={resetForm} 
-                className="px-3 py-1 border border-gray-300 rounded-md text-gray-800 hover:bg-gray-50 transition text-[10px] font-medium"
-              >
-                Reset Form
-              </button>
-              <button 
-                type="button" 
-                onClick={handleSubmit} 
-                className={`px-3 py-1 text-[10px] bg-gray-900 text-white rounded-md hover:bg-gray-800 transition font-medium shadow-sm`}
-              >
-                Save
-              </button>
+            {/* Invoice Summary Card */}
+            <div className={`${isCompact ? 'mt-2' : 'space-y-3'}`}>
+              <div className="bg-white rounded-lg p-3 border border-gray-200">
+                <h3 className="text-xs font-semibold text-gray-900 mb-2 flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-gray-700" />
+                  Invoice Information
+                </h3>
+                <div className="space-y-2 text-[11px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-700">Invoice No. :</span>
+                    <span className="font-semibold text-gray-800">{formData.invoiceNumber || "—"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-700">Invoiced By:</span>
+                    <span className="font-semibold text-gray-800">{autoFields.invoicedBy || "—"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-700">Date:</span>
+                    <span className="font-semibold text-gray-800">{new Date(autoFields.invoicedDate).toLocaleDateString()}</span>
+                  </div>
+                  
+                </div>
+              </div>
             </div>
           </div>
         </div>

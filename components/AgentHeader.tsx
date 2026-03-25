@@ -25,18 +25,32 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
     paidAmount: number;
     commissionPercent: number;
     commissionAmount: number;
+    finalCommissionAmount?: number;
     doctorName: string;
   }>>([]);
   const walletBtnRef = useRef<HTMLButtonElement | null>(null);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
 
-  const handleLogout = () => {
-    localStorage.removeItem('agentToken');
-    localStorage.removeItem('userToken');
-    localStorage.removeItem('agentUser');
-    // sessionStorage.removeItem('resetEmail');
-    //  sessionStorage.removeItem('clinicEmailForReset');
-    window.location.href = '/staff';
+  const handleLogout = async () => {
+    try {
+      const token =
+        localStorage.getItem('agentToken') ||
+        localStorage.getItem('userToken') ||
+        sessionStorage.getItem('agentToken') ||
+        sessionStorage.getItem('userToken');
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          keepalive: true,
+        }).catch(() => {});
+      }
+    } finally {
+      localStorage.removeItem('agentToken');
+      localStorage.removeItem('userToken');
+      localStorage.removeItem('agentUser');
+      window.location.href = '/staff';
+    }
   };
 
   useEffect(() => {
@@ -238,7 +252,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                                   Paid ₹ {Number(it.paidAmount || 0).toFixed(2)} • {Number(it.commissionPercent || 0)}%
                                 </div>
                                 <div className="text-[10px] bg-teal-50 text-teal-800 px-2 py-0.5 rounded">
-                                  Commission ₹ {Number(it.commissionAmount || 0).toFixed(2)}
+                                  Commission ₹ {Number((it.finalCommissionAmount ?? it.commissionAmount) || 0).toFixed(2)}
                                 </div>
                               </div>
                               <div className="mt-0.5 text-[10px] text-gray-500">

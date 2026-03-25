@@ -62,16 +62,16 @@ export default function DemoFAQ() {
         <p className="text-gray-600 mb-6">Our team is here to help. Get in touch and we'll answer all your questions.</p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <a
-            href="https://wa.me/919650608788"
+            href="https://wa.me/971502983757"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#F0D98C] text-[#0A1F44] font-semibold shadow"
           >
             <MessageCircle className="w-4 h-4" />
-            WhatsApp: +91 9650608788
+            WhatsApp: +971 50 298 3757
           </a>
           <a
-            href="mailto:hello@zeva.ae?subject=Inquiry%20from%20Website&body=Hello%20Zeva%20Team,%0A%0AI%20would%20like%20to%20learn%20more%20about%20your%20clinic%20management%20platform.%0A%0AThanks,%0A[Your%20Name]"
+            href="mailto:sales@zeva360.com?subject=Inquiry%20from%20Website&body=Hello%20Zeva%20Team,%0A%0AI%20would%20like%20to%20learn%20more%20about%20your%20clinic%20management%20platform.%0A%0AThanks,%0A[Your%20Name]"
             className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#0A1F44] text-white font-semibold shadow"
           >
             <Mail className="w-4 h-4" />

@@ -56,7 +56,10 @@ export default async function handler(req, res) {
       ])
       .lean();
 
-    const totalCommission = commissions.reduce((sum, c) => sum + Number(c.commissionAmount || 0), 0);
+    const totalCommission = commissions.reduce(
+      (sum, c) => sum + Number(c.finalCommissionAmount || c.commissionAmount || 0),
+      0
+    );
 
     const items = commissions.map((c) => {
       const patient = c.patientId || {};
@@ -71,7 +74,8 @@ export default async function handler(req, res) {
         invoicedDate: billing.invoicedDate || c.invoicedDate || null,
         paidAmount: Number(c.amountPaid || billing.paid || 0),
         commissionPercent: Number(c.commissionPercent || 0),
-        commissionAmount: Number(c.commissionAmount || 0),
+        commissionAmount: Number(c.finalCommissionAmount || c.commissionAmount || 0),
+        finalCommissionAmount: Number(c.finalCommissionAmount || c.commissionAmount || 0),
         doctorName: doctor.name || "",
       };
     });

@@ -519,6 +519,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
     }
   });
 
+  
+
   // Drag and drop state
   const [isEditMode, setIsEditMode] = useState(false);
   const [widgets, setWidgets] = useState<DashboardWidget[]>(() => {
@@ -2983,22 +2985,43 @@ const ClinicDashboard: NextPageWithLayout = () => {
           endDateReadable: endDate.toLocaleDateString()
         });
         
-        const res = await axios.get('/api/clinics/financialReports', {
-          headers: { Authorization: `Bearer ${token}` },
-          params: {
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString(),
-            filter: timeRangeFilter
-          }
-        });
+        // Fetch clinic financials + doctor-performance trend together
+        const [resFinancial, resPerf] = await Promise.all([
+          axios.get('/api/clinics/financialReports', {
+            headers: { Authorization: `Bearer ${token}` },
+            params: {
+              startDate: startDate.toISOString(),
+              endDate: endDate.toISOString(),
+              filter: timeRangeFilter
+            }
+          }),
+          axios.get('/api/clinics/doctor-performance', {
+            headers: { Authorization: `Bearer ${token}` },
+            params: { filter: timeRangeFilter }
+          })
+        ]);
 
-        console.log('✅ Financial Reports Response:', res.data);
-        if (res.data.success) {
+        const fin = resFinancial.data || {};
+        const perf = resPerf.data || {};
+        console.log('✅ Financial Reports Response:', fin);
+        console.log('✅ Doctor Performance Trend Response:', perf);
+
+        if (fin.success || perf.success) {
+          // Prefer revenueTrend from doctor-performance; fallback to existing if missing
+          const revenueTrendData = perf?.data?.revenueTrend ?? fin?.revenueTrendData ?? [];
+          // Doctor Revenue now sourced from doctor-performance
+          const doctorRevenueData = (perf?.data?.revenuePerDoctor || []).map((d: any) => ({
+            name: d.doctorName || 'Unknown Doctor',
+            revenue: Number(d.estimatedRevenue || 0),
+            sessions: d.completedAppointments || d.appointmentCount || 0
+          }));
+          // Keep sort by revenue desc for chart readability
+          doctorRevenueData.sort((a: any, b: any) => b.revenue - a.revenue);
           setFinancialData({
-            revenueTrendData: res.data.revenueTrendData || [],
-            paymentMethodsData: res.data.paymentMethodsData || [],
-            doctorRevenueData: res.data.doctorRevenueData || [],
-            topServicesData: res.data.topServicesData || [],
+            revenueTrendData,
+            paymentMethodsData: fin?.paymentMethodsData || [],
+            doctorRevenueData,
+            topServicesData: fin?.topServicesData || [],
           });
         }
       } catch (error) {
@@ -4261,25 +4284,14 @@ const ClinicDashboard: NextPageWithLayout = () => {
                           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
                             <div className="mb-4">
                               <h3 className="text-base font-bold text-black">Revenue Trend</h3>
-                              <p className="text-xs text-gray-500 mt-1">Monthly revenue vs target</p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {timeRangeFilter === 'overall' ? 'Monthly revenue vs target' : 'Daily revenue vs target'}
+                              </p>
                             </div>
                             <div className="h-72">
                               <ResponsiveContainer width="100%" height="100%">
                                 <LineChart
-                                  data={[
-                                    { name: 'Jan', revenue: 45000, target: 40000 },
-                                    { name: 'Feb', revenue: 52000, target: 45000 },
-                                    { name: 'Mar', revenue: 48000, target: 50000 },
-                                    { name: 'Apr', revenue: 61000, target: 55000 },
-                                    { name: 'May', revenue: 55000, target: 60000 },
-                                    { name: 'Jun', revenue: 67000, target: 65000 },
-                                    { name: 'Jul', revenue: 72000, target: 70000 },
-                                    { name: 'Aug', revenue: 69000, target: 75000 },
-                                    { name: 'Sep', revenue: 78000, target: 80000 },
-                                    { name: 'Oct', revenue: 85000, target: 85000 },
-                                    { name: 'Nov', revenue: 92000, target: 90000 },
-                                    { name: 'Dec', revenue: 98000, target: 95000 }
-                                  ]}
+                                  data={financialData.revenueTrendData || []}
                                   margin={{ top: 20, right: 20, left: 0, bottom: 60 }}
                                 >
                                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -4665,25 +4677,14 @@ const ClinicDashboard: NextPageWithLayout = () => {
                               <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
                                 <div className="mb-4">
                                   <h3 className="text-base font-bold text-black">Revenue Trend</h3>
-                                  <p className="text-xs text-gray-500 mt-1">Monthly revenue vs target (Jan - Dec)</p>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    {timeRangeFilter === 'overall' ? 'Monthly revenue vs target' : 'Daily revenue vs target'}
+                                  </p>
                                 </div>
                                 <div className="h-72">
                                   <ResponsiveContainer width="100%" height="100%">
                                     <LineChart
-                                      data={[
-                                        { name: 'Jan', revenue: 45000, target: 40000 },
-                                        { name: 'Feb', revenue: 52000, target: 45000 },
-                                        { name: 'Mar', revenue: 48000, target: 50000 },
-                                        { name: 'Apr', revenue: 61000, target: 55000 },
-                                        { name: 'May', revenue: 55000, target: 60000 },
-                                        { name: 'Jun', revenue: 67000, target: 65000 },
-                                        { name: 'Jul', revenue: 72000, target: 70000 },
-                                        { name: 'Aug', revenue: 69000, target: 75000 },
-                                        { name: 'Sep', revenue: 78000, target: 80000 },
-                                        { name: 'Oct', revenue: 85000, target: 85000 },
-                                        { name: 'Nov', revenue: 92000, target: 90000 },
-                                        { name: 'Dec', revenue: 98000, target: 95000 }
-                                      ]}
+                                      data={financialData.revenueTrendData || []}
                                       margin={{ top: 20, right: 20, left: 0, bottom: 60 }}
                                     >
                                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -5278,8 +5279,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                                 )}
                                               </div>
                                             </td>
-                                            <td className="px-4 py-3 whitespace-nowrap">
-                                              <span className="text-center text-sm font-semibold text-teal-600">{patient.billingCount}</span>
+                                            <td className="px-4 py-3 whitespace-nowrap text-center">
+                                              <span className="text-sm font-semibold text-teal-600 block">{patient.billingCount}</span>
                                             </td>
                                             <td className="px-4 py-3 whitespace-nowrap text-right">
                                               <span className="text-sm font-semibold text-gray-900">₹{patient.totalRevenue?.toLocaleString()}</span>
@@ -6731,5 +6732,4 @@ const ProtectedDashboard: NextPageWithLayout = withClinicAuth(ClinicDashboard);
 
 // Reassign layout (TS-safe now)
 ProtectedDashboard.getLayout = ClinicDashboard.getLayout;
-
 export default ProtectedDashboard;

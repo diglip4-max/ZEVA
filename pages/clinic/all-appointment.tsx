@@ -44,6 +44,8 @@
     roomName: string;
     serviceId?: string;
     serviceName?: string;
+    serviceIds?: string[];
+    serviceNames?: string[];
     status: string;
     followType: string;
     referral: string;
@@ -1028,6 +1030,9 @@
                           <th className="px-1 py-1.5 text-left text-[8px] sm:text-[9px] font-semibold uppercase tracking-wider whitespace-nowrap w-[140px]">
                             Doctor Details
                           </th>
+                          <th className="px-1 py-1.5 text-left text-[8px] sm:text-[9px] font-semibold uppercase tracking-wider whitespace-nowrap w-[120px]">
+                            Treatments
+                          </th>
                           <th className="px-1 py-1.5 text-left text-[8px] sm:text-[9px] font-semibold uppercase tracking-wider whitespace-nowrap w-[90px]">
                             Room
                           </th>
@@ -1141,6 +1146,13 @@
                                   <span className="font-medium text-teal-900">{apt.doctorName}</span>
                                 </div>
                                 <div className="text-teal-700 text-[7px] sm:text-[8px] truncate">{apt.doctorEmail}</div>
+                              </div>
+                            </td>
+                            <td className="px-1 py-1.5 text-[8px] sm:text-[9px] text-teal-900 max-w-[120px]">
+                              <div className="truncate" title={apt.serviceNames?.join(", ") || apt.serviceName || "-"}>
+                                {apt.serviceNames && apt.serviceNames.length > 0 
+                                  ? apt.serviceNames.join(", ") 
+                                  : apt.serviceName || "-"}
                               </div>
                             </td>
                             <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px] text-teal-900 truncate max-w-[90px]">

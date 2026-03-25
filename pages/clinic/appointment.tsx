@@ -99,6 +99,8 @@ interface Appointment {
   notes: string;
   serviceId?: string | { _id: string };
   serviceName?: string | null;
+  serviceIds?: string[];
+  serviceNames?: string[];
   bookedFrom?: "doctor" | "room"; // Track which column the appointment was booked from
   doctorTreatments?: Array<{
     mainTreatment: string;
@@ -408,7 +410,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     }
     return [];
   });
-  
+ 
   // Initialize visibleRoomIds from localStorage if available
   const [visibleRoomIds, setVisibleRoomIds] = useState<string[]>(() => {
     if (typeof window !== "undefined") {
@@ -649,11 +651,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   const [dragOverDoctorId, setDragOverDoctorId] = useState<string | null>(null);
   const [dragOverTimeSlot, setDragOverTimeSlot] = useState<{ doctorId: string; minutes: number } | null>(null);
 
-  // Central helper: log errors silently without showing toast popups
-  const showErrorToast = (_message: string) => {
-    // Requirement: do not show any axios error in toaster or noisy console logs on this page.
-    // Intentionally left blank to silently swallow UI error notifications.
-    // If needed for debugging, temporarily add a console.log here.
+  // Central helper: show errors in toast for debugging permissions
+  const showErrorToast = (message: string) => {
+    // Show toast for permission related errors or debugging
+    if (message.toLowerCase().includes("permission") || message.toLowerCase().includes("error")) {
+      toast.error(message, { duration: 3000 });
+    }
+    console.error("Appointment Page Error:", message);
   };
 
 
@@ -721,9 +725,9 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     setPermissionsLoaded(true);
   }, [isAgentRoute, agentPermissions, agentPermissionsLoading]);
 
-  // Helper function to get user role from token
-  const getUserRole = (): string | null => {
-    if (typeof window === "undefined") return null;
+  // Helper function to get user info from token
+  const getUserInfo = (): { role: string | null; id: string | null } => {
+    if (typeof window === "undefined") return { role: null, id: null };
     try {
       for (const key of TOKEN_PRIORITY) {
         const token = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
@@ -738,16 +742,24 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                 .join('')
             );
             const decoded = JSON.parse(jsonPayload);
-            return decoded.role || decoded.userRole || null;
+            return {
+              role: decoded.role || decoded.userRole || null,
+              id: decoded.userId || decoded.id || null
+            };
           } catch (e) {
             continue;
           }
         }
       }
     } catch (error) {
-      console.error("Error getting user role:", error);
+      console.error("Error getting user info:", error);
     }
-    return null;
+    return { role: null, id: null };
+  };
+
+  // Helper function to get user role from token
+  const getUserRole = (): string | null => {
+    return getUserInfo().role;
   };
 
   // Handle clinic permissions - clinic, doctor have admin-level permissions; agent/doctorStaff need checks
@@ -896,6 +908,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     if (agentToken || staffToken || userToken) {
       const fetchPermissions = async () => {
         try {
+          console.log("Fetching Agent/Staff Permissions for clinic_Appointment...");
           setPermissionsLoaded(false);
           // Use agent permissions API for agent/doctorStaff
           const res = await axios.get("/api/agent/get-module-permissions", {
@@ -903,20 +916,38 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
             headers: { Authorization: `Bearer ${agentStaffToken}` }
           });
           const data = res.data;
+          console.log("Agent Permissions API Response:", data);
          
           if (!isMounted) return;
+          
+          // Default to true if module not found in permissions (matches backend logic)
+          if (!data?.permissions && data?.error?.includes("not found in agent permissions")) {
+            console.log("Module not found in permissions, granting full access by default");
+            setPermissions({
+              canRead: true,
+              canCreate: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+            return;
+          }
+
           const actions = data?.permissions?.actions || data?.data?.moduleActions || {};
-          const canAll =
-            actions.all === true ||
-            actions.all === "true" ||
-            String(actions.all || "").toLowerCase() === "true";
-          setPermissions({
-            canRead: canAll || actions.read === true,
-            canCreate: canAll || actions.create === true,
-            canUpdate: canAll || actions.update === true,
-            canDelete: canAll || actions.delete === true,
-          });
-        } catch (err) {
+          const isTrue = (val: any) => val === true || val === "true" || String(val || "").toLowerCase() === "true";
+          
+          const canAll = isTrue(actions.all);
+          
+          const newPerms = {
+            canRead: canAll || isTrue(actions.read),
+            canCreate: canAll || isTrue(actions.create),
+            canUpdate: canAll || isTrue(actions.update),
+            canDelete: canAll || isTrue(actions.delete),
+          };
+          
+          console.log("Final Agent/Staff Permissions:", newPerms);
+          setPermissions(newPerms);
+        } catch (err: any) {
+          console.error("Error fetching agent permissions:", err);
           // Swallow agent permission errors; they will just result in no extra access
           setPermissions({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
         } finally {
@@ -1028,7 +1059,17 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
         if (res.data.success) {
           setClinic(res.data.clinic);
-          setDoctorStaff(res.data.doctorStaff || []);
+          let fetchedDoctorStaff = res.data.doctorStaff || [];
+          const userInfo = getUserInfo();
+         
+          // If the user is a doctorStaff, filter to show only their column
+          if (userInfo.role === "doctorStaff" && userInfo.id) {
+            fetchedDoctorStaff = fetchedDoctorStaff.filter((doc: any) => doc._id === userInfo.id);
+            // Don't hide rooms from state entirely, as they are needed for the booking modal
+            // But hide room filters and room columns (handled in visibility logic)
+          }
+         
+          setDoctorStaff(fetchedDoctorStaff);
           setRooms(res.data.rooms || []);
 
           // Parse timings and generate time slots
@@ -1073,10 +1114,10 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   useEffect(() => {
     setVisibleDoctorIds((prev) => {
       if (doctorStaff.length === 0) return [];
-      
+     
       // Check if there's a saved filter state in localStorage
       const hasSavedFilter = typeof window !== "undefined" && localStorage.getItem("appointmentVisibleDoctorIds");
-      
+     
       // Only auto-populate if:
       // 1. Filter was never touched AND
       // 2. No saved filter exists in localStorage
@@ -1140,7 +1181,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       }
       const doctorIdSet = new Set(doctorStaff.map((doc) => doc._id));
       const filtered = prev.filter((id) => doctorIdSet.has(id));
-      
+     
       // If filtered result is different from prev, it means some IDs were removed (old/deleted doctors)
       // In this case, update localStorage with the cleaned filtered list
       if (filtered.length !== prev.length && typeof window !== "undefined") {
@@ -1150,7 +1191,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           localStorage.removeItem("appointmentVisibleDoctorIds");
         }
       }
-      
+     
       // Update unified order to match filtered list, preserving existing order where possible
       setColumnOrder((order) => {
         const filteredSet = new Set(filtered.map(id => `doctor:${id}`));
@@ -1174,10 +1215,16 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   useEffect(() => {
     setVisibleRoomIds((prev) => {
       if (rooms.length === 0) return [];
-      
+
+      const userInfo = getUserInfo();
+      // If the user is a doctorStaff, hide all room columns by default
+      if (userInfo.role === "doctorStaff") {
+        return [];
+      }
+     
       // Check if there's a saved filter state in localStorage
       const hasSavedFilter = typeof window !== "undefined" && localStorage.getItem("appointmentVisibleRoomIds");
-      
+     
       // Only auto-populate if:
       // 1. Filter was never touched AND
       // 2. No saved filter exists in localStorage
@@ -1241,7 +1288,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       }
       const roomIdSet = new Set(rooms.map((room) => room._id));
       const filtered = prev.filter((id) => roomIdSet.has(id));
-      
+     
       // If filtered result is different from prev, it means some IDs were removed (old/deleted rooms)
       // In this case, update localStorage with the cleaned filtered list
       if (filtered.length !== prev.length && typeof window !== "undefined") {
@@ -1251,7 +1298,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           localStorage.removeItem("appointmentVisibleRoomIds");
         }
       }
-      
+     
       // Update unified order to match filtered list, preserving existing order where possible
       setColumnOrder((order) => {
         const filteredSet = new Set(filtered.map(id => `room:${id}`));
@@ -2606,7 +2653,7 @@ useEffect(() => {
                           }
                           toast(`Viewing appointments for ${new Date(newDate).toLocaleDateString()}`, {
                             duration: 2000,
-                            icon: "â„¹ï¸",
+                            icon: "â„¹ï¸ ",
                           });
                         }}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
@@ -2650,7 +2697,7 @@ useEffect(() => {
               </div>
               {(doctorStaff.length > 0 || rooms.length > 0) && (
             <div className="flex flex-wrap gap-2">
-              {doctorStaff.length > 0 && (
+              {doctorStaff.length > 0 && getUserInfo().role !== "doctorStaff" && (
                 <div className="relative" ref={doctorFilterRef}>
                   <button
                     type="button"
@@ -2776,7 +2823,7 @@ useEffect(() => {
                   )}
                 </div>
               )}
-              {rooms.length > 0 && (
+              {rooms.length > 0 && getUserInfo().role !== "doctorStaff" && (
                 <div className="relative" ref={roomFilterRef}>
                   <button
                     type="button"
@@ -3045,7 +3092,7 @@ useEffect(() => {
                     {permissions.canRead ? (
                       <div className="flex items-center gap-1">
                         <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-emerald-50 dark:bg-emerald-100 border border-emerald-200 dark:border-emerald-300 flex items-center justify-center text-emerald-700 dark:text-emerald-800 font-semibold text-[8px] sm:text-[9px] flex-shrink-0">
-                          ðŸ¥
+                          ðŸ ¥
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900 truncate">{room.name}</p>
@@ -3194,6 +3241,16 @@ useEffect(() => {
                                     }
                                   }}
                                   onClick={(_e) => {
+                                    console.log("Slot clicked:", {
+                                      canBookSlot,
+                                      canCreate: permissions.canCreate,
+                                      isDragging: timeDragSelection.isDragging,
+                                      draggedAppointmentId,
+                                      subStartMinutes,
+                                      currentMinutes,
+                                      isToday,
+                                      isPastDay
+                                    });
                                     // âœ… Check permission before opening booking modal
                                     if (!permissions.canCreate) {
                                       showErrorToast("You do not have permission to book appointments");
@@ -3212,6 +3269,8 @@ useEffect(() => {
                                         selectedDate,
                                         bookedFrom: "doctor",
                                       });
+                                    } else if (!canBookSlot) {
+                                       showErrorToast("This slot cannot be booked. Check date/time or availability.");
                                     }
                                   }}
                                 />
@@ -3328,6 +3387,8 @@ useEffect(() => {
                                                     appointmentRef.current = item.apt;
                                                     setSelectedAppointment(item.apt);
                                                     setEditModalOpen(true);
+                                                  } else {
+                                                    showErrorToast("You do not have permission to edit appointments");
                                                   }
                                                 }}
                                                 title={`${item.apt.patientName} - ${formatTime(item.apt.fromTime)} - ${formatTime(item.apt.toTime)}`}
@@ -3349,14 +3410,13 @@ useEffect(() => {
                                                       <span className="text-[13px] font-[600] text-black mb-[2px] block">
                                                         {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
                                                       </span>
-                                                      {item.apt.serviceName && (
+                                                      {item.apt.serviceNames && item.apt.serviceNames.length > 0 ? (
+                                                        <span className="text-[12px] font-[400] text-black opacity-[0.8] block truncate">
+                                                          {item.apt.serviceNames.join(", ")}
+                                                        </span>
+                                                      ) : item.apt.serviceName && (
                                                         <span className="text-[12px] font-[400] text-black opacity-[0.8] block truncate">
                                                           {item.apt.serviceName}
-                                                        </span>
-                                                      )}
-                                                      {item.apt.doctorTreatments && item.apt.doctorTreatments.length > 0 && (
-                                                        <span className="text-[12px] font-[500] text-black block truncate">
-                                                          {item.apt.doctorTreatments[0].mainTreatment}
                                                         </span>
                                                       )}
                                                     </div>
@@ -3469,6 +3529,16 @@ useEffect(() => {
                                     }
                                   }}
                                   onClick={(_e) => {
+                                    console.log("Room slot clicked:", {
+                                      canBookSlot,
+                                      canCreate: permissions.canCreate,
+                                      isDragging: roomDragSelection.isDragging,
+                                      draggedAppointmentId,
+                                      subStartMinutes,
+                                      currentMinutes,
+                                      isToday,
+                                      isPastDay
+                                    });
                                     // âœ… Check permission before opening booking modal
                                     if (!permissions.canCreate) {
                                       showErrorToast("You do not have permission to book appointments");
@@ -3487,6 +3557,8 @@ useEffect(() => {
                                         selectedDate,
                                         bookedFrom: "room",
                                       });
+                                    } else if (!canBookSlot) {
+                                       showErrorToast("This slot cannot be booked. Check date/time or availability.");
                                     }
                                   }}
                                 />
@@ -3607,6 +3679,8 @@ useEffect(() => {
                                                     appointmentRef.current = item.apt;
                                                     setSelectedAppointment(item.apt);
                                                     setEditModalOpen(true);
+                                                  } else {
+                                                    showErrorToast("You do not have permission to edit appointments");
                                                   }
                                                 }}
                                                 title={`${item.apt.patientName} - ${formatTime(item.apt.fromTime)} - ${formatTime(item.apt.toTime)}`}
@@ -3628,14 +3702,13 @@ useEffect(() => {
                                                       <span className="text-[13px] font-[600] text-black mb-[2px] block">
                                                         {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
                                                       </span>
-                                                      {item.apt.serviceName && (
+                                                      {item.apt.serviceNames && item.apt.serviceNames.length > 0 ? (
+                                                        <span className="text-[12px] font-[400] text-black opacity-[0.8] block truncate">
+                                                          {item.apt.serviceNames.join(", ")}
+                                                        </span>
+                                                      ) : item.apt.serviceName && (
                                                         <span className="text-[12px] font-[400] text-black opacity-[0.8] block truncate">
                                                           {item.apt.serviceName}
-                                                        </span>
-                                                      )}
-                                                      {item.apt.doctorTreatments && item.apt.doctorTreatments.length > 0 && (
-                                                        <span className="text-[12px] font-[500] text-black block truncate">
-                                                          {item.apt.doctorTreatments[0].mainTreatment}
                                                         </span>
                                                       )}
                                                     </div>
@@ -4050,46 +4123,19 @@ useEffect(() => {
                   <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Dr:</span>
                   <span className="text-[10px] text-gray-700 dark:text-gray-800 truncate">{hoveredAppointment.appointment.doctorName}</span>
                 </div>
-                {hoveredAppointment.appointment.serviceName && (
+                {hoveredAppointment.appointment.serviceNames && hoveredAppointment.appointment.serviceNames.length > 0 ? (
+                  <div className="flex items-start gap-1">
+                    <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Services:</span>
+                    <span className="text-[10px] text-gray-700 dark:text-gray-800 leading-tight">
+                      {hoveredAppointment.appointment.serviceNames.join(", ")}
+                    </span>
+                  </div>
+                ) : hoveredAppointment.appointment.serviceName && (
                   <div className="flex items-center gap-1">
                     <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Service:</span>
                     <span className="text-[10px] text-gray-700 dark:text-gray-800 truncate">{hoveredAppointment.appointment.serviceName}</span>
                   </div>
                 )}
-                {hoveredAppointment.appointment.doctorTreatments && hoveredAppointment.appointment.doctorTreatments.length > 0 && (
-                  <div className="flex items-start gap-1 pt-0.5">
-                    <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Treatments:</span>
-                    <div className="flex-1">
-                      {hoveredAppointment.appointment.doctorTreatments.map((treatment, index) => (
-                        <div key={index} className="mb-1">
-                          <span className="text-[10px] text-gray-700 dark:text-gray-800 font-medium block">
-                            {treatment.mainTreatment}
-                          </span>
-                          {treatment.subTreatments && treatment.subTreatments.length > 0 && (
-                            <div className="ml-2 mt-0.5">
-                              {treatment.subTreatments.map((sub, subIndex) => (
-                                <span
-                                  key={subIndex}
-                                  className="inline-block text-[9px] bg-gray-100 dark:bg-gray-200 text-gray-700 dark:text-gray-800 px-1.5 py-0.5 rounded mr-1 mb-1"
-                                >
-                                  {sub.name}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Doctor Only */}
-              <div className="space-y-0.5 pt-0.5 border-t border-gray-100 dark:border-gray-300">
-                <div className="flex items-center gap-1">
-                  <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Dr:</span>
-                  <span className="text-[10px] text-gray-700 dark:text-gray-800 truncate">{hoveredAppointment.appointment.doctorName}</span>
-                </div>
               </div>
 
               {/* Follow Type */}
@@ -4148,4 +4194,3 @@ const ProtectedAppointmentPage: NextPageWithLayout = withClinicAuth(AppointmentP
 ProtectedAppointmentPage.getLayout = AppointmentPage.getLayout;
 
 export default ProtectedAppointmentPage;
-

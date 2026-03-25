@@ -150,6 +150,7 @@ export default async function handler(req, res) {
         .populate("doctorId", "name email")
         .populate("roomId", "name")
         .populate("serviceId", "name")
+        .populate("serviceIds", "name")
         .sort({ startDate: 1, fromTime: 1 })
         .lean();
 
@@ -270,6 +271,13 @@ export default async function handler(req, res) {
           doctorTreatments: doctorTreatmentsMap[apt.doctorId?._id?.toString()] || [],
           serviceId: apt.serviceId?._id?.toString() || null,
           serviceName: apt.serviceId?.name || null,
+          serviceIds: Array.isArray(apt.serviceIds) ? apt.serviceIds.map(s => s?._id?.toString()).filter(Boolean) : [],
+          serviceNames: (() => {
+            const fromServiceIds = Array.isArray(apt.serviceIds) ? apt.serviceIds.map(s => s?.name || "").filter(Boolean) : [];
+            const fromServiceId = apt.serviceId?.name || "";
+            const combined = fromServiceId ? [fromServiceId, ...fromServiceIds.filter(n => n !== fromServiceId)] : fromServiceIds;
+            return combined;
+          })(),
           createdAt: apt.createdAt,
         })),
       });
@@ -325,8 +333,14 @@ export default async function handler(req, res) {
         }
       };
       requireField(patientId, "patientId", "Patient");
-      requireField(doctorId, "doctorId", "Doctor");
-      requireField(roomId, "roomId", "Room");
+      // Either doctorId or roomId is required, but both are checked individually below
+      // requireField(doctorId, "doctorId", "Doctor");
+      // requireField(roomId, "roomId", "Room");
+      if (!doctorId && !roomId) {
+        errors.doctorId = "Either Doctor or Room is required";
+        missingFields.push("doctorId");
+        missingFieldLabels.push("Doctor or Room");
+      }
       requireField(status, "status", "Status");
       requireField(followType, "followType", "Follow Type");
       requireField(startDate, "startDate", "Appointment Date");
@@ -424,23 +438,32 @@ export default async function handler(req, res) {
       // Validation 2: Check for duplicate booking for the same patient
       // Prevent same patient from being booked in the same room OR with the same doctor at the same time
       // This ensures that if booked under Doctor column (with room), it blocks re-booking under Room column (for same patient)
-      const duplicateAppointment = await Appointment.findOne({
+      const duplicateQuery = {
         clinicId,
         patientId, // Same patient
         startDate: { $gte: startOfDay, $lte: endOfDay },
         fromTime,
         toTime,
-        $or: [
-          { roomId: roomId },
-          { doctorId: doctorId }
-        ]
-      });
+        $or: []
+      };
 
-      if (duplicateAppointment) {
-        return res.status(400).json({
-          success: false,
-          message: "This appointment already exists",
-        });
+      if (roomId) {
+        duplicateQuery.$or.push({ roomId: roomId });
+      }
+      if (doctorId) {
+        duplicateQuery.$or.push({ doctorId: doctorId });
+      }
+
+      // Only run duplicate check if we have either roomId or doctorId
+      if (duplicateQuery.$or.length > 0) {
+        const duplicateAppointment = await Appointment.findOne(duplicateQuery);
+
+        if (duplicateAppointment) {
+          return res.status(400).json({
+            success: false,
+            message: "This appointment already exists",
+          });
+        }
       }
 
       // Validation 3 removed for clinic, agent, and doctorStaff roles (handled below)
@@ -450,7 +473,7 @@ export default async function handler(req, res) {
       // Skip the "different doctor same room/time" validation for these roles
       // Keep restriction for other roles (e.g., doctor, staff, unknown)
       // Note: "same doctor same room/time" restriction still applies to prevent duplicate bookings by the same doctor
-      if (!["clinic", "agent", "doctorStaff"].includes(clinicUser.role)) {
+      if (roomId && !["clinic", "agent", "doctorStaff"].includes(clinicUser.role)) {
         const differentDoctorSameRoomAppointment = await Appointment.findOne({
           clinicId,
           roomId,
@@ -517,6 +540,12 @@ export default async function handler(req, res) {
           return res.status(400).json({ success: false, message: "Invalid service selected" });
         }
       }
+      if (Array.isArray(req.body.serviceIds) && req.body.serviceIds.length > 0) {
+        const ids = req.body.serviceIds.filter(Boolean).map((id) => String(id));
+        const svcs = await Service.find({ _id: { $in: ids }, clinicId }).select("_id").lean();
+        const validIds = svcs.map((s) => s._id?.toString()).filter(Boolean);
+        appointmentData.serviceIds = validIds;
+      }
       console.log("💾 Appointment data being saved:", JSON.stringify(appointmentData, null, 2));
       
       const appointment = await Appointment.create(appointmentData);
@@ -536,6 +565,7 @@ export default async function handler(req, res) {
         .populate("doctorId", "name email")
         .populate("roomId", "name")
         .populate("serviceId", "name")
+        .populate("serviceIds", "name")
         .lean();
       
       console.log("📖 Populated appointment bookedFrom from DB:", populatedAppointment.bookedFrom);
@@ -585,6 +615,13 @@ export default async function handler(req, res) {
           doctorTreatments,
           serviceId: populatedAppointment.serviceId?._id?.toString() || null,
           serviceName: populatedAppointment.serviceId?.name || null,
+          serviceIds: Array.isArray(populatedAppointment.serviceIds) ? populatedAppointment.serviceIds.map(s => s?._id?.toString()).filter(Boolean) : [],
+          serviceNames: (() => {
+            const fromServiceIds = Array.isArray(populatedAppointment.serviceIds) ? populatedAppointment.serviceIds.map(s => s?.name || "").filter(Boolean) : [];
+            const fromServiceId = populatedAppointment.serviceId?.name || "";
+            const combined = fromServiceId ? [fromServiceId, ...fromServiceIds.filter(n => n !== fromServiceId)] : fromServiceIds;
+            return combined;
+          })(),
           patientInvoiceNumber: populatedAppointment.patientId?.invoiceNumber || null,
           patientEmrNumber: populatedAppointment.patientId?.emrNumber || null,
           patientGender: populatedAppointment.patientId?.gender || null,

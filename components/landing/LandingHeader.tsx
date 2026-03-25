@@ -62,7 +62,7 @@ const LandingHeader: React.FC = () => {
           <div className="hidden md:flex items-center gap-3 justify-end">
             <div className="flex items-center gap-2 text-base whitespace-nowrap">
               <Phone className={`w-5 h-5 ${phoneIconCls}`} />
-              <a href="tel:+919650608788" className={phoneTextCls} aria-label="Call +91 9650608788">+91 9650608788</a>
+              <a href="tel:+971502983757" className={phoneTextCls} aria-label="Call +971 50 298 3757">+971 50 298 3757</a>
             </div>
             <button
               onClick={() => window.dispatchEvent(new Event("zeva:open-demo-popup"))}
@@ -97,8 +97,8 @@ const LandingHeader: React.FC = () => {
             <div className={`pt-3 border-t ${scrolled ? 'border-gray-200' : 'border-white/10'}`}>
               <div className="flex items-center gap-2">
                 <Phone className={`w-5 h-5 ${phoneIconCls}`} />
-                <a href="tel:+919650608788" className={`text-base ${phoneTextCls}`} aria-label="Call +91 9650608788">
-                  +91 9650608788
+                <a href="tel:+971502983757" className={`text-base ${phoneTextCls}`} aria-label="Call +971 50 298 3757">
+                  +971 50 298 3757
                 </a>
               </div>
             </div>

@@ -48,6 +48,14 @@ export default async function handler(req, res) {
 
     const token = jwt.sign(payload, process.env.JWT_SECRET); // expires in 7 days
 
+    try {
+      user.currentStatus = 'ONLINE';
+      user.lastActivity = new Date();
+      await user.save();
+    } catch (e) {
+      console.error('Failed to update lastActivity/currentStatus on login', e);
+    }
+
     return res.status(200).json({
       success: true,
       message: "Login successful",

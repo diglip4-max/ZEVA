@@ -16,12 +16,12 @@ const AppointmentSchema = new mongoose.Schema(
     doctorId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: false,
     },
     roomId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Room",
-      required: true,
+      required: false,
     },
     status: {
       type: String,
@@ -119,6 +119,12 @@ const AppointmentSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    serviceIds: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Service",
+      },
+    ],
   },
   { timestamps: true },
 );

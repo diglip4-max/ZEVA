@@ -14,14 +14,8 @@ export default function DemoQuickPopup() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-
-  const handleSendEmail = () => {
-    const subject = encodeURIComponent("Inquiry from Website");
-    const body = encodeURIComponent(
-      `Hello Zeva Team,\n\nI would like to learn more about your clinic management platform.\n\nThanks,\n${name || "[Your Name]"}\nEmail: ${email || ""}\nPhone: ${phone || ""}\nClinic: ${clinicName || ""}`,
-    );
-    window.location.href = `mailto:hello@zeva.ae?subject=${subject}&body=${body}`;
-  };
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   useEffect(() => {
     if (router.pathname === "/clinic-management-software-uae") {
@@ -40,10 +34,44 @@ export default function DemoQuickPopup() {
       );
   }, [router.pathname]);
 
+  
+
+  const validateName = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return "Full name is required.";
+    if (!/^[A-Za-z ]{2,50}$/.test(trimmed)) return "Only letters and spaces (2–50 chars).";
+    return null;
+  };
+
+  const validatePhone = (digits: string) => {
+    if (!digits) return "Phone number is required.";
+    if (!/^\d{7,15}$/.test(digits)) return "Enter 7–15 digit number.";
+    return null;
+  };
+
+  const blockNameKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const k = e.key;
+    // Block digits and most punctuation; allow letters, space, control keys
+    const allow =
+      k.length > 1 || // Control keys like Backspace, Tab, Arrow keys
+      /[A-Za-z ]/.test(k);
+    if (!allow) {
+      e.preventDefault();
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    const nErr = validateName(name);
+    const pErr = validatePhone(phone);
+    setNameError(nErr);
+    setPhoneError(pErr);
+    if (nErr || pErr) {
+      setLoading(false);
+      return;
+    }
     try {
       const { data } = await axios.post("/api/zeva-leads", {
         name,
@@ -127,11 +155,21 @@ export default function DemoQuickPopup() {
                       <input
                         type="text"
                         placeholder="Enter your name"
-                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                        className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37] border-gray-300 dark:bg-white dark:text-gray-900 dark:border-gray-300 placeholder-gray-400 dark:placeholder-gray-400 ${nameError ? "border-red-400 focus:ring-red-400" : ""}`}
+                        inputMode="text"
+                        autoComplete="name"
+                        pattern="[A-Za-z ]{2,50}"
+                        maxLength={50}
+                        onKeyDown={blockNameKey}
                         value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^A-Za-z ]+/g, " ");
+                          setName(v);
+                          setNameError(validateName(v));
+                        }}
                         required
                       />
+                      {nameError && <p className="mt-1 text-[11px] text-red-500">{nameError}</p>}
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-[#0A1F44] mb-1">
@@ -140,7 +178,7 @@ export default function DemoQuickPopup() {
                       <input
                         type="email"
                         placeholder="you@clinic.com"
-                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37] dark:bg-white dark:text-gray-900 dark:border-gray-300 placeholder-gray-400 dark:placeholder-gray-400"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
@@ -155,15 +193,19 @@ export default function DemoQuickPopup() {
                       <input
                         type="tel"
                         placeholder="+971 XX XXX XXXX"
-                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                        className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37] border-gray-300 dark:bg-white dark:text-gray-900 dark:border-gray-300 placeholder-gray-400 dark:placeholder-gray-400 ${phoneError ? "border-red-400 focus:ring-red-400" : ""}`}
                         inputMode="numeric"
                         pattern="[0-9]*"
                         value={phone}
-                        onChange={(e) =>
-                          setPhone(e.target.value.replace(/\D/g, ""))
-                        }
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, "");
+                          setPhone(digits);
+                          setPhoneError(validatePhone(digits));
+                        }}
+                        maxLength={15}
                         required
                       />
+                      {phoneError && <p className="mt-1 text-[11px] text-red-500">{phoneError}</p>}
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-[#0A1F44] mb-1">
@@ -172,7 +214,7 @@ export default function DemoQuickPopup() {
                       <input
                         type="text"
                         placeholder="Your clinic name"
-                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37] dark:bg-white dark:text-gray-900 dark:border-gray-300 placeholder-gray-400 dark:placeholder-gray-400"
                         value={clinicName}
                         onChange={(e) => setClinicName(e.target.value)}
                       />
@@ -187,7 +229,7 @@ export default function DemoQuickPopup() {
 
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || !!nameError || !!phoneError}
                     className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#F0D98C] text-[#0A1F44] font-semibold px-4 py-2 disabled:opacity-50 transition-all"
                   >
                     {loading ? (
@@ -198,16 +240,8 @@ export default function DemoQuickPopup() {
                     Request Demo
                   </button>
                 </form>
-                <div className="mt-3">
-                  <button
-                    type="button"
-                    onClick={handleSendEmail}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 text-[#0A1F44] font-semibold px-4 py-2 hover:bg-gray-50 transition-colors"
-                  >
-                    Send via Email
-                  </button>
-                </div>
-                <div className="mt-3 text-center text-[11px] text-gray-500">
+                
+                <div className="mt-3 text-center text-[11px] text-gray-500 dark:text-gray-400">
                   We'll contact you within 24 hours
                 </div>
               </>
@@ -258,11 +292,21 @@ export default function DemoQuickPopup() {
                   <input
                     type="text"
                     placeholder="Enter your name"
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                    className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37] border-gray-300 dark:bg-white dark:text-gray-900 dark:border-gray-300 placeholder-gray-400 dark:placeholder-gray-400 ${nameError ? "border-red-400 focus:ring-red-400" : ""}`}
+                    inputMode="text"
+                    autoComplete="name"
+                    pattern="[A-Za-z ]{2,50}"
+                    maxLength={50}
+                    onKeyDown={blockNameKey}
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^A-Za-z ]+/g, " ");
+                      setName(v);
+                      setNameError(validateName(v));
+                    }}
                     required
                   />
+                  {nameError && <p className="mt-1 text-[11px] text-red-500">{nameError}</p>}
                 </div>
                 <div className="grid grid-cols-1 gap-2">
                   <div>
@@ -272,7 +316,7 @@ export default function DemoQuickPopup() {
                     <input
                       type="email"
                       placeholder="you@clinic.com"
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37] dark:bg-white dark:text-gray-900 dark:border-gray-300 placeholder-gray-400 dark:placeholder-gray-400"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -285,15 +329,19 @@ export default function DemoQuickPopup() {
                     <input
                       type="tel"
                       placeholder="+971 XX XXX XXXX"
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                      className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37] border-gray-300 dark:bg-white dark:text-gray-900 dark:border-gray-300 placeholder-gray-400 dark:placeholder-gray-400 ${phoneError ? "border-red-400 focus:ring-red-400" : ""}`}
                       inputMode="numeric"
                       pattern="[0-9]*"
                       value={phone}
-                      onChange={(e) =>
-                        setPhone(e.target.value.replace(/\D/g, ""))
-                      }
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, "");
+                        setPhone(digits);
+                        setPhoneError(validatePhone(digits));
+                      }}
+                      maxLength={15}
                       required
                     />
+                    {phoneError && <p className="mt-1 text-[11px] text-red-500">{phoneError}</p>}
                   </div>
                 </div>
                 <div>
@@ -303,7 +351,7 @@ export default function DemoQuickPopup() {
                   <input
                     type="text"
                     placeholder="Your clinic name"
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37] dark:bg-white dark:text-gray-900 dark:border-gray-300 placeholder-gray-400 dark:placeholder-gray-400"
                     value={clinicName}
                     onChange={(e) => setClinicName(e.target.value)}
                   />
@@ -317,7 +365,7 @@ export default function DemoQuickPopup() {
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || !!nameError || !!phoneError}
                   className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#F0D98C] text-[#0A1F44] font-semibold px-4 py-2 disabled:opacity-50 transition-all"
                 >
                   {loading ? (
@@ -328,18 +376,8 @@ export default function DemoQuickPopup() {
                   Request Demo
                 </button>
               </form>
-              <div className="mt-3">
-                <button
-                  type="button"
-                  onClick={handleSendEmail}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 text-[#0A1F44] font-semibold px-4 py-2 hover:bg-gray-50 transition-colors"
-                >
-                  Send via Email
-                </button>
-              </div>
-              <div className="mt-3 text-center text-[11px] text-gray-500">
-                We'll contact you within 24 hours
-              </div>
+              
+              <div className="mt-3 text-center text-[11px] text-gray-500 dark:text-gray-400">We'll contact you within 24 hours</div>
             </>
           )}
         </div>

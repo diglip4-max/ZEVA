@@ -285,11 +285,17 @@ function ClinicCommissionPage() {
     }
   };
 
-  const handleApprove = async (personId) => {
+  const handleApprove = async (personId, src) => {
     const headers = getAuthHeaders();
     if (!headers) return;
     try {
-      const res = await axios.post("/api/clinic/commissions/approve", { staffId: personId }, { headers });
+      const endpoint =
+        src === "referral"
+          ? "/api/clinic/commissions/approve-referral"
+          : "/api/clinic/commissions/approve";
+      const payload =
+        src === "referral" ? { referralId: personId } : { staffId: personId };
+      const res = await axios.post(endpoint, payload, { headers });
       if (res.data.success) {
         showToast(`${res.data.approvedCount} commission(s) approved`);
         // Refresh summary list to update pendingApprovalCount badge
@@ -390,21 +396,23 @@ function ClinicCommissionPage() {
                             <Eye className="w-3 h-3" />
                             View
                           </button>
-                          {row.source === "staff" && (
-                            <button
-                              className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-1 font-medium transition-all shadow-sm ${
-                                Number(row.pendingApprovalCount || 0) > 0
-                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                              }`}
-                              disabled={Number(row.pendingApprovalCount || 0) === 0}
-                              onClick={() => handleApprove(row.personId)}
-                              title={Number(row.pendingApprovalCount || 0) > 0 ? `Approve ${row.pendingApprovalCount} submitted commission(s)` : "No submitted commissions to approve"}
-                            >
-                              <Check className="w-3 h-3" />
-                              Approve{Number(row.pendingApprovalCount || 0) > 0 ? ` (${row.pendingApprovalCount})` : ""}
-                            </button>
-                          )}
+                          <button
+                            className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-1 font-medium transition-all shadow-sm ${
+                              Number(row.pendingApprovalCount || 0) > 0
+                                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                            }`}
+                            disabled={Number(row.pendingApprovalCount || 0) === 0}
+                            onClick={() => handleApprove(row.personId, row.source)}
+                            title={
+                              Number(row.pendingApprovalCount || 0) > 0
+                                ? `Approve ${row.pendingApprovalCount} submitted commission(s)`
+                                : "No submitted commissions to approve"
+                            }
+                          >
+                            <Check className="w-3 h-3" />
+                            Approve{Number(row.pendingApprovalCount || 0) > 0 ? ` (${row.pendingApprovalCount})` : ""}
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -472,8 +480,16 @@ function ClinicCommissionPage() {
                               <td className="px-4 py-3 whitespace-nowrap">{it.patientMobile || "—"}</td>
                               <td className="px-4 py-3 whitespace-nowrap">{it.invoiceNumber || "—"}</td>
                               <td className="px-4 py-3 whitespace-nowrap">₹ {Number(it.paidAmount || 0).toFixed(2)}</td>
-                              <td className="px-4 py-3 whitespace-nowrap">₹ {Number(it.commissionAmount || 0).toFixed(2)}</td>
-                              <td className="px-4 py-3 whitespace-nowrap">₹ {Number(it.commissionAmount || 0).toFixed(2)} ({Number(it.commissionPercent || 0)}%)</td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                {Number((it.finalCommissionAmount ?? it.commissionAmount) || 0) > 0
+                                  ? `₹ ${Number((it.finalCommissionAmount ?? it.commissionAmount) || 0).toFixed(2)}`
+                                  : "—"}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                {Number((it.finalCommissionAmount ?? it.commissionAmount) || 0) > 0
+                                  ? `₹ ${Number((it.finalCommissionAmount ?? it.commissionAmount) || 0).toFixed(2)} (${Number(it.commissionPercent || 0)}%)`
+                                  : "—"}
+                              </td>
                               <td className="px-4 py-3 whitespace-nowrap">{it.doctorName || "—"}</td>
                               <td className="px-4 py-3 whitespace-nowrap">{it.invoicedDate ? new Date(it.invoicedDate).toLocaleDateString() : "—"}</td>
                               <td className="px-4 py-3 whitespace-nowrap">

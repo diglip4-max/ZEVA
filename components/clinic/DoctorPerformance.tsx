@@ -267,7 +267,7 @@ const DoctorPerformance: React.FC<DoctorPerformanceProps> = ({
                     <td className="py-4 px-6">
                       <div className="flex items-center justify-center space-x-1">
                         <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                        <span className="text-sm font-bold text-gray-900">{doctor.rating?.toFixed(1) || '4.5'}</span>
+                        <span className="text-sm font-bold text-gray-900">{doctor.rating?.toFixed(1) ?? '-'}</span>
                       </div>
                     </td>
                   </tr>
