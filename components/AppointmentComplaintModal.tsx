@@ -269,6 +269,51 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [smartDepartments, setSmartDepartments] = useState<SmartDepartment[]>([]);
   const [loadingSmartRec, setLoadingSmartRec] = useState(false);
 
+  // Next Session Booking state
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [nextSessionDate, setNextSessionDate] = useState<string>(todayStr);
+  const [nextSessionTime, setNextSessionTime] = useState<string>("09:00");
+  const [bookingNextSession, setBookingNextSession] = useState(false);
+  const [nextSessionBooked, setNextSessionBooked] = useState(false);
+  const [nextSessionError, setNextSessionError] = useState<string>("");
+
+  // Clinical Checklist state
+  const CHECKLIST_ITEMS = ["Consent Signed", "Allergy Checked", "Photos Uploaded", "Notes Completed"] as const;
+  const [checklist, setChecklist] = useState<Record<string, boolean>>({
+    "Consent Signed": false,
+    "Allergy Checked": false,
+    "Photos Uploaded": false,
+    "Notes Completed": false,
+  });
+  const [checklistError, setChecklistError] = useState<string>("");
+
+  // Add Service state
+  interface ClinicService { _id: string; name: string; price: number; clinicPrice?: number | null; durationMinutes?: number; }
+  const [allServices, setAllServices] = useState<ClinicService[]>([]);
+  const [showAddServiceDropdown, setShowAddServiceDropdown] = useState(false);
+  const [serviceSearchQuery, setServiceSearchQuery] = useState("");
+  const [selectedServices, setSelectedServices] = useState<ClinicService[]>([]);
+  const [savingServices, setSavingServices] = useState(false);
+  const [servicesSaved, setServicesSaved] = useState(false);
+  const [servicesError, setServicesError] = useState("");
+  const [loadingServices, setLoadingServices] = useState(false);
+  const addServiceDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // Create Package state
+  const [showCreatePackage, setShowCreatePackage] = useState(false);
+  const [pkgModalName, setPkgModalName] = useState("");
+  const [pkgModalPrice, setPkgModalPrice] = useState("");
+  const [pkgTreatments, setPkgTreatments] = useState<Array<{ name: string; slug: string; type?: string; mainTreatment?: string | null }>>([]);
+  const [pkgSelectedTreatments, setPkgSelectedTreatments] = useState<Array<{ treatmentName: string; treatmentSlug: string; sessions: number; allocatedPrice: number }>>([]);
+  const [pkgTreatmentDropdownOpen, setPkgTreatmentDropdownOpen] = useState(false);
+  const [pkgTreatmentSearch, setPkgTreatmentSearch] = useState("");
+  const [pkgSubmitting, setPkgSubmitting] = useState(false);
+  const [pkgError, setPkgError] = useState("");
+  const [pkgSuccess, setPkgSuccess] = useState("");
+  const [addingPackageToPatient, setAddingPackageToPatient] = useState(false);
+  const [createdPackageId, setCreatedPackageId] = useState<string | null>(null);
+  const [addingRecService, setAddingRecService] = useState<Record<string, boolean>>({});
+  const [addedRecServices, setAddedRecServices] = useState<Record<string, boolean>>({});
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const target = e.target as Node | null;
@@ -342,6 +387,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       setExpandedPrescription({});
       setSmartDepartments([]);
       setLoadingSmartRec(false);
+      setNextSessionDate(new Date().toISOString().slice(0, 10));
+      setNextSessionTime("09:00");
+      setNextSessionBooked(false);
+      setNextSessionError("");
+      setNextSessionDate(new Date().toISOString().slice(0, 10));
+      setNextSessionTime("09:00");
+      setNextSessionBooked(false);
+      setNextSessionError("");
       return;
     }
 
@@ -499,7 +552,143 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     }
   };
 
-  // Fetch progress notes when switching to progress tab
+  // Book next session for the same patient + doctor
+  const bookNextSession = async () => {
+    if (!details?.patientId || !details?.doctorId) {
+      setNextSessionError("Missing patient or doctor information.");
+      return;
+    }
+    setBookingNextSession(true);
+    setNextSessionError("");
+    setNextSessionBooked(false);
+    try {
+      const headers = getAuthHeaders();
+      // Calculate toTime = nextSessionTime + 30 minutes
+      const [hh, mm] = nextSessionTime.split(":").map(Number);
+      const toDate = new Date(0, 0, 0, hh, mm + 30);
+      const toTime = `${String(toDate.getHours()).padStart(2, "0")}:${String(toDate.getMinutes()).padStart(2, "0")}`;
+
+      await axios.post("/api/clinic/appointments", {
+        patientId: details.patientId,
+        doctorId: details.doctorId,
+        startDate: nextSessionDate,
+        fromTime: nextSessionTime,
+        toTime,
+        status: "booked",
+        followType: "follow up",
+        bookedFrom: "doctor",
+        referral: "direct",
+        emergency: "no",
+      }, { headers });
+      setNextSessionBooked(true);
+    } catch (err: any) {
+      setNextSessionError(err.response?.data?.message || "Failed to book next session.");
+    } finally {
+      setBookingNextSession(false);
+    }
+  };
+
+  // Fetch all clinic services
+  const fetchAllServices = async () => {
+    setLoadingServices(true);
+    try {
+      const headers = getAuthHeaders();
+      const res = await axios.get("/api/clinic/services", { headers });
+      if (res.data?.success) {
+        setAllServices(res.data.services || []);
+      }
+    } catch {
+      // silently ignore
+    } finally {
+      setLoadingServices(false);
+    }
+  };
+
+  // Save selected services to appointment
+  const saveServicesToAppointment = async () => {
+    if (!details?.appointmentId || selectedServices.length === 0) return;
+    setSavingServices(true);
+    setServicesError("");
+    setServicesSaved(false);
+    try {
+      const headers = getAuthHeaders();
+      const serviceIds = selectedServices.map((s) => s._id);
+      await axios.patch(`/api/clinic/appointment-services/${details.appointmentId}`, { serviceIds }, { headers });
+      setServicesSaved(true);
+      setShowAddServiceDropdown(false);
+    } catch (err: any) {
+      setServicesError(err.response?.data?.message || "Failed to save services.");
+    } finally {
+      setSavingServices(false);
+    }
+  };
+
+  // Fetch services for package creation (from /api/clinic/services only)
+  const fetchPkgTreatments = async () => {
+    try {
+      const headers = getAuthHeaders();
+      const res = await axios.get("/api/clinic/services", { headers });
+      if (res.data?.success) {
+        const flat: Array<{ name: string; slug: string; type?: string; mainTreatment?: string | null }> = [];
+        (res.data.services || []).forEach((svc: any) => {
+          flat.push({ name: svc.name, slug: svc.serviceSlug || svc._id, type: "service", mainTreatment: null });
+        });
+        setPkgTreatments(flat);
+      }
+    } catch { /* ignore */ }
+  };
+
+  // Create package and optionally add to patient
+  const handleCreatePackageModal = async (addToPatient: boolean) => {
+    setPkgError("");
+    setPkgSuccess("");
+    if (!pkgModalName.trim()) { setPkgError("Please enter a package name"); return; }
+    if (!pkgModalPrice || parseFloat(pkgModalPrice) < 0) { setPkgError("Please enter a valid price"); return; }
+    if (pkgSelectedTreatments.length === 0) { setPkgError("Please select at least one treatment"); return; }
+    const totalAllocated = pkgSelectedTreatments.reduce((sum, t) => sum + (parseFloat(String(t.allocatedPrice)) || 0), 0);
+    const packagePrice = parseFloat(pkgModalPrice);
+    if (Math.abs(totalAllocated - packagePrice) > 0.01) {
+      setPkgError(`Total allocated prices (${totalAllocated.toFixed(2)}) must equal the package price (${packagePrice.toFixed(2)})`);
+      return;
+    }
+    setPkgSubmitting(true);
+    try {
+      const headers = getAuthHeaders();
+      const res = await axios.post("/api/clinic/packages", {
+        name: pkgModalName.trim(),
+        totalPrice: packagePrice,
+        treatments: pkgSelectedTreatments,
+      }, { headers });
+      if (res.data?.success) {
+        const newPkgId = res.data.package?._id || res.data.packageId || null;
+        setCreatedPackageId(newPkgId);
+        if (addToPatient && newPkgId && details?.patientId) {
+          setAddingPackageToPatient(true);
+          try {
+            await axios.post("/api/clinic/assign-package-to-patient", {
+              patientId: details.patientId,
+              packageId: newPkgId,
+            }, { headers });
+            setPkgSuccess("Package created and added to patient profile!");
+          } catch {
+            setPkgSuccess("Package created. (Could not add to patient profile)");
+          } finally {
+            setAddingPackageToPatient(false);
+          }
+        } else {
+          setPkgSuccess("Package created successfully!");
+        }
+        setPkgModalName(""); setPkgModalPrice(""); setPkgSelectedTreatments([]); setPkgTreatmentSearch("");
+      } else {
+        setPkgError(res.data?.message || "Failed to create package");
+      }
+    } catch (err: any) {
+      setPkgError(err.response?.data?.message || "Failed to create package");
+    } finally {
+      setPkgSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab !== "progress" || !details?.patientId) return;
     const fetchProgressNotes = async () => {
@@ -576,6 +765,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       setError("Please enter complaint notes before saving.");
       return;
     }
+
+    // Validate clinical checklist
+    const unchecked = CHECKLIST_ITEMS.filter((item) => !checklist[item]);
+    if (unchecked.length > 0) {
+      setChecklistError(`Please tick all checklist items before saving: ${unchecked.join(", ")}`);
+      return;
+    }
+    setChecklistError("");
 
     setSaving(true);
     setError("");
@@ -1955,6 +2152,50 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               <span className="text-[10px] text-violet-500 font-medium">
                                 {svc.clinicPrice != null ? `₹${svc.clinicPrice}` : `₹${svc.price}`}
                               </span>
+                              <button
+                                type="button"
+                                disabled={addingRecService[svc._id] || addedRecServices[svc._id]}
+                                onClick={async () => {
+                                  if (!details?.appointmentId) return;
+                                  setAddingRecService((p) => ({ ...p, [svc._id]: true }));
+                                  try {
+                                    await axios.patch(
+                                      `/api/clinic/appointment-services/${details.appointmentId}`,
+                                      { serviceIds: [svc._id] },
+                                      { headers: getAuthHeaders() }
+                                    );
+                                    setAddedRecServices((p) => ({ ...p, [svc._id]: true }));
+                                  } catch {
+                                    // silently ignore; user can retry
+                                  } finally {
+                                    setAddingRecService((p) => ({ ...p, [svc._id]: false }));
+                                  }
+                                }}
+                                className={`flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
+                                  addedRecServices[svc._id]
+                                    ? "bg-green-100 text-green-700 cursor-default"
+                                    : "bg-violet-100 text-violet-700 hover:bg-violet-200"
+                                }`}
+                              >
+                                {addingRecService[svc._id] ? (
+                                  <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                                  </svg>
+                                ) : addedRecServices[svc._id] ? (
+                                  <>
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    Added
+                                  </>
+                                ) : (
+                                  <>
+                                    <Plus size={10} />
+                                    Add
+                                  </>
+                                )}
+                              </button>
                             </div>
                           ))}
                         </div>
@@ -1964,10 +2205,473 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                 )}
               </div>
             )}
+
+            {/* ── NEXT SESSION BOOKING ── */}
+            <div className="rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <Calendar className="w-4 h-4 text-blue-600" />
+                <h3 className="text-sm font-semibold text-gray-900">Next Session Booking</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Select Date</label>
+                  <input
+                    type="date"
+                    value={nextSessionDate}
+                    min={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => { setNextSessionDate(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Select Time</label>
+                  <select
+                    value={nextSessionTime}
+                    onChange={(e) => { setNextSessionTime(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                  >
+                    {["07:00","07:30","08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30","20:00"].map((t) => {
+                      const [h, m] = t.split(":").map(Number);
+                      const ampm = h < 12 ? "AM" : "PM";
+                      const h12 = h % 12 || 12;
+                      return <option key={t} value={t}>{`${h12}:${String(m).padStart(2, "0")} ${ampm}`}</option>;
+                    })}
+                  </select>
+                </div>
+              </div>
+              {nextSessionError && <p className="text-red-500 text-xs mb-2">{nextSessionError}</p>}
+              {nextSessionBooked && (
+                <p className="text-green-600 text-xs mb-3 flex items-center gap-1">
+                  <Check size={12} /> Next session booked successfully!
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={bookNextSession}
+                disabled={bookingNextSession || nextSessionBooked}
+                className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              >
+                <Calendar size={15} />
+                {bookingNextSession ? "Booking..." : nextSessionBooked ? "Session Booked!" : "Book Next Session"}
+              </button>
+            </div>
+
+            {/* ── ADD SERVICE & CREATE PACKAGE ── */}
+            <div className="rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <Package className="w-4 h-4 text-teal-600" />
+                <h3 className="text-sm font-semibold text-gray-900">Services & Packages</h3>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddServiceDropdown(true);
+                    setShowCreatePackage(false);
+                    setServicesSaved(false);
+                    setServicesError("");
+                    if (allServices.length === 0) fetchAllServices();
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-teal-500 bg-teal-50 px-3 py-2 text-sm font-medium text-teal-700 hover:bg-teal-100 transition-colors"
+                >
+                  <Plus size={14} />
+                  Add Service
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreatePackage(true);
+                    setShowAddServiceDropdown(false);
+                    setPkgError("");
+                    setPkgSuccess("");
+                    if (pkgTreatments.length === 0) fetchPkgTreatments();
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-violet-500 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100 transition-colors"
+                >
+                  <Package size={14} />
+                  Create Package
+                </button>
+              </div>
+
+              {/* ADD SERVICE DROPDOWN PANEL */}
+              {showAddServiceDropdown && (
+                <div className="mt-3 border border-teal-200 rounded-lg bg-teal-50 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-teal-800">Select Services</span>
+                    <button type="button" onClick={() => setShowAddServiceDropdown(false)} className="text-gray-400 hover:text-gray-600">
+                      <XIcon size={14} />
+                    </button>
+                  </div>
+                  {/* Search */}
+                  <div className="relative mb-2">
+                    <input
+                      type="text"
+                      placeholder="Search services..."
+                      value={serviceSearchQuery}
+                      onChange={(e) => setServiceSearchQuery(e.target.value)}
+                      className="w-full pl-3 pr-3 py-2 text-xs border border-teal-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-teal-400"
+                    />
+                  </div>
+                  {/* Services list */}
+                  <div className="max-h-48 overflow-y-auto space-y-1 mb-2">
+                    {loadingServices ? (
+                      <p className="text-xs text-gray-400 text-center py-4">Loading services...</p>
+                    ) : allServices.filter((s) =>
+                        s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase())
+                      ).length === 0 ? (
+                      <p className="text-xs text-gray-400 text-center py-4">No services found</p>
+                    ) : (
+                      allServices
+                        .filter((s) => s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase()))
+                        .map((svc) => {
+                          const isSelected = selectedServices.some((s) => s._id === svc._id);
+                          return (
+                            <button
+                              key={svc._id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedServices((prev) =>
+                                  isSelected ? prev.filter((s) => s._id !== svc._id) : [...prev, svc]
+                                );
+                                setServicesSaved(false);
+                              }}
+                              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all ${
+                                isSelected
+                                  ? "bg-teal-100 border border-teal-400 text-teal-800 font-semibold"
+                                  : "bg-white border border-gray-200 text-gray-700 hover:bg-teal-50"
+                              }`}
+                            >
+                              <span>{svc.name}</span>
+                              <span className="font-medium text-teal-700">
+                                {svc.clinicPrice != null ? `₹${svc.clinicPrice}` : `₹${svc.price}`}
+                              </span>
+                            </button>
+                          );
+                        })
+                    )}
+                  </div>
+                  {/* Selected summary */}
+                  {selectedServices.length > 0 && (
+                    <div className="mb-2 space-y-1">
+                      <p className="text-xs font-semibold text-gray-700">Selected ({selectedServices.length}):</p>
+                      {selectedServices.map((s) => (
+                        <div key={s._id} className="flex items-center justify-between text-xs bg-white border border-teal-200 rounded px-2 py-1">
+                          <span className="text-gray-800">{s.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-teal-700 font-medium">{s.clinicPrice != null ? `₹${s.clinicPrice}` : `₹${s.price}`}</span>
+                            <button type="button" onClick={() => setSelectedServices((prev) => prev.filter((x) => x._id !== s._id))} className="text-red-400 hover:text-red-600">
+                              <XIcon size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between px-2 py-1.5 bg-teal-100 rounded-lg">
+                        <span className="text-xs font-bold text-teal-800">Total</span>
+                        <span className="text-sm font-bold text-teal-800">
+                          ₹{selectedServices.reduce((sum, s) => sum + (s.clinicPrice != null ? s.clinicPrice : s.price), 0).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {servicesError && <p className="text-red-500 text-xs mb-2">{servicesError}</p>}
+                  {servicesSaved && <p className="text-green-600 text-xs mb-2 flex items-center gap-1"><Check size={12} /> Services saved to appointment!</p>}
+                  <button
+                    type="button"
+                    onClick={saveServicesToAppointment}
+                    disabled={savingServices || selectedServices.length === 0}
+                    className="w-full flex items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50 transition-colors"
+                  >
+                    {savingServices ? "Saving..." : "Save Services to Appointment"}
+                  </button>
+                </div>
+              )}
+
+              {/* CREATE PACKAGE PANEL */}
+              {showCreatePackage && (
+                <div className="mt-3 border border-violet-200 rounded-lg bg-violet-50 p-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-semibold text-violet-800">Create New Package</span>
+                    <button type="button" onClick={() => { setShowCreatePackage(false); setPkgError(""); setPkgSuccess(""); }} className="text-gray-400 hover:text-gray-600">
+                      <XIcon size={14} />
+                    </button>
+                  </div>
+                  {/* Package Name */}
+                  <div className="mb-2">
+                    <label className="block text-[10px] font-semibold text-violet-700 mb-1">Package Name</label>
+                    <input
+                      type="text"
+                      value={pkgModalName}
+                      onChange={(e) => setPkgModalName(e.target.value)}
+                      placeholder="Enter package name"
+                      className="w-full px-3 py-2 text-xs border border-violet-200 rounded-lg bg-white focus:ring-2 focus:ring-violet-400 focus:outline-none"
+                    />
+                  </div>
+                  {/* Package Price */}
+                  <div className="mb-2">
+                    <label className="block text-[10px] font-semibold text-violet-700 mb-1">Total Package Price</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={pkgModalPrice}
+                      onChange={(e) => setPkgModalPrice(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 text-xs border border-violet-200 rounded-lg bg-white focus:ring-2 focus:ring-violet-400 focus:outline-none"
+                    />
+                  </div>
+                  {/* Treatment selector */}
+                  <div className="mb-2 relative">
+                    <label className="block text-[10px] font-semibold text-violet-700 mb-1">Select Treatments / Services</label>
+                    <button
+                      type="button"
+                      onClick={() => setPkgTreatmentDropdownOpen((v) => !v)}
+                      className="w-full flex items-center justify-between px-3 py-2 bg-white border border-violet-200 rounded-lg text-xs text-gray-700 hover:bg-violet-50 focus:outline-none focus:ring-2 focus:ring-violet-400"
+                    >
+                      <span className="text-violet-700 font-medium">
+                        {pkgSelectedTreatments.length > 0 ? `${pkgSelectedTreatments.length} treatment(s) selected` : "Select treatments..."}
+                      </span>
+                      <ChevronDown className={`w-4 h-4 text-violet-500 transition-transform ${pkgTreatmentDropdownOpen ? "rotate-180" : ""}`} />
+                    </button>
+                    {pkgTreatmentDropdownOpen && (
+                      <div className="absolute z-30 w-full mt-1 bg-white border border-violet-200 rounded-lg shadow-lg max-h-52 overflow-hidden flex flex-col">
+                        <div className="p-2 border-b border-violet-100">
+                          <input
+                            type="text"
+                            placeholder="Search..."
+                            value={pkgTreatmentSearch}
+                            onChange={(e) => setPkgTreatmentSearch(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            autoFocus
+                            className="w-full pl-3 pr-2 py-1.5 text-xs border border-violet-200 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-400"
+                          />
+                        </div>
+                        <div className="overflow-y-auto max-h-40 p-1">
+                          {pkgTreatments
+                            .filter((t) => t.name.toLowerCase().includes(pkgTreatmentSearch.toLowerCase()))
+                            .map((treatment) => {
+                              const isSelected = pkgSelectedTreatments.some((t) => t.treatmentSlug === treatment.slug);
+                              return (
+                                <button
+                                  key={treatment.slug}
+                                  type="button"
+                                  onClick={() => {
+                                    setPkgSelectedTreatments((prev) => {
+                                      if (prev.some((t) => t.treatmentSlug === treatment.slug)) {
+                                        return prev.filter((t) => t.treatmentSlug !== treatment.slug);
+                                      }
+                                      setPkgTreatmentDropdownOpen(false);
+                                      return [...prev, { treatmentName: treatment.name, treatmentSlug: treatment.slug, sessions: 1, allocatedPrice: 0 }];
+                                    });
+                                    setPkgTreatmentSearch("");
+                                  }}
+                                  className={`w-full text-left px-2.5 py-2 rounded-md text-xs transition-all ${
+                                    isSelected ? "bg-violet-50 text-violet-800 font-medium border border-violet-200" : "text-gray-700 hover:bg-violet-50 border border-transparent"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span>
+                                      {treatment.name}
+                                      {treatment.type === "sub" && treatment.mainTreatment && (
+                                        <span className="text-[10px] text-violet-500 ml-1">({treatment.mainTreatment})</span>
+                                      )}
+                                    </span>
+                                    {isSelected && <span className="text-violet-600 text-xs">✓</span>}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Selected treatments with price/sessions */}
+                  {pkgSelectedTreatments.length > 0 && (
+                    <div className="space-y-2 mb-2">
+                      <p className="text-[10px] font-semibold text-violet-700">Selected Treatments</p>
+                      {pkgSelectedTreatments.map((sel) => {
+                        const sessPrice = sel.sessions > 0 ? (sel.allocatedPrice || 0) / sel.sessions : 0;
+                        return (
+                          <div key={sel.treatmentSlug} className="bg-white border border-violet-200 rounded-lg p-2">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-xs font-semibold text-violet-700">{sel.treatmentName}</span>
+                              <button type="button" onClick={() => setPkgSelectedTreatments((prev) => prev.filter((t) => t.treatmentSlug !== sel.treatmentSlug))} className="text-red-400 hover:text-red-600">
+                                <XIcon size={12} />
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-3 gap-1.5">
+                              <div>
+                                <label className="block text-[9px] text-violet-600 font-medium mb-0.5">Price</label>
+                                <input
+                                  type="number" min="0" step="0.01"
+                                  value={sel.allocatedPrice || ""}
+                                  onChange={(e) => setPkgSelectedTreatments((prev) => prev.map((t) => t.treatmentSlug === sel.treatmentSlug ? { ...t, allocatedPrice: parseFloat(e.target.value) || 0 } : t))}
+                                  className="w-full px-1.5 py-1 text-xs border border-violet-200 rounded focus:outline-none focus:ring-1 focus:ring-violet-400"
+                                  placeholder="0.00"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[9px] text-violet-600 font-medium mb-0.5">Sessions</label>
+                                <input
+                                  type="number" min="1"
+                                  value={sel.sessions}
+                                  onChange={(e) => setPkgSelectedTreatments((prev) => prev.map((t) => t.treatmentSlug === sel.treatmentSlug ? { ...t, sessions: parseInt(e.target.value) || 1 } : t))}
+                                  className="w-full px-1.5 py-1 text-xs border border-violet-200 rounded text-center focus:outline-none focus:ring-1 focus:ring-violet-400"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[9px] text-violet-600 font-medium mb-0.5">/Session</label>
+                                <div className="px-1.5 py-1 text-xs font-bold text-center bg-violet-100 rounded text-violet-700 border border-violet-200">
+                                  ₹{sessPrice.toFixed(2)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {/* Price validation */}
+                      <div className="grid grid-cols-3 gap-1.5 bg-violet-100 rounded-lg p-2">
+                        <div className="text-center">
+                          <p className="text-[9px] text-violet-600 font-medium">Pkg Price</p>
+                          <p className="text-xs font-bold text-violet-800">₹{parseFloat(pkgModalPrice) || 0}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[9px] text-violet-600 font-medium">Allocated</p>
+                          <p className="text-xs font-bold text-violet-800">₹{pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0).toFixed(2)}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[9px] text-violet-600 font-medium">Remaining</p>
+                          <p className={`text-xs font-bold ${ Math.abs((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)) < 0.01 ? "text-teal-600" : "text-amber-600" }`}>
+                            ₹{((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)).toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {pkgError && <p className="text-red-500 text-xs mb-2">{pkgError}</p>}
+                  {pkgSuccess && <p className="text-green-600 text-xs mb-2 flex items-center gap-1"><Check size={12} /> {pkgSuccess}</p>}
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleCreatePackageModal(false)}
+                      disabled={pkgSubmitting || addingPackageToPatient}
+                      className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-violet-500 bg-white px-3 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-50 disabled:opacity-50 transition-colors"
+                    >
+                      <Package size={12} />
+                      {pkgSubmitting ? "Creating..." : "Create Package"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCreatePackageModal(true)}
+                      disabled={pkgSubmitting || addingPackageToPatient}
+                      className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50 transition-colors"
+                    >
+                      <Plus size={12} />
+                      {addingPackageToPatient ? "Adding..." : "Create & Add to Patient"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── STOCK USED (all complaints) ── */}
+            {previousComplaints.some((c) => Array.isArray(c.items) && c.items.length > 0) && (
+              <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-4 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <Package className="w-4 h-4 text-orange-600" />
+                  <h3 className="text-sm font-semibold text-gray-900">Stock Used</h3>
+                  <span className="text-[10px] text-orange-500 font-medium">All sessions combined</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-orange-100">
+                        <th className="px-3 py-2 text-left font-semibold text-orange-800 uppercase tracking-wider">Date</th>
+                        <th className="px-3 py-2 text-left font-semibold text-orange-800 uppercase tracking-wider">Item Name</th>
+                        <th className="px-3 py-2 text-right font-semibold text-orange-800 uppercase tracking-wider">Qty</th>
+                        <th className="px-3 py-2 text-left font-semibold text-orange-800 uppercase tracking-wider">UOM</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-orange-100">
+                      {previousComplaints
+                        .filter((c) => Array.isArray(c.items) && c.items.length > 0)
+                        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                        .flatMap((c) =>
+                          (c.items as NonNullable<typeof c.items>).map((item, idx) => ({
+                            date: c.createdAt,
+                            item,
+                            key: `${c._id}-${idx}`,
+                          }))
+                        )
+                        .map(({ date, item, key }) => (
+                          <tr key={key} className="hover:bg-orange-50 transition-colors">
+                            <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
+                              {new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                            </td>
+                            <td className="px-3 py-2 font-medium text-gray-900">{item.name}</td>
+                            <td className="px-3 py-2 text-right font-semibold text-orange-700">{item.quantity}</td>
+                            <td className="px-3 py-2 text-gray-600">{item.uom || "-"}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* ── CLINICAL CHECKLIST ── */}
+            <div className="rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
+              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-3">Clinical Checklist</h3>
+              <div className="space-y-2">
+                {CHECKLIST_ITEMS.map((item) => (
+                  <label
+                    key={item}
+                    className={`flex items-center justify-between gap-3 rounded-lg border px-4 py-3 cursor-pointer transition-colors ${
+                      checklist[item]
+                        ? "border-green-400 bg-green-50"
+                        : "border-gray-200 bg-white hover:bg-gray-50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={checklist[item]}
+                        onChange={() =>
+                          setChecklist((prev) => ({ ...prev, [item]: !prev[item] }))
+                        }
+                        className="w-4 h-4 rounded accent-green-500 cursor-pointer"
+                      />
+                      <span className={`text-sm font-medium ${
+                        checklist[item] ? "text-green-700" : "text-gray-800"
+                      }`}>{item}</span>
+                    </div>
+                    {checklist[item] ? (
+                      <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <circle cx="12" cy="12" r="9" />
+                      </svg>
+                    )}
+                  </label>
+                ))}
+              </div>
+              {checklistError && (
+                <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                  <svg className="w-4 h-4 text-red-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  </svg>
+                  <p className="text-xs text-red-700 font-medium">{checklistError}</p>
+                </div>
+              )}
+            </div>
+
             </>
             )}
 
-            {/* ── PROGRESS TAB ── */}
             {activeTab === "progress" && (
               <div className="space-y-4">
                 {/* Header */}
@@ -2169,7 +2873,57 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                     )}
                   </div>
                 )}
+
+              {/* ── NEXT SESSION BOOKING ── */}
+              <div className="rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <Calendar className="w-4 h-4 text-blue-600" />
+                  <h3 className="text-sm font-semibold text-gray-900">Next Session Booking</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Select Date</label>
+                    <input
+                      type="date"
+                      value={nextSessionDate}
+                      min={new Date().toISOString().slice(0, 10)}
+                      onChange={(e) => { setNextSessionDate(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Select Time</label>
+                    <select
+                      value={nextSessionTime}
+                      onChange={(e) => { setNextSessionTime(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                    >
+                      {["07:00","07:30","08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30","20:00"].map((t) => {
+                        const [h, m] = t.split(":").map(Number);
+                        const ampm = h < 12 ? "AM" : "PM";
+                        const h12 = h % 12 || 12;
+                        return <option key={t} value={t}>{`${h12}:${String(m).padStart(2, "0")} ${ampm}`}</option>;
+                      })}
+                    </select>
+                  </div>
+                </div>
+                {nextSessionError && <p className="text-red-500 text-xs mb-2">{nextSessionError}</p>}
+                {nextSessionBooked && (
+                  <p className="text-green-600 text-xs mb-3 flex items-center gap-1">
+                    <Check size={12} /> Next session booked successfully!
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={bookNextSession}
+                  disabled={bookingNextSession || nextSessionBooked}
+                  className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Calendar size={15} />
+                  {bookingNextSession ? "Booking..." : nextSessionBooked ? "Session Booked!" : "Book Next Session"}
+                </button>
               </div>
+            </div>
             )}
 
             {/* ── PRESCRIPTION TAB ── */}
@@ -2573,9 +3327,58 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                     )}
                   </div>
                 )}
+
+                {/* ── NEXT SESSION BOOKING ── */}
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Calendar className="w-4 h-4 text-blue-600" />
+                    <h3 className="text-sm font-semibold text-gray-900">Next Session Booking</h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Select Date</label>
+                      <input
+                        type="date"
+                        value={nextSessionDate}
+                        min={new Date().toISOString().slice(0, 10)}
+                        onChange={(e) => { setNextSessionDate(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Select Time</label>
+                      <select
+                        value={nextSessionTime}
+                        onChange={(e) => { setNextSessionTime(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                      >
+                        {["07:00","07:30","08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30","20:00"].map((t) => {
+                          const [h, m] = t.split(":").map(Number);
+                          const ampm = h < 12 ? "AM" : "PM";
+                          const h12 = h % 12 || 12;
+                          return <option key={t} value={t}>{`${h12}:${String(m).padStart(2, "0")} ${ampm}`}</option>;
+                        })}
+                      </select>
+                    </div>
+                  </div>
+                  {nextSessionError && <p className="text-red-500 text-xs mb-2">{nextSessionError}</p>}
+                  {nextSessionBooked && (
+                    <p className="text-green-600 text-xs mb-3 flex items-center gap-1">
+                      <Check size={12} /> Next session booked successfully!
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={bookNextSession}
+                    disabled={bookingNextSession || nextSessionBooked}
+                    className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Calendar size={15} />
+                    {bookingNextSession ? "Booking..." : nextSessionBooked ? "Session Booked!" : "Book Next Session"}
+                  </button>
+                </div>
               </div>
             )}
-
           </div>
 
           <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-3">

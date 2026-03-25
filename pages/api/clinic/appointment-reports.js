@@ -151,7 +151,12 @@ export default async function handler(req, res) {
           serviceId: appointment.serviceId?._id?.toString() || null,
           serviceName: appointment.serviceId?.name || null,
           serviceIds: Array.isArray(appointment.serviceIds) ? appointment.serviceIds.map(s => s?._id?.toString()).filter(Boolean) : [],
-          serviceNames: Array.isArray(appointment.serviceIds) ? appointment.serviceIds.map(s => s?.name || "").filter(Boolean) : [],
+          serviceNames: (() => {
+            const fromServiceIds = Array.isArray(appointment.serviceIds) ? appointment.serviceIds.map(s => s?.name || "").filter(Boolean) : [];
+            const fromServiceId = appointment.serviceId?.name || "";
+            const combined = fromServiceId ? [fromServiceId, ...fromServiceIds.filter(n => n !== fromServiceId)] : fromServiceIds;
+            return combined;
+          })(),
         },
         report: report
           ? {

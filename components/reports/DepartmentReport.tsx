@@ -114,21 +114,37 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
     [deptData]
   );
 
-  const departmentExportData = useMemo(() => {
-    return deptData.map(d => {
-      const deptId = d.departmentId ? String(d.departmentId) : "";
-      const topSvcs = topServices[deptId] || [];
-      const topSvcNames = topSvcs.slice(0, 3).map(s => s.serviceName).join(", ");
+  const exportSections = useMemo(() => {
+    const deptSection = {
+      title: "Department Performance",
+      headers: ["Department Name", "Total Bookings", "Total Revenue (AED)", "Average Price (AED)", "Top Services"],
+      data: deptData.map(d => {
+        const deptId = d.departmentId ? String(d.departmentId) : "";
+        const topSvcs = topServices[deptId] || [];
+        const topSvcNames = topSvcs.slice(0, 3).map(s => s.serviceName).join(", ");
+        return {
+          "Department Name": d.departmentName || "Unassigned",
+          "Total Bookings": d.totalBookings || 0,
+          "Total Revenue (AED)": Math.round(d.totalRevenue || 0),
+          "Average Price (AED)": Math.round(d.avgPrice || 0),
+          "Top Services": topSvcNames || "None",
+        };
+      }),
+    };
 
-      return {
-        "Department Name": d.departmentName || "Unassigned",
-        "Total Bookings": d.totalBookings || 0,
-        "Total Revenue (AED)": Math.round(d.totalRevenue || 0),
-        "Average Price (AED)": Math.round(d.avgPrice || 0),
-        "Top Services": topSvcNames || "None",
-      };
-    });
-  }, [deptData, topServices]);
+    const serviceSection = {
+      title: "Service Performance",
+      headers: ["Service Name", "Total Bookings", "Total Revenue (AED)", "Average Price (AED)"],
+      data: services.map(s => ({
+        "Service Name": s.serviceName,
+        "Total Bookings": s.totalBookings,
+        "Total Revenue (AED)": Math.round(s.totalRevenue || 0),
+        "Average Price (AED)": Math.round(s.averagePrice || 0),
+      })),
+    };
+
+    return [deptSection, serviceSection];
+  }, [deptData, topServices, services]);
 
   return (
     <div className="space-y-8">
@@ -138,9 +154,8 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
           <div className="flex items-center gap-3">
             {loading && <span className="text-sm text-gray-500">Loading…</span>}
             <ExportButtons
-              data={departmentExportData}
+              sections={exportSections}
               filename={`department_report_${startDate}_to_${endDate}`}
-              headers={["Department Name", "Total Bookings", "Total Revenue (AED)", "Average Price (AED)", "Top Services"]}
               title="Department Performance Report"
             />
           </div>

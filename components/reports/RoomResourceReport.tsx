@@ -57,12 +57,25 @@ export default function RoomResourceReport({ startDate, endDate, headers }: Prop
     <div className="space-y-8">
       <div className="flex justify-end">
         <ExportButtons
-          data={rooms.map((r) => ({
-            "Room Name": r.roomName || "Unknown",
-            "Total Bookings": r.totalBookings || 0,
-          }))}
+          sections={[
+            {
+              title: "All Room Bookings",
+              headers: ["Room Name", "Total Bookings"],
+              data: rooms.map(r => ({
+                "Room Name": r.roomName || "Unknown",
+                "Total Bookings": r.totalBookings || 0,
+              })),
+            },
+            {
+              title: "Top 5 Highest Booking Rooms",
+              headers: ["Room Name", "Total Bookings"],
+              data: top5Rooms.map(r => ({
+                "Room Name": r.roomName || "Unknown",
+                "Total Bookings": r.totalBookings || 0,
+              })),
+            },
+          ]}
           filename={`room_report_${startDate}_to_${endDate}`}
-          headers={["Room Name", "Total Bookings"]}
           title="Room Bookings Report"
         />
       </div>

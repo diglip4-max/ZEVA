@@ -98,51 +98,63 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
     [statusCounts]
   );
 
-  const appointmentExportData = useMemo(() => {
-    // Combine doctor stats with status breakdown
-    const exportData = leaderboard.map(l => {
-      const docRep = doctorReport.find(d => d.doctorId === l.doctorId);
-      const statusData = statusCounts.reduce((acc: any, s: any) => {
-        // This is tricky because we don't have per-doctor status counts in the current API facet
-        // But we can at least include what we have
-        return acc;
-      }, {});
-
-      return {
+  const appointmentExportSections = useMemo(() => [
+    {
+      title: "Appointment Summary",
+      headers: ["Metric", "Value"],
+      data: [
+        { "Metric": "Total Appointments", "Value": summary.totalAppointments || 0 },
+        { "Metric": "Completed Appointments", "Value": summary.completedAppointments || 0 },
+        { "Metric": "Cancelled Appointments", "Value": summary.cancelledAppointments || 0 },
+        { "Metric": "No-Show Appointments", "Value": summary.noShowAppointments || 0 },
+      ],
+    },
+    {
+      title: "Doctor Leaderboard (Top by Bookings)",
+      headers: ["Doctor Name", "Total Appointments"],
+      data: leaderboard.map(l => ({
         "Doctor Name": l.doctorName || "Unknown",
         "Total Appointments": l.totalAppointments || 0,
-        "Revenue (AED)": Math.round(docRep?.revenue || 0),
-      };
-    });
-
-    // Add a section for overall status counts
-    const statusData = statusCounts.map(s => ({
-      "Doctor Name": `STATUS: ${s.status}`,
-      "Total Appointments": s.count,
-      "Revenue (AED)": 0
-    }));
-
-    // Add a section for the summary
-    const summaryData = [
-      { "Doctor Name": "SUMMARY: Total Appointments", "Total Appointments": summary.totalAppointments || 0, "Revenue (AED)": 0 },
-      { "Doctor Name": "SUMMARY: Completed", "Total Appointments": summary.completedAppointments || 0, "Revenue (AED)": 0 },
-      { "Doctor Name": "SUMMARY: Cancelled", "Total Appointments": summary.cancelledAppointments || 0, "Revenue (AED)": 0 },
-      { "Doctor Name": "SUMMARY: No-Show", "Total Appointments": summary.noShowAppointments || 0, "Revenue (AED)": 0 },
-    ];
-
-    // Combine all
-    const combined = [...exportData, ...statusData, ...summaryData];
-
-    if (combined.length === 0) {
-      return [{
-        "Doctor Name": "No Data",
-        "Total Appointments": 0,
-        "Revenue (AED)": 0
-      }];
-    }
-
-    return combined;
-  }, [leaderboard, doctorReport, statusCounts, summary]);
+      })),
+    },
+    {
+      title: "Doctor Revenue Report",
+      headers: ["Doctor Name", "Total Appointments", "Revenue (AED)"],
+      data: doctorReport.map(d => ({
+        "Doctor Name": d.doctorName || "Unknown",
+        "Total Appointments": d.totalAppointments || 0,
+        "Revenue (AED)": Math.round(d.revenue || 0),
+      })),
+    },
+    {
+      title: "Bookings by Status",
+      headers: ["Status", "Count"],
+      data: statusCounts.map(s => ({
+        "Status": s.status || "Unknown",
+        "Count": s.count || 0,
+      })),
+    },
+    {
+      title: "Cancelled Appointments",
+      headers: ["Patient Name", "Service", "Treatment", "Notes"],
+      data: cancelledAppointments.map(a => ({
+        "Patient Name": a.patientName || "-",
+        "Service": a.serviceName || "-",
+        "Treatment": a.treatment || "-",
+        "Notes": a.notes || "-",
+      })),
+    },
+    {
+      title: "No-Show Appointments",
+      headers: ["Patient Name", "Service", "Treatment", "Notes"],
+      data: noShowAppointments.map(a => ({
+        "Patient Name": a.patientName || "-",
+        "Service": a.serviceName || "-",
+        "Treatment": a.treatment || "-",
+        "Notes": a.notes || "-",
+      })),
+    },
+  ], [summary, leaderboard, doctorReport, statusCounts, cancelledAppointments, noShowAppointments]);
 
   return (
     <div className="space-y-6">
@@ -180,13 +192,8 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
           </div>
         </div>
         <ExportButtons
-          data={appointmentExportData}
+          sections={appointmentExportSections}
           filename={`appointment_report_${startDate}_to_${endDate}`}
-          headers={
-            appointmentExportData.length > 0 && "Doctor Name" in appointmentExportData[0]
-              ? ["Doctor Name", "Total Appointments", "Revenue (AED)"]
-              : ["Total Appointments", "Completed Appointments", "Cancelled Appointments", "No-Show Appointments"]
-          }
           title="Appointment Report"
         />
       </div>

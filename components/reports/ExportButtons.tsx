@@ -4,28 +4,68 @@ import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
-interface ExportButtonsProps {
-  data: any[];
-  filename: string;
-  headers: string[];
+export interface ExportSection {
   title: string;
+  headers: string[];
+  data: any[];
 }
 
-const ExportButtons: React.FC<ExportButtonsProps> = ({ data, filename, headers, title }) => {
+interface ExportButtonsProps {
+  /** Legacy single-section usage */
+  data?: any[];
+  filename: string;
+  headers?: string[];
+  title: string;
+  /** Multi-section usage: each entry becomes its own sheet/section */
+  sections?: ExportSection[];
+}
+
+const ExportButtons: React.FC<ExportButtonsProps> = ({ data, filename, headers, title, sections }) => {
+  // Normalise: always work with an array of sections
+  const allSections: ExportSection[] = sections && sections.length > 0
+    ? sections
+    : [{ title, headers: headers || (data && data.length > 0 ? Object.keys(data[0]) : []), data: data || [] }];
+
+  // ── Excel ──────────────────────────────────────────────────────────────────
   const exportToExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+    allSections.forEach((section, idx) => {
+      const rows = section.data.length > 0 ? section.data : [{}];
+      // Build rows using only the declared header order
+      const sheetData = rows.map((item: any) =>
+        section.headers.reduce((acc: any, h) => { acc[h] = item[h] ?? ""; return acc; }, {})
+      );
+      const worksheet = XLSX.utils.json_to_sheet(sheetData, { header: section.headers });
+      // Sheet names must be ≤ 31 chars and unique
+      let sheetName = section.title.replace(/[\\\/:*?[\]]/g, "").slice(0, 28);
+      if (workbook.SheetNames.includes(sheetName)) sheetName = `${sheetName}_${idx + 1}`;
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    });
     XLSX.writeFile(workbook, `${filename}.xlsx`);
   };
 
+  // ── CSV ────────────────────────────────────────────────────────────────────
   const exportToCSV = () => {
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const csv = XLSX.utils.sheet_to_csv(worksheet);
+    const csvParts: string[] = [];
+    allSections.forEach((section) => {
+      // Section title header
+      csvParts.push(`"=== ${section.title} ==="`);
+      if (section.data.length === 0) {
+        csvParts.push(section.headers.map(h => `"${h}"`).join(","));
+        csvParts.push("");
+        return;
+      }
+      const rows = section.data.map((item: any) =>
+        section.headers.reduce((acc: any, h) => { acc[h] = item[h] ?? ""; return acc; }, {})
+      );
+      const worksheet = XLSX.utils.json_to_sheet(rows, { header: section.headers });
+      csvParts.push(XLSX.utils.sheet_to_csv(worksheet));
+      csvParts.push(""); // blank line separator
+    });
+    const csv = csvParts.join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
+    link.setAttribute("href", URL.createObjectURL(blob));
     link.setAttribute("download", `${filename}.csv`);
     link.style.visibility = "hidden";
     document.body.appendChild(link);
@@ -33,21 +73,36 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({ data, filename, headers, 
     document.body.removeChild(link);
   };
 
+  // ── PDF ────────────────────────────────────────────────────────────────────
   const exportToPDF = () => {
     const doc = new jsPDF();
-    doc.text(title, 14, 15);
-    
-    // Get the keys from the first data object to ensure consistent column order
-    const keys = data.length > 0 ? Object.keys(data[0]) : [];
-    const tableData = data.map(item => keys.map(key => item[key]));
-    
-    autoTable(doc, {
-      head: [headers],
-      body: tableData,
-      startY: 20,
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [45, 154, 165] } // Teal color #2D9AA5
+    let currentY = 15;
+    doc.setFontSize(14);
+    doc.text(title, 14, currentY);
+    currentY += 8;
+
+    allSections.forEach((section) => {
+      doc.setFontSize(11);
+      doc.setTextColor(45, 154, 165);
+      doc.text(section.title, 14, currentY);
+      currentY += 4;
+      doc.setTextColor(0, 0, 0);
+
+      const rows = section.data.length > 0
+        ? section.data.map((item: any) => section.headers.map(h => String(item[h] ?? "")))
+        : [[...section.headers.map(() => "")]];
+
+      autoTable(doc, {
+        head: [section.headers],
+        body: rows,
+        startY: currentY,
+        styles: { fontSize: 7 },
+        headStyles: { fillColor: [45, 154, 165] },
+        margin: { left: 14, right: 14 },
+      });
+      currentY = (doc as any).lastAutoTable.finalY + 10;
     });
+
     doc.save(`${filename}.pdf`);
   };
 

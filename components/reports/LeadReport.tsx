@@ -105,48 +105,61 @@ export default function LeadReport({ startDate, endDate, headers }: Props) {
     [statuses]
   );
 
-  const leadExportData = useMemo(() => {
-    // Combine data from different sections into a single export format
-    const ownerData = owners.map((o) => ({
-      "Section": "Lead Conversion by Owner",
-      "Name": o.ownerName || "Unassigned",
-      "Stats": `Total: ${o.total}, Converted: ${o.converted}, Ratio: ${Math.round((o.conversionRatio || 0) * 1000) / 10}%`
-    }));
-
-    const treatmentData = treatments.map((t) => ({
-      "Section": "Top Treatments",
-      "Name": t.name || "Unknown",
-      "Stats": `Count: ${t.count}`
-    }));
-
-    const sourceData = sources.map((s) => ({
-      "Section": "Top Sources",
-      "Name": s.source || "Unknown",
-      "Stats": `Count: ${s.count}`
-    }));
-
-    const statusData = statuses.map((s) => ({
-      "Section": "Lead Status Breakdown",
-      "Name": s.status || "Unknown",
-      "Stats": `Count: ${s.count}`
-    }));
-
-    const genderData = genders.map((g) => ({
-      "Section": "Gender Distribution",
-      "Name": g.gender || "Unknown",
-      "Stats": `Count: ${g.count}`
-    }));
-
-    return [...ownerData, ...treatmentData, ...sourceData, ...statusData, ...genderData];
-  }, [owners, treatments, sources, statuses, genders]);
+  const leadExportSections = useMemo(() => [
+    {
+      title: "Conversion by Owner",
+      headers: ["Owner Name", "Total Leads", "Converted", "Conversion Rate (%)"],
+      data: owners.map(o => ({
+        "Owner Name": o.ownerName || "Unassigned",
+        "Total Leads": o.total || 0,
+        "Converted": o.converted || 0,
+        "Conversion Rate (%)": `${Math.round((o.conversionRatio || 0) * 1000) / 10}%`,
+      })),
+    },
+    {
+      title: "Gender Conversion Ratio",
+      headers: ["Gender", "Total Leads", "Converted", "Conversion Rate (%)"],
+      data: genders.map(g => ({
+        "Gender": g.gender || "Unknown",
+        "Total Leads": g.total || 0,
+        "Converted": g.converted || 0,
+        "Conversion Rate (%)": `${Math.round((g.conversionRatio || 0) * 1000) / 10}%`,
+      })),
+    },
+    {
+      title: "Top Treatments Converting Leads",
+      headers: ["Treatment Name", "Converted Leads"],
+      data: treatments.map(t => ({
+        "Treatment Name": t.name || "Unknown",
+        "Converted Leads": t.converted || 0,
+      })),
+    },
+    {
+      title: "Top Sources Converting Leads",
+      headers: ["Source", "Total Leads", "Converted", "Conversion Rate (%)"],
+      data: sources.map(s => ({
+        "Source": s.source || "Unknown",
+        "Total Leads": s.total || 0,
+        "Converted": s.converted || 0,
+        "Conversion Rate (%)": `${Math.round((s.conversionRatio || 0) * 1000) / 10}%`,
+      })),
+    },
+    {
+      title: "Lead Status Distribution",
+      headers: ["Status", "Count"],
+      data: statuses.map(s => ({
+        "Status": s.status || "Unknown",
+        "Count": s.count || 0,
+      })),
+    },
+  ], [owners, genders, treatments, sources, statuses]);
 
   return (
     <div className="space-y-8">
       <div className="flex justify-end">
         <ExportButtons
-          data={leadExportData}
+          sections={leadExportSections}
           filename={`lead_report_${startDate}_to_${endDate}`}
-          headers={["Section", "Name", "Stats"]}
           title="Lead Conversion Detailed Report"
         />
       </div>

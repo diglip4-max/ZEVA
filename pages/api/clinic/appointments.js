@@ -272,7 +272,12 @@ export default async function handler(req, res) {
           serviceId: apt.serviceId?._id?.toString() || null,
           serviceName: apt.serviceId?.name || null,
           serviceIds: Array.isArray(apt.serviceIds) ? apt.serviceIds.map(s => s?._id?.toString()).filter(Boolean) : [],
-          serviceNames: Array.isArray(apt.serviceIds) ? apt.serviceIds.map(s => s?.name || "").filter(Boolean) : [],
+          serviceNames: (() => {
+            const fromServiceIds = Array.isArray(apt.serviceIds) ? apt.serviceIds.map(s => s?.name || "").filter(Boolean) : [];
+            const fromServiceId = apt.serviceId?.name || "";
+            const combined = fromServiceId ? [fromServiceId, ...fromServiceIds.filter(n => n !== fromServiceId)] : fromServiceIds;
+            return combined;
+          })(),
           createdAt: apt.createdAt,
         })),
       });
@@ -611,7 +616,12 @@ export default async function handler(req, res) {
           serviceId: populatedAppointment.serviceId?._id?.toString() || null,
           serviceName: populatedAppointment.serviceId?.name || null,
           serviceIds: Array.isArray(populatedAppointment.serviceIds) ? populatedAppointment.serviceIds.map(s => s?._id?.toString()).filter(Boolean) : [],
-          serviceNames: Array.isArray(populatedAppointment.serviceIds) ? populatedAppointment.serviceIds.map(s => s?.name || "").filter(Boolean) : [],
+          serviceNames: (() => {
+            const fromServiceIds = Array.isArray(populatedAppointment.serviceIds) ? populatedAppointment.serviceIds.map(s => s?.name || "").filter(Boolean) : [];
+            const fromServiceId = populatedAppointment.serviceId?.name || "";
+            const combined = fromServiceId ? [fromServiceId, ...fromServiceIds.filter(n => n !== fromServiceId)] : fromServiceIds;
+            return combined;
+          })(),
           patientInvoiceNumber: populatedAppointment.patientId?.invoiceNumber || null,
           patientEmrNumber: populatedAppointment.patientId?.emrNumber || null,
           patientGender: populatedAppointment.patientId?.gender || null,

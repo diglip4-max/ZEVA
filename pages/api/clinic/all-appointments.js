@@ -409,7 +409,12 @@ export default async function handler(req, res) {
           serviceId: apt.serviceId?._id?.toString() || "",
           serviceName: apt.serviceId?.name || "",
           serviceIds: Array.isArray(apt.serviceIds) ? apt.serviceIds.map(s => s?._id?.toString()).filter(Boolean) : [],
-          serviceNames: Array.isArray(apt.serviceIds) ? apt.serviceIds.map(s => s?.name || "").filter(Boolean) : [],
+          serviceNames: (() => {
+            const fromServiceIds = Array.isArray(apt.serviceIds) ? apt.serviceIds.map(s => s?.name || "").filter(Boolean) : [];
+            const fromServiceId = apt.serviceId?.name || "";
+            const combined = fromServiceId ? [fromServiceId, ...fromServiceIds.filter(n => n !== fromServiceId)] : fromServiceIds;
+            return combined;
+          })(),
           status: apt.status,
           followType: apt.followType,
           referral: apt.referral || "direct",

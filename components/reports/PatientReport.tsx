@@ -103,70 +103,74 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
     [data.revenueByPatient]
   );
 
-  const patientExportData = useMemo(() => {
-    const visitedData = data.topVisited || [];
-    const membershipData = data.membershipByPatient || [];
-    const packageData = data.packageByPatient || [];
-    const pendingData = data.highestPending || [];
-    const advanceData = data.highestAdvance || [];
-    const revenueData = data.revenueByPatient || [];
-
-    // Get all unique patient IDs across all datasets
-    const allPatientIds = Array.from(new Set([
-      ...visitedData.map((p: any) => p.patientId),
-      ...membershipData.map((p: any) => p.patientId),
-      ...packageData.map((p: any) => p.patientId),
-      ...pendingData.map((p: any) => p.patientId),
-      ...advanceData.map((p: any) => p.patientId),
-      ...revenueData.map((p: any) => p.patientId),
-    ])).filter(id => id);
-
-    const combined = allPatientIds.map((patientId: any) => {
-      const visited = visitedData.find((p: any) => p.patientId === patientId);
-      const membership = membershipData.find((p: any) => p.patientId === patientId);
-      const pkg = packageData.find((p: any) => p.patientId === patientId);
-      const pending = pendingData.find((p: any) => p.patientId === patientId);
-      const advance = advanceData.find((p: any) => p.patientId === patientId);
-      const revenue = revenueData.find((p: any) => p.patientId === patientId);
-
-      const patientName = visited?.patientName || membership?.patientName || pkg?.patientName || 
-                         pending?.patientName || advance?.patientName || revenue?.patientName || "Unknown";
-
-      return {
-        "Patient Name": patientName,
-        "Total Visits": visited?.visits || 0,
-        "Total Revenue (AED)": Math.round(revenue?.revenue || 0),
-        "Membership Revenue (AED)": Math.round(membership?.membershipRevenue || 0),
-        "Package Revenue (AED)": Math.round(pkg?.revenue || 0),
-        "Pending Amount (AED)": Math.round(pending?.pending || 0),
-        "Advance Amount (AED)": Math.round(advance?.advance || 0),
-      };
-    });
-
-    // If no specific patient data, at least export the summary stats
-    if (combined.length === 0 && data.summary) {
-      return [{
-        "Category": "Patient Summary",
-        "Total Patients": data.summary.totalPatients || 0,
-        "New Patients": data.summary.newPatients || 0,
-        "Returning Patients": data.summary.returningPatients || 0,
-      }];
-    }
-
-    return combined;
-  }, [data]);
+  const patientExportSections = useMemo(() => [
+    {
+      title: "Patient Summary",
+      headers: ["Metric", "Value"],
+      data: [
+        { "Metric": "Total Patients", "Value": data.summary?.totalPatients || 0 },
+        { "Metric": "New Patients", "Value": data.summary?.newPatients || 0 },
+        { "Metric": "Returning Patients", "Value": data.summary?.returningPatients || 0 },
+      ],
+    },
+    {
+      title: "Most Visited Patients",
+      headers: ["Patient Name", "Total Visits"],
+      data: (data.topVisited || []).map((r: any) => ({
+        "Patient Name": r.patientName || "Unknown",
+        "Total Visits": r.visits || 0,
+      })),
+    },
+    {
+      title: "Top Patients by Revenue",
+      headers: ["Patient Name", "Total Revenue (AED)"],
+      data: (data.revenueByPatient || []).map((r: any) => ({
+        "Patient Name": r.patientName || "Unknown",
+        "Total Revenue (AED)": Math.round(r.revenue || 0),
+      })),
+    },
+    {
+      title: "Top Membership Purchases",
+      headers: ["Patient Name", "Membership Count", "Membership Revenue (AED)"],
+      data: (data.membershipByPatient || []).map((r: any) => ({
+        "Patient Name": r.patientName || "Unknown",
+        "Membership Count": r.count || 0,
+        "Membership Revenue (AED)": Math.round(r.membershipRevenue || 0),
+      })),
+    },
+    {
+      title: "Top Package Purchases",
+      headers: ["Patient Name", "Package Count", "Package Revenue (AED)"],
+      data: (data.packageByPatient || []).map((r: any) => ({
+        "Patient Name": r.patientName || "Unknown",
+        "Package Count": r.count || 0,
+        "Package Revenue (AED)": Math.round(r.revenue || 0),
+      })),
+    },
+    {
+      title: "Highest Pending Amount",
+      headers: ["Patient Name", "Pending Amount (AED)"],
+      data: (data.highestPending || []).map((r: any) => ({
+        "Patient Name": r.patientName || "Unknown",
+        "Pending Amount (AED)": Math.round(r.pending || 0),
+      })),
+    },
+    {
+      title: "Highest Advance Amount",
+      headers: ["Patient Name", "Advance Amount (AED)"],
+      data: (data.highestAdvance || []).map((r: any) => ({
+        "Patient Name": r.patientName || "Unknown",
+        "Advance Amount (AED)": Math.round(r.advance || 0),
+      })),
+    },
+  ], [data]);
 
   return (
     <div className="space-y-6">
       <div className="flex justify-end">
         <ExportButtons
-          data={patientExportData}
+          sections={patientExportSections}
           filename={`patient_report_${startDate}_to_${endDate}`}
-          headers={
-            patientExportData.length > 0 && "Patient Name" in patientExportData[0]
-              ? ["Patient Name", "Total Visits", "Total Revenue (AED)", "Membership Revenue (AED)", "Package Revenue (AED)", "Pending Amount (AED)", "Advance Amount (AED)"]
-              : ["Category", "Total Patients", "New Patients", "Returning Patients"]
-          }
           title="Patient Detailed Report"
         />
       </div>
