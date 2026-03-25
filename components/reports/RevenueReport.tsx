@@ -132,57 +132,95 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
   };
   const [pendingPayments, setPendingPayments] = useState<PendingItem[]>([]);
 
-  const revenueExportData = useMemo(() => {
-    // Combine various revenue breakdowns
-    const doctorData = revenueByDoctor.map(r => ({
-      "Category": "Revenue by Doctor",
-      "Name/Method": r.name || "Unknown",
-      "Amount (AED)": Math.round(r.amount || 0),
-      "Detail": ""
-    }));
-
-    const serviceData = revenueByService.map(r => ({
-      "Category": "Revenue by Service",
-      "Name/Method": r.name || "Unknown",
-      "Amount (AED)": Math.round(r.amount || 0),
-      "Detail": ""
-    }));
-
-    const deptData = revenueByDepartment.map(r => ({
-      "Category": "Revenue by Department",
-      "Name/Method": r.name || "Unknown",
-      "Amount (AED)": Math.round(r.amount || 0),
-      "Detail": ""
-    }));
-
-    const methodData = revenueByPaymentMethod.map(r => ({
-      "Category": "Revenue by Payment Method",
-      "Name/Method": r.method || "Unknown",
-      "Amount (AED)": Math.round(r.amount || 0),
-      "Detail": ""
-    }));
-
-    const paymentList = payments.map(p => ({
-      "Category": "Recent Payment",
-      "Name/Method": p.patientName || "Unknown",
-      "Amount (AED)": Math.round(p.amount || 0),
-      "Detail": `Invoice: ${p.invoiceNumber}, Service: ${p.service}, Method: ${p.paymentMethod}, Date: ${p.paymentDate ? new Date(p.paymentDate).toLocaleDateString() : "N/A"}`
-    }));
-
-    const summaryData = [
-      { "Category": "TOTAL REVENUE", "Name/Method": "Grand Total", "Amount (AED)": Math.round(totalRevenue || 0), "Detail": "" }
-    ];
-
-    return [...summaryData, ...doctorData, ...serviceData, ...deptData, ...methodData, ...paymentList];
-  }, [revenueByDoctor, revenueByService, revenueByDepartment, revenueByPaymentMethod, payments, totalRevenue]);
+  const revenueExportSections = useMemo(() => [
+    {
+      title: "Revenue Summary",
+      headers: ["Metric", "Amount (AED)"],
+      data: [{ "Metric": "Total Revenue", "Amount (AED)": Math.round(totalRevenue || 0) }],
+    },
+    {
+      title: "Revenue by Doctor",
+      headers: ["Doctor", "Revenue (AED)"],
+      data: revenueByDoctor.map(r => ({
+        "Doctor": r.name || "Unknown",
+        "Revenue (AED)": Math.round(r.amount || 0),
+      })),
+    },
+    {
+      title: "Revenue by Service",
+      headers: ["Service", "Revenue (AED)"],
+      data: revenueByService.map(r => ({
+        "Service": r.name || "Unknown",
+        "Revenue (AED)": Math.round(r.amount || 0),
+      })),
+    },
+    {
+      title: "Revenue by Department",
+      headers: ["Department", "Revenue (AED)"],
+      data: revenueByDepartment.map(r => ({
+        "Department": r.name || "Unknown",
+        "Revenue (AED)": Math.round(r.amount || 0),
+      })),
+    },
+    {
+      title: "Revenue by Payment Method",
+      headers: ["Payment Method", "Revenue (AED)"],
+      data: revenueByPaymentMethod.map(r => ({
+        "Payment Method": r.method || "Unknown",
+        "Revenue (AED)": Math.round(r.amount || 0),
+      })),
+    },
+    {
+      title: "Top Pending Patients",
+      headers: ["Patient Name", "Pending Amount (AED)"],
+      data: topPendingPatients.map(p => ({
+        "Patient Name": p.name || "Unknown",
+        "Pending Amount (AED)": Math.round(p.amount || 0),
+      })),
+    },
+    {
+      title: "Top Advance Patients",
+      headers: ["Patient Name", "Advance Amount (AED)"],
+      data: topAdvancePatients.map(p => ({
+        "Patient Name": p.name || "Unknown",
+        "Advance Amount (AED)": Math.round(p.amount || 0),
+      })),
+    },
+    {
+      title: "Pending / Advance Payment Report",
+      headers: ["Patient Name", "Invoice Number", "Service", "Total Amount (AED)", "Paid Amount (AED)", "Pending Amount (AED)", "Advance Amount (AED)", "Due Date"],
+      data: pendingPayments.map(pp => ({
+        "Patient Name": pp.patientName || "Unknown",
+        "Invoice Number": pp.invoiceNumber || "-",
+        "Service": pp.serviceName || "Unknown",
+        "Total Amount (AED)": Math.round(pp.totalAmount || 0),
+        "Paid Amount (AED)": Math.round(pp.paidAmount || 0),
+        "Pending Amount (AED)": Math.round(pp.pendingAmount || 0),
+        "Advance Amount (AED)": Math.round(pp.advanceAmount || 0),
+        "Due Date": pp.dueDate ? new Date(pp.dueDate).toLocaleDateString() : "-",
+      })),
+    },
+    {
+      title: "Payment Reports",
+      headers: ["Invoice Number", "Patient Name", "Service", "Amount (AED)", "Payment Method", "Payment Status", "Payment Date"],
+      data: payments.map(p => ({
+        "Invoice Number": p.invoiceNumber || "-",
+        "Patient Name": p.patientName || "Unknown",
+        "Service": p.service || "Unknown",
+        "Amount (AED)": Math.round(p.amount || 0),
+        "Payment Method": p.paymentMethod || "-",
+        "Payment Status": p.paymentStatus || "-",
+        "Payment Date": p.paymentDate ? new Date(p.paymentDate).toLocaleDateString() : "-",
+      })),
+    },
+  ], [totalRevenue, revenueByDoctor, revenueByService, revenueByDepartment, revenueByPaymentMethod, topPendingPatients, topAdvancePatients, pendingPayments, payments]);
 
   return (
     <div className="space-y-8">
       <div className="flex justify-end">
         <ExportButtons
-          data={revenueExportData}
+          sections={revenueExportSections}
           filename={`revenue_report_${startDate}_to_${endDate}`}
-          headers={["Category", "Name/Method", "Amount (AED)", "Detail"]}
           title="Revenue Detailed Report"
         />
       </div>

@@ -423,6 +423,7 @@ function LeadsPage() {
             setModalOpen(false);
           }}
           token={token || ""}
+          canCreate={permissions.canCreate}
         />
 
         {/* Assign Modal */}

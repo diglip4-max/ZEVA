@@ -99,30 +99,37 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     }
   }
 
-  const packageExportData = useMemo(() => {
-    // Combine top packages and sold packages
-    const topPackages = rows.map(r => ({
-      "Type": "Top Package (Revenue)",
-      "Package Name": r.packageName || "Unnamed",
-      "Detail": `Bookings: ${r.totalBookings}, Revenue: AED ${Math.round(r.totalRevenue || 0)}`
-    }));
-
-    const soldPackages = soldRows.map(r => ({
-      "Type": "Package Sold",
-      "Package Name": r.packageName || "-",
-      "Detail": `Patient: ${r.patientName || "-"}, Doctor: ${r.doctorName || "-"}, Sessions: ${r.sessionsUsed || 0}/${r.totalSessions || 0}, Status: ${r.paymentStatus || "-"}`
-    }));
-
-    return [...topPackages, ...soldPackages];
-  }, [rows, soldRows]);
+  const packageExportSections = useMemo(() => [
+    {
+      title: "Top Packages by Revenue",
+      headers: ["Package Name", "Total Bookings", "Total Revenue (AED)"],
+      data: rows.map(r => ({
+        "Package Name": r.packageName || "Unnamed",
+        "Total Bookings": r.totalBookings || 0,
+        "Total Revenue (AED)": Math.round(r.totalRevenue || 0),
+      })),
+    },
+    {
+      title: "Packages Sold",
+      headers: ["Package Name", "Patient Name", "Doctor Name", "Total Sessions", "Sessions Used", "Remaining Sessions", "Payment Status"],
+      data: soldRows.map(r => ({
+        "Package Name": r.packageName || "-",
+        "Patient Name": r.patientName || "-",
+        "Doctor Name": r.doctorName || "-",
+        "Total Sessions": r.totalSessions ?? "-",
+        "Sessions Used": r.sessionsUsed ?? 0,
+        "Remaining Sessions": Math.max(0, (r.totalSessions || 0) - (r.sessionsUsed || 0)),
+        "Payment Status": r.paymentStatus || "-",
+      })),
+    },
+  ], [rows, soldRows]);
 
   return (
     <div className="space-y-6">
       <div className="flex justify-end">
         <ExportButtons
-          data={packageExportData}
+          sections={packageExportSections}
           filename={`package_report_${startDate}_to_${endDate}`}
-          headers={["Type", "Package Name", "Detail"]}
           title="Package Report"
         />
       </div>
@@ -162,17 +169,22 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
           <h3 className="text-lg font-semibold text-gray-800">Package Reports — Track Packages Sold</h3>
           <div className="flex items-center gap-4">
             <ExportButtons
-              data={soldRows.map(r => ({
-                "Package Name": r.packageName || "-",
-                "Patient Name": r.patientName || "-",
-                "Doctor Name": r.doctorName || "-",
-                "Total Sessions": r.totalSessions ?? "-",
-                "Sessions Used": r.sessionsUsed ?? 0,
-                "Remaining Sessions": Math.max(0, (r.totalSessions || 0) - (r.sessionsUsed || 0)),
-                "Payment Status": r.paymentStatus || "-",
-              }))}
+              sections={[
+                {
+                  title: "Packages Sold",
+                  headers: ["Package Name", "Patient Name", "Doctor Name", "Total Sessions", "Sessions Used", "Remaining Sessions", "Payment Status"],
+                  data: soldRows.map(r => ({
+                    "Package Name": r.packageName || "-",
+                    "Patient Name": r.patientName || "-",
+                    "Doctor Name": r.doctorName || "-",
+                    "Total Sessions": r.totalSessions ?? "-",
+                    "Sessions Used": r.sessionsUsed ?? 0,
+                    "Remaining Sessions": Math.max(0, (r.totalSessions || 0) - (r.sessionsUsed || 0)),
+                    "Payment Status": r.paymentStatus || "-",
+                  })),
+                },
+              ]}
               filename={`package_report_${startDate}_to_${endDate}`}
-              headers={["Package Name", "Patient Name", "Doctor Name", "Total Sessions", "Sessions Used", "Remaining Sessions", "Payment Status"]}
               title="Package Sales Report"
             />
             <div className="flex items-center gap-2 border-l pl-4">

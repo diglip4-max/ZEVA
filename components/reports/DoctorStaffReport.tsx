@@ -126,13 +126,11 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
     [details]
   );
 
-  const doctorStaffExportData = useMemo(() => {
-    const combinedData = details.map(d => {
-      const revenue = revenues.find(r => r.staffId === d.staffId);
-      const commission = topDoctorStaffCommission.find(c => c.staffId === d.staffId);
-      const packageBilling = topPackageBilling.find(p => p.staffId === d.staffId);
-      const membershipBilling = topMembershipBilling.find(m => m.staffId === d.staffId);
-      return {
+  const doctorStaffExportSections = useMemo(() => [
+    {
+      title: "Top Doctor Staff Details",
+      headers: ["Doctor Staff", "Total Appointments", "Booked", "Cancelled", "Completed", "Invoiced", "Rescheduled", "Total Patients"],
+      data: details.map(d => ({
         "Doctor Staff": d.staffName || "Unknown",
         "Total Appointments": d.totalAppointments || 0,
         "Booked": d.booked || 0,
@@ -141,34 +139,61 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
         "Invoiced": d.invoiced || 0,
         "Rescheduled": d.rescheduled || 0,
         "Total Patients": d.totalPatients || 0,
-        "Revenue (AED)": Math.round(revenue?.revenue || 0),
-        "Total Commission (AED)": Math.round(commission?.totalCommission || 0),
-        "Package Billing (AED)": Math.round(packageBilling?.amount || 0),
-        "Membership Billing (AED)": Math.round(membershipBilling?.amount || 0),
-      };
-    });
-
-    return combinedData;
-  }, [details, revenues, topDoctorStaffCommission, topPackageBilling, topMembershipBilling]);
+      })),
+    },
+    {
+      title: "Top 5 Doctor Staff Revenue",
+      headers: ["Doctor Staff", "Revenue (AED)", "Invoices"],
+      data: revenues.map(r => ({
+        "Doctor Staff": r.staffName || "Unknown",
+        "Revenue (AED)": Math.round(r.revenue || 0),
+        "Invoices": r.invoices || 0,
+      })),
+    },
+    {
+      title: "Highest Billing in Packages",
+      headers: ["Doctor Staff", "Package Revenue (AED)", "Invoices"],
+      data: topPackageBilling.map(r => ({
+        "Doctor Staff": r.name || "Unknown",
+        "Package Revenue (AED)": Math.round(r.amount || 0),
+        "Invoices": r.count || 0,
+      })),
+    },
+    {
+      title: "Highest Billing in Memberships",
+      headers: ["Doctor Staff", "Membership Revenue (AED)", "Invoices"],
+      data: topMembershipBilling.map(r => ({
+        "Doctor Staff": r.name || "Unknown",
+        "Membership Revenue (AED)": Math.round(r.amount || 0),
+        "Invoices": r.count || 0,
+      })),
+    },
+    {
+      title: "Top 5 Doctor Staff Commission",
+      headers: ["Doctor Staff", "Total Commission (AED)", "Entries"],
+      data: topDoctorStaffCommission.map(r => ({
+        "Doctor Staff": r.name || "Unknown",
+        "Total Commission (AED)": Math.round(r.totalCommission || 0),
+        "Entries": r.entries || 0,
+      })),
+    },
+    {
+      title: "Top 5 Agents Commission",
+      headers: ["Agent", "Total Commission (AED)", "Entries"],
+      data: topAgentCommission.map(r => ({
+        "Agent": r.name || "Unknown",
+        "Total Commission (AED)": Math.round(r.totalCommission || 0),
+        "Entries": r.entries || 0,
+      })),
+    },
+  ], [details, revenues, topPackageBilling, topMembershipBilling, topDoctorStaffCommission, topAgentCommission]);
 
   return (
     <div className="space-y-8">
       <div className="flex justify-end">
         <ExportButtons
-          data={doctorStaffExportData}
+          sections={doctorStaffExportSections}
           filename={`doctor_staff_report_${startDate}_to_${endDate}`}
-          headers={[
-            "Doctor Staff",
-            "Total Appointments",
-            "Booked",
-            "Cancelled",
-            "Completed",
-            "Invoiced",
-            "Rescheduled",
-            "Total Patients",
-            "Revenue (AED)",
-            "Total Commission (AED)",
-          ]}
           title="Doctor Staff Performance Report"
         />
       </div>

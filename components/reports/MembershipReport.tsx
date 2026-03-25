@@ -86,30 +86,36 @@ export default function MembershipReport({ startDate, endDate, headers }: Props)
     [top]
   );
 
-  const membershipExportData = useMemo(() => {
-    // Combine top memberships and active memberships
-    const topMemberships = top.map(t => ({
-      "Type": "Top Membership (Revenue)",
-      "Membership Name": t.membershipName || "Unnamed",
-      "Detail": `Count: ${t.count}, Revenue: AED ${Math.round(t.totalRevenue || 0)}`
-    }));
-
-    const activeMemberships = rows.map(r => ({
-      "Type": "Active Membership",
-      "Membership Name": r.membershipName || "-",
-      "Detail": `Patient: ${r.patientName || "-"}, Start: ${r.startDate ? new Date(r.startDate).toLocaleDateString() : "-"}, End: ${r.endDate ? new Date(r.endDate).toLocaleDateString() : "-"}, Status: ${r.status}, Revenue: AED ${Math.round(r.totalRevenue || 0)}`
-    }));
-
-    return [...topMemberships, ...activeMemberships];
-  }, [rows, top]);
+  const membershipExportSections = useMemo(() => [
+    {
+      title: "Top Memberships by Revenue",
+      headers: ["Membership Name", "Count", "Total Revenue (AED)"],
+      data: top.map(t => ({
+        "Membership Name": t.membershipName || "Unnamed",
+        "Count": t.count || 0,
+        "Total Revenue (AED)": Math.round(t.totalRevenue || 0),
+      })),
+    },
+    {
+      title: "Active Memberships",
+      headers: ["Membership Name", "Patient Name", "Start Date", "Expiry Date", "Status", "Total Revenue (AED)"],
+      data: rows.map(r => ({
+        "Membership Name": r.membershipName || "-",
+        "Patient Name": r.patientName || "-",
+        "Start Date": r.startDate ? new Date(r.startDate).toLocaleDateString() : "-",
+        "Expiry Date": r.endDate ? new Date(r.endDate).toLocaleDateString() : "-",
+        "Status": r.status || "-",
+        "Total Revenue (AED)": Math.round(r.totalRevenue || 0),
+      })),
+    },
+  ], [top, rows]);
 
   return (
     <div className="space-y-6">
       <div className="flex justify-end">
         <ExportButtons
-          data={membershipExportData}
+          sections={membershipExportSections}
           filename={`membership_report_${startDate}_to_${endDate}`}
-          headers={["Type", "Membership Name", "Detail"]}
           title="Membership Performance Report"
         />
       </div>
@@ -135,16 +141,21 @@ export default function MembershipReport({ startDate, endDate, headers }: Props)
           <h3 className="text-lg font-semibold text-gray-800">Membership Reports</h3>
           <div className="flex items-center gap-4">
             <ExportButtons
-              data={rows.map(r => ({
-                "Membership Name": r.membershipName || "-",
-                "Patient Name": r.patientName || "-",
-                "Start Date": r.startDate ? new Date(r.startDate).toLocaleDateString() : "-",
-                "Expiry Date": r.endDate ? new Date(r.endDate).toLocaleDateString() : "-",
-                "Status": r.status || "-",
-                "Total Revenue (AED)": Math.round(r.totalRevenue || 0),
-              }))}
+              sections={[
+                {
+                  title: "Active Memberships",
+                  headers: ["Membership Name", "Patient Name", "Start Date", "Expiry Date", "Status", "Total Revenue (AED)"],
+                  data: rows.map(r => ({
+                    "Membership Name": r.membershipName || "-",
+                    "Patient Name": r.patientName || "-",
+                    "Start Date": r.startDate ? new Date(r.startDate).toLocaleDateString() : "-",
+                    "Expiry Date": r.endDate ? new Date(r.endDate).toLocaleDateString() : "-",
+                    "Status": r.status || "-",
+                    "Total Revenue (AED)": Math.round(r.totalRevenue || 0),
+                  })),
+                },
+              ]}
               filename={`membership_report_${startDate}_to_${endDate}`}
-              headers={["Membership Name", "Patient Name", "Start Date", "Expiry Date", "Status", "Total Revenue (AED)"]}
               title="Membership Performance Report"
             />
             <div className="flex items-center gap-2 border-l pl-4">

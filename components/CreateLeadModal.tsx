@@ -8,6 +8,7 @@ interface Props {
   onClose: () => void;
   onCreated: () => void;
   token: string;
+  canCreate?: boolean;
 }
 
 export default function CreateLeadModal({
@@ -15,6 +16,7 @@ export default function CreateLeadModal({
   onClose,
   onCreated,
   token,
+  canCreate: propCanCreate,
 }: Props) {
   const [formData, setFormData] = useState({
     name: "",
@@ -40,13 +42,22 @@ export default function CreateLeadModal({
   const [noteType, setNoteType] = useState("");
   const [customNote, setCustomNote] = useState("");
   const [followUpDate, setFollowUpDate] = useState("");
-  const [canCreate, setCanCreate] = useState(false);
+  const [internalCanCreate, setInternalCanCreate] = useState(false);
+  const canCreate = propCanCreate !== undefined ? propCanCreate : internalCanCreate;
   const [selectedSegment, setSelectedSegment] = useState<OptionType | null>(
     null
   );
 
   useEffect(() => {
     if (!isOpen) return;
+
+    // Helper function to check if a permission value is true (handles boolean and string)
+    const isTrue = (value: any) => {
+      if (value === true) return true;
+      if (value === "true") return true;
+      if (String(value).toLowerCase() === "true") return true;
+      return false;
+    };
 
     const fetchData = async () => {
       try {
@@ -71,30 +82,49 @@ export default function CreateLeadModal({
         const permissionsData = permissionsRes.data;
         if (permissionsData.success && permissionsData.data) {
           const modulePermission = permissionsData.data.permissions?.find(
-            (p: any) => p.module === "lead"
+            (p: any) => {
+              if (!p?.module) return false;
+              // Check for clinic_lead or clinic_create_lead module
+              const moduleKey = p.module || "";
+              const normalizedModule = moduleKey.replace(
+                /^(admin|clinic|doctor|agent)_/,
+                ""
+              );
+              return (
+                normalizedModule === "lead" ||
+                normalizedModule === "create_lead" ||
+                moduleKey === "clinic_lead" ||
+                moduleKey === "clinic_create_lead" ||
+                moduleKey === "create_lead" ||
+                moduleKey === "lead"
+              );
+            }
           );
           if (modulePermission) {
             const actions = modulePermission.actions || {};
             // Check for "Create Lead" submodule
             const createLeadSubModule = modulePermission.subModules?.find(
-              (sm: any) => sm.name === "Create Lead"
+              (sm: any) =>
+                sm.name === "Create Lead" ||
+                sm.name?.toLowerCase() === "create lead"
             );
 
             // Module-level "all" grants all permissions including submodules
-            const moduleAll = actions.all === true;
-            const moduleCreate = actions.create === true;
-            const createLeadAll = createLeadSubModule?.actions?.all === true;
-            const createLeadCreate =
-              createLeadSubModule?.actions?.create === true;
+            const moduleAll = isTrue(actions.all);
+            const moduleCreate = isTrue(actions.create);
+            const createLeadAll = isTrue(createLeadSubModule?.actions?.all);
+            const createLeadCreate = isTrue(
+              createLeadSubModule?.actions?.create
+            );
 
-            setCanCreate(
+            setInternalCanCreate(
               moduleAll || moduleCreate || createLeadAll || createLeadCreate
             );
           } else {
-            setCanCreate(false);
+            setInternalCanCreate(false);
           }
         } else {
-          setCanCreate(false);
+          setInternalCanCreate(false);
         }
 
         setTreatments(
@@ -109,7 +139,7 @@ export default function CreateLeadModal({
         setActiveOffers(list.filter((o: any) => o.status === "active"));
       } catch (err) {
         console.error("Error fetching data:", err);
-        setCanCreate(false);
+        setInternalCanCreate(false);
       }
     };
 
