@@ -1,6 +1,6 @@
 // models/Clinic.ts
 import mongoose from "mongoose";
-import { TreatmentRefSchema } from "../schema/TreatmentRef";
+import { TreatmentRefSchema } from "../schema/TreatmentRef.js";
 
 const ClinicSchema = new mongoose.Schema(
   {

@@ -61,6 +61,8 @@ import AssignOwnerActionModal from "../_components/AssignOwnerActionModal";
 import AddToSegmentActionModal from "../_components/AddToSegmentActionModal";
 import AiComposerActionModal from "../_components/AiComposerActionModal";
 import SendWhatsappActionModal from "../_components/SendWhatsappActionModal";
+import IncomingMessageTriggerModal from "../_components/IncomingMessageTriggerModal";
+import BookAppointmentActionModal from "../_components/BookAppointmentActionModal";
 
 // Utility for tailwind classes
 function cn(...inputs: ClassValue[]) {
@@ -75,6 +77,7 @@ const actionIcons: { [key: string]: React.ElementType } = {
   "Add Tag": Tag,
   "Assign Owner": UserPlus,
   "Add To Segment": UserPlus,
+  "Book Appointment": Calendar,
 };
 
 // --- Custom Node Components ---
@@ -315,6 +318,7 @@ const WorkflowEditor = () => {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [nodeSearchTerm, setNodeSearchTerm] = useState("");
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [delayModal, setDelayModal] = useState<{
@@ -352,6 +356,13 @@ const WorkflowEditor = () => {
     show: false,
     triggerId: null,
   });
+  const [incomingMessageModal, setIncomingMessageModal] = useState<{
+    show: boolean;
+    triggerId: string | null;
+  }>({
+    show: false,
+    triggerId: null,
+  });
   const [assignOwnerModal, setAssignOwnerModal] = useState<{
     show: boolean;
     actionId: string | null;
@@ -374,6 +385,13 @@ const WorkflowEditor = () => {
     actionId: null,
   });
   const [sendWhatsappModal, setSendWhatsappModal] = useState<{
+    show: boolean;
+    actionId: string | null;
+  }>({
+    show: false,
+    actionId: null,
+  });
+  const [bookAppointmentModal, setBookAppointmentModal] = useState<{
     show: boolean;
     actionId: string | null;
   }>({
@@ -515,6 +533,15 @@ const WorkflowEditor = () => {
           });
         } else if (
           node &&
+          (node.data.label === "Incoming Message" ||
+            node.data.subType === "incoming_message")
+        ) {
+          setIncomingMessageModal({
+            show: true,
+            triggerId: node.data.id,
+          });
+        } else if (
+          node &&
           (node.data.label === "Assign Owner" ||
             node.data.subType === "assign_owner")
         ) {
@@ -537,6 +564,15 @@ const WorkflowEditor = () => {
             node.data.subType === "ai_composer")
         ) {
           setAiComposerModal({
+            show: true,
+            actionId: node.data.id,
+          });
+        } else if (
+          node &&
+          (node.data.label === "Book Appointment" ||
+            node.data.subType === "book_appointment")
+        ) {
+          setBookAppointmentModal({
             show: true,
             actionId: node.data.id,
           });
@@ -669,6 +705,15 @@ const WorkflowEditor = () => {
     fetchWorkflow();
   }, [workflowId]);
 
+  const shouldShow = (label: string, description?: string) => {
+    if (!nodeSearchTerm) return true;
+    const term = nodeSearchTerm.toLowerCase();
+    return (
+      label.toLowerCase().includes(term) ||
+      description?.toLowerCase().includes(term)
+    );
+  };
+
   const defaultEdgeOptions = {
     style: { strokeDasharray: "5,5", strokeWidth: 2 },
     animated: true,
@@ -676,16 +721,39 @@ const WorkflowEditor = () => {
 
   const onConnect = useCallback(
     (params: Connection | Edge) =>
-      setEdges((eds) =>
-        addEdge(
+      setEdges((eds) => {
+        // Find existing edges originating from the same source/handle OR targeting the same target/handle
+        const existingEdges = eds.filter(
+          (edge) =>
+            (edge.source === params.source &&
+              edge.sourceHandle === params.sourceHandle) ||
+            (edge.target === params.target &&
+              edge.targetHandle === params.targetHandle),
+        );
+
+        if (existingEdges.length > 0) {
+          // If any conflicting edges exist, we replace them with the new one
+          const existingIds = existingEdges.map((e) => e.id);
+          return addEdge(
+            {
+              ...params,
+              style: { strokeDasharray: "5,5", strokeWidth: 2 },
+              animated: true,
+            },
+            eds.filter((edge) => !existingIds.includes(edge.id)),
+          );
+        }
+
+        // Otherwise, just add the new edge
+        return addEdge(
           {
             ...params,
             style: { strokeDasharray: "5,5", strokeWidth: 2 },
             animated: true,
           },
           eds,
-        ),
-      ),
+        );
+      }),
     [setEdges],
   );
 
@@ -882,176 +950,223 @@ const WorkflowEditor = () => {
               <input
                 type="text"
                 placeholder="Search nodes..."
-                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                value={nodeSearchTerm}
+                onChange={(e) => setNodeSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 text-gray-500 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               />
             </div>
 
             <div className="space-y-6">
-              <div>
-                <h3 className="text-[10px] font-bold text-gray-400 uppercase mb-3 tracking-widest">
-                  Triggers
-                </h3>
+              {/* Triggers Section */}
+              {(() => {
+                const triggers = [
+                  workflow?.entity === "Lead" && {
+                    subType: "new_lead",
+                    label: "New Lead",
+                    description: "When a new lead is added",
+                    icon: UserPlus,
+                    color: "bg-amber-500",
+                  },
+                  workflow?.entity === "Lead" && {
+                    subType: "update_lead",
+                    label: "Update Lead",
+                    description: "When a lead is updated",
+                    icon: FaUserEdit,
+                    color: "bg-yellow-500",
+                  },
+                  workflow?.entity === "Appointment" && {
+                    subType: "appointment",
+                    label: "Appointment",
+                    description: "When an appointment is booked",
+                    icon: Calendar,
+                    color: "bg-amber-500",
+                  },
+                  workflow?.entity === "Message" && {
+                    subType: "incoming_message",
+                    label: "Incoming Message",
+                    description: "When an incoming message is received",
+                    icon: MessageSquare,
+                    color: "bg-blue-500",
+                  },
+                  workflow?.entity === "Webhook" && {
+                    subType: "webhook_received",
+                    label: "Webhook Received",
+                    description: "When a webhook is received",
+                    icon: Webhook,
+                    color: "bg-red-500",
+                  },
+                ].filter(Boolean);
 
-                {workflow?.entity === "Lead" && (
-                  <>
-                    <SidebarItem
-                      type="trigger"
-                      subType="new_lead"
-                      label="New Lead"
-                      description="When a new lead is added"
-                      icon={UserPlus}
-                      color="bg-amber-500"
-                      onDragStart={onDragStart}
-                    />
-                    <SidebarItem
-                      type="trigger"
-                      subType="update_lead"
-                      label="Update Lead"
-                      description="When a lead is updated"
-                      icon={FaUserEdit}
-                      color="bg-yellow-500"
-                      onDragStart={onDragStart}
-                    />
-                  </>
+                const visibleTriggers = triggers.filter((t: any) =>
+                  shouldShow(t.label, t.description),
+                );
+
+                if (visibleTriggers.length === 0) return null;
+
+                return (
+                  <div>
+                    <h3 className="text-[10px] font-bold text-gray-400 uppercase mb-3 tracking-widest">
+                      Triggers
+                    </h3>
+                    {visibleTriggers.map((t: any) => (
+                      <SidebarItem
+                        key={t.subType}
+                        type="trigger"
+                        subType={t.subType}
+                        label={t.label}
+                        description={t.description}
+                        icon={t.icon}
+                        color={t.color}
+                        onDragStart={onDragStart}
+                      />
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/* Conditions Section */}
+              {(() => {
+                const conditions = [
+                  {
+                    subType: "filter",
+                    label: "Filter",
+                    description: "Filter based on criteria",
+                    icon: Filter,
+                    color: "bg-purple-500",
+                  },
+                  {
+                    subType: "if_else",
+                    label: "If/Else",
+                    description: "Branch the workflow",
+                    icon: Split,
+                    color: "bg-orange-500",
+                  },
+                ];
+
+                const visibleConditions = conditions.filter((c: any) =>
+                  shouldShow(c.label, c.description),
+                );
+
+                if (visibleConditions.length === 0) return null;
+
+                return (
+                  <div>
+                    <h3 className="text-[10px] font-bold text-gray-400 uppercase mb-3 tracking-widest">
+                      Conditions
+                    </h3>
+                    {visibleConditions.map((c: any) => (
+                      <SidebarItem
+                        key={c.subType}
+                        type="condition"
+                        subType={c.subType}
+                        label={c.label}
+                        description={c.description}
+                        icon={c.icon}
+                        color={c.color}
+                        onDragStart={onDragStart}
+                      />
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/* Actions Section */}
+              {(() => {
+                const actions = [
+                  {
+                    subType: "send_whatsapp",
+                    label: "Send WhatsApp",
+                    description: "Send a whatsapp templated message",
+                    icon: FaWhatsapp,
+                    color: "bg-green-500",
+                  },
+                  {
+                    subType: "delay",
+                    label: "Delay",
+                    description: "Delay for specific time",
+                    icon: Clock,
+                    color: "bg-red-500",
+                  },
+                  {
+                    subType: "rest_api",
+                    label: "Rest API",
+                    description: "Call a REST API",
+                    icon: Database,
+                    color: "bg-blue-500",
+                  },
+                  {
+                    subType: "ai_composer",
+                    label: "AI Composer",
+                    description: "Compose AI responses",
+                    icon: Zap,
+                    color: "bg-yellow-500",
+                  },
+                  {
+                    subType: "book_appointment",
+                    label: "Book Appointment",
+                    description: "Automatically book an appointment",
+                    icon: Calendar,
+                    color: "bg-indigo-500",
+                  },
+                  workflow?.entity === "Lead" && {
+                    subType: "add_tag",
+                    label: "Add Tag",
+                    description: "Add a tag to the lead",
+                    icon: Tag,
+                    color: "bg-blue-500",
+                  },
+                  workflow?.entity === "Lead" && {
+                    subType: "assign_owner",
+                    label: "Assign Owner",
+                    description: "Assign the lead to a specific owner",
+                    icon: UserPlus,
+                    color: "bg-purple-500",
+                  },
+                  workflow?.entity === "Lead" && {
+                    subType: "add_to_segment",
+                    label: "Add To Segment",
+                    description: "Add the lead to a specific segment",
+                    icon: UserPlus,
+                    color: "bg-green-500",
+                  },
+                ].filter(Boolean);
+
+                const visibleActions = actions.filter((a: any) =>
+                  shouldShow(a.label, a.description),
+                );
+
+                if (visibleActions.length === 0) return null;
+
+                return (
+                  <div>
+                    <h3 className="text-[10px] font-bold text-gray-400 uppercase mb-3 tracking-widest">
+                      Actions
+                    </h3>
+                    {visibleActions.map((a: any) => (
+                      <SidebarItem
+                        key={a.subType}
+                        type="action"
+                        subType={a.subType}
+                        label={a.label}
+                        description={a.description}
+                        icon={a.icon}
+                        color={a.color}
+                        onDragStart={onDragStart}
+                      />
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {nodeSearchTerm &&
+                shouldShow("", "") === false && ( // fallback if no sections show up
+                  <div className="flex flex-col items-center justify-center py-10 text-gray-400">
+                    <Search className="w-8 h-8 mb-2 opacity-20" />
+                    <p className="text-xs font-medium">
+                      No nodes found matching "{nodeSearchTerm}"
+                    </p>
+                  </div>
                 )}
-
-                {workflow?.entity === "Appointment" && (
-                  <SidebarItem
-                    type="trigger"
-                    subType="appointment"
-                    label="Appointment"
-                    description="When an appointment is booked"
-                    icon={Calendar}
-                    color="bg-amber-500"
-                    onDragStart={onDragStart}
-                  />
-                )}
-
-                {workflow?.entity === "Message" && (
-                  <SidebarItem
-                    type="trigger"
-                    subType="incoming_message"
-                    label="Incoming Message"
-                    description="When an incoming message is received"
-                    icon={MessageSquare}
-                    color="bg-green-500"
-                    onDragStart={onDragStart}
-                  />
-                )}
-                {workflow?.entity === "Webhook" && (
-                  <SidebarItem
-                    type="trigger"
-                    subType="webhook_received"
-                    label="Webhook Received"
-                    description="When a webhook is received"
-                    icon={Webhook}
-                    color="bg-red-500"
-                    onDragStart={onDragStart}
-                  />
-                )}
-              </div>
-
-              <div>
-                <h3 className="text-[10px] font-bold text-gray-400 uppercase mb-3 tracking-widest">
-                  Conditions
-                </h3>
-                <SidebarItem
-                  type="condition"
-                  subType="filter"
-                  label="Filter"
-                  description="Filter based on criteria"
-                  icon={Filter}
-                  color="bg-purple-500"
-                  onDragStart={onDragStart}
-                />
-                <SidebarItem
-                  type="condition"
-                  subType="if_else"
-                  label="If/Else"
-                  description="Branch the workflow"
-                  icon={Split}
-                  color="bg-orange-500"
-                  onDragStart={onDragStart}
-                />
-              </div>
-
-              <div>
-                <h3 className="text-[10px] font-bold text-gray-400 uppercase mb-3 tracking-widest">
-                  Actions
-                </h3>
-
-                <SidebarItem
-                  type="action"
-                  subType="send_whatsapp"
-                  label="Send WhatsApp"
-                  description="Send a whatsapp templated message"
-                  icon={FaWhatsapp}
-                  color="bg-green-500"
-                  onDragStart={onDragStart}
-                />
-                <SidebarItem
-                  type="action"
-                  subType="delay"
-                  label="Delay"
-                  description="Delay for specific time"
-                  icon={Clock}
-                  color="bg-red-500"
-                  onDragStart={onDragStart}
-                />
-                <SidebarItem
-                  type="action"
-                  subType="rest_api"
-                  label="Rest API"
-                  description="Call a REST API"
-                  icon={Database}
-                  color="bg-blue-500"
-                  onDragStart={onDragStart}
-                />
-                <SidebarItem
-                  type="action"
-                  subType="ai_composer"
-                  label="AI Composer"
-                  description="Compose AI responses"
-                  icon={Zap}
-                  color="bg-yellow-500"
-                  onDragStart={onDragStart}
-                />
-                {workflow?.entity === "Lead" && (
-                  <SidebarItem
-                    type="action"
-                    subType="add_tag"
-                    label="Add Tag"
-                    description="Add a tag to the lead"
-                    icon={Tag}
-                    color="bg-blue-500"
-                    onDragStart={onDragStart}
-                  />
-                )}
-
-                {workflow?.entity === "Lead" && (
-                  <SidebarItem
-                    type="action"
-                    subType="assign_owner"
-                    label="Assign Owner"
-                    description="Assign the lead to a specific owner"
-                    icon={UserPlus}
-                    color="bg-purple-500"
-                    onDragStart={onDragStart}
-                  />
-                )}
-
-                {workflow?.entity === "Lead" && (
-                  <SidebarItem
-                    type="action"
-                    subType="add_to_segment"
-                    label="Add To Segment"
-                    description="Add the lead to a specific segment"
-                    icon={UserPlus}
-                    color="bg-green-500"
-                    onDragStart={onDragStart}
-                  />
-                )}
-              </div>
             </div>
           </div>
         </div>
@@ -1224,6 +1339,19 @@ const WorkflowEditor = () => {
         }}
       />
 
+      {/* Incoming Message Trigger Modal */}
+      <IncomingMessageTriggerModal
+        isOpen={incomingMessageModal.show}
+        onClose={() =>
+          setIncomingMessageModal({ show: false, triggerId: null })
+        }
+        triggerId={incomingMessageModal.triggerId}
+        onUpdate={() => {
+          fetchWorkflow();
+          console.log("Incoming message trigger updated");
+        }}
+      />
+
       {/* Assign Owner Action Modal */}
       <AssignOwnerActionModal
         isOpen={assignOwnerModal.show}
@@ -1265,6 +1393,17 @@ const WorkflowEditor = () => {
         onUpdate={() => {
           fetchWorkflow();
           console.log("Send WhatsApp action updated");
+        }}
+      />
+
+      {/* Book Appointment Action Modal */}
+      <BookAppointmentActionModal
+        isOpen={bookAppointmentModal.show}
+        onClose={() => setBookAppointmentModal({ show: false, actionId: null })}
+        actionId={bookAppointmentModal.actionId}
+        onUpdate={() => {
+          fetchWorkflow();
+          console.log("Book Appointment action updated");
         }}
       />
     </div>

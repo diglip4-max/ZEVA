@@ -63,14 +63,26 @@ export default async function handler(req, res) {
         data: trigger,
       });
     } else if (req.method === "PUT") {
-      const { name, description, webhookUrl, webhookListening, webhookResponse } = req.body;
+      const {
+        name,
+        description,
+        webhookUrl,
+        webhookListening,
+        webhookResponse,
+        channel,
+        providerId,
+      } = req.body;
 
       // Update fields if provided
       if (name !== undefined) trigger.name = name;
       if (description !== undefined) trigger.description = description;
       if (webhookUrl !== undefined) trigger.webhookUrl = webhookUrl;
-      if (webhookListening !== undefined) trigger.webhookListening = webhookListening;
-      if (webhookResponse !== undefined) trigger.webhookResponse = webhookResponse;
+      if (webhookListening !== undefined)
+        trigger.webhookListening = webhookListening;
+      if (webhookResponse !== undefined)
+        trigger.webhookResponse = webhookResponse;
+      if (channel !== undefined) trigger.channel = channel;
+      if (providerId !== undefined) trigger.providerId = providerId;
 
       await trigger.save();
 

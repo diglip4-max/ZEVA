@@ -11,6 +11,9 @@ import {
   Calendar,
   FileText,
   Settings,
+  LayoutGrid,
+  List,
+  MessageSquare,
 } from "lucide-react";
 import { NextPageWithLayout } from "@/pages/_app";
 import ClinicLayout from "@/components/ClinicLayout";
@@ -47,6 +50,8 @@ const entityIcons = {
   Appointment: Calendar,
   Invoice: FileText,
   Lead: Users, // Or a more specific icon for leads
+  Message: MessageSquare,
+  Webhook: Zap,
 };
 
 const AutomationPage: NextPageWithLayout = () => {
@@ -65,7 +70,8 @@ const AutomationPage: NextPageWithLayout = () => {
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [itemsPerPage] = useState(6);
+  const [itemsPerPage] = useState(9);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const fetchWorkflows = useCallback(async () => {
     setLoading(true);
@@ -228,6 +234,30 @@ const AutomationPage: NextPageWithLayout = () => {
                 <option value="Active">Active</option>
                 <option value="Inactive">Inactive</option>
               </select>
+              <div className="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-300">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`p-2 rounded-lg transition-all ${
+                    viewMode === "grid"
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                  title="Grid View"
+                >
+                  <LayoutGrid className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`p-2 rounded-lg transition-all ${
+                    viewMode === "list"
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                  title="List View"
+                >
+                  <List className="w-5 h-5" />
+                </button>
+              </div>
               <button
                 onClick={fetchWorkflows}
                 className="px-4 py-2.5 border border-gray-300 text-gray-500 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-2"
@@ -249,137 +279,264 @@ const AutomationPage: NextPageWithLayout = () => {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {workflows.map((workflow) => {
-                const Icon =
-                  entityIcons[workflow.entity as keyof typeof entityIcons] ||
-                  Settings;
+            {viewMode === "grid" ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {workflows.map((workflow) => {
+                  const Icon =
+                    entityIcons[workflow.entity as keyof typeof entityIcons] ||
+                    Settings;
 
-                // Deterministic color based on ID for consistency
-                const colorKeys = Object.keys(gradientColors) as Array<
-                  keyof typeof gradientColors
-                >;
-                const color =
-                  colorKeys[
-                    workflow._id.charCodeAt(workflow._id.length - 1) %
-                      colorKeys.length
-                  ];
+                  // Deterministic color based on ID for consistency
+                  const colorKeys = Object.keys(gradientColors) as Array<
+                    keyof typeof gradientColors
+                  >;
+                  const color =
+                    colorKeys[
+                      workflow._id.charCodeAt(workflow._id.length - 1) %
+                        colorKeys.length
+                    ];
 
-                const triggerNode = workflow?.nodes?.find(
-                  (node) => node.type === "trigger",
-                );
+                  const triggerNode = workflow?.nodes?.find(
+                    (node) => node.type === "trigger",
+                  );
 
-                return (
-                  <div
-                    key={workflow._id}
-                    className="group bg-white rounded-2xl shadow-sm hover:shadow-xl border border-gray-200/60 hover:border-transparent transition-all duration-300 overflow-hidden"
-                  >
+                  return (
                     <div
-                      className={`h-2 bg-gradient-to-r ${gradientColors[color]}`}
-                    />
-                    <div className="p-6">
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`p-3 rounded-xl bg-gradient-to-br ${gradientColors[color]} shadow-sm`}
+                      key={workflow._id}
+                      className="group bg-white rounded-2xl shadow-sm hover:shadow-xl border border-gray-200/60 hover:border-transparent transition-all duration-300 overflow-hidden"
+                    >
+                      <div
+                        className={`h-2 bg-gradient-to-r ${gradientColors[color]}`}
+                      />
+                      <div className="p-6">
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`p-3 rounded-xl bg-gradient-to-br ${gradientColors[color]} shadow-sm`}
+                            >
+                              <Icon className="w-6 h-6 text-white" />
+                            </div>
+                            <div>
+                              <h3
+                                onClick={() =>
+                                  router.push(
+                                    `/clinic/automation/${workflow._id}`,
+                                  )
+                                }
+                                className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors cursor-pointer"
+                              >
+                                {workflow.name?.length > 20
+                                  ? `${workflow.name?.substring(0, 20)}...`
+                                  : workflow.name}
+                              </h3>
+                              <p className="text-sm text-gray-500">
+                                {(workflow?.description || "")?.length > 30
+                                  ? `${workflow.description?.substring(0, 30)}...`
+                                  : workflow.description ||
+                                    "No description provided"}
+                              </p>
+                            </div>
+                          </div>
+                          <button className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors">
+                            <MoreVertical className="w-5 h-5" />
+                          </button>
+                        </div>
+
+                        <div className="text-sm text-gray-600 mb-4">
+                          <strong>Trigger:</strong>{" "}
+                          {triggerNode?.data?.label || "Not set"}
+                        </div>
+
+                        <div className="flex items-center gap-2 mb-4">
+                          <span
+                            className={`px-3 py-1 text-xs font-medium rounded-full ${statusColors[workflow.status as keyof typeof statusColors]}`}
                           >
-                            <Icon className="w-6 h-6 text-white" />
+                            {workflow.status}
+                          </span>
+                          <span
+                            className={`px-3 py-1 text-xs font-medium rounded-full ${entityColors[workflow.entity as keyof typeof entityColors] || "bg-gray-100 text-gray-700"}`}
+                          >
+                            {workflow.entity}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 py-4 border-y border-gray-100">
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">
+                              Total Runs
+                            </p>
+                            <p className="text-lg font-semibold text-gray-900">
+                              {(workflow.runs || 0).toLocaleString()}
+                            </p>
                           </div>
                           <div>
-                            <h3
-                              onClick={() =>
-                                router.push(
-                                  `/clinic/automation/${workflow._id}`,
-                                )
-                              }
-                              className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors cursor-pointer"
-                            >
-                              {workflow.name?.length > 20
-                                ? `${workflow.name?.substring(0, 20)}...`
-                                : workflow.name}
-                            </h3>
-                            <p className="text-sm text-gray-500">
-                              {(workflow?.description || "")?.length > 30
-                                ? `${workflow.description?.substring(0, 30)}...`
-                                : workflow.description ||
-                                  "No description provided"}
+                            <p className="text-xs text-gray-500 mb-1">
+                              Success Rate
                             </p>
-                          </div>
-                        </div>
-                        <button className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors">
-                          <MoreVertical className="w-5 h-5" />
-                        </button>
-                      </div>
-
-                      <div className="text-sm text-gray-600 mb-4">
-                        <strong>Trigger:</strong>{" "}
-                        {triggerNode?.data?.label || "Not set"}
-                      </div>
-
-                      <div className="flex items-center gap-2 mb-4">
-                        <span
-                          className={`px-3 py-1 text-xs font-medium rounded-full ${statusColors[workflow.status as keyof typeof statusColors]}`}
-                        >
-                          {workflow.status}
-                        </span>
-                        <span
-                          className={`px-3 py-1 text-xs font-medium rounded-full ${entityColors[workflow.entity as keyof typeof entityColors] || "bg-gray-100 text-gray-700"}`}
-                        >
-                          {workflow.entity}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4 py-4 border-y border-gray-100">
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">
-                            Total Runs
-                          </p>
-                          <p className="text-lg font-semibold text-gray-900">
-                            {(workflow.runs || 0).toLocaleString()}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">
-                            Success Rate
-                          </p>
-                          <div className="flex items-center gap-2">
-                            <p className="text-lg font-semibold text-gray-900">
-                              {workflow.successRate || 0}%
-                            </p>
-                            <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full bg-gradient-to-r ${gradientColors[color]}`}
-                                style={{
-                                  width: `${workflow.successRate || 0}%`,
-                                }}
-                              />
+                            <div className="flex items-center gap-2">
+                              <p className="text-lg font-semibold text-gray-900">
+                                {workflow.successRate || 0}%
+                              </p>
+                              <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full bg-gradient-to-r ${gradientColors[color]}`}
+                                  style={{
+                                    width: `${workflow.successRate || 0}%`,
+                                  }}
+                                />
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="mt-4 flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                          <Clock className="w-4 h-4" />
-                          <span>
-                            Created{" "}
-                            {new Date(workflow.createdAt).toLocaleDateString()}
-                          </span>
+                        <div className="mt-4 flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-sm text-gray-500">
+                            <Clock className="w-4 h-4" />
+                            <span>
+                              Created{" "}
+                              {new Date(
+                                workflow.createdAt,
+                              ).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() =>
+                              router.push(`/clinic/automation/${workflow._id}`)
+                            }
+                            className="px-3 py-1.5 text-sm font-medium cursor-pointer text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                          >
+                            View Details
+                          </button>
                         </div>
-                        <button
-                          onClick={() =>
-                            router.push(`/clinic/automation/${workflow._id}`)
-                          }
-                          className="px-3 py-1.5 text-sm font-medium cursor-pointer text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-                        >
-                          View Details
-                        </button>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200/60 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50/50 border-b border-gray-100">
+                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">
+                          Workflow
+                        </th>
+                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">
+                          Trigger
+                        </th>
+                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">
+                          Status
+                        </th>
+                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">
+                          Entity
+                        </th>
+                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">
+                          Stats
+                        </th>
+                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest text-right">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {workflows.map((workflow) => {
+                        const Icon =
+                          entityIcons[
+                            workflow.entity as keyof typeof entityIcons
+                          ] || Settings;
+                        const triggerNode = workflow?.nodes?.find(
+                          (node) => node.type === "trigger",
+                        );
+                        return (
+                          <tr
+                            key={workflow._id}
+                            className="group hover:bg-gray-50/50 transition-colors"
+                          >
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-blue-50 text-blue-600">
+                                  <Icon className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <p
+                                    onClick={() =>
+                                      router.push(
+                                        `/clinic/automation/${workflow._id}`,
+                                      )
+                                    }
+                                    className="text-sm font-bold text-gray-900 group-hover:text-blue-600 cursor-pointer transition-colors"
+                                  >
+                                    {workflow.name}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    Created on{" "}
+                                    {new Date(
+                                      workflow.createdAt,
+                                    ).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className="text-sm text-gray-600 font-medium">
+                                {triggerNode?.data?.label || "Not set"}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span
+                                className={`px-2.5 py-1 text-[10px] font-bold rounded-full uppercase tracking-tight ${statusColors[workflow.status as keyof typeof statusColors]}`}
+                              >
+                                {workflow.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span
+                                className={`px-2.5 py-1 text-[10px] font-bold rounded-full uppercase tracking-tight ${entityColors[workflow.entity as keyof typeof entityColors] || "bg-gray-100 text-gray-700"}`}
+                              >
+                                {workflow.entity}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex flex-col gap-1">
+                                <p className="text-xs font-bold text-gray-700">
+                                  {workflow.runs || 0} runs
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-blue-500"
+                                      style={{
+                                        width: `${workflow.successRate || 0}%`,
+                                      }}
+                                    />
+                                  </div>
+                                  <span className="text-[10px] font-bold text-gray-500">
+                                    {workflow.successRate || 0}%
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <button
+                                onClick={() =>
+                                  router.push(
+                                    `/clinic/automation/${workflow._id}`,
+                                  )
+                                }
+                                className="p-2 hover:bg-blue-50 text-gray-400 hover:text-blue-600 rounded-lg transition-all"
+                              >
+                                <Settings className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {totalWorkflows === 0 && (
               <div className="text-center py-16 bg-white rounded-2xl border border-gray-200">
@@ -404,7 +561,11 @@ const AutomationPage: NextPageWithLayout = () => {
                   <button
                     onClick={() => paginate(currentPage - 1)}
                     disabled={currentPage === 1}
-                    className="px-4 py-2 rounded-xl border ..."
+                    className={`px-4 py-2 rounded-xl border transition-all ${
+                      currentPage === 1
+                        ? "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed"
+                        : "border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                    }`}
                   >
                     Previous
                   </button>
@@ -413,7 +574,11 @@ const AutomationPage: NextPageWithLayout = () => {
                       <button
                         key={index + 1}
                         onClick={() => paginate(index + 1)}
-                        className={`w-10 h-10 rounded-xl ... ${currentPage === index + 1 ? "bg-blue-600 text-white" : "text-gray-700 hover:bg-gray-100"}`}
+                        className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center ${
+                          currentPage === index + 1
+                            ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                            : "text-gray-600 border border-transparent hover:border-gray-300 hover:bg-gray-50"
+                        }`}
                       >
                         {index + 1}
                       </button>
@@ -422,7 +587,11 @@ const AutomationPage: NextPageWithLayout = () => {
                   <button
                     onClick={() => paginate(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    className="px-4 py-2 rounded-xl border ..."
+                    className={`px-4 py-2 rounded-xl border transition-all ${
+                      currentPage === totalPages
+                        ? "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed"
+                        : "border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                    }`}
                   >
                     Next
                   </button>

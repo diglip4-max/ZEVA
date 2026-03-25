@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { X, Split, Save, Loader2, Plus, Trash2 } from "lucide-react";
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
+import VariableMappingSelect from "./VariableMappingSelect";
 
 interface Condition {
   conditionType: "and" | "or";
@@ -242,19 +243,18 @@ const IfElseConditionModal: React.FC<IfElseConditionModalProps> = ({
                             className="grid grid-cols-12 gap-2 items-center"
                           >
                             <div className="col-span-4">
-                              <input
-                                placeholder="Field"
+                              <VariableMappingSelect
+                                placeholder="Select Field"
                                 value={rule.field}
-                                onChange={(e) =>
+                                onChange={(val) =>
                                   updateSubCondition(
                                     gIdx,
                                     "andConditions",
                                     sIdx,
                                     "field",
-                                    e.target.value,
+                                    val,
                                   )
                                 }
-                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-orange-500 outline-none transition-all"
                               />
                             </div>
                             <div className="col-span-3">
@@ -333,19 +333,18 @@ const IfElseConditionModal: React.FC<IfElseConditionModalProps> = ({
                             className="grid grid-cols-12 gap-2 items-center"
                           >
                             <div className="col-span-4">
-                              <input
-                                placeholder="Field"
+                              <VariableMappingSelect
+                                placeholder="Select Field"
                                 value={rule.field}
-                                onChange={(e) =>
+                                onChange={(val) =>
                                   updateSubCondition(
                                     gIdx,
                                     "orConditions",
                                     sIdx,
                                     "field",
-                                    e.target.value,
+                                    val,
                                   )
                                 }
-                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-orange-500 outline-none transition-all"
                               />
                             </div>
                             <div className="col-span-3">

@@ -7,6 +7,11 @@ import User from "../../../../models/Users";
 import Clinic from "../../../../models/Clinic"; // ✅ Added
 import Segment from "../../../../models/Segment";
 import { getUserFromReq, requireRole } from "../auth";
+import {
+  executeWorkflows,
+  WORKFLOW_ENTITY_TYPE,
+  WORKFLOW_TRIGGER_TYPE,
+} from "../../../../bullmq/workflow";
 
 // Multer setup
 const upload = multer({ storage: multer.memoryStorage() });
@@ -136,7 +141,6 @@ export default async function handler(req, res) {
       additionalInfo,
     } = body;
 
-    console.log({ body });
     if (!name || !phone) {
       return res
         .status(400)
@@ -171,6 +175,14 @@ export default async function handler(req, res) {
       $addToSet: {
         leads: lead._id,
       },
+    });
+
+    // Note: Execute workflow for the created lead
+    executeWorkflows({
+      entity: WORKFLOW_ENTITY_TYPE.LEAD,
+      trigger: WORKFLOW_TRIGGER_TYPE.NEW_LEAD,
+      leadId: lead._id?.toString(),
+      clinicId: lead.clinicId?.toString(),
     });
 
     return res.status(200).json({ success: true, message: "Success", lead });

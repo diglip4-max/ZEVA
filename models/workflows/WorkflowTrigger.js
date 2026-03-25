@@ -50,6 +50,15 @@ const WorkflowTriggerSchema = new Schema(
       type: Object,
       default: {},
     },
+    // for incoming message trigger
+    channel: {
+      type: String,
+      enum: ["sms", "whatsapp", "email"],
+    },
+    providerId: {
+      type: Schema.Types.ObjectId,
+      ref: "Provider",
+    },
   },
   {
     timestamps: true,

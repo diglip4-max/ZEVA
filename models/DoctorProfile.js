@@ -1,6 +1,6 @@
 // models/DoctorProfile.ts
 import mongoose from "mongoose";
-import { TreatmentRefSchema } from "../schema/TreatmentRef";
+import { TreatmentRefSchema } from "../schema/TreatmentRef.js";
 const TimeSlotSchema = new mongoose.Schema(
   {
     date: { type: String, required: false }, // e.g., "Today", "Tomorrow", "Fri, 4 Jul"
@@ -10,7 +10,7 @@ const TimeSlotSchema = new mongoose.Schema(
       evening: [{ type: String }],
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const DoctorProfileSchema = new mongoose.Schema(
@@ -29,16 +29,16 @@ const DoctorProfileSchema = new mongoose.Schema(
     clinicContact: { type: String, required: false },
     timeSlots: [TimeSlotSchema],
     resumeUrl: { type: String, required: true },
-    slug: { 
-      type: String, 
-      unique: true, 
+    slug: {
+      type: String,
+      unique: true,
       sparse: true, // Only unique when exists
-      index: true 
+      index: true,
     },
     slugLocked: { type: Boolean, default: false }, // Lock slug once approved
   },
 
-  { timestamps: true }
+  { timestamps: true },
 );
 
 DoctorProfileSchema.index({ location: "2dsphere" });
