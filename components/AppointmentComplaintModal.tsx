@@ -297,7 +297,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [servicesSaved, setServicesSaved] = useState(false);
   const [servicesError, setServicesError] = useState("");
   const [loadingServices, setLoadingServices] = useState(false);
-  const addServiceDropdownRef = useRef<HTMLDivElement | null>(null);
 
   // Create Package state
   const [showCreatePackage, setShowCreatePackage] = useState(false);
@@ -311,7 +310,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [pkgError, setPkgError] = useState("");
   const [pkgSuccess, setPkgSuccess] = useState("");
   const [addingPackageToPatient, setAddingPackageToPatient] = useState(false);
-  const [createdPackageId, setCreatedPackageId] = useState<string | null>(null);
   const [addingRecService, setAddingRecService] = useState<Record<string, boolean>>({});
   const [addedRecServices, setAddedRecServices] = useState<Record<string, boolean>>({});
   useEffect(() => {
@@ -661,7 +659,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       }, { headers });
       if (res.data?.success) {
         const newPkgId = res.data.package?._id || res.data.packageId || null;
-        setCreatedPackageId(newPkgId);
         if (addToPatient && newPkgId && details?.patientId) {
           setAddingPackageToPatient(true);
           try {

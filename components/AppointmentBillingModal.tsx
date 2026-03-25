@@ -25,9 +25,9 @@ interface Appointment {
   doctorEmail: string;
   roomId: string;
   roomName: string;
-  serviceId?: string | null;
+  serviceId?: string | { _id: string } | null;
   serviceName?: string | null;
-  serviceIds?: string[];
+  serviceIds?: string[] | Array<{ _id: string }>;
   serviceNames?: string[];
   status: string;
   followType: string;
@@ -468,7 +468,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       // Handle multiple services (serviceNames / serviceIds)
       if (appointment.serviceNames && appointment.serviceNames.length > 0) {
         appointment.serviceNames.forEach((name, index) => {
-          const slug = appointment.serviceIds?.[index];
+          const serviceIdItem = appointment.serviceIds?.[index];
+          const slug = typeof serviceIdItem === 'string' ? serviceIdItem : serviceIdItem?._id;
           if (name && slug) {
             // Find matching treatment in the loaded treatments list to get the correct price
             const matchingTreatment = treatments.find(t => t.slug === slug || t.name === name);
@@ -484,7 +485,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       } 
       // Fallback to single service (serviceName / serviceId)
       else if (appointment.serviceName && appointment.serviceId) {
-        const slug = typeof appointment.serviceId === 'string' ? appointment.serviceId : appointment.serviceId._id;
+        const slug = typeof appointment.serviceId === 'string' ? appointment.serviceId : (appointment.serviceId as { _id: string })._id;
         const matchingTreatment = treatments.find(t => t.slug === slug || t.name === appointment.serviceName);
         initialTreatments.push({
           treatmentName: appointment.serviceName,

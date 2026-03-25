@@ -18,7 +18,6 @@ interface Props {
   headers: HeadersRecord;
 }
 
-type LeaderRow = { staffId: string; staffName: string; totalAppointments: number };
 type RevenueRow = { staffId: string; staffName: string; revenue: number; invoices: number };
 type DetailRow = {
   staffId: string;
@@ -60,7 +59,6 @@ function currency(n: number) {
 
 export default function DoctorStaffReport({ startDate, endDate, headers }: Props) {
   const [loading, setLoading] = useState(false);
-  const [leaders, setLeaders] = useState<LeaderRow[]>([]);
   const [revenues, setRevenues] = useState<RevenueRow[]>([]);
   const [details, setDetails] = useState<DetailRow[]>([]);
   const [topDoctorStaffCommission, setTopDoctorStaffCommission] = useState<CommissionRow[]>([]);
@@ -80,14 +78,12 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
       const res = await fetch(`/api/clinic/reports/doctor-staff-performance?${qs}`, { headers });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setLeaders([]);
         setRevenues([]);
         setDetails([]);
         setTopDoctorStaffCommission([]);
         setTopAgentCommission([]);
         return;
       }
-      setLeaders(json.data?.leaderboard || []);
       setRevenues(json.data?.top5Revenue || []);
       setDetails(json.data?.top5Details || []);
       setTopDoctorStaffCommission(json.data?.topDoctorStaffCommission || []);

@@ -5,7 +5,7 @@ import {
   Calendar, User, DollarSign, FileText, AlertCircle, Activity,
   CreditCard, TrendingUp, Package, Phone,
   Mail, Clock, Shield, X, CheckCircle, XCircle,
-  AlertTriangle, Info, Plus, FileImage, MessageSquare, MessageCircle, Smartphone, Wallet, ClipboardList
+  AlertTriangle, Info, Plus, FileImage, Wallet, ClipboardList
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -47,13 +47,8 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
   const [loadingPackages, setLoadingPackages] = useState(false);
   const [billingHistory, setBillingHistory] = useState<any>(null);
   const [loadingBilling, setLoadingBilling] = useState(false);
-  const [insuranceClaims, setInsuranceClaims] = useState<any[]>([]);
-  const [loadingInsurance, setLoadingInsurance] = useState(false);
   const [mediaDocuments, setMediaDocuments] = useState<any[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
-  const [doctorsNotes, setDoctorsNotes] = useState<any[]>([]);
-  const [communicationLogs, setCommunicationLogs] = useState<any[]>([]);
-  const [loadingNotes, setLoadingNotes] = useState(false);
   
   // Stats state - fetched on mount
   const [statsData, setStatsData] = useState({
@@ -270,8 +265,6 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
     return `${first?.charAt(0) || ''}${last?.charAt(0) || ''}`.toUpperCase();
   };
 
-  const isVIP = patientData.patientType === 'VIP' || (patientData.membership === 'Yes');
-
   // Fetch appointments when appointments tab is active
   useEffect(() => {
     if (activeTab === 'appointments' && patientData?._id) {
@@ -298,13 +291,6 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
   useEffect(() => {
     if (activeTab === 'billing' && patientData?._id) {
       fetchBillingHistory();
-    }
-  }, [activeTab]);
-
-  // Fetch insurance claims when insurance tab is active
-  useEffect(() => {
-    if (activeTab === 'insurance' && patientData?._id) {
-      fetchInsuranceClaims();
     }
   }, [activeTab]);
 
@@ -631,65 +617,6 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
     }
   };
 
-  const fetchInsuranceClaims = async () => {
-    try {
-      setLoadingInsurance(true);
-      const headers = getAuthHeaders();
-      if (!headers) return;
-
-      // Try to fetch from insurance API endpoint
-      const response = await axios.get('/api/clinic/insurance-claims', { headers });
-      
-      if (response.data.success) {
-        const patientClaims = response.data.claims?.filter(
-          (claim: any) => claim.patientId === patientData._id
-        ) || [];
-        setInsuranceClaims(patientClaims);
-      }
-    } catch (error: any) {
-      console.error('Error fetching insurance claims:', error.message);
-      // Set mock data for demonstration if API fails
-      setInsuranceClaims([
-        {
-          _id: '1',
-          claimId: 'CLM-2026-001',
-          treatmentName: 'Root Canal Treatment',
-          treatmentDate: '2026-03-15',
-          claimAmount: 850,
-          approvedAmount: 750,
-          status: 'Approved',
-          submissionDate: '2026-03-16',
-          insuranceProvider: 'Delta Dental'
-        },
-        {
-          _id: '2',
-          claimId: 'CLM-2026-002',
-          treatmentName: 'Dental Crown',
-          treatmentDate: '2026-03-10',
-          claimAmount: 1200,
-          approvedAmount: null,
-          status: 'Pending',
-          submissionDate: '2026-03-11',
-          insuranceProvider: 'Delta Dental'
-        },
-        {
-          _id: '3',
-          claimId: 'CLM-2026-003',
-          treatmentName: 'Teeth Whitening',
-          treatmentDate: '2026-03-05',
-          claimAmount: 500,
-          approvedAmount: 0,
-          status: 'Rejected',
-          submissionDate: '2026-03-06',
-          rejectionReason: 'Cosmetic procedure not covered under policy',
-          insuranceProvider: 'Delta Dental'
-        }
-      ]);
-    } finally {
-      setLoadingInsurance(false);
-    }
-  };
-
   const fetchMediaDocuments = async () => {
     try {
       setLoadingMedia(true);
@@ -723,117 +650,6 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
       setMediaDocuments([]);
     } finally {
       setLoadingMedia(false);
-    }
-  };
-
-  const fetchNotesAndCommunication = async () => {
-    try {
-      setLoadingNotes(true);
-      const headers = getAuthHeaders();
-      if (!headers) return;
-
-      // Try to fetch from notes/communication API endpoints
-      const [notesRes, logsRes] = await Promise.all([
-        axios.get('/api/clinic/patient-notes', { 
-          headers,
-          params: { patientId: patientData._id }
-        }),
-        axios.get('/api/clinic/communication-logs', { 
-          headers,
-          params: { patientId: patientData._id }
-        })
-      ]);
-      
-      if (notesRes.data.success) {
-        setDoctorsNotes(notesRes.data.notes || []);
-      }
-      if (logsRes.data.success) {
-        setCommunicationLogs(logsRes.data.logs || []);
-      }
-    } catch (error: any) {
-      console.error('Error fetching notes and communication:', error.message);
-      // Set mock data for demonstration if API fails
-      setDoctorsNotes([
-        {
-          _id: '1',
-          doctorName: 'Dr. Sarah Johnson',
-          doctorAvatar: null,
-          treatmentName: 'Laser Hair Removal - Session 3',
-          date: '2026-03-20',
-          note: 'Patient showing excellent progress. Skin tolerating treatment well with minimal erythema. Recommend increasing fluence to 18 J/cm² for next session. Continue cooling protocol. Next appointment scheduled in 4 weeks.',
-          tags: ['Follow-up', 'Progress']
-        },
-        {
-          _id: '2',
-          doctorName: 'Dr. Michael Chen',
-          doctorAvatar: null,
-          treatmentName: 'Skin Rejuvenation - Initial Consultation',
-          date: '2026-03-15',
-          note: 'Patient presents with mild photoaging and uneven skin tone. Discussed treatment options including IPL therapy and chemical peels. Patient elected for series of 3 IPL sessions. Pre-treatment instructions provided. Patch test performed - no adverse reaction.',
-          tags: ['Consultation', 'Treatment Plan']
-        },
-        {
-          _id: '3',
-          doctorName: 'Dr. Emily Rodriguez',
-          doctorAvatar: null,
-          treatmentName: 'Microneedling with PRP',
-          date: '2026-03-10',
-          note: 'First microneedling session completed. Used 1.5mm depth with PRP application. Patient tolerated procedure well. Minimal erythema expected for 24-48 hours. Advised on post-procedure care: gentle cleansing, sunscreen SPF 50+, avoid direct sun exposure. Follow-up in 6 weeks.',
-          tags: ['Procedure', 'Post-Care']
-        }
-      ]);
-      setCommunicationLogs([
-        {
-          _id: '1',
-          type: 'whatsapp',
-          title: 'Appointment Reminder',
-          message: 'Hi! This is a reminder about your laser hair removal appointment tomorrow at 2:00 PM. Please arrive 15 minutes early. Reply CONFIRM to confirm.',
-          timestamp: '2026-03-19T10:30:00',
-          status: 'delivered'
-        },
-        {
-          _id: '2',
-          type: 'email',
-          title: 'Invoice Sent - Invoice #INV-2026-045',
-          message: 'Your invoice for $450.00 has been sent to your email. Payment is due within 7 days. Please check your inbox for detailed breakdown.',
-          timestamp: '2026-03-18T14:15:00',
-          status: 'opened'
-        },
-        {
-          _id: '3',
-          type: 'sms',
-          title: 'Pre-Treatment Instructions',
-          message: 'Reminder: Avoid sun exposure and tanning for 2 weeks before your IPL treatment. Use SPF 50+ daily. Do not wax or pluck - shaving only.',
-          timestamp: '2026-03-17T09:00:00',
-          status: 'delivered'
-        },
-        {
-          _id: '4',
-          type: 'whatsapp',
-          title: 'Post-Treatment Follow-up',
-          message: 'Hi! How are you feeling after yesterday\'s treatment? Please let us know if you have any concerns. We\'re here to help!',
-          timestamp: '2026-03-16T11:45:00',
-          status: 'read'
-        },
-        {
-          _id: '5',
-          type: 'email',
-          title: 'Treatment Consent Form Required',
-          message: 'Please complete and sign your consent form before your next appointment. Click the link to access: zeva360.com/consent/form123',
-          timestamp: '2026-03-15T16:20:00',
-          status: 'clicked'
-        },
-        {
-          _id: '6',
-          type: 'sms',
-          title: 'Special Offer - 20% Off',
-          message: 'Exclusive offer! Get 20% off all skincare products this week. Visit our clinic or shop online. Use code: GLOW20. Valid until March 25.',
-          timestamp: '2026-03-14T13:00:00',
-          status: 'delivered'
-        }
-      ]);
-    } finally {
-      setLoadingNotes(false);
     }
   };
 
@@ -1184,7 +1000,6 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                       const packageId = pkg.packageId || pkg._id;
                       const packageName = pkg.packageName || pkg.name || 'Package';
                       const assignedDate = pkg.assignedDate || pkg.createdAt;
-                      const expiryDate = pkg.expiryDate;
                       
                       // Session calculations - use actual data from API
                       const totalSessions = pkg.totalSessions || 0;
