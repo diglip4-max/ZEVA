@@ -1016,28 +1016,24 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   };
 
   /*---------------------------
-    // SEND CONSENT FORM MESSAGE ON WHATSAPP 
+    // SEND CONSENT FORM MESSAGE ON WHATSAPP
     //---------------------------*/
     const handleSendConsentMsgOnWhatsapp = async () => {
       if (!selectedConsentId) return;
-  
+ 
       try {
         setSendMsgLoading(true);
         setSendingConsent(true);
         const token = getTokenByPath();
         console.log({ details });
-  
+ 
         const { data } = await axios.post(
           "/api/messages/send-message",
           {
             patientId: details?.patientId,
             providerId: "6952256c4a46b2f1eb01be86",
             channel: "whatsapp",
-            content: `Please review and sign the consent form by clicking the link below:
-  
-  https://consent-form.zeva.co.ke
-  
-  Thank you.`,
+            content: `Please review and sign the consent form by clicking the link below:\n\n https://zeva360.com/consent-form/${selectedConsentId}\n\n Thank you.`,
             mediaUrl: "",
             mediaType: "",
             source: "Zeva",
@@ -1048,7 +1044,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
             bodyParameters: [
               {
                 type: "text",
-                text: "https://consent-form.zeva.co.ke",
+                text: `https://zeva360.com/consent-form/${selectedConsentId}`,
               },
             ],
             attachments: [],
@@ -1059,7 +1055,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
             },
           },
         );
-  
+ 
         if (data && data?.success) {
           setConsentSent(true);
         }
@@ -1073,7 +1069,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         setSendingConsent(false);
       }
     };
-  
+ 
 
   if (!isOpen || !appointment) {
     return null;
