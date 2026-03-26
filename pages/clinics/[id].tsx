@@ -33,18 +33,46 @@ interface Clinic {
   treatments?: Array<{
     mainTreatment: string;
     mainTreatmentSlug?: string;
+    enabled?: boolean;
     subTreatments?: Array<{
       name: string;
       slug?: string;
-      price?: number; // Added price to subTreatment interface
+      price?: number;
+      enabled?: boolean;
     }>;
   }>;
   pricing?: string;
-  timings?: string;
+  timings?: string | any[];
+  listingVisibility?: {
+    showServices?: boolean;
+    showPrices?: boolean;
+    showStaff?: boolean;
+    showReviews?: boolean;
+    enableOnlineBooking?: boolean;
+    featuredListing?: boolean;
+  };
   location?: { coordinates: [number, number] };
 }
 
-// Helper function to normalize photo URLs
+// Helper: render clinic timings (supports both legacy string and new weekly array)
+const renderTimings = (timings: string | any[] | undefined): React.ReactNode => {
+  if (!timings) return null;
+  if (Array.isArray(timings)) {
+    const openDays = timings.filter((t: any) => t.isOpen);
+    if (openDays.length === 0) return <span>All days closed</span>;
+    return (
+      <div className="space-y-1 text-sm">
+        {openDays.map((t: any) => (
+          <div key={t.day} className="flex justify-between gap-4">
+            <span className="font-medium w-24">{t.day}</span>
+            <span>{t.openingTime} &ndash; {t.closingTime}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return <span>{timings}</span>;
+};
 const normalizePhotoUrl = (url: string | undefined): string => {
   if (!url) return '';
   
@@ -445,6 +473,7 @@ export default function ClinicDetail() {
                 </div>
 
                 {/* Rating */}
+                {clinic.listingVisibility?.showReviews !== false && (
                 <div className="flex items-center gap-3 mb-6">
                   {hasRating ? (
                     <>
@@ -466,6 +495,7 @@ export default function ClinicDetail() {
                     </span>
                   ) : null}
                 </div>
+                )}
               </div>
             </div>
           </div>
@@ -473,6 +503,7 @@ export default function ClinicDetail() {
           {/* Action Buttons - Sticky Bar */}
           <div className="sticky top-0 z-20 bg-white border-b border-gray-100 p-4 sm:p-6">
             <div className="flex flex-wrap justify-center lg:justify-start gap-3">
+              {clinic.listingVisibility?.enableOnlineBooking !== false ? (
               <button
                 onClick={() => handleEnquiryClick(clinic)}
                 className="px-6 py-3 bg-gradient-to-r from-[#2D9AA5] to-[#2D9AA5]/90 text-white rounded-xl hover:from-[#2D9AA5]/90 hover:to-[#2D9AA5] transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center gap-2"
@@ -480,6 +511,7 @@ export default function ClinicDetail() {
                 <MessageCircle className="w-4 h-4" />
                 Send Enquiry
               </button>
+              ) : null}
 
               <button
                 onClick={() => handleReviewClick(clinic)}
@@ -524,11 +556,11 @@ export default function ClinicDetail() {
                     </div>
                     <h3 className="font-bold text-gray-800">Operating Hours</h3>
                   </div>
-                  <p className="text-gray-700 font-medium">{clinic.timings}</p>
+                  <div className="text-gray-700 font-medium">{renderTimings(clinic.timings)}</div>
                 </div>
               )}
 
-              {clinic.pricing && (
+              {clinic.pricing && clinic.listingVisibility?.showPrices !== false && (
                 <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 p-4 rounded-xl border border-emerald-200 hover:shadow-lg transition-all duration-300">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="p-2 bg-emerald-200 rounded-lg">
@@ -591,7 +623,7 @@ export default function ClinicDetail() {
             )}
 
             {/* Treatments Section - Updated to show sub-treatments */}
-            {clinic.treatments && clinic.treatments.length > 0 && (
+            {clinic.listingVisibility?.showServices !== false && clinic.treatments && clinic.treatments.filter((t: any) => t.enabled !== false).length > 0 && (
               <div className="mb-8">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 bg-[#2D9AA5]/20 rounded-lg">
@@ -602,7 +634,7 @@ export default function ClinicDetail() {
                   </h3>
                 </div>
                 <div className="space-y-6">
-                  {clinic.treatments.map((treatment, idx) => (
+                  {clinic.treatments.filter((t: any) => t.enabled !== false).map((treatment, idx) => (
                     <div
                       key={idx}
                       className="bg-gradient-to-r from-gray-50 to-white border border-gray-200 rounded-xl p-6 hover:shadow-lg hover:border-[#2D9AA5]/30 transition-all duration-300"
@@ -617,13 +649,13 @@ export default function ClinicDetail() {
 
                       {/* Sub Treatments */}
                       {treatment.subTreatments &&
-                        treatment.subTreatments.length > 0 && (
+                        treatment.subTreatments.filter((s) => s.enabled !== false).length > 0 && (
                           <div className="ml-6 space-y-3">
                             <p className="text-sm font-medium text-gray-600 mb-3">
                               Available Sub-treatments:
                             </p>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              {treatment.subTreatments.map(
+                              {treatment.subTreatments.filter((s) => s.enabled !== false).map(
                                 (subTreatment, subIdx) => (
                                   <div
                                     key={subIdx}
@@ -650,9 +682,9 @@ export default function ClinicDetail() {
                           </div>
                         )}
 
-                      {/* If no sub-treatments, show description */}
+                      {/* If no sub-treatments (or all hidden), show description */}
                       {(!treatment.subTreatments ||
-                        treatment.subTreatments.length === 0) && (
+                        treatment.subTreatments.filter((s) => s.enabled !== false).length === 0) && (
                         <div className="ml-6">
                           <p className="text-sm text-gray-600">
                             Professional treatment with experienced specialists
@@ -688,11 +720,11 @@ export default function ClinicDetail() {
                   <Clock className="w-5 h-5 text-[#2D9AA5] mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="font-semibold text-gray-800">Operating Hours</p>
-                    <p className="text-gray-600">{clinic.timings}</p>
+                    <div className="text-gray-600">{renderTimings(clinic.timings)}</div>
                   </div>
                 </div>
               )}
-              {clinic.pricing && (
+              {clinic.pricing && clinic.listingVisibility?.showPrices !== false && (
                 <div className="flex items-start gap-3">
                   <Award className="w-5 h-5 text-[#2D9AA5] mt-0.5 flex-shrink-0" />
                   <div>

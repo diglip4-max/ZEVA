@@ -395,6 +395,7 @@ export default async function handler(req, res) {
         emergencyName, employeeVisaFrontUrl, employeeVisaBackUrl,
         targetMultiplier, targetAmount,
         joiningDate, isActive,
+        discountType, discountAmount,
         otherDocuments
       } = req.body;
 
@@ -411,8 +412,14 @@ export default async function handler(req, res) {
       // Update AgentProfile
       let profile = await AgentProfile.findOne({ userId: agent._id });
       if (!profile) {
+        console.log('API: Creating new profile for user:', agent._id);
         profile = new AgentProfile({ userId: agent._id });
+      } else {
+        console.log('API: Found existing profile for user:', agent._id);
       }
+
+      console.log('API: Raw req.body.discountType:', req.body.discountType);
+      console.log('API: Raw req.body.discountAmount:', req.body.discountAmount);
 
       if (profile.agentCode == null) {
         profile.agentCode = `USR-${agent._id.toString()}`;
@@ -450,6 +457,7 @@ export default async function handler(req, res) {
       if (emergencyName !== undefined) profile.emergencyName = emergencyName;
       if (joiningDate !== undefined) profile.joiningDate = joiningDate;
       if (isActive !== undefined) profile.isActive = isActive;
+      
       if (employeeVisaFrontUrl !== undefined) profile.employeeVisaFrontUrl = clean(employeeVisaFrontUrl);
       if (employeeVisaBackUrl !== undefined) profile.employeeVisaBackUrl = clean(employeeVisaBackUrl);
       if (otherDocuments !== undefined) {
@@ -460,7 +468,13 @@ export default async function handler(req, res) {
           : [];
       }
 
+      // Explicitly set discount fields to ensure they are saved even if schema is cached
+      if (discountType !== undefined) profile.set('discountType', discountType, { strict: false });
+      if (discountAmount !== undefined) profile.set('discountAmount', discountAmount, { strict: false });
+
+      console.log('API: Before profile.save(), profile data:', JSON.stringify(profile, null, 2));
       await profile.save();
+      console.log('API: After profile.save(), profile data:', JSON.stringify(profile, null, 2));
       updatedProfile = profile;
     }
 

@@ -692,19 +692,139 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                 {(() => {
                                   const key = `${m.membershipId}|${m.startDate}|${m.endDate}`;
                                   const usage = membershipUsageMap[key];
-                                  if (!usage || usage.isExpired || (usage.totalFreeConsultations || 0) === 0) return null;
-                                  const total = usage.totalFreeConsultations || 0;
-                                  const used = usage.usedFreeConsultations || 0;
-                                  const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+                                  
                                   return (
-                                    <div className="mb-2">
-                                      <div className="flex items-center justify-between text-[10px] text-gray-700 mb-0.5">
-                                        <span>Free consultations used</span>
-                                        <span className="font-semibold text-gray-900">{used}/{total}</span>
-                                      </div>
-                                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                                        <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${pct}%` }} />
-                                      </div>
+                                    <div className="space-y-3">
+                                      {/* Membership Benefits Section */}
+                                      {plan?.benefits && (
+                                        <div className="bg-white rounded-lg border border-gray-200 p-3">
+                                          <h5 className="text-xs font-bold text-gray-800 mb-2 flex items-center gap-1.5">
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                                            Membership Benefits
+                                          </h5>
+                                          <div className="space-y-2">
+                                            {/* Free Consultations with Usage */}
+                                            {plan.benefits.freeConsultations > 0 && (
+                                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5">
+                                                <div className="flex items-center justify-between mb-1.5">
+                                                  <div className="flex items-center gap-1.5">
+                                                    <User className="w-3.5 h-3.5 text-blue-600" />
+                                                    <span className="text-xs font-semibold text-blue-900">Free Consultations</span>
+                                                  </div>
+                                                  <div className="text-right">
+                                                    {usage && !usage.isExpired ? (
+                                                      <span className="text-xs font-bold text-blue-700">
+                                                        {usage.usedFreeConsultations || 0}/{usage.totalFreeConsultations || plan.benefits.freeConsultations} used
+                                                      </span>
+                                                    ) : (
+                                                      <span className="text-xs font-medium text-gray-600">
+                                                        {plan.benefits.freeConsultations} total
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                                {usage && !usage.isExpired && usage.totalFreeConsultations > 0 && (
+                                                  <>
+                                                    <div className="w-full h-2 bg-blue-200 rounded-full overflow-hidden mb-1">
+                                                      <div 
+                                                        className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full transition-all duration-500"
+                                                        style={{ width: `${Math.min(100, ((usage.usedFreeConsultations || 0) / usage.totalFreeConsultations) * 100)}%` }}
+                                                      />
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-[9px] text-blue-700">
+                                                      <span>Remaining: {usage.remainingFreeConsultations || 0}</span>
+                                                      {usage.isTransferred && (
+                                                        <span className="text-[9px] text-blue-600">
+                                                          Transferred: {usage.transferredFreeConsultations || 0}
+                                                        </span>
+                                                      )}
+                                                    </div>
+                                                  </>
+                                                )}
+                                              </div>
+                                            )}
+                                            
+                                            {/* Discount Percentage */}
+                                            {plan.benefits.discountPercentage > 0 && (
+                                              <div className="bg-purple-50 border border-purple-200 rounded-lg p-2.5">
+                                                <div className="flex items-center gap-1.5">
+                                                  <TrendingUp className="w-3.5 h-3.5 text-purple-600" />
+                                                  <span className="text-xs font-semibold text-purple-900">
+                                                    {plan.benefits.discountPercentage * 100}% Discount on Treatments
+                                                  </span>
+                                                </div>
+                                              </div>
+                                            )}
+                                            
+                                            {/* Priority Booking */}
+                                            {plan.benefits.priorityBooking && (
+                                              <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+                                                <div className="flex items-center gap-1.5">
+                                                  <Activity className="w-3.5 h-3.5 text-amber-600" />
+                                                  <span className="text-xs font-semibold text-amber-900">Priority Booking Access</span>
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Transfer Information */}
+                                      {usage?.isTransferred && (
+                                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-3">
+                                          <div className="flex items-center gap-1.5 mb-2">
+                                            <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                                            <h5 className="text-xs font-bold text-green-800">Transferred Benefits</h5>
+                                          </div>
+                                          <div className="space-y-1.5 text-[10px]">
+                                            <div className="flex justify-between">
+                                              <span className="text-gray-700">Transferred From:</span>
+                                              <span className="font-medium text-green-900">{transferNameMap[String(usage.transferredFrom)] || 'Unknown'}</span>
+                                            </div>
+                                            {typeof usage.transferredFreeConsultations === 'number' && (
+                                              <div className="flex justify-between">
+                                                <span className="text-gray-700">Transferred Consultations:</span>
+                                                <span className="font-semibold text-green-900">{usage.transferredFreeConsultations}</span>
+                                              </div>
+                                            )}
+                                            <div className="pt-1.5 border-t border-green-200">
+                                              <div className="flex justify-between">
+                                                <span className="text-gray-700">Total Available:</span>
+                                                <span className="font-bold text-green-900">{usage.totalFreeConsultations || 0}</span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Usage History Details */}
+                                      {usage?.freeConsultationDetails && usage.freeConsultationDetails.length > 0 && (
+                                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                          <h5 className="text-xs font-bold text-gray-800 mb-2 flex items-center gap-1.5">
+                                            <ClipboardList className="w-3.5 h-3.5 text-gray-600" />
+                                            Usage History ({usage.freeConsultationDetails.length})
+                                          </h5>
+                                          <div className="max-h-32 overflow-y-auto space-y-1.5">
+                                            {usage.freeConsultationDetails.map((detail, idx) => (
+                                              <div key={idx} className="text-[9px] bg-white rounded border border-gray-200 p-1.5">
+                                                <div className="flex justify-between items-center">
+                                                  <span className="font-medium text-gray-800">{detail.service}: {detail.treatment}</span>
+                                                  <span className="text-gray-600">{new Date(detail.date).toLocaleDateString()}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center mt-1">
+                                                  <span className="text-gray-600">Invoice: {detail.invoiceNumber}</span>
+                                                  <span className="font-semibold text-blue-700">{detail.sessions} session(s)</span>
+                                                </div>
+                                                {detail.isFromSourcePatient && (
+                                                  <div className="mt-1 text-[8px] text-green-700 bg-green-50 px-1.5 py-0.5 rounded">
+                                                    From transfer: {transferNameMap[String(detail.sourcePatientId)] || 'Unknown'}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                   );
                                 })()}
@@ -811,7 +931,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
 
                             {/* Package Details */}
                             {pkg && (
-                              <div className="p-2.5">
+                              <div className="p-2.5 space-y-2.5">
                                 <div className="grid grid-cols-2 gap-2.5">
                                   <div>
                                     <span className="text-[10px] text-gray-600 block mb-0.5">Package Price</span>
@@ -830,6 +950,51 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                     <span className="font-bold text-gray-900 text-sm">د.إ{pkg.sessionPrice?.toLocaleString()}</span>
                                   </div>
                                 </div>
+                                
+                                {/* Treatment Breakdown */}
+                                {pkg.treatments && pkg.treatments.length > 0 && (
+                                  <div className="bg-white rounded-lg border border-gray-200 p-2.5">
+                                    <h5 className="text-[10px] font-bold text-gray-800 mb-2 flex items-center gap-1.5">
+                                      <Activity className="w-3.5 h-3.5 text-teal-600" />
+                                      Treatment Sessions
+                                    </h5>
+                                    <div className="space-y-1.5">
+                                      {pkg.treatments.map((treatment, tIdx) => {
+                                        const totalSessions = treatment.sessions || 0;
+                                        return (
+                                          <div key={tIdx} className="flex items-center justify-between text-[9px] bg-gray-50 rounded px-1.5 py-1">
+                                            <span className="text-gray-700 truncate max-w-[150px]">{treatment.treatmentName || treatment.name}</span>
+                                            <span className="font-semibold text-teal-700 whitespace-nowrap ml-2">{totalSessions} sessions</span>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {/* Transfer Information for Package */}
+                                {(patient.packageTransfers || []).filter(t => String(t.packageId) === String(p.packageId)).length > 0 && (
+                                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-2.5">
+                                    <h5 className="text-[10px] font-bold text-green-800 mb-2 flex items-center gap-1.5">
+                                      <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                                      Transfer History
+                                    </h5>
+                                    <div className="space-y-1.5">
+                                      {(patient.packageTransfers || []).filter(t => String(t.packageId) === String(p.packageId)).map((t, ti) => (
+                                        <div key={ti} className="text-[9px]">
+                                          <div className={`font-semibold ${t.type === 'out' ? 'text-red-700' : 'text-green-700'}`}>
+                                            {t.type === 'out' ? '↗ Transferred to' : '↙ Transferred from'} {transferNameMap[String(t.toPatientId)] || transferNameMap[String(t.fromPatientId)] || 'Unknown'}
+                                          </div>
+                                          <div className="flex items-center gap-2 mt-1 text-gray-600">
+                                            <span>{t.transferredSessions || 0} sessions</span>
+                                            <span>•</span>
+                                            <span>{new Date(t.transferDate).toLocaleDateString()}</span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -1655,9 +1820,16 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                                   </button>
                                 )}
                                 <button
-                                  onClick={() => setDetailsModal({ isOpen: true, patient })}
+                                  onClick={() => {
+                                    const routeContextVar = typeof window !== 'undefined' && window.location.pathname?.startsWith('/clinic/') ? 'clinic' : 'staff';
+                                    if (routeContextVar === 'clinic') {
+                                      router.push(`/clinic/patient-profile-view?id=${patient._id}`);
+                                    } else {
+                                      router.push(`/clinic/patient-profile-view?id=${patient._id}`);
+                                    }
+                                  }}
                                   className="p-1.5 text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                                  title="View Details"
+                                  title="View Patient Profile"
                                 >
                                   <Eye className="h-4 w-4" />
                                 </button>

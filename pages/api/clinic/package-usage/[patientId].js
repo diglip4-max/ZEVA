@@ -196,6 +196,8 @@ export default async function handler(req, res) {
             invoiceNumber: billing.invoiceNumber,
             sessions: treatment.sessions || 0,
             date: billing.createdAt,
+            amount: billing.amount || 0,
+            paid: billing.paid || 0,
             isFromSourcePatient: isFromSourcePatient,
             sourcePatientId: isFromSourcePatient ? billing.patientId : null,
           });
@@ -210,14 +212,35 @@ export default async function handler(req, res) {
       packageUsage[pkgName].treatments = Object.values(packageUsage[pkgName].treatments);
     });
 
-    // Apply transferred allowances if present
+    // Apply transferred allowances if present; calculate remaining for regular packages
     Object.keys(packageUsage).forEach((pkgName) => {
       const transferInfo = transferSourceMap[pkgName];
       if (transferInfo && typeof transferInfo.transferredSessions === 'number') {
+        // Transferred package — use transferred sessions as the allowance
         const used = packageUsage[pkgName].totalSessions || 0;
         const remaining = Math.max(0, transferInfo.transferredSessions - used);
         packageUsage[pkgName].totalAllowedSessions = transferInfo.transferredSessions;
         packageUsage[pkgName].remainingSessions = remaining;
+      } else {
+        // Regular package — sum maxSessions across all treatments from package definition
+        const treatments = packageUsage[pkgName].treatments || [];
+        const totalAllowed = treatments.reduce((sum, t) => sum + (t.maxSessions || 0), 0);
+        const used = treatments.reduce((sum, t) => sum + (t.totalUsedSessions || 0), 0);
+
+        if (totalAllowed > 0) {
+          // Treatment-level sessions available from package definition
+          packageUsage[pkgName].totalAllowedSessions = totalAllowed;
+          packageUsage[pkgName].remainingSessions = Math.max(0, totalAllowed - used);
+        } else {
+          // Fallback: use top-level billing.sessions as total allowed
+          const billingHistory = packageUsage[pkgName].billingHistory || [];
+          const totalBilledSessions = billingHistory.reduce((sum, b) => sum + (b.sessions || 0), 0);
+          const usedFallback = billingHistory.reduce((sum, b) => {
+            return sum + (b.treatments || []).reduce((s, t) => s + (t.sessions || 0), 0);
+          }, 0);
+          packageUsage[pkgName].totalAllowedSessions = totalBilledSessions;
+          packageUsage[pkgName].remainingSessions = Math.max(0, totalBilledSessions - usedFallback);
+        }
       }
     });
 

@@ -49,6 +49,13 @@ const AgentProfileSchema = new mongoose.Schema(
     targetMultiplier: { type: Number, default: 1 },
     targetAmount: { type: Number, default: 0 },
 
+    discountType: {
+      type: String,
+      enum: ["percentage", "fixed_amount", ""],
+      default: "",
+    },
+    discountAmount: { type: Number, default: 0 },
+
     emergencyName: String,
     joiningDate: Date,
     isActive: { type: Boolean, default: true },

@@ -275,7 +275,7 @@ export default async function handler(req, res) {
         select: "name email phone isApproved declined role",
       })
       .select(
-        "name address treatments servicesName location pricing timings photos phone rating reviews verified slug slugLocked owner"
+        "name address treatments servicesName location pricing timings photos phone rating reviews verified slug slugLocked owner listingVisibility"
       )
       .limit(locationInfo.isInternational ? 100 : 50)
       .lean();
@@ -342,7 +342,7 @@ export default async function handler(req, res) {
           select: "name email phone isApproved declined role",
         })
         .select(
-          "name address treatments servicesName location pricing timings photos phone rating reviews verified slug slugLocked owner"
+          "name address treatments servicesName location pricing timings photos phone rating reviews verified slug slugLocked owner listingVisibility"
         )
         .limit(10)
         .lean();

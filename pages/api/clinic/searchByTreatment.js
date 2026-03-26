@@ -41,7 +41,7 @@ export default async function handler(req, res) {
         select: "name email phone isApproved declined role",
       })
       .select(
-        "name address location owner treatments pricing timings photos slug slugLocked servicesName"
+        "name address location owner treatments pricing timings photos slug slugLocked servicesName listingVisibility"
       )
       .lean();
 
