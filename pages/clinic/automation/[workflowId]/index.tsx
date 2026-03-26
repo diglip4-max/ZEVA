@@ -63,6 +63,7 @@ import AiComposerActionModal from "../_components/AiComposerActionModal";
 import SendWhatsappActionModal from "../_components/SendWhatsappActionModal";
 import IncomingMessageTriggerModal from "../_components/IncomingMessageTriggerModal";
 import BookAppointmentActionModal from "../_components/BookAppointmentActionModal";
+import AddTagActionModal from "../_components/AddTagActionModal";
 
 // Utility for tailwind classes
 function cn(...inputs: ClassValue[]) {
@@ -78,6 +79,18 @@ const actionIcons: { [key: string]: React.ElementType } = {
   "Assign Owner": UserPlus,
   "Add To Segment": UserPlus,
   "Book Appointment": Calendar,
+};
+
+const triggerIcons: { [key: string]: React.ElementType } = {
+  "New Lead": UserPlus,
+  "Update Lead": FaUserEdit,
+  "Create or Update Lead": FaUserEdit,
+  "New Patient": UserPlus,
+  "Update Patient": FaUserEdit,
+  "Create or Update Patient": FaUserEdit,
+  Appointment: Calendar,
+  "Incoming Message": MessageSquare,
+  "Webhook Received": Webhook,
 };
 
 // --- Custom Node Components ---
@@ -160,23 +173,26 @@ const NodeWrapper = ({
   </div>
 );
 
-const TriggerNode = ({ id, data, selected }: any) => (
-  <NodeWrapper
-    selected={selected}
-    title={data.label || "Trigger"}
-    icon={Zap}
-    color={data.color || "bg-amber-500"}
-    description="Starts the workflow"
-    onDelete={() => data.onDeleteNode(id)}
-    onEdit={() => data.onEditNode(id)}
-  >
-    <Handle
-      type="source"
-      position={Position.Right}
-      className="!w-2 !h-2 !bg-amber-500 !border-2 !border-white !-right-1.5"
-    />
-  </NodeWrapper>
-);
+const TriggerNode = ({ id, data, selected }: any) => {
+  const Icon = triggerIcons[data.label] || Zap;
+  return (
+    <NodeWrapper
+      selected={selected}
+      title={data.label || "Trigger"}
+      icon={Icon}
+      color={data.color || "bg-amber-500"}
+      description="Starts the workflow"
+      onDelete={() => data.onDeleteNode(id)}
+      onEdit={() => data.onEditNode(id)}
+    >
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!w-2 !h-2 !bg-amber-500 !border-2 !border-white !-right-1.5"
+      />
+    </NodeWrapper>
+  );
+};
 
 const ActionNode = ({ id, data, selected }: any) => {
   const Icon = actionIcons[data.label] || Play;
@@ -398,6 +414,13 @@ const WorkflowEditor = () => {
     show: false,
     actionId: null,
   });
+  const [addTagModal, setAddTagModal] = useState<{
+    show: boolean;
+    actionId: string | null;
+  }>({
+    show: false,
+    actionId: null,
+  });
   const [deleteModal, setDeleteModal] = useState<{
     show: boolean;
     nodeId: string | null;
@@ -573,6 +596,14 @@ const WorkflowEditor = () => {
             node.data.subType === "book_appointment")
         ) {
           setBookAppointmentModal({
+            show: true,
+            actionId: node.data.id,
+          });
+        } else if (
+          node &&
+          (node.data.label === "Add Tag" || node.data.subType === "add_tag")
+        ) {
+          setAddTagModal({
             show: true,
             actionId: node.data.id,
           });
@@ -906,10 +937,10 @@ const WorkflowEditor = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-all shadow-sm">
+          {/* <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-all shadow-sm">
             <Play className="w-4 h-4" />
             Test Flow
-          </button>
+          </button> */}
           <button
             onClick={handleSave}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 rounded-xl text-sm font-semibold text-white hover:bg-blue-700 transition-all shadow-md shadow-blue-200"
@@ -973,6 +1004,35 @@ const WorkflowEditor = () => {
                     description: "When a lead is updated",
                     icon: FaUserEdit,
                     color: "bg-yellow-500",
+                  },
+                  workflow?.entity === "Lead" && {
+                    subType: "create_or_update_lead",
+                    label: "Create or Update Lead",
+                    description: "When a lead is created or updated",
+                    icon: FaUserEdit,
+                    color: "bg-green-500",
+                  },
+                  // patient
+                  workflow?.entity === "Patient" && {
+                    subType: "record_created",
+                    label: "New Patient",
+                    description: "When a new patient is added",
+                    icon: UserPlus,
+                    color: "bg-blue-500",
+                  },
+                  workflow?.entity === "Patient" && {
+                    subType: "record_updated",
+                    label: "Update Patient",
+                    description: "When a patient is updated",
+                    icon: FaUserEdit,
+                    color: "bg-yellow-500",
+                  },
+                  workflow?.entity === "Patient" && {
+                    subType: "record_create_or_update",
+                    label: "Create or Update Patient",
+                    description: "When a patient is created or updated",
+                    icon: FaUserEdit,
+                    color: "bg-green-500",
                   },
                   workflow?.entity === "Appointment" && {
                     subType: "appointment",
@@ -1404,6 +1464,17 @@ const WorkflowEditor = () => {
         onUpdate={() => {
           fetchWorkflow();
           console.log("Book Appointment action updated");
+        }}
+      />
+
+      {/* Add Tag Action Modal */}
+      <AddTagActionModal
+        isOpen={addTagModal.show}
+        onClose={() => setAddTagModal({ show: false, actionId: null })}
+        actionId={addTagModal.actionId}
+        onUpdate={() => {
+          fetchWorkflow();
+          console.log("Add Tag action updated");
         }}
       />
     </div>

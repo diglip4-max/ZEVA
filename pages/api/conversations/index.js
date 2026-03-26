@@ -73,6 +73,8 @@ export default async function handler(req, res) {
     if (me.role !== "admin" && clinic._id) {
     }
 
+    console.log({ clinic });
+
     try {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 20;
@@ -123,6 +125,7 @@ export default async function handler(req, res) {
       const existingLeadIds = await Lead.find({
         clinicId: clinic._id,
       }).distinct("_id");
+      console.log({ existingLeadIds });
       if (!existingLeadIds || existingLeadIds.length === 0) {
         // No leads for this clinic -> return empty result
         return res.status(200).json({
@@ -143,10 +146,12 @@ export default async function handler(req, res) {
       let finalLeadIds = existingLeadIds;
       if (leadIdsFromSearch) {
         const filtered = leadIdsFromSearch.filter((id) =>
-          existingLeadIdStrs.includes(String(id))
+          existingLeadIdStrs.includes(String(id)),
         );
         finalLeadIds = filtered;
       }
+
+      console.log({ finalLeadIds });
 
       if (!finalLeadIds || finalLeadIds.length === 0) {
         return res.status(200).json({
@@ -178,7 +183,7 @@ export default async function handler(req, res) {
         })
         .populate(
           "recentMessage",
-          "subject channel content mediaType mediaUrl attachments createdAt"
+          "subject channel content mediaType mediaUrl attachments createdAt",
         )
         .sort({ updatedAt: -1 })
         .skip(skip)

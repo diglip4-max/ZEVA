@@ -48,9 +48,10 @@ export default async function handler(req, res) {
     }
 
     // Permission checks (admin bypasses)
+    let clinic;
     if (user.role !== "admin") {
       if (user.role === "clinic") {
-        const clinic = await Clinic.findOne({ owner: user._id });
+        clinic = await Clinic.findOne({ owner: user._id });
         if (clinic) {
           const { hasPermission, error } = await checkClinicPermission(
             clinic._id,
@@ -76,6 +77,8 @@ export default async function handler(req, res) {
             message: error || "You do not have permission to create patients",
           });
         }
+
+        clinic = await Clinic.findById(user.clinicId);
       } else if (user.role === "doctorStaff") {
         const { hasPermission, error } = await checkAgentPermission(
           user._id,
@@ -88,6 +91,7 @@ export default async function handler(req, res) {
             message: error || "You do not have permission to create patients",
           });
         }
+        clinic = await Clinic.findById(user.clinicId);
       }
     }
 
@@ -116,7 +120,16 @@ export default async function handler(req, res) {
     }
 
     // Check if patient with same mobile number exists
-    const existingPatient = await PatientRegistration.findOne({ mobileNumber });
+    const existingPatient = await PatientRegistration.findOne({
+      clinicId: clinic._id,
+      mobileNumber,
+    });
+    console.log({
+      existingPatient,
+      clinicId: clinic._id,
+      mobileNumber,
+      user,
+    });
 
     if (existingPatient) {
       return res.status(200).json({
@@ -175,6 +188,7 @@ export default async function handler(req, res) {
     }
 
     const newPatient = await PatientRegistration.create({
+      clinicId: clinic._id,
       invoiceNumber,
       invoicedDate: new Date(),
       invoicedBy: user.name || user.email || "Clinic",

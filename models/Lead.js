@@ -104,6 +104,14 @@ const LeadSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "PatientRegistration",
     },
+
+    // tags
+    tags: [
+      {
+        type: String,
+        index: true,
+      },
+    ],
   },
   { timestamps: true },
 );

@@ -30,7 +30,7 @@ const CollapsibleWrapper: React.FC<IProps> = ({
             size={17}
             className={clsx(
               "transition-transform duration-300",
-              isOpen ? "rotate-0" : "-rotate-90"
+              isOpen ? "rotate-0" : "-rotate-90",
             )}
           />
           <h2 className="text-sm font-medium text-gray-700 ml-2">
@@ -44,12 +44,12 @@ const CollapsibleWrapper: React.FC<IProps> = ({
       <div
         className={clsx(
           "overflow-hidden transition-all duration-300 ease-in-out",
-          isOpen ? "max-h-[5000px] opacity-100" : "max-h-0 opacity-0"
+          isOpen ? "max-h-[5000px] opacity-100" : "max-h-0 opacity-0",
         )}
         aria-hidden={!isOpen}
       >
         {loading ? (
-          <div className="flex items-center justify-center py-4">
+          <div className="flex items-center text-sm text-gray-600 justify-center py-4">
             Loading...
           </div>
         ) : (
