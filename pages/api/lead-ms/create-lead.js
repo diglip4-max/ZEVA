@@ -10,6 +10,11 @@ import csv from "csvtojson";
 import multer from "multer";
 import * as XLSX from "xlsx";
 import Segment from "../../../models/Segment";
+import {
+  executeWorkflows,
+  WORKFLOW_ENTITY_TYPE,
+  WORKFLOW_TRIGGER_TYPE,
+} from "../../../bullmq/workflow";
 
 // Multer setup
 const upload = multer({ storage: multer.memoryStorage() });
@@ -88,7 +93,11 @@ export default async function handler(req, res) {
         "create_lead", // Check "create_lead" module permission
         "create",
         null, // No submodule - this is a module-level check
-        me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
+        me.role === "doctor"
+          ? "doctor"
+          : me.role === "clinic"
+            ? "clinic"
+            : null,
       );
 
     if (!clinicHasPermission) {
@@ -100,15 +109,14 @@ export default async function handler(req, res) {
 
     // If user is an agent, also check agent-specific permissions
     if (me.role === "agent") {
-      const { checkAgentPermission } = await import(
-        "../agent/permissions-helper"
-      );
+      const { checkAgentPermission } =
+        await import("../agent/permissions-helper");
       const { hasPermission: agentHasPermission, error: agentError } =
         await checkAgentPermission(
           me._id,
           "create_lead", // Check "create_lead" module permission
           "create",
-          null // No submodule
+          null, // No submodule
         );
 
       if (!agentHasPermission) {
@@ -123,6 +131,7 @@ export default async function handler(req, res) {
   const mode = isMultipart ? body.mode || "bulk" : body.mode || "manual";
 
   try {
+    console.log({ mode });
     // ---------------- Manual Mode ----------------
     if (mode === "manual") {
       const {
@@ -172,14 +181,14 @@ export default async function handler(req, res) {
 
           if (t.subTreatment) {
             const subExists = tDoc.subcategories?.some(
-              (s) => s.name === t.subTreatment
+              (s) => s.name === t.subTreatment,
             );
             if (!subExists)
               throw new Error(`SubTreatment not found: ${t.subTreatment}`);
           }
 
           return { treatment: tDoc._id, subTreatment: t.subTreatment || null };
-        })
+        }),
       );
 
       const followUpsArray = Array.isArray(followUps)
@@ -193,8 +202,8 @@ export default async function handler(req, res) {
             createdAt: new Date(),
           }))
         : notes
-        ? [{ text: notes, addedBy: me._id, createdAt: new Date() }]
-        : [];
+          ? [{ text: notes, addedBy: me._id, createdAt: new Date() }]
+          : [];
 
       let assignedArray = [];
       if (assignedTo) {
@@ -216,7 +225,7 @@ export default async function handler(req, res) {
               if (!u) throw new Error(`Assigned user not found: ${val}`);
               return { user: u._id, assignedAt: new Date() };
             }
-          })
+          }),
         );
       }
 
@@ -244,6 +253,16 @@ export default async function handler(req, res) {
         $addToSet: {
           leads: lead._id,
         },
+      });
+
+      console.log({ lead });
+
+      // Note: Execute workflow for the created lead
+      executeWorkflows({
+        entity: WORKFLOW_ENTITY_TYPE.LEAD,
+        trigger: WORKFLOW_TRIGGER_TYPE.NEW_LEAD,
+        leadId: lead._id?.toString(),
+        clinicId: clinicId?.toString(),
       });
 
       return res.status(201).json({ success: true, lead });
@@ -290,7 +309,7 @@ export default async function handler(req, res) {
 
           if (!name || !phone || !gender || !source || !treatments) {
             throw new Error(
-              `Missing required fields in row: ${JSON.stringify(row)}`
+              `Missing required fields in row: ${JSON.stringify(row)}`,
             );
           }
 
@@ -331,11 +350,11 @@ export default async function handler(req, res) {
               if (subTreatment) {
                 const exists = tDoc.subcategories?.some(
                   (s) =>
-                    s.name?.trim().toLowerCase() === subTreatment.toLowerCase()
+                    s.name?.trim().toLowerCase() === subTreatment.toLowerCase(),
                 );
                 if (!exists)
                   throw new Error(
-                    `SubTreatment not found: ${subTreatment} for ${treatmentName}`
+                    `SubTreatment not found: ${subTreatment} for ${treatmentName}`,
                   );
               }
 
@@ -343,7 +362,7 @@ export default async function handler(req, res) {
                 treatment: tDoc._id,
                 subTreatment: subTreatment || null,
               };
-            })
+            }),
           );
 
           let assignedArray = [];
@@ -369,7 +388,7 @@ export default async function handler(req, res) {
                   if (!u) throw new Error(`Assigned user not found: ${val}`);
                   return { user: u._id, assignedAt: new Date() };
                 }
-              })
+              }),
             );
           }
 
@@ -393,7 +412,7 @@ export default async function handler(req, res) {
               : [],
             assignedTo: assignedArray,
           };
-        })
+        }),
       );
 
       const createdLeads = await Lead.insertMany(leadsToInsert);

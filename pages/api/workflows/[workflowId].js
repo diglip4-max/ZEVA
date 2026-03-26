@@ -1,16 +1,20 @@
 import dbConnect from "../../../lib/database";
 import Clinic from "../../../models/Clinic";
 import Workflow from "../../../models/workflows/Workflow";
+import WorkflowAction from "../../../models/workflows/WorkflowAction";
+import WorkflowCondition from "../../../models/workflows/WorkflowCondition";
+import WorkflowTrigger from "../../../models/workflows/WorkflowTrigger";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
+import mongoose from "mongoose";
 
 export default async function handler(req, res) {
   await dbConnect();
 
   const { workflowId } = req.query;
 
-  res.setHeader("Allow", ["GET", "PUT"]);
+  res.setHeader("Allow", ["GET", "PUT", "DELETE"]);
 
-  if (req.method !== "GET" && req.method !== "PUT") {
+  if (req.method !== "GET" && req.method !== "PUT" && req.method !== "DELETE") {
     return res
       .status(405)
       .json({ success: false, message: `Method ${req.method} Not Allowed` });
@@ -89,6 +93,40 @@ export default async function handler(req, res) {
         message: "Workflow updated successfully",
         data: updatedWorkflow,
       });
+    }
+
+    if (req.method === "DELETE") {
+      const session = await mongoose.startSession();
+      try {
+        await session.withTransaction(async () => {
+          const deletedWorkflow = await Workflow.findByIdAndDelete(workflowId, {
+            session,
+          });
+
+          if (!deletedWorkflow) {
+            // This will abort the transaction
+            throw new Error("Workflow not found");
+          }
+
+          // Delete all related documents
+          await WorkflowAction.deleteMany({ workflowId }, { session });
+          await WorkflowTrigger.deleteMany({ workflowId }, { session });
+          await WorkflowCondition.deleteMany({ workflowId }, { session });
+          await WorkflowHistory.deleteMany({ workflowId }, { session });
+        });
+
+        return res.status(200).json({
+          success: true,
+          message: "Workflow deleted successfully",
+        });
+      } catch (err) {
+        return res.status(500).json({
+          success: false,
+          message: err.message || "Transaction failed",
+        });
+      } finally {
+        session.endSession();
+      }
     }
   } catch (err) {
     console.error(`Error in /api/workflows/${workflowId}:`, err);

@@ -12,20 +12,22 @@ const WorkflowHistorySchema = new Schema(
     triggerId: {
       type: Schema.Types.ObjectId,
       ref: "WorkflowTrigger",
-      required: true,
     },
     actionId: {
       type: Schema.Types.ObjectId,
       ref: "WorkflowAction",
-      required: true,
     },
     conditionId: {
       type: Schema.Types.ObjectId,
       ref: "WorkflowCondition",
-      required: true,
     },
     conditionResult: {
       type: Boolean,
+    },
+    type: {
+      type: String,
+      enum: ["trigger", "action", "condition"],
+      required: true,
     },
     status: {
       type: String,
@@ -50,6 +52,11 @@ const WorkflowHistorySchema = new Schema(
     },
     // Store details about the action that was performed
     details: {
+      type: Map,
+      of: Schema.Types.Mixed,
+    },
+    // Store the response of the action if it has one - REST API ACTION or AI_COMPOSER ACTION or WEBHOOK TRIGGER
+    response: {
       type: Map,
       of: Schema.Types.Mixed,
     },

@@ -123,11 +123,62 @@ export default async function handler(req, res) {
       const [totalWorkflows, workflows, activeCount, totalRuns] =
         await Promise.all([
           Workflow.countDocuments(query),
-          Workflow.find(query)
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit)
-            .lean(),
+          Workflow.aggregate([
+            { $match: query },
+            { $sort: { createdAt: -1 } },
+            { $skip: skip },
+            { $limit: limit },
+            {
+              $lookup: {
+                from: "workflowhistories",
+                localField: "_id",
+                foreignField: "workflowId",
+                as: "history",
+              },
+            },
+            {
+              $addFields: {
+                totalRuns: { $size: "$history" },
+                completedRuns: {
+                  $size: {
+                    $filter: {
+                      input: "$history",
+                      as: "h",
+                      cond: { $eq: ["$$h.status", "completed"] },
+                    },
+                  },
+                },
+              },
+            },
+            {
+              $addFields: {
+                successRate: {
+                  $cond: {
+                    if: { $gt: ["$totalRuns", 0] },
+                    then: {
+                      $round: [
+                        {
+                          $multiply: [
+                            { $divide: ["$completedRuns", "$totalRuns"] },
+                            100,
+                          ],
+                        },
+                        2,
+                      ],
+                    },
+                    else: 0,
+                  },
+                },
+              },
+            },
+            {
+              $project: {
+                history: 0,
+                totalRuns: 0,
+                completedRuns: 0,
+              },
+            },
+          ]),
           Workflow.countDocuments({ ...query, status: "Active" }),
           Workflow.aggregate([
             { $match: query },

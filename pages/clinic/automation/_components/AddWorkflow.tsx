@@ -2,6 +2,7 @@ import { useState } from "react";
 import { X, Zap, ChevronDown, FileText, Activity, Layers } from "lucide-react";
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
+import { useRouter } from "next/router";
 
 interface AddWorkflowProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ const AddWorkflow: React.FC<AddWorkflowProps> = ({
   onClose,
   onWorkflowCreated,
 }) => {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [entity, setEntity] = useState("Lead");
@@ -41,11 +43,13 @@ const AddWorkflow: React.FC<AddWorkflowProps> = ({
         },
       );
       if (response.data.success) {
+        const workflow = response?.data?.data;
         onWorkflowCreated();
-        onClose();
         setName("");
         setDescription("");
         setEntity("Lead");
+        onClose();
+        router.push(`/clinic/automation/${workflow._id}`);
       } else {
         setError(response.data.message || "An unknown error occurred.");
       }

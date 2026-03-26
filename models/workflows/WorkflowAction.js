@@ -159,10 +159,6 @@ const parameterSchema = new mongoose.Schema({
   },
 
   // assign_owner action parameters
-  ownerId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-  },
   assignedTo: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
@@ -177,6 +173,61 @@ const parameterSchema = new mongoose.Schema({
   variableMappings: { type: Object, default: {} },
   headerVariableMappings: { type: Object, default: {} },
   buttonVariableMappings: { type: Object, default: {} },
+
+  // book_appointment action parameters
+  appointment: {
+    doctorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    roomId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Room",
+    },
+    mainTreatment: {
+      type: String,
+    },
+    subTreatment: {
+      type: String,
+    },
+    appointmentDate: {
+      type: String,
+    },
+    appointmentTime: {
+      type: String,
+    },
+    followType: {
+      type: String,
+    },
+    status: {
+      type: String,
+      enum: [
+        "booked",
+        "enquiry",
+        "Discharge",
+        "Arrived",
+        "Consultation",
+        "Cancelled",
+        "Approved",
+        "Rescheduled",
+        "Waiting",
+        "Rejected",
+        "Completed",
+        "invoice",
+        "No Show",
+      ],
+      required: true,
+      default: "booked",
+    },
+    followType: {
+      type: String,
+      enum: ["first time", "follow up", "repeat"],
+      required: true,
+    },
+    notes: {
+      type: String,
+    },
+  },
 });
 
 const WorkflowActionSchema = new Schema(
@@ -209,6 +260,7 @@ const WorkflowActionSchema = new Schema(
         "ai_composer",
         "delay",
         "router",
+        "book_appointment",
       ],
     },
     parameters: parameterSchema,

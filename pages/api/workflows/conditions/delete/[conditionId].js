@@ -1,7 +1,9 @@
 import dbConnect from "../../../../../lib/database";
 import Clinic from "../../../../../models/Clinic";
 import WorkflowCondition from "../../../../../models/workflows/WorkflowCondition";
+import WorkflowHistory from "../../../../../models/workflows/WorkflowHistory";
 import { getUserFromReq, requireRole } from "../../../lead-ms/auth";
+import mongoose from "mongoose";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -70,12 +72,30 @@ export default async function handler(req, res) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    await WorkflowCondition.findByIdAndDelete(conditionId);
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const deletedCondition = await WorkflowCondition.findByIdAndDelete(
+          conditionId,
+          { session },
+        );
+        if (!deletedCondition) {
+          throw new Error("Condition not found");
+        }
 
-    return res.status(200).json({
-      success: true,
-      message: "Condition deleted successfully",
-    });
+        // Delete associated workflow history
+        await WorkflowHistory.deleteMany({ conditionId }, { session });
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Condition and associated history deleted successfully",
+      });
+    } catch (err) {
+      throw err;
+    } finally {
+      session.endSession();
+    }
   } catch (err) {
     console.error("Error deleting condition:", err);
     return res.status(500).json({

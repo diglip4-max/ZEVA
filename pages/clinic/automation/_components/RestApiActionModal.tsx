@@ -13,6 +13,7 @@ import {
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
 import { clsx, type ClassValue } from "clsx";
+import VariableMappingDropdown from "./VariableMappingDropdown";
 
 function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
@@ -324,9 +325,16 @@ const RestApiActionModal: React.FC<RestApiActionModalProps> = ({
                             }
                             className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                           />
+                          <VariableMappingDropdown
+                            onSelect={(value: string) =>
+                              updateHeader(idx, "value", value)
+                            }
+                            entity={"Lead"}
+                            align="right"
+                          />
                           <button
                             onClick={() => removeHeader(idx)}
-                            className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                            className="p-2 rounded-lg border border-gray-200 bg-white hover:border-red-300 text-gray-400 hover:text-red-500 transition-colors shadow-sm"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -376,9 +384,16 @@ const RestApiActionModal: React.FC<RestApiActionModalProps> = ({
                             }
                             className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                           />
+                          <VariableMappingDropdown
+                            onSelect={(value: string) =>
+                              updateParam(idx, "value", value)
+                            }
+                            entity={"Lead"}
+                            align="right"
+                          />
                           <button
                             onClick={() => removeParam(idx)}
-                            className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                            className="p-2 rounded-lg border border-gray-200 bg-white hover:border-red-300 text-gray-400 hover:text-red-500 transition-colors shadow-sm"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>

@@ -10,6 +10,11 @@ import {
   emitIncomingMessageToUser,
   emitMessageStatusUpdateToUser,
 } from "../../../services/socket-emitter";
+import {
+  executeWorkflows,
+  WORKFLOW_ENTITY_TYPE,
+  WORKFLOW_TRIGGER_TYPE,
+} from "../../../bullmq/workflow";
 
 // Utility: normalize phone number by removing leading + and non-digit chars
 const getWithoutPlusNumber = (num) => {
@@ -83,16 +88,16 @@ const processWhatsAppWebhook = async (req) => {
       const updatedTempplate = await Template.findOneAndUpdate(
         { templateId: message_template_id },
         { status: event?.toLowerCase() },
-        { new: true }
+        { new: true },
       );
 
       if (updatedTempplate) {
         console.log(
-          `Template ${updatedTempplate.name} status updated to ${event}`
+          `Template ${updatedTempplate.name} status updated to ${event}`,
         );
       } else {
         console.warn(
-          `No template found with templateId: ${message_template_id}`
+          `No template found with templateId: ${message_template_id}`,
         );
       }
     } else if (change.field === "messages") {
@@ -131,7 +136,7 @@ const processWhatsAppWebhook = async (req) => {
       console.log({ m: JSON.stringify(messages) });
       if (!provider) {
         console.warn(
-          `No provider found for phone number id: ${whatsappPhoneId}`
+          `No provider found for phone number id: ${whatsappPhoneId}`,
         );
         return;
       }
@@ -168,7 +173,7 @@ const processWhatsAppWebhook = async (req) => {
             if (findMessage) {
               // Check if this lead already reacted to this message
               const existingEmojiIndex = findMessage.emojis?.findIndex(
-                (e) => e?.lead?.toString() === findLead?._id?.toString()
+                (e) => e?.lead?.toString() === findLead?._id?.toString(),
               );
 
               const reactionEmoji = message?.reaction?.emoji;
@@ -244,7 +249,7 @@ const processWhatsAppWebhook = async (req) => {
               ownerId = randomUser._id;
 
               console.log(
-                `Randomly assigned to user: ${randomUser.name} (${randomUser.role}) - ID: ${randomUser._id}`
+                `Randomly assigned to user: ${randomUser.name} (${randomUser.role}) - ID: ${randomUser._id}`,
               );
             } else {
               console.log("No eligible users found for assignment");
@@ -491,6 +496,16 @@ const processWhatsAppWebhook = async (req) => {
 
           // check consent for help keyword
           // updateConsentHelpOfContact(teamId, newMessage?._id);
+
+          // Note: Execute workflow for the created lead
+          executeWorkflows({
+            entity: WORKFLOW_ENTITY_TYPE.MESSAGE,
+            trigger: WORKFLOW_TRIGGER_TYPE.INCOMING_MESSAGE,
+            leadId: findLead._id?.toString(),
+            clinicId: findLead.clinicId?.toString(),
+            channel: "whatsapp",
+            providerId: provider._id?.toString(),
+          });
         }
       }
     }

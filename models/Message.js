@@ -52,7 +52,7 @@ const MessageSchema = new mongoose.Schema(
     },
     messageType: {
       type: String,
-      enum: ["conversational", "bulk"],
+      enum: ["conversational", "bulk", "automation"],
       default: "conversational",
     },
     subject: { type: String }, // For email
@@ -190,7 +190,7 @@ const MessageSchema = new mongoose.Schema(
       timezone: String,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // Prevent model recompilation error in development
