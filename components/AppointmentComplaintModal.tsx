@@ -28,6 +28,14 @@ import {
   TrendingUp,
   Pill,
   NotebookPen,
+  CheckCircle,
+  XCircle,
+  MessageCircle,
+  Search,
+  Loader2,
+  Phone,
+  Venus,
+  Mars,
 } from "lucide-react";
 import useStockItems from "@/hooks/useStockItems";
 import useUoms from "@/hooks/useUoms";
@@ -179,6 +187,17 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   >([]);
   const [loadingComplaints, setLoadingComplaints] = useState(false);
   const [showPreviousReports, setShowPreviousReports] = useState(false);
+
+  // Patient EMR stats — total spend from Billing, visits from Appointment
+  interface PatientEMRStats {
+    totalSpend: number; totalBilled: number; totalPending: number;
+    totalVisits: number; billingCount: number;
+    recentBillings: Array<{ service: string; label: string; amount: number; paid: number; pending: number; date: string }>;
+  }
+  const [patientStats, setPatientStats] = useState<PatientEMRStats | null>(null);
+  const [loadingPatientStats, setLoadingPatientStats] = useState(false);
+  // Ref to scroll to Previous Complaints when History is clicked
+  const previousComplaintsRef = useRef<HTMLDivElement | null>(null);
   const [expandedComplaints, setExpandedComplaints] = useState<
     Record<string, boolean>
   >({});
@@ -220,6 +239,17 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [selectedConsentId, setSelectedConsentId] = useState<string>("");
   const [sendingConsent, setSendingConsent] = useState<boolean>(false);
   const [consentSent, setConsentSent] = useState<boolean>(false);
+  
+  // Consent status tracking
+  interface ConsentStatusData {
+    status: "not-sent" | "sent" | "viewed" | "signed";
+    sentVia?: "WhatsApp" | "SMS";
+    sentAt?: string;
+    viewedAt?: string;
+    signedAt?: string;
+  }
+  const [consentStatus, setConsentStatus] = useState<ConsentStatusData | null>(null);
+  const [sendingVia, setSendingVia] = useState<"WhatsApp" | "SMS" | null>(null);
 
   // Tab state
   type TabType = "complaint" | "progress" | "prescription";
@@ -277,6 +307,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [nextSessionBooked, setNextSessionBooked] = useState(false);
   const [nextSessionError, setNextSessionError] = useState<string>("");
 
+  // Upcoming appointments state
+  interface UpcomingAppointment { _id: string; startDate: string; fromTime: string; toTime: string; status: string; followType: string; }
+  const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>([]);
+  const [loadingUpcoming, setLoadingUpcoming] = useState(false);
+
   // Clinical Checklist state
   const CHECKLIST_ITEMS = ["Consent Signed", "Allergy Checked", "Photos Uploaded", "Notes Completed"] as const;
   const [checklist, setChecklist] = useState<Record<string, boolean>>({
@@ -297,7 +332,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [servicesSaved, setServicesSaved] = useState(false);
   const [servicesError, setServicesError] = useState("");
   const [loadingServices, setLoadingServices] = useState(false);
-  const addServiceDropdownRef = useRef<HTMLDivElement | null>(null);
 
   // Create Package state
   const [showCreatePackage, setShowCreatePackage] = useState(false);
@@ -311,8 +345,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [pkgError, setPkgError] = useState("");
   const [pkgSuccess, setPkgSuccess] = useState("");
   const [addingPackageToPatient, setAddingPackageToPatient] = useState(false);
-  const [createdPackageId, setCreatedPackageId] = useState<string | null>(null);
   const [addingRecService, setAddingRecService] = useState<Record<string, boolean>>({});
+  // Track added services per patient (key format: "patientId_serviceId")
   const [addedRecServices, setAddedRecServices] = useState<Record<string, boolean>>({});
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -358,6 +392,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       setLoadingComplaints(false);
       setShowPreviousReports(false);
       setExpandedComplaints({});
+      setPatientStats(null);
+      setLoadingPatientStats(false);
       setItems([]);
       setCurrentItem({
         itemId: "",
@@ -395,6 +431,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       setNextSessionTime("09:00");
       setNextSessionBooked(false);
       setNextSessionError("");
+      setUpcomingAppointments([]);
+      setLoadingUpcoming(false);
       return;
     }
 
@@ -462,9 +500,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
             : [],
         );
 
-        // Fetch previous complaints for this patient
+        // Fetch previous complaints + billing/visit stats
         if (response.data.appointment?.patientId) {
           fetchPreviousComplaints(response.data.appointment.patientId);
+          fetchPatientStats(response.data.appointment.patientId);
+          fetchUpcomingAppointments(response.data.appointment.patientId);
         }
 
         // Fetch smart recommendations based on doctor's departments
@@ -501,6 +541,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       } finally {
         setLoadingComplaints(false);
       }
+    };
+
+    const fetchPatientStats = async (patientId: string) => {
+      setLoadingPatientStats(true);
+      try {
+        const headers = getAuthHeaders();
+        const res = await axios.get(`/api/clinic/patient-emr-stats/${patientId}`, { headers });
+        if (res.data?.success) setPatientStats(res.data);
+      } catch { /* silent */ }
+      finally { setLoadingPatientStats(false); }
     };
 
     fetchDetails();
@@ -581,10 +631,31 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         emergency: "no",
       }, { headers });
       setNextSessionBooked(true);
+      // Refresh upcoming list
+      if (details?.patientId) fetchUpcomingAppointments(details.patientId);
     } catch (err: any) {
       setNextSessionError(err.response?.data?.message || "Failed to book next session.");
     } finally {
       setBookingNextSession(false);
+    }
+  };
+
+  // Fetch upcoming appointments for this patient (dates > today)
+  const fetchUpcomingAppointments = async (patientId: string) => {
+    setLoadingUpcoming(true);
+    try {
+      const headers = getAuthHeaders();
+      const res = await axios.get("/api/clinic/patient-upcoming-appointments", {
+        headers,
+        params: { patientId },
+      });
+      if (res.data?.success) {
+        setUpcomingAppointments(res.data.appointments || []);
+      }
+    } catch {
+      // silently ignore
+    } finally {
+      setLoadingUpcoming(false);
     }
   };
 
@@ -661,7 +732,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       }, { headers });
       if (res.data?.success) {
         const newPkgId = res.data.package?._id || res.data.packageId || null;
-        setCreatedPackageId(newPkgId);
         if (addToPatient && newPkgId && details?.patientId) {
           setAddingPackageToPatient(true);
           try {
@@ -954,2526 +1024,2837 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     currentItem.quantity > availableForSelectedUom &&
     availableForSelectedUom > 0;
 
+  // Compute total bill from selected services
+  const totalBill = selectedServices.reduce(
+    (sum, s) => sum + (s.clinicPrice != null ? s.clinicPrice : s.price),
+    0,
+  );
+
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8">
-        <div className="bg-white w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
-              Patient Complaints & EMR Overview
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-2 py-4">
+        <div className="bg-gray-50 w-full max-w-[1500px] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[96vh]">
 
-          {/* Tab Navigation */}
-          <div className="flex border-b border-gray-200 px-6 bg-white">
-            {(
-              [
-                { key: "complaint", label: "Complaint", icon: <NotebookPen className="w-4 h-4" /> },
-                { key: "progress", label: "Progress", icon: <TrendingUp className="w-4 h-4" /> },
-                { key: "prescription", label: "Prescription", icon: <Pill className="w-4 h-4" /> },
-              ] as const
-            ).map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all -mb-px ${
-                  activeTab === tab.key
-                    ? "border-red-500 text-red-600"
-                    : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
-                }`}
-              >
-                {tab.icon}
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="px-6 py-4 overflow-y-auto space-y-4">
-            {/* ── COMPLAINT TAB ── */}
-            {activeTab === "complaint" && (
-            <>
-            {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {error}
+          {/* ── TOP HEADER BAR ── */}
+          <div className="bg-white border-b border-gray-200 px-5 py-3 flex-shrink-0">
+            {loading ? (
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-400">Loading patient details...</div>
+                <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
               </div>
-            )}
-
-            {loading && (
-              <div className="py-8 text-center text-gray-500 text-sm">
-                Loading patient details and reports...
-              </div>
-            )}
-
-            {!loading && details && (
-              <>
-                {/* 1. Patient Details - light green - Compact single row */}
-                <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2">
-                  <h3 className="text-xs font-semibold text-emerald-900 uppercase tracking-wide mb-1">
-                    Patient Details
-                  </h3>
-                  <div className="text-xs text-emerald-900 flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <span>
-                      <span className="font-semibold">Name:</span>{" "}
-                      {details.patientName}
-                    </span>
-                    <span>•</span>
-                    <span>
-                      <span className="font-semibold">EMR:</span>{" "}
-                      {details.emrNumber || "-"}
-                    </span>
-                    <span>•</span>
-                    <span className="capitalize">
-                      <span className="font-semibold">Gender:</span>{" "}
-                      {details.gender || "-"}
-                    </span>
-                    <span>•</span>
-                    <span>
-                      <span className="font-semibold">Mobile:</span>{" "}
-                      {details.mobileNumber || "-"}
-                    </span>
-                    <span>•</span>
-                    <span>
-                      <span className="font-semibold">Email:</span>{" "}
-                      {details.email || "-"}
-                    </span>
-                    <span>•</span>
-                    <span>
-                      <span className="font-semibold">ID:</span>{" "}
-                      {details.patientId.slice(-8)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* 2. Appointment & Doctor - light blue - Compact single row */}
-                <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2">
-                  <h3 className="text-xs font-semibold text-sky-900 uppercase tracking-wide mb-1">
-                    Appointment & Doctor
-                  </h3>
-                  <div className="text-xs text-sky-900 flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <span>
-                      <span className="font-semibold">Date:</span>{" "}
-                      {formatDate(details.startDate)}
-                    </span>
-                    <span>•</span>
-                    <span>
-                      <span className="font-semibold">Time:</span>{" "}
-                      {details.fromTime && details.toTime
-                        ? `${details.fromTime} – ${details.toTime}`
-                        : "-"}
-                    </span>
-                    <span>•</span>
-                    <span>
-                      <span className="font-semibold">Doctor:</span>{" "}
-                      {details.doctorName}
-                    </span>
-                    <span>•</span>
-                    <span>
-                      <span className="font-semibold">Email:</span>{" "}
-                      {details.doctorEmail || "-"}
-                    </span>
-                    <span>•</span>
-                    <span>
-                      <span className="font-semibold">Status:</span>{" "}
-                      {details.status || "-"}
-                    </span>
-                    {Array.isArray(details.serviceNames) && details.serviceNames.length > 0 && (
-                      <>
-                        <span>•</span>
-                        <span>
-                          <span className="font-semibold">Treatments:</span>{" "}
-                          {details.serviceNames.join(", ")}
+            ) : details ? (
+              <div className="flex flex-col gap-2">
+                {/* Patient info + stat boxes + date/time + action buttons */}
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  {/* Left: avatar + name + gender/phone */}
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-11 h-11 rounded-xl bg-teal-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+                      <User className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-base font-bold text-gray-900">{details.patientName}</span>
+                        <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-2 py-0.5 font-medium">
+                          ID: {details.emrNumber || details.patientId.slice(-8)}
                         </span>
-                      </>
-                    )}
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500">
+                        <span className="flex items-center gap-1">
+                          {details.gender?.toLowerCase() === "female" ? (
+                            <Venus className="w-3 h-3 text-pink-500" />
+                          ) : details.gender?.toLowerCase() === "male" ? (
+                            <Mars className="w-3 h-3 text-blue-500" />
+                          ) : (
+                            <User className="w-3 h-3 text-gray-400" />
+                          )}
+                          <span className="capitalize">{details.gender || "—"}</span>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Phone className="w-3 h-3 text-gray-400" />
+                          <span>{details.mobileNumber || "—"}</span>
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
 
-                {/* 3. Appointment Reports - light red */}
-                <div className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="text-xs font-semibold text-rose-900 uppercase tracking-wide">
-                      Appointment Reports
-                    </h3>
-                    {patientReports.length > 0 && (
-                      <button
-                        onClick={() =>
-                          setShowPreviousReports(!showPreviousReports)
-                        }
-                        className="text-xs px-2 py-1 bg-rose-200 text-rose-900 rounded hover:bg-rose-300 transition"
-                      >
-                        {showPreviousReports ? "Hide" : "Previous"} (
-                        {patientReports.length})
+                  {/* Centre: Total Spend + Visits stat boxes */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex flex-col items-center px-4 py-1.5 rounded-xl border border-teal-200 bg-teal-50/40 min-w-[100px]">
+                      <span className="text-[10px] text-teal-600 font-medium">Total Spend</span>
+                      <span className="text-base font-bold text-teal-700 leading-tight">
+                        {loadingPatientStats ? "…" : patientStats != null ? `$ ${patientStats.totalSpend.toLocaleString()}` : "—"}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center px-4 py-1.5 rounded-xl border border-teal-200 bg-teal-50/40 min-w-[64px]">
+                      <span className="text-[10px] text-teal-600 font-medium">Visits</span>
+                      <span className="text-base font-bold text-teal-700 leading-tight">
+                        {loadingPatientStats ? "…" : patientStats != null ? patientStats.totalVisits : "—"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Right: date + time + status + action buttons */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-500 bg-gray-50">
+                      <Calendar size={11} /> {formatDate(details.startDate)}
+                    </div>
+                    {details.fromTime && (
+                      <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-500 bg-gray-50">
+                        <Clock size={11} /> {details.fromTime}{details.toTime ? ` – ${details.toTime}` : ""}
+                      </div>
+                    )}
+                    <span className={`text-xs rounded-full px-2.5 py-1 font-semibold ${
+                      details.status === "Arrived" ? "bg-green-100 text-green-700 border border-green-200" :
+                      details.status === "booked" ? "bg-blue-100 text-blue-700 border border-blue-200" :
+                      details.status === "Completed" ? "bg-gray-100 text-gray-700 border border-gray-200" :
+                      "bg-orange-100 text-orange-700 border border-orange-200"
+                    }`}>{details.status || "in-progress"}</span>
+
+                    {/* Send Consent */}
+                    <div className="flex items-center gap-1">
+                      <select value={selectedConsentId} onChange={(e) => { setSelectedConsentId(e.target.value); setConsentSent(false); setConsentStatus(null); }} className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-300 max-w-[130px]">
+                        <option value="">Select Consent</option>
+                        {consentForms.map((cf) => (<option key={cf._id} value={cf._id}>{cf.formName}</option>))}
+                      </select>
+                      <button type="button" disabled={!selectedConsentId || sendingConsent || consentSent}
+                        onClick={async () => {
+                          if (!selectedConsentId) return;
+                          setSendingConsent(true);
+                          try {
+                            const headers = getAuthHeaders();
+                            await axios.post(`/api/clinic/consent/send`, {
+                              consentFormId: selectedConsentId,
+                              appointmentId: details.appointmentId,
+                              patientId: details.patientId,
+                              via: "WhatsApp", // default to WhatsApp
+                            }, { headers });
+                            setConsentSent(true);
+                            setConsentStatus({ status: "sent", sentVia: "WhatsApp", sentAt: new Date().toISOString() });
+                          } catch (err) {
+                            console.error("Failed to send consent:", err);
+                          } finally {
+                            setSendingConsent(false);
+                          }
+                        }}
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${consentSent ? "bg-green-100 text-green-700 border border-green-200" : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40"}`}>
+                        {consentSent ? <><Check size={11} /> Sent</> : sendingConsent ? <><RefreshCw size={11} className="animate-spin" /> Sending...</> : <><Send size={11} /> Send Consent</>}
                       </button>
-                    )}
-                  </div>
-
-                  {report ? (
-                    <div className="text-xs text-rose-900">
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <span className="font-semibold">Latest:</span>
-                        <span>Temp: {report.temperatureCelsius}°C</span>
-                        <span>•</span>
-                        <span>Pulse: {report.pulseBpm} bpm</span>
-                        <span>•</span>
-                        <span>
-                          BP: {report.systolicBp}/{report.diastolicBp} mmHg
-                        </span>
-                        {report.weightKg != null && (
-                          <>
-                            <span>•</span>
-                            <span>Weight: {report.weightKg} kg</span>
-                          </>
-                        )}
-                        {report.heightCm != null && (
-                          <>
-                            <span>•</span>
-                            <span>Height: {report.heightCm} cm</span>
-                          </>
-                        )}
-                        {report.bmi != null && (
-                          <>
-                            <span>•</span>
-                            <span>BMI: {report.bmi}</span>
-                          </>
-                        )}
-                        {report.spo2Percent != null && (
-                          <>
-                            <span>•</span>
-                            <span>SpO₂: {report.spo2Percent}%</span>
-                          </>
-                        )}
-                        {report.respiratoryRate != null && (
-                          <>
-                            <span>•</span>
-                            <span>Resp: {report.respiratoryRate}/min</span>
-                          </>
-                        )}
-                        {report.waistCm != null && (
-                          <>
-                            <span>•</span>
-                            <span>Waist: {report.waistCm} cm</span>
-                          </>
-                        )}
-                        {(report.sugar || report.urinalysis) && (
-                          <>
-                            {report.sugar && (
-                              <>
-                                <span>•</span>
-                                <span>Sugar: {report.sugar}</span>
-                              </>
-                            )}
-                            {report.urinalysis && (
-                              <>
-                                <span>•</span>
-                                <span>Urinalysis: {report.urinalysis}</span>
-                              </>
-                            )}
-                          </>
-                        )}
-                        <span>•</span>
-                        <span className="text-rose-700">
-                          Updated:{" "}
-                          {report.updatedAt
-                            ? formatDateTime(report.updatedAt)
-                            : "-"}
-                        </span>
-                      </div>
                     </div>
-                  ) : (
-                    <p className="text-xs text-rose-700">
-                      No vitals report found for this appointment yet.
-                    </p>
-                  )}
 
-                  {showPreviousReports && patientReports.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-rose-200 space-y-1.5">
-                      <p className="text-xs font-semibold text-rose-900 mb-1">
-                        Previous Reports ({patientReports.length})
-                      </p>
-                      <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 text-[11px] text-rose-900">
-                        {patientReports.map((r) => (
-                          <div
-                            key={
-                              r.reportId || `${r.appointmentId}-${r.createdAt}`
-                            }
-                            className="rounded border border-rose-200 bg-rose-100/60 px-2 py-1.5"
-                          >
-                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mb-1">
-                              <span className="font-semibold">
-                                {formatDateTime(r.updatedAt)}
-                              </span>
-                              {r.doctorName && (
-                                <>
-                                  <span>•</span>
-                                  <span>Dr. {r.doctorName}</span>
-                                </>
-                              )}
-                            </div>
-                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                              <span>Temp: {r.temperatureCelsius}°C</span>
-                              <span>•</span>
-                              <span>Pulse: {r.pulseBpm} bpm</span>
-                              <span>•</span>
-                              <span>
-                                BP: {r.systolicBp}/{r.diastolicBp} mmHg
-                              </span>
-                              {r.weightKg != null && (
-                                <>
-                                  <span>•</span>
-                                  <span>Weight: {r.weightKg} kg</span>
-                                </>
-                              )}
-                              {r.heightCm != null && (
-                                <>
-                                  <span>•</span>
-                                  <span>Height: {r.heightCm} cm</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* ── Send Consent Form ── */}
-                <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <FileText size={15} className="text-blue-600 flex-shrink-0" />
-                    <h3 className="text-sm font-semibold text-blue-900">
-                      Send Consent Form to Patient
-                    </h3>
-                  </div>
-                  <p className="text-xs text-blue-700">
-                    Select a consent form and send it to the patient for acknowledgment.
-                  </p>
-                  <div className="flex gap-2 items-center">
-                    <select
-                      value={selectedConsentId}
-                      onChange={(e) => {
-                        setSelectedConsentId(e.target.value);
-                        setConsentSent(false);
-                      }}
-                      className="flex-1 border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 text-gray-700"
-                    >
-                      <option value="">-- Select Consent Form --</option>
-                      {consentForms.map((cf) => (
-                        <option key={cf._id} value={cf._id}>
-                          {cf.formName}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      disabled={!selectedConsentId || sendingConsent || consentSent}
-                      onClick={async () => {
-                        if (!selectedConsentId) return;
-                        setSendingConsent(true);
-                        try {
-                          // Record that consent was sent (extend as needed for actual delivery)
-                          await new Promise((r) => setTimeout(r, 600));
-                          setConsentSent(true);
-                        } finally {
-                          setSendingConsent(false);
-                        }
-                      }}
-                      className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap
-                        ${consentSent
-                          ? "bg-green-100 text-green-700 border border-green-300 cursor-default"
-                          : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-blue-200"
-                        }`}
-                    >
-                      {sendingConsent ? (
-                        <>
-                          <RefreshCw size={13} className="animate-spin" />
-                          Sending...
-                        </>
-                      ) : consentSent ? (
-                        <>
-                          <Check size={13} />
-                          Sent
-                        </>
-                      ) : (
-                        <>
-                          <Send size={13} />
-                          Send
-                        </>
-                      )}
+                    {/* History — scrolls to existing Previous Complaints section */}
+                    <button type="button"
+                      onClick={() => { if (activeTab !== "complaint") setActiveTab("complaint"); setTimeout(() => { previousComplaintsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); }}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">
+                      <Clock size={11} /> History {previousComplaints.length > 0 && `(${previousComplaints.length})`}
+                    </button>
+                    <button onClick={onClose} className="ml-1 text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+                      <X className="w-5 h-5" />
                     </button>
                   </div>
-                  {consentSent && (
-                    <p className="text-xs text-green-700 font-medium flex items-center gap-1">
-                      <Check size={12} />
-                      Consent form sent successfully to the patient.
-                    </p>
-                  )}
                 </div>
 
-                {/* Notebook-like complaints input */}
-                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 space-y-2">
-                  <h3 className="text-sm font-semibold text-amber-900 uppercase tracking-wide">
-                    Doctor&apos;s Complaint Notes
-                  </h3>
-                  <p className="text-xs text-amber-800">
-                    Write all patient complaints here. This will be saved
-                    together with the appointment report.
-                  </p>
-                  <div className="relative">
-                    <textarea
-                      value={complaints}
-                      onChange={(e) => setComplaints(e.target.value)}
-                      rows={6}
-                      className="w-full rounded-xl border border-amber-200 bg-[repeating-linear-gradient(white,white_28px,#fde68a_30px)] px-4 py-3 text-sm text-gray-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-amber-400"
-                      placeholder="Start writing complaints in a notebook style..."
-                    />
-                    <div className="pointer-events-none absolute inset-y-0 left-10 border-l border-amber-300" />
+                {/* Vitals mini-strip */}
+                {report && (
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-gray-500 bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-100">
+                    <span className="font-semibold text-gray-700">Vitals:</span>
+                    <span>🌡 {report.temperatureCelsius}°C</span>
+                    <span>💓 {report.pulseBpm} bpm</span>
+                    <span>🩸 {report.systolicBp}/{report.diastolicBp} mmHg</span>
+                    {report.weightKg != null && <span>⚖ {report.weightKg} kg</span>}
+                    {report.heightCm != null && <span>📏 {report.heightCm} cm</span>}
+                    {report.bmi != null && <span>BMI {report.bmi}</span>}
+                    {report.spo2Percent != null && <span>SpO₂ {report.spo2Percent}%</span>}
                   </div>
+                )}
 
-                  {/* Image Upload Section */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                    {/* Before Image */}
-                    <div className="space-y-2">
-                      <label className="block text-xs font-semibold text-amber-900 uppercase">
-                        Before Image
-                      </label>
-                      <div className="flex items-center gap-3">
-                        <div className="relative group">
-                          <div className="w-20 h-20 rounded-lg border-2 border-dashed border-amber-300 bg-white flex items-center justify-center overflow-hidden">
-                            {beforeImage ? (
-                              <img
-                                src={beforeImage}
-                                alt="Before"
-                                className="w-full h-full object-cover"
-                              />
+                {/* Consent Status Section */}
+                {selectedConsentId && (
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <h3 className="text-sm font-semibold text-gray-800">Consent Status</h3>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      {/* Status Banner */}
+                      {consentStatus ? (
+                        <div className={`rounded-xl border px-4 py-3 ${
+                          consentStatus.status === "signed" ? "border-green-200 bg-green-50/40" :
+                          consentStatus.status === "viewed" ? "border-blue-200 bg-blue-50/40" :
+                          consentStatus.status === "sent" ? "border-indigo-200 bg-indigo-50/40" :
+                          "border-gray-200 bg-gray-50"
+                        }`}>
+                          <div className="flex items-center gap-2">
+                            {consentStatus.status === "signed" ? (
+                              <><CheckCircle className="w-4 h-4 text-green-600" /><span className="text-sm font-semibold text-green-700">Signed</span></>
+                            ) : consentStatus.status === "viewed" ? (
+                              <><Eye className="w-4 h-4 text-blue-600" /><span className="text-sm font-semibold text-blue-700">Viewed</span></>
+                            ) : consentStatus.status === "sent" ? (
+                              <><Send className="w-4 h-4 text-indigo-600" /><span className="text-sm font-semibold text-indigo-700">Sent</span></>
                             ) : (
-                              <Upload className="w-6 h-6 text-amber-400" />
-                            )}
-                            {uploadingBefore && (
-                              <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                                <RefreshCw className="w-5 h-5 text-white animate-spin" />
-                              </div>
+                              <><XCircle className="w-4 h-4 text-gray-500" /><span className="text-sm font-medium text-gray-600">Not Sent</span></>
                             )}
                           </div>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="absolute inset-0 opacity-0 cursor-pointer"
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (!file) return;
-                              setUploadingBefore(true);
-                              const res = await handleUpload(file);
-                              if (res?.success) setBeforeImage(res.url);
-                              setUploadingBefore(false);
-                            }}
-                          />
+                          {consentStatus.sentVia && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              Sent via {consentStatus.sentVia} {consentStatus.sentAt && `• ${formatDate(consentStatus.sentAt)}`}
+                            </p>
+                          )}
+                          {consentStatus.viewedAt && (
+                            <p className="text-xs text-gray-500 mt-1">Viewed on {formatDate(consentStatus.viewedAt)}</p>
+                          )}
+                          {consentStatus.signedAt && (
+                            <p className="text-xs text-gray-500 mt-1">Signed on {formatDate(consentStatus.signedAt)}</p>
+                          )}
                         </div>
-                        {beforeImage && (
-                          <button
-                            onClick={() => setBeforeImage("")}
-                            className="text-xs text-red-600 hover:underline"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                      ) : (
+                        <div className="rounded-xl border border-dashed border-gray-200 px-4 py-3 text-center">
+                          <p className="text-sm text-gray-500">Select a consent form and click "Send Consent" to track status</p>
+                        </div>
+                      )}
 
-                    {/* After Image */}
-                    <div className="space-y-2">
-                      <label className="block text-xs font-semibold text-amber-900 uppercase">
-                        After Image
-                      </label>
-                      <div className="flex items-center gap-3">
-                        <div className="relative group">
-                          <div className="w-20 h-20 rounded-lg border-2 border-dashed border-amber-300 bg-white flex items-center justify-center overflow-hidden">
-                            {afterImage ? (
-                              <img
-                                src={afterImage}
-                                alt="After"
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <Upload className="w-6 h-6 text-amber-400" />
-                            )}
-                            {uploadingAfter && (
-                              <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                                <RefreshCw className="w-5 h-5 text-white animate-spin" />
-                              </div>
-                            )}
-                          </div>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="absolute inset-0 opacity-0 cursor-pointer"
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (!file) return;
-                              setUploadingAfter(true);
-                              const res = await handleUpload(file);
-                              if (res?.success) setAfterImage(res.url);
-                              setUploadingAfter(false);
-                            }}
-                          />
-                        </div>
-                        {afterImage && (
-                          <button
-                            onClick={() => setAfterImage("")}
-                            className="text-xs text-red-600 hover:underline"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 space-y-3">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <div className="text-sm font-semibold text-blue-900 uppercase tracking-wide flex items-center gap-2">
-                          Stock Items{" "}
-                          <button
-                            onClick={() => {
-                              setIsOpenStockTransferModal(true);
-                            }}
-                            className="flex items-center gap-1 text-xs text-blue-800 p-1.5 rounded-md bg-white border border-blue-800 hover:bg-blue-100 transition-colors"
-                          >
-                            <RefreshCw size={16} /> Stock Transfer Request
-                          </button>
-                        </div>
-                      </div>
-                      <p className="text-xs text-blue-800 mt-1">
-                        Add items related to this appointment
-                      </p>
-                    </div>
-                  </div>
-                  <div className="border border-blue-200 rounded-lg p-3 bg-white">
-                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                      <div
-                        className="sm:col-span-3 space-y-1"
-                        ref={allocatedDropdownRef}
-                      >
-                        <label className="block text-xs font-bold text-gray-900">
-                          Item <span className="text-red-500">*</span>
-                        </label>
-                        <div className="relative">
-                          <div
-                            className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed flex items-center justify-between cursor-pointer bg-white h-10"
-                            onClick={() =>
-                              setIsAllocatedDropdownOpen(
-                                !isAllocatedDropdownOpen,
-                              )
-                            }
-                          >
-                            <span
-                              className={
-                                currentItem.itemId
-                                  ? "text-gray-900"
-                                  : "text-gray-400"
-                              }
-                            >
-                              {allocatedItems.find(
-                                (si: any) => si._id === currentItem.itemId,
-                              )?.item?.name || "Select an item"}
-                            </span>
-                            <ChevronDown
-                              className={`w-4 h-4 text-gray-500 transition-transform ${
-                                isAllocatedDropdownOpen ? "rotate-180" : ""
+                      {/* Send via buttons */}
+                      {consentStatus && consentStatus.status !== "signed" && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-600 mb-2">Send consent via:</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              disabled={sendingVia === "WhatsApp"}
+                              onClick={async () => {
+                                setSendingVia("WhatsApp");
+                                try {
+                                  const headers = getAuthHeaders();
+                                  await axios.post(`/api/clinic/consent/send`, {
+                                    consentFormId: selectedConsentId,
+                                    appointmentId: details.appointmentId,
+                                    patientId: details.patientId,
+                                    via: "WhatsApp",
+                                  }, { headers });
+                                  setConsentStatus({ status: "sent", sentVia: "WhatsApp", sentAt: new Date().toISOString() });
+                                } catch (err) {
+                                  console.error("Failed to send via WhatsApp:", err);
+                                } finally {
+                                  setSendingVia(null);
+                                }
+                              }}
+                              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all ${
+                                consentStatus.sentVia === "WhatsApp" ? "bg-green-600 text-white" :
+                                sendingVia === "WhatsApp" ? "bg-green-400 text-white" :
+                                "bg-green-600 text-white hover:bg-green-700"
                               }`}
-                            />
+                            >
+                              {sendingVia === "WhatsApp" ? <><RefreshCw size={12} className="animate-spin" /> Sending...</> : <><MessageCircle size={12} /> WhatsApp</>}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={sendingVia === "SMS"}
+                              onClick={async () => {
+                                setSendingVia("SMS");
+                                try {
+                                  const headers = getAuthHeaders();
+                                  await axios.post(`/api/clinic/consent/send`, {
+                                    consentFormId: selectedConsentId,
+                                    appointmentId: details.appointmentId,
+                                    patientId: details.patientId,
+                                    via: "SMS",
+                                  }, { headers });
+                                  setConsentStatus({ status: "sent", sentVia: "SMS", sentAt: new Date().toISOString() });
+                                } catch (err) {
+                                  console.error("Failed to send via SMS:", err);
+                                } finally {
+                                  setSendingVia(null);
+                                }
+                              }}
+                              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all ${
+                                consentStatus.sentVia === "SMS" ? "bg-blue-600 text-white" :
+                                sendingVia === "SMS" ? "bg-blue-400 text-white" :
+                                "bg-blue-600 text-white hover:bg-blue-700"
+                              }`}
+                            >
+                              {sendingVia === "SMS" ? <><RefreshCw size={12} className="animate-spin" /> Sending...</> : <><Send size={12} /> SMS</>}
+                            </button>
                           </div>
+                        </div>
+                      )}
 
-                          {isAllocatedDropdownOpen && (
-                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                              <div className="p-2 border-b border-gray-200">
-                                <div className="relative">
-                                  <input
-                                    type="text"
-                                    placeholder="Search items..."
-                                    value={allocatedSearch}
-                                    onChange={(e) =>
-                                      setAllocatedSearch(e.target.value)
-                                    }
-                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-                                    autoFocus
+                      {/* Status Timeline */}
+                      {consentStatus && (
+                        <div className="space-y-2 pt-2 border-t border-gray-100">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${!consentStatus.sentAt ? "bg-gray-300" : "bg-green-500"}`} />
+                            <span className="text-xs text-gray-600">Not Sent</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${consentStatus.status === "sent" || consentStatus.status === "viewed" || consentStatus.status === "signed" ? "bg-blue-500" : "bg-gray-300"}`} />
+                            <span className="text-xs text-gray-600">Sent</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${consentStatus.status === "viewed" || consentStatus.status === "signed" ? "bg-purple-500" : "bg-gray-300"}`} />
+                            <span className="text-xs text-gray-600">Viewed</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${consentStatus.status === "signed" ? "bg-green-500" : "bg-gray-300"}`} />
+                            <span className="text-xs text-gray-600">Signed</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : !loading ? (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-400">No patient data available.</span>
+                <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+              </div>
+            ) : null}
+          </div>
+
+          {/* ── MAIN BODY: two-column ── */}
+          <div className="flex flex-1 min-h-0 overflow-hidden">
+
+            {/* ── LEFT MAIN PANEL ── */}
+            <div className="flex-1 min-w-0 overflow-y-auto scrollbar-hide px-4 py-4 space-y-4">
+
+              {error && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+
+              {loading && (
+                <div className="py-10 text-center text-gray-400 text-sm">
+                  Loading appointment details...
+                </div>
+              )}
+
+              {!loading && (
+                <>
+                  {/* Tab Navigation */}
+                  <div className="flex items-center gap-1 bg-white rounded-xl border border-gray-200 p-1 shadow-sm">
+                    {(
+                      [
+                        { key: "complaint", label: "Complaints", icon: <NotebookPen className="w-3.5 h-3.5" /> },
+                        { key: "progress", label: "Progress Notes", icon: <TrendingUp className="w-3.5 h-3.5" /> },
+                        { key: "prescription", label: "Prescription", icon: <Pill className="w-3.5 h-3.5" /> },
+                      ] as const
+                    ).map((tab) => (
+                      <button
+                        key={tab.key}
+                        onClick={() => setActiveTab(tab.key)}
+                        className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all flex-1 justify-center ${
+                          activeTab === tab.key
+                            ? "bg-blue-600 text-white shadow-sm"
+                            : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        {tab.icon}
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* ── COMPLAINT TAB ── */}
+                  {activeTab === "complaint" && (
+                    <div className="space-y-4">
+                      {/* Chief Complaints */}
+                      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                          <div className="flex items-center gap-2">
+                            <NotebookPen className="w-4 h-4 text-blue-600" />
+                            <span className="text-sm font-semibold text-gray-800">Chief Complaints</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-400">{complaints.length}/2000</span>
+                           
+                          </div>
+                        </div>
+                        <div className="p-4">
+                          <textarea
+                            value={complaints}
+                            onChange={(e) => setComplaints(e.target.value)}
+                            maxLength={2000}
+                            rows={5}
+                            className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none placeholder-gray-400"
+                            placeholder="Document chief complaints, presenting symptoms, and patient history..."
+                          />
+                          {/* Image Upload */}
+                          <div className="grid grid-cols-2 gap-3 mt-3">
+                            <div>
+                              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Before Image</p>
+                              <div className="relative flex items-center gap-2">
+                                <div className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                  {beforeImage ? (
+                                    <img src={beforeImage} alt="Before" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <Upload className="w-5 h-5 text-gray-300" />
+                                  )}
+                                  {uploadingBefore && (
+                                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                                      <RefreshCw className="w-4 h-4 text-white animate-spin" />
+                                    </div>
+                                  )}
+                                  <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer"
+                                    onChange={async (e) => {
+                                      const file = e.target.files?.[0];
+                                      if (!file) return;
+                                      setUploadingBefore(true);
+                                      const res = await handleUpload(file);
+                                      if (res?.success) setBeforeImage(res.url);
+                                      setUploadingBefore(false);
+                                    }}
                                   />
                                 </div>
+                                {beforeImage && <button onClick={() => setBeforeImage("")} className="text-xs text-red-500 hover:underline">Remove</button>}
                               </div>
-
-                              {fetchAllocatedItemsLoading && (
-                                <div className="p-4 text-sm text-center text-gray-500">
-                                  Loading items...
-                                </div>
-                              )}
-
-                              {!fetchAllocatedItemsLoading && (
-                                <>
-                                  {allocatedItems.length === 0 ? (
-                                    <div className="p-4 text-center text-gray-500 text-sm">
-                                      {allocatedSearch
-                                        ? "No items found"
-                                        : "No items available"}
-                                    </div>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">After Image</p>
+                              <div className="relative flex items-center gap-2">
+                                <div className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                  {afterImage ? (
+                                    <img src={afterImage} alt="After" className="w-full h-full object-cover" />
                                   ) : (
-                                    <ul className="py-1">
-                                      {allocatedItems
-                                        .filter((si: any) => {
-                                          const n = (
-                                            si.item?.name || ""
-                                          ).toLowerCase();
-                                          const c = (
-                                            si.item?.code || ""
-                                          ).toLowerCase();
-                                          const q =
-                                            allocatedSearch.toLowerCase();
-                                          return n.includes(q) || c.includes(q);
-                                        })
-                                        .map((si: any) => (
-                                          <li
-                                            key={si._id}
-                                            className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
-                                            onClick={() => {
-                                              const it = si.item || {};
-                                              console.log({ it, si });
-                                              setCurrentItem((prev) => ({
-                                                ...prev,
-                                                code: it.code || "",
-                                                itemId: si._id || "",
-                                                name: it.name || "",
-                                                description:
-                                                  it.description || "",
-                                                uom: it.uom || prev.uom || "",
-                                              }));
-                                              setIsAllocatedDropdownOpen(false);
-                                              setAllocatedSearch("");
-                                            }}
-                                          >
-                                            <div className="font-medium">
-                                              {si.item?.name || "-"}
-                                            </div>
-                                            {(si.item?.code ||
-                                              si.location?.name) && (
-                                              <div className="text-xs text-gray-500">
-                                                {si.item?.code
-                                                  ? `Code: ${si.item.code}`
-                                                  : ""}
-                                              </div>
-                                            )}
-                                          </li>
-                                        ))}
-                                    </ul>
+                                    <Upload className="w-5 h-5 text-gray-300" />
                                   )}
+                                  {uploadingAfter && (
+                                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                                      <RefreshCw className="w-4 h-4 text-white animate-spin" />
+                                    </div>
+                                  )}
+                                  <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer"
+                                    onChange={async (e) => {
+                                      const file = e.target.files?.[0];
+                                      if (!file) return;
+                                      setUploadingAfter(true);
+                                      const res = await handleUpload(file);
+                                      if (res?.success) setAfterImage(res.url);
+                                      setUploadingAfter(false);
+                                    }}
+                                  />
+                                </div>
+                                {afterImage && <button onClick={() => setAfterImage("")} className="text-xs text-red-500 hover:underline">Remove</button>}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Treatment & Billing - Enhanced Modern UI */}
+                      <div id="treatment-billing-section" className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
+                              <Package className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <h3 className="text-base font-bold text-gray-900">Treatment & Billing</h3>
+                              <p className="text-xs text-gray-500">Add and manage treatment services</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowAddServiceDropdown(true);
+                                setShowCreatePackage(false);
+                                setServicesSaved(false);
+                                setServicesError("");
+                                if (allServices.length === 0) fetchAllServices();
+                              }}
+                              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg"
+                            >
+                              <Plus size={16} /> Add Service
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowCreatePackage(true);
+                                setShowAddServiceDropdown(false);
+                                setPkgError("");
+                                setPkgSuccess("");
+                                if (allServices.length === 0) fetchAllServices(); // Load clinic services
+                                if (pkgTreatments.length === 0) fetchPkgTreatments();
+                              }}
+                              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-all"
+                            >
+                              <Package size={16} /> Create Package
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Add Service Panel - Enhanced Searchable Dropdown */}
+                        {showAddServiceDropdown && (
+                          <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-br from-blue-50/50 to-indigo-50/50">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                                  <Search className="w-4 h-4 text-blue-600" />
+                                </div>
+                                <span className="text-sm font-bold text-blue-800">Search & Add Services</span>
+                              </div>
+                              <button type="button" onClick={() => setShowAddServiceDropdown(false)} className="text-gray-400 hover:text-gray-600 transition-colors"><XIcon size={16} /></button>
+                            </div>
+                            
+                            {/* Search Input */}
+                            <div className="relative mb-3">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Search className="h-4 w-4 text-gray-400" />
+                              </div>
+                              <input
+                                type="text"
+                                placeholder="Search by service name..."
+                                value={serviceSearchQuery}
+                                onChange={(e) => setServiceSearchQuery(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent shadow-sm transition-all"
+                              />
+                            </div>
+                            
+                            {/* Services List */}
+                            <div className="max-h-64 overflow-y-auto space-y-2 mb-3 rounded-lg border border-gray-200 bg-white p-2">
+                              {loadingServices ? (
+                                <div className="flex items-center justify-center py-8">
+                                  <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+                                  <span className="ml-2 text-sm text-gray-500">Loading services...</span>
+                                </div>
+                              ) : allServices.filter((s) => s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase())).length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-8 text-center">
+                                  <Package className="w-12 h-12 text-gray-300 mb-2" />
+                                  <p className="text-sm text-gray-500 font-medium">No services found</p>
+                                  <p className="text-xs text-gray-400 mt-1">Try a different search term</p>
+                                </div>
+                              ) : (
+                                allServices.filter((s) => s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase())).map((svc) => {
+                                  const isSelected = selectedServices.some((s) => s._id === svc._id);
+                                  return (
+                                    <button key={svc._id} type="button"
+                                      onClick={() => { setSelectedServices((prev) => isSelected ? prev.filter((s) => s._id !== svc._id) : [...prev, svc]); setServicesSaved(false); }}
+                                      className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${
+                                        isSelected 
+                                          ? "bg-blue-50 border-blue-300 shadow-sm" 
+                                          : "bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+                                          isSelected ? "bg-blue-600 border-blue-600" : "border-gray-300 bg-white"
+                                        }`}>
+                                          {isSelected && <Check size={12} className="text-white" />}
+                                        </div>
+                                        <span className={`text-sm font-medium ${isSelected ? "text-blue-800" : "text-gray-700"}`}>
+                                          {svc.name}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-3">
+                                        <span className={`text-sm font-bold ${isSelected ? "text-blue-700" : "text-gray-900"}`}>
+                                          AED {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
+                                        </span>
+                                        {isSelected && (
+                                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                                            Added
+                                          </span>
+                                        )}
+                                      </div>
+                                    </button>
+                                  );
+                                })
+                              )}
+                            </div>
+                            
+                            {/* Action Buttons */}
+                            {servicesError && (
+                              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                                <p className="text-xs text-red-700">{servicesError}</p>
+                              </div>
+                            )}
+                            {servicesSaved && (
+                              <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+                                <CheckCircle className="w-4 h-4 text-green-600" />
+                                <p className="text-xs text-green-700 font-medium">Services saved successfully!</p>
+                              </div>
+                            )}
+                            <button type="button" onClick={saveServicesToAppointment}
+                              disabled={savingServices || selectedServices.length === 0}
+                              className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+                            >
+                              {savingServices ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  Saving...
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle className="w-4 h-4" />
+                                  Save Services to Appointment
                                 </>
                               )}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Create Package Panel - Enhanced Inline Form */}
+                        {showCreatePackage && (
+                          <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-br from-violet-50/50 to-purple-50/50">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center">
+                                  <Package className="w-4 h-4 text-violet-600" />
+                                </div>
+                                <span className="text-sm font-bold text-violet-800">Create New Package</span>
+                              </div>
+                              <button type="button" onClick={() => { setShowCreatePackage(false); setPkgError(""); setPkgSuccess(""); setPkgModalName(""); setPkgModalPrice(""); setPkgSelectedTreatments([]); }} className="text-gray-400 hover:text-gray-600 transition-colors">
+                                <XIcon size={16} />
+                              </button>
+                            </div>
+
+                            {/* Package Name */}
+                            <div className="mb-3">
+                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">Package Name <span className="text-red-500">*</span></label>
+                              <input
+                                type="text"
+                                value={pkgModalName}
+                                onChange={(e) => setPkgModalName(e.target.value)}
+                                placeholder="e.g., Premium Skin Care Package"
+                                className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm"
+                              />
+                            </div>
+
+                            {/* Package Price */}
+                            <div className="mb-3">
+                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">Total Package Price <span className="text-red-500">*</span></label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">AED</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={pkgModalPrice}
+                                  onChange={(e) => setPkgModalPrice(e.target.value)}
+                                  placeholder="0.00"
+                                  className="w-full pl-12 pr-4 py-2 text-sm font-semibold border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Treatment Selector */}
+                            <div className="mb-3">
+                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">Select Treatments / Services <span className="text-red-500">*</span></label>
+                              <div className="relative">
+                                <div
+                                  className="w-full px-4 py-2.5 text-sm border border-violet-200 rounded-lg bg-white cursor-pointer flex items-center justify-between hover:border-violet-300 transition-colors shadow-sm"
+                                  onClick={() => {
+                                    setPkgTreatmentDropdownOpen(!pkgTreatmentDropdownOpen);
+                                    if (!pkgTreatmentDropdownOpen && allServices.length === 0) fetchAllServices();
+                                  }}
+                                >
+                                  <span className={pkgSelectedTreatments.length > 0 ? "text-gray-800 font-medium" : "text-gray-400"}>
+                                    {pkgSelectedTreatments.length > 0
+                                      ? `${pkgSelectedTreatments.length} treatment${pkgSelectedTreatments.length > 1 ? 's' : ''} selected`
+                                      : "Select treatments to include..."
+                                    }
+                                  </span>
+                                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${pkgTreatmentDropdownOpen ? "rotate-180" : ""}`} />
+                                </div>
+
+                                {pkgTreatmentDropdownOpen && (
+                                  <div className="absolute z-20 w-full mt-1 bg-white border border-violet-200 rounded-lg shadow-lg max-h-64 overflow-hidden flex flex-col">
+                                    <div className="p-3 border-b border-violet-100 sticky top-0 bg-white">
+                                      <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                        <input
+                                          type="text"
+                                          value={pkgTreatmentSearch}
+                                          onChange={(e) => setPkgTreatmentSearch(e.target.value)}
+                                          placeholder="Search treatments..."
+                                          autoFocus
+                                          className="w-full pl-9 pr-3 py-2 text-sm border border-violet-200 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-400"
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className="overflow-y-auto max-h-52">
+                                      {loadingServices ? (
+                                        <div className="flex items-center justify-center p-4">
+                                          <Loader2 className="w-5 h-5 text-violet-600 animate-spin" />
+                                          <span className="ml-2 text-sm text-gray-500">Loading...</span>
+                                        </div>
+                                      ) : allServices.filter((s) => s.name.toLowerCase().includes(pkgTreatmentSearch.toLowerCase())).length === 0 ? (
+                                        <div className="p-4 text-center text-sm text-gray-400">No treatments found</div>
+                                      ) : (
+                                        <ul className="py-1">
+                                          {allServices
+                                            .filter((svc) => svc.name.toLowerCase().includes(pkgTreatmentSearch.toLowerCase()))
+                                            .map((svc) => {
+                                              const isSelected = pkgSelectedTreatments.some((t) => t.treatmentSlug === svc._id);
+                                              return (
+                                                <li key={svc._id}>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      if (isSelected) {
+                                                        setPkgSelectedTreatments((prev) => prev.filter((t) => t.treatmentSlug !== svc._id));
+                                                      } else {
+                                                        setPkgSelectedTreatments((prev) => [
+                                                          ...prev,
+                                                          {
+                                                            treatmentName: svc.name,
+                                                            treatmentSlug: svc._id,
+                                                            sessions: 1,
+                                                            allocatedPrice: svc.clinicPrice != null ? svc.clinicPrice : svc.price,
+                                                          },
+                                                        ]);
+                                                      }
+                                                    }}
+                                                    className={`w-full flex items-center justify-between px-4 py-2.5 hover:bg-violet-50 transition-colors ${
+                                                      isSelected ? "bg-violet-50" : ""
+                                                    }`}
+                                                  >
+                                                    <div className="flex items-center gap-3">
+                                                      <div className={`w-5 h-5 rounded border flex items-center justify-center ${
+                                                        isSelected ? "bg-violet-600 border-violet-600" : "border-gray-300"
+                                                      }`}>
+                                                        {isSelected && <Check size={12} className="text-white" />}
+                                                      </div>
+                                                      <div className="text-left">
+                                                        <p className="text-sm font-medium text-gray-800">{svc.name}</p>
+                                                        <p className="text-xs text-gray-500">
+                                                          AED {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)} • {svc.durationMinutes} mins
+                                                        </p>
+                                                      </div>
+                                                    </div>
+                                                  </button>
+                                                </li>
+                                              );
+                                            })}
+                                        </ul>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Selected Treatments List */}
+                              {pkgSelectedTreatments.length > 0 && (
+                                <div className="mt-3 space-y-2">
+                                  <p className="text-xs font-semibold text-violet-700">Selected Treatments</p>
+                                  {pkgSelectedTreatments.map((sel) => {
+                                    const sessPrice = sel.sessions > 0 ? (sel.allocatedPrice || 0) / sel.sessions : 0;
+                                    return (
+                                      <div key={sel.treatmentSlug} className="bg-white border border-violet-200 rounded-lg p-2.5 shadow-sm">
+                                        <div className="flex items-center justify-between mb-2">
+                                          <span className="text-xs font-semibold text-violet-700">{sel.treatmentName}</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => setPkgSelectedTreatments((prev) => prev.filter((t) => t.treatmentSlug !== sel.treatmentSlug))}
+                                            className="text-red-400 hover:text-red-600 transition-colors"
+                                          >
+                                            <XIcon size={13} />
+                                          </button>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-2">
+                                          <div>
+                                            <label className="block text-[9px] text-violet-600 font-medium mb-0.5">Price</label>
+                                            <input
+                                              type="number" min="0" step="0.01"
+                                              value={sel.allocatedPrice || ""}
+                                              onChange={(e) => setPkgSelectedTreatments((prev) => prev.map((t) => t.treatmentSlug === sel.treatmentSlug ? { ...t, allocatedPrice: parseFloat(e.target.value) || 0 } : t))}
+                                              className="w-full px-2 py-1.5 text-xs border border-violet-200 rounded-md focus:outline-none focus:ring-1 focus:ring-violet-400"
+                                              placeholder="0.00"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-[9px] text-violet-600 font-medium mb-0.5">Sessions</label>
+                                            <input
+                                              type="number" min="1"
+                                              value={sel.sessions}
+                                              onChange={(e) => setPkgSelectedTreatments((prev) => prev.map((t) => t.treatmentSlug === sel.treatmentSlug ? { ...t, sessions: parseInt(e.target.value) || 1 } : t))}
+                                              className="w-full px-2 py-1.5 text-xs border border-violet-200 rounded-md text-center focus:outline-none focus:ring-1 focus:ring-violet-400"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-[9px] text-violet-600 font-medium mb-0.5">/Session</label>
+                                            <div className="px-2 py-1.5 text-xs font-bold text-center bg-violet-100 rounded-md text-violet-700 border border-violet-200">
+                                              ₹{sessPrice.toFixed(2)}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+
+                                  {/* Price Validation Summary */}
+                                  <div className="grid grid-cols-3 gap-1.5 bg-violet-100 rounded-lg px-3 py-2.5">
+                                    <div className="text-center">
+                                      <p className="text-[9px] text-violet-600 font-medium mb-0.5">Pkg Price</p>
+                                      <p className="text-xs font-bold text-violet-800">₹{parseFloat(pkgModalPrice) || 0}</p>
+                                    </div>
+                                    <div className="text-center">
+                                      <p className="text-[9px] text-violet-600 font-medium mb-0.5">Allocated</p>
+                                      <p className="text-xs font-bold text-violet-800">₹{pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0).toFixed(2)}</p>
+                                    </div>
+                                    <div className="text-center">
+                                      <p className="text-[9px] text-violet-600 font-medium mb-0.5">Remaining</p>
+                                      <p className={`text-xs font-bold ${
+                                        Math.abs((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)) < 0.01
+                                          ? "text-teal-600" : "text-amber-600"
+                                      }`}>
+                                        ₹{((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)).toFixed(2)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Error/Success Messages */}
+                            {pkgError && (
+                              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                                <p className="text-xs text-red-700">{pkgError}</p>
+                              </div>
+                            )}
+                            {pkgSuccess && (
+                              <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+                                <CheckCircle className="w-4 h-4 text-green-600" />
+                                <p className="text-xs text-green-700 font-medium">{pkgSuccess}</p>
+                              </div>
+                            )}
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-3">
+                              <button
+                                type="button"
+                                onClick={() => handleCreatePackageModal(false)}
+                                disabled={pkgSubmitting || addingPackageToPatient}
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-violet-700 bg-white border border-violet-500 rounded-lg hover:bg-violet-50 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <Package size={14} />
+                                {pkgSubmitting ? "Creating..." : "Create Package"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleCreatePackageModal(true)}
+                                disabled={pkgSubmitting || addingPackageToPatient}
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <Plus size={14} />
+                                {addingPackageToPatient ? "Adding..." : "Create & Add to Patient"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Selected Services - Card Layout with Editable Prices */}
+                        <div className="px-5 py-4">
+                          {selectedServices.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-12 text-center">
+                              <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                                <Package className="w-10 h-10 text-gray-400" />
+                              </div>
+                              <p className="text-sm font-medium text-gray-600 mb-1">No services added yet</p>
+                              <p className="text-xs text-gray-400 mb-4">Click "Add Service" to begin building your treatment plan</p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowAddServiceDropdown(true);
+                                  if (allServices.length === 0) fetchAllServices();
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-all shadow-md"
+                              >
+                                <Plus size={16} /> Browse Services
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              {/* Services Header */}
+                              <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-bold text-gray-900">Selected Treatments</span>
+                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
+                                    {selectedServices.length}
+                                  </span>
+                                </div>
+                                
+                              </div>
+
+                              {/* Service Cards */}
+                              {selectedServices.map((svc, i) => (
+                                <div key={svc._id} className="group relative rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-all duration-200">
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex items-start gap-3 flex-1">
+                                      {/* Icon */}
+                                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center flex-shrink-0 border border-blue-100">
+                                        <Package className="w-6 h-6 text-blue-600" />
+                                      </div>
+                                      
+                                      {/* Info */}
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <h4 className="text-sm font-bold text-gray-900">{svc.name}</h4>
+                                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                                            Standard
+                                          </span>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mb-2">Service #{i + 1} • ID: {svc._id.slice(-6)}</p>
+                                                                          
+                                        {/* Price Input */}
+                                        <div className="flex items-center gap-2">
+                                          <label className="text-xs text-gray-600 font-medium">Price:</label>
+                                          <div className="relative">
+                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">AED</span>
+                                            <input
+                                              type="number"
+                                              min="0"
+                                              step="0.01"
+                                              value={(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
+                                              onChange={(e) => {
+                                                const newPrice = parseFloat(e.target.value) || 0;
+                                                setSelectedServices((prev) =>
+                                                  prev.map((s) =>
+                                                    s._id === svc._id
+                                                      ? { ...s, clinicPrice: newPrice, price: newPrice }
+                                                      : s
+                                                  )
+                                                );
+                                              }}
+                                              className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white hover:border-gray-400 transition-all"
+                                            />
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Actions */}
+                                    <div className="flex items-center gap-2">
+                                      <div className="text-right">
+                                        <p className="text-sm font-bold text-gray-900">
+                                          AED {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
+                                        </p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedServices((prev) => prev.filter((s) => s._id !== svc._id))}
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50"
+                                        title="Remove service"
+                                      >
+                                        <Trash2 size={16} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+
+                              {/* Total Bill Value - Compact */}
+                              <div className="mt-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 p-3 shadow-md">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-white bg-opacity-20 flex items-center justify-center">
+                                      <ClipboardList className="w-5 h-5 text-white" />
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-medium text-blue-100">Total Bill</p>
+                                      <p className="text-[10px] text-blue-200">{selectedServices.length} {selectedServices.length === 1 ? 'treatment' : 'treatments'}</p>
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-lg font-bold text-white">AED {totalBill.toFixed(2)}</p>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           )}
                         </div>
                       </div>
-                      <div className="sm:col-span-3 space-y-1">
-                        <label className="block text-xs font-bold text-gray-900">
-                          Description
-                        </label>
-                        <input
-                          type="text"
-                          value={currentItem.description || ""}
-                          onChange={(e) =>
-                            handleCurrentItemChange(
-                              "description",
-                              e.target.value,
-                            )
-                          }
-                          placeholder="Description"
-                          className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 h-10"
-                        />
-                      </div>
-                      <div className="sm:col-span-3 space-y-1">
-                        <label className="block text-xs font-bold text-gray-900">
-                          Qty <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="number"
-                          min={1}
-                          value={currentItem.quantity}
-                          onChange={(e) =>
-                            handleCurrentItemChange("quantity", e.target.value)
-                          }
-                          placeholder="Qty"
-                          className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 h-10"
-                        />
-                        {currentItem.uom && (
-                          <p className="text-xs text-gray-500">
-                            Available: {availableForSelectedUom}{" "}
-                            {currentItem.uom}
-                          </p>
-                        )}
-                        {exceedsAvailable && (
-                          <p className="text-xs text-red-600">
-                            Quantity exceeds available for selected UOM
-                          </p>
-                        )}
-                      </div>
 
-                      <div className="sm:col-span-3 space-y-1">
-                        <label className="block text-xs font-bold text-gray-900">
-                          UOM <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                          value={currentItem.uom || ""}
-                          onChange={(e) =>
-                            handleCurrentItemChange("uom", e.target.value)
-                          }
-                          className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 h-10"
-                        >
-                          <option value="">Select UOM</option>
-                          {!allocatedItems?.find(
-                            (i) => i?._id === currentItem?.itemId,
-                          ) ? (
-                            <option value="">Loading UOMs...</option>
-                          ) : allocatedItems?.find(
-                              (i) => i?._id === currentItem?.itemId,
-                            ) && currentItem ? (
-                            (
-                              allocatedItems?.find(
-                                (i) => i?._id === currentItem?.itemId,
-                              )?.quantitiesByUom || []
-                            )?.map((i, index: number) => (
-                              <option key={index.toString()} value={i.uom}>
-                                {i.uom}
-                              </option>
-                            ))
+       {(smartDepartments.length > 0 || loadingSmartRec) && (
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Stethoscope className="w-4 h-4 text-blue-600" />
+                            <h3 className="text-sm font-semibold text-gray-800">Smart Recommendations</h3>
+                            <span className="text-[10px] text-gray-400">Based on doctor's services</span>
+                          </div>
+                          {loadingSmartRec ? (
+                            <div className="text-xs text-gray-400 py-2">Loading recommendations...</div>
                           ) : (
-                            <></>
+                            <div className="space-y-3">
+                              {smartDepartments.map((dept) => (
+                                <div key={dept._id}>
+                                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">{dept.name}</p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {dept.services.map((svc) => (
+                                      <div key={svc._id} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 shadow-sm">
+                                        <span className="text-xs font-semibold text-gray-800">{svc.name}</span>
+                                        <span className="text-xs text-blue-600 font-medium">{svc.clinicPrice != null ? `AED ${svc.clinicPrice}` : `AED ${svc.price}`}</span>
+                                        <button type="button" disabled={addingRecService[`${details?.patientId}_${svc._id}`] || addedRecServices[`${details?.patientId}_${svc._id}`]}
+                                          onClick={async () => {
+                                            if (!details?.appointmentId || !details?.patientId) return;
+                                            
+                                            const patientServiceKey = `${details.patientId}_${svc._id}`;
+                                            
+                                            // 1. Add to selectedServices (so it appears in Treatment & Billing)
+                                            const serviceToAdd = {
+                                              _id: svc._id,
+                                              name: svc.name,
+                                              price: svc.price,
+                                              clinicPrice: svc.clinicPrice,
+                                              durationMinutes: svc.durationMinutes,
+                                            } as ClinicService;
+                                            
+                                            setSelectedServices((prev) => [...prev, serviceToAdd]);
+                                            setServicesSaved(false);
+                                            
+                                            // 2. Also save to appointment via API
+                                            setAddingRecService((p) => ({ ...p, [patientServiceKey]: true }));
+                                            try {
+                                              await axios.patch(`/api/clinic/appointment-services/${details.appointmentId}`, { serviceIds: [svc._id] }, { headers: getAuthHeaders() });
+                                              setAddedRecServices((p) => ({ ...p, [patientServiceKey]: true }));
+                                            } catch (err: any) {
+                                              // If API fails, remove from selectedServices
+                                              setSelectedServices((prev) => prev.filter((s) => s._id !== svc._id));
+                                            } finally {
+                                              setAddingRecService((p) => ({ ...p, [patientServiceKey]: false }));
+                                            }
+                                          }}
+                                          className={`flex items-center gap-0.5 rounded px-2 py-1 text-[10px] font-semibold transition-colors ${addedRecServices[`${details?.patientId}_${svc._id}`] ? "bg-green-100 text-green-700 cursor-default" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}
+                                        >
+                                          {addingRecService[`${details?.patientId}_${svc._id}`] ? <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg> : addedRecServices[`${details?.patientId}_${svc._id}`] ? <><Check size={10} /> Added</> : <><Plus size={10} /> Add</>}
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           )}
-                        </select>
-                      </div>
-                      <div className="sm:col-span-3 flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setItems([]);
-                          }}
-                          disabled={
-                            items.length === 0 || !availableForSelectedUom
-                          }
-                          className="inline-flex items-center px-3 py-2.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                        >
-                          <Trash2 className="w-4 h-4 mr-1" />
-                          Reset
-                        </button>
-                        <button
-                          type="button"
-                          onClick={addCurrentItem}
-                          disabled={
-                            !currentItem.name.trim() ||
-                            !currentItem.quantity ||
-                            !currentItem.uom ||
-                            exceedsAvailable
-                          }
-                          className="inline-flex items-center px-3 py-2.5 border border-transparent text-xs font-medium rounded-lg text-white bg-gray-800 hover:bg-gray-900"
-                        >
-                          <Plus className="w-4 h-4 mr-1" />
-                          Add Item
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-800">
-                          <tr>
-                            <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                              SI No
-                            </th>
-                            <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                              Item
-                            </th>
-                            <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                              Description
-                            </th>
-                            <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                              Qty
-                            </th>
-                            <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                              UOM
-                            </th>
+                        </div>
+                      )}
 
-                            <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                              Action
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {items.length === 0 ? (
-                            <tr>
-                              <td
-                                colSpan={6}
-                                className="px-3 py-8 text-sm text-center text-gray-500"
+
+                      {/* Stock Items */}
+                      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        {/* Section Header */}
+                        <div className="px-4 pt-4 pb-1">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wide">STOCK ITEMS</h3>
+                            <button
+                              type="button"
+                              onClick={() => setIsOpenStockTransferModal(true)}
+                              className="flex items-center gap-1.5 text-xs text-blue-600 px-3 py-1.5 rounded-lg border border-blue-300 hover:bg-blue-50 font-medium transition-colors"
+                            >
+                              <RefreshCw size={12} /> Stock Transfer Request
+                            </button>
+                          </div>
+                          <p className="text-[11px] text-blue-500 mb-3">Add items related to this appointment</p>
+                        </div>
+
+                        {/* Input Form Card */}
+                        <div className="mx-4 mb-3 border border-gray-200 rounded-lg p-4 bg-white">
+                          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-3">
+                            {/* Item selector */}
+                            <div className="relative" ref={allocatedDropdownRef}>
+                              <label className="block text-xs font-semibold text-gray-700 mb-1">Item <span className="text-red-500">*</span></label>
+                              <div
+                                className="w-full px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg flex items-center justify-between cursor-pointer bg-white h-10 hover:border-gray-400 transition-colors"
+                                onClick={() => setIsAllocatedDropdownOpen(!isAllocatedDropdownOpen)}
                               >
-                                No Items Added
-                              </td>
-                            </tr>
-                          ) : (
-                            items.map((item, index) => {
-                              const isEditing =
-                                editIndex === index && editingItem;
-                              return (
-                                <tr key={index} className="hover:bg-gray-50">
-                                  <td className="px-3 py-2 text-sm text-gray-900">
-                                    {index + 1}
-                                  </td>
-                                  <td className="px-3 py-2 text-sm text-gray-900">
-                                    {isEditing ? (
-                                      <select
-                                        value={editingItem?.itemId || ""}
-                                        onChange={(e) =>
-                                          handleEditingItemChange(
-                                            "itemId",
-                                            e.target.value,
-                                          )
-                                        }
-                                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
-                                      >
-                                        <option value="">Select Item</option>
-                                        {allocatedItems.map((si: any) => (
-                                          <option
-                                            key={si._id}
-                                            value={si.item?.itemId || ""}
-                                          >
-                                            {si.item?.name || "-"}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    ) : (
-                                      item.name
-                                    )}
-                                  </td>
-                                  <td className="px-3 py-2 text-sm text-gray-900">
-                                    {isEditing ? (
-                                      <input
-                                        value={editingItem?.description || ""}
-                                        onChange={(e) =>
-                                          handleEditingItemChange(
-                                            "description",
-                                            e.target.value,
-                                          )
-                                        }
-                                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
-                                      />
-                                    ) : (
-                                      item.description || "-"
-                                    )}
-                                  </td>
-                                  <td className="px-3 py-2 text-sm text-gray-900">
-                                    {isEditing ? (
-                                      <input
-                                        type="number"
-                                        min={1}
-                                        value={editingItem?.quantity || 1}
-                                        onChange={(e) =>
-                                          handleEditingItemChange(
-                                            "quantity",
-                                            e.target.value,
-                                          )
-                                        }
-                                        className="w-24 px-2 py-1.5 text-sm border border-gray-300 rounded text-right"
-                                      />
-                                    ) : (
-                                      item.quantity
-                                    )}
-                                  </td>
-                                  <td className="px-3 py-2 text-sm text-gray-900">
-                                    {isEditing ? (
-                                      <select
-                                        value={editingItem?.uom || ""}
-                                        onChange={(e) =>
-                                          handleEditingItemChange(
-                                            "uom",
-                                            e.target.value,
-                                          )
-                                        }
-                                        className="w-32 px-2 py-1.5 text-sm border border-gray-300 rounded"
-                                      >
-                                        <option value="">Select UOM</option>
-                                        {!allocatedItems?.find(
-                                          (i) => i?._id === editingItem?.itemId,
-                                        ) ? (
-                                          <option value="">
-                                            Loading UOMs...
-                                          </option>
-                                        ) : allocatedItems?.find(
-                                            (i) =>
-                                              i?._id === editingItem?.itemId,
-                                          ) && editingItem ? (
-                                          (
-                                            allocatedItems?.find(
-                                              (i) =>
-                                                i?._id === editingItem?.itemId,
-                                            )?.quantitiesByUom || []
-                                          )?.map((i, index: number) => (
-                                            <option
-                                              key={index.toString()}
-                                              value={i.uom}
-                                            >
-                                              {i.uom}
-                                            </option>
-                                          ))
-                                        ) : (
-                                          <></>
-                                        )}
-                                      </select>
-                                    ) : (
-                                      item.uom || "-"
-                                    )}
-                                  </td>
-                                  <td className="px-3 py-2 text-sm">
-                                    {isEditing ? (
-                                      <div className="flex gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={saveEditItem}
-                                          className="text-green-600 hover:text-green-800"
+                                <span className={currentItem.itemId ? "text-gray-800" : "text-gray-400"}>
+                                  {allocatedItems.find((si: any) => si._id === currentItem.itemId)?.item?.name || "Select item"}
+                                </span>
+                                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isAllocatedDropdownOpen ? "rotate-180" : ""}`} />
+                              </div>
+                              {isAllocatedDropdownOpen && (
+                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-52 overflow-y-auto">
+                                  <div className="p-2 border-b border-gray-100">
+                                    <input type="text" placeholder="Search..." value={allocatedSearch} onChange={(e) => setAllocatedSearch(e.target.value)} autoFocus className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none" />
+                                  </div>
+                                  {fetchAllocatedItemsLoading ? (
+                                    <div className="p-3 text-xs text-center text-gray-400">Loading...</div>
+                                  ) : allocatedItems.length === 0 ? (
+                                    <div className="p-3 text-center text-gray-400 text-xs">No items</div>
+                                  ) : (
+                                    <ul className="py-1">
+                                      {allocatedItems.filter((si: any) => {
+                                        const n = (si.item?.name || "").toLowerCase();
+                                        const c = (si.item?.code || "").toLowerCase();
+                                        const q = allocatedSearch.toLowerCase();
+                                        return n.includes(q) || c.includes(q);
+                                      }).map((si: any) => (
+                                        <li key={si._id} className="px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                          onClick={() => { const it = si.item || {}; setCurrentItem((prev) => ({ ...prev, code: it.code || "", itemId: si._id || "", name: it.name || "", description: it.description || "", uom: it.uom || prev.uom || "" })); setIsAllocatedDropdownOpen(false); setAllocatedSearch(""); }}
                                         >
-                                          <Check className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={cancelEditItem}
-                                          className="text-gray-600 hover:text-gray-800"
-                                        >
-                                          <XIcon className="w-4 h-4" />
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <div className="flex gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={() => startEditItem(index)}
-                                          className="text-blue-600 hover:text-blue-900"
-                                        >
-                                          <Pencil className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => removeItem(index)}
-                                          className="text-red-600 hover:text-red-900"
-                                        >
-                                          <Trash2 className="w-4 h-4" />
-                                        </button>
-                                      </div>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })
+                                          <div className="font-medium">{si.item?.name || "-"}</div>
+                                          {si.item?.code && <div className="text-[10px] text-gray-400">Code: {si.item.code}</div>}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Description */}
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-700 mb-1">Description</label>
+                              <input
+                                type="text"
+                                value={currentItem.description || ""}
+                                onChange={(e) => handleCurrentItemChange("description", e.target.value)}
+                                placeholder="sample desc"
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg h-10 focus:outline-none focus:ring-2 focus:ring-blue-300 hover:border-gray-400 transition-colors"
+                              />
+                            </div>
+
+                            {/* Qty */}
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-700 mb-1">Qty <span className="text-red-500">*</span></label>
+                              <input
+                                type="number"
+                                min={1}
+                                value={currentItem.quantity}
+                                onChange={(e) => handleCurrentItemChange("quantity", e.target.value)}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg h-10 focus:outline-none focus:ring-2 focus:ring-blue-300 hover:border-gray-400 transition-colors"
+                              />
+                              {currentItem.uom && (
+                                <p className="text-[11px] text-gray-500 mt-0.5">
+                                  Available: {availableForSelectedUom} {currentItem.uom}
+                                </p>
+                              )}
+                            </div>
+
+                            {/* UOM */}
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-700 mb-1">UOM <span className="text-red-500">*</span></label>
+                              <select
+                                value={currentItem.uom || ""}
+                                onChange={(e) => handleCurrentItemChange("uom", e.target.value)}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg h-10 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 hover:border-gray-400 transition-colors"
+                              >
+                                <option value="">Select UOM</option>
+                                {(allocatedItems?.find((i) => i?._id === currentItem?.itemId)?.quantitiesByUom || []).map((i: any, idx: number) => (
+                                  <option key={idx} value={i.uom}>{i.uom}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          {exceedsAvailable && (
+                            <p className="text-xs text-red-500 mb-3">Quantity exceeds available stock</p>
                           )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Previous Complaints Table */}
-                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 space-y-3">
-                  <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
-                    Previous Complaints ({previousComplaints.length})
-                  </h3>
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setCurrentItem({ itemId: "", code: "", name: "", description: "", quantity: 1, uom: "" })}
+                              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors"
+                            >
+                              <Trash2 size={13} /> Reset
+                            </button>
+                            <button
+                              type="button"
+                              onClick={addCurrentItem}
+                              disabled={!currentItem.name.trim() || !currentItem.quantity || !currentItem.uom || exceedsAvailable}
+                              className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:opacity-40 transition-colors"
+                            >
+                              <Plus size={14} /> Add Item
+                            </button>
+                          </div>
+                        </div>
 
-                  {loadingComplaints ? (
-                    <div className="py-4 text-center text-gray-500 text-sm">
-                      Loading previous complaints...
-                    </div>
-                  ) : previousComplaints.length === 0 ? (
-                    <div className="py-4 text-center text-gray-500 text-sm">
-                      No previous complaints found for this patient.
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full border-collapse">
-                        <thead>
-                          <tr className="bg-gray-50 border-b border-gray-200">
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                              Complaints
-                            </th>
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                              Date of Complaint
-                            </th>
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                              Doctor Name
-                            </th>
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                              Action
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                          {previousComplaints.map((complaint) => {
-                            const hasItems =
-                              Array.isArray(complaint.items) &&
-                              complaint.items.length > 0;
-                            const isOpen = !!expandedComplaints[complaint._id];
-                            return (
-                              <React.Fragment key={complaint._id}>
-                                <tr className="hover:bg-gray-50 transition-colors">
-                                  <td className="px-4 py-3 text-sm text-gray-900 max-w-md">
-                                    <div className="whitespace-pre-wrap break-words">
-                                      {complaint.complaints}
-                                    </div>
-                                    {(complaint.beforeImage ||
-                                      complaint.afterImage) && (
-                                      <div className="flex gap-2 mt-2">
-                                        {complaint.beforeImage && (
-                                          <div className="space-y-1">
-                                            <p className="text-[10px] font-semibold text-gray-500 uppercase">
-                                              Before
-                                            </p>
-                                            <a
-                                              href={complaint.beforeImage}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="block w-12 h-12 rounded border border-gray-200 overflow-hidden hover:opacity-80 transition"
-                                            >
-                                              <img
-                                                src={complaint.beforeImage}
-                                                alt="Before"
-                                                className="w-full h-full object-cover"
-                                              />
-                                            </a>
+                        {/* Items Table */}
+                        <div className="mx-4 mb-4 rounded-lg overflow-hidden border border-gray-200">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="bg-gray-900 text-white">
+                                <th className="px-3 py-2.5 text-left font-semibold text-xs tracking-wide">SI NO</th>
+                                <th className="px-3 py-2.5 text-left font-semibold text-xs tracking-wide">ITEM</th>
+                                <th className="px-3 py-2.5 text-left font-semibold text-xs tracking-wide">DESCRIPTION</th>
+                                <th className="px-3 py-2.5 text-left font-semibold text-xs tracking-wide">QTY</th>
+                                <th className="px-3 py-2.5 text-left font-semibold text-xs tracking-wide">UOM</th>
+                                <th className="px-3 py-2.5 text-left font-semibold text-xs tracking-wide">ACTION</th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-100">
+                              {items.length === 0 ? (
+                                <tr>
+                                  <td colSpan={6} className="px-3 py-8 text-center text-gray-400 text-sm">No Items Added</td>
+                                </tr>
+                              ) : (
+                                items.map((item, index) => {
+                                  const isEditing = editIndex === index && editingItem;
+                                  return (
+                                    <tr key={index} className="hover:bg-gray-50 transition-colors">
+                                      <td className="px-3 py-2.5 text-gray-500 font-medium">{index + 1}</td>
+                                      <td className="px-3 py-2.5 font-medium text-gray-800">
+                                        {isEditing ? (
+                                          <select value={editingItem?.itemId || ""} onChange={(e) => handleEditingItemChange("itemId", e.target.value)} className="w-full px-2 py-1 text-xs border border-gray-200 rounded">
+                                            <option value="">Select Item</option>
+                                            {allocatedItems.map((si: any) => <option key={si._id} value={si.item?.itemId || ""}>{si.item?.name || "-"}</option>)}
+                                          </select>
+                                        ) : item.name}
+                                      </td>
+                                      <td className="px-3 py-2.5 text-gray-600">
+                                        {isEditing ? (
+                                          <input type="text" value={editingItem?.description || ""} onChange={(e) => handleEditingItemChange("description", e.target.value)} className="w-full px-2 py-1 text-xs border border-gray-200 rounded" placeholder="Description" />
+                                        ) : (item.description || "-")}
+                                      </td>
+                                      <td className="px-3 py-2.5">
+                                        {isEditing ? (
+                                          <input type="number" min={1} value={editingItem?.quantity || 1} onChange={(e) => handleEditingItemChange("quantity", e.target.value)} className="w-16 px-2 py-1 text-xs border border-gray-200 rounded" />
+                                        ) : item.quantity}
+                                      </td>
+                                      <td className="px-3 py-2.5 text-gray-600">
+                                        {isEditing ? (
+                                          <select value={editingItem?.uom || ""} onChange={(e) => handleEditingItemChange("uom", e.target.value)} className="w-24 px-2 py-1 text-xs border border-gray-200 rounded">
+                                            <option value="">UOM</option>
+                                            {(allocatedItems?.find((i) => i?._id === editingItem?.itemId)?.quantitiesByUom || []).map((i: any, idx: number) => <option key={idx} value={i.uom}>{i.uom}</option>)}
+                                          </select>
+                                        ) : (item.uom || "-")}
+                                      </td>
+                                      <td className="px-3 py-2.5">
+                                        {isEditing ? (
+                                          <div className="flex gap-1.5">
+                                            <button type="button" onClick={saveEditItem} className="text-green-600 hover:text-green-800"><Check className="w-3.5 h-3.5" /></button>
+                                            <button type="button" onClick={cancelEditItem} className="text-gray-400 hover:text-gray-600"><XIcon className="w-3.5 h-3.5" /></button>
+                                          </div>
+                                        ) : (
+                                          <div className="flex gap-1.5">
+                                            <button type="button" onClick={() => startEditItem(index)} className="text-blue-500 hover:text-blue-700"><Pencil className="w-3.5 h-3.5" /></button>
+                                            <button type="button" onClick={() => removeItem(index)} className="text-red-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
                                           </div>
                                         )}
-                                        {complaint.afterImage && (
-                                          <div className="space-y-1">
-                                            <p className="text-[10px] font-semibold text-gray-500 uppercase">
-                                              After
-                                            </p>
-                                            <a
-                                              href={complaint.afterImage}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="block w-12 h-12 rounded border border-gray-200 overflow-hidden hover:opacity-80 transition"
-                                            >
-                                              <img
-                                                src={complaint.afterImage}
-                                                alt="After"
-                                                className="w-full h-full object-cover"
-                                              />
-                                            </a>
+                                      </td>
+                                    </tr>
+                                  );
+                                })
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Clinical Checklist */}
+                      <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
+                        <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2"><Eye className="w-4 h-4 text-blue-600" /> Clinical Checklist</h3>
+                        <div className="grid grid-cols-2 gap-2">
+                          {CHECKLIST_ITEMS.map((item) => (
+                            <label key={item} className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${checklist[item] ? "border-green-300 bg-green-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                              <input type="checkbox" checked={checklist[item]} onChange={() => setChecklist((prev) => ({ ...prev, [item]: !prev[item] }))} className="w-3.5 h-3.5 rounded accent-green-500 cursor-pointer" />
+                              <span className={`text-xs font-medium ${checklist[item] ? "text-green-700" : "text-gray-700"}`}>{item}</span>
+                              {checklist[item] && <Check size={12} className="ml-auto text-green-500" />}
+                            </label>
+                          ))}
+                        </div>
+                        {checklistError && (
+                          <div className="mt-2 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                            <AlertTriangle className="w-3.5 h-3.5 text-red-500 mt-0.5" />
+                            <p className="text-xs text-red-700">{checklistError}</p>
+                          </div>
+                        )}
+                      </div>
+
+                  
+
+                      {/* Previous Complaints */}
+                      <div ref={previousComplaintsRef} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                          <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                            <ClipboardList className="w-4 h-4 text-blue-600" />
+                            Previous Complaints
+                            <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">{previousComplaints.length}</span>
+                          </h3>
+                        </div>
+                        {loadingComplaints ? (
+                          <div className="py-6 text-center text-gray-400 text-sm">Loading...</div>
+                        ) : previousComplaints.length === 0 ? (
+                          <div className="py-6 text-center text-gray-400 text-sm">No previous complaints found.</div>
+                        ) : (
+                          <div className="divide-y divide-gray-100">
+                            {previousComplaints.map((complaint) => {
+                              const hasItems = Array.isArray(complaint.items) && complaint.items.length > 0;
+                              const isOpenC = !!expandedComplaints[complaint._id];
+                              return (
+                                <React.Fragment key={complaint._id}>
+                                  <div className="px-4 py-3 hover:bg-gray-50 transition-colors">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm text-gray-700 whitespace-pre-wrap break-words line-clamp-3">{complaint.complaints}</p>
+                                        {(complaint.beforeImage || complaint.afterImage) && (
+                                          <div className="flex gap-2 mt-2">
+                                            {complaint.beforeImage && <a href={complaint.beforeImage} target="_blank" rel="noopener noreferrer" className="block w-10 h-10 rounded border border-gray-200 overflow-hidden hover:opacity-80"><img src={complaint.beforeImage} alt="Before" className="w-full h-full object-cover" /></a>}
+                                            {complaint.afterImage && <a href={complaint.afterImage} target="_blank" rel="noopener noreferrer" className="block w-10 h-10 rounded border border-gray-200 overflow-hidden hover:opacity-80"><img src={complaint.afterImage} alt="After" className="w-full h-full object-cover" /></a>}
                                           </div>
+                                        )}
+                                        <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-400">
+                                          <span>{formatDateTime(complaint.createdAt)}</span>
+                                          <span>·</span>
+                                          <span>{typeof complaint.doctorId === "object" && complaint.doctorId?.name ? `Dr. ${complaint.doctorId.name}` : "Unknown Doctor"}</span>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                                        {hasItems && (
+                                          <button type="button" onClick={() => setExpandedComplaints((prev) => ({ ...prev, [complaint._id]: !prev[complaint._id] }))} className="flex items-center gap-1 px-2 py-1 text-[11px] border border-gray-200 rounded text-gray-600 hover:bg-gray-50">
+                                            {isOpenC ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                                            Items
+                                          </button>
+                                        )}
+                                        {new Date(complaint.createdAt) > new Date(Date.now() - 24 * 60 * 60 * 1000) && (
+                                          <>
+                                            <button type="button" onClick={() => { setSelectedComplaint(complaint); setIsOpenViewComplaintModal(true); }} className="p-1 text-blue-400 hover:text-blue-600"><Eye size={13} /></button>
+                                            <button type="button" onClick={() => { setDeletedComplaint(complaint); setIsOpenDeleteComplaintModal(true); }} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={13} /></button>
+                                          </>
                                         )}
                                       </div>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                                    {formatDateTime(complaint.createdAt)}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-700">
-                                    {typeof complaint.doctorId === "object" &&
-                                    complaint.doctorId?.name
-                                      ? complaint.doctorId.name
-                                      : "Unknown Doctor"}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-700">
-                                    <div className="flex items-center gap-2">
-                                      {hasItems ? (
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            setExpandedComplaints((prev) => ({
-                                              ...prev,
-                                              [complaint._id]:
-                                                !prev[complaint._id],
-                                            }))
-                                          }
-                                          className="inline-flex items-center gap-1 px-2 py-1 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
-                                        >
-                                          {isOpen ? (
-                                            <>
-                                              <ChevronUp className="w-4 h-4" />
-                                              Hide Items
-                                            </>
-                                          ) : (
-                                            <>
-                                              <ChevronDown className="w-4 h-4" />
-                                              Show Items
-                                            </>
-                                          )}
-                                        </button>
-                                      ) : (
-                                        <span className="text-xs text-gray-400">
-                                          No Items
-                                        </span>
-                                      )}
-                                      {new Date(complaint.createdAt) >
-                                        new Date(
-                                          Date.now() - 24 * 60 * 60 * 1000,
-                                        ) && (
-                                        <>
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setSelectedComplaint(complaint);
-                                              setIsOpenViewComplaintModal(true);
-                                            }}
-                                            className="inline-flex items-center gap-1 px-2 py-1 border border-blue-300 rounded text-blue-700 hover:bg-blue-50"
-                                          >
-                                            <Eye className="w-4 h-4" />
-                                            View
-                                          </button>
-                                          {/* <button
-                                            type="button"
-                                            onClick={() => {
-                                              setEditingComplaint(complaint);
-                                              setIsEditModalOpen(true);
-                                            }}
-                                            className="inline-flex items-center gap-1 px-2 py-1 border border-blue-300 rounded text-blue-700 hover:bg-blue-50"
-                                          >
-                                            <Pencil className="w-4 h-4" />
-                                            Edit
-                                          </button> */}
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setDeletedComplaint(complaint);
-                                              setIsOpenDeleteComplaintModal(
-                                                true,
-                                              );
-                                            }}
-                                            className="inline-flex items-center gap-1 px-2 py-1 border border-red-300 rounded text-red-700 hover:bg-red-50"
-                                          >
-                                            <Trash2 className="w-4 h-4" />
-                                            Delete
-                                          </button>
-                                        </>
-                                      )}
                                     </div>
-                                  </td>
-                                </tr>
-                                {hasItems && isOpen && (
-                                  <tr className="bg-gray-50">
-                                    <td colSpan={4} className="px-4 py-3">
-                                      <div className="border border-gray-200 rounded-md overflow-hidden">
-                                        <table className="w-full text-sm">
-                                          <thead className="bg-gray-100 border-b border-gray-200">
+                                  </div>
+                                  {hasItems && isOpenC && (
+                                    <div className="bg-gray-50 px-4 py-3">
+                                      <div className="rounded-lg border border-gray-200 overflow-hidden">
+                                        <table className="w-full text-xs">
+                                          <thead className="bg-gray-100">
                                             <tr>
-                                              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                                Code
-                                              </th>
-                                              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                                Item
-                                              </th>
-                                              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                                Description
-                                              </th>
-                                              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                                Qty
-                                              </th>
-                                              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                                UOM
-                                              </th>
-                                              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                                Total Amount
-                                              </th>
+                                              <th className="px-3 py-2 text-left font-semibold text-gray-600">Code</th>
+                                              <th className="px-3 py-2 text-left font-semibold text-gray-600">Item</th>
+                                              <th className="px-3 py-2 text-left font-semibold text-gray-600">Qty</th>
+                                              <th className="px-3 py-2 text-left font-semibold text-gray-600">UOM</th>
+                                              <th className="px-3 py-2 text-right font-semibold text-gray-600">Amount</th>
                                             </tr>
                                           </thead>
-                                          <tbody className="divide-y divide-gray-200 bg-white">
+                                          <tbody className="divide-y divide-gray-100 bg-white">
                                             {complaint.items!.map((it, idx) => (
-                                              <tr
-                                                key={`${complaint._id}-${idx}`}
-                                              >
-                                                <td className="px-3 py-2 text-gray-700">
-                                                  {it.code || "-"}
-                                                </td>
-                                                <td className="px-3 py-2 text-gray-900">
-                                                  {it.name}
-                                                </td>
-                                                <td className="px-3 py-2 text-gray-700">
-                                                  {it.description || "-"}
-                                                </td>
-                                                <td className="px-3 py-2 text-gray-900">
-                                                  {it.quantity}
-                                                </td>
-                                                <td className="px-3 py-2 text-gray-900">
-                                                  {it.uom || "-"}
-                                                </td>
-                                                <td className="px-3 py-2 text-gray-900">
-                                                  {it?.totalAmount || "0"}
-                                                </td>
+                                              <tr key={`${complaint._id}-${idx}`}>
+                                                <td className="px-3 py-2 text-gray-500">{it.code || "-"}</td>
+                                                <td className="px-3 py-2 font-medium text-gray-800">{it.name}</td>
+                                                <td className="px-3 py-2 text-gray-700">{it.quantity}</td>
+                                                <td className="px-3 py-2 text-gray-500">{it.uom || "-"}</td>
+                                                <td className="px-3 py-2 text-right font-semibold text-gray-800">{it?.totalAmount || "0"}</td>
                                               </tr>
                                             ))}
                                           </tbody>
                                         </table>
                                       </div>
-                                    </td>
+                                    </div>
+                                  )}
+                                </React.Fragment>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Stock Used */}
+                      {previousComplaints.some((c) => Array.isArray(c.items) && c.items.length > 0) && (
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
+                          <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2"><Package className="w-4 h-4 text-gray-500" /> Stock Used (All Sessions)</h3>
+                          <div className="rounded-lg border border-gray-100 overflow-hidden">
+                            <table className="w-full text-xs">
+                              <thead className="bg-gray-50"><tr>
+                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">Item</th>
+                                <th className="px-3 py-2 text-right font-semibold text-gray-500 uppercase tracking-wider">Qty</th>
+                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">UOM</th>
+                              </tr></thead>
+                              <tbody className="divide-y divide-gray-100 bg-white">
+                                {previousComplaints.filter((c) => Array.isArray(c.items) && c.items.length > 0).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).flatMap((c) => (c.items as NonNullable<typeof c.items>).map((item, idx) => ({ date: c.createdAt, item, key: `${c._id}-${idx}` }))).map(({ date, item, key }) => (
+                                  <tr key={key} className="hover:bg-gray-50">
+                                    <td className="px-3 py-2 text-gray-500">{new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
+                                    <td className="px-3 py-2 font-medium text-gray-800">{item.name}</td>
+                                    <td className="px-3 py-2 text-right font-semibold text-gray-700">{item.quantity}</td>
+                                    <td className="px-3 py-2 text-gray-500">{item.uom || "-"}</td>
                                   </tr>
-                                )}
-                              </React.Fragment>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
-              </>  
-            )}
 
-            {/* ── SMART RECOMMENDATIONS ── */}
-            {(smartDepartments.length > 0 || loadingSmartRec) && (
-              <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Stethoscope className="w-4 h-4 text-violet-600" />
-                  <h3 className="text-sm font-semibold text-violet-900 uppercase tracking-wide">Smart Recommendations</h3>
-                  <span className="ml-1 text-[10px] text-violet-500 font-medium">Based on Doctor's Department Services</span>
-                </div>
-                {loadingSmartRec ? (
-                  <div className="text-xs text-violet-500 py-2">Loading recommendations...</div>
-                ) : (
-                  <div className="space-y-3">
-                    {smartDepartments.map((dept) => (
-                      <div key={dept._id}>
-                        <p className="text-[10px] font-bold text-violet-700 uppercase tracking-wider mb-1.5">{dept.name}</p>
-                        <div className="flex flex-wrap gap-2">
-                          {dept.services.map((svc) => (
-                            <div
-                              key={svc._id}
-                              className="flex items-center gap-2 rounded-lg border border-violet-200 bg-white px-3 py-1.5 shadow-sm"
-                            >
-                              <span className="text-xs font-semibold text-gray-800">{svc.name}</span>
-                              <span className="text-[10px] text-violet-500 font-medium">
-                                {svc.clinicPrice != null ? `₹${svc.clinicPrice}` : `₹${svc.price}`}
-                              </span>
-                              <button
-                                type="button"
-                                disabled={addingRecService[svc._id] || addedRecServices[svc._id]}
+
+                      {/* ── APPOINTMENTS CARD ── */}
+                  
+
+                  {/* ── PROGRESS TAB ── */}
+                  {activeTab === "progress" && (
+                    <div className="space-y-4">
+                      {progressError && (
+                        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{progressError}</div>
+                      )}
+                      {loadingProgressNotes ? (
+                        <div className="py-8 text-center text-gray-400 text-sm">Loading progress notes...</div>
+                      ) : (
+                        <div className="relative">
+                          {progressNotes.length > 0 && (
+                            <div className="absolute left-[18px] top-5 bottom-5 w-px bg-gradient-to-b from-blue-400 to-blue-100" />
+                          )}
+                          <div className="space-y-4">
+                            {progressNotes.map((entry) => {
+                              const dateStr = entry.noteDate ? new Date(entry.noteDate).toISOString().slice(0, 10) : new Date(entry.createdAt).toISOString().slice(0, 10);
+                              const doctorName = typeof entry.doctorId === "object" && entry.doctorId?.name ? entry.doctorId.name : null;
+                              return (
+                                <div key={entry._id} className="flex gap-4 items-start">
+                                  <div className="flex-shrink-0 w-9 h-9 rounded-full bg-blue-500 border-4 border-white shadow-md flex items-center justify-center z-10">
+                                    <TrendingUp size={14} className="text-white" />
+                                  </div>
+                                  <div className="flex-1 rounded-xl border border-gray-200 bg-white shadow-sm px-4 py-3 space-y-1">
+                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                      <span className="text-xs font-semibold text-blue-600">{dateStr}</span>
+                                      <div className="flex items-center gap-3">
+                                        {doctorName && <span className="text-xs text-gray-400">{doctorName}</span>}
+                                        <button type="button" onClick={async () => {
+                                          try {
+                                            const headers = getAuthHeaders();
+                                            await axios.delete("/api/clinic/progress-notes", { headers, params: { noteId: entry._id } });
+                                            setProgressNotes((prev) => prev.filter((n) => n._id !== entry._id));
+                                          } catch { setProgressError("Failed to delete progress note"); }
+                                        }} className="text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={12} /></button>
+                                      </div>
+                                    </div>
+                                    <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{entry.note}</p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {addingNewEntry ? (
+                        <div className="rounded-xl border-2 border-dashed border-blue-300 bg-blue-50/60 px-4 py-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-blue-700 flex items-center gap-1"><Plus size={12} /> New Progress Entry</span>
+                            <span className="text-xs text-blue-600">{newEntryDate}</span>
+                          </div>
+                          <textarea autoFocus value={newEntryText} onChange={(e) => setNewEntryText(e.target.value)} rows={4} placeholder="Describe patient's progress, treatment response, observations..." className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none" />
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <label className="text-xs text-blue-700 font-medium">Date:</label>
+                              <input type="date" value={newEntryDate} onChange={(e) => setNewEntryDate(e.target.value)} className="border border-blue-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button type="button" onClick={() => { setAddingNewEntry(false); setNewEntryText(""); setProgressError(""); }} className="px-4 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">Cancel</button>
+                              <button type="button" disabled={savingProgress || !newEntryText.trim()}
                                 onClick={async () => {
-                                  if (!details?.appointmentId) return;
-                                  setAddingRecService((p) => ({ ...p, [svc._id]: true }));
+                                  if (!newEntryText.trim() || !details) return;
+                                  setSavingProgress(true); setProgressError("");
                                   try {
-                                    await axios.patch(
-                                      `/api/clinic/appointment-services/${details.appointmentId}`,
-                                      { serviceIds: [svc._id] },
-                                      { headers: getAuthHeaders() }
-                                    );
-                                    setAddedRecServices((p) => ({ ...p, [svc._id]: true }));
-                                  } catch {
-                                    // silently ignore; user can retry
-                                  } finally {
-                                    setAddingRecService((p) => ({ ...p, [svc._id]: false }));
-                                  }
+                                    const headers = getAuthHeaders();
+                                    const res = await axios.post("/api/clinic/progress-notes", { appointmentId: details.appointmentId, patientId: details.patientId, note: newEntryText.trim(), noteDate: newEntryDate }, { headers });
+                                    if (res.data?.success && res.data.note) setProgressNotes((prev) => [res.data.note, ...prev]);
+                                    setNewEntryText(""); setNewEntryDate(new Date().toISOString().slice(0, 10)); setAddingNewEntry(false);
+                                  } catch (err: any) { setProgressError(err.response?.data?.message || "Failed to save progress note"); }
+                                  finally { setSavingProgress(false); }
                                 }}
-                                className={`flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
-                                  addedRecServices[svc._id]
-                                    ? "bg-green-100 text-green-700 cursor-default"
-                                    : "bg-violet-100 text-violet-700 hover:bg-violet-200"
-                                }`}
+                                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
                               >
-                                {addingRecService[svc._id] ? (
-                                  <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                                  </svg>
-                                ) : addedRecServices[svc._id] ? (
-                                  <>
-                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    Added
-                                  </>
-                                ) : (
-                                  <>
-                                    <Plus size={10} />
-                                    Add
-                                  </>
-                                )}
+                                {savingProgress ? <><RefreshCw size={12} className="animate-spin" /> Saving...</> : <><Check size={12} /> Save Entry</>}
                               </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <button type="button" onClick={() => { setAddingNewEntry(true); setNewEntryDate(new Date().toISOString().slice(0, 10)); }}
+                          className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 py-4 text-sm font-medium text-gray-400 hover:border-blue-300 hover:text-blue-600 transition-colors bg-white"
+                        >
+                          <Plus size={16} /> Add New Progress Note
+                        </button>
+                      )}
+
+                      {/* Smart Recommendations in progress tab */}
+                      {(smartDepartments.length > 0 || loadingSmartRec) && (
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Stethoscope className="w-4 h-4 text-blue-600" />
+                            <h3 className="text-sm font-semibold text-gray-800">Smart Recommendations</h3>
+                          </div>
+                          {loadingSmartRec ? (
+                            <div className="text-xs text-gray-400 py-2">Loading...</div>
+                          ) : (
+                            <div className="space-y-2">
+                              {smartDepartments.map((dept) => (
+                                <div key={dept._id}>
+                                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">{dept.name}</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {dept.services.map((svc) => (
+                                      <div key={svc._id} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
+                                        <span className="text-xs font-medium text-gray-700">{svc.name}</span>
+                                        <span className="text-[10px] text-blue-600">{svc.clinicPrice != null ? `AED ${svc.clinicPrice}` : `AED ${svc.price}`}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Appointments - Upcoming */}
+                      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
+                          <ClipboardList className="w-4 h-4 text-blue-600" />
+                          <h3 className="text-sm font-semibold text-gray-800">Appointments</h3>
+                        </div>
+                        <div className="px-5 py-3">
+                          {loadingUpcoming ? (
+                            <div className="flex items-center gap-2 py-3 text-xs text-gray-400">
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading appointments...
+                            </div>
+                          ) : upcomingAppointments.length === 0 ? (
+                            <p className="text-xs text-gray-400 py-3 text-center">No upcoming appointments</p>
+                          ) : (
+                            <div>
+                              <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider mb-2">Upcoming</p>
+                              <div className="space-y-2">
+                                {upcomingAppointments.map((appt) => {
+                                  const d = new Date(appt.startDate);
+                                  const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                                  const [fh, fm] = appt.fromTime.split(":").map(Number);
+                                  const ampm = fh < 12 ? "AM" : "PM";
+                                  const h12 = fh % 12 || 12;
+                                  const timeStr = `${h12}:${String(fm).padStart(2, "0")} ${ampm}`;
+                                  const statusColor = appt.status === "booked" || appt.status === "Approved" ? "bg-blue-600 text-white" : appt.status === "Completed" ? "bg-green-100 text-green-700" : appt.status === "Cancelled" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600";
+                                  return (
+                                    <div key={appt._id} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 flex items-center justify-between">
+                                      <div>
+                                        <p className="text-xs font-semibold text-gray-800">{appt.followType === "follow up" ? "Follow-up Session" : appt.followType === "first time" ? "First Visit" : appt.followType}</p>
+                                        <div className="flex items-center gap-3 mt-0.5 text-[11px] text-gray-500">
+                                          <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {dateStr}</span>
+                                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {timeStr}</span>
+                                        </div>
+                                      </div>
+                                      <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-md capitalize ${statusColor}`}>{appt.status}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Next Session Booking */}
+                      <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-5">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Calendar className="w-4 h-4 text-blue-600" />
+                          <h3 className="text-sm font-semibold text-gray-800">Next Session Booking</h3>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1.5">Select Date</label>
+                            <input
+                              type="date"
+                              value={nextSessionDate}
+                              min={new Date().toISOString().slice(0, 10)}
+                              onChange={(e) => { setNextSessionDate(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1.5">Select Time</label>
+                            <select
+                              value={nextSessionTime}
+                              onChange={(e) => { setNextSessionTime(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                            >
+                              {["07:00","07:30","08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30","20:00"].map((t) => {
+                                const [h, m] = t.split(":").map(Number);
+                                const ampm = h < 12 ? "AM" : "PM";
+                                const h12 = h % 12 || 12;
+                                return <option key={t} value={t}>{`${h12}:${String(m).padStart(2, "0")} ${ampm}`}</option>;
+                              })}
+                            </select>
+                          </div>
+                        </div>
+                        {nextSessionError && (
+                          <div className="mb-3 flex items-center gap-2 p-2.5 rounded-lg bg-red-50 border border-red-200">
+                            <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                            <p className="text-red-600 text-xs">{nextSessionError}</p>
+                          </div>
+                        )}
+                        {nextSessionBooked && (
+                          <div className="mb-3 flex items-center gap-2 p-2.5 rounded-lg bg-green-50 border border-green-200">
+                            <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                            <p className="text-green-700 text-xs font-medium">Session booked successfully!</p>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={bookNextSession}
+                          disabled={bookingNextSession || nextSessionBooked}
+                          className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 active:bg-blue-800 disabled:opacity-60 transition-colors shadow-sm"
+                        >
+                          <Calendar size={15} />
+                          {bookingNextSession ? "Booking..." : nextSessionBooked ? "Session Booked!" : "Book Next Session"}
+                        </button>
+                      </div>
+
+                      {/* ── DIVIDER ── */}
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-px bg-gray-200" />
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Session Summary</span>
+                        <div className="flex-1 h-px bg-gray-200" />
+                      </div>
+
+                      {/* Treatment & Billing - Full Interactive (Progress Notes) */}
+                      <div className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
+                              <Package className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <h3 className="text-base font-bold text-gray-900">Treatment & Billing</h3>
+                              <p className="text-xs text-gray-500">Add and manage treatment services</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowAddServiceDropdown(true);
+                                setShowCreatePackage(false);
+                                setServicesSaved(false);
+                                setServicesError("");
+                                if (allServices.length === 0) fetchAllServices();
+                              }}
+                              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg"
+                            >
+                              <Plus size={16} /> Add Service
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowCreatePackage(true);
+                                setShowAddServiceDropdown(false);
+                                setPkgError("");
+                                setPkgSuccess("");
+                                if (allServices.length === 0) fetchAllServices();
+                                if (pkgTreatments.length === 0) fetchPkgTreatments();
+                              }}
+                              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-all"
+                            >
+                              <Package size={16} /> Create Package
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Add Service Panel */}
+                        {showAddServiceDropdown && (
+                          <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-br from-blue-50/50 to-indigo-50/50">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                                  <Search className="w-4 h-4 text-blue-600" />
+                                </div>
+                                <span className="text-sm font-bold text-blue-800">Search & Add Services</span>
+                              </div>
+                              <button type="button" onClick={() => setShowAddServiceDropdown(false)} className="text-gray-400 hover:text-gray-600 transition-colors"><XIcon size={16} /></button>
+                            </div>
+                            <div className="relative mb-3">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Search className="h-4 w-4 text-gray-400" />
+                              </div>
+                              <input
+                                type="text"
+                                placeholder="Search by service name..."
+                                value={serviceSearchQuery}
+                                onChange={(e) => setServiceSearchQuery(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent shadow-sm transition-all"
+                              />
+                            </div>
+                            <div className="max-h-64 overflow-y-auto space-y-2 mb-3 rounded-lg border border-gray-200 bg-white p-2">
+                              {loadingServices ? (
+                                <div className="flex items-center justify-center py-8">
+                                  <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+                                  <span className="ml-2 text-sm text-gray-500">Loading services...</span>
+                                </div>
+                              ) : allServices.filter((s) => s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase())).length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-8 text-center">
+                                  <Package className="w-12 h-12 text-gray-300 mb-2" />
+                                  <p className="text-sm text-gray-500 font-medium">No services found</p>
+                                </div>
+                              ) : (
+                                allServices.filter((s) => s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase())).map((svc) => {
+                                  const isSelected = selectedServices.some((s) => s._id === svc._id);
+                                  return (
+                                    <button key={svc._id} type="button"
+                                      onClick={() => { setSelectedServices((prev) => isSelected ? prev.filter((s) => s._id !== svc._id) : [...prev, svc]); setServicesSaved(false); }}
+                                      className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${
+                                        isSelected ? "bg-blue-50 border-blue-300 shadow-sm" : "bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+                                          isSelected ? "bg-blue-600 border-blue-600" : "border-gray-300 bg-white"
+                                        }`}>
+                                          {isSelected && <Check size={12} className="text-white" />}
+                                        </div>
+                                        <span className={`text-sm font-medium ${isSelected ? "text-blue-800" : "text-gray-700"}`}>{svc.name}</span>
+                                      </div>
+                                      <div className="flex items-center gap-3">
+                                        <span className={`text-sm font-bold ${isSelected ? "text-blue-700" : "text-gray-900"}`}>AED {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}</span>
+                                        {isSelected && <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Added</span>}
+                                      </div>
+                                    </button>
+                                  );
+                                })
+                              )}
+                            </div>
+                            {servicesError && (
+                              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                                <p className="text-xs text-red-700">{servicesError}</p>
+                              </div>
+                            )}
+                            {servicesSaved && (
+                              <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+                                <CheckCircle className="w-4 h-4 text-green-600" />
+                                <p className="text-xs text-green-700 font-medium">Services saved successfully!</p>
+                              </div>
+                            )}
+                            <button type="button" onClick={saveServicesToAppointment}
+                              disabled={savingServices || selectedServices.length === 0}
+                              className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+                            >
+                              {savingServices ? (<><Loader2 className="w-4 h-4 animate-spin" />Saving...</>) : (<><CheckCircle className="w-4 h-4" />Save Services to Appointment</>)}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Create Package Panel */}
+                        {showCreatePackage && (
+                          <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-br from-violet-50/50 to-purple-50/50">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center">
+                                  <Package className="w-4 h-4 text-violet-600" />
+                                </div>
+                                <span className="text-sm font-bold text-violet-800">Create New Package</span>
+                              </div>
+                              <button type="button" onClick={() => { setShowCreatePackage(false); setPkgError(""); setPkgSuccess(""); setPkgModalName(""); setPkgModalPrice(""); setPkgSelectedTreatments([]); }} className="text-gray-400 hover:text-gray-600 transition-colors"><XIcon size={16} /></button>
+                            </div>
+                            <div className="mb-3">
+                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">Package Name <span className="text-red-500">*</span></label>
+                              <input type="text" value={pkgModalName} onChange={(e) => setPkgModalName(e.target.value)} placeholder="e.g., Premium Skin Care Package" className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm" />
+                            </div>
+                            <div className="mb-3">
+                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">Total Package Price <span className="text-red-500">*</span></label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">AED</span>
+                                <input type="number" min="0" step="0.01" value={pkgModalPrice} onChange={(e) => setPkgModalPrice(e.target.value)} placeholder="0.00" className="w-full pl-12 pr-4 py-2 text-sm font-semibold border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm" />
+                              </div>
+                            </div>
+                            <div className="mb-3">
+                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">Select Treatments / Services <span className="text-red-500">*</span></label>
+                              <div className="relative">
+                                <div className="w-full px-4 py-2.5 text-sm border border-violet-200 rounded-lg bg-white cursor-pointer flex items-center justify-between hover:border-violet-300 transition-colors shadow-sm"
+                                  onClick={() => { setPkgTreatmentDropdownOpen(!pkgTreatmentDropdownOpen); if (!pkgTreatmentDropdownOpen && allServices.length === 0) fetchAllServices(); }}>
+                                  <span className={pkgSelectedTreatments.length > 0 ? "text-gray-800 font-medium" : "text-gray-400"}>
+                                    {pkgSelectedTreatments.length > 0 ? `${pkgSelectedTreatments.length} treatment${pkgSelectedTreatments.length > 1 ? "s" : ""} selected` : "Select treatments to include..."}
+                                  </span>
+                                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${pkgTreatmentDropdownOpen ? "rotate-180" : ""}`} />
+                                </div>
+                                {pkgTreatmentDropdownOpen && (
+                                  <div className="absolute z-20 w-full mt-1 bg-white border border-violet-200 rounded-lg shadow-lg max-h-64 overflow-hidden flex flex-col">
+                                    <div className="p-3 border-b border-violet-100 sticky top-0 bg-white">
+                                      <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                        <input type="text" value={pkgTreatmentSearch} onChange={(e) => setPkgTreatmentSearch(e.target.value)} placeholder="Search treatments..." autoFocus className="w-full pl-9 pr-3 py-2 text-sm border border-violet-200 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                                      </div>
+                                    </div>
+                                    <div className="overflow-y-auto max-h-52">
+                                      {loadingServices ? (
+                                        <div className="flex items-center justify-center p-4"><Loader2 className="w-5 h-5 text-violet-600 animate-spin" /><span className="ml-2 text-sm text-gray-500">Loading...</span></div>
+                                      ) : allServices.filter((s) => s.name.toLowerCase().includes(pkgTreatmentSearch.toLowerCase())).length === 0 ? (
+                                        <div className="p-4 text-center text-sm text-gray-400">No treatments found</div>
+                                      ) : (
+                                        <ul className="py-1">
+                                          {allServices.filter((svc) => svc.name.toLowerCase().includes(pkgTreatmentSearch.toLowerCase())).map((svc) => {
+                                            const isSelected = pkgSelectedTreatments.some((t) => t.treatmentSlug === svc._id);
+                                            return (
+                                              <li key={svc._id}>
+                                                <button type="button"
+                                                  onClick={() => {
+                                                    if (isSelected) { setPkgSelectedTreatments((prev) => prev.filter((t) => t.treatmentSlug !== svc._id)); }
+                                                    else { setPkgSelectedTreatments((prev) => [...prev, { treatmentName: svc.name, treatmentSlug: svc._id, sessions: 1, allocatedPrice: svc.clinicPrice != null ? svc.clinicPrice : svc.price }]); }
+                                                  }}
+                                                  className={`w-full flex items-center justify-between px-4 py-2.5 hover:bg-violet-50 transition-colors ${isSelected ? "bg-violet-50" : ""}`}
+                                                >
+                                                  <div className="flex items-center gap-3">
+                                                    <div className={`w-5 h-5 rounded border flex items-center justify-center ${isSelected ? "bg-violet-600 border-violet-600" : "border-gray-300"}`}>
+                                                      {isSelected && <Check size={12} className="text-white" />}
+                                                    </div>
+                                                    <div className="text-left">
+                                                      <p className="text-sm font-medium text-gray-800">{svc.name}</p>
+                                                      <p className="text-xs text-gray-500">AED {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)} • {svc.durationMinutes} mins</p>
+                                                    </div>
+                                                  </div>
+                                                </button>
+                                              </li>
+                                            );
+                                          })}
+                                        </ul>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                                {pkgSelectedTreatments.length > 0 && (
+                                  <div className="mt-3 space-y-2">
+                                    <p className="text-xs font-semibold text-violet-700">Selected Treatments</p>
+                                    {pkgSelectedTreatments.map((sel) => {
+                                      const sessPrice = sel.sessions > 0 ? (sel.allocatedPrice || 0) / sel.sessions : 0;
+                                      return (
+                                        <div key={sel.treatmentSlug} className="bg-white border border-violet-200 rounded-lg p-2.5 shadow-sm">
+                                          <div className="flex items-center justify-between mb-2">
+                                            <span className="text-xs font-semibold text-violet-700">{sel.treatmentName}</span>
+                                            <button type="button" onClick={() => setPkgSelectedTreatments((prev) => prev.filter((t) => t.treatmentSlug !== sel.treatmentSlug))} className="text-red-400 hover:text-red-600 transition-colors"><XIcon size={13} /></button>
+                                          </div>
+                                          <div className="grid grid-cols-3 gap-2">
+                                            <div>
+                                              <label className="block text-[9px] text-violet-600 font-medium mb-0.5">Price</label>
+                                              <input type="number" min="0" step="0.01" value={sel.allocatedPrice || ""} onChange={(e) => setPkgSelectedTreatments((prev) => prev.map((t) => t.treatmentSlug === sel.treatmentSlug ? { ...t, allocatedPrice: parseFloat(e.target.value) || 0 } : t))} className="w-full px-2 py-1.5 text-xs border border-violet-200 rounded-md focus:outline-none focus:ring-1 focus:ring-violet-400" placeholder="0.00" />
+                                            </div>
+                                            <div>
+                                              <label className="block text-[9px] text-violet-600 font-medium mb-0.5">Sessions</label>
+                                              <input type="number" min="1" value={sel.sessions} onChange={(e) => setPkgSelectedTreatments((prev) => prev.map((t) => t.treatmentSlug === sel.treatmentSlug ? { ...t, sessions: parseInt(e.target.value) || 1 } : t))} className="w-full px-2 py-1.5 text-xs border border-violet-200 rounded-md text-center focus:outline-none focus:ring-1 focus:ring-violet-400" />
+                                            </div>
+                                            <div>
+                                              <label className="block text-[9px] text-violet-600 font-medium mb-0.5">/Session</label>
+                                              <div className="px-2 py-1.5 text-xs font-bold text-center bg-violet-100 rounded-md text-violet-700 border border-violet-200">₹{sessPrice.toFixed(2)}</div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                    <div className="grid grid-cols-3 gap-1.5 bg-violet-100 rounded-lg px-3 py-2.5">
+                                      <div className="text-center">
+                                        <p className="text-[9px] text-violet-600 font-medium mb-0.5">Pkg Price</p>
+                                        <p className="text-xs font-bold text-violet-800">₹{parseFloat(pkgModalPrice) || 0}</p>
+                                      </div>
+                                      <div className="text-center">
+                                        <p className="text-[9px] text-violet-600 font-medium mb-0.5">Allocated</p>
+                                        <p className="text-xs font-bold text-violet-800">₹{pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0).toFixed(2)}</p>
+                                      </div>
+                                      <div className="text-center">
+                                        <p className="text-[9px] text-violet-600 font-medium mb-0.5">Remaining</p>
+                                        <p className={`text-xs font-bold ${Math.abs((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)) < 0.01 ? "text-teal-600" : "text-amber-600"}`}>
+                                          ₹{((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)).toFixed(2)}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            {pkgError && (<div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2"><AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" /><p className="text-xs text-red-700">{pkgError}</p></div>)}
+                            {pkgSuccess && (<div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-600" /><p className="text-xs text-green-700 font-medium">{pkgSuccess}</p></div>)}
+                            <div className="flex gap-3">
+                              <button type="button" onClick={() => handleCreatePackageModal(false)} disabled={pkgSubmitting || addingPackageToPatient} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-violet-700 bg-white border border-violet-500 rounded-lg hover:bg-violet-50 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                                <Package size={14} />{pkgSubmitting ? "Creating..." : "Create Package"}
+                              </button>
+                              <button type="button" onClick={() => handleCreatePackageModal(true)} disabled={pkgSubmitting || addingPackageToPatient} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+                                <Plus size={14} />{addingPackageToPatient ? "Adding..." : "Create & Add to Patient"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Selected Services */}
+                        <div className="px-5 py-4">
+                          {selectedServices.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-12 text-center">
+                              <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                                <Package className="w-10 h-10 text-gray-400" />
+                              </div>
+                              <p className="text-sm font-medium text-gray-600 mb-1">No services added yet</p>
+                              <p className="text-xs text-gray-400 mb-4">Click "Add Service" to begin building your treatment plan</p>
+                              <button type="button" onClick={() => { setShowAddServiceDropdown(true); if (allServices.length === 0) fetchAllServices(); }} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-all shadow-md">
+                                <Plus size={16} /> Browse Services
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-bold text-gray-900">Selected Treatments</span>
+                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">{selectedServices.length}</span>
+                                </div>
+                              </div>
+                              {selectedServices.map((svc, i) => (
+                                <div key={svc._id} className="group relative rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-all duration-200">
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex items-start gap-3 flex-1">
+                                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center flex-shrink-0 border border-blue-100">
+                                        <Package className="w-6 h-6 text-blue-600" />
+                                      </div>
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <h4 className="text-sm font-bold text-gray-900">{svc.name}</h4>
+                                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">Standard</span>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mb-2">Service #{i + 1} • ID: {svc._id.slice(-6)}</p>
+                                        <div className="flex items-center gap-2">
+                                          <label className="text-xs text-gray-600 font-medium">Price:</label>
+                                          <div className="relative">
+                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">AED</span>
+                                            <input type="number" min="0" step="0.01" value={(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
+                                              onChange={(e) => { const newPrice = parseFloat(e.target.value) || 0; setSelectedServices((prev) => prev.map((s) => s._id === svc._id ? { ...s, clinicPrice: newPrice, price: newPrice } : s)); }}
+                                              className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white hover:border-gray-400 transition-all"
+                                            />
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <div className="text-right">
+                                        <p className="text-sm font-bold text-gray-900">AED {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}</p>
+                                      </div>
+                                      <button type="button" onClick={() => setSelectedServices((prev) => prev.filter((s) => s._id !== svc._id))} className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50" title="Remove service"><Trash2 size={16} /></button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                              <div className="mt-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 p-3 shadow-md">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-white bg-opacity-20 flex items-center justify-center"><ClipboardList className="w-5 h-5 text-white" /></div>
+                                    <div>
+                                      <p className="text-xs font-medium text-blue-100">Total Bill</p>
+                                      <p className="text-[10px] text-blue-200">{selectedServices.length} {selectedServices.length === 1 ? "treatment" : "treatments"}</p>
+                                    </div>
+                                  </div>
+                                  <p className="text-lg font-bold text-white">AED {totalBill.toFixed(2)}</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Clinical Checklist (read-only) */}
+                      <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
+                        <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                          <Eye className="w-4 h-4 text-blue-600" /> Clinical Checklist
+                        </h3>
+                        <div className="grid grid-cols-2 gap-2">
+                          {CHECKLIST_ITEMS.map((item) => (
+                            <label key={item} className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${checklist[item] ? "border-green-300 bg-green-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                              <input type="checkbox" checked={checklist[item]} onChange={() => setChecklist((prev) => ({ ...prev, [item]: !prev[item] }))} className="w-3.5 h-3.5 rounded accent-green-500 cursor-pointer" />
+                              <span className={`text-xs font-medium ${checklist[item] ? "text-green-700" : "text-gray-700"}`}>{item}</span>
+                              {checklist[item] && <Check size={12} className="ml-auto text-green-500" />}
+                            </label>
+                          ))}
+                        </div>
+                        {checklistError && (
+                          <div className="mt-2 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                            <AlertTriangle className="w-3.5 h-3.5 text-red-500 mt-0.5" />
+                            <p className="text-xs text-red-700">{checklistError}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Stock Used (All Sessions) */}
+                      {previousComplaints.some((c) => Array.isArray(c.items) && c.items.length > 0) && (
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
+                          <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2"><Package className="w-4 h-4 text-gray-500" /> Stock Used (All Sessions)</h3>
+                          <div className="rounded-lg border border-gray-100 overflow-hidden">
+                            <table className="w-full text-xs">
+                              <thead className="bg-gray-50"><tr>
+                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">Item</th>
+                                <th className="px-3 py-2 text-right font-semibold text-gray-500 uppercase tracking-wider">Qty</th>
+                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">UOM</th>
+                              </tr></thead>
+                              <tbody className="divide-y divide-gray-100 bg-white">
+                                {previousComplaints.filter((c) => Array.isArray(c.items) && c.items.length > 0).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).flatMap((c) => (c.items as NonNullable<typeof c.items>).map((item, idx) => ({ date: c.createdAt, item, key: `progress-${c._id}-${idx}` }))).map(({ date, item, key }) => (
+                                  <tr key={key} className="hover:bg-gray-50">
+                                    <td className="px-3 py-2 text-gray-500">{new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
+                                    <td className="px-3 py-2 font-medium text-gray-800">{item.name}</td>
+                                    <td className="px-3 py-2 text-right font-semibold text-gray-700">{item.quantity}</td>
+                                    <td className="px-3 py-2 text-gray-500">{item.uom || "-"}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── PRESCRIPTION TAB ── */}
+                  {activeTab === "prescription" && (
+                    <div className="space-y-5">
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-sm font-semibold text-gray-800">Prescribed Medicines</h3>
+                          <button type="button" onClick={() => setMedicines((prev) => [...prev, emptyMedicine()])}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700"
+                          >
+                            <Plus size={13} /> Add Medicine
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {medicines.map((med) => (
+                            <div key={med.id} className="rounded-xl border border-gray-200 bg-white px-4 py-3 flex flex-col sm:flex-row gap-3 items-start sm:items-center shadow-sm">
+                              <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase">Medicine</label>
+                                <input type="text" value={med.medicineName} onChange={(e) => setMedicines((prev) => prev.map((m) => m.id === med.id ? { ...m, medicineName: e.target.value } : m))} placeholder="Medicine name" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300 text-gray-800 placeholder-gray-400" />
+                              </div>
+                              <div className="flex flex-col gap-0.5 w-full sm:w-28">
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase">Dosage</label>
+                                <input type="text" value={med.dosage} onChange={(e) => setMedicines((prev) => prev.map((m) => m.id === med.id ? { ...m, dosage: e.target.value } : m))} placeholder="2x/day" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                              </div>
+                              <div className="flex flex-col gap-0.5 w-full sm:w-24">
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase">Duration</label>
+                                <input type="text" value={med.duration} onChange={(e) => setMedicines((prev) => prev.map((m) => m.id === med.id ? { ...m, duration: e.target.value } : m))} placeholder="7 days" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                              </div>
+                              <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase">Notes</label>
+                                <input type="text" value={med.notes} onChange={(e) => setMedicines((prev) => prev.map((m) => m.id === med.id ? { ...m, notes: e.target.value } : m))} placeholder="After meals" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                              </div>
+                              <button type="button" onClick={() => { if (medicines.length === 1) { setMedicines([emptyMedicine()]); } else { setMedicines((prev) => prev.filter((m) => m.id !== med.id)); } }} className="mt-4 sm:mt-0 text-gray-300 hover:text-red-500 flex-shrink-0"><Trash2 size={15} /></button>
                             </div>
                           ))}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
 
-            {/* ── NEXT SESSION BOOKING ── */}
-            <div className="rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
-              <div className="flex items-center gap-2 mb-3">
-                <Calendar className="w-4 h-4 text-blue-600" />
-                <h3 className="text-sm font-semibold text-gray-900">Next Session Booking</h3>
-              </div>
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Select Date</label>
-                  <input
-                    type="date"
-                    value={nextSessionDate}
-                    min={new Date().toISOString().slice(0, 10)}
-                    onChange={(e) => { setNextSessionDate(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Select Time</label>
-                  <select
-                    value={nextSessionTime}
-                    onChange={(e) => { setNextSessionTime(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
-                  >
-                    {["07:00","07:30","08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30","20:00"].map((t) => {
-                      const [h, m] = t.split(":").map(Number);
-                      const ampm = h < 12 ? "AM" : "PM";
-                      const h12 = h % 12 || 12;
-                      return <option key={t} value={t}>{`${h12}:${String(m).padStart(2, "0")} ${ampm}`}</option>;
-                    })}
-                  </select>
-                </div>
-              </div>
-              {nextSessionError && <p className="text-red-500 text-xs mb-2">{nextSessionError}</p>}
-              {nextSessionBooked && (
-                <p className="text-green-600 text-xs mb-3 flex items-center gap-1">
-                  <Check size={12} /> Next session booked successfully!
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={bookNextSession}
-                disabled={bookingNextSession || nextSessionBooked}
-                className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-              >
-                <Calendar size={15} />
-                {bookingNextSession ? "Booking..." : nextSessionBooked ? "Session Booked!" : "Book Next Session"}
-              </button>
-            </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-800 mb-2">Aftercare Instructions</h3>
+                        <textarea value={aftercareInstructions} onChange={(e) => setAftercareInstructions(e.target.value)} rows={4} placeholder="Enter aftercare instructions..." className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none" />
+                      </div>
 
-            {/* ── ADD SERVICE & CREATE PACKAGE ── */}
-            <div className="rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
-              <div className="flex items-center gap-2 mb-3">
-                <Package className="w-4 h-4 text-teal-600" />
-                <h3 className="text-sm font-semibold text-gray-900">Services & Packages</h3>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddServiceDropdown(true);
-                    setShowCreatePackage(false);
-                    setServicesSaved(false);
-                    setServicesError("");
-                    if (allServices.length === 0) fetchAllServices();
-                  }}
-                  className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-teal-500 bg-teal-50 px-3 py-2 text-sm font-medium text-teal-700 hover:bg-teal-100 transition-colors"
-                >
-                  <Plus size={14} />
-                  Add Service
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCreatePackage(true);
-                    setShowAddServiceDropdown(false);
-                    setPkgError("");
-                    setPkgSuccess("");
-                    if (pkgTreatments.length === 0) fetchPkgTreatments();
-                  }}
-                  className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-violet-500 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100 transition-colors"
-                >
-                  <Package size={14} />
-                  Create Package
-                </button>
-              </div>
+                      <div className="flex items-center gap-3">
+                        <button type="button" role="switch" aria-checked={includeInPdf} onClick={() => setIncludeInPdf((v) => !v)}
+                          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${includeInPdf ? "bg-blue-500" : "bg-gray-300"}`}
+                        >
+                          <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${includeInPdf ? "translate-x-5" : "translate-x-0"}`} />
+                        </button>
+                        <span className="text-sm text-gray-700 font-medium">Include in patient PDF</span>
+                      </div>
 
-              {/* ADD SERVICE DROPDOWN PANEL */}
-              {showAddServiceDropdown && (
-                <div className="mt-3 border border-teal-200 rounded-lg bg-teal-50 p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-teal-800">Select Services</span>
-                    <button type="button" onClick={() => setShowAddServiceDropdown(false)} className="text-gray-400 hover:text-gray-600">
-                      <XIcon size={14} />
-                    </button>
-                  </div>
-                  {/* Search */}
-                  <div className="relative mb-2">
-                    <input
-                      type="text"
-                      placeholder="Search services..."
-                      value={serviceSearchQuery}
-                      onChange={(e) => setServiceSearchQuery(e.target.value)}
-                      className="w-full pl-3 pr-3 py-2 text-xs border border-teal-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-teal-400"
-                    />
-                  </div>
-                  {/* Services list */}
-                  <div className="max-h-48 overflow-y-auto space-y-1 mb-2">
-                    {loadingServices ? (
-                      <p className="text-xs text-gray-400 text-center py-4">Loading services...</p>
-                    ) : allServices.filter((s) =>
-                        s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase())
-                      ).length === 0 ? (
-                      <p className="text-xs text-gray-400 text-center py-4">No services found</p>
-                    ) : (
-                      allServices
-                        .filter((s) => s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase()))
-                        .map((svc) => {
-                          const isSelected = selectedServices.some((s) => s._id === svc._id);
-                          return (
+                      {prescriptionError && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{prescriptionError}</div>}
+                      {prescriptionSaved && <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 flex items-center gap-2"><Check size={14} /> Prescription saved.</div>}
+
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <button type="button" disabled={savingPrescription || medicines.every((m) => !m.medicineName.trim())}
+                          onClick={async () => {
+                            const validMeds = medicines.filter((m) => m.medicineName.trim());
+                            if (!validMeds.length || !details) return;
+                            setSavingPrescription(true); setPrescriptionError(""); setPrescriptionSaved(false);
+                            try {
+                              const headers = getAuthHeaders();
+                              await axios.post("/api/clinic/prescriptions", { appointmentId: details.appointmentId, patientId: details.patientId, medicines: validMeds, aftercareInstructions, includeInPdf }, { headers });
+                              setPrescriptionSaved(true);
+                              const histRes = await axios.get("/api/clinic/prescriptions", { headers, params: { patientId: details.patientId } });
+                              if (histRes.data?.success) setPrescriptionHistory(histRes.data.prescriptions || []);
+                            } catch (err: any) { setPrescriptionError(err.response?.data?.message || "Failed to save prescription"); }
+                            finally { setSavingPrescription(false); }
+                          }}
+                          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 shadow-sm"
+                        >
+                          {savingPrescription ? <><RefreshCw size={13} className="animate-spin" /> Saving...</> : <><Check size={13} /> Save Prescription</>}
+                        </button>
+                        <button type="button" disabled={medicines.every((m) => !m.medicineName.trim())} className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gray-800 text-white text-sm font-semibold hover:bg-gray-900 disabled:opacity-40 shadow-sm"><FileText size={13} /> Generate PDF</button>
+                        <button type="button" disabled={medicines.every((m) => !m.medicineName.trim())} className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-semibold hover:bg-gray-50 disabled:opacity-40"><Send size={13} /> Send via WhatsApp</button>
+                      </div>
+
+                      {/* Prescription History */}
+                      <div className="border-t border-gray-200 pt-4">
+                        <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                          <Pill size={14} className="text-blue-500" />
+                          Prescription History
+                          {prescriptionHistory.length > 0 && <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">{prescriptionHistory.length}</span>}
+                        </h3>
+                        {loadingPrescriptionHistory ? (
+                          <div className="py-6 text-center text-gray-400 text-sm">Loading...</div>
+                        ) : prescriptionHistory.length === 0 ? (
+                          <div className="py-6 text-center text-gray-400 text-sm">No prescription history found.</div>
+                        ) : (
+                          <div className="space-y-2">
+                            {prescriptionHistory.map((entry) => {
+                              const isExpanded = !!expandedPrescription[entry._id];
+                              const doctorName = typeof entry.doctorId === "object" && entry.doctorId?.name ? entry.doctorId.name : null;
+                              return (
+                                <div key={entry._id} className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                                  <button type="button" onClick={() => setExpandedPrescription((prev) => ({ ...prev, [entry._id]: !prev[entry._id] }))} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50">
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200"><Pill size={10} />{entry.medicines.length} medicine{entry.medicines.length !== 1 ? "s" : ""}</span>
+                                      <span className="text-xs text-gray-400 flex items-center gap-1"><Calendar size={11} />{new Date(entry.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</span>
+                                      {doctorName && <span className="text-xs text-gray-400">Dr. {doctorName}</span>}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <button type="button" onClick={async (e) => { e.stopPropagation(); try { const headers = getAuthHeaders(); await axios.delete("/api/clinic/prescriptions", { headers, params: { prescriptionId: entry._id } }); setPrescriptionHistory((prev) => prev.filter((p) => p._id !== entry._id)); } catch { setPrescriptionError("Failed to delete prescription"); } }} className="p-1 text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>
+                                      {isExpanded ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+                                    </div>
+                                  </button>
+                                  {isExpanded && (
+                                    <div className="border-t border-gray-100 px-4 py-3 bg-gray-50/50 space-y-3">
+                                      <div className="rounded-lg border border-gray-200 overflow-hidden">
+                                        <table className="w-full text-xs">
+                                          <thead className="bg-gray-100"><tr>
+                                            <th className="px-3 py-2 text-left font-semibold text-gray-500">#</th>
+                                            <th className="px-3 py-2 text-left font-semibold text-gray-500">Medicine</th>
+                                            <th className="px-3 py-2 text-left font-semibold text-gray-500">Dosage</th>
+                                            <th className="px-3 py-2 text-left font-semibold text-gray-500">Duration</th>
+                                            <th className="px-3 py-2 text-left font-semibold text-gray-500">Notes</th>
+                                          </tr></thead>
+                                          <tbody className="divide-y divide-gray-100 bg-white">
+                                            {entry.medicines.map((med, mIdx) => (
+                                              <tr key={med._id || mIdx}>
+                                                <td className="px-3 py-2 text-gray-400">{mIdx + 1}</td>
+                                                <td className="px-3 py-2 font-medium text-gray-800">{med.medicineName}</td>
+                                                <td className="px-3 py-2 text-gray-500">{med.dosage || "—"}</td>
+                                                <td className="px-3 py-2 text-gray-500">{med.duration || "—"}</td>
+                                                <td className="px-3 py-2 text-gray-500">{med.notes || "—"}</td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                      {entry.aftercareInstructions && (
+                                        <div>
+                                          <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">Aftercare Instructions</p>
+                                          <p className="text-sm text-gray-700 whitespace-pre-wrap bg-white rounded-lg border border-gray-200 px-3 py-2">{entry.aftercareInstructions}</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Appointments - Upcoming */}
+                      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
+                          <ClipboardList className="w-4 h-4 text-blue-600" />
+                          <h3 className="text-sm font-semibold text-gray-800">Appointments</h3>
+                        </div>
+                        <div className="px-5 py-3">
+                          {loadingUpcoming ? (
+                            <div className="flex items-center gap-2 py-3 text-xs text-gray-400">
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading appointments...
+                            </div>
+                          ) : upcomingAppointments.length === 0 ? (
+                            <p className="text-xs text-gray-400 py-3 text-center">No upcoming appointments</p>
+                          ) : (
+                            <div>
+                              <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider mb-2">Upcoming</p>
+                              <div className="space-y-2">
+                                {upcomingAppointments.map((appt) => {
+                                  const d = new Date(appt.startDate);
+                                  const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                                  const [fh, fm] = appt.fromTime.split(":").map(Number);
+                                  const ampm = fh < 12 ? "AM" : "PM";
+                                  const h12 = fh % 12 || 12;
+                                  const timeStr = `${h12}:${String(fm).padStart(2, "0")} ${ampm}`;
+                                  const statusColor = appt.status === "booked" || appt.status === "Approved" ? "bg-blue-600 text-white" : appt.status === "Completed" ? "bg-green-100 text-green-700" : appt.status === "Cancelled" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600";
+                                  return (
+                                    <div key={appt._id} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 flex items-center justify-between">
+                                      <div>
+                                        <p className="text-xs font-semibold text-gray-800">{appt.followType === "follow up" ? "Follow-up Session" : appt.followType === "first time" ? "First Visit" : appt.followType}</p>
+                                        <div className="flex items-center gap-3 mt-0.5 text-[11px] text-gray-500">
+                                          <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {dateStr}</span>
+                                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {timeStr}</span>
+                                        </div>
+                                      </div>
+                                      <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-md capitalize ${statusColor}`}>{appt.status}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Next Session Booking in prescription tab */}
+                      <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-5">
+                        <div className="flex items-center gap-2 mb-4"><Calendar className="w-4 h-4 text-blue-600" /><h3 className="text-sm font-semibold text-gray-800">Next Session Booking</h3></div>
+
+                        <div className="grid grid-cols-2 gap-3 mb-3">
+                          <div>
+                            <label className="block text-xs text-gray-400 mb-1">Date</label>
+                            <input type="date" value={nextSessionDate} min={new Date().toISOString().slice(0, 10)} onChange={(e) => { setNextSessionDate(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-400 mb-1">Time</label>
+                            <select value={nextSessionTime} onChange={(e) => { setNextSessionTime(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300">
+                              {["07:00","07:30","08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30","20:00"].map((t) => { const [h, m] = t.split(":").map(Number); const ampm = h < 12 ? "AM" : "PM"; const h12 = h % 12 || 12; return <option key={t} value={t}>{`${h12}:${String(m).padStart(2, "0")} ${ampm}`}</option>; })}
+                            </select>
+                          </div>
+                        </div>
+                        {nextSessionError && <p className="text-red-500 text-xs mb-2">{nextSessionError}</p>}
+                        {nextSessionBooked && <p className="text-green-600 text-xs mb-2 flex items-center gap-1"><Check size={11} /> Session booked!</p>}
+                        <button type="button" onClick={bookNextSession} disabled={bookingNextSession || nextSessionBooked} className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
+                          <Calendar size={14} />{bookingNextSession ? "Booking..." : nextSessionBooked ? "Session Booked!" : "Book Next Session"}
+                        </button>
+                      </div>
+
+                      {/* ── DIVIDER ── */}
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-px bg-gray-200" />
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Session Summary</span>
+                        <div className="flex-1 h-px bg-gray-200" />
+                      </div>
+
+                      {/* Treatment & Billing - Full Interactive (Prescription) */}
+                      <div className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
+                              <Package className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <h3 className="text-base font-bold text-gray-900">Treatment & Billing</h3>
+                              <p className="text-xs text-gray-500">Add and manage treatment services</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
                             <button
-                              key={svc._id}
                               type="button"
                               onClick={() => {
-                                setSelectedServices((prev) =>
-                                  isSelected ? prev.filter((s) => s._id !== svc._id) : [...prev, svc]
-                                );
+                                setShowAddServiceDropdown(true);
+                                setShowCreatePackage(false);
                                 setServicesSaved(false);
+                                setServicesError("");
+                                if (allServices.length === 0) fetchAllServices();
                               }}
-                              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all ${
-                                isSelected
-                                  ? "bg-teal-100 border border-teal-400 text-teal-800 font-semibold"
-                                  : "bg-white border border-gray-200 text-gray-700 hover:bg-teal-50"
-                              }`}
+                              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg"
                             >
-                              <span>{svc.name}</span>
-                              <span className="font-medium text-teal-700">
-                                {svc.clinicPrice != null ? `₹${svc.clinicPrice}` : `₹${svc.price}`}
-                              </span>
+                              <Plus size={16} /> Add Service
                             </button>
-                          );
-                        })
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowCreatePackage(true);
+                                setShowAddServiceDropdown(false);
+                                setPkgError("");
+                                setPkgSuccess("");
+                                if (allServices.length === 0) fetchAllServices();
+                                if (pkgTreatments.length === 0) fetchPkgTreatments();
+                              }}
+                              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-all"
+                            >
+                              <Package size={16} /> Create Package
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Add Service Panel */}
+                        {showAddServiceDropdown && (
+                          <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-br from-blue-50/50 to-indigo-50/50">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                                  <Search className="w-4 h-4 text-blue-600" />
+                                </div>
+                                <span className="text-sm font-bold text-blue-800">Search & Add Services</span>
+                              </div>
+                              <button type="button" onClick={() => setShowAddServiceDropdown(false)} className="text-gray-400 hover:text-gray-600 transition-colors"><XIcon size={16} /></button>
+                            </div>
+                            <div className="relative mb-3">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Search className="h-4 w-4 text-gray-400" />
+                              </div>
+                              <input
+                                type="text"
+                                placeholder="Search by service name..."
+                                value={serviceSearchQuery}
+                                onChange={(e) => setServiceSearchQuery(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent shadow-sm transition-all"
+                              />
+                            </div>
+                            <div className="max-h-64 overflow-y-auto space-y-2 mb-3 rounded-lg border border-gray-200 bg-white p-2">
+                              {loadingServices ? (
+                                <div className="flex items-center justify-center py-8">
+                                  <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+                                  <span className="ml-2 text-sm text-gray-500">Loading services...</span>
+                                </div>
+                              ) : allServices.filter((s) => s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase())).length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-8 text-center">
+                                  <Package className="w-12 h-12 text-gray-300 mb-2" />
+                                  <p className="text-sm text-gray-500 font-medium">No services found</p>
+                                </div>
+                              ) : (
+                                allServices.filter((s) => s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase())).map((svc) => {
+                                  const isSelected = selectedServices.some((s) => s._id === svc._id);
+                                  return (
+                                    <button key={svc._id} type="button"
+                                      onClick={() => { setSelectedServices((prev) => isSelected ? prev.filter((s) => s._id !== svc._id) : [...prev, svc]); setServicesSaved(false); }}
+                                      className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${
+                                        isSelected ? "bg-blue-50 border-blue-300 shadow-sm" : "bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+                                          isSelected ? "bg-blue-600 border-blue-600" : "border-gray-300 bg-white"
+                                        }`}>
+                                          {isSelected && <Check size={12} className="text-white" />}
+                                        </div>
+                                        <span className={`text-sm font-medium ${isSelected ? "text-blue-800" : "text-gray-700"}`}>{svc.name}</span>
+                                      </div>
+                                      <div className="flex items-center gap-3">
+                                        <span className={`text-sm font-bold ${isSelected ? "text-blue-700" : "text-gray-900"}`}>AED {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}</span>
+                                        {isSelected && <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Added</span>}
+                                      </div>
+                                    </button>
+                                  );
+                                })
+                              )}
+                            </div>
+                            {servicesError && (
+                              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                                <p className="text-xs text-red-700">{servicesError}</p>
+                              </div>
+                            )}
+                            {servicesSaved && (
+                              <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+                                <CheckCircle className="w-4 h-4 text-green-600" />
+                                <p className="text-xs text-green-700 font-medium">Services saved successfully!</p>
+                              </div>
+                            )}
+                            <button type="button" onClick={saveServicesToAppointment}
+                              disabled={savingServices || selectedServices.length === 0}
+                              className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+                            >
+                              {savingServices ? (<><Loader2 className="w-4 h-4 animate-spin" />Saving...</>) : (<><CheckCircle className="w-4 h-4" />Save Services to Appointment</>)}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Create Package Panel */}
+                        {showCreatePackage && (
+                          <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-br from-violet-50/50 to-purple-50/50">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center">
+                                  <Package className="w-4 h-4 text-violet-600" />
+                                </div>
+                                <span className="text-sm font-bold text-violet-800">Create New Package</span>
+                              </div>
+                              <button type="button" onClick={() => { setShowCreatePackage(false); setPkgError(""); setPkgSuccess(""); setPkgModalName(""); setPkgModalPrice(""); setPkgSelectedTreatments([]); }} className="text-gray-400 hover:text-gray-600 transition-colors"><XIcon size={16} /></button>
+                            </div>
+                            <div className="mb-3">
+                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">Package Name <span className="text-red-500">*</span></label>
+                              <input type="text" value={pkgModalName} onChange={(e) => setPkgModalName(e.target.value)} placeholder="e.g., Premium Skin Care Package" className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm" />
+                            </div>
+                            <div className="mb-3">
+                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">Total Package Price <span className="text-red-500">*</span></label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">AED</span>
+                                <input type="number" min="0" step="0.01" value={pkgModalPrice} onChange={(e) => setPkgModalPrice(e.target.value)} placeholder="0.00" className="w-full pl-12 pr-4 py-2 text-sm font-semibold border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm" />
+                              </div>
+                            </div>
+                            <div className="mb-3">
+                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">Select Treatments / Services <span className="text-red-500">*</span></label>
+                              <div className="relative">
+                                <div className="w-full px-4 py-2.5 text-sm border border-violet-200 rounded-lg bg-white cursor-pointer flex items-center justify-between hover:border-violet-300 transition-colors shadow-sm"
+                                  onClick={() => { setPkgTreatmentDropdownOpen(!pkgTreatmentDropdownOpen); if (!pkgTreatmentDropdownOpen && allServices.length === 0) fetchAllServices(); }}>
+                                  <span className={pkgSelectedTreatments.length > 0 ? "text-gray-800 font-medium" : "text-gray-400"}>
+                                    {pkgSelectedTreatments.length > 0 ? `${pkgSelectedTreatments.length} treatment${pkgSelectedTreatments.length > 1 ? "s" : ""} selected` : "Select treatments to include..."}
+                                  </span>
+                                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${pkgTreatmentDropdownOpen ? "rotate-180" : ""}`} />
+                                </div>
+                                {pkgTreatmentDropdownOpen && (
+                                  <div className="absolute z-20 w-full mt-1 bg-white border border-violet-200 rounded-lg shadow-lg max-h-64 overflow-hidden flex flex-col">
+                                    <div className="p-3 border-b border-violet-100 sticky top-0 bg-white">
+                                      <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                        <input type="text" value={pkgTreatmentSearch} onChange={(e) => setPkgTreatmentSearch(e.target.value)} placeholder="Search treatments..." autoFocus className="w-full pl-9 pr-3 py-2 text-sm border border-violet-200 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                                      </div>
+                                    </div>
+                                    <div className="overflow-y-auto max-h-52">
+                                      {loadingServices ? (
+                                        <div className="flex items-center justify-center p-4"><Loader2 className="w-5 h-5 text-violet-600 animate-spin" /><span className="ml-2 text-sm text-gray-500">Loading...</span></div>
+                                      ) : allServices.filter((s) => s.name.toLowerCase().includes(pkgTreatmentSearch.toLowerCase())).length === 0 ? (
+                                        <div className="p-4 text-center text-sm text-gray-400">No treatments found</div>
+                                      ) : (
+                                        <ul className="py-1">
+                                          {allServices.filter((svc) => svc.name.toLowerCase().includes(pkgTreatmentSearch.toLowerCase())).map((svc) => {
+                                            const isSelected = pkgSelectedTreatments.some((t) => t.treatmentSlug === svc._id);
+                                            return (
+                                              <li key={svc._id}>
+                                                <button type="button"
+                                                  onClick={() => {
+                                                    if (isSelected) { setPkgSelectedTreatments((prev) => prev.filter((t) => t.treatmentSlug !== svc._id)); }
+                                                    else { setPkgSelectedTreatments((prev) => [...prev, { treatmentName: svc.name, treatmentSlug: svc._id, sessions: 1, allocatedPrice: svc.clinicPrice != null ? svc.clinicPrice : svc.price }]); }
+                                                  }}
+                                                  className={`w-full flex items-center justify-between px-4 py-2.5 hover:bg-violet-50 transition-colors ${isSelected ? "bg-violet-50" : ""}`}
+                                                >
+                                                  <div className="flex items-center gap-3">
+                                                    <div className={`w-5 h-5 rounded border flex items-center justify-center ${isSelected ? "bg-violet-600 border-violet-600" : "border-gray-300"}`}>
+                                                      {isSelected && <Check size={12} className="text-white" />}
+                                                    </div>
+                                                    <div className="text-left">
+                                                      <p className="text-sm font-medium text-gray-800">{svc.name}</p>
+                                                      <p className="text-xs text-gray-500">AED {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)} • {svc.durationMinutes} mins</p>
+                                                    </div>
+                                                  </div>
+                                                </button>
+                                              </li>
+                                            );
+                                          })}
+                                        </ul>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                                {pkgSelectedTreatments.length > 0 && (
+                                  <div className="mt-3 space-y-2">
+                                    <p className="text-xs font-semibold text-violet-700">Selected Treatments</p>
+                                    {pkgSelectedTreatments.map((sel) => {
+                                      const sessPrice = sel.sessions > 0 ? (sel.allocatedPrice || 0) / sel.sessions : 0;
+                                      return (
+                                        <div key={sel.treatmentSlug} className="bg-white border border-violet-200 rounded-lg p-2.5 shadow-sm">
+                                          <div className="flex items-center justify-between mb-2">
+                                            <span className="text-xs font-semibold text-violet-700">{sel.treatmentName}</span>
+                                            <button type="button" onClick={() => setPkgSelectedTreatments((prev) => prev.filter((t) => t.treatmentSlug !== sel.treatmentSlug))} className="text-red-400 hover:text-red-600 transition-colors"><XIcon size={13} /></button>
+                                          </div>
+                                          <div className="grid grid-cols-3 gap-2">
+                                            <div>
+                                              <label className="block text-[9px] text-violet-600 font-medium mb-0.5">Price</label>
+                                              <input type="number" min="0" step="0.01" value={sel.allocatedPrice || ""} onChange={(e) => setPkgSelectedTreatments((prev) => prev.map((t) => t.treatmentSlug === sel.treatmentSlug ? { ...t, allocatedPrice: parseFloat(e.target.value) || 0 } : t))} className="w-full px-2 py-1.5 text-xs border border-violet-200 rounded-md focus:outline-none focus:ring-1 focus:ring-violet-400" placeholder="0.00" />
+                                            </div>
+                                            <div>
+                                              <label className="block text-[9px] text-violet-600 font-medium mb-0.5">Sessions</label>
+                                              <input type="number" min="1" value={sel.sessions} onChange={(e) => setPkgSelectedTreatments((prev) => prev.map((t) => t.treatmentSlug === sel.treatmentSlug ? { ...t, sessions: parseInt(e.target.value) || 1 } : t))} className="w-full px-2 py-1.5 text-xs border border-violet-200 rounded-md text-center focus:outline-none focus:ring-1 focus:ring-violet-400" />
+                                            </div>
+                                            <div>
+                                              <label className="block text-[9px] text-violet-600 font-medium mb-0.5">/Session</label>
+                                              <div className="px-2 py-1.5 text-xs font-bold text-center bg-violet-100 rounded-md text-violet-700 border border-violet-200">₹{sessPrice.toFixed(2)}</div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                    <div className="grid grid-cols-3 gap-1.5 bg-violet-100 rounded-lg px-3 py-2.5">
+                                      <div className="text-center">
+                                        <p className="text-[9px] text-violet-600 font-medium mb-0.5">Pkg Price</p>
+                                        <p className="text-xs font-bold text-violet-800">₹{parseFloat(pkgModalPrice) || 0}</p>
+                                      </div>
+                                      <div className="text-center">
+                                        <p className="text-[9px] text-violet-600 font-medium mb-0.5">Allocated</p>
+                                        <p className="text-xs font-bold text-violet-800">₹{pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0).toFixed(2)}</p>
+                                      </div>
+                                      <div className="text-center">
+                                        <p className="text-[9px] text-violet-600 font-medium mb-0.5">Remaining</p>
+                                        <p className={`text-xs font-bold ${Math.abs((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)) < 0.01 ? "text-teal-600" : "text-amber-600"}`}>
+                                          ₹{((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)).toFixed(2)}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            {pkgError && (<div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2"><AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" /><p className="text-xs text-red-700">{pkgError}</p></div>)}
+                            {pkgSuccess && (<div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-600" /><p className="text-xs text-green-700 font-medium">{pkgSuccess}</p></div>)}
+                            <div className="flex gap-3">
+                              <button type="button" onClick={() => handleCreatePackageModal(false)} disabled={pkgSubmitting || addingPackageToPatient} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-violet-700 bg-white border border-violet-500 rounded-lg hover:bg-violet-50 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                                <Package size={14} />{pkgSubmitting ? "Creating..." : "Create Package"}
+                              </button>
+                              <button type="button" onClick={() => handleCreatePackageModal(true)} disabled={pkgSubmitting || addingPackageToPatient} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+                                <Plus size={14} />{addingPackageToPatient ? "Adding..." : "Create & Add to Patient"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Selected Services */}
+                        <div className="px-5 py-4">
+                          {selectedServices.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-12 text-center">
+                              <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                                <Package className="w-10 h-10 text-gray-400" />
+                              </div>
+                              <p className="text-sm font-medium text-gray-600 mb-1">No services added yet</p>
+                              <p className="text-xs text-gray-400 mb-4">Click "Add Service" to begin building your treatment plan</p>
+                              <button type="button" onClick={() => { setShowAddServiceDropdown(true); if (allServices.length === 0) fetchAllServices(); }} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-all shadow-md">
+                                <Plus size={16} /> Browse Services
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-bold text-gray-900">Selected Treatments</span>
+                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">{selectedServices.length}</span>
+                                </div>
+                              </div>
+                              {selectedServices.map((svc, i) => (
+                                <div key={svc._id} className="group relative rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-all duration-200">
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex items-start gap-3 flex-1">
+                                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center flex-shrink-0 border border-blue-100">
+                                        <Package className="w-6 h-6 text-blue-600" />
+                                      </div>
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <h4 className="text-sm font-bold text-gray-900">{svc.name}</h4>
+                                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">Standard</span>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mb-2">Service #{i + 1} • ID: {svc._id.slice(-6)}</p>
+                                        <div className="flex items-center gap-2">
+                                          <label className="text-xs text-gray-600 font-medium">Price:</label>
+                                          <div className="relative">
+                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">AED</span>
+                                            <input type="number" min="0" step="0.01" value={(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
+                                              onChange={(e) => { const newPrice = parseFloat(e.target.value) || 0; setSelectedServices((prev) => prev.map((s) => s._id === svc._id ? { ...s, clinicPrice: newPrice, price: newPrice } : s)); }}
+                                              className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white hover:border-gray-400 transition-all"
+                                            />
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <div className="text-right">
+                                        <p className="text-sm font-bold text-gray-900">AED {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}</p>
+                                      </div>
+                                      <button type="button" onClick={() => setSelectedServices((prev) => prev.filter((s) => s._id !== svc._id))} className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50" title="Remove service"><Trash2 size={16} /></button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                              <div className="mt-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 p-3 shadow-md">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-white bg-opacity-20 flex items-center justify-center"><ClipboardList className="w-5 h-5 text-white" /></div>
+                                    <div>
+                                      <p className="text-xs font-medium text-blue-100">Total Bill</p>
+                                      <p className="text-[10px] text-blue-200">{selectedServices.length} {selectedServices.length === 1 ? "treatment" : "treatments"}</p>
+                                    </div>
+                                  </div>
+                                  <p className="text-lg font-bold text-white">AED {totalBill.toFixed(2)}</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Clinical Checklist */}
+                      <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
+                        <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                          <Eye className="w-4 h-4 text-blue-600" /> Clinical Checklist
+                        </h3>
+                        <div className="grid grid-cols-2 gap-2">
+                          {CHECKLIST_ITEMS.map((item) => (
+                            <label key={item} className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${checklist[item] ? "border-green-300 bg-green-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                              <input type="checkbox" checked={checklist[item]} onChange={() => setChecklist((prev) => ({ ...prev, [item]: !prev[item] }))} className="w-3.5 h-3.5 rounded accent-green-500 cursor-pointer" />
+                              <span className={`text-xs font-medium ${checklist[item] ? "text-green-700" : "text-gray-700"}`}>{item}</span>
+                              {checklist[item] && <Check size={12} className="ml-auto text-green-500" />}
+                            </label>
+                          ))}
+                        </div>
+                        {checklistError && (
+                          <div className="mt-2 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                            <AlertTriangle className="w-3.5 h-3.5 text-red-500 mt-0.5" />
+                            <p className="text-xs text-red-700">{checklistError}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Stock Used (All Sessions) */}
+                      {previousComplaints.some((c) => Array.isArray(c.items) && c.items.length > 0) && (
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
+                          <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2"><Package className="w-4 h-4 text-gray-500" /> Stock Used (All Sessions)</h3>
+                          <div className="rounded-lg border border-gray-100 overflow-hidden">
+                            <table className="w-full text-xs">
+                              <thead className="bg-gray-50"><tr>
+                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">Item</th>
+                                <th className="px-3 py-2 text-right font-semibold text-gray-500 uppercase tracking-wider">Qty</th>
+                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">UOM</th>
+                              </tr></thead>
+                              <tbody className="divide-y divide-gray-100 bg-white">
+                                {previousComplaints.filter((c) => Array.isArray(c.items) && c.items.length > 0).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).flatMap((c) => (c.items as NonNullable<typeof c.items>).map((item, idx) => ({ date: c.createdAt, item, key: `rx-${c._id}-${idx}` }))).map(({ date, item, key }) => (
+                                  <tr key={key} className="hover:bg-gray-50">
+                                    <td className="px-3 py-2 text-gray-500">{new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
+                                    <td className="px-3 py-2 font-medium text-gray-800">{item.name}</td>
+                                    <td className="px-3 py-2 text-right font-semibold text-gray-700">{item.quantity}</td>
+                                    <td className="px-3 py-2 text-gray-500">{item.uom || "-"}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* ── RIGHT SIDEBAR ── */}
+            <div className="w-72 flex-shrink-0 border-l border-gray-200 overflow-y-auto scrollbar-hide bg-white">
+              <div className="p-4 space-y-3">
+
+                {/* Revenue Insights */}
+                <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-blue-600" />
+                      <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Revenue Insights</span>
+                    </div>
+                  </div>
+                  <div className="px-4 py-3 space-y-2">
+                    {loadingPatientStats ? (
+                      <div className="py-3 text-center text-xs text-gray-400">Loading billing data…</div>
+                    ) : patientStats ? (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">Total Paid (All-Time)</span>
+                          <span className="text-base font-bold text-gray-900">AED {patientStats.totalSpend.toLocaleString()}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">Total Billed</span>
+                          <span className="text-xs font-semibold text-gray-700">AED {patientStats.totalBilled.toLocaleString()}</span>
+                        </div>
+                        {patientStats.totalPending > 0 && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-500">Outstanding</span>
+                            <span className="text-xs font-semibold text-red-500">AED {patientStats.totalPending.toLocaleString()}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between border-t border-gray-100 pt-2">
+                          <span className="text-xs text-gray-500">Total Invoices</span>
+                          <span className="text-xs font-semibold text-gray-700">{patientStats.billingCount}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">This Session</span>
+                          <span className="text-xs font-semibold text-blue-600">AED {totalBill.toFixed(2)}</span>
+                        </div>
+                        {patientStats.recentBillings.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-gray-100">
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5">Recent Billing</p>
+                            {patientStats.recentBillings.map((b, i) => (
+                              <div key={i} className="flex items-center justify-between py-0.5 text-xs">
+                                <span className="text-gray-600 truncate flex-1 mr-2">{b.label}</span>
+                                <span className="text-gray-800 font-medium whitespace-nowrap">AED {(b.paid||0).toLocaleString()}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {smartDepartments.flatMap((d) => d.services).slice(0, 2).length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-gray-100">
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5">Upsell Potential</p>
+                            {smartDepartments.flatMap((d) => d.services).slice(0, 2).map((svc) => (
+                              <div key={svc._id} className="flex items-center justify-between py-1 text-xs">
+                                <span className="text-gray-600 truncate flex-1 mr-2">{svc.name}</span>
+                                <span className="text-blue-600 font-medium whitespace-nowrap">+AED {svc.clinicPrice != null ? svc.clinicPrice : svc.price}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">This Session Bill</span>
+                          <span className="text-base font-bold text-gray-900">AED {totalBill.toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">Services Added</span>
+                          <span className="text-xs font-semibold text-gray-700">{selectedServices.length}</span>
+                        </div>
+                      </>
                     )}
                   </div>
-                  {/* Selected summary */}
-                  {selectedServices.length > 0 && (
-                    <div className="mb-2 space-y-1">
-                      <p className="text-xs font-semibold text-gray-700">Selected ({selectedServices.length}):</p>
-                      {selectedServices.map((s) => (
-                        <div key={s._id} className="flex items-center justify-between text-xs bg-white border border-teal-200 rounded px-2 py-1">
-                          <span className="text-gray-800">{s.name}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-teal-700 font-medium">{s.clinicPrice != null ? `₹${s.clinicPrice}` : `₹${s.price}`}</span>
-                            <button type="button" onClick={() => setSelectedServices((prev) => prev.filter((x) => x._id !== s._id))} className="text-red-400 hover:text-red-600">
-                              <XIcon size={12} />
-                            </button>
+                </div>
+
+                {/* Treatment Journey */}
+                <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                    <div className="flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-blue-600" />
+                      <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Treatment History</span>
+                    </div>
+                  </div>
+                  <div className="px-4 py-3 space-y-3">
+                    <div>
+                      {/* <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-gray-500">Sessions Completed</span>
+                        <span className="text-xs font-bold text-gray-800">{previousComplaints.length}</span>
+                      </div> */}
+                      {/* <div className="w-full bg-gray-100 rounded-full h-2"> */}
+                        {/* <div
+                          className="bg-blue-500 h-2 rounded-full transition-all"
+                          style={{ width: `${Math.min((previousComplaints.length / Math.max(previousComplaints.length + 2, 5)) * 100, 100)}%` }}
+                        /> */}
+                      {/* </div> */}
+                    </div>
+                    {details?.serviceNames && details.serviceNames.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5">Active Treatments</p>
+                        {details.serviceNames.slice(0, 3).map((name, i) => (
+                          <div key={i} className="flex items-center gap-2 py-1">
+                            <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
+                            <span className="text-xs text-gray-700 truncate">{name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Last 5 Selected Treatments */}
+                    {selectedServices.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5">
+                          Selected Treatments {selectedServices.length > 5 ? `(Last 5 of ${selectedServices.length})` : ''}
+                        </p>
+                        <div className="space-y-1.5">
+                          {selectedServices.slice(-5).map((svc, i) => (
+                            <div key={svc._id} className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-gray-50 border border-gray-100">
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <div className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
+                                <span className="text-xs text-gray-700 truncate flex-1">{svc.name}</span>
+                              </div>
+                              <span className="text-xs font-bold text-blue-600 ml-2 flex-shrink-0">
+                                AED {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="pt-1 border-t border-gray-100">
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">Next Session Date</p>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-3.5 h-3.5 text-blue-500" />
+                        <span className="text-xs font-semibold text-gray-700">{nextSessionDate || "Not scheduled"}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Next Best Action */}
+                <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                    <div className="flex items-center gap-2">
+                      <Stethoscope className="w-4 h-4 text-blue-600" />
+                      <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Next Best Action</span>
+                    </div>
+                  </div>
+                  <div className="px-4 py-3 space-y-2">
+                    {!report && (
+                      <div className="flex items-start gap-2 p-2 bg-blue-50 rounded-lg border border-blue-100">
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                        <p className="text-xs text-blue-700">Record patient vitals for this appointment</p>
+                      </div>
+                    )}
+                    {!complaints.trim() && (
+                      <div className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100">
+                        <div className="w-1.5 h-1.5 rounded-full bg-gray-400 mt-1.5 flex-shrink-0" />
+                        <p className="text-xs text-gray-600">Document chief complaints</p>
+                      </div>
+                    )}
+                    {!selectedConsentId && (
+                      <div className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100">
+                        <div className="w-1.5 h-1.5 rounded-full bg-gray-400 mt-1.5 flex-shrink-0" />
+                        <p className="text-xs text-gray-600">Send consent form to patient</p>
+                      </div>
+                    )}
+                    {selectedServices.length === 0 && (
+                      <div className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100">
+                        <div className="w-1.5 h-1.5 rounded-full bg-gray-400 mt-1.5 flex-shrink-0" />
+                        <p className="text-xs text-gray-600">Add services to the appointment</p>
+                      </div>
+                    )}
+                    {!nextSessionBooked && (
+                      <div className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100">
+                        <div className="w-1.5 h-1.5 rounded-full bg-gray-400 mt-1.5 flex-shrink-0" />
+                        <p className="text-xs text-gray-600">Schedule the next session</p>
+                      </div>
+                    )}
+                    {report && complaints.trim() && selectedServices.length > 0 && nextSessionBooked && selectedConsentId && (
+                      <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg border border-green-100">
+                        <Check className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                        <p className="text-xs text-green-700 font-medium">All recommended actions completed!</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+              
+
+                {/* Previous History Accordion */}
+                {/* <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setShowPreviousReports(!showPreviousReports)}
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4 text-blue-600" />
+                      <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Previous History</span>
+                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-100 text-gray-600 text-[10px] font-bold">{patientReports.length}</span>
+                    </div>
+                    {showPreviousReports ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+                  </button>
+                  {showPreviousReports && patientReports.length > 0 && (
+                    <div className="border-t border-gray-100">
+                      {patientReports.slice(0, 5).map((r) => (
+                        <div key={r.reportId || `${r.appointmentId}-${r.createdAt}`} className="px-4 py-2.5 border-b border-gray-50 last:border-0">
+                          <p className="text-[11px] font-semibold text-gray-700 mb-0.5">{formatDateTime(r.updatedAt)}</p>
+                          {r.doctorName && <p className="text-[11px] text-gray-400 mb-0.5">Dr. {r.doctorName}</p>}
+                          <div className="flex flex-wrap gap-2 text-[10px] text-gray-500">
+                            <span>T: {r.temperatureCelsius}°C</span>
+                            <span>P: {r.pulseBpm} bpm</span>
+                            <span>BP: {r.systolicBp}/{r.diastolicBp}</span>
+                            {r.weightKg != null && <span>W: {r.weightKg}kg</span>}
                           </div>
                         </div>
                       ))}
-                      <div className="flex items-center justify-between px-2 py-1.5 bg-teal-100 rounded-lg">
-                        <span className="text-xs font-bold text-teal-800">Total</span>
-                        <span className="text-sm font-bold text-teal-800">
-                          ₹{selectedServices.reduce((sum, s) => sum + (s.clinicPrice != null ? s.clinicPrice : s.price), 0).toFixed(2)}
-                        </span>
-                      </div>
                     </div>
                   )}
-                  {servicesError && <p className="text-red-500 text-xs mb-2">{servicesError}</p>}
-                  {servicesSaved && <p className="text-green-600 text-xs mb-2 flex items-center gap-1"><Check size={12} /> Services saved to appointment!</p>}
-                  <button
-                    type="button"
-                    onClick={saveServicesToAppointment}
-                    disabled={savingServices || selectedServices.length === 0}
-                    className="w-full flex items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50 transition-colors"
-                  >
-                    {savingServices ? "Saving..." : "Save Services to Appointment"}
-                  </button>
-                </div>
-              )}
-
-              {/* CREATE PACKAGE PANEL */}
-              {showCreatePackage && (
-                <div className="mt-3 border border-violet-200 rounded-lg bg-violet-50 p-3">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-semibold text-violet-800">Create New Package</span>
-                    <button type="button" onClick={() => { setShowCreatePackage(false); setPkgError(""); setPkgSuccess(""); }} className="text-gray-400 hover:text-gray-600">
-                      <XIcon size={14} />
-                    </button>
-                  </div>
-                  {/* Package Name */}
-                  <div className="mb-2">
-                    <label className="block text-[10px] font-semibold text-violet-700 mb-1">Package Name</label>
-                    <input
-                      type="text"
-                      value={pkgModalName}
-                      onChange={(e) => setPkgModalName(e.target.value)}
-                      placeholder="Enter package name"
-                      className="w-full px-3 py-2 text-xs border border-violet-200 rounded-lg bg-white focus:ring-2 focus:ring-violet-400 focus:outline-none"
-                    />
-                  </div>
-                  {/* Package Price */}
-                  <div className="mb-2">
-                    <label className="block text-[10px] font-semibold text-violet-700 mb-1">Total Package Price</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={pkgModalPrice}
-                      onChange={(e) => setPkgModalPrice(e.target.value)}
-                      placeholder="0.00"
-                      className="w-full px-3 py-2 text-xs border border-violet-200 rounded-lg bg-white focus:ring-2 focus:ring-violet-400 focus:outline-none"
-                    />
-                  </div>
-                  {/* Treatment selector */}
-                  <div className="mb-2 relative">
-                    <label className="block text-[10px] font-semibold text-violet-700 mb-1">Select Treatments / Services</label>
-                    <button
-                      type="button"
-                      onClick={() => setPkgTreatmentDropdownOpen((v) => !v)}
-                      className="w-full flex items-center justify-between px-3 py-2 bg-white border border-violet-200 rounded-lg text-xs text-gray-700 hover:bg-violet-50 focus:outline-none focus:ring-2 focus:ring-violet-400"
-                    >
-                      <span className="text-violet-700 font-medium">
-                        {pkgSelectedTreatments.length > 0 ? `${pkgSelectedTreatments.length} treatment(s) selected` : "Select treatments..."}
-                      </span>
-                      <ChevronDown className={`w-4 h-4 text-violet-500 transition-transform ${pkgTreatmentDropdownOpen ? "rotate-180" : ""}`} />
-                    </button>
-                    {pkgTreatmentDropdownOpen && (
-                      <div className="absolute z-30 w-full mt-1 bg-white border border-violet-200 rounded-lg shadow-lg max-h-52 overflow-hidden flex flex-col">
-                        <div className="p-2 border-b border-violet-100">
-                          <input
-                            type="text"
-                            placeholder="Search..."
-                            value={pkgTreatmentSearch}
-                            onChange={(e) => setPkgTreatmentSearch(e.target.value)}
-                            onClick={(e) => e.stopPropagation()}
-                            autoFocus
-                            className="w-full pl-3 pr-2 py-1.5 text-xs border border-violet-200 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-400"
-                          />
-                        </div>
-                        <div className="overflow-y-auto max-h-40 p-1">
-                          {pkgTreatments
-                            .filter((t) => t.name.toLowerCase().includes(pkgTreatmentSearch.toLowerCase()))
-                            .map((treatment) => {
-                              const isSelected = pkgSelectedTreatments.some((t) => t.treatmentSlug === treatment.slug);
-                              return (
-                                <button
-                                  key={treatment.slug}
-                                  type="button"
-                                  onClick={() => {
-                                    setPkgSelectedTreatments((prev) => {
-                                      if (prev.some((t) => t.treatmentSlug === treatment.slug)) {
-                                        return prev.filter((t) => t.treatmentSlug !== treatment.slug);
-                                      }
-                                      setPkgTreatmentDropdownOpen(false);
-                                      return [...prev, { treatmentName: treatment.name, treatmentSlug: treatment.slug, sessions: 1, allocatedPrice: 0 }];
-                                    });
-                                    setPkgTreatmentSearch("");
-                                  }}
-                                  className={`w-full text-left px-2.5 py-2 rounded-md text-xs transition-all ${
-                                    isSelected ? "bg-violet-50 text-violet-800 font-medium border border-violet-200" : "text-gray-700 hover:bg-violet-50 border border-transparent"
-                                  }`}
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <span>
-                                      {treatment.name}
-                                      {treatment.type === "sub" && treatment.mainTreatment && (
-                                        <span className="text-[10px] text-violet-500 ml-1">({treatment.mainTreatment})</span>
-                                      )}
-                                    </span>
-                                    {isSelected && <span className="text-violet-600 text-xs">✓</span>}
-                                  </div>
-                                </button>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Selected treatments with price/sessions */}
-                  {pkgSelectedTreatments.length > 0 && (
-                    <div className="space-y-2 mb-2">
-                      <p className="text-[10px] font-semibold text-violet-700">Selected Treatments</p>
-                      {pkgSelectedTreatments.map((sel) => {
-                        const sessPrice = sel.sessions > 0 ? (sel.allocatedPrice || 0) / sel.sessions : 0;
-                        return (
-                          <div key={sel.treatmentSlug} className="bg-white border border-violet-200 rounded-lg p-2">
-                            <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-xs font-semibold text-violet-700">{sel.treatmentName}</span>
-                              <button type="button" onClick={() => setPkgSelectedTreatments((prev) => prev.filter((t) => t.treatmentSlug !== sel.treatmentSlug))} className="text-red-400 hover:text-red-600">
-                                <XIcon size={12} />
-                              </button>
-                            </div>
-                            <div className="grid grid-cols-3 gap-1.5">
-                              <div>
-                                <label className="block text-[9px] text-violet-600 font-medium mb-0.5">Price</label>
-                                <input
-                                  type="number" min="0" step="0.01"
-                                  value={sel.allocatedPrice || ""}
-                                  onChange={(e) => setPkgSelectedTreatments((prev) => prev.map((t) => t.treatmentSlug === sel.treatmentSlug ? { ...t, allocatedPrice: parseFloat(e.target.value) || 0 } : t))}
-                                  className="w-full px-1.5 py-1 text-xs border border-violet-200 rounded focus:outline-none focus:ring-1 focus:ring-violet-400"
-                                  placeholder="0.00"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[9px] text-violet-600 font-medium mb-0.5">Sessions</label>
-                                <input
-                                  type="number" min="1"
-                                  value={sel.sessions}
-                                  onChange={(e) => setPkgSelectedTreatments((prev) => prev.map((t) => t.treatmentSlug === sel.treatmentSlug ? { ...t, sessions: parseInt(e.target.value) || 1 } : t))}
-                                  className="w-full px-1.5 py-1 text-xs border border-violet-200 rounded text-center focus:outline-none focus:ring-1 focus:ring-violet-400"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[9px] text-violet-600 font-medium mb-0.5">/Session</label>
-                                <div className="px-1.5 py-1 text-xs font-bold text-center bg-violet-100 rounded text-violet-700 border border-violet-200">
-                                  ₹{sessPrice.toFixed(2)}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {/* Price validation */}
-                      <div className="grid grid-cols-3 gap-1.5 bg-violet-100 rounded-lg p-2">
-                        <div className="text-center">
-                          <p className="text-[9px] text-violet-600 font-medium">Pkg Price</p>
-                          <p className="text-xs font-bold text-violet-800">₹{parseFloat(pkgModalPrice) || 0}</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-[9px] text-violet-600 font-medium">Allocated</p>
-                          <p className="text-xs font-bold text-violet-800">₹{pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0).toFixed(2)}</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-[9px] text-violet-600 font-medium">Remaining</p>
-                          <p className={`text-xs font-bold ${ Math.abs((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)) < 0.01 ? "text-teal-600" : "text-amber-600" }`}>
-                            ₹{((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)).toFixed(2)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+                  {showPreviousReports && patientReports.length === 0 && (
+                    <div className="border-t border-gray-100 px-4 py-3 text-xs text-gray-400">No previous reports.</div>
                   )}
+                </div> */}
 
-                  {pkgError && <p className="text-red-500 text-xs mb-2">{pkgError}</p>}
-                  {pkgSuccess && <p className="text-green-600 text-xs mb-2 flex items-center gap-1"><Check size={12} /> {pkgSuccess}</p>}
-
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleCreatePackageModal(false)}
-                      disabled={pkgSubmitting || addingPackageToPatient}
-                      className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-violet-500 bg-white px-3 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-50 disabled:opacity-50 transition-colors"
-                    >
-                      <Package size={12} />
-                      {pkgSubmitting ? "Creating..." : "Create Package"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleCreatePackageModal(true)}
-                      disabled={pkgSubmitting || addingPackageToPatient}
-                      className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50 transition-colors"
-                    >
-                      <Plus size={12} />
-                      {addingPackageToPatient ? "Adding..." : "Create & Add to Patient"}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* ── STOCK USED (all complaints) ── */}
-            {previousComplaints.some((c) => Array.isArray(c.items) && c.items.length > 0) && (
-              <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-4 shadow-sm">
-                <div className="flex items-center gap-2 mb-3">
-                  <Package className="w-4 h-4 text-orange-600" />
-                  <h3 className="text-sm font-semibold text-gray-900">Stock Used</h3>
-                  <span className="text-[10px] text-orange-500 font-medium">All sessions combined</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-orange-100">
-                        <th className="px-3 py-2 text-left font-semibold text-orange-800 uppercase tracking-wider">Date</th>
-                        <th className="px-3 py-2 text-left font-semibold text-orange-800 uppercase tracking-wider">Item Name</th>
-                        <th className="px-3 py-2 text-right font-semibold text-orange-800 uppercase tracking-wider">Qty</th>
-                        <th className="px-3 py-2 text-left font-semibold text-orange-800 uppercase tracking-wider">UOM</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-orange-100">
-                      {previousComplaints
-                        .filter((c) => Array.isArray(c.items) && c.items.length > 0)
-                        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                        .flatMap((c) =>
-                          (c.items as NonNullable<typeof c.items>).map((item, idx) => ({
-                            date: c.createdAt,
-                            item,
-                            key: `${c._id}-${idx}`,
-                          }))
-                        )
-                        .map(({ date, item, key }) => (
-                          <tr key={key} className="hover:bg-orange-50 transition-colors">
-                            <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
-                              {new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-                            </td>
-                            <td className="px-3 py-2 font-medium text-gray-900">{item.name}</td>
-                            <td className="px-3 py-2 text-right font-semibold text-orange-700">{item.quantity}</td>
-                            <td className="px-3 py-2 text-gray-600">{item.uom || "-"}</td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* ── CLINICAL CHECKLIST ── */}
-            <div className="rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
-              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-3">Clinical Checklist</h3>
-              <div className="space-y-2">
-                {CHECKLIST_ITEMS.map((item) => (
-                  <label
-                    key={item}
-                    className={`flex items-center justify-between gap-3 rounded-lg border px-4 py-3 cursor-pointer transition-colors ${
-                      checklist[item]
-                        ? "border-green-400 bg-green-50"
-                        : "border-gray-200 bg-white hover:bg-gray-50"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={checklist[item]}
-                        onChange={() =>
-                          setChecklist((prev) => ({ ...prev, [item]: !prev[item] }))
-                        }
-                        className="w-4 h-4 rounded accent-green-500 cursor-pointer"
-                      />
-                      <span className={`text-sm font-medium ${
-                        checklist[item] ? "text-green-700" : "text-gray-800"
-                      }`}>{item}</span>
+                {/* Communication Log */}
+                <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                    <div className="flex items-center gap-2">
+                      <Send className="w-4 h-4 text-blue-600" />
+                      <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Communication Log</span>
                     </div>
-                    {checklist[item] ? (
-                      <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
+                  </div>
+                  <div className="px-4 py-3 space-y-2">
+                    {consentSent ? (
+                      <div className="flex items-start gap-2">
+                        <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                          <Check className="w-3 h-3 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-gray-700">Consent Form Sent</p>
+                          <p className="text-[10px] text-gray-400">{new Date().toLocaleString()}</p>
+                        </div>
+                      </div>
                     ) : (
-                      <svg className="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <circle cx="12" cy="12" r="9" />
-                      </svg>
-                    )}
-                  </label>
-                ))}
-              </div>
-              {checklistError && (
-                <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
-                  <svg className="w-4 h-4 text-red-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                  </svg>
-                  <p className="text-xs text-red-700 font-medium">{checklistError}</p>
-                </div>
-              )}
-            </div>
-
-            </>
-            )}
-
-            {activeTab === "progress" && (
-              <div className="space-y-4">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-800">Treatment Timeline</h3>
-                </div>
-
-                {/* Error */}
-                {progressError && (
-                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    {progressError}
-                  </div>
-                )}
-
-                {/* Timeline entries */}
-                {loadingProgressNotes ? (
-                  <div className="py-8 text-center text-gray-400 text-sm">Loading progress notes...</div>
-                ) : (
-                  <div className="relative">
-                    {progressNotes.length > 0 && (
-                      <div className="absolute left-[18px] top-5 bottom-5 w-px bg-gradient-to-b from-teal-400 to-teal-100" />
-                    )}
-                    <div className="space-y-4">
-                      {progressNotes.map((entry) => {
-                        const dateStr = entry.noteDate
-                          ? new Date(entry.noteDate).toISOString().slice(0, 10)
-                          : new Date(entry.createdAt).toISOString().slice(0, 10);
-                        const doctorName =
-                          typeof entry.doctorId === "object" && entry.doctorId?.name
-                            ? entry.doctorId.name
-                            : null;
-                        return (
-                          <div key={entry._id} className="flex gap-4 items-start">
-                            {/* Dot */}
-                            <div className="flex-shrink-0 w-9 h-9 rounded-full bg-teal-500 border-4 border-white shadow-md flex items-center justify-center z-10">
-                              <TrendingUp size={14} className="text-white" />
-                            </div>
-                            {/* Card */}
-                            <div className="flex-1 rounded-2xl border border-gray-200 bg-white shadow-sm px-4 py-3 space-y-1.5">
-                              <div className="flex items-center justify-between gap-2 flex-wrap">
-                                <span className="text-xs font-semibold text-teal-600">{dateStr}</span>
-                                <div className="flex items-center gap-3">
-                                  {doctorName && (
-                                    <span className="text-xs text-gray-400">{doctorName}</span>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      try {
-                                        const headers = getAuthHeaders();
-                                        await axios.delete("/api/clinic/progress-notes", {
-                                          headers,
-                                          params: { noteId: entry._id },
-                                        });
-                                        setProgressNotes((prev) => prev.filter((n) => n._id !== entry._id));
-                                      } catch {
-                                        setProgressError("Failed to delete progress note");
-                                      }
-                                    }}
-                                    className="text-gray-300 hover:text-red-500 transition-colors"
-                                  >
-                                    <Trash2 size={13} />
-                                  </button>
-                                </div>
-                              </div>
-                              <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                                {entry.note}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Inline Add New Entry form */}
-                {addingNewEntry ? (
-                  <div className="rounded-2xl border-2 border-dashed border-teal-300 bg-teal-50/60 px-4 py-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-teal-700 uppercase tracking-wide flex items-center gap-1.5">
-                        <Plus size={12} />
-                        New Progress Entry
-                      </span>
-                      <span className="text-xs text-teal-600 font-medium">
-                        {newEntryDate}
-                      </span>
-                    </div>
-                    <textarea
-                      autoFocus
-                      value={newEntryText}
-                      onChange={(e) => setNewEntryText(e.target.value)}
-                      rows={4}
-                      placeholder="Describe the patient's progress, treatment response, observations for today..."
-                      className="w-full rounded-xl border border-teal-200 bg-white px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-teal-400 resize-none"
-                    />
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs text-teal-700 font-medium">Date:</label>
-                        <input
-                          type="date"
-                          value={newEntryDate}
-                          onChange={(e) => setNewEntryDate(e.target.value)}
-                          className="border border-teal-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-700"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => { setAddingNewEntry(false); setNewEntryText(""); setProgressError(""); }}
-                          className="px-4 py-1.5 rounded-lg border border-gray-300 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          disabled={savingProgress || !newEntryText.trim()}
-                          onClick={async () => {
-                            if (!newEntryText.trim() || !details) return;
-                            setSavingProgress(true);
-                            setProgressError("");
-                            try {
-                              const headers = getAuthHeaders();
-                              const res = await axios.post("/api/clinic/progress-notes", {
-                                appointmentId: details.appointmentId,
-                                patientId: details.patientId,
-                                note: newEntryText.trim(),
-                                noteDate: newEntryDate,
-                              }, { headers });
-                              if (res.data?.success && res.data.note) {
-                                setProgressNotes((prev) => [res.data.note, ...prev]);
-                              }
-                              setNewEntryText("");
-                              setNewEntryDate(new Date().toISOString().slice(0, 10));
-                              setAddingNewEntry(false);
-                            } catch (err: any) {
-                              setProgressError(err.response?.data?.message || "Failed to save progress note");
-                            } finally {
-                              setSavingProgress(false);
-                            }
-                          }}
-                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-teal-600 text-white text-xs font-semibold hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {savingProgress ? (
-                            <><RefreshCw size={12} className="animate-spin" /> Saving...</>
-                          ) : (
-                            <><Check size={12} /> Save Entry</>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  /* Add New Progress Note button */
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAddingNewEntry(true);
-                      setNewEntryDate(new Date().toISOString().slice(0, 10));
-                    }}
-                    className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 py-4 text-sm font-medium text-gray-500 hover:border-teal-400 hover:text-teal-600 transition-colors bg-white"
-                  >
-                    <Plus size={16} />
-                    Add New Progress Note
-                  </button>
-                )}
-
-                {/* ── SMART RECOMMENDATIONS ── */}
-                {(smartDepartments.length > 0 || loadingSmartRec) && (
-                  <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Stethoscope className="w-4 h-4 text-violet-600" />
-                      <h3 className="text-sm font-semibold text-violet-900 uppercase tracking-wide">Smart Recommendations</h3>
-                      <span className="ml-1 text-[10px] text-violet-500 font-medium">Based on Doctor's Department Services</span>
-                    </div>
-                    {loadingSmartRec ? (
-                      <div className="text-xs text-violet-500 py-2">Loading recommendations...</div>
-                    ) : (
-                      <div className="space-y-3">
-                        {smartDepartments.map((dept) => (
-                          <div key={dept._id}>
-                            <p className="text-[10px] font-bold text-violet-700 uppercase tracking-wider mb-1.5">{dept.name}</p>
-                            <div className="flex flex-wrap gap-2">
-                              {dept.services.map((svc) => (
-                                <div
-                                  key={svc._id}
-                                  className="flex items-center gap-2 rounded-lg border border-violet-200 bg-white px-3 py-1.5 shadow-sm"
-                                >
-                                  <span className="text-xs font-semibold text-gray-800">{svc.name}</span>
-                                  <span className="text-[10px] text-violet-500 font-medium">
-                                    {svc.clinicPrice != null ? `₹${svc.clinicPrice}` : `₹${svc.price}`}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    disabled={addingRecService[svc._id] || addedRecServices[svc._id]}
-                                    onClick={async () => {
-                                      if (!details?.appointmentId) return;
-                                      setAddingRecService((p) => ({ ...p, [svc._id]: true }));
-                                      try {
-                                        await axios.patch(
-                                          `/api/clinic/appointment-services/${details.appointmentId}`,
-                                          { serviceIds: [svc._id] },
-                                          { headers: getAuthHeaders() }
-                                        );
-                                        setAddedRecServices((p) => ({ ...p, [svc._id]: true }));
-                                      } catch {
-                                        // silently ignore; user can retry
-                                      } finally {
-                                        setAddingRecService((p) => ({ ...p, [svc._id]: false }));
-                                      }
-                                    }}
-                                    className={`flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
-                                      addedRecServices[svc._id]
-                                        ? "bg-green-100 text-green-700 cursor-default"
-                                        : "bg-violet-100 text-violet-700 hover:bg-violet-200"
-                                    }`}
-                                  >
-                                    {addingRecService[svc._id] ? (
-                                      <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                                      </svg>
-                                    ) : addedRecServices[svc._id] ? (
-                                      <>
-                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                        </svg>
-                                        Added
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Plus size={10} />
-                                        Add
-                                      </>
-                                    )}
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      <p className="text-xs text-gray-400 text-center py-2">No communication logged yet.</p>
                     )}
                   </div>
-                )}
+                </div>
 
-              {/* ── NEXT SESSION BOOKING ── */}
-              <div className="rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
-                <div className="flex items-center gap-2 mb-3">
-                  <Calendar className="w-4 h-4 text-blue-600" />
-                  <h3 className="text-sm font-semibold text-gray-900">Next Session Booking</h3>
-                </div>
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Select Date</label>
-                    <input
-                      type="date"
-                      value={nextSessionDate}
-                      min={new Date().toISOString().slice(0, 10)}
-                      onChange={(e) => { setNextSessionDate(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Select Time</label>
-                    <select
-                      value={nextSessionTime}
-                      onChange={(e) => { setNextSessionTime(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
-                    >
-                      {["07:00","07:30","08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30","20:00"].map((t) => {
-                        const [h, m] = t.split(":").map(Number);
-                        const ampm = h < 12 ? "AM" : "PM";
-                        const h12 = h % 12 || 12;
-                        return <option key={t} value={t}>{`${h12}:${String(m).padStart(2, "0")} ${ampm}`}</option>;
-                      })}
-                    </select>
-                  </div>
-                </div>
-                {nextSessionError && <p className="text-red-500 text-xs mb-2">{nextSessionError}</p>}
-                {nextSessionBooked && (
-                  <p className="text-green-600 text-xs mb-3 flex items-center gap-1">
-                    <Check size={12} /> Next session booked successfully!
-                  </p>
-                )}
-                <button
-                  type="button"
-                  onClick={bookNextSession}
-                  disabled={bookingNextSession || nextSessionBooked}
-                  className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                >
-                  <Calendar size={15} />
-                  {bookingNextSession ? "Booking..." : nextSessionBooked ? "Session Booked!" : "Book Next Session"}
-                </button>
               </div>
             </div>
-            )}
-
-            {/* ── PRESCRIPTION TAB ── */}
-            {activeTab === "prescription" && (
-              <div className="space-y-6">
-                {/* Prescribed Medicines */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-base font-semibold text-gray-900">Prescribed Medicines</h3>
-                    <button
-                      type="button"
-                      onClick={() => setMedicines((prev) => [...prev, emptyMedicine()])}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 transition-colors shadow-sm"
-                    >
-                      <Plus size={15} />
-                      Add Medicine
-                    </button>
-                  </div>
-
-                  {/* Medicine rows */}
-                  <div className="space-y-2">
-                    {medicines.map((med) => (
-                      <div
-                        key={med.id}
-                        className="rounded-xl border border-gray-200 bg-white px-4 py-3 flex flex-col sm:flex-row gap-3 items-start sm:items-center shadow-sm"
-                      >
-                        {/* Medicine name */}
-                        <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                          <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Medicine</label>
-                          <input
-                            type="text"
-                            value={med.medicineName}
-                            onChange={(e) =>
-                              setMedicines((prev) =>
-                                prev.map((m) => m.id === med.id ? { ...m, medicineName: e.target.value } : m)
-                              )
-                            }
-                            placeholder="Medicine name"
-                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-800 placeholder-gray-400"
-                          />
-                        </div>
-                        {/* Dosage */}
-                        <div className="flex flex-col gap-0.5 w-full sm:w-32">
-                          <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Dosage</label>
-                          <input
-                            type="text"
-                            value={med.dosage}
-                            onChange={(e) =>
-                              setMedicines((prev) =>
-                                prev.map((m) => m.id === med.id ? { ...m, dosage: e.target.value } : m)
-                              )
-                            }
-                            placeholder="2 times/day"
-                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-800 placeholder-gray-400"
-                          />
-                        </div>
-                        {/* Duration */}
-                        <div className="flex flex-col gap-0.5 w-full sm:w-28">
-                          <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Duration</label>
-                          <input
-                            type="text"
-                            value={med.duration}
-                            onChange={(e) =>
-                              setMedicines((prev) =>
-                                prev.map((m) => m.id === med.id ? { ...m, duration: e.target.value } : m)
-                              )
-                            }
-                            placeholder="7 days"
-                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-800 placeholder-gray-400"
-                          />
-                        </div>
-                        {/* Notes */}
-                        <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                          <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Notes</label>
-                          <input
-                            type="text"
-                            value={med.notes}
-                            onChange={(e) =>
-                              setMedicines((prev) =>
-                                prev.map((m) => m.id === med.id ? { ...m, notes: e.target.value } : m)
-                              )
-                            }
-                            placeholder="After meals"
-                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-800 placeholder-gray-400"
-                          />
-                        </div>
-                        {/* Delete row */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (medicines.length === 1) {
-                              setMedicines([emptyMedicine()]);
-                            } else {
-                              setMedicines((prev) => prev.filter((m) => m.id !== med.id));
-                            }
-                          }}
-                          className="mt-4 sm:mt-0 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Aftercare Instructions */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-base font-semibold text-gray-900">Aftercare Instructions</h3>
-                  </div>
-                  <textarea
-                    value={aftercareInstructions}
-                    onChange={(e) => setAftercareInstructions(e.target.value)}
-                    rows={6}
-                    placeholder="Enter detailed aftercare instructions for the patient..."
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-teal-400 resize-none"
-                  />
-                </div>
-
-                {/* Include in PDF toggle */}
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={includeInPdf}
-                    onClick={() => setIncludeInPdf((v) => !v)}
-                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      includeInPdf ? "bg-teal-500" : "bg-gray-300"
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        includeInPdf ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
-                  <span className="text-sm text-gray-700 font-medium">Include in patient PDF</span>
-                </div>
-
-                {/* Error */}
-                {prescriptionError && (
-                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    {prescriptionError}
-                  </div>
-                )}
-                {prescriptionSaved && (
-                  <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 flex items-center gap-2">
-                    <Check size={14} />
-                    Prescription saved successfully.
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex items-center gap-3 flex-wrap">
-                  <button
-                    type="button"
-                    disabled={savingPrescription || medicines.every((m) => !m.medicineName.trim())}
-                    onClick={async () => {
-                      const validMeds = medicines.filter((m) => m.medicineName.trim());
-                      if (!validMeds.length || !details) return;
-                      setSavingPrescription(true);
-                      setPrescriptionError("");
-                      setPrescriptionSaved(false);
-                      try {
-                        const headers = getAuthHeaders();
-                        await axios.post("/api/clinic/prescriptions", {
-                          appointmentId: details.appointmentId,
-                          patientId: details.patientId,
-                          medicines: validMeds,
-                          aftercareInstructions,
-                          includeInPdf,
-                        }, { headers });
-                        setPrescriptionSaved(true);
-                        // Refresh history
-                        const histRes = await axios.get("/api/clinic/prescriptions", {
-                          headers,
-                          params: { patientId: details.patientId },
-                        });
-                        if (histRes.data?.success) {
-                          setPrescriptionHistory(histRes.data.prescriptions || []);
-                        }
-                      } catch (err: any) {
-                        setPrescriptionError(err.response?.data?.message || "Failed to save prescription");
-                      } finally {
-                        setSavingPrescription(false);
-                      }
-                    }}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
-                  >
-                    {savingPrescription ? (
-                      <><RefreshCw size={14} className="animate-spin" /> Saving...</>
-                    ) : (
-                      <><Check size={14} /> Save Prescription</>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={medicines.every((m) => !m.medicineName.trim())}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gray-800 text-white text-sm font-semibold hover:bg-gray-900 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm transition-colors"
-                  >
-                    <FileText size={14} />
-                    Generate PDF
-                  </button>
-                  <button
-                    type="button"
-                    disabled={medicines.every((m) => !m.medicineName.trim())}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-green-500 text-green-700 text-sm font-semibold hover:bg-green-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Send size={14} />
-                    Send via WhatsApp
-                  </button>
-                </div>
-
-                {/* ── Prescription History ── */}
-                <div className="border-t border-gray-200 pt-5">
-                  <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                    <Pill size={14} className="text-violet-500" />
-                    Prescription History
-                    {prescriptionHistory.length > 0 && (
-                      <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-bold">
-                        {prescriptionHistory.length}
-                      </span>
-                    )}
-                  </h3>
-
-                  {loadingPrescriptionHistory ? (
-                    <div className="py-6 text-center text-gray-400 text-sm">Loading prescription history...</div>
-                  ) : prescriptionHistory.length === 0 ? (
-                    <div className="py-6 text-center text-gray-400 text-sm">No prescription history found for this patient.</div>
-                  ) : (
-                    <div className="space-y-3">
-                      {prescriptionHistory.map((entry) => {
-                        const isExpanded = !!expandedPrescription[entry._id];
-                        const doctorName =
-                          typeof entry.doctorId === "object" && entry.doctorId?.name
-                            ? entry.doctorId.name
-                            : null;
-                        return (
-                          <div
-                            key={entry._id}
-                            className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden"
-                          >
-                            {/* Header row */}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setExpandedPrescription((prev) => ({
-                                  ...prev,
-                                  [entry._id]: !prev[entry._id],
-                                }))
-                              }
-                              className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
-                            >
-                              <div className="flex items-center gap-3 flex-wrap">
-                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700 bg-violet-50 px-2.5 py-1 rounded-full border border-violet-200">
-                                  <Pill size={10} />
-                                  {entry.medicines.length} medicine{entry.medicines.length !== 1 ? "s" : ""}
-                                </span>
-                                <span className="text-xs text-gray-500 flex items-center gap-1">
-                                  <Calendar size={11} />
-                                  {new Date(entry.createdAt).toLocaleDateString("en-US", {
-                                    year: "numeric",
-                                    month: "short",
-                                    day: "numeric",
-                                  })}
-                                </span>
-                                {doctorName && (
-                                  <span className="text-xs text-gray-400">Dr. {doctorName}</span>
-                                )}
-                                {entry.updatedAt !== entry.createdAt && (
-                                  <span className="text-[10px] text-gray-400 italic">
-                                    (updated {new Date(entry.updatedAt).toLocaleDateString()})
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 flex-shrink-0">
-                                <button
-                                  type="button"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    try {
-                                      const headers = getAuthHeaders();
-                                      await axios.delete("/api/clinic/prescriptions", {
-                                        headers,
-                                        params: { prescriptionId: entry._id },
-                                      });
-                                      setPrescriptionHistory((prev) =>
-                                        prev.filter((p) => p._id !== entry._id)
-                                      );
-                                    } catch {
-                                      setPrescriptionError("Failed to delete prescription");
-                                    }
-                                  }}
-                                  className="p-1 text-gray-300 hover:text-red-500 transition-colors"
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                                {isExpanded ? (
-                                  <ChevronUp size={15} className="text-gray-400" />
-                                ) : (
-                                  <ChevronDown size={15} className="text-gray-400" />
-                                )}
-                              </div>
-                            </button>
-
-                            {/* Expanded details */}
-                            {isExpanded && (
-                              <div className="border-t border-gray-100 px-4 py-4 space-y-4 bg-gray-50/50">
-                                {/* Medicine table */}
-                                <div>
-                                  <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Medicines</p>
-                                  <div className="rounded-lg border border-gray-200 overflow-hidden">
-                                    <table className="w-full text-sm">
-                                      <thead className="bg-gray-100">
-                                        <tr>
-                                          <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">#</th>
-                                          <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">Medicine</th>
-                                          <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">Dosage</th>
-                                          <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">Duration</th>
-                                          <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">Notes</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-gray-100 bg-white">
-                                        {entry.medicines.map((med, mIdx) => (
-                                          <tr key={med._id || mIdx} className="hover:bg-gray-50">
-                                            <td className="px-3 py-2 text-gray-400 text-xs">{mIdx + 1}</td>
-                                            <td className="px-3 py-2 font-medium text-gray-900">{med.medicineName}</td>
-                                            <td className="px-3 py-2 text-gray-600">{med.dosage || <span className="text-gray-300">—</span>}</td>
-                                            <td className="px-3 py-2 text-gray-600">{med.duration || <span className="text-gray-300">—</span>}</td>
-                                            <td className="px-3 py-2 text-gray-600">{med.notes || <span className="text-gray-300">—</span>}</td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </div>
-
-                                {/* Aftercare instructions */}
-                                {entry.aftercareInstructions && (
-                                  <div>
-                                    <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Aftercare Instructions</p>
-                                    <p className="text-sm text-gray-700 whitespace-pre-wrap bg-white rounded-lg border border-gray-200 px-3 py-2.5">
-                                      {entry.aftercareInstructions}
-                                    </p>
-                                  </div>
-                                )}
-
-                                {/* Include in PDF badge */}
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold ${
-                                      entry.includeInPdf
-                                        ? "bg-teal-50 text-teal-700 border border-teal-200"
-                                        : "bg-gray-100 text-gray-500 border border-gray-200"
-                                    }`}
-                                  >
-                                    <FileText size={9} />
-                                    {entry.includeInPdf ? "Included in PDF" : "Not included in PDF"}
-                                  </span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* ── SMART RECOMMENDATIONS ── */}
-                {(smartDepartments.length > 0 || loadingSmartRec) && (
-                  <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Stethoscope className="w-4 h-4 text-violet-600" />
-                      <h3 className="text-sm font-semibold text-violet-900 uppercase tracking-wide">Smart Recommendations</h3>
-                      <span className="ml-1 text-[10px] text-violet-500 font-medium">Based on Doctor's Department Services</span>
-                    </div>
-                    {loadingSmartRec ? (
-                      <div className="text-xs text-violet-500 py-2">Loading recommendations...</div>
-                    ) : (
-                      <div className="space-y-3">
-                        {smartDepartments.map((dept) => (
-                          <div key={dept._id}>
-                            <p className="text-[10px] font-bold text-violet-700 uppercase tracking-wider mb-1.5">{dept.name}</p>
-                            <div className="flex flex-wrap gap-2">
-                              {dept.services.map((svc) => (
-                                <div
-                                  key={svc._id}
-                                  className="flex items-center gap-2 rounded-lg border border-violet-200 bg-white px-3 py-1.5 shadow-sm"
-                                >
-                                  <span className="text-xs font-semibold text-gray-800">{svc.name}</span>
-                                  <span className="text-[10px] text-violet-500 font-medium">
-                                    {svc.clinicPrice != null ? `₹${svc.clinicPrice}` : `₹${svc.price}`}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    disabled={addingRecService[svc._id] || addedRecServices[svc._id]}
-                                    onClick={async () => {
-                                      if (!details?.appointmentId) return;
-                                      setAddingRecService((p) => ({ ...p, [svc._id]: true }));
-                                      try {
-                                        await axios.patch(
-                                          `/api/clinic/appointment-services/${details.appointmentId}`,
-                                          { serviceIds: [svc._id] },
-                                          { headers: getAuthHeaders() }
-                                        );
-                                        setAddedRecServices((p) => ({ ...p, [svc._id]: true }));
-                                      } catch {
-                                        // silently ignore; user can retry
-                                      } finally {
-                                        setAddingRecService((p) => ({ ...p, [svc._id]: false }));
-                                      }
-                                    }}
-                                    className={`flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
-                                      addedRecServices[svc._id]
-                                        ? "bg-green-100 text-green-700 cursor-default"
-                                        : "bg-violet-100 text-violet-700 hover:bg-violet-200"
-                                    }`}
-                                  >
-                                    {addingRecService[svc._id] ? (
-                                      <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                                      </svg>
-                                    ) : addedRecServices[svc._id] ? (
-                                      <>
-                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                        </svg>
-                                        Added
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Plus size={10} />
-                                        Add
-                                      </>
-                                    )}
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* ── NEXT SESSION BOOKING ── */}
-                <div className="rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Calendar className="w-4 h-4 text-blue-600" />
-                    <h3 className="text-sm font-semibold text-gray-900">Next Session Booking</h3>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Select Date</label>
-                      <input
-                        type="date"
-                        value={nextSessionDate}
-                        min={new Date().toISOString().slice(0, 10)}
-                        onChange={(e) => { setNextSessionDate(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Select Time</label>
-                      <select
-                        value={nextSessionTime}
-                        onChange={(e) => { setNextSessionTime(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
-                      >
-                        {["07:00","07:30","08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30","20:00"].map((t) => {
-                          const [h, m] = t.split(":").map(Number);
-                          const ampm = h < 12 ? "AM" : "PM";
-                          const h12 = h % 12 || 12;
-                          return <option key={t} value={t}>{`${h12}:${String(m).padStart(2, "0")} ${ampm}`}</option>;
-                        })}
-                      </select>
-                    </div>
-                  </div>
-                  {nextSessionError && <p className="text-red-500 text-xs mb-2">{nextSessionError}</p>}
-                  {nextSessionBooked && (
-                    <p className="text-green-600 text-xs mb-3 flex items-center gap-1">
-                      <Check size={12} /> Next session booked successfully!
-                    </p>
-                  )}
-                  <button
-                    type="button"
-                    onClick={bookNextSession}
-                    disabled={bookingNextSession || nextSessionBooked}
-                    className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Calendar size={15} />
-                    {bookingNextSession ? "Booking..." : nextSessionBooked ? "Session Booked!" : "Book Next Session"}
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
 
-          <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-3">
+          {/* ── FOOTER ── */}
+          <div className="flex items-center justify-between border-t border-gray-200 px-5 py-3 bg-white flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+              className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
             >
               Close
             </button>
@@ -3482,34 +3863,20 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                 type="button"
                 onClick={handleSaveComplaints}
                 disabled={saving || loading}
-                className="rounded-lg bg-red-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700 disabled:opacity-60"
+                className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60 transition-colors"
               >
                 {saving ? "Saving..." : "Save Complaints"}
               </button>
             )}
           </div>
+
           {isEditModalOpen && editingComplaint && (
             <EditComplaintModal
               complaint={editingComplaint}
-              onClose={() => {
-                setIsEditModalOpen(false);
-                setEditingComplaint(null);
-              }}
+              onClose={() => { setIsEditModalOpen(false); setEditingComplaint(null); }}
               onSaved={(updated) => {
-                setPreviousComplaints((prev) =>
-                  prev.map((pc) =>
-                    pc._id === updated._id
-                      ? {
-                          ...pc,
-                          complaints: updated.complaints,
-                          items: updated.items || [],
-                          createdAt: (updated as any).createdAt || pc.createdAt,
-                        }
-                      : pc,
-                  ),
-                );
-                setIsEditModalOpen(false);
-                setEditingComplaint(null);
+                setPreviousComplaints((prev) => prev.map((pc) => pc._id === updated._id ? { ...pc, complaints: updated.complaints, items: updated.items || [], createdAt: (updated as any).createdAt || pc.createdAt } : pc));
+                setIsEditModalOpen(false); setEditingComplaint(null);
               }}
               getAuthHeaders={getAuthHeaders}
             />
@@ -3528,22 +3895,12 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         cancelText="No, Keep"
       />
       {isOpenViewComplaintModal && (
-        <ComplaintDetailModal
-          onClose={() => setIsOpenViewComplaintModal(false)}
-          complaint={selectedComplaint}
-        />
+        <ComplaintDetailModal onClose={() => setIsOpenViewComplaintModal(false)} complaint={selectedComplaint} />
       )}
-      {/* Stock Transfer Request Modal */}
-      {/* stock transfer request modal */}
       <AddStockTransferRequestModal
         isOpen={isOpenStockTransferModal}
-        onClose={() => {
-          setIsOpenStockTransferModal(false);
-        }}
-        onSuccess={() => {
-          fetchAllocatedItems();
-          setIsOpenStockTransferModal(false);
-        }}
+        onClose={() => setIsOpenStockTransferModal(false)}
+        onSuccess={() => { fetchAllocatedItems(); setIsOpenStockTransferModal(false); }}
       />
     </>
   );
