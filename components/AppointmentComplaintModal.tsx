@@ -174,7 +174,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [error, setError] = useState<string>("");
   const [details, setDetails] = useState<AppointmentDetails | null>(null);
   const [report, setReport] = useState<SingleReport | null>(null);
-  const [patientReports, setPatientReports] = useState<
+  const [_patientReports, setPatientReports] = useState<
     AppointmentReportSummary[]
   >([]);
   const [complaints, setComplaints] = useState<string>("");
@@ -187,7 +187,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     PreviousComplaint[]
   >([]);
   const [loadingComplaints, setLoadingComplaints] = useState(false);
-  const [showPreviousReports, setShowPreviousReports] = useState(false);
+  const [_showPreviousReports, setShowPreviousReports] = useState(false);
 
   // Patient EMR stats — total spend from Billing, visits from Appointment
   interface PatientEMRStats {
@@ -349,6 +349,12 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [addingRecService, setAddingRecService] = useState<Record<string, boolean>>({});
   // Track added services per patient (key format: "patientId_serviceId")
   const [addedRecServices, setAddedRecServices] = useState<Record<string, boolean>>({});
+
+   // SEND CONSENT FORM MSG ON WHATSAPP
+    const [sendMsgLoading, setSendMsgLoading] = useState<boolean>(false);
+
+
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const target = e.target as Node | null;
@@ -1009,6 +1015,66 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     setEditingItem(null);
   };
 
+  /*---------------------------
+    // SEND CONSENT FORM MESSAGE ON WHATSAPP 
+    //---------------------------*/
+    const handleSendConsentMsgOnWhatsapp = async () => {
+      if (!selectedConsentId) return;
+  
+      try {
+        setSendMsgLoading(true);
+        setSendingConsent(true);
+        const token = getTokenByPath();
+        console.log({ details });
+  
+        const { data } = await axios.post(
+          "/api/messages/send-message",
+          {
+            patientId: details?.patientId,
+            providerId: "6952256c4a46b2f1eb01be86",
+            channel: "whatsapp",
+            content: `Please review and sign the consent form by clicking the link below:
+  
+  https://consent-form.zeva.co.ke
+  
+  Thank you.`,
+            mediaUrl: "",
+            mediaType: "",
+            source: "Zeva",
+            messageType: "conversational",
+            templateId: "69c38b4d26b8217e1ba78f8a",
+            // for whatsapp template if body variables exist
+            headerParameters: [],
+            bodyParameters: [
+              {
+                type: "text",
+                text: "https://consent-form.zeva.co.ke",
+              },
+            ],
+            attachments: [],
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+  
+        if (data && data?.success) {
+          setConsentSent(true);
+        }
+      } catch (error: any) {
+        console.log(
+          "Error in send consent form msg on whatsapp: ",
+          error?.message,
+        );
+      } finally {
+        setSendMsgLoading(false);
+        setSendingConsent(false);
+      }
+    };
+  
+
   if (!isOpen || !appointment) {
     return null;
   }
@@ -1117,26 +1183,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         <option value="">Select Consent</option>
                         {consentForms.map((cf) => (<option key={cf._id} value={cf._id}>{cf.formName}</option>))}
                       </select>
-                      <button type="button" disabled={!selectedConsentId || sendingConsent || consentSent}
-                        onClick={async () => {
-                          if (!selectedConsentId) return;
-                          setSendingConsent(true);
-                          try {
-                            const headers = getAuthHeaders();
-                            await axios.post(`/api/clinic/consent/send`, {
-                              consentFormId: selectedConsentId,
-                              appointmentId: details.appointmentId,
-                              patientId: details.patientId,
-                              via: "WhatsApp", // default to WhatsApp
-                            }, { headers });
-                            setConsentSent(true);
-                            setConsentStatus({ status: "sent", sentVia: "WhatsApp", sentAt: new Date().toISOString() });
-                          } catch (err) {
-                            console.error("Failed to send consent:", err);
-                          } finally {
-                            setSendingConsent(false);
-                          }
-                        }}
+                      <button type="button" disabled={!selectedConsentId || sendingConsent || sendMsgLoading || consentSent}
+                        onClick={handleSendConsentMsgOnWhatsapp}
                         className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${consentSent ? "bg-green-100 text-green-700 border border-green-200" : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40"}`}>
                         {consentSent ? <><Check size={11} /> Sent</> : sendingConsent ? <><RefreshCw size={11} className="animate-spin" /> Sending...</> : <><Send size={11} /> Send Consent</>}
                       </button>
