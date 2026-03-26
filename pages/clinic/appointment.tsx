@@ -112,11 +112,43 @@ interface Appointment {
   }>;
 }
 
+// Helper: convert "HH:MM AM/PM" 12-hour string to "HH:MM" 24-hour string
+function convert12HourTo24(t: string): string {
+  if (!t) return '';
+  if (!/AM|PM/i.test(t)) return t; // already 24h
+  const match = t.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return '';
+  let h = parseInt(match[1], 10);
+  const m = match[2];
+  const period = match[3].toUpperCase();
+  if (period === 'PM' && h !== 12) h += 12;
+  else if (period === 'AM' && h === 12) h = 0;
+  return `${String(h).padStart(2, '0')}:${m}`;
+}
+
+// Parse the new weekly timings array for a specific date.
+// Returns { startTime, endTime } in 24h format, or null if closed/not found.
+function parseTimingsForDay(
+  timings: any[],
+  dateStr: string // "YYYY-MM-DD"
+): { startTime: string; endTime: string } | null {
+  if (!Array.isArray(timings) || !dateStr) return null;
+  const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const dayName = DAYS[new Date(dateStr + 'T00:00:00').getDay()];
+  const entry = timings.find((t: any) => t.day === dayName);
+  if (!entry || !entry.isOpen) return null;
+  const start = convert12HourTo24(entry.openingTime || '');
+  const end   = convert12HourTo24(entry.closingTime || '');
+  if (!start || !end) return null;
+  return { startTime: start, endTime: end };
+}
+
 // Parse clinic timings string and generate time slots
 // Custom time slots format: "HH:MM-HH:MM" (24-hour format, no spaces, exact match)
 // Regular timings format: "9:00 AM - 5:00 PM" or "09:00-17:00" etc.
-function parseTimings(timings: string): { startTime: string; endTime: string; isCustom: boolean } | null {
-  if (!timings || !timings.trim()) {
+function parseTimings(timings: string | any): { startTime: string; endTime: string; isCustom: boolean } | null {
+  // Guard: if timings is an array (new weekly schedule schema), not a legacy string
+  if (!timings || Array.isArray(timings) || typeof timings !== 'string' || !timings.trim()) {
     return null;
   }
 
@@ -610,16 +642,34 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
         setClosingMinutes(endMinutes);
       }
     } else if (clinic?.timings && !useCustomTimeSlots) {
-      // Use clinic's existing timings (not custom format)
-      const parsed = parseTimings(clinic.timings);
-      if (parsed && !parsed.isCustom) {
-        const slots = generateTimeSlots(parsed.startTime, parsed.endTime);
-        setTimeSlots(slots);
-        setClosingMinutes(timeStringToMinutes(parsed.endTime));
+      // Use clinic's existing timings based on selected day
+      if (Array.isArray(clinic.timings)) {
+        // New weekly schedule schema — pick the entry for the selected day
+        const dayTiming = parseTimingsForDay(clinic.timings, selectedDate);
+        if (dayTiming) {
+          const slots = generateTimeSlots(dayTiming.startTime, dayTiming.endTime);
+          setTimeSlots(slots);
+          setClosingMinutes(timeStringToMinutes(dayTiming.endTime));
+        } else {
+          // Clinic is closed on this day — clear slots
+          setTimeSlots([]);
+          setClosingMinutes(null);
+        }
+      } else {
+        // Legacy string format
+        const parsed = parseTimings(clinic.timings);
+        if (parsed && !parsed.isCustom) {
+          const slots = generateTimeSlots(parsed.startTime, parsed.endTime);
+          setTimeSlots(slots);
+          setClosingMinutes(timeStringToMinutes(parsed.endTime));
+        }
       }
       // If parsed is null or isCustom is true, don't set anything - wait for custom time slots
     }
-  }, [useCustomTimeSlots, customStartTime, customEndTime, clinic?.timings, customTimeSlotsLoading]);
+  }, [useCustomTimeSlots, customStartTime, customEndTime, clinic?.timings, customTimeSlotsLoading, selectedDate]);
+
+  // Helper exposed to re-apply day timings when selectedDate changes
+  // (already covered by the dependency array above)
   const [doctorFilterOpen, setDoctorFilterOpen] = useState(false);
   const [roomFilterOpen, setRoomFilterOpen] = useState(false);
   const doctorFilterTouchedRef = useRef(false);
@@ -2522,7 +2572,19 @@ useEffect(() => {
                 <div>
                   <h1 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-900">Appointment Schedule</h1>
                   <p className="text-xs text-gray-700 dark:text-gray-800">
-                    {clinic?.name} â€¢ {clinic?.timings || "No timings set"}
+                    {clinic?.name}{clinic?.timings
+                      ? Array.isArray(clinic.timings)
+                        ? (() => {
+                            const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+                            const dayName = DAYS[new Date(selectedDate + 'T00:00:00').getDay()];
+                            const entry = (clinic.timings as any[]).find((t: any) => t.day === dayName);
+                            if (!entry) return '';
+                            return entry.isOpen
+                              ? ` \u2022 ${entry.openingTime} - ${entry.closingTime}`
+                              : ` \u2022 Closed on ${dayName}`;
+                          })()
+                        : ` \u2022 ${clinic.timings}`
+                      : ' \u2022 No timings set'}
                   </p>
                 </div>
                 <div className="flex sm:flex-row sm:items-center gap-3">
@@ -3870,12 +3932,22 @@ useEffect(() => {
                         );
                         // Update ref to prevent duplicate save
                         lastSavedValuesRef.current = currentValues;
-                        // Revert to clinic timings
-                        const parsed = parseTimings(clinic?.timings || "");
-                        if (parsed && !parsed.isCustom) {
-                          const slots = generateTimeSlots(parsed.startTime, parsed.endTime);
-                          setTimeSlots(slots);
-                          setClosingMinutes(timeStringToMinutes(parsed.endTime));
+                        // Revert to clinic timings (day-aware)
+                        if (Array.isArray(clinic?.timings)) {
+                          const dayTiming = parseTimingsForDay(clinic.timings, selectedDate);
+                          if (dayTiming) {
+                            setTimeSlots(generateTimeSlots(dayTiming.startTime, dayTiming.endTime));
+                            setClosingMinutes(timeStringToMinutes(dayTiming.endTime));
+                          } else {
+                            setTimeSlots([]);
+                            setClosingMinutes(null);
+                          }
+                        } else {
+                          const parsed = parseTimings(clinic?.timings || "");
+                          if (parsed && !parsed.isCustom) {
+                            setTimeSlots(generateTimeSlots(parsed.startTime, parsed.endTime));
+                            setClosingMinutes(timeStringToMinutes(parsed.endTime));
+                          }
                         }
                         toast.success("Reverted to clinic timings", { duration: 2000 });
                         setCustomTimeSlotModalOpen(false);

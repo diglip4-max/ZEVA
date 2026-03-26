@@ -121,14 +121,71 @@ function ClinicManagementDashboard(): ReactElement {
     enableOnlineBooking: true,
     featuredListing: false,
   });
+  const [showTreatmentPanel, setShowTreatmentPanel] = useState(false);
+  // Helper: convert "HH:MM" (24h) → "HH:MM AM/PM" (12h)
+  const to12Hour = (t: string): string => {
+    if (!t) return '';
+    // Already in 12h format
+    if (/AM|PM/i.test(t)) return t;
+    const [hStr, mStr] = t.split(':');
+    let h = parseInt(hStr, 10);
+    const m = mStr || '00';
+    const period = h >= 12 ? 'PM' : 'AM';
+    if (h === 0) h = 12;
+    else if (h > 12) h -= 12;
+    return `${String(h).padStart(2, '0')}:${m} ${period}`;
+  };
+
+  // Helper: convert "HH:MM AM/PM" (12h) → "HH:MM" (24h) for <input type="time">
+  const to24Hour = (t: string): string => {
+    if (!t) return '';
+    if (!/AM|PM/i.test(t)) return t; // already 24h
+    const match = t.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return '';
+    let h = parseInt(match[1], 10);
+    const m = match[2];
+    const period = match[3].toUpperCase();
+    if (period === 'PM' && h !== 12) h += 12;
+    else if (period === 'AM' && h === 12) h = 0;
+    return `${String(h).padStart(2, '0')}:${m}`;
+  };
+
+  // Helper: build structured timings array from timing state (for API)
+  const buildTimingsPayload = () => timing.map(t => ({
+    day: t.day,
+    isOpen: t.open,
+    openingTime: t.open ? to12Hour(t.opening) : '09:00 AM',
+    closingTime: t.open ? to12Hour(t.closing) : '06:00 PM',
+    breakStart: to12Hour(t.breakStart) || '01:00 PM',
+    breakEnd:   to12Hour(t.breakEnd)   || '02:00 PM',
+  }));
+
+  // Helper: load DB timings array back into timing state
+  const loadTimingsFromDB = (dbTimings: any[]) => {
+    if (!Array.isArray(dbTimings) || dbTimings.length === 0) return;
+    const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    setTiming(DAYS.map(day => {
+      const found = dbTimings.find((d: any) => d.day === day);
+      if (!found) return { day, open: false, opening: '', closing: '', breakStart: '', breakEnd: '' };
+      return {
+        day,
+        open: !!found.isOpen,
+        opening:    to24Hour(found.openingTime || ''),
+        closing:    to24Hour(found.closingTime || ''),
+        breakStart: to24Hour(found.breakStart  || ''),
+        breakEnd:   to24Hour(found.breakEnd    || ''),
+      };
+    }));
+  };
+
   const [timing, setTiming] = useState([
-    { day: 'Monday', open: true, opening: '09:00', closing: '18:00', breakStart: '13:00', breakEnd: '14:00' },
-    { day: 'Tuesday', open: false, opening: '', closing: '', breakStart: '', breakEnd: '' },
-    { day: 'Wednesday', open: false, opening: '', closing: '', breakStart: '', breakEnd: '' },
-    { day: 'Thursday', open: true, opening: '09:00', closing: '18:00', breakStart: '13:00', breakEnd: '14:00' },
-    { day: 'Friday', open: false, opening: '', closing: '', breakStart: '', breakEnd: '' },
-    { day: 'Saturday', open: true, opening: '12:00', closing: '20:00', breakStart: '', breakEnd: '' },
-    { day: 'Sunday', open: false, opening: '', closing: '', breakStart: '', breakEnd: '' },
+    { day: 'Monday',    open: true,  opening: '09:00', closing: '18:00', breakStart: '13:00', breakEnd: '14:00' },
+    { day: 'Tuesday',   open: false, opening: '',      closing: '',      breakStart: '',      breakEnd: ''      },
+    { day: 'Wednesday', open: false, opening: '',      closing: '',      breakStart: '',      breakEnd: ''      },
+    { day: 'Thursday',  open: true,  opening: '09:00', closing: '18:00', breakStart: '13:00', breakEnd: '14:00' },
+    { day: 'Friday',    open: false, opening: '',      closing: '',      breakStart: '',      breakEnd: ''      },
+    { day: 'Saturday',  open: true,  opening: '12:00', closing: '20:00', breakStart: '',      breakEnd: ''      },
+    { day: 'Sunday',    open: false, opening: '',      closing: '',      breakStart: '',      breakEnd: ''      },
   ]);
   const [generalInfo, setGeneralInfo] = useState({
     slug: '',
@@ -254,6 +311,17 @@ function ClinicManagementDashboard(): ReactElement {
       const hasAny = Object.keys(prev || {}).length > 0;
       return hasAny ? prev : { ...c };
     });
+    // Load stored timings into the timing state
+    if (Array.isArray((c as any).timings) && (c as any).timings.length > 0) {
+      loadTimingsFromDB((c as any).timings);
+    }
+    // Load listingVisibility from DB
+    if ((c as any).listingVisibility) {
+      setListingVisibility(prev => ({
+        ...prev,
+        ...(c as any).listingVisibility,
+      }));
+    }
     setGeneralInfo(prev => ({
       slug: (prev.slug || (c as any).slug || "").trim(),
       tagline: (prev.tagline || (c as any).tagline || "").trim(),
@@ -672,7 +740,8 @@ function ClinicManagementDashboard(): ReactElement {
         form.append("email", (contactForm.email || "").trim());
         form.append("website", (contactForm.website || "").trim());
         if (editForm.pricing) form.append("pricing", editForm.pricing.trim());
-        if (editForm.timings) form.append("timings", editForm.timings.trim());
+        form.append("timings", JSON.stringify(buildTimingsPayload()));
+        form.append("listingVisibility", JSON.stringify(listingVisibility));
         if (editForm.servicesName)
           form.append("servicesName", JSON.stringify(editForm.servicesName));
         if (editForm.treatments)
@@ -706,7 +775,8 @@ function ClinicManagementDashboard(): ReactElement {
             retryForm.append("name", safeName || baseClinic.name || "");
             retryForm.append("address", safeAddress || baseClinic.address || "");
             if (editForm.pricing) retryForm.append("pricing", editForm.pricing.trim());
-            if (editForm.timings) retryForm.append("timings", editForm.timings.trim());
+            retryForm.append("timings", JSON.stringify(buildTimingsPayload()));
+            retryForm.append("listingVisibility", JSON.stringify(listingVisibility));
             if (editForm.servicesName)
               retryForm.append("servicesName", JSON.stringify(editForm.servicesName));
             if (editForm.treatments)
@@ -753,7 +823,8 @@ function ClinicManagementDashboard(): ReactElement {
           email: (contactForm.email || "").trim(),
           website: (contactForm.website || "").trim(),
           ...(editForm.pricing && { pricing: editForm.pricing.trim() }),
-          ...(editForm.timings && { timings: editForm.timings.trim() }),
+          timings: buildTimingsPayload(),
+          listingVisibility,
           ...(editForm.servicesName && { servicesName: editForm.servicesName }),
           ...(editForm.treatments && { treatments: editForm.treatments }),
           existingPhotos,
@@ -1099,6 +1170,21 @@ function ClinicManagementDashboard(): ReactElement {
                           <span className="text-teal-600">zeva.com/{(generalInfo.slug || editForm.slug || '').trim() || 'slug'}</span>
                         </div>
                       </div>
+                        <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Consultation Fee (AED)</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium text-sm">AED</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={editForm.pricing || ''}
+                            onChange={(e) => setEditForm((prev: any) => ({ ...prev, pricing: e.target.value }))}
+                            className="w-full pl-14 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                            placeholder="e.g. 200"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">This is the starting consultation fee shown on the public listing.</p>
+                      </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Tagline</label>
                         <input
@@ -1119,6 +1205,7 @@ function ClinicManagementDashboard(): ReactElement {
                           rows={3}
                         />
                       </div>
+                    
                     </div>
                   </div>
 
@@ -1220,8 +1307,8 @@ function ClinicManagementDashboard(): ReactElement {
                     </div>
                   </div> */}
 
-                  {/* Treatments Section (hidden in General Info UI; functionality unchanged) */}
-                  {false && (<div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
+                  {/* Treatments Section */}
+                  <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
                     <h3 className="text-lg font-bold text-teal-900 mb-4 flex items-center gap-2">
                       <Activity className="w-5 h-5 text-teal-700" />
                       Treatments
@@ -1643,7 +1730,7 @@ function ClinicManagementDashboard(): ReactElement {
                         ))}
                       </div>
                     </div>
-                  </div>)}
+                  </div>
                 </div>
               </div>
 
@@ -2000,131 +2087,331 @@ function ClinicManagementDashboard(): ReactElement {
                         </svg>
                         <div>
                           <h3 className="text-base font-normal text-blue-900">These settings control visibility on Zeva marketplace</h3>
-                          <p className="text-sm text-blue-800 font-medium">Changes will be reflected on your public profile within 24 hours</p>
+                          <p className="text-sm text-blue-800 font-medium">Changes will be reflected on your public profile</p>
                         </div>
                       </div>
                     </div>
 
                     {/* Settings List */}
-                    <div className="divide-y divide-gray-100">
-                      {/* Show Services */}
-                      <div className="p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                        <div className="flex-1">
-                          <h4 className="text-base font-semibold text-gray-900">Show Services</h4>
-                          <p className="text-sm text-gray-500 mt-1">Display your clinic's services on the marketplace</p>
+                    <div className="p-5 space-y-3">
+
+                      {/* Show Services Row */}
+                      <div className={`rounded-xl border transition-all duration-200 overflow-hidden ${listingVisibility.showServices ? 'border-teal-200 bg-teal-50/30' : 'border-gray-200 bg-white'}`}>
+                        {/* Main toggle row */}
+                        <div className="flex items-center justify-between px-4 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${listingVisibility.showServices ? 'bg-teal-100' : 'bg-gray-100'}`}>
+                              <svg className={`w-4.5 h-4.5 ${listingVisibility.showServices ? 'text-teal-600' : 'text-gray-400'}`} style={{width:'18px',height:'18px'}} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">Show Services</p>
+                              <p className="text-xs text-gray-500 mt-0.5">Display your clinic's services &amp; treatments publicly</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            {/* Expand/collapse button — only when treatments exist */}
+                            {editForm.treatments && (editForm.treatments as any[]).length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setShowTreatmentPanel(p => !p)}
+                                className="flex items-center gap-1.5 text-xs font-medium text-teal-600 hover:text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-2.5 py-1.5 rounded-lg transition-colors"
+                              >
+                                <svg style={{width:'13px',height:'13px'}} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                                </svg>
+                                <span>Treatments</span>
+                                <svg
+                                  style={{width:'12px',height:'12px',transition:'transform 0.2s',transform: showTreatmentPanel ? 'rotate(180deg)' : 'rotate(0deg)'}}
+                                  fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </button>
+                            )}
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                className="sr-only peer"
+                                checked={listingVisibility.showServices as boolean}
+                                onChange={() => {
+                                  setListingVisibility(prev => ({ ...prev, showServices: !prev.showServices }));
+                                  toast.success(`Services will be ${!listingVisibility.showServices ? 'shown' : 'hidden'} on marketplace`);
+                                }}
+                              />
+                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                            </label>
+                          </div>
                         </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            className="sr-only peer" 
-                            checked={listingVisibility.showServices as boolean} 
-                            onChange={() => {
-                              setListingVisibility(prev => ({ ...prev, showServices: !prev.showServices }));
-                              toast.success(`Services will be ${!listingVisibility.showServices ? 'shown' : 'hidden'} on marketplace`);
-                            }}
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-                        </label>
+
+                        {/* Treatment Visibility Panel — expand/collapse */}
+                        {showTreatmentPanel && editForm.treatments && (editForm.treatments as any[]).length > 0 && (
+                          <div className={`mx-4 mb-4 rounded-xl border overflow-hidden transition-opacity duration-200 ${listingVisibility.showServices !== false ? 'opacity-100 border-gray-200' : 'opacity-40 border-gray-200 pointer-events-none'}`}>
+                            {/* Panel header */}
+                            <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+                              <span className="text-xs font-semibold text-gray-600 tracking-wide">Treatment Visibility</span>
+                              <div className="flex items-center gap-2.5">
+                                {listingVisibility.showServices === false ? (
+                                  <span className="text-[11px] px-2 py-0.5 bg-red-50 text-red-500 rounded-full border border-red-100 font-medium">All hidden</span>
+                                ) : (
+                                  <span className="text-[11px] text-gray-500">
+                                    {(editForm.treatments as any[]).filter((t: any) => t.enabled !== false).length}/{(editForm.treatments as any[]).length} visible
+                                  </span>
+                                )}
+                                {/* Master All toggle */}
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[11px] text-gray-500 font-medium">All</span>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      className="sr-only peer"
+                                      disabled={listingVisibility.showServices === false}
+                                      checked={listingVisibility.showServices !== false && (editForm.treatments as any[]).every((t: any) => t.enabled !== false)}
+                                      onChange={(e) => {
+                                        const allOn = e.target.checked;
+                                        setEditForm((prev: any) => ({
+                                          ...prev,
+                                          treatments: (prev.treatments || []).map((t: any) => ({
+                                            ...t,
+                                            enabled: allOn,
+                                            subTreatments: (t.subTreatments || []).map((s: any) => ({ ...s, enabled: allOn }))
+                                          }))
+                                        }));
+                                      }}
+                                    />
+                                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-600"></div>
+                                  </label>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Scrollable treatment rows */}
+                            <div className="divide-y divide-gray-100 max-h-64 overflow-y-auto bg-white">
+                              {(editForm.treatments as any[]).map((treatment: any, idx: number) => {
+                                const treatmentOn = listingVisibility.showServices !== false && treatment.enabled !== false;
+                                const subs = (treatment.subTreatments || []) as any[];
+                                const hasSubTreatments = subs.length > 0;
+                                return (
+                                  <div key={idx}>
+                                    {/* Main treatment row */}
+                                    <div className={`flex items-center justify-between px-4 py-3 transition-colors ${treatmentOn ? 'hover:bg-gray-50' : ''}`}>
+                                      <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                        <span className={`inline-flex w-2 h-2 rounded-full flex-shrink-0 ${treatmentOn ? 'bg-teal-500' : 'bg-gray-300'}`} />
+                                        <div className="min-w-0 flex-1">
+                                          <p className={`text-sm font-medium truncate ${treatmentOn ? 'text-gray-800' : 'text-gray-400 line-through'}`}>
+                                            {treatment.mainTreatment}
+                                          </p>
+                                          {hasSubTreatments && (
+                                            <p className="text-[11px] text-gray-400 mt-0.5">
+                                              {treatmentOn
+                                                ? `${subs.filter((s: any) => s.enabled !== false).length} of ${subs.length} sub-treatments on`
+                                                : `${subs.length} sub-treatments hidden`}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                                        <input
+                                          type="checkbox"
+                                          className="sr-only peer"
+                                          disabled={listingVisibility.showServices === false}
+                                          checked={treatmentOn}
+                                          onChange={(e) => {
+                                            const isOn = e.target.checked;
+                                            setEditForm((prev: any) => {
+                                              const updated = [...(prev.treatments || [])];
+                                              updated[idx] = {
+                                                ...updated[idx],
+                                                enabled: isOn,
+                                                subTreatments: subs.map((s: any) => ({ ...s, enabled: isOn }))
+                                              };
+                                              return { ...prev, treatments: updated };
+                                            });
+                                          }}
+                                        />
+                                        <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-600"></div>
+                                      </label>
+                                    </div>
+
+                                    {/* Sub-treatment rows — only when main is ON */}
+                                    {hasSubTreatments && treatmentOn && (
+                                      <div className="bg-gray-50 border-t border-gray-100">
+                                        {/* Sub header with All toggle */}
+                                        <div className="flex items-center justify-between px-5 py-1.5 border-b border-gray-100">
+                                          <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Sub-treatments</span>
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="text-[10px] text-gray-400">All</span>
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                              <input
+                                                type="checkbox"
+                                                className="sr-only peer"
+                                                checked={subs.every((s: any) => s.enabled !== false)}
+                                                onChange={(e) => {
+                                                  const allSubOn = e.target.checked;
+                                                  setEditForm((prev: any) => {
+                                                    const updated = [...(prev.treatments || [])];
+                                                    updated[idx] = {
+                                                      ...updated[idx],
+                                                      subTreatments: subs.map((s: any) => ({ ...s, enabled: allSubOn }))
+                                                    };
+                                                    return { ...prev, treatments: updated };
+                                                  });
+                                                }}
+                                              />
+                                              <div className="w-7 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-teal-500"></div>
+                                            </label>
+                                          </div>
+                                        </div>
+                                        {/* Sub rows */}
+                                        <div className="divide-y divide-gray-100">
+                                          {subs.map((sub: any, subIdx: number) => {
+                                            const subOn = sub.enabled !== false;
+                                            return (
+                                              <div key={subIdx} className={`flex items-center justify-between pl-8 pr-4 py-2 transition-colors ${subOn ? 'hover:bg-white' : ''}`}>
+                                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                  <span className={`inline-flex w-1.5 h-1.5 rounded-full flex-shrink-0 ${subOn ? 'bg-teal-400' : 'bg-gray-300'}`} />
+                                                  <span className={`text-xs truncate ${subOn ? 'text-gray-700' : 'text-gray-400 line-through'}`}>
+                                                    {sub.name}
+                                                  </span>
+                                                  {sub.price > 0 && (
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ml-1 ${subOn ? 'bg-teal-50 text-teal-600 border border-teal-100' : 'bg-gray-100 text-gray-400'}`}>
+                                                      AED {sub.price}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                                <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-2">
+                                                  <input
+                                                    type="checkbox"
+                                                    className="sr-only peer"
+                                                    checked={subOn}
+                                                    onChange={(e) => {
+                                                      const isSubOn = e.target.checked;
+                                                      setEditForm((prev: any) => {
+                                                        const updated = [...(prev.treatments || [])];
+                                                        const updatedSubs = [...subs];
+                                                        updatedSubs[subIdx] = { ...updatedSubs[subIdx], enabled: isSubOn };
+                                                        updated[idx] = { ...updated[idx], subTreatments: updatedSubs };
+                                                        return { ...prev, treatments: updated };
+                                                      });
+                                                    }}
+                                                  />
+                                                  <div className="w-7 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-teal-500"></div>
+                                                </label>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Show Prices */}
-                      <div className="p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                        <div className="flex-1">
-                          <h4 className="text-base font-semibold text-gray-900">Show Prices</h4>
-                          <p className="text-sm text-gray-500 mt-1">Display treatment prices publicly</p>
+                      <div className={`rounded-xl border px-4 py-4 flex items-center justify-between transition-colors ${listingVisibility.showPrices ? 'border-teal-200 bg-teal-50/30' : 'border-gray-200 bg-white'}`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${listingVisibility.showPrices ? 'bg-teal-100' : 'bg-gray-100'}`}>
+                            <svg style={{width:'18px',height:'18px'}} className={listingVisibility.showPrices ? 'text-teal-600' : 'text-gray-400'} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">Show Prices</p>
+                            <p className="text-xs text-gray-500 mt-0.5">Display treatment prices publicly</p>
+                          </div>
                         </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            className="sr-only peer" 
-                            checked={listingVisibility.showPrices as boolean} 
-                            onChange={() => {
-                              setListingVisibility(prev => ({ ...prev, showPrices: !prev.showPrices }));
-                              toast.success(`Prices will be ${!listingVisibility.showPrices ? 'shown' : 'hidden'}`);
-                            }}
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                          <input type="checkbox" className="sr-only peer" checked={listingVisibility.showPrices as boolean}
+                            onChange={() => { setListingVisibility(prev => ({ ...prev, showPrices: !prev.showPrices })); toast.success(`Prices will be ${!listingVisibility.showPrices ? 'shown' : 'hidden'}`); }} />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
                         </label>
                       </div>
 
                       {/* Show Staff */}
-                      <div className="p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                        <div className="flex-1">
-                          <h4 className="text-base font-semibold text-gray-900">Show Staff</h4>
-                          <p className="text-sm text-gray-500 mt-1">Display doctor and staff profiles</p>
+                      <div className={`rounded-xl border px-4 py-4 flex items-center justify-between transition-colors ${listingVisibility.showStaff ? 'border-teal-200 bg-teal-50/30' : 'border-gray-200 bg-white'}`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${listingVisibility.showStaff ? 'bg-teal-100' : 'bg-gray-100'}`}>
+                            <svg style={{width:'18px',height:'18px'}} className={listingVisibility.showStaff ? 'text-teal-600' : 'text-gray-400'} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">Show Staff</p>
+                            <p className="text-xs text-gray-500 mt-0.5">Display doctor and staff profiles</p>
+                          </div>
                         </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            className="sr-only peer" 
-                            checked={listingVisibility.showStaff as boolean} 
-                            onChange={() => {
-                              setListingVisibility(prev => ({ ...prev, showStaff: !prev.showStaff }));
-                              toast.success(`Staff profiles will be ${!listingVisibility.showStaff ? 'shown' : 'hidden'}`);
-                            }}
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                          <input type="checkbox" className="sr-only peer" checked={listingVisibility.showStaff as boolean}
+                            onChange={() => { setListingVisibility(prev => ({ ...prev, showStaff: !prev.showStaff })); toast.success(`Staff profiles will be ${!listingVisibility.showStaff ? 'shown' : 'hidden'}`); }} />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
                         </label>
                       </div>
 
                       {/* Show Reviews */}
-                      <div className="p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                        <div className="flex-1">
-                          <h4 className="text-base font-semibold text-gray-900">Show Reviews</h4>
-                          <p className="text-sm text-gray-500 mt-1">Display patient reviews and ratings</p>
+                      <div className={`rounded-xl border px-4 py-4 flex items-center justify-between transition-colors ${listingVisibility.showReviews ? 'border-teal-200 bg-teal-50/30' : 'border-gray-200 bg-white'}`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${listingVisibility.showReviews ? 'bg-teal-100' : 'bg-gray-100'}`}>
+                            <svg style={{width:'18px',height:'18px'}} className={listingVisibility.showReviews ? 'text-teal-600' : 'text-gray-400'} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">Show Reviews</p>
+                            <p className="text-xs text-gray-500 mt-0.5">Display patient reviews and ratings</p>
+                          </div>
                         </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            className="sr-only peer" 
-                            checked={listingVisibility.showReviews as boolean} 
-                            onChange={() => {
-                              setListingVisibility(prev => ({ ...prev, showReviews: !prev.showReviews }));
-                              toast.success(`Reviews will be ${!listingVisibility.showReviews ? 'shown' : 'hidden'}`);
-                            }}
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                          <input type="checkbox" className="sr-only peer" checked={listingVisibility.showReviews as boolean}
+                            onChange={() => { setListingVisibility(prev => ({ ...prev, showReviews: !prev.showReviews })); toast.success(`Reviews will be ${!listingVisibility.showReviews ? 'shown' : 'hidden'}`); }} />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
                         </label>
                       </div>
 
                       {/* Enable Online Booking */}
-                      <div className="p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                        <div className="flex-1">
-                          <h4 className="text-base font-semibold text-gray-900">Enable Online Booking</h4>
-                          <p className="text-sm text-gray-500 mt-1">Allow patients to book appointments online</p>
+                      <div className={`rounded-xl border px-4 py-4 flex items-center justify-between transition-colors ${listingVisibility.enableOnlineBooking ? 'border-teal-200 bg-teal-50/30' : 'border-gray-200 bg-white'}`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${listingVisibility.enableOnlineBooking ? 'bg-teal-100' : 'bg-gray-100'}`}>
+                            <svg style={{width:'18px',height:'18px'}} className={listingVisibility.enableOnlineBooking ? 'text-teal-600' : 'text-gray-400'} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">Enable Online Booking</p>
+                            <p className="text-xs text-gray-500 mt-0.5">Allow patients to book appointments online</p>
+                          </div>
                         </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            className="sr-only peer" 
-                            checked={listingVisibility.enableOnlineBooking as boolean} 
-                            onChange={() => {
-                              setListingVisibility(prev => ({ ...prev, enableOnlineBooking: !prev.enableOnlineBooking }));
-                              toast.success(`Online booking ${!listingVisibility.enableOnlineBooking ? 'enabled' : 'disabled'}`);
-                            }}
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                          <input type="checkbox" className="sr-only peer" checked={listingVisibility.enableOnlineBooking as boolean}
+                            onChange={() => { setListingVisibility(prev => ({ ...prev, enableOnlineBooking: !prev.enableOnlineBooking })); toast.success(`Online booking ${!listingVisibility.enableOnlineBooking ? 'enabled' : 'disabled'}`); }} />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
                         </label>
                       </div>
 
                       {/* Featured Listing */}
-                      <div className="p-5 flex items-center justify-between hover:bg-gray-50 transition-colors bg-gray-50">
-                        <div className="flex-1">
-                          <h4 className="text-base font-semibold text-gray-900">Featured Listing</h4>
-                          <p className="text-sm text-gray-500 mt-1">Highlight your clinic at the top of search results</p>
+                      <div className={`rounded-xl border px-4 py-4 flex items-center justify-between transition-colors ${listingVisibility.featuredListing ? 'border-teal-200 bg-teal-50/30' : 'border-gray-200 bg-white'}`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${listingVisibility.featuredListing ? 'bg-teal-100' : 'bg-gray-100'}`}>
+                            <svg style={{width:'18px',height:'18px'}} className={listingVisibility.featuredListing ? 'text-teal-500' : 'text-gray-400'} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">Featured Listing</p>
+                            <p className="text-xs text-gray-500 mt-0.5">Highlight your clinic at the top of search results</p>
+                          </div>
                         </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            className="sr-only peer" 
-                            checked={listingVisibility.featuredListing as boolean} 
-                            onChange={() => {
-                              setListingVisibility(prev => ({ ...prev, featuredListing: !prev.featuredListing }));
-                            }}
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                          <input type="checkbox" className="sr-only peer" checked={listingVisibility.featuredListing as boolean}
+                            onChange={() => { setListingVisibility(prev => ({ ...prev, featuredListing: !prev.featuredListing })); }} />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
                         </label>
                       </div>
+
                     </div>
                   </div>
 
@@ -2995,7 +3282,15 @@ function ClinicManagementDashboard(): ReactElement {
                                     </div>
                                     <div className="flex items-center gap-2">
                                       <Clock className="w-4 h-4 text-teal-500 flex-shrink-0" />
-                                      <span>{clinic.timings}</span>
+                                      <span>
+                                        {Array.isArray(clinic.timings)
+                                          ? (() => {
+                                              const open = (clinic.timings as any[]).filter((t: any) => t.isOpen);
+                                              if (open.length === 0) return 'All days closed';
+                                              return open.map((t: any) => `${t.day}: ${t.openingTime} - ${t.closingTime}`).join(', ');
+                                            })()
+                                          : (clinic.timings || 'No timings set')}
+                                      </span>
                                     </div>
                                   </div>
                                 </div>

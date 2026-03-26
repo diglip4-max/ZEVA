@@ -22,6 +22,31 @@ export default async function handler(req, res) {
 
   // ---------------- GET: list/filter patients OR generate EMR OR get invoicedBy ----------------  
   if (req.method === "GET") {
+    // Check if requesting single patient by ID
+    if (req.query.id) {
+      try {
+        const patientId = req.query.id;
+        
+        // Fetch patient by ID
+        const patient = await PatientRegistration.findById(patientId).lean();
+        
+        if (!patient) {
+          return res.status(404).json({ success: false, message: "Patient not found" });
+        }
+        
+        return res.status(200).json({
+          success: true,
+          patient: patient,
+        });
+      } catch (error) {
+        console.error("Error fetching patient by ID:", error);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to fetch patient",
+        });
+      }
+    }
+    
     // Check if requesting Invoiced By user details
     if (req.query.getInvoicedBy === 'true') {
       try {

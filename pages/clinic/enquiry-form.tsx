@@ -25,6 +25,10 @@ function EnquiryFormPage() {
   interface ClinicDetails {
     timings?: string;
     pricing?: string;
+    listingVisibility?: {
+      enableOnlineBooking?: boolean;
+      [key: string]: unknown;
+    };
     [key: string]: unknown;
   }
 
@@ -169,6 +173,29 @@ function EnquiryFormPage() {
               ></div>
             ))}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Block if online booking is disabled
+  if (clinicDetails.listingVisibility?.enableOnlineBooking === false) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-teal-50 to-cyan-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-10 max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <MessageSquare className="w-8 h-8 text-gray-400" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Online Booking Unavailable</h2>
+          <p className="text-gray-500 mb-6">
+            {clinicName || 'This clinic'} is not accepting online bookings at the moment. Please contact them directly.
+          </p>
+          <button
+            onClick={goToClinicPage}
+            className="px-6 py-3 bg-[#2D9AA5] text-white rounded-xl font-semibold hover:bg-[#2D9AA5]/90 transition-all"
+          >
+            Back to Clinic
+          </button>
         </div>
       </div>
     );

@@ -1054,9 +1054,9 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                       outerRadius={80}
                       paddingAngle={5}
                       dataKey="count"
-                      label={({ name, count }) => `${name}: ${count}`}
+                      label={({ name, payload }) => `${name}: ${payload.count}`}
                     >
-                      {transferStats.statusStats.map((entry, index) => (
+                      {transferStats.statusStats.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>

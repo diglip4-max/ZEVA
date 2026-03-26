@@ -14,7 +14,34 @@ const ClinicSchema = new mongoose.Schema(
     treatments: { type: [TreatmentRefSchema], default: [] }, // subTreatments now include price
     servicesName: { type: [String], default: [] },
     pricing: String,
-    timings: String,
+    timings: {
+      type: [
+        new mongoose.Schema(
+          {
+            day: {
+              type: String,
+              enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+              required: true,
+            },
+            isOpen:      { type: Boolean, default: false },
+            openingTime: { type: String, default: '09:00 AM' },
+            closingTime: { type: String, default: '06:00 PM' },
+            breakStart:  { type: String, default: '01:00 PM' },
+            breakEnd:    { type: String, default: '02:00 PM' },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [
+        { day: 'Monday',    isOpen: true,  openingTime: '09:00 AM', closingTime: '06:00 PM', breakStart: '01:00 PM', breakEnd: '02:00 PM' },
+        { day: 'Tuesday',   isOpen: true,  openingTime: '09:00 AM', closingTime: '06:00 PM', breakStart: '01:00 PM', breakEnd: '02:00 PM' },
+        { day: 'Wednesday', isOpen: false, openingTime: '09:00 AM', closingTime: '06:00 PM', breakStart: '01:00 PM', breakEnd: '02:00 PM' },
+        { day: 'Thursday',  isOpen: false, openingTime: '09:00 AM', closingTime: '06:00 PM', breakStart: '01:00 PM', breakEnd: '02:00 PM' },
+        { day: 'Friday',    isOpen: false, openingTime: '09:00 AM', closingTime: '06:00 PM', breakStart: '01:00 PM', breakEnd: '02:00 PM' },
+        { day: 'Saturday',  isOpen: false, openingTime: '09:00 AM', closingTime: '06:00 PM', breakStart: '01:00 PM', breakEnd: '02:00 PM' },
+        { day: 'Sunday',    isOpen: false, openingTime: '09:00 AM', closingTime: '06:00 PM', breakStart: '01:00 PM', breakEnd: '02:00 PM' },
+      ],
+    },
     photos: [String],
     licenseDocumentUrl: { type: String, default: null },
     documents: {
@@ -50,6 +77,14 @@ const ClinicSchema = new mongoose.Schema(
     slugLocked: { type: Boolean, default: false }, // Lock slug once approved
     otpWhatsAppNumber: { type: String, default: null },
     otpEmail: { type: String, default: null },
+    listingVisibility: {
+      showServices:       { type: Boolean, default: true },
+      showPrices:         { type: Boolean, default: true },
+      showStaff:          { type: Boolean, default: true },
+      showReviews:        { type: Boolean, default: true },
+      enableOnlineBooking:{ type: Boolean, default: true },
+      featuredListing:    { type: Boolean, default: false },
+    },
   },
   { timestamps: true }
 );

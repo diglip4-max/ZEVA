@@ -266,6 +266,17 @@ export default async function handler(req, res) {
 
     const remainingFreeConsultations = Math.max(0, totalFreeConsultations - usedFreeConsultations);
 
+    // Fetch the name of the source (transferred from) patient if applicable
+    let transferredFromName = null;
+    if (sourcePatientId) {
+      const sourcePat = await PatientRegistration.findById(sourcePatientId).select('firstName lastName').lean();
+      if (sourcePat) {
+        const fn = (sourcePat.firstName || '').trim();
+        const ln = (sourcePat.lastName || '').trim();
+        transferredFromName = `${fn} ${ln}`.trim() || 'Unknown';
+      }
+    }
+
     return res.status(200).json({
       success: true,
       hasMembership: true,
@@ -280,6 +291,7 @@ export default async function handler(req, res) {
       freeConsultationDetails,
       isTransferred: !!sourcePatientId,
       transferredFrom: sourcePatientId,
+      transferredFromName: transferredFromName,
       transferredFreeConsultations: typeof transferredAllowance === 'number' ? transferredAllowance : null,
       message: remainingFreeConsultations > 0 
         ? `${remainingFreeConsultations} free consultation(s) remaining`
