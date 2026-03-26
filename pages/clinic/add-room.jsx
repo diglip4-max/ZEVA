@@ -950,7 +950,7 @@ function AddRoomPage({ contextOverride = null }) {
                   <div className="flex items-center gap-2">
                     <Building2 className="w-5 h-5 text-teal-700" />
                     <h1 className="text-xl sm:text-2xl font-bold text-teal-900">
-                      Room, Department & Package Management
+                      Room & Department
                     </h1>
                   </div>
                   {/* <button
@@ -963,7 +963,7 @@ function AddRoomPage({ contextOverride = null }) {
                   </button> */}
                 </div>
                 <p className="text-xs sm:text-sm text-teal-600">
-                  Create and manage rooms, departments, and packages for your clinic
+                  Create and manage rooms, departments for your clinic
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2 bg-teal-200 rounded-lg p-1 border border-gray-200">
