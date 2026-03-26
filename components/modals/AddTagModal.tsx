@@ -6,13 +6,11 @@ interface IProps {
   isOpen: boolean;
   onClose: () => void;
   conversationId?: string;
+  leadId?: string;
   conversationTitle?: string;
   conversationType?: string;
   existingTags?: string[];
-  handleAddTagToConversation: (
-    conversationId: string,
-    tag: string
-  ) => Promise<void>;
+  handleAddTagToConversation: (leadId: string, tag: string) => Promise<void>;
   loading: boolean;
 }
 
@@ -20,6 +18,7 @@ const AddTagModal: React.FC<IProps> = ({
   isOpen,
   onClose,
   conversationId,
+  leadId,
   conversationTitle = "Untitled Conversation",
   conversationType = "chat",
   existingTags = [],
@@ -105,10 +104,10 @@ const AddTagModal: React.FC<IProps> = ({
                     {conversationType === "chat"
                       ? "Chat Conversation"
                       : conversationType === "email"
-                      ? "Email Thread"
-                      : conversationType === "call"
-                      ? "Call Log"
-                      : "Conversation"}{" "}
+                        ? "Email Thread"
+                        : conversationType === "call"
+                          ? "Call Log"
+                          : "Conversation"}{" "}
                     • ID: {conversationId?.substring(0, 8)}...
                   </p>
                 </div>
@@ -204,7 +203,7 @@ const AddTagModal: React.FC<IProps> = ({
                       tagName === tag
                         ? "border-gray-500 bg-gray-50 font-medium"
                         : "border-gray-300 hover:border-gray-500 hover:bg-gray-50",
-                      "disabled:opacity-50 disabled:cursor-not-allowed"
+                      "disabled:opacity-50 disabled:cursor-not-allowed",
                     )}
                   >
                     <div className="flex items-center justify-between">
@@ -273,15 +272,13 @@ const AddTagModal: React.FC<IProps> = ({
             Cancel
           </button>
           <button
-            onClick={() =>
-              handleAddTagToConversation(conversationId!, tagName.trim())
-            }
+            onClick={() => handleAddTagToConversation(leadId!, tagName.trim())}
             disabled={!tagName?.trim() || loading}
             className={clsx(
               "px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors",
               tagName?.trim() && !loading
                 ? "bg-gray-800 text-white hover:bg-gray-900 cursor-pointer"
-                : "bg-gray-400 text-gray-700 cursor-not-allowed"
+                : "bg-gray-400 text-gray-700 cursor-not-allowed",
             )}
           >
             {loading ? (

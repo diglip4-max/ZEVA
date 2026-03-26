@@ -30,16 +30,16 @@ type AppPropsWithLayout = AppProps & {
 // Helper function to decode JWT and get user role
 const getUserRoleFromToken = (token: string | null): string | null => {
   if (!token) return null;
-  
+
   try {
     // JWT tokens are in format: header.payload.signature
-    const payload = token.split('.')[1];
+    const payload = token.split(".")[1];
     if (!payload) return null;
-    
+
     const decodedPayload = JSON.parse(atob(payload));
     return decodedPayload.role || null;
   } catch (error) {
-    console.warn('[Role Check] Failed to decode token:', error);
+    console.warn("[Role Check] Failed to decode token:", error);
     return null;
   }
 };
@@ -47,13 +47,13 @@ const getUserRoleFromToken = (token: string | null): string | null => {
 // Helper function to check if user is an agent
 const isAgentUser = (token: string | null): boolean => {
   const role = getUserRoleFromToken(token);
-  return role === 'agent'; // Only 'agent' role should have screenshots
+  return role === "agent"; // Only 'agent' role should have screenshots
 };
 
 // Helper function to check if user is a doctor staff
 const isDoctorUser = (token: string | null): boolean => {
   const role = getUserRoleFromToken(token);
-  return role === 'doctorStaff'; // 'doctorStaff' role for doctors
+  return role === "doctorStaff"; // 'doctorStaff' role for doctors
 };
 
 function MyApp({ Component, pageProps }: AppPropsWithLayout) {
@@ -84,38 +84,44 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
   // AGENT SCREENSHOT CAPTURE LOGIC - WITH ROLE CHECK
   const captureScreenshot = async () => {
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
-      
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("agentToken")
+          : null;
+
       // CHECK Token exists
       if (!token) {
-        console.log('[capture] No token found, skipping screenshot');
+        console.log("[capture] No token found, skipping screenshot");
         return;
       }
-      
+
       // CHECK User has 'agent' role
       if (!isAgentUser(token)) {
-        console.log('[capture] User is not an agent, skipping screenshot');
+        console.log("[capture] User is not an agent, skipping screenshot");
         return;
       }
 
-      if (typeof window === 'undefined' || !document?.documentElement) {
-        console.warn('[capture] Not in browser');
+      if (typeof window === "undefined" || !document?.documentElement) {
+        console.warn("[capture] Not in browser");
         return;
       }
 
-      console.log('[capture] Starting full-page screenshot for agent...');
+      console.log("[capture] Starting full-page screenshot for agent...");
 
       const originalScrollX = window.scrollX;
       const originalScrollY = window.scrollY;
 
       window.scrollTo(0, 0);
 
-      const { scrollWidth, scrollHeight, clientWidth, clientHeight } = document.documentElement;
+      const { scrollWidth, scrollHeight, clientWidth, clientHeight } =
+        document.documentElement;
 
       const fullWidth = Math.max(scrollWidth, clientWidth);
       const fullHeight = Math.max(scrollHeight, clientHeight);
 
-      console.log(`[capture] Full content size: ${fullWidth} × ${fullHeight}px`);
+      console.log(
+        `[capture] Full content size: ${fullWidth} × ${fullHeight}px`,
+      );
 
       const canvas = await html2canvas(document.documentElement, {
         scale: window.devicePixelRatio || 1,
@@ -135,82 +141,91 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
         width: fullWidth,
         height: fullHeight,
         onclone: (clonedDoc) => {
-          clonedDoc.querySelectorAll('.no-capture, [data-no-capture], .Toastify')
-            .forEach(el => {
-              (el as HTMLElement).style.display = 'none';
+          clonedDoc
+            .querySelectorAll(".no-capture, [data-no-capture], .Toastify")
+            .forEach((el) => {
+              (el as HTMLElement).style.display = "none";
             });
-        }
+        },
       });
 
       window.scrollTo(originalScrollX, originalScrollY);
 
-      const base64 = canvas.toDataURL('image/jpeg', 0.68); //0.68
+      const base64 = canvas.toDataURL("image/jpeg", 0.68); //0.68
 
-      console.log(
-        `[capture] Canvas ready — ${canvas.width}×${canvas.height}`
-      );
+      console.log(`[capture] Canvas ready — ${canvas.width}×${canvas.height}`);
 
-      const response = await axios.post(
-        '/api/agent/screenshot',
-        {
-          imageData: base64,
-          timestamp: new Date().toISOString(),
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          timeout: 60000,
-        }
-      );
+      // const response = await axios.post(
+      //   '/api/agent/screenshot',
+      //   {
+      //     imageData: base64,
+      //     timestamp: new Date().toISOString(),
+      //   },
+      //   {
+      //     headers: {
+      //       Authorization: `Bearer ${token}`,
+      //       'Content-Type': 'application/json',
+      //     },
+      //     timeout: 60000,
+      //   }
+      // );
 
-      if (response.data.success) {
-        console.log('[capture] Upload success');
-      } else {
-        console.warn('[capture] Server error:', response.data.message);
-      }
+      // if (response.data.success) {
+      //   console.log('[capture] Upload success');
+      // } else {
+      //   console.warn('[capture] Server error:', response.data.message);
+      // }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error('[capture] Failed:', errorMessage);
+      console.error("[capture] Failed:", errorMessage);
     }
   };
 
   // DOCTOR SCREENSHOT CAPTURE LOGIC - WITH ROLE CHECK
   const captureScreenshotDoctor = async () => {
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
-      
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("userToken")
+          : null;
+
       //CHECK Token exists
       if (!token) {
-        console.log('[capture-doctor] No token found, skipping screenshot');
+        console.log("[capture-doctor] No token found, skipping screenshot");
         return;
       }
-      
+
       // CHECK User has 'doctorStaff' role
       if (!isDoctorUser(token)) {
-        console.log('[capture-doctor] User is not a doctor staff, skipping screenshot');
+        console.log(
+          "[capture-doctor] User is not a doctor staff, skipping screenshot",
+        );
         return;
       }
 
-      if (typeof window === 'undefined' || !document?.documentElement) {
-        console.warn('[capture-doctor] Not in browser');
+      if (typeof window === "undefined" || !document?.documentElement) {
+        console.warn("[capture-doctor] Not in browser");
         return;
       }
 
-      console.log('[capture-doctor] Starting full-page screenshot for doctor...');
+      console.log(
+        "[capture-doctor] Starting full-page screenshot for doctor...",
+      );
 
       const originalScrollX = window.scrollX;
       const originalScrollY = window.scrollY;
 
       window.scrollTo(0, 0);
 
-      const { scrollWidth, scrollHeight, clientWidth, clientHeight } = document.documentElement;
+      const { scrollWidth, scrollHeight, clientWidth, clientHeight } =
+        document.documentElement;
 
       const fullWidth = Math.max(scrollWidth, clientWidth);
       const fullHeight = Math.max(scrollHeight, clientHeight);
 
-      console.log(`[capture-doctor] Full content size: ${fullWidth} × ${fullHeight}px`);
+      console.log(
+        `[capture-doctor] Full content size: ${fullWidth} × ${fullHeight}px`,
+      );
 
       const canvas = await html2canvas(document.documentElement, {
         scale: window.devicePixelRatio || 1,
@@ -230,23 +245,24 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
         width: fullWidth,
         height: fullHeight,
         onclone: (clonedDoc) => {
-          clonedDoc.querySelectorAll('.no-capture, [data-no-capture], .Toastify')
-            .forEach(el => {
-              (el as HTMLElement).style.display = 'none';
+          clonedDoc
+            .querySelectorAll(".no-capture, [data-no-capture], .Toastify")
+            .forEach((el) => {
+              (el as HTMLElement).style.display = "none";
             });
-        }
+        },
       });
 
       window.scrollTo(originalScrollX, originalScrollY);
 
-      const base64 = canvas.toDataURL('image/jpeg', 0.68); //0.68
+      const base64 = canvas.toDataURL("image/jpeg", 0.68); //0.68
 
       console.log(
-        `[capture-doctor] Canvas ready — ${canvas.width}×${canvas.height}`
+        `[capture-doctor] Canvas ready — ${canvas.width}×${canvas.height}`,
       );
 
       const response = await axios.post(
-        '/api/doctor/screenshot',
+        "/api/doctor/screenshot",
         {
           imageData: base64,
           timestamp: new Date().toISOString(),
@@ -254,28 +270,31 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
         {
           headers: {
             Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           timeout: 60000,
-        }
+        },
       );
 
       if (response.data.success) {
-        console.log('[capture-doctor] Upload success');
+        console.log("[capture-doctor] Upload success");
       } else {
-        console.warn('[capture-doctor] Server error:', response.data.message);
+        console.warn("[capture-doctor] Server error:", response.data.message);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error('[capture-doctor] Failed:', errorMessage);
+      console.error("[capture-doctor] Failed:", errorMessage);
     }
   };
 
   // Global Screenshot Service with ROLE VERIFICATION (for Agents)
   useEffect(() => {
     const checkAuthAndStartService = () => {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
-      
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("agentToken")
+          : null;
+
       // CHECK Token exists
       if (!token) {
         // Clean up if no token
@@ -289,10 +308,12 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
         }
         return;
       }
-      
+
       // CHECK User has 'agent' role
       if (!isAgentUser(token)) {
-        console.log('[Global Screenshot] User is not an agent, stopping service');
+        console.log(
+          "[Global Screenshot] User is not an agent, stopping service",
+        );
         // Clean up timers
         if (screenshotTimerRef.current) {
           clearTimeout(screenshotTimerRef.current);
@@ -305,7 +326,9 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
         return;
       }
 
-      console.log('[Global Screenshot] Starting service for authenticated agent');
+      console.log(
+        "[Global Screenshot] Starting service for authenticated agent",
+      );
 
       // Clear any existing timers
       if (screenshotTimerRef.current) {
@@ -319,10 +342,15 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
       const startCapturing = () => {
         captureScreenshot();
 
-        screenshotIntervalRef.current = setInterval(() => {
-          console.log(`[${new Date().toLocaleTimeString()}] Taking scheduled screenshot (every 5 min)`);
-          captureScreenshot();
-        }, 5 * 60 * 1000);
+        screenshotIntervalRef.current = setInterval(
+          () => {
+            console.log(
+              `[${new Date().toLocaleTimeString()}] Taking scheduled screenshot (every 5 min)`,
+            );
+            captureScreenshot();
+          },
+          5 * 60 * 1000,
+        );
       };
 
       screenshotTimerRef.current = setTimeout(startCapturing, 1800);
@@ -333,7 +361,7 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
 
     // Listen for storage changes (login/logout from other tabs)
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'agentToken') {
+      if (e.key === "agentToken") {
         checkAuthAndStartService();
       }
     };
@@ -344,8 +372,8 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
     };
 
     // Set up event listeners
-    window.addEventListener('storage', handleStorageChange);
-    router.events.on('routeChangeComplete', handleRouteChange);
+    window.addEventListener("storage", handleStorageChange);
+    router.events.on("routeChangeComplete", handleRouteChange);
 
     // Cleanup
     return () => {
@@ -356,18 +384,21 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
       if (screenshotIntervalRef.current) {
         clearInterval(screenshotIntervalRef.current);
       }
-      
+
       // Remove event listeners
-      window.removeEventListener('storage', handleStorageChange);
-      router.events.off('routeChangeComplete', handleRouteChange);
+      window.removeEventListener("storage", handleStorageChange);
+      router.events.off("routeChangeComplete", handleRouteChange);
     };
   }, [router.events]);
 
   // Global Screenshot Service with ROLE VERIFICATION (for Doctors) - Mirroring Agent Logic
   useEffect(() => {
     const checkAuthAndStartServiceDoctor = () => {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
-      
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("userToken")
+          : null;
+
       // CHECK Token exists
       if (!token) {
         // Clean up if no token
@@ -381,10 +412,12 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
         }
         return;
       }
-      
+
       // CHECK User has 'doctorStaff' role
       if (!isDoctorUser(token)) {
-        console.log('[Global Screenshot Doctor] User is not a doctor staff, stopping service');
+        console.log(
+          "[Global Screenshot Doctor] User is not a doctor staff, stopping service",
+        );
         // Clean up timers
         if (screenshotTimerRefDoctor.current) {
           clearTimeout(screenshotTimerRefDoctor.current);
@@ -397,7 +430,9 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
         return;
       }
 
-      console.log('[Global Screenshot Doctor] Starting service for authenticated doctor staff');
+      console.log(
+        "[Global Screenshot Doctor] Starting service for authenticated doctor staff",
+      );
 
       // Clear any existing timers
       if (screenshotTimerRefDoctor.current) {
@@ -411,10 +446,15 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
       const startCapturing = () => {
         captureScreenshotDoctor();
 
-        screenshotIntervalRefDoctor.current = setInterval(() => {
-          console.log(`[${new Date().toLocaleTimeString()}] Taking scheduled screenshot for doctor (every 5 min)`);
-          captureScreenshotDoctor();
-        }, 5 * 60 * 1000);
+        screenshotIntervalRefDoctor.current = setInterval(
+          () => {
+            console.log(
+              `[${new Date().toLocaleTimeString()}] Taking scheduled screenshot for doctor (every 5 min)`,
+            );
+            captureScreenshotDoctor();
+          },
+          5 * 60 * 1000,
+        );
       };
 
       screenshotTimerRefDoctor.current = setTimeout(startCapturing, 1800);
@@ -425,7 +465,7 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
 
     // Listen for storage changes (login/logout from other tabs)
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'userToken') {
+      if (e.key === "userToken") {
         checkAuthAndStartServiceDoctor();
       }
     };
@@ -436,8 +476,8 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
     };
 
     // Set up event listeners
-    window.addEventListener('storage', handleStorageChange);
-    router.events.on('routeChangeComplete', handleRouteChange);
+    window.addEventListener("storage", handleStorageChange);
+    router.events.on("routeChangeComplete", handleRouteChange);
 
     // Cleanup
     return () => {
@@ -448,10 +488,10 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
       if (screenshotIntervalRefDoctor.current) {
         clearInterval(screenshotIntervalRefDoctor.current);
       }
-      
+
       // Remove event listeners
-      window.removeEventListener('storage', handleStorageChange);
-      router.events.off('routeChangeComplete', handleRouteChange);
+      window.removeEventListener("storage", handleStorageChange);
+      router.events.off("routeChangeComplete", handleRouteChange);
     };
   }, [router.events]);
 
@@ -509,7 +549,7 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
       {/* ✅ Show loader only for public (non-excluded) routes */}
       {!isExcludedRoute && loading && <Loader />}
 
-     {/* Add Global DeskTime Trackers - runs in background for all authenticated users   */}
+      {/* Add Global DeskTime Trackers - runs in background for all authenticated users   */}
       <AgentDesktimeTracker />
       <DoctorDesktimeTracker />
 

@@ -32,6 +32,7 @@ import FormData from "form-data";
 import Provider from "../models/Provider.js";
 import PatientRegistration from "../models/PatientRegistration.js";
 import Appointment from "../models/Appointment.js";
+import Tag from "../models/Tag.js";
 
 console.log("📌 Import Leads Worker Started...");
 dbConnect()
@@ -1234,15 +1235,59 @@ export const addTagActionWorker = new Worker(
     try {
       const action = await WorkflowAction.findById(actionId);
       if (!action) {
-        throw new Error("Action not found");
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Action not found",
+        });
+        return;
+      }
+
+      const workflow = await Workflow.findById(action.workflowId);
+      if (!workflow) {
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Workflow not found",
+        });
+        return;
+      }
+
+      const { tag } = action.parameters || {};
+      if (!tag) {
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Tag is required",
+        });
+        return;
+      }
+
+      const leadId = actionData.leadId;
+      const lead = await Lead.findById(leadId);
+      if (!lead) {
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Lead not found",
+        });
+        return;
+      }
+
+      // Add tag to the lead's tags array
+      const normalizedTag = tag.trim().toLowerCase();
+      if (!lead.tags.includes(normalizedTag)) {
+        lead.tags.push(normalizedTag);
+        await lead.save();
+        console.log(`Tag ${normalizedTag} added to lead ${leadId}`);
+      } else {
+        console.log(`Tag ${normalizedTag} already exists on lead ${leadId}`);
       }
 
       // Update Workflow History with completed
       await WorkflowHistory.findByIdAndUpdate(historyId, {
         status: "completed",
+        response: {
+          success: true,
+          message: `Tag ${normalizedTag} added to lead ${leadId}`,
+        },
       });
-
-      // Process the add tag action
 
       console.log(`Add tag action ${actionId} processed successfully`);
       return { success: true, actionId };

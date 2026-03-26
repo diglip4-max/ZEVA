@@ -31,6 +31,7 @@ const WorkflowTriggerSchema = new Schema(
       enum: [
         "new_lead",
         "update_lead",
+        "create_or_update_lead",
         "record_created",
         "record_updated",
         "record_create_or_update",

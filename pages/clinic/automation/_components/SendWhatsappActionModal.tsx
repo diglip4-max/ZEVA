@@ -241,7 +241,7 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
             ? params.recipient
             : "",
         );
-        setWhatsappMsgType(params.whatsappMsgType || "text");
+        setWhatsappMsgType(params.whatsappMsgType || "template-message");
         setHeaderText(params.headerText || "");
         setFooterText(params.footerText || "");
         setReplyButtons(params.replyButtons || []);
@@ -1124,7 +1124,9 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
             </button>
             <button
               onClick={handleSave}
-              disabled={isSaving || isLoading}
+              disabled={
+                isSaving || !selectedProviderId || !recipient || isLoading
+              }
               className="flex-1 px-4 py-3 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 transition-all shadow-lg shadow-green-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSaving ? (

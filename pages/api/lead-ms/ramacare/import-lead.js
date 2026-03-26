@@ -185,6 +185,14 @@ export default async function handler(req, res) {
       clinicId: lead.clinicId?.toString(),
     });
 
+    // Execute workflow for create_or_update_lead trigger
+    executeWorkflows({
+      entity: WORKFLOW_ENTITY_TYPE.LEAD,
+      trigger: WORKFLOW_TRIGGER_TYPE.CREATE_OR_UPDATE_LEAD,
+      leadId: lead._id?.toString(),
+      clinicId: lead.clinicId?.toString(),
+    });
+
     return res.status(200).json({ success: true, message: "Success", lead });
   } catch (err) {
     console.error("Error in importing lead from ramacare:", err);

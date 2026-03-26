@@ -34,6 +34,7 @@ export const WORKFLOW_ENTITY_TYPE = {
 export const WORKFLOW_TRIGGER_TYPE = {
   NEW_LEAD: "new_lead",
   UPDATE_LEAD: "update_lead",
+  CREATE_OR_UPDATE_LEAD: "create_or_update_lead",
   RECORD_CREATED: "record_created",
   RECORD_UPDATED: "record_updated",
   RECORD_CREATE_OR_UPDATE: "record_create_or_update",
@@ -62,6 +63,14 @@ export const executeWorkflows = async (payload) => {
           entity: "Lead",
           trigger: "new_lead",
           leadId: "65f0a0a0a0a0a0a0a0a0a0a0",
+          clinicId: "65f0a0a0a0a0a0a0a0a0a0a0",
+        }
+
+      Patient Payload:
+        {
+          entity: "Patient",
+          trigger: "record_create_or_update",
+          patientId: "65f0a0a0a0a0a0a0a0a0a0a0",
           clinicId: "65f0a0a0a0a0a0a0a0a0a0a0",
         }
   */

@@ -7,6 +7,7 @@ import Lead from "../../../models/Lead";
 import Message from "../../../models/Message";
 import Template from "../../../models/Template";
 import { handleWhatsappSendMessage } from "../../../services/whatsapp";
+import PatientRegistration from "../../../models/PatientRegistration";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -85,13 +86,62 @@ export default async function handler(req, res) {
   } = req.body;
 
   try {
+    console.log({ clinicId });
+    const clinic = await Clinic.findById(clinicId);
+    console.log({ clinic });
     let conversation = await Conversation.findById(conversationId);
-    if (req.body.contactId) {
+    if (req.body.leadId) {
       conversation = await Conversation.findOne({
         leadId: req.body.leadId,
         clinicId,
       });
       conversationId = conversation._id;
+    }
+
+    // If i want to send message to patient
+    if (req.body.patientId) {
+      const patient = await PatientRegistration.findById(req.body.patientId);
+      console.log({ patient });
+      if (patient && patient.leadId) {
+        recipientId = patient.leadId;
+        conversation = await Conversation.findOne({
+          leadId: patient.leadId,
+          clinicId,
+        });
+        if (!conversation) {
+          conversation = new Conversation({
+            leadId: patient.leadId,
+            clinicId,
+            ownerId: me._id,
+          });
+          await conversation.save();
+        }
+      } else if (patient) {
+        const lead = new Lead({
+          clinicId,
+          name: `${patient.firstName} ${patient.lastName}`,
+          phone: patient.mobileNumber,
+          email: patient.email,
+          gender: patient.gender,
+          source: "Other",
+          patientId: patient._id,
+        });
+        patient.leadId = lead._id;
+        await Promise.all([patient.save(), lead.save()]);
+        recipientId = lead._id;
+        conversation = await Conversation.findOne({
+          leadId: lead._id,
+          clinicId,
+        });
+        if (!conversation) {
+          conversation = new Conversation({
+            leadId: lead._id,
+            clinicId,
+            ownerId: me._id,
+          });
+          await conversation.save();
+        }
+      }
     }
 
     if (!conversation) {
@@ -136,7 +186,7 @@ export default async function handler(req, res) {
 
     const newMessage = new Message({
       clinicId,
-      conversationId,
+      conversationId: conversation._id,
       leadId,
       senderId,
       recipientId,

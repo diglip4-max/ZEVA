@@ -222,11 +222,15 @@ const parameterSchema = new mongoose.Schema({
     followType: {
       type: String,
       enum: ["first time", "follow up", "repeat"],
-      required: true,
     },
     notes: {
       type: String,
     },
+  },
+
+  // add_tag action parameters
+  tag: {
+    type: String,
   },
 });
 

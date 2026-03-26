@@ -265,6 +265,14 @@ export default async function handler(req, res) {
         clinicId: clinicId?.toString(),
       });
 
+      // Execute workflow for create_or_update_lead trigger
+      executeWorkflows({
+        entity: WORKFLOW_ENTITY_TYPE.LEAD,
+        trigger: WORKFLOW_TRIGGER_TYPE.CREATE_OR_UPDATE_LEAD,
+        leadId: lead._id?.toString(),
+        clinicId: clinicId?.toString(),
+      });
+
       return res.status(201).json({ success: true, lead });
     }
 

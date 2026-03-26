@@ -75,6 +75,12 @@ export default async function handler(req, res) {
     const page = parseInt(req.query.page) || 1;
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
     const skip = (page - 1) * limit;
+    const status = req.query.status || "";
+
+    let query = {};
+    if (status) {
+      query.status = status;
+    }
 
     const [total, totalCompleted, totalFailed, totalInProgress, history] =
       await Promise.all([
@@ -86,9 +92,9 @@ export default async function handler(req, res) {
         WorkflowHistory.countDocuments({ workflowId, status: "failed" }).exec(),
         WorkflowHistory.countDocuments({
           workflowId,
-          status: "in_progress",
+          status: "in-progress",
         }).exec(),
-        WorkflowHistory.find({ workflowId })
+        WorkflowHistory.find({ workflowId, ...query })
           .populate("workflowId", "name")
           .populate("triggerId")
           .populate("actionId")
