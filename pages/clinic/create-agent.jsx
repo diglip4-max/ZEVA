@@ -79,10 +79,11 @@ const ManageAgentsPage = () => {
     targetAmount: "",
     contractFrontUrl: "",
     contractBackUrl: "",
-    contractType: "full"
-    ,
+    contractType: "full",
     employeeVisaFrontUrl: "",
     employeeVisaBackUrl: "",
+    discountType: "",
+    discountAmount: "",
     otherDocuments: []
   });
   const [uploadingIdDocFront, setUploadingIdDocFront] = useState(false);
@@ -494,6 +495,8 @@ const ManageAgentsPage = () => {
           contractType: p.contractType || "full",
           employeeVisaFrontUrl: p.employeeVisaFrontUrl || "",
           employeeVisaBackUrl: p.employeeVisaBackUrl || "",
+          discountType: p.discountType || "",
+          discountAmount: typeof p.discountAmount === "number" ? String(p.discountAmount) : (p.discountAmount || ""),
           otherDocuments: Array.isArray(p.otherDocuments) ? p.otherDocuments : []
         });
       }
@@ -784,6 +787,8 @@ const ManageAgentsPage = () => {
         })(),
         employeeVisaFrontUrl: profileForm.employeeVisaFrontUrl,
         employeeVisaBackUrl: profileForm.employeeVisaBackUrl,
+        discountType: profileForm.discountType,
+        discountAmount: parseFloat(profileForm.discountAmount || "0"),
         otherDocuments: Array.isArray(profileForm.otherDocuments)
           ? profileForm.otherDocuments.filter(d => d && d.name && d.url).map(d => ({ name: d.name, url: d.url }))
           : []
@@ -1785,6 +1790,34 @@ const ManageAgentsPage = () => {
                         placeholder="Enter commission %"
                       />
                     </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Discount Type</label>
+                      <select
+                        value={profileForm.discountType}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, discountType: e.target.value, discountAmount: e.target.value === "" ? "" : f.discountAmount }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                      >
+                        <option value="">No Discount</option>
+                        <option value="percentage">Percentage</option>
+                        <option value="fixed_amount">Fixed Amount</option>
+                      </select>
+                    </div>
+                    {profileForm.discountType && (
+                      <div>
+                        <label className="block text-xs font-medium text-teal-700 mb-1.5">
+                          {profileForm.discountType === 'percentage' ? 'Discount Percentage (%)' : 'Discount Amount'}
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={profileForm.discountAmount}
+                          onChange={(e) => setProfileForm((f) => ({ ...f, discountAmount: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                          placeholder={profileForm.discountType === 'percentage' ? "Enter percentage" : "Enter amount"}
+                        />
+                      </div>
+                    )}
                     {(profileForm.commissionType === 'target_based' || profileForm.commissionType === 'target_plus_expense') && (
                       <>
                         <div>
@@ -2570,11 +2603,31 @@ const ManageAgentsPage = () => {
                       <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                         <div className="text-xs text-teal-700 inline-flex items-center gap-2">
                           <span className="text-emerald-700">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
-                          </span>
+                             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                            </span>
                           Commission Value
                         </div>
                         <div className="mt-1 text-lg font-semibold text-teal-900">{viewProfile?.commissionPercentage ? `${viewProfile.commissionPercentage}%` : '—'}</div>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                        <div className="text-xs text-teal-700 inline-flex items-center gap-2">
+                          <span className="text-emerald-700">
+                            <DollarSign className="w-4 h-4" />
+                          </span>
+                          Discount
+                        </div>
+                        <div className="mt-1 text-lg font-semibold text-teal-900">
+                          {viewProfile?.discountType ? (
+                            <>
+                              {viewProfile.discountType === 'percentage' 
+                                ? `${viewProfile.discountAmount || 0}%` 
+                                : `₹${viewProfile.discountAmount || 0}`}
+                              <span className="ml-1 text-[10px] text-teal-600 font-normal uppercase">
+                                ({viewProfile.discountType.replace('_', ' ')})
+                              </span>
+                            </>
+                          ) : '—'}
+                        </div>
                       </div>
                     </div>
                     <div className="mt-4">

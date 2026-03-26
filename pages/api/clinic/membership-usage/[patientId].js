@@ -199,7 +199,7 @@ export default async function handler(req, res) {
       ...baseFilter,
       isFreeConsultation: true,
       ...(Object.keys(dateFilter).length ? { createdAt: dateFilter } : {}),
-    }).select("service treatment package sessions selectedPackageTreatments createdAt invoiceNumber patientId").lean();
+    }).select("service treatment package sessions freeConsultationCount selectedPackageTreatments createdAt invoiceNumber patientId").lean();
 
     // If no billings with isFreeConsultation flag, count all treatment billings as used consultations
     let usedFreeConsultations = 0;
@@ -207,7 +207,13 @@ export default async function handler(req, res) {
 
     if (billings.length > 0) {
       billings.forEach((billing) => {
-        const sessions = billing.sessions || 1;
+        // For Treatment billings, use freeConsultationCount (number of treatments billed as free)
+        // For Package billings, use sessions (number of package sessions billed as free)
+        // Fall back to 1 if neither is set (legacy records)
+        const sessions =
+          billing.service === "Treatment"
+            ? billing.freeConsultationCount || 1
+            : billing.sessions || 1;
         usedFreeConsultations += sessions;
         
         // Check if this billing is from the source patient
