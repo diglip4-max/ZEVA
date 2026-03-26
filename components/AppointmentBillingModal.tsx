@@ -570,7 +570,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       } 
       // Fallback to single service (serviceName / serviceId)
       else if (appointment.serviceName && appointment.serviceId) {
-        const slug = typeof appointment.serviceId === 'string' ? appointment.serviceId : String(appointment.serviceId);
         const slug = typeof appointment.serviceId === 'string' ? appointment.serviceId : (appointment.serviceId as { _id: string })._id;
         const matchingTreatment = treatments.find(t => t.slug === slug || t.name === appointment.serviceName);
         initialTreatments.push({
