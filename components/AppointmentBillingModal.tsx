@@ -10,6 +10,8 @@ import {
   XCircle,
   Package,
   ChevronUp,
+  Send,
+  FileText,
 } from "lucide-react";
 
 interface Appointment {
@@ -168,6 +170,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [applyPastAdvance50Percent, setApplyPastAdvance50Percent] = useState(false);
   const [applyPastAdvance54Percent, setApplyPastAdvance54Percent] = useState(false);
   const [applyPastAdvance159Flat, setApplyPastAdvance159Flat] = useState(false);
+
+  // Consent Form States
+  const [consentForms, setConsentForms] = useState<any[]>([]);
+  const [selectedConsentId, setSelectedConsentId] = useState("");
+  const [sendingConsent, setSendingConsent] = useState(false);
+  const [consentSent, setConsentSent] = useState(false);
+  const [consentStatuses, setConsentStatuses] = useState<any[]>([]);
+  const [loadingConsentStatus, setLoadingConsentStatus] = useState(false);
 
   // Multiple payment method support
   const [useMultiplePayments, setUseMultiplePayments] = useState(false);
@@ -434,6 +444,169 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     };
     fetchBalances();
   }, [isOpen, appointment?.patientId, getAuthHeaders]);
+
+  // Fetch consent forms
+  useEffect(() => {
+    if (!isOpen) return;
+    const fetchConsentForms = async () => {
+      try {
+        const headers = getAuthHeaders();
+        if (!headers.Authorization) return;
+        const res = await axios.get("/api/clinic/consent", { headers });
+        if (res.data?.success) setConsentForms(res.data.consents || []);
+      } catch (err) {
+        console.error("Error fetching consent forms:", err);
+      }
+    };
+    fetchConsentForms();
+  }, [isOpen, getAuthHeaders]);
+
+  // Fetch consent statuses
+  useEffect(() => {
+    if (!isOpen || !appointment?.patientId || !appointment?._id) return;
+    const fetchConsentStatuses = async () => {
+      setLoadingConsentStatus(true);
+      try {
+        const headers = getAuthHeaders();
+        if (!headers.Authorization) return;
+        
+        const [signaturesRes, logsRes] = await Promise.all([
+          axios.get("/api/clinic/consent-status", {
+            headers,
+            params: { patientId: appointment.patientId, appointmentId: appointment._id },
+          }),
+          axios.get("/api/clinic/consent-log", {
+            headers,
+            params: { patientId: appointment.patientId, appointmentId: appointment._id },
+          }),
+        ]);
+
+        const signatures = signaturesRes.data?.consentStatuses || [];
+        const logs = logsRes.data?.consentLogs || [];
+
+        const logMap = new Map();
+        logs.forEach((log: any) => {
+          logMap.set(log.consentFormId, {
+            _id: log._id,
+            consentFormId: log.consentFormId,
+            consentFormName: log.consentFormName,
+            description: log.description || "",
+            patientName: log.patientName,
+            date: new Date(log.createdAt).toLocaleDateString("en-GB"),
+            hasSignature: false,
+            status: "sent",
+            signedAt: null,
+          });
+        });
+
+        signatures.forEach((sig: any) => {
+          logMap.set(sig.consentFormId, {
+            ...sig,
+            status: "signed",
+          });
+        });
+
+        setConsentStatuses(Array.from(logMap.values()));
+      } catch (err) {
+        console.error("Error fetching consent statuses:", err);
+      } finally {
+        setLoadingConsentStatus(false);
+      }
+    };
+    fetchConsentStatuses();
+  }, [isOpen, appointment?.patientId, appointment?._id, getAuthHeaders]);
+
+  // Send Consent Form on WhatsApp
+  const handleSendConsentMsgOnWhatsapp = async () => {
+    if (!selectedConsentId || !appointment) return;
+ 
+    try {
+      setSendingConsent(true);
+      
+      const patientData = {
+        firstName: appointment.patientName?.split(" ")[0] || "",
+        lastName: appointment.patientName?.split(" ").slice(1).join(" ") || "",
+        mobileNumber: appointment.patientNumber || "",
+        email: appointment.patientEmail || "",
+        appointmentId: appointment._id,
+      };
+      
+      const encodedPatientData = encodeURIComponent(JSON.stringify(patientData));
+      const consentUrl = `https://zeva360.com/consent-form/${selectedConsentId}?patient=${encodedPatientData}`;
+ 
+      await axios.post(
+        "/api/messages/send-message",
+        {
+          patientId: appointment.patientId,
+          providerId: "6952256c4a46b2f1eb01be86",
+          channel: "whatsapp",
+          content: `Please review and sign the consent form by clicking the link below:\n\n ${consentUrl}\n\n Thank you.`,
+          mediaUrl: "",
+          mediaType: "",
+          source: "Zeva",
+          messageType: "conversational",
+          templateId: "69c38b4d26b8217e1ba78f8a",
+          headerParameters: [],
+          bodyParameters: [{ type: "text", text: consentUrl }],
+          attachments: [],
+        },
+        { headers: getAuthHeaders() }
+      );
+ 
+      setConsentSent(true);
+      
+      // Log the sent consent form
+      try {
+        const selectedForm = consentForms.find((f) => f._id === selectedConsentId);
+        await axios.post(
+          "/api/clinic/consent-log",
+          {
+            consentFormId: selectedConsentId,
+            consentFormName: selectedForm?.formName || "",
+            patientId: appointment.patientId,
+            patientName: appointment.patientName || "",
+            appointmentId: appointment._id,
+            sentVia: "whatsapp",
+          },
+          { headers: getAuthHeaders() }
+        );
+        
+        // Refresh consent statuses
+        setTimeout(() => {
+          const headers = getAuthHeaders();
+          axios.get("/api/clinic/consent-log", {
+            headers,
+            params: { patientId: appointment.patientId, appointmentId: appointment._id },
+          }).then((logsRes) => {
+            const logs = logsRes.data?.consentLogs || [];
+            const logMap = new Map();
+            
+            logs.forEach((log: any) => {
+              logMap.set(log.consentFormId, {
+                _id: log._id,
+                consentFormId: log.consentFormId,
+                consentFormName: log.consentFormName,
+                description: log.description || "",
+                patientName: log.patientName,
+                date: new Date(log.createdAt).toLocaleDateString("en-GB"),
+                hasSignature: false,
+                status: "sent",
+                signedAt: null,
+              });
+            });
+            
+            setConsentStatuses(Array.from(logMap.values()));
+          });
+        }, 100);
+      } catch (logError) {
+        console.error("Error logging consent form sent:", logError);
+      }
+    } catch (error) {
+      console.error("Error sending consent form:", error?.response?.data || error.message);
+    } finally {
+      setSendingConsent(false);
+    }
+  };
 
   const monthsUntil = (endDate?: string | Date) => {
     if (!endDate) return null;
@@ -1445,6 +1618,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   // Last 3 billing invoices for Payment History section
   const last3Billings = billingHistory.slice(0, 3);
 
+  // Use API values for pending and advance balance display at top
+  const apiPendingBalance = balances.pendingBalance || 0;
+  const apiAdvanceBalance = (balances.advanceBalance || 0) + (balances.pastAdvanceBalance || 0);
+  
   const pendingAmt = parseFloat(formData.pending || "0") || 0;
   const advanceAmt = parseFloat(formData.advance || "0") || 0;
 
@@ -1503,20 +1680,45 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                     </div>
                   </div>
                 )}
+                
+                {/* Send Consent Form Option */}
+                <div className="flex items-center gap-2">
+                  <select
+                    value={selectedConsentId}
+                    onChange={(e) => { setSelectedConsentId(e.target.value); setConsentSent(false); }}
+                    disabled={sendingConsent}
+                    className="text-[10px] border border-gray-200 rounded px-2 py-1 bg-white text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-300 max-w-[120px]"
+                  >
+                    <option value="">Select Consent</option>
+                    {consentForms.map((form) => (
+                      <option key={form._id} value={form._id}>
+                        {form.formName}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleSendConsentMsgOnWhatsapp}
+                    disabled={!selectedConsentId || sendingConsent}
+                    className="flex items-center gap-1 px-2 py-1 text-[9px] bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    {sendingConsent ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                    {consentSent ? "Sent" : "Send"}
+                  </button>
+                </div>
               </div>
           
               {/* Right: Pending, Advance, Visits */}
               <div className="flex items-center gap-4 flex-shrink-0">
                 <div className="text-right">
                   <div className="text-[9px] text-gray-400 uppercase tracking-wider">Pending</div>
-                  <div className={`text-sm font-bold ${pendingAmt > 0 ? "text-red-600" : "text-gray-400"}`}>
-                    AED {pendingAmt.toFixed(2)}
+                  <div className={`text-sm font-bold ${apiPendingBalance > 0 ? "text-red-600" : "text-gray-400"}`}>
+                    AED {apiPendingBalance.toFixed(2)}
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="text-[9px] text-gray-400 uppercase tracking-wider">Advance</div>
-                  <div className={`text-sm font-bold ${advanceAmt > 0 ? "text-emerald-600" : "text-gray-400"}`}>
-                    AED {advanceAmt.toFixed(2)}
+                  <div className={`text-sm font-bold ${apiAdvanceBalance > 0 ? "text-emerald-600" : "text-gray-400"}`}>
+                    AED {apiAdvanceBalance.toFixed(2)}
                   </div>
                 </div>
                 <div className="text-right">
@@ -2406,7 +2608,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                 </svg>
                               </div>
                               <div>
-                                <div className="text-xs font-semibold text-gray-900">AED {billing.amount?.toFixed(2) || "0.00"}</div>
+                                <div className="text-xs font-semibold text-gray-900">AED {billing.paid?.toFixed(2) || "0.00"}</div>
                                 <div className="text-[10px] text-gray-500">
                                   {billing.paymentMethod || (billing.multiplePayments?.length > 0 ? billing.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ") : "–")}
                                   {billing.invoicedDate && (
@@ -2423,12 +2625,91 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                     ? "bg-amber-100 text-amber-700"
                                     : "bg-gray-100 text-gray-600"
                               }`}>
-                                {(billing.pending || 0) <= 0 && (billing.paid || 0) > 0 ? "completed" : (billing.pending || 0) > 0 && (billing.paid || 0) > 0 ? "partial" : "pending"}
+                                {(billing.pending || 0) <= 0 && (billing.paid || 0) > 0 ? "completed" : (billing.pending || 0) > 0 ? "pending" : "pending"}
                               </span>
                               <span className="text-[9px] text-gray-400">{billing.invoiceNumber}</span>
                             </div>
                           </div>
                         ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Communication Log - Consent Form Status */}
+                  <div className="bg-white rounded-xl border border-gray-200 p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
+                        <FileText className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-gray-900">Communication Log</div>
+                        <div className="text-[10px] text-gray-500">Consent form status</div>
+                      </div>
+                    </div>
+
+                    {loadingConsentStatus ? (
+                      <div className="flex items-center gap-2 py-3">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
+                        <span className="text-[10px] text-gray-500">Loading status...</span>
+                      </div>
+                    ) : consentStatuses.length === 0 ? (
+                      <div className="text-[10px] text-gray-400 py-2">No consent forms sent yet</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {consentStatuses.map((consent: any, index: number) => {
+                          // Generate consent form URL
+                          const patientInfo = {
+                            firstName: appointment?.patientName?.split(" ")[0] || "",
+                            lastName: appointment?.patientName?.split(" ").slice(1).join(" ") || "",
+                            mobileNumber: appointment?.patientNumber || "",
+                            email: appointment?.patientEmail || "",
+                            appointmentId: appointment?._id,
+                          };
+                          const encodedPatientData = encodeURIComponent(JSON.stringify(patientInfo));
+                          const consentUrl = `https://zeva360.com/consent-form/${consent.consentFormId}?patient=${encodedPatientData}`;
+                          
+                          return (
+                            <div
+                              key={consent._id || index}
+                              className={`flex items-center justify-between p-2.5 rounded-xl border ${
+                                consent.status === "signed"
+                                  ? "border-green-200 bg-green-50"
+                                  : "border-blue-200 bg-blue-50"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                {consent.status === "signed" ? (
+                                  <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                ) : (
+                                  <Send className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                                )}
+                                <div className="min-w-0">
+                                  <div className="text-xs font-semibold text-gray-900 truncate">
+                                    {consent.consentFormName}
+                                  </div>
+                                  <div className="text-[9px] text-gray-500">
+                                    <span className={`px-1.5 py-0.5 rounded-full font-semibold ${
+                                      consent.status === "signed"
+                                        ? "bg-green-100 text-green-700"
+                                        : "bg-blue-100 text-blue-700"
+                                    }`}>
+                                      {consent.status === "signed" ? "SIGNED" : "SENT"}
+                                    </span>
+                                    <span className="ml-1">{consent.date}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <a
+                                href={consentUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[9px] text-blue-600 hover:text-blue-800 underline flex-shrink-0"
+                              >
+                                Open
+                              </a>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
