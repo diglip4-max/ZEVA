@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, Legend } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ExportButtons from "./ExportButtons";
@@ -207,7 +207,7 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
             <BarChart data={topDoctorsChart} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
-              <YAxis />
+              <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
               <Tooltip />
               <Bar dataKey="bookings" fill="#2D9AA5" />
             </BarChart>
@@ -224,9 +224,29 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
             <BarChart data={statusChart} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
-              <YAxis />
+              <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
               <Tooltip />
               <Bar dataKey="count" fill="#10B981" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold text-gray-800">Top Departments by Appointments</h3>
+        </div>
+        <div className="w-full" style={{ height: 320 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart 
+              data={leaderboard.slice(0, 5).map((d: any) => ({ name: d.doctorName || "Unknown", appointments: d.totalAppointments || 0 }))}
+              margin={{ top: 10, right: 10, left: 0, bottom: 40 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
+              <YAxis allowDecimals={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
+              <Tooltip />
+              <Bar dataKey="appointments" fill="#2D9AA5" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -264,26 +284,17 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
         <h3 className="text-lg font-semibold text-gray-800 mb-3">Cancellation & No-Show Report</h3>
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={[
-                  { name: 'Cancelled', value: summary.cancelledAppointments || 0 },
-                  { name: 'No-Show', value: summary.noShowAppointments || 0 },
-                ]}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={100}
-                paddingAngle={5}
-                dataKey="value"
-                label={({ name, value }) => `${name}: ${value}`}
-              >
-                <Cell fill="#EF4444" />
-                <Cell fill="#F59E0B" />
-              </Pie>
+            <BarChart data={[
+              { name: 'Cancelled', value: summary.cancelledAppointments || 0 },
+              { name: 'No-Show', value: summary.noShowAppointments || 0 },
+            ]} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
+              <YAxis allowDecimals={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
               <Tooltip />
               <Legend />
-            </PieChart>
+              <Bar dataKey="value" fill="#EF4444" />
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -298,7 +309,7 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
               <BarChart data={revenueChart} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
-                <YAxis />
+                <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
               <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
                 <Bar dataKey="revenue" fill="#0EA5E9" />
               </BarChart>

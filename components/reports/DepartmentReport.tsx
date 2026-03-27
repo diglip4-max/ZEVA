@@ -165,7 +165,7 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
             <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
-              <YAxis />
+              <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
               <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
               <Bar dataKey="revenue" fill="#2D9AA5" />
             </BarChart>
@@ -211,6 +211,24 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
               </div>
             );
           })}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Top 5 Services by Revenue</h3>
+        <div className="w-full" style={{ height: 320 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart 
+              data={services.slice(0, 5).map(s => ({ name: s.serviceName, revenue: Math.round(s.totalRevenue || 0), bookings: s.totalBookings }))}
+              margin={{ top: 10, right: 10, left: 0, bottom: 40 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
+              <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
+              <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
+              <Bar dataKey="revenue" fill="#2D9AA5" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 

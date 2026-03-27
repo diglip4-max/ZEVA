@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import {
@@ -1577,6 +1577,15 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Before Image</p>
                               <div className="relative flex items-center gap-2">
                                 <div className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                  {beforeImage && (
+                                    <button 
+                                      onClick={() => setBeforeImage("")} 
+                                      className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 shadow-md hover:bg-red-600 transition-colors z-10"
+                                      title="Remove image"
+                                    >
+                                      <X size={10} />
+                                    </button>
+                                  )}
                                   {beforeImage ? (
                                     <img src={beforeImage} alt="Before" className="w-full h-full object-cover" />
                                   ) : (
@@ -1598,13 +1607,21 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                     }}
                                   />
                                 </div>
-                                {beforeImage && <button onClick={() => setBeforeImage("")} className="text-xs text-red-500 hover:underline">Remove</button>}
                               </div>
                             </div>
                             <div>
                               <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">After Image</p>
                               <div className="relative flex items-center gap-2">
                                 <div className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                  {afterImage && (
+                                    <button 
+                                      onClick={() => setAfterImage("")} 
+                                      className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 shadow-md hover:bg-red-600 transition-colors z-10"
+                                      title="Remove image"
+                                    >
+                                      <X size={10} />
+                                    </button>
+                                  )}
                                   {afterImage ? (
                                     <img src={afterImage} alt="After" className="w-full h-full object-cover" />
                                   ) : (
@@ -1626,7 +1643,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                     }}
                                   />
                                 </div>
-                                {afterImage && <button onClick={() => setAfterImage("")} className="text-xs text-red-500 hover:underline">Remove</button>}
                               </div>
                             </div>
                           </div>

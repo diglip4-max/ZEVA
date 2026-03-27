@@ -9,12 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
-  Cell,
-  PieChart,
-  Pie,
   Legend,
-  LineChart,
-  Line,
 } from "recharts";
 import ExportButtons from "./ExportButtons";
 
@@ -54,8 +49,6 @@ interface StockItem {
 
 
 
-
-const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
 interface SupplierStats {
   name: string;
@@ -456,24 +449,14 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
           <h4 className="text-lg font-semibold mb-4 text-gray-800">Distribution by Type</h4>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={typeStats}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent = 0 }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="count"
-                >
-                  {typeStats.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
+              <BarChart data={typeStats} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
+                <YAxis allowDecimals={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
                 <Tooltip />
                 <Legend />
-              </PieChart>
+                <Bar dataKey="count" fill="#2D9AA5" radius={[4, 4, 0, 0]} />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
@@ -494,49 +477,30 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
         </div>
       </div>
 
-      {/* UOM Timeline Line Chart */}
+      {/* UOM Timeline Bar Chart */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
         <h4 className="text-lg font-semibold mb-4 text-gray-800">UOM Growth Timeline</h4>
         <div className="h-[350px]">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={uomTimeline}>
+            <BarChart data={uomTimeline} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis 
                 dataKey="date" 
                 tick={{fontSize: 12}} 
                 minTickGap={30}
+                angle={-30}
+                textAnchor="end"
+                height={60}
               />
               <YAxis tick={{fontSize: 12}} />
               <Tooltip 
                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
               />
               <Legend verticalAlign="top" height={36}/>
-              <Line 
-                type="monotone" 
-                dataKey="total" 
-                name="Total UOMs" 
-                stroke="#2D9AA5" 
-                strokeWidth={3} 
-                dot={{ r: 4 }}
-                activeDot={{ r: 6 }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="main" 
-                name="Main Category" 
-                stroke="#0088FE" 
-                strokeWidth={2} 
-                strokeDasharray="5 5"
-              />
-              <Line 
-                type="monotone" 
-                dataKey="sub" 
-                name="Sub Category" 
-                stroke="#FFBB28" 
-                strokeWidth={2} 
-                strokeDasharray="5 5"
-              />
-            </LineChart>
+              <Bar dataKey="total" name="Total UOMs" fill="#2D9AA5" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="main" name="Main Category" fill="#0088FE" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="sub" name="Sub Category" fill="#FFBB28" radius={[4, 4, 0, 0]} />
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -628,24 +592,14 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
               <h5 className="text-md font-semibold text-gray-700">Location Distribution by Status</h5>
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={locationStats.statusStats}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={5}
-                      dataKey="count"
-                      label={(props) => `${props.name}: ${String((props as any).value ?? (props as any).payload?.count ?? 0)}`}
-                    >
-                      {locationStats.statusStats.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
+                  <BarChart data={locationStats.statusStats} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
+                    <YAxis allowDecimals={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
                     <Tooltip />
                     <Legend />
-                  </PieChart>
+                    <Bar dataKey="count" fill="#2D9AA5" radius={[4, 4, 0, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
@@ -670,7 +624,6 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-gray-50 border-b">
                     <tr>
-                      <th className="px-3 py-2">Location Name</th>
                       <th className="px-3 py-2">Status</th>
                       <th className="px-3 py-2">Items</th>
                     </tr>
@@ -678,7 +631,6 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                   <tbody className="divide-y divide-gray-100">
                     {locationStats.locations.map((loc, idx) => (
                       <tr key={idx}>
-                        <td className="px-3 py-2 font-medium text-gray-800">{loc.name}</td>
                         <td className="px-3 py-2">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             loc.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
@@ -708,24 +660,14 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
               <h5 className="text-md font-semibold text-gray-700">GRN Distribution by Source (PO vs Request)</h5>
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={grnStats.sourceStats}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={5}
-                      dataKey="count"
-                      label={(props) => `${props.name}: ${String((props as any).value ?? (props as any).payload?.count ?? 0)}`}
-                    >
-                      {grnStats.sourceStats.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
+                  <BarChart data={grnStats.sourceStats} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
+                    <YAxis allowDecimals={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
                     <Tooltip />
                     <Legend />
-                  </PieChart>
+                    <Bar dataKey="count" fill="#2D9AA5" radius={[4, 4, 0, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
@@ -785,24 +727,14 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
               <h5 className="text-md font-semibold text-gray-700">Invoice Distribution by Status</h5>
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={purchaseInvoiceStats.statusStats}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={5}
-                      dataKey="count"
-                      label={(props) => `${props.name}: ${String((props as any).value ?? (props as any).payload?.count ?? 0)}`}
-                    >
-                      {purchaseInvoiceStats.statusStats.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
+                  <BarChart data={purchaseInvoiceStats.statusStats} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
+                    <YAxis allowDecimals={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
                     <Tooltip />
                     <Legend />
-                  </PieChart>
+                    <Bar dataKey="count" fill="#2D9AA5" radius={[4, 4, 0, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
@@ -852,11 +784,7 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
               <XAxis dataKey="name" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="count" fill="#8884d8" radius={[4, 4, 0, 0]}>
-                {purchaseRecordTypeStats.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Bar>
+              <Bar dataKey="count" fill="#2D9AA5" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -991,24 +919,14 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
               <h5 className="text-md font-semibold text-gray-700">Allocation Distribution by Status</h5>
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={allocationStats.statusStats}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={5}
-                      dataKey="count"
-                      label={(props) => `${props.name}: ${String((props as any).value ?? (props as any).payload?.count ?? 0)}`}
-                    >
-                      {allocationStats.statusStats.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
+                  <BarChart data={allocationStats.statusStats} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
+                    <YAxis allowDecimals={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
                     <Tooltip />
                     <Legend />
-                  </PieChart>
+                    <Bar dataKey="count" fill="#2D9AA5" radius={[4, 4, 0, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
@@ -1045,23 +963,14 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
               <h5 className="text-md font-semibold text-gray-700">Transfer Status Distribution</h5>
               <div className="h-[250px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={transferStats.statusStats}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="count"
-                      label={({ name, payload }) => `${name}: ${payload.count}`}
-                    >
-                      {transferStats.statusStats.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
+                  <BarChart data={transferStats.statusStats} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
+                    <YAxis allowDecimals={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
                     <Tooltip />
-                  </PieChart>
+                    <Legend />
+                    <Bar dataKey="count" fill="#2D9AA5" radius={[4, 4, 0, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
