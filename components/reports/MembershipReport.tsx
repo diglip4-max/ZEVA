@@ -128,7 +128,7 @@ export default function MembershipReport({ startDate, endDate, headers }: Props)
             <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
-              <YAxis />
+              <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
               <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
               <Bar dataKey="revenue" fill="#2D9AA5" />
             </BarChart>

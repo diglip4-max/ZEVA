@@ -1732,53 +1732,58 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                 </div>
 
                 {/* Actions */}
-                <div className="flex justify-end gap-2 pt-3 mt-3">
-                  {/* Send Consent Form Dropdown */}
-                  <div className="relative inline-block text-left">
-                    <select
-                      value={selectedConsentId}
-                      onChange={(e) => setSelectedConsentId(e.target.value)}
-                      disabled={sendingConsent || consentSent}
-                      className="px-3 py-2 text-[11px] border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <option value="">Select Consent Form</option>
-                      {consentForms.map((form) => (
-                        <option key={form._id} value={form._id}>
-                          {form.formName}
-                        </option>
-                      ))}
-                    </select>
-                    
-                    <button
-                      onClick={handleSendConsentMsgOnWhatsapp}
-                      disabled={!selectedConsentId || sendingConsent || consentSent}
-                      className="ml-2 px-4 py-2 text-[11px] bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 font-bold shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                    >
-                      {sendingConsent ? (
-                        <>
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                          Sending...
-                        </>
-                      ) : consentSent ? (
-                        <>
-                          <CheckCircle className="w-3 h-3" />
-                          Sent
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-3 h-3" />
-                          Send Consent
-                        </>
-                      )}
-                    </button>
+                <div className="pt-3 mt-3 border-t border-gray-200">
+                  {/* Send Consent Form - Full Width */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 mb-3 border border-blue-200">
+                    <div className="flex items-center justify-between gap-3">
+                      <select
+                        value={selectedConsentId}
+                        onChange={(e) => setSelectedConsentId(e.target.value)}
+                        disabled={sendingConsent || consentSent}
+                        className="flex-1 px-4 py-2.5 text-[11px] border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <option value="">Select Consent Form</option>
+                        {consentForms.map((form) => (
+                          <option key={form._id} value={form._id}>
+                            {form.formName}
+                          </option>
+                        ))}
+                      </select>
+                      
+                      <button
+                        onClick={handleSendConsentMsgOnWhatsapp}
+                        disabled={!selectedConsentId || sendingConsent || consentSent}
+                        className="px-4 py-2.5 text-[11px] bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 font-bold shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+                      >
+                        {sendingConsent ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            Sending...
+                          </>
+                        ) : consentSent ? (
+                          <>
+                            <CheckCircle className="w-3 h-3" />
+                            Sent
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-3 h-3" />
+                            Send Consent
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                   
-                  <button
-                    onClick={handleFullUpdate}
-                    className="px-4 py-2 text-[11px] bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 font-bold shadow-lg transform hover:scale-105"
-                  >
-                    Update
-                  </button>
+                  {/* Update Button - Bottom Right Corner */}
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleFullUpdate}
+                      className="px-6 py-2.5 text-[11px] bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 font-bold shadow-lg transform hover:scale-105"
+                    >
+                      Update Patient Details
+                    </button>
+                  </div>
                 </div>
                 </>
               )}

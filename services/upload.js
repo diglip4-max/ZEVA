@@ -46,8 +46,13 @@ export const uploadMedia = async (mediaBlob, ext, originalName) => {
       contentType,
     });
 
+    const getBaseUrl = () => {
+      if (typeof window !== "undefined") return ""; // Use relative on client
+      return process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    };
+
     const uploadResponse = await axios.post(
-      `http://localhost:3000/api/upload`,
+      `${getBaseUrl()}/api/upload`,
       formData,
       {
         headers: {

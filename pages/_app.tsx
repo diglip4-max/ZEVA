@@ -76,6 +76,12 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
   let getLayout =
     Component.getLayout || ((page: ReactNode) => <Layout>{page}</Layout>);
 
+  // Check if current route should have no layout
+  const noLayoutRoutes = ["/consent-success"];
+  if (noLayoutRoutes.includes(router.pathname)) {
+    getLayout = (page: ReactNode) => <>{page}</>;
+  }
+
   // Force AgentLayout for all /agent/* routes to ensure sidebar consistency
   if (router.pathname.startsWith("/agent/")) {
     getLayout = (page: ReactNode) => <AgentLayout>{page}</AgentLayout>;
