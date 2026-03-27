@@ -39,16 +39,16 @@ export default async function handler(req, res) {
     body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
   }
 
-  //   const me = await getUserFromReq(req);
-  //   if (!me) {
-  //     return res
-  //       .status(401)
-  //       .json({ success: false, message: "Not authenticated" });
-  //   }
+  const me = await getUserFromReq(req);
+  if (!me) {
+    return res
+      .status(401)
+      .json({ success: false, message: "Not authenticated" });
+  }
 
-  //   if (!requireRole(me, ["clinic", "agent", "admin", "doctor"])) {
-  //     return res.status(403).json({ success: false, message: "Access denied" });
-  //   }
+  if (!requireRole(me, ["clinic", "agent", "admin", "doctor", "doctorStaff", "staff"])) {
+    return res.status(403).json({ success: false, message: "Access denied" });
+  }
 
   // Get clinicId based on user role
   //   let clinicId;
@@ -109,11 +109,22 @@ export default async function handler(req, res) {
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
+    console.log("Cloudinary Config:", { cloudName, uploadPreset }); // Debug log
+
     if (!cloudName || !uploadPreset) {
       console.error("Missing Cloudinary env vars");
       return res.status(500).json({
         success: false,
         message: "Cloudinary configuration missing on server",
+      });
+    }
+
+    // Verify cloud name is not just whitespace
+    if (!cloudName.trim() || cloudName.trim() === "") {
+      console.error("Cloud name is empty or whitespace");
+      return res.status(500).json({
+        success: false,
+        message: "Invalid Cloudinary cloud name",
       });
     }
 

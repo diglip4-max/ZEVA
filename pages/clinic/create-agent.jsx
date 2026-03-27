@@ -531,8 +531,7 @@ const ManageAgentsPage = () => {
     }
   };
   const [activity, setActivity] = useState(null);
-  const [activeStatus, setActiveStatus] = useState(null);
-  const [updatingActive, setUpdatingActive] = useState(false);
+  const [activityRefreshInterval, setActivityRefreshInterval] = useState(null);
   const openAdditionalDocsEditor = () => {
     if (!viewAgent) return;
     const agentRef = viewAgent;
@@ -551,34 +550,47 @@ const ManageAgentsPage = () => {
     if (h < 24) return `${h} hours ago`;
     const days = Math.floor(h / 24);
     if (days < 7) return `${days} days ago`;
-    return new Date(d).toLocaleDateString();
+    return new Date(d).toLocaleString();
   };
-  async function toggleActiveStatus() {
-    if (!viewAgent) return;
+
+  // Function to refresh activity data for current viewed agent
+  const refreshActivity = async () => {
+    if (!viewAgent?._id) return;
     const authHeaders = getAuthHeaders();
     if (!authHeaders) return;
     try {
-      setUpdatingActive(true);
-      const desired = !(activeStatus === true);
-      const payload = {
-        agentId: viewAgent._id,
-        action: "updateProfile",
-        isActive: desired
-      };
-      const res = await axios.patch("/api/lead-ms/get-agents", payload, { headers: authHeaders });
-      if (res.data?.success) {
-        setActiveStatus(desired);
-        setViewProfile((p) => ({ ...(p || {}), isActive: desired }));
-        toast.success(`Active status ${desired ? 'enabled' : 'disabled'}`);
+      const act = await axios.get(`/api/lead-ms/agent-activity?agentId=${viewAgent._id}`, { headers: authHeaders });
+      if (act.data?.success) {
+        setActivity(act.data.data || null);
       } else {
-        toast.error(res.data?.message || 'Failed to update status');
+        setActivity(null);
       }
-    } catch {
-      toast.error('Failed to update status');
-    } finally {
-      setUpdatingActive(false);
+    } catch (error) {
+      console.error('Failed to refresh activity:', error);
+      setActivity(null);
     }
-  }
+  };
+
+  // Start periodic activity refresh when viewing an agent
+  const startActivityRefresh = (agent) => {
+    // Clear any existing interval
+    if (activityRefreshInterval) {
+      clearInterval(activityRefreshInterval);
+    }
+    // Set up new interval to refresh every 10 seconds
+    const intervalId = setInterval(() => {
+      refreshActivity();
+    }, 10000);
+    setActivityRefreshInterval(intervalId);
+  };
+
+  // Stop periodic activity refresh
+  const stopActivityRefresh = () => {
+    if (activityRefreshInterval) {
+      clearInterval(activityRefreshInterval);
+      setActivityRefreshInterval(null);
+    }
+  };
 
   async function openView(agent) {
     const authHeaders = getAuthHeaders();
@@ -590,7 +602,6 @@ const ManageAgentsPage = () => {
       if (res.data.success) {
         const p = res.data.profile || {};
         setViewProfile(p);
-        setActiveStatus(typeof p.isActive !== 'undefined' ? !!p.isActive : true);
         try {
           const today = new Date();
           const yyyy = today.getFullYear();
@@ -690,16 +701,17 @@ const ManageAgentsPage = () => {
         } catch {
           setActivity(null);
         }
+        
+        // Start periodic activity refresh
+        startActivityRefresh(agent);
       } else {
         setViewProfile(null);
-        setActiveStatus(null);
         setActivity(null);
         setTotalAppointments(null);
         setTotalRevenue(null);
       }
     } catch {
       setViewProfile(null);
-      setActiveStatus(null);
       setActivity(null);
       setTotalAppointments(null);
       setTotalRevenue(null);
@@ -720,6 +732,7 @@ const ManageAgentsPage = () => {
         data: { agentId: userId }
       });
       toast.success("Profile deleted");
+      stopActivityRefresh();
       setViewAgent(null);
       setViewProfile(null);
       setActivity(null);
@@ -834,6 +847,15 @@ const ManageAgentsPage = () => {
     }
     loadAll(true);
   }, [token, permissionsLoaded, canRead]);
+
+  // Cleanup activity refresh on component unmount
+  useEffect(() => {
+    return () => {
+      if (activityRefreshInterval) {
+        clearInterval(activityRefreshInterval);
+      }
+    };
+  }, [activityRefreshInterval]);
 
   async function handleAction(agentId, action) {
     if (canRead !== true) return;
@@ -1727,7 +1749,8 @@ const ManageAgentsPage = () => {
                 {/* Employment Information Section */}
                 <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
                   <h3 className="text-sm font-semibold text-teal-900 mb-4">Employment Information</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Row 1: Base Salary | Commission Type | Commission Percentage */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-teal-700 mb-1.5">Base Salary</label>
                       <input
@@ -1790,6 +1813,77 @@ const ManageAgentsPage = () => {
                         placeholder="Enter commission %"
                       />
                     </div>
+                  </div>
+
+                  {/* Row 2: Contract Type | Upload Contract Front | Upload Contract Back */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Contract Type</label>
+                      <select
+                        value={profileForm.contractType}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, contractType: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                      >
+                        <option value="full">Full</option>
+                        <option value="part">Part</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload Contract Front</label>
+                      <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
+                          {uploadingContractFront ? (
+                            <span className="animate-pulse text-teal-600">Uploading...</span>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2 text-teal-600" />
+                              <span className="text-teal-600">Choose file</span>
+                            </>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, contractFrontUrl: url })), setUploadingContractFront);
+                          }}
+                        />
+                        <span className="text-xs text-gray-600 truncate">
+                          {profileForm.contractFrontUrl ? getFileNameFromUrl(profileForm.contractFrontUrl) : "No file chosen"}
+                        </span>
+                      </label>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload Contract Back</label>
+                      <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
+                          {uploadingContractBack ? (
+                            <span className="animate-pulse text-teal-600">Uploading...</span>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2 text-teal-600" />
+                              <span className="text-teal-600">Choose file</span>
+                            </>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, contractBackUrl: url })), setUploadingContractBack);
+                          }}
+                        />
+                        <span className="text-xs text-gray-600 truncate">
+                          {profileForm.contractBackUrl ? getFileNameFromUrl(profileForm.contractBackUrl) : "No file chosen"}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Row 3: Discount Type | Discount Amount/Percentage */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                     <div>
                       <label className="block text-xs font-medium text-teal-700 mb-1.5">Discount Type</label>
                       <select
@@ -1861,71 +1955,6 @@ const ManageAgentsPage = () => {
                         </div>
                       </>
                     )}
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                    <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Contract Type</label>
-                      <select
-                        value={profileForm.contractType}
-                        onChange={(e) => setProfileForm((f) => ({ ...f, contractType: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
-                      >
-                        <option value="full">Full</option>
-                        <option value="part">Part</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload Contract Front</label>
-                      <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
-                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
-                          {uploadingContractFront ? (
-                            <span className="animate-pulse text-teal-600">Uploading...</span>
-                          ) : (
-                            <>
-                              <Upload className="w-4 h-4 mr-2 text-teal-600" />
-                              <span className="text-teal-600">Choose file</span>
-                            </>
-                          )}
-                        </div>
-                        <input
-                          type="file"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, contractFrontUrl: url })), setUploadingContractFront);
-                          }}
-                        />
-                        <span className="text-xs text-gray-600 truncate">
-                          {profileForm.contractFrontUrl ? getFileNameFromUrl(profileForm.contractFrontUrl) : "No file chosen"}
-                        </span>
-                      </label>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload Contract Back</label>
-                      <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
-                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
-                          {uploadingContractBack ? (
-                            <span className="animate-pulse text-teal-600">Uploading...</span>
-                          ) : (
-                            <>
-                              <Upload className="w-4 h-4 mr-2 text-teal-600" />
-                              <span className="text-teal-600">Choose file</span>
-                            </>
-                          )}
-                        </div>
-                        <input
-                          type="file"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, contractBackUrl: url })), setUploadingContractBack);
-                          }}
-                        />
-                        <span className="text-xs text-gray-600 truncate">
-                          {profileForm.contractBackUrl ? getFileNameFromUrl(profileForm.contractBackUrl) : "No file chosen"}
-                        </span>
-                      </label>
-                    </div>
                   </div>
                 </div>
 
@@ -2169,7 +2198,7 @@ const ManageAgentsPage = () => {
               </div>
               <button
                 type="button"
-                onClick={() => { setViewAgent(null); setViewProfile(null); setTotalAppointments(null); }}
+                onClick={() => { stopActivityRefresh(); setViewAgent(null); setViewProfile(null); setTotalAppointments(null); setActivity(null); }}
                 className="flex-shrink-0 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-teal-500 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-200"
                 aria-label="Close"
               >
@@ -2389,23 +2418,20 @@ const ManageAgentsPage = () => {
                         <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-teal-900 flex items-center justify-between">
                           <span>Current Status</span>
                           <span className="inline-flex items-center gap-2">
-                            <span className={`h-2 w-2 rounded-full ${activity?.currentStatus === 'ONLINE' ? 'bg-emerald-500' : 'bg-gray-400'}`} />
-                            {activity?.currentStatus === 'ONLINE' ? 'Online' : 'Offline'}
+                            {(() => {
+                              // Consider user offline if no activity data or last login was more than 24 hours ago
+                              const isActuallyOnline = activity && 
+                                                        activity.currentStatus === 'ONLINE' && 
+                                                        activity.lastLogin && 
+                                                        (Date.now() - new Date(activity.lastLogin).getTime()) < 24 * 60 * 60 * 1000;
+                              return (
+                                <>
+                                  <span className={`h-2 w-2 rounded-full ${isActuallyOnline ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                                  {isActuallyOnline ? 'Online' : 'Offline'}
+                                </>
+                              );
+                            })()}
                           </span>
-                        </div>
-                        <div className={`mt-3 rounded-lg ${activeStatus ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-gray-50 text-teal-900'} px-3 py-3 text-sm flex items-center justify-between`}>
-                          <span>Active Status</span>
-                          <button
-                            type="button"
-                            onClick={toggleActiveStatus}
-                            disabled={updatingActive}
-                            className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-60"
-                            style={{ backgroundColor: activeStatus ? '#10b981' : '#e5e7eb' }}
-                          >
-                            <span
-                              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${activeStatus ? 'translate-x-5' : 'translate-x-1'}`}
-                            />
-                          </button>
                         </div>
                       </div>
                       <div className="bg-white border border-gray-200 rounded-xl p-5">
@@ -2678,7 +2704,7 @@ const ManageAgentsPage = () => {
                   <div className="flex items-center justify-end">
                     <button
                       type="button"
-                      onClick={() => { setViewAgent(null); setViewProfile(null); setTotalAppointments(null); }}
+                      onClick={() => { stopActivityRefresh(); setViewAgent(null); setViewProfile(null); setTotalAppointments(null); setActivity(null); }}
                       className="px-3.5 py-2 rounded-md border border-gray300 dark:border-gray600 text-[11px] font-medium text-teal-700 dark:text-teal-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                     >
                       Close

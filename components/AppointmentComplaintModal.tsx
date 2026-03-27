@@ -36,6 +36,7 @@ import {
   Phone,
   Venus,
   Mars,
+  AlertCircle,
 } from "lucide-react";
 import useStockItems from "@/hooks/useStockItems";
 import useUoms from "@/hooks/useUoms";
@@ -173,7 +174,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [error, setError] = useState<string>("");
   const [details, setDetails] = useState<AppointmentDetails | null>(null);
   const [report, setReport] = useState<SingleReport | null>(null);
-  const [patientReports, setPatientReports] = useState<
+  const [_patientReports, setPatientReports] = useState<
     AppointmentReportSummary[]
   >([]);
   const [complaints, setComplaints] = useState<string>("");
@@ -186,7 +187,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     PreviousComplaint[]
   >([]);
   const [loadingComplaints, setLoadingComplaints] = useState(false);
-  const [showPreviousReports, setShowPreviousReports] = useState(false);
+  const [_showPreviousReports, setShowPreviousReports] = useState(false);
 
   // Patient EMR stats — total spend from Billing, visits from Appointment
   interface PatientEMRStats {
@@ -239,7 +240,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [selectedConsentId, setSelectedConsentId] = useState<string>("");
   const [sendingConsent, setSendingConsent] = useState<boolean>(false);
   const [consentSent, setConsentSent] = useState<boolean>(false);
-  
+ 
   // Consent status tracking
   interface ConsentStatusData {
     status: "not-sent" | "sent" | "viewed" | "signed";
@@ -348,6 +349,12 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [addingRecService, setAddingRecService] = useState<Record<string, boolean>>({});
   // Track added services per patient (key format: "patientId_serviceId")
   const [addedRecServices, setAddedRecServices] = useState<Record<string, boolean>>({});
+
+   // SEND CONSENT FORM MSG ON WHATSAPP
+    const [sendMsgLoading, setSendMsgLoading] = useState<boolean>(false);
+
+
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const target = e.target as Node | null;
@@ -782,7 +789,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     fetchProgressNotes();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, details?.patientId]);
-  
+ 
     // Fetch prescription history when switching to prescription tab
     useEffect(() => {
       if (activeTab !== "prescription" || !details?.patientId) return;
@@ -1008,6 +1015,66 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     setEditingItem(null);
   };
 
+  /*---------------------------
+    // SEND CONSENT FORM MESSAGE ON WHATSAPP
+    //---------------------------*/
+    const handleSendConsentMsgOnWhatsapp = async () => {
+      if (!selectedConsentId) return;
+ 
+      try {
+        setSendMsgLoading(true);
+        setSendingConsent(true);
+        const token = getTokenByPath();
+        console.log({ details });
+ 
+        const { data } = await axios.post(
+          "/api/messages/send-message",
+          {
+            patientId: details?.patientId,
+            providerId: "6952256c4a46b2f1eb01be86",
+            channel: "whatsapp",
+            content: `Please review and sign the consent form by clicking the link below:
+ 
+  https://consent-form.zeva.co.ke
+ 
+  Thank you.`,
+            mediaUrl: "",
+            mediaType: "",
+            source: "Zeva",
+            messageType: "conversational",
+            templateId: "69c38b4d26b8217e1ba78f8a",
+            // for whatsapp template if body variables exist
+            headerParameters: [],
+            bodyParameters: [
+              {
+                type: "text",
+                text: "https://consent-form.zeva.co.ke",
+              },
+            ],
+            attachments: [],
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+ 
+        if (data && data?.success) {
+          setConsentSent(true);
+        }
+      } catch (error: any) {
+        console.log(
+          "Error in send consent form msg on whatsapp: ",
+          error?.message,
+        );
+      } finally {
+        setSendMsgLoading(false);
+        setSendingConsent(false);
+      }
+    };
+ 
+
   if (!isOpen || !appointment) {
     return null;
   }
@@ -1116,26 +1183,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         <option value="">Select Consent</option>
                         {consentForms.map((cf) => (<option key={cf._id} value={cf._id}>{cf.formName}</option>))}
                       </select>
-                      <button type="button" disabled={!selectedConsentId || sendingConsent || consentSent}
-                        onClick={async () => {
-                          if (!selectedConsentId) return;
-                          setSendingConsent(true);
-                          try {
-                            const headers = getAuthHeaders();
-                            await axios.post(`/api/clinic/consent/send`, {
-                              consentFormId: selectedConsentId,
-                              appointmentId: details.appointmentId,
-                              patientId: details.patientId,
-                              via: "WhatsApp", // default to WhatsApp
-                            }, { headers });
-                            setConsentSent(true);
-                            setConsentStatus({ status: "sent", sentVia: "WhatsApp", sentAt: new Date().toISOString() });
-                          } catch (err) {
-                            console.error("Failed to send consent:", err);
-                          } finally {
-                            setSendingConsent(false);
-                          }
-                        }}
+                      <button type="button" disabled={!selectedConsentId || sendingConsent || sendMsgLoading || consentSent}
+                        onClick={handleSendConsentMsgOnWhatsapp}
                         className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${consentSent ? "bg-green-100 text-green-700 border border-green-200" : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40"}`}>
                         {consentSent ? <><Check size={11} /> Sent</> : sendingConsent ? <><RefreshCw size={11} className="animate-spin" /> Sending...</> : <><Send size={11} /> Send Consent</>}
                       </button>
@@ -1494,7 +1543,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               </div>
                               <button type="button" onClick={() => setShowAddServiceDropdown(false)} className="text-gray-400 hover:text-gray-600 transition-colors"><XIcon size={16} /></button>
                             </div>
-                            
+                           
                             {/* Search Input */}
                             <div className="relative mb-3">
                               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -1508,7 +1557,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent shadow-sm transition-all"
                               />
                             </div>
-                            
+                           
                             {/* Services List */}
                             <div className="max-h-64 overflow-y-auto space-y-2 mb-3 rounded-lg border border-gray-200 bg-white p-2">
                               {loadingServices ? (
@@ -1529,8 +1578,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                     <button key={svc._id} type="button"
                                       onClick={() => { setSelectedServices((prev) => isSelected ? prev.filter((s) => s._id !== svc._id) : [...prev, svc]); setServicesSaved(false); }}
                                       className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${
-                                        isSelected 
-                                          ? "bg-blue-50 border-blue-300 shadow-sm" 
+                                        isSelected
+                                          ? "bg-blue-50 border-blue-300 shadow-sm"
                                           : "bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300"
                                       }`}
                                     >
@@ -1559,7 +1608,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 })
                               )}
                             </div>
-                            
+                           
                             {/* Action Buttons */}
                             {servicesError && (
                               <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
@@ -1873,7 +1922,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                     {selectedServices.length}
                                   </span>
                                 </div>
-                                
+                               
                               </div>
 
                               {/* Service Cards */}
@@ -1885,7 +1934,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                       <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center flex-shrink-0 border border-blue-100">
                                         <Package className="w-6 h-6 text-blue-600" />
                                       </div>
-                                      
+                                     
                                       {/* Info */}
                                       <div className="flex-1">
                                         <div className="flex items-center gap-2 mb-1">
@@ -1895,7 +1944,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                           </span>
                                         </div>
                                         <p className="text-xs text-gray-500 mb-2">Service #{i + 1} • ID: {svc._id.slice(-6)}</p>
-                                                                          
+                                                                         
                                         {/* Price Input */}
                                         <div className="flex items-center gap-2">
                                           <label className="text-xs text-gray-600 font-medium">Price:</label>
@@ -1922,7 +1971,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         </div>
                                       </div>
                                     </div>
-                                    
+                                   
                                     {/* Actions */}
                                     <div className="flex items-center gap-2">
                                       <div className="text-right">
@@ -1987,9 +2036,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         <button type="button" disabled={addingRecService[`${details?.patientId}_${svc._id}`] || addedRecServices[`${details?.patientId}_${svc._id}`]}
                                           onClick={async () => {
                                             if (!details?.appointmentId || !details?.patientId) return;
-                                            
+                                           
                                             const patientServiceKey = `${details.patientId}_${svc._id}`;
-                                            
+                                           
                                             // 1. Add to selectedServices (so it appears in Treatment & Billing)
                                             const serviceToAdd = {
                                               _id: svc._id,
@@ -1998,10 +2047,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                               clinicPrice: svc.clinicPrice,
                                               durationMinutes: svc.durationMinutes,
                                             } as ClinicService;
-                                            
+                                           
                                             setSelectedServices((prev) => [...prev, serviceToAdd]);
                                             setServicesSaved(false);
-                                            
+                                           
                                             // 2. Also save to appointment via API
                                             setAddingRecService((p) => ({ ...p, [patientServiceKey]: true }));
                                             try {
@@ -2252,7 +2301,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         )}
                       </div>
 
-                  
+                 
 
                       {/* Previous Complaints */}
                       <div ref={previousComplaintsRef} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -2372,7 +2421,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
 
                       {/* ── APPOINTMENTS CARD ── */}
-                  
+                 
 
                   {/* ── PROGRESS TAB ── */}
                   {activeTab === "progress" && (
@@ -3702,7 +3751,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         ))}
                       </div>
                     )}
-                    
+                   
                     {/* Last 5 Selected Treatments */}
                     {selectedServices.length > 0 && (
                       <div>
@@ -3724,7 +3773,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         </div>
                       </div>
                     )}
-                    
+                   
                     <div className="pt-1 border-t border-gray-100">
                       <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">Next Session Date</p>
                       <div className="flex items-center gap-2">
@@ -3783,7 +3832,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                   </div>
                 </div>
 
-              
+             
 
                 {/* Previous History Accordion */}
                 {/* <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">

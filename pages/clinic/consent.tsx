@@ -52,6 +52,7 @@ interface ConsentForm {
   status: string;
   fileName?: string;
   fileSize?: number;
+  fileUrl?: string;
   createdAt: string;
 }
 
@@ -194,6 +195,47 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
       return;
     }
     setSubmitting(true);
+    
+    let uploadedFileUrl = null;
+    let uploadedFileName = null;
+    let uploadedFileSize = null;
+
+    // Upload file to Cloudinary if exists
+    if (uploadedFile) {
+      try {
+        const formData = new FormData();
+        formData.append("file", uploadedFile);
+        
+        const token = getToken();
+        const uploadResponse = await fetch("/api/upload", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        });
+
+        const uploadData = await uploadResponse.json();
+        
+        if (uploadResponse.ok && uploadData.success) {
+          uploadedFileUrl = uploadData.url;
+          uploadedFileName = uploadedFile.name;
+          uploadedFileSize = uploadedFile.size;
+        } else {
+          console.error("Upload failed:", uploadData);
+          toast.error(uploadData?.message || "File upload failed");
+          setSubmitting(false);
+          return;
+        }
+      } catch (error: any) {
+        console.error("Upload error:", error);
+        const errorMessage = error?.response?.data?.message || error?.message || "Failed to upload file";
+        toast.error(`Upload failed: ${errorMessage}`);
+        setSubmitting(false);
+        return;
+      }
+    }
+
     try {
       const token = getToken();
       const payload = {
@@ -205,8 +247,9 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
         serviceIds: selectedServiceIds,
         enableDigitalSignature,
         requireNameConfirmation,
-        fileName: uploadedFile?.name || null,
-        fileSize: uploadedFile?.size || null,
+        fileUrl: uploadedFileUrl,
+        fileName: uploadedFileName,
+        fileSize: uploadedFileSize,
         status: "published",
       };
       const { data } = await axios.post("/api/clinic/consent", payload, {
@@ -220,6 +263,7 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
         toast.error(data.message || "Failed to publish");
       }
     } catch (err: any) {
+      console.error("Create consent error:", err);
       toast.error(err?.response?.data?.message || "Failed to publish consent form");
     } finally {
       setSubmitting(false);
@@ -769,10 +813,267 @@ function SignatureStatus({ label, enabled }: { label: string; enabled: boolean }
   );
 }
 
+// ─── View Consent Modal ────────────────────────────────────────────────────────
+
+interface ViewConsentModalProps {
+  consent: ConsentForm | null;
+  onClose: () => void;
+}
+
+function ViewConsentModal({ consent, onClose }: ViewConsentModalProps) {
+  if (!consent) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto ">
+        {/* Header */}
+        <div className="px-8 pt-7 pb-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl">
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">View Consent Form</h2>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Detailed information about this consent form
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors mt-0.5"
+            >
+              <X size={20} />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="px-8 py-4 space-y-6">
+          {/* Document Preview Section */}
+          {consent.fileUrl && (
+            <div className="rounded-xl border border-gray-300 overflow-hidden bg-gray-50">
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 text-white">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <FileText size={16} />
+                  Document Preview
+                </h3>
+              </div>
+              <div className="p-4">
+                {consent.fileUrl.toLowerCase().includes('.pdf') ? (
+                  <div className="space-y-3">
+                    <iframe
+                      src={consent.fileUrl}
+                      className="w-full h-96 border border-gray-300 rounded-lg"
+                      title="Document Preview"
+                    />
+                    <div className="flex gap-3">
+                      <a
+                        href={consent.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm font-medium"
+                      >
+                        <Upload size={14} />
+                        Open in New Tab
+                      </a>
+                      <a
+                        href={consent.fileUrl}
+                        download={consent.fileName || 'consent-form.pdf'}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all text-sm font-medium"
+                      >
+                        <CheckCircle size={14} />
+                        Download
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <FileText size={48} className="text-blue-600 mb-3" />
+                    <p className="text-gray-600 font-medium mb-2">{consent.fileName}</p>
+                    <p className="text-sm text-gray-500 mb-4">Preview not available for this file type</p>
+                    <div className="flex gap-3">
+                      <a
+                        href={consent.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm font-medium"
+                      >
+                        <Upload size={14} />
+                        Open File
+                      </a>
+                      <a
+                        href={consent.fileUrl}
+                        download={consent.fileName || 'file'}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all text-sm font-medium"
+                      >
+                        <CheckCircle size={14} />
+                        Download
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Form Details */}
+          <div className="rounded-xl border border-gray-200 overflow-hidden">
+            <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-700">Form Details</h3>
+            </div>
+            <div className="p-4 grid grid-cols-2 gap-y-4 gap-x-6">
+              <div>
+                <p className="text-xs text-gray-400 font-medium">Form Name</p>
+                <p className="text-sm font-semibold text-gray-800">{consent.formName}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-medium">Department</p>
+                <p className="text-sm font-semibold text-gray-800">
+                  {consent.departmentId?.name || "Not assigned"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-medium">Language</p>
+                <div className="mt-1">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium">
+                    <Globe size={10} />
+                    {consent.language}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-medium">Version</p>
+                <p className="text-sm font-semibold text-gray-800">v{consent.version}</p>
+              </div>
+              {consent.description && (
+                <div className="col-span-2">
+                  <p className="text-xs text-gray-400 font-medium">Description</p>
+                  <p className="text-sm text-gray-700 mt-1">{consent.description}</p>
+                </div>
+              )}
+              <div className="col-span-2">
+                <p className="text-xs text-gray-400 font-medium">Created At</p>
+                <p className="text-sm font-medium text-gray-800">
+                  {new Date(consent.createdAt).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Service Mapping */}
+          <div className="rounded-xl border border-gray-200 overflow-hidden">
+            <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-700">Service Mapping</h3>
+            </div>
+            <div className="p-4">
+              {consent.serviceIds.length === 0 ? (
+                <p className="text-sm text-gray-400 italic">No services mapped</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {consent.serviceIds.map((svc) => (
+                    <span
+                      key={svc._id}
+                      className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-sm font-medium"
+                    >
+                      {svc.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Signature Settings */}
+          <div className="rounded-xl border border-gray-200 overflow-hidden">
+            <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-700">Signature Settings</h3>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
+                <div className="flex items-center gap-2">
+                  <PenLine size={16} className="text-blue-600" />
+                  <span className="text-sm font-medium text-gray-700">Digital Signature</span>
+                </div>
+                <span
+                  className={`px-2 py-1 rounded text-xs font-semibold ${
+                    consent.enableDigitalSignature
+                      ? "bg-green-100 text-green-700"
+                      : "bg-gray-100 text-gray-500"
+                  }`}
+                >
+                  {consent.enableDigitalSignature ? "Enabled" : "Disabled"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
+                <div className="flex items-center gap-2">
+                  <ClipboardList size={16} className="text-blue-600" />
+                  <span className="text-sm font-medium text-gray-700">Name Confirmation</span>
+                </div>
+                <span
+                  className={`px-2 py-1 rounded text-xs font-semibold ${
+                    consent.requireNameConfirmation
+                      ? "bg-green-100 text-green-700"
+                      : "bg-gray-100 text-gray-500"
+                  }`}
+                >
+                  {consent.requireNameConfirmation ? "Enabled" : "Disabled"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Status */}
+          <div className="rounded-xl border border-gray-200 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div
+                  className={`w-3 h-3 rounded-full ${
+                    consent.status === "published" ? "bg-green-500" : "bg-gray-400"
+                  }`}
+                />
+                <span className="text-sm font-medium text-gray-700">Current Status</span>
+              </div>
+              <span
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                  consent.status === "published"
+                    ? "bg-green-100 text-green-700"
+                    : "bg-gray-100 text-gray-500"
+                }`}
+              >
+                {consent.status === "published" ? (
+                  <Check size={12} />
+                ) : (
+                  <AlertCircle size={12} />
+                )}
+                {consent.status.charAt(0).toUpperCase() + consent.status.slice(1)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-8 py-4 border-t border-gray-100 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-6 py-2 text-sm font-semibold text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-all"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Consent Page ────────────────────────────────────────────────────────
 
 const ConsentPage: NextPageWithLayout = () => {
   const [showModal, setShowModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedConsent, setSelectedConsent] = useState<ConsentForm | null>(null);
   const [consents, setConsents] = useState<ConsentForm[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -819,6 +1120,11 @@ const ConsentPage: NextPageWithLayout = () => {
     } catch {
       toast.error("Failed to delete consent form");
     }
+  };
+
+  const handleView = (consent: ConsentForm) => {
+    setSelectedConsent(consent);
+    setShowViewModal(true);
   };
 
   const filtered = consents.filter((c) =>
@@ -918,10 +1224,15 @@ const ConsentPage: NextPageWithLayout = () => {
                     <tr key={consent._id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-3">
                         <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                          <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0 cursor-pointer hover:bg-blue-200 transition-colors" onClick={() => handleView(consent)}>
                             <FileText size={13} className="text-blue-600" />
                           </div>
-                          <span className="font-medium text-gray-800">{consent.formName}</span>
+                          <span 
+                            className="font-medium text-gray-800 cursor-pointer hover:text-blue-600 transition-colors"
+                            onClick={() => handleView(consent)}
+                          >
+                            {consent.formName}
+                          </span>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-600">
@@ -992,7 +1303,10 @@ const ConsentPage: NextPageWithLayout = () => {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
-                          <button className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition-colors">
+                          <button 
+                            onClick={() => handleView(consent)}
+                            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition-colors"
+                          >
                             <Eye size={14} />
                           </button>
                           <button
@@ -1018,6 +1332,17 @@ const ConsentPage: NextPageWithLayout = () => {
           onClose={() => setShowModal(false)}
           onSuccess={(consent) => {
             setConsents((prev) => [consent, ...prev]);
+          }}
+        />
+      )}
+
+      {/* View Modal */}
+      {showViewModal && selectedConsent && (
+        <ViewConsentModal
+          consent={selectedConsent}
+          onClose={() => {
+            setShowViewModal(false);
+            setSelectedConsent(null);
           }}
         />
       )}
