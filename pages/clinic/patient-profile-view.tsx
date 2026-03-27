@@ -5,7 +5,7 @@ import {
   Calendar, User, DollarSign, FileText, AlertCircle, Activity,
   CreditCard, TrendingUp, Package, Phone,
   Mail, Clock, Shield, X, CheckCircle, XCircle,
-  AlertTriangle, Info, Plus, FileImage, Wallet, ClipboardList
+  AlertTriangle, Info, Plus, FileImage, Wallet, ClipboardList, Send
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -49,6 +49,10 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
   const [loadingBilling, setLoadingBilling] = useState(false);
   const [mediaDocuments, setMediaDocuments] = useState<any[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
+  
+  // Consent Form Status States
+  const [consentStatuses, setConsentStatuses] = useState<any[]>([]);
+  const [loadingConsentStatus, setLoadingConsentStatus] = useState(false);
   
   // Stats state - fetched on mount
   const [statsData, setStatsData] = useState({
@@ -95,6 +99,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
     { id: 'packages-memberships', label: 'Packages & Memberships' },
     { id: 'insurance', label: 'Insurance' },
     { id: 'media', label: 'Media & Documents' },
+    { id: 'communication', label: 'Communication Log' },
     { id: 'advance', label: 'Advance & Pending Balance' }
   ];
 
@@ -298,6 +303,13 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
   useEffect(() => {
     if (activeTab === 'media' && patientData?._id) {
       fetchMediaDocuments();
+    }
+  }, [activeTab]);
+
+  // Fetch consent form statuses when communication tab is active
+  useEffect(() => {
+    if (activeTab === 'communication' && patientData?._id) {
+      fetchConsentStatuses();
     }
   }, [activeTab]);
 
@@ -650,6 +662,64 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
       setMediaDocuments([]);
     } finally {
       setLoadingMedia(false);
+    }
+  };
+
+  // Fetch consent form statuses
+  const fetchConsentStatuses = async () => {
+    setLoadingConsentStatus(true);
+    try {
+      const headers = getAuthHeaders();
+      if (!headers) return;
+
+      // Fetch both signed consents and sent logs
+      const [signaturesRes, logsRes] = await Promise.all([
+        axios.get('/api/clinic/consent-status', {
+          headers,
+          params: { patientId: patientData._id },
+        }),
+        axios.get('/api/clinic/consent-log', {
+          headers,
+          params: { patientId: patientData._id },
+        }),
+      ]);
+
+      const signatures = signaturesRes.data?.consentStatuses || [];
+      const logs = logsRes.data?.consentLogs || [];
+
+      // Merge logs and signatures
+      const logMap = new Map();
+
+      // Add all logs first (sent forms)
+      logs.forEach((log: any) => {
+        logMap.set(log.consentFormId, {
+          _id: log._id,
+          consentFormId: log.consentFormId,
+          consentFormName: log.consentFormName,
+          description: log.description || "",
+          patientName: log.patientName,
+          date: new Date(log.createdAt).toLocaleDateString('en-GB'),
+          hasSignature: false,
+          status: 'sent',
+          signedAt: null,
+        });
+      });
+
+      // Update with signatures if they exist (signed forms)
+      signatures.forEach((sig: any) => {
+        logMap.set(sig.consentFormId, {
+          ...sig,
+          status: 'signed',
+        });
+      });
+
+      const merged = Array.from(logMap.values());
+      setConsentStatuses(merged);
+    } catch (error: any) {
+      console.error('Error fetching consent statuses:', error.message);
+      setConsentStatuses([]);
+    } finally {
+      setLoadingConsentStatus(false);
     }
   };
 
@@ -2107,6 +2177,107 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                   </div>
                 );
               })()
+            ) : activeTab === 'communication' ? (
+              /* Communication Log - Consent Form Status */
+              <div className="space-y-4">
+                {loadingConsentStatus ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : consentStatuses.length === 0 ? (
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div className="h-1.5 bg-gradient-to-r from-blue-400 to-indigo-400" />
+                    <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-200 flex items-center justify-center mb-4">
+                        <FileText className="w-9 h-9 text-blue-400" />
+                      </div>
+                      <h3 className="text-lg font-bold text-gray-800 mb-2">No Consent Forms Sent</h3>
+                      <p className="text-gray-500 text-sm max-w-xs">
+                        Consent form communication will appear here once sent to the patient.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FileText className="w-5 h-5 text-blue-600" />
+                      <h3 className="text-base font-bold text-gray-900">Consent Form Status</h3>
+                      <span className="ml-auto px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                        {consentStatuses.length} Record{consentStatuses.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    {consentStatuses.map((consent: any, index: number) => {
+                      // Generate the consent form URL using patient data from props
+                      const patient = patientData as any;
+                      const patientName = patient?.fullName || `${patient?.firstName || ''} ${patient?.lastName || ''}`.trim();
+                      const patientInfo = {
+                        firstName: patient?.firstName || patientName.split(" ")[0] || "",
+                        lastName: patient?.lastName || patientName.split(" ").slice(1).join(" ") || "",
+                        mobileNumber: patient?.mobileNumber || "",
+                        email: patient?.email || "",
+                      };
+                      const encodedPatientData = encodeURIComponent(JSON.stringify(patientInfo));
+                      const consentUrl = `https://zeva360.com/consent-form/${consent.consentFormId}?patient=${encodedPatientData}`;
+                      
+                      return (
+                        <div
+                          key={consent._id || index}
+                          className={`flex items-center justify-between p-4 rounded-lg border ${
+                            consent.status === 'signed'
+                              ? 'border-green-200 bg-green-50'
+                              : 'border-blue-200 bg-blue-50'
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-semibold text-gray-800 truncate">
+                                {consent.consentFormName}
+                              </p>
+                              {consent.status === 'signed' ? (
+                                <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                              ) : (
+                                <Send className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className="text-xs text-gray-400">
+                                Date: {consent.date}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 mt-1">
+                              <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
+                                consent.status === 'signed'
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-blue-100 text-blue-700'
+                              }`}>
+                                {consent.status === 'signed' ? 'SIGNED' : 'SENT'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 ml-3">
+                            {/* Open Form Button */}
+                            <a
+                              href={consentUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-all border border-blue-200"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              Open Form
+                            </a>
+                            {consent.status === 'signed' && consent.hasSignature && (
+                              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                                <CheckCircle className="w-5 h-5 text-green-600" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             ) : activeTab === 'advance' ? (
               /* Advance & Pending Tab Content */
               <div className="space-y-5">
