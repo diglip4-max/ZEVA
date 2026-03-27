@@ -61,11 +61,11 @@ const AddToSegmentActionModal: React.FC<AddToSegmentActionModalProps> = ({
       }
 
       // Fetch segments
-      const segmentsRes = await axios.get("/api/segments", {
+      const segmentsRes = await axios.get("/api/segments/get-segments", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (segmentsRes.data.success) {
-        setSegments(segmentsRes.data.data);
+        setSegments(segmentsRes.data.segments || []);
       }
     } catch (err: any) {
       console.error("Error fetching data:", err);

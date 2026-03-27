@@ -24,6 +24,7 @@ import Link from "next/link";
 import { FaWhatsapp } from "react-icons/fa";
 import DeleteTemplateModal from "./_components/DeleteTemplateModal";
 import { useRouter } from "next/router";
+import { getTokenByPath } from "@/lib/helper";
 
 const TemplatesPage: NextPageWithLayout = () => {
   const router = useRouter();
@@ -59,8 +60,7 @@ const TemplatesPage: NextPageWithLayout = () => {
   const [showPreviewModal, setShowPreviewModal] = useState<boolean>(false);
 
   const templatesPerPage = 10;
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("clinicToken") : null;
+  const token = getTokenByPath();
 
   const fetchTemplates = useCallback(async () => {
     if (!token) return;
@@ -103,6 +103,8 @@ const TemplatesPage: NextPageWithLayout = () => {
   ]);
 
   const handleSyncTemplates = async () => {
+    const token = getTokenByPath();
+    console.log("Syncing templates...", { token });
     if (!token) return;
     try {
       setIsSyncing(true);

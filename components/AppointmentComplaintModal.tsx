@@ -1033,11 +1033,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
             patientId: details?.patientId,
             providerId: "6952256c4a46b2f1eb01be86",
             channel: "whatsapp",
-            content: `Please review and sign the consent form by clicking the link below:
- 
-  https://consent-form.zeva.co.ke
- 
-  Thank you.`,
+            content: `Please review and sign the consent form by clicking the link below:\n\n https://zeva360.com/consent-form/${selectedConsentId}\n\n Thank you.`,
             mediaUrl: "",
             mediaType: "",
             source: "Zeva",
@@ -1048,7 +1044,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
             bodyParameters: [
               {
                 type: "text",
-                text: "https://consent-form.zeva.co.ke",
+                text: `https://zeva360.com/consent-form/${selectedConsentId}`,
               },
             ],
             attachments: [],

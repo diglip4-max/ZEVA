@@ -3,6 +3,9 @@ import WorkflowHistory from "../../../../models/workflows/WorkflowHistory";
 import Workflow from "../../../../models/workflows/Workflow";
 import Clinic from "../../../../models/Clinic";
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
+import WorkflowAction from "../../../../models/workflows/WorkflowAction";
+import WorkflowCondition from "../../../../models/workflows/WorkflowCondition";
+import WorkflowTrigger from "../../../../models/workflows/WorkflowTrigger";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -27,7 +30,7 @@ export default async function handler(req, res) {
 
     let clinicId;
     if (me.role === "clinic") {
-      const clinic = await Clinic.findOne({ owner: me._id });
+      const clinic = await Clinic.findOne({ owner: me._id }).exec();
       if (!clinic) {
         return res
           .status(400)
@@ -59,7 +62,10 @@ export default async function handler(req, res) {
         .json({ success: false, message: "Workflow ID is required" });
     }
 
-    const workflow = await Workflow.findOne({ _id: workflowId, clinicId });
+    const workflow = await Workflow.findOne({
+      _id: workflowId,
+      clinicId,
+    }).exec();
     if (!workflow) {
       return res
         .status(404)
@@ -69,18 +75,36 @@ export default async function handler(req, res) {
     const page = parseInt(req.query.page) || 1;
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
     const skip = (page - 1) * limit;
+    const status = req.query.status || "";
 
-    const [total, history] = await Promise.all([
-      WorkflowHistory.countDocuments({ workflowId }),
-      WorkflowHistory.find({ workflowId })
-        .populate("triggerId")
-        .populate("actionId")
-        .populate("conditionId")
-        .sort({ executedAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-    ]);
+    let query = {};
+    if (status) {
+      query.status = status;
+    }
+
+    const [total, totalCompleted, totalFailed, totalInProgress, history] =
+      await Promise.all([
+        WorkflowHistory.countDocuments({ workflowId }).exec(),
+        WorkflowHistory.countDocuments({
+          workflowId,
+          status: "completed",
+        }).exec(),
+        WorkflowHistory.countDocuments({ workflowId, status: "failed" }).exec(),
+        WorkflowHistory.countDocuments({
+          workflowId,
+          status: "in-progress",
+        }).exec(),
+        WorkflowHistory.find({ workflowId, ...query })
+          .populate("workflowId", "name")
+          .populate("triggerId")
+          .populate("actionId")
+          .populate("conditionId")
+          .sort({ createdAt: 1 })
+          .skip(skip)
+          .limit(limit)
+          .lean()
+          .exec(),
+      ]);
 
     const totalPages = Math.ceil(total / limit);
 
@@ -89,6 +113,9 @@ export default async function handler(req, res) {
       data: history,
       pagination: {
         totalResults: total,
+        totalCompleted,
+        totalFailed,
+        totalInProgress,
         totalPages,
         currentPage: page,
         limit,

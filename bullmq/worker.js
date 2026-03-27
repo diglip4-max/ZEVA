@@ -11,11 +11,28 @@ import {
 import dbConnect from "../lib/database.js";
 import axios from "axios";
 import Template from "../models/Template.js";
-import { handleWhatsappSendMessage } from "../services/whatsapp.js";
+import {
+  handleSendWhatsappInteractiveListMsg,
+  handleSendWhatsappInteractiveReplyBtnMsg,
+  handleWhatsappSendMessage,
+} from "../services/whatsapp.js";
 import Message from "../models/Message.js";
 import Workflow from "../models/workflows/Workflow.js";
-import { processWorkflow } from "./workflow.js";
+import {
+  getPatientByLeadId,
+  getPatientDetails,
+  processWorkflow,
+  replaceVariableInObject,
+  replaceVariableInString,
+} from "./workflow.js";
 import WorkflowAction from "../models/workflows/WorkflowAction.js";
+import WorkflowHistory from "../models/workflows/WorkflowHistory.js";
+import Conversation from "../models/Conversation.js";
+import FormData from "form-data";
+import Provider from "../models/Provider.js";
+import PatientRegistration from "../models/PatientRegistration.js";
+import Appointment from "../models/Appointment.js";
+import Tag from "../models/Tag.js";
 
 console.log("📌 Import Leads Worker Started...");
 dbConnect()
@@ -372,10 +389,17 @@ export const workflowWorker = new Worker(
         throw new Error("Workflow not found");
       }
 
+      // Increase count of runs workflows
+      await Workflow.findByIdAndUpdate(workflowId, {
+        $inc: { runs: 1 },
+        $set: { lastRun: new Date() },
+      }).exec();
+
       // Process the workflow
       await processWorkflow({
         nodes: workflow.nodes,
         edges: workflow.edges,
+        ...rest,
       });
 
       console.log(`Workflow ${workflowId} processed successfully`);
@@ -405,8 +429,7 @@ export const delayActionWorker = new Worker(
   "delayActionQueue",
   async (job) => {
     console.log("Processing delay action worker job: ", job.data);
-    const { id: actionId, ...rest } = job.data;
-    const { delayInMs, ...actionData } = rest;
+    const { id: actionId, delayInMs, historyId, ...rest } = job.data;
 
     try {
       const action = await WorkflowAction.findById(actionId);
@@ -414,17 +437,1063 @@ export const delayActionWorker = new Worker(
         throw new Error("Action not found");
       }
 
+      // Update Workflow History with completed
+      await WorkflowHistory.findByIdAndUpdate(historyId, {
+        status: "completed",
+      });
+
       // Process the delay action
       processWorkflow({
-        nodes: actionData.nodes,
-        edges: actionData.edges,
+        nodes: rest.nodes,
+        edges: rest.edges,
+        ...rest,
       });
 
       console.log(`Delay action ${actionId} processed successfully`);
+      console.log({ rest: JSON.stringify(rest) });
       return { success: true, actionId };
     } catch (error) {
       console.error(`❌ Delay action job ${actionId} failed:`, error.message);
       throw error;
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 10,
+  },
+);
+export const sendWhatsappActionWorker = new Worker(
+  "sendWhatsappActionQueue",
+  async (job) => {
+    console.log("Processing send whatsapp action worker job: ", job.data);
+    const { id: actionId, ...rest } = job.data;
+    const { historyId, ...actionData } = rest;
+
+    try {
+      const action = await WorkflowAction.findById(actionId);
+      const workflow = await Workflow.findById(action?.workflowId);
+      if (!workflow) {
+        throw new Error("Workflow not found");
+      }
+      if (!action) {
+        // Update Workflow History with failed
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Action not found",
+        });
+        return;
+      }
+
+      const {
+        providerId,
+        templateId,
+        recipient,
+        channel,
+        content,
+        mediaUrl,
+        mediaType,
+        templateName,
+        whatsappMsgType = "template-message",
+        variableMappings,
+        headerVariableMappings,
+        buttonVariableMappings,
+        replyButtons = [],
+        listSections = [],
+        headerText = "",
+        footerText = "",
+      } = action.parameters || {};
+      console.log({ p: action.parameters });
+
+      let provider = await Provider.findById(providerId);
+      if (!provider) {
+        // Update Workflow History with failed
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Provider not found",
+        });
+        return;
+      }
+      let template = null;
+      if (templateId) {
+        template = await Template.findById(templateId);
+      }
+      let headerParameters = [];
+      if (headerVariableMappings) {
+        headerParameters = Object.entries(headerVariableMappings).map(
+          ([key, value]) => ({
+            type: "text",
+            text: value,
+          }),
+        );
+      }
+      let buttonParameters = [];
+      if (buttonVariableMappings) {
+        // Ensure it's an array of objects, not an object of objects
+        buttonParameters = Object.values(buttonVariableMappings).map(
+          (value) => ({
+            type: "text",
+            text: value,
+          }),
+        );
+      }
+      let bodyParameters = [];
+      if (variableMappings) {
+        bodyParameters = Object.entries(variableMappings).map(
+          ([key, value]) => ({
+            type: "text",
+            text: value,
+          }),
+        );
+      }
+
+      let leadId = actionData.leadId || "";
+      let lead = null;
+
+      if (recipient === "{{lead.phone}}") {
+        lead = await Lead.findById(leadId);
+      } else if (recipient === "{{lead.owner}}") {
+        // TODO: get owner phone number from lead
+      } else {
+        // TODO: For custom recipient or custom phone number
+
+        if (recipient === lead?.phone) {
+          // it means user use performed contact details so
+          // no need to lookup in db
+          lead = await Lead.findById(lead._id);
+        } else {
+          // Custom phone number recipient
+          lead = await Lead.findOne({ phone: recipient });
+        }
+
+        if (!lead) {
+          lead = new Lead({
+            clinicId: workflow?.clinicId,
+            name: recipient,
+            phone: recipient,
+            source: "Other",
+            customSource: "Zeva Automation",
+          });
+          await lead.save();
+        }
+      }
+      if (!lead) {
+        // Update Workflow History with failed
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Lead not found",
+        });
+        return;
+      }
+
+      // TODO: variable replacing in header, content, buttons and all
+
+      // TODO: conversation finding and msg sending functionality
+      let conversation;
+      if (actionData.conversationId) {
+        conversation = await Conversation.findById(actionData.conversationId);
+      } else {
+        conversation = await Conversation.findOne({
+          leadId: lead?._id,
+          clinicId: action?.clinicId,
+        });
+      }
+
+      if (!conversation) {
+        // if not found conversation then create new one
+        conversation = new Conversation({
+          clinicId: action?.clinicId,
+          ownerId: workflow?.ownerId,
+          leadId: lead?._id,
+        });
+        await conversation.save();
+      }
+
+      const newMessage = new Message({
+        clinicId: workflow.clinicId,
+        conversationId: conversation._id,
+        leadId: lead._id,
+        senderId: action.userId,
+        recipientId: lead._id,
+        channel: "whatsapp",
+        messageType: "automation",
+        direction: "outgoing",
+        content,
+        mediaUrl,
+        mediaType,
+        source: "Zeva Automation",
+        status: "sending",
+        provider: provider._id,
+        bodyParameters,
+        headerParameters,
+      });
+      // assign this message as a recentMessage
+      conversation.recentMessage = newMessage._id;
+      await newMessage.save();
+
+      // find provider credentials
+      const accessToken = provider?.secrets?.whatsappAccessToken;
+      const phoneNumberId = provider?.phone;
+      if (!accessToken || !phoneNumberId) {
+        console.log("Whatsapp provider credientials not found");
+        // Update Workflow History with failed
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Whatsapp provider credientials not found",
+        });
+        return;
+      }
+      let toPhoneNumber = lead?.phone;
+      if (!toPhoneNumber) {
+        // Update Workflow History with failed
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Lead phone number not found",
+        });
+        return;
+      }
+
+      let msgData;
+      if (template && whatsappMsgType === "template-message") {
+        msgData = {
+          channel: "whatsapp",
+          to: toPhoneNumber,
+          type: "automation",
+          template: template?.uniqueName,
+          language: template?.language || "en_US",
+          components: [
+            template?.isHeader && template?.headerType
+              ? {
+                  type: "header",
+                  ...(template.headerType === "text"
+                    ? headerParameters.length > 0
+                      ? { parameters: headerParameters } // Pass parameters only if they exist
+                      : {} // Use static text
+                    : {
+                        parameters: [
+                          {
+                            type: template.headerType,
+                            [template.headerType]: { link: mediaUrl },
+                          },
+                        ],
+                      }),
+                }
+              : null,
+            bodyParameters?.length > 0
+              ? {
+                  type: "body",
+                  parameters: bodyParameters,
+                }
+              : null,
+
+            // for authentication template
+            template?.category?.toLowerCase() === "authentication"
+              ? {
+                  type: "button",
+                  sub_type: "url",
+                  index: "0",
+                  parameters: bodyParameters,
+                }
+              : null,
+          ].filter(Boolean), // Remove null values
+          clientMessageId: newMessage?._id, // Optional: Your message tracking ID
+          credentials: {
+            accessToken,
+            phoneNumberId,
+          },
+        };
+      } else if (whatsappMsgType === "non-template-message") {
+        // simple whatsapp message
+        msgData = {
+          channel: "whatsapp",
+          to: toPhoneNumber,
+          type: "automation",
+          msg: content,
+          mediaType: mediaType || "",
+          mediaUrl: mediaUrl || "",
+          clientMessageId: newMessage?._id, // Optional: Your message tracking ID
+          credentials: {
+            accessToken,
+            phoneNumberId,
+          },
+        };
+      } else if (whatsappMsgType === "reply-button-message") {
+        msgData = {
+          channel: "whatsapp",
+          to: toPhoneNumber,
+          type: "automation",
+          msg: content,
+          replyButtons,
+          clientMessageId: newMessage?._id, // Optional: Your message tracking ID
+          credentials: {
+            accessToken,
+            phoneNumberId,
+          },
+        };
+      } else if (whatsappMsgType === "list-message") {
+        msgData = {
+          channel: "whatsapp",
+          to: toPhoneNumber,
+          type: "automation",
+          headerText,
+          msg: content,
+          footerText,
+          listSections,
+          clientMessageId: newMessage?._id, // Optional: Your message tracking ID
+          credentials: {
+            accessToken,
+            phoneNumberId,
+          },
+        };
+      }
+
+      let resData;
+      if (
+        whatsappMsgType === "template-message" ||
+        whatsappMsgType === "non-template-message"
+      ) {
+        resData = await handleWhatsappSendMessage(msgData);
+      } else if (whatsappMsgType === "reply-button-message") {
+        resData = await handleSendWhatsappInteractiveReplyBtnMsg({
+          to: msgData?.to,
+          message: msgData?.msg,
+          replyButtons: msgData?.replyButtons, // array of { type: "reply", reply: { id: string, title: string } }
+          accessToken: msgData?.credentials?.accessToken,
+          phoneNumberId: msgData?.credentials?.phoneNumberId,
+          clientMessageId: msgData?.clientMessageId,
+        });
+      } else if (whatsappMsgType === "list-message") {
+        resData = await handleSendWhatsappInteractiveListMsg({
+          to: msgData?.to,
+          headerText: msgData?.headerText,
+          bodyText: msgData?.msg,
+          footerText: msgData?.footerText,
+          listSections: msgData?.listSections, // array of { type: "reply", reply: { id: string, title: string } }
+          accessToken: msgData?.credentials?.accessToken,
+          phoneNumberId: msgData?.credentials?.phoneNumberId,
+          clientMessageId: msgData?.clientMessageId,
+        });
+      }
+
+      if (!resData) {
+        newMessage.status = "failed";
+      } else {
+        newMessage.status = "queued";
+      }
+      await Promise.all([newMessage.save(), conversation.save()]);
+
+      // TODO: Create or log activity
+
+      // Update Workflow History with completed
+      await WorkflowHistory.findByIdAndUpdate(historyId, {
+        status: "completed",
+        response: resData,
+      });
+
+      console.log(`Send whatsapp action ${actionId} processed successfully`);
+      return { success: true, actionId };
+    } catch (error) {
+      console.error(
+        `❌ Send whatsapp action job ${actionId} failed:`,
+        error.message,
+      );
+      // Update Workflow History with failed
+      await WorkflowHistory.findByIdAndUpdate(historyId, {
+        status: "failed",
+        error: error.message || "Send whatsapp action failed",
+      });
+      throw error;
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 10,
+  },
+);
+export const sendEmailActionWorker = new Worker(
+  "sendEmailActionQueue",
+  async (job) => {
+    console.log("Processing send email action worker job: ", job.data);
+    const { id: actionId, ...rest } = job.data;
+    const { historyId, ...actionData } = rest;
+
+    try {
+      const action = await WorkflowAction.findById(actionId);
+      if (!action) {
+        throw new Error("Action not found");
+      }
+
+      // Update Workflow History with completed
+      await WorkflowHistory.findByIdAndUpdate(historyId, {
+        status: "completed",
+      });
+
+      // Process the send email action
+
+      console.log(`Send email action ${actionId} processed successfully`);
+      return { success: true, actionId };
+    } catch (error) {
+      console.error(
+        `❌ Send email action job ${actionId} failed:`,
+        error.message,
+      );
+      throw error;
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 10,
+  },
+);
+export const sendSmsActionWorker = new Worker(
+  "sendSmsActionQueue",
+  async (job) => {
+    console.log("Processing send sms action worker job: ", job.data);
+    const { id: actionId, ...rest } = job.data;
+    const { historyId, ...actionData } = rest;
+
+    try {
+      const action = await WorkflowAction.findById(actionId);
+      if (!action) {
+        throw new Error("Action not found");
+      }
+
+      // Update Workflow History with completed
+      await WorkflowHistory.findByIdAndUpdate(historyId, {
+        status: "completed",
+      });
+
+      // Process the send sms action
+
+      console.log(`Send sms action ${actionId} processed successfully`);
+      return { success: true, actionId };
+    } catch (error) {
+      console.error(
+        `❌ Send sms action job ${actionId} failed:`,
+        error.message,
+      );
+      throw error;
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 10,
+  },
+);
+export const restApiActionWorker = new Worker(
+  "restApiActionQueue",
+  async (job) => {
+    console.log("Processing rest api action worker job: ", job.data);
+    const { id: actionId, ...rest } = job.data;
+    const { historyId, ...actionData } = rest;
+    const webhookPayload = actionData.payload || {};
+
+    try {
+      const action = await WorkflowAction.findById(actionId);
+      if (!action) {
+        // Update Workflow History with failed
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Action not found",
+        });
+        return;
+      }
+      const {
+        apiMethod,
+        apiEndPointUrl,
+        apiPayloadType,
+        apiAuthType,
+        apiHeaders,
+        apiParameters,
+      } = action.parameters || {};
+
+      if (!apiMethod || !apiEndPointUrl || !apiPayloadType || !apiAuthType) {
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error:
+            "API method, end point URL, payload type, and auth type are required",
+        });
+        return;
+      }
+      if (!apiHeaders) {
+        apiHeaders = {};
+      }
+      if (!apiParameters) {
+        apiParameters = {};
+      }
+      if (!apiAuthType) {
+        apiAuthType = "none";
+      }
+      if (apiAuthType === "basic") {
+        if (!apiHeaders["Authorization"]) {
+          await WorkflowHistory.findByIdAndUpdate(historyId, {
+            status: "failed",
+            error: "Basic auth requires Authorization header",
+          });
+          return;
+        }
+      }
+      if (apiAuthType === "bearer") {
+        if (!apiHeaders["Authorization"]) {
+          await WorkflowHistory.findByIdAndUpdate(historyId, {
+            status: "failed",
+            error: "Bearer auth requires Authorization header",
+          });
+          return;
+        }
+      }
+      if (apiAuthType === "none") {
+        if (apiHeaders["Authorization"]) {
+          await WorkflowHistory.findByIdAndUpdate(historyId, {
+            status: "failed",
+            error: "None auth cannot have Authorization header",
+          });
+          return;
+        }
+      }
+
+      // execute rest api action from axios
+      let response;
+      if (apiMethod === "GET") {
+        // get request
+        let apiHeadersData = {};
+        for (let item of apiHeaders) {
+          apiHeadersData[item.key] = item.value;
+        }
+
+        try {
+          response = await axios.get(apiEndPointUrl, {
+            headers: apiHeadersData,
+          });
+          console.log("GET request response:", response.data);
+        } catch (error) {
+          await WorkflowHistory.findByIdAndUpdate(historyId, {
+            status: "failed",
+            error: error.message || "GET request failed",
+          });
+          return;
+        }
+      } else if (apiMethod === "POST") {
+        // post request
+        let apiHeadersData = {};
+        let apiParametersJSONData = {};
+        let apiParametersFormData = new FormData();
+
+        for (let item of apiHeaders) {
+          apiHeadersData[item.key] = item.value;
+        }
+
+        // replace variables in apiHeadersData
+        apiHeadersData = replaceVariableInObject(
+          apiHeadersData,
+          "webhook",
+          webhookPayload,
+        );
+
+        if (apiPayloadType === "JSON") {
+          apiHeadersData["Content-Type"] = "application/json";
+          for (let item of apiParameters) {
+            apiParametersJSONData[item.key] = item.value;
+          }
+
+          // replace variables in apiParametersJSONData
+          apiParametersJSONData = replaceVariableInObject(
+            apiParametersJSONData,
+            "webhook",
+            webhookPayload,
+          );
+
+          try {
+            response = await axios.post(apiEndPointUrl, apiParametersJSONData, {
+              headers: apiHeadersData,
+            });
+          } catch (error) {
+            await WorkflowHistory.findByIdAndUpdate(historyId, {
+              status: "failed",
+              error: error.message || "POST request failed",
+            });
+            return;
+          }
+        } else if (apiPayloadType === "FORM_DATA") {
+          apiHeadersData["Content-Type"] = "application/x-www-form-urlencoded";
+          for (let item of apiParameters) {
+            // replace variables in item.value
+            let newValue = replaceVariableInString(
+              item.value,
+              "webhook",
+              webhookPayload,
+            );
+            apiParametersFormData.append(item.key, newValue);
+          }
+
+          try {
+            response = await axios.post(apiEndPointUrl, apiParametersFormData, {
+              headers: apiHeadersData,
+            });
+          } catch (error) {
+            await WorkflowHistory.findByIdAndUpdate(historyId, {
+              status: "failed",
+              error: error.message || "POST request failed",
+            });
+            return;
+          }
+        }
+      }
+
+      // TODO: save this response in workflow history
+      // Update Workflow History with completed
+      await WorkflowHistory.findByIdAndUpdate(historyId, {
+        status: "completed",
+        response: response.data,
+      });
+
+      console.log(`Rest api action ${actionId} processed successfully`);
+      return { success: true, actionId };
+    } catch (error) {
+      console.error(
+        `❌ Rest api action job ${actionId} failed:`,
+        error.message,
+      );
+      // Update Workflow History with failed
+      await WorkflowHistory.findByIdAndUpdate(historyId, {
+        status: "failed",
+        error: error.message || "REST API action failed",
+      });
+      throw error;
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 10,
+  },
+);
+export const addToSegmentActionWorker = new Worker(
+  "addToSegmentActionQueue",
+  async (job) => {
+    console.log("Processing add to segment action worker job: ", job.data);
+    const { id: actionId, ...rest } = job.data;
+    const { historyId, ...actionData } = rest;
+
+    /*
+     * Add lead to the segment
+     * Parameters:
+     * - segmentId: The ID of the segment to add the lead to
+     * - leadId: The ID of the lead to add to the segment
+     */
+
+    try {
+      const action = await WorkflowAction.findById(actionId);
+      if (!action) {
+        // Update Workflow History with failed
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Action not found",
+        });
+        return;
+      }
+      const { segmentId } = action.parameters || {};
+      if (!segmentId) {
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Segment ID is required",
+        });
+        return;
+      }
+      const leadId = actionData.leadId;
+      if (!leadId) {
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Lead ID is required",
+        });
+        return;
+      }
+      // Add lead to the segment
+      const segment = await Segment.findByIdAndUpdate(segmentId, {
+        $addToSet: {
+          leads: leadId,
+        },
+      });
+      const lead = await Lead.findByIdAndUpdate(leadId, {
+        $addToSet: {
+          segments: segmentId,
+        },
+      });
+      if (!segment || !lead) {
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Segment or Lead not found",
+        });
+        return;
+      }
+
+      // Update Workflow History with completed
+      await WorkflowHistory.findByIdAndUpdate(historyId, {
+        status: "completed",
+      });
+
+      // Process the add to segment action
+
+      console.log(`Add to segment action ${actionId} processed successfully`);
+      return { success: true, actionId };
+    } catch (error) {
+      // Update Workflow History with failed
+      await WorkflowHistory.findByIdAndUpdate(historyId, {
+        status: "failed",
+        error: error.message || "Add to segment action failed",
+      });
+      console.error(
+        `❌ Add to segment action job ${actionId} failed:`,
+        error.message,
+      );
+      throw error;
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 10,
+  },
+);
+export const assignOwnerActionWorker = new Worker(
+  "assignOwnerActionQueue",
+  async (job) => {
+    console.log("Processing assign owner action worker job: ", job.data);
+    const { id: actionId, ...rest } = job.data;
+    const { historyId, ...actionData } = rest;
+
+    /*
+     * Assign owner to the lead
+     * Parameters:
+     * - assignedTo: The ID of the user to assign as the owner
+     * - leadId: The ID of the lead to assign the owner to
+     */
+
+    try {
+      const action = await WorkflowAction.findById(actionId);
+      if (!action) {
+        throw new Error("Action not found");
+      }
+
+      const { assignedTo } = action.parameters || {};
+      if (!assignedTo) {
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Assigned to is required",
+        });
+        return;
+      }
+      const leadId = actionData.leadId;
+      if (!leadId) {
+        // Update Workflow History with completed
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Lead ID is required",
+        });
+        return;
+      }
+
+      // Assign owner to the lead
+      await Lead.findByIdAndUpdate(leadId, {
+        $addToSet: {
+          assignedTo: {
+            user: assignedTo,
+            assignedAt: new Date(),
+          },
+        },
+      });
+
+      // Update Workflow History with completed
+      await WorkflowHistory.findByIdAndUpdate(historyId, {
+        status: "completed",
+      });
+
+      // Process the assign owner action
+      console.log(`Assign owner action ${actionId} processed successfully`);
+      return { success: true, actionId };
+    } catch (error) {
+      await WorkflowHistory.findByIdAndUpdate(historyId, {
+        status: "failed",
+        error: error.message || "Assign owner action failed",
+      });
+      console.error(
+        `❌ Assign owner action job ${actionId} failed:`,
+        error.message,
+      );
+      throw error;
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 10,
+  },
+);
+export const addTagActionWorker = new Worker(
+  "addTagActionQueue",
+  async (job) => {
+    console.log("Processing add tag action worker job: ", job.data);
+    const { id: actionId, ...rest } = job.data;
+    const { historyId, ...actionData } = rest;
+
+    try {
+      const action = await WorkflowAction.findById(actionId);
+      if (!action) {
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Action not found",
+        });
+        return;
+      }
+
+      const workflow = await Workflow.findById(action.workflowId);
+      if (!workflow) {
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Workflow not found",
+        });
+        return;
+      }
+
+      const { tag } = action.parameters || {};
+      if (!tag) {
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Tag is required",
+        });
+        return;
+      }
+
+      const leadId = actionData.leadId;
+      const lead = await Lead.findById(leadId);
+      if (!lead) {
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Lead not found",
+        });
+        return;
+      }
+
+      // Add tag to the lead's tags array
+      const normalizedTag = tag.trim().toLowerCase();
+      if (!lead.tags.includes(normalizedTag)) {
+        lead.tags.push(normalizedTag);
+        await lead.save();
+        console.log(`Tag ${normalizedTag} added to lead ${leadId}`);
+      } else {
+        console.log(`Tag ${normalizedTag} already exists on lead ${leadId}`);
+      }
+
+      // Update Workflow History with completed
+      await WorkflowHistory.findByIdAndUpdate(historyId, {
+        status: "completed",
+        response: {
+          success: true,
+          message: `Tag ${normalizedTag} added to lead ${leadId}`,
+        },
+      });
+
+      console.log(`Add tag action ${actionId} processed successfully`);
+      return { success: true, actionId };
+    } catch (error) {
+      console.error(`❌ Add tag action job ${actionId} failed:`, error.message);
+      throw error;
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 10,
+  },
+);
+export const aiComposerActionWorker = new Worker(
+  "aiComposerActionQueue",
+  async (job) => {
+    console.log("Processing ai composer action worker job: ", job.data);
+    const { id: actionId, ...rest } = job.data;
+    const { historyId, ...actionData } = rest;
+
+    try {
+      const action = await WorkflowAction.findById(actionId);
+      if (!action) {
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Action not found",
+        });
+        return;
+      }
+
+      const { prompt, model, temperature, outputKey } = action.parameters || {};
+      if (!prompt || !model || !temperature || !outputKey) {
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Prompt, model, temperature, and outputKey are required",
+        });
+        return;
+      }
+
+      // Update Workflow History with completed
+      await WorkflowHistory.findByIdAndUpdate(historyId, {
+        status: "completed",
+      });
+
+      console.log(`Ai composer action ${actionId} processed successfully`);
+      return { success: true, actionId };
+    } catch (error) {
+      console.error(
+        `❌ Ai composer action job ${actionId} failed:`,
+        error.message,
+      );
+      throw error;
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 10,
+  },
+);
+
+// Book appointment action worker
+export const bookAppointmentActionWorker = new Worker(
+  "bookAppointmentActionQueue",
+  async (job) => {
+    const { id: actionId, ...rest } = job.data;
+    console.log(`Processing book appointment action for actionId: ${actionId}`);
+    const { historyId, ...actionData } = rest;
+
+    try {
+      const action = await WorkflowAction.findById(actionId);
+      const workflow = await Workflow.findById(action?.workflowId);
+      if (!workflow) {
+        throw new Error("Workflow not found");
+      }
+      if (!action) {
+        // Update Workflow History with failed
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Action not found",
+        });
+        return;
+      }
+
+      let {
+        leadId,
+        patientId,
+        message, // Assuming message context is passed for {{message.content}}
+      } = actionData;
+
+      // 1. Get context for variable replacement
+      let context = { message: message || {} };
+      let patient;
+      if (patientId) {
+        patient = await PatientRegistration.findById(patientId).lean();
+        const patientData = await getPatientDetails(patientId);
+        if (patient) context.patient = patientData;
+      } else if (leadId) {
+        patient = await getPatientByLeadId(leadId);
+        const patientData = await getPatientDetails(patient._id);
+        if (patient) context.patient = patientData; // Use 'patient' key for consistency in templates
+      }
+
+      // Helper function for replacing variables
+      const replaceVariables = (text, context) => {
+        if (!text || typeof text !== "string") return text;
+        return text.replace(/{{(.*?)}}/g, (match, p1) => {
+          const keys = p1.trim().split(".");
+          let value = context;
+          for (const key of keys) {
+            if (value && typeof value === "object" && key in value) {
+              value = value[key];
+            } else {
+              // If the key doesn't exist, return the original placeholder
+              return match;
+            }
+          }
+          // If the final value is an object, stringify it or return a default
+          return typeof value === "object" ? JSON.stringify(value) : value;
+        });
+      };
+
+      // 2. Destructure and replace variables in appointment details
+      const parameters = action.parameters || {};
+      const appointment = parameters.appointment || {};
+
+      const {
+        doctorId,
+        roomId,
+        mainTreatment,
+        subTreatment,
+        followType,
+        status,
+      } = appointment;
+
+      const appointmentDate = replaceVariables(
+        appointment.appointmentDate,
+        context,
+      );
+      const appointmentTime = replaceVariables(
+        appointment.appointmentTime,
+        context,
+      );
+      const notes = replaceVariables(appointment.notes, context);
+
+      // 3. Validate required fields after variable replacement
+      if (
+        !doctorId ||
+        !mainTreatment ||
+        !subTreatment ||
+        !appointmentDate ||
+        !appointmentTime
+      ) {
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error:
+            "Missing required appointment fields after variable replacement",
+        });
+        return;
+      }
+
+      // 5. Create and save the new appointment
+      const newAppointmentData = {
+        clinicId: workflow.clinicId,
+        patientId: patient._id,
+        doctorId: doctorId,
+        roomId: roomId || null,
+        // mainTreatment,
+        // subTreatment,
+        // appointmentDate,
+        // appointmentTime,
+        startDate: new Date(),
+        fromTime: "02:00",
+        toTime: "03:00",
+        status: status || "booked", // Default status if not provided
+        followType: followType || "first time",
+        referral: "no",
+        emergency: "no",
+        notes: notes || "",
+        createdBy: workflow.ownerId,
+      };
+
+      const newAppointment = new Appointment(newAppointmentData);
+      await newAppointment.save();
+
+      // Update Workflow History with completed
+      await WorkflowHistory.findByIdAndUpdate(historyId, {
+        status: "completed",
+        response: {
+          success: true,
+          message: "Appointment booked successfully",
+          appointment: newAppointment,
+        },
+      });
+      console.log(
+        `Successfully booked appointment ${newAppointment._id} for lead ${leadId}/patient ${patient._id}`,
+      );
+    } catch (error) {
+      console.error(
+        `Failed to process book appointment action for job ${job.id}:`,
+        error,
+      );
+      await WorkflowHistory.findByIdAndUpdate(historyId, {
+        status: "failed",
+        error: error.message || "Book appointment action failed",
+      });
+      throw error; // Re-throw to allow BullMQ to handle retry/failure
     }
   },
   {

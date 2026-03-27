@@ -31,6 +31,7 @@ const WorkflowTriggerSchema = new Schema(
       enum: [
         "new_lead",
         "update_lead",
+        "create_or_update_lead",
         "record_created",
         "record_updated",
         "record_create_or_update",
@@ -49,6 +50,15 @@ const WorkflowTriggerSchema = new Schema(
     webhookResponse: {
       type: Object,
       default: {},
+    },
+    // for incoming message trigger
+    channel: {
+      type: String,
+      enum: ["sms", "whatsapp", "email"],
+    },
+    providerId: {
+      type: Schema.Types.ObjectId,
+      ref: "Provider",
     },
   },
   {

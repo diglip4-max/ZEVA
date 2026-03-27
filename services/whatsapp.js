@@ -1,13 +1,14 @@
 import axios from "axios";
 import { uploadMedia } from "./upload.js";
+import Message from "../models/Message.js";
 
 export const getWhatsappUploadId = async (
   fileLength,
   fileType,
-  accessToken
+  accessToken,
 ) => {
   const url = `https://graph.facebook.com/v16.0/751025339470118/uploads?file_length=${fileLength}&file_type=${encodeURIComponent(
-    fileType
+    fileType,
   )}&access_token=${accessToken}`;
 
   try {
@@ -27,7 +28,7 @@ export const getWhatsappUploadId = async (
 export const getWhatsappHandlerId = async (
   whatsappUploadId,
   fileBuffer,
-  accessToken
+  accessToken,
 ) => {
   try {
     const response = await axios.post(
@@ -38,7 +39,7 @@ export const getWhatsappHandlerId = async (
           Authorization: `OAuth ${accessToken}`,
           "Content-Type": "text/plain", // Use actual file type
         },
-      }
+      },
     );
 
     console.log("handler id resp: ", response.data);
@@ -47,7 +48,7 @@ export const getWhatsappHandlerId = async (
   } catch (error) {
     console.error(
       "Error getting WhatsApp handler ID:",
-      error.response?.data || error.message
+      error.response?.data || error.message,
     );
     throw error;
   }
@@ -56,7 +57,7 @@ export const getWhatsappHandlerId = async (
 export const createWhatsAppTemplate = async (
   whatsappId,
   accessToken,
-  templateData
+  templateData,
 ) => {
   console.log({ whatsappId, accessToken, templateData });
   try {
@@ -136,7 +137,7 @@ export const createWhatsAppTemplate = async (
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
-      }
+      },
     );
 
     console.log("Template Created resp:", response.data);
@@ -152,7 +153,7 @@ export const createWhatsAppTemplate = async (
 export const updateWhatsAppTemplate = async (
   templateId,
   accessToken,
-  templateData
+  templateData,
 ) => {
   console.log({ templateId, accessToken, templateData });
 
@@ -190,12 +191,12 @@ export const updateWhatsAppTemplate = async (
         Array.isArray(templateData.bodyVariableSampleValues) &&
         templateData.bodyVariableSampleValues.length > 0 &&
         templateData.bodyVariableSampleValues.every(
-          (val) => val && val.trim() !== ""
+          (val) => val && val.trim() !== "",
         )
           ? {
               example: {
                 body_text: templateData.bodyVariableSampleValues.map((val) =>
-                  val.trim()
+                  val.trim(),
                 ),
               },
             }
@@ -225,7 +226,7 @@ export const updateWhatsAppTemplate = async (
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
-      }
+      },
     );
 
     console.log("Template Updated resp:", response.data);
@@ -233,7 +234,7 @@ export const updateWhatsAppTemplate = async (
   } catch (error) {
     console.error(
       "Error updating WhatsApp template:",
-      error.response?.data || error.message
+      error.response?.data || error.message,
     );
     throw error.response?.data?.error || error;
   }
@@ -242,7 +243,7 @@ export const updateWhatsAppTemplate = async (
 export const deleteWhatsappTemplate = async (
   accessToken,
   wabaId,
-  templateName
+  templateName,
 ) => {
   try {
     const url = `https://graph.facebook.com/v19.0/${wabaId}/message_templates/?name=${templateName}`;
@@ -256,7 +257,7 @@ export const deleteWhatsappTemplate = async (
   } catch (error) {
     console.error(
       "Error deleting WhatsApp template:",
-      error.response?.data || error.message
+      error.response?.data || error.message,
     );
     throw error;
   }
@@ -267,7 +268,7 @@ export const sendWhatsAppTypingIndicator = async (
   phoneNumberId,
   toPhoneNumber,
   accessToken,
-  isTyping = true
+  isTyping = true,
 ) => {
   try {
     await axios.post(
@@ -286,12 +287,12 @@ export const sendWhatsAppTypingIndicator = async (
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
-      }
+      },
     );
     console.log(
       `Typing indicator ${
         isTyping ? "started" : "stopped"
-      } for ${toPhoneNumber}`
+      } for ${toPhoneNumber}`,
     );
   } catch (error) {
     console.error("Error sending typing indicator: ", error);
@@ -406,7 +407,233 @@ export const handleWhatsappSendMessage = async (msgData) => {
   } catch (error) {
     console.log(
       "Error in send WhatsApp message: ",
-      JSON.stringify(error.response?.data || error.message)
+      JSON.stringify(error.response?.data || error.message),
+    );
+    throw error;
+  }
+};
+
+export const handleSendWhatsappReplyMessage = async ({
+  to,
+  message,
+  quotedMessageId,
+  accessToken,
+  phoneNumberId,
+  clientMessageId,
+}) => {
+  const url = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
+
+  const payload = {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    context: {
+      message_id: quotedMessageId,
+    },
+    type: "text",
+    text: {
+      body: message,
+    },
+  };
+
+  try {
+    const { data } = await axios.post(url, payload, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    console.log("WhatsApp reply sent successfully:", data);
+    const providerMessageId = data?.messages[0]?.id || "";
+    await Message.findByIdAndUpdate(clientMessageId, {
+      providerMessageId: providerMessageId,
+    });
+    return data;
+  } catch (error) {
+    console.error(
+      "Error sending WhatsApp reply:",
+      error.response?.data || error.message,
+    );
+    throw error;
+  }
+};
+
+export const handleSendWhatsappInteractiveReplyBtnMsg = async ({
+  to,
+  message,
+  replyButtons, // array of { type: "reply", reply: { id: string, title: string } }
+  accessToken,
+  phoneNumberId,
+  clientMessageId,
+}) => {
+  console.log({
+    to,
+    message,
+    replyButtons, // array of { type: "reply", reply: { id: string, title: string } }
+    accessToken,
+    phoneNumberId,
+    clientMessageId,
+  });
+  const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`;
+
+  const payload = {
+    messaging_product: "whatsapp",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "button",
+      body: {
+        text: message,
+      },
+      action: {
+        buttons: replyButtons,
+      },
+    },
+  };
+
+  try {
+    const { data } = await axios.post(url, payload, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    console.log("WhatsApp interactive reply button sent successfully:", data);
+
+    const providerMessageId = data?.messages?.[0]?.id || "";
+
+    if (clientMessageId) {
+      await Message.findByIdAndUpdate(clientMessageId, {
+        providerMessageId,
+      });
+    }
+
+    return data;
+  } catch (error) {
+    console.error(
+      "Error sending WhatsApp interactive reply:",
+      error.response?.data || error.message,
+    );
+    throw error;
+  }
+};
+export const handleSendWhatsappInteractiveListMsg = async ({
+  to,
+  headerText = "", // string, e.g. "Product Catalog"
+  bodyText, // string, e.g. "Pick one to continue:"
+  footerText = "", // string, e.g. "You can change later"
+  buttonText = "Browse", // string, e.g. "Browse"
+  listSections, // array of { title, rows: [{ id, title, description }] }
+  accessToken,
+  phoneNumberId,
+  clientMessageId,
+}) => {
+  const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`;
+
+  const payload = {
+    messaging_product: "whatsapp",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "list",
+      ...(headerText
+        ? {
+            header: {
+              type: "text",
+              text: headerText,
+            },
+          }
+        : {}),
+      body: {
+        text: bodyText,
+      },
+      ...(footerText
+        ? {
+            footer: {
+              text: footerText,
+            },
+          }
+        : {}),
+      action: {
+        button: buttonText,
+        sections: listSections,
+      },
+    },
+  };
+
+  try {
+    const { data } = await axios.post(url, payload, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    console.log("WhatsApp interactive list message sent successfully:", data);
+
+    const providerMessageId = data?.messages?.[0]?.id || "";
+
+    if (clientMessageId) {
+      await Message.findByIdAndUpdate(clientMessageId, {
+        providerMessageId,
+      });
+    }
+
+    return data;
+  } catch (error) {
+    console.error(
+      "Error sending WhatsApp interactive list message:",
+      error.response?.data || error.message,
+    );
+    throw error;
+  }
+};
+
+export const handleSendWhatsappCallPermissionMessage = async ({
+  to,
+  message,
+  accessToken,
+  phoneNumberId,
+  clientMessageId,
+}) => {
+  const url = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
+
+  const payload = {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "call_permission_request",
+      action: {
+        name: "call_permission_request",
+      },
+      body: {
+        text: message,
+      },
+    },
+  };
+
+  try {
+    const { data } = await axios.post(url, payload, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    console.log("WhatsApp call permission request sent successfully:", data);
+    const providerMessageId = data?.messages[0]?.id || "";
+    await Message.findByIdAndUpdate(clientMessageId, {
+      providerMessageId: providerMessageId,
+    });
+    return data;
+  } catch (error) {
+    console.error(
+      "Error sending WhatsApp call permission request:",
+      error.response?.data || error.message,
     );
     throw error;
   }
@@ -424,7 +651,7 @@ export const getWhatsappMediaUrl = async (tid, token) => {
     const { blob: mediaBlob, filename: fetchedFilename } = await fetchMediaFile(
       mediaDetails.url,
       token,
-      mediaDetails
+      mediaDetails,
     );
     console.log({ fetchedFilename, mediaBlob });
     if (!mediaBlob) return "";
@@ -441,7 +668,7 @@ export const getWhatsappMediaUrl = async (tid, token) => {
       fetchedFilename ||
         mediaDetails?.filename ||
         mediaDetails?.file_name ||
-        undefined
+        undefined,
     );
     return {
       url: uploadedUrl,
@@ -464,7 +691,7 @@ const fetchMediaDetails = async (tid, token) => {
       `https://graph.facebook.com/v13.0/${tid}`,
       {
         headers: { Authorization: `Bearer ${token}` },
-      }
+      },
     );
     console.log({ data });
     return data;

@@ -13,6 +13,7 @@ import {
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
 import { clsx, type ClassValue } from "clsx";
+import VariableMappingDropdown from "./VariableMappingDropdown";
 
 function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
@@ -202,6 +203,12 @@ const AiComposerActionModal: React.FC<AiComposerActionModalProps> = ({
                       className="w-full h-48 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-yellow-500 outline-none transition-all resize-none"
                     />
                   </div>
+                  <VariableMappingDropdown
+                    onSelect={(value: string) =>
+                      setPrompt((prev) => `${prev} ${value}`)
+                    }
+                    entity={"Lead"}
+                  />
 
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700 flex items-center gap-2">

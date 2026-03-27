@@ -1,4 +1,12 @@
-import React, { JSX, ReactElement, useState } from "react";
+import React, {
+  JSX,
+  ReactElement,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
+import { useRouter } from "next/router";
+import axios from "axios";
 import {
   Clock,
   CheckCircle,
@@ -16,49 +24,29 @@ import {
   RefreshCw,
   Eye,
   FileText,
-  Copy,
-  Archive,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { NextPageWithLayout } from "@/pages/_app";
 import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
+import Head from "next/head";
+import { getTokenByPath } from "@/lib/helper";
+import ViewHistoryModal from "./_components/ViewHistoryModal";
+import {
+  WorkflowActionType,
+  WorkflowConditionType,
+  WorkflowHistory,
+  WorkflowStatus,
+} from "@/types/workflows";
 
-// Type definitions based on the Mongoose schema
-type WorkflowStatus =
-  | "pending"
-  | "in-progress"
-  | "completed"
-  | "failed"
-  | "waiting"
-  | "skipped"
-  | "canceled"
-  | "retrying";
-
-interface WorkflowHistoryItem {
-  _id: string;
-  workflowId: {
-    _id: string;
-    name: string;
-  };
-  triggerId: {
-    _id: string;
-    name: string;
-  };
-  actionId: {
-    _id: string;
-    name: string;
-  };
-  conditionId: {
-    _id: string;
-    name: string;
-  };
-  conditionResult: boolean | null;
-  status: WorkflowStatus;
-  executedAt: string | null;
-  error: string | null;
-  details: Record<string, any>;
-  createdAt: string;
-  updatedAt: string;
+interface PaginationData {
+  totalResults: number;
+  totalPages: number;
+  currentPage: number;
+  limit: number;
+  hasMore: boolean;
 }
 
 interface Stats {
@@ -68,155 +56,130 @@ interface Stats {
   inProgress: number;
 }
 
+const getActionName = (type: WorkflowActionType) => {
+  switch (type) {
+    case "send_email":
+      return "Send Email";
+    case "send_sms":
+      return "Send SMS";
+    case "send_whatsapp":
+      return "Send WhatsApp";
+    case "update_lead_status":
+      return "Update Lead Status";
+    case "add_tag":
+      return "Add Tag";
+    case "assign_owner":
+      return "Assign Owner";
+    case "rest_api":
+      return "REST API Call";
+    case "add_to_segment":
+      return "Add to Segment";
+    case "ai_composer":
+      return "AI Composer";
+    case "delay":
+      return "Delay";
+    case "router":
+      return "Router";
+    case "book_appointment":
+      return "Book Appointment";
+    default:
+      return "Unknown Action";
+  }
+};
+
+const getConditionName = (type: WorkflowConditionType) => {
+  switch (type) {
+    case "if_else":
+      return "If-Else";
+    case "filter":
+      return "Filter";
+    default:
+      return "Unknown Condition";
+  }
+};
+
 const WorkflowHistoryPage: NextPageWithLayout = () => {
+  const router = useRouter();
+  const { workflowId } = router.query;
+
+  const [history, setHistory] = useState<WorkflowHistory[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [searchInput, setSearchInput] = useState<string>("");
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pagination, setPagination] = useState<PaginationData | null>(null);
+  const [selectedHistoryItem, setSelectedHistoryItem] =
+    useState<WorkflowHistory | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [stats, setStats] = useState<Stats>({
+    total: 0,
+    completed: 0,
+    failed: 0,
+    inProgress: 0,
+  });
 
-  // Sample workflow history data based on the schema
-  const workflowHistoryData: WorkflowHistoryItem[] = [
-    {
-      _id: "1",
-      workflowId: { _id: "wf1", name: "Lead Generation Pipeline" },
-      triggerId: { _id: "tr1", name: "New Lead Created" },
-      actionId: { _id: "ac1", name: "Send Welcome Email" },
-      conditionId: { _id: "co1", name: "Lead Score > 50" },
-      conditionResult: true,
-      status: "completed",
-      executedAt: "2024-01-15T10:30:00Z",
-      error: null,
-      details: {
-        emailSent: true,
-        recipient: "john@example.com",
-        template: "welcome-email-v2",
-        leadScore: 85,
-      },
-      createdAt: "2024-01-15T10:30:00Z",
-      updatedAt: "2024-01-15T10:30:05Z",
-    },
-    {
-      _id: "2",
-      workflowId: { _id: "wf2", name: "Customer Onboarding" },
-      triggerId: { _id: "tr2", name: "User Signed Up" },
-      actionId: { _id: "ac2", name: "Create Slack Channel" },
-      conditionId: { _id: "co2", name: "User Type: Enterprise" },
-      conditionResult: false,
-      status: "skipped",
-      executedAt: "2024-01-15T09:15:00Z",
-      error: null,
-      details: {
-        reason: "Condition not met",
-        userType: "free",
-        channelName: null,
-      },
-      createdAt: "2024-01-15T09:15:00Z",
-      updatedAt: "2024-01-15T09:15:02Z",
-    },
-    {
-      _id: "3",
-      workflowId: { _id: "wf3", name: "Data Sync Process" },
-      triggerId: { _id: "tr3", name: "Scheduled: Daily Sync" },
-      actionId: { _id: "ac3", name: "Sync Salesforce Data" },
-      conditionId: { _id: "co3", name: "API Available" },
-      conditionResult: true,
-      status: "failed",
-      executedAt: "2024-01-15T08:00:00Z",
-      error: "Salesforce API timeout after 30 seconds",
-      details: {
-        recordsProcessed: 0,
-        errorCode: "TIMEOUT_001",
-        retryCount: 2,
-      },
-      createdAt: "2024-01-15T08:00:00Z",
-      updatedAt: "2024-01-15T08:00:35Z",
-    },
-    {
-      _id: "4",
-      workflowId: { _id: "wf1", name: "Lead Generation Pipeline" },
-      triggerId: { _id: "tr4", name: "Lead Updated" },
-      actionId: { _id: "ac4", name: "Update CRM" },
-      conditionId: { _id: "co4", name: "Valid Email" },
-      conditionResult: true,
-      status: "in-progress",
-      executedAt: "2024-01-15T11:45:00Z",
-      error: null,
-      details: {
-        progress: 45,
-        currentStep: "Validating data",
-      },
-      createdAt: "2024-01-15T11:45:00Z",
-      updatedAt: "2024-01-15T11:45:30Z",
-    },
-    {
-      _id: "5",
-      workflowId: { _id: "wf4", name: "Invoice Processing" },
-      triggerId: { _id: "tr5", name: "New Invoice" },
-      actionId: { _id: "ac5", name: "Process Payment" },
-      conditionId: { _id: "co5", name: "Amount < $5000" },
-      conditionResult: true,
-      status: "waiting",
-      executedAt: "2024-01-15T12:00:00Z",
-      error: null,
-      details: {
-        amount: 3500,
-        paymentMethod: "ACH",
-        approvalRequired: false,
-      },
-      createdAt: "2024-01-15T12:00:00Z",
-      updatedAt: "2024-01-15T12:00:00Z",
-    },
-    {
-      _id: "6",
-      workflowId: { _id: "wf5", name: "User Notification" },
-      triggerId: { _id: "tr6", name: "System Alert" },
-      actionId: { _id: "ac6", name: "Send Push Notification" },
-      conditionId: { _id: "co6", name: "User Opted In" },
-      conditionResult: true,
-      status: "retrying",
-      executedAt: "2024-01-15T13:20:00Z",
-      error: "Push service temporarily unavailable",
-      details: {
-        retryAttempt: 3,
-        nextRetryIn: "5 minutes",
-        deviceToken: "xxx123",
-      },
-      createdAt: "2024-01-15T13:20:00Z",
-      updatedAt: "2024-01-15T13:25:00Z",
-    },
-    {
-      _id: "7",
-      workflowId: { _id: "wf6", name: "Data Export" },
-      triggerId: { _id: "tr7", name: "Export Requested" },
-      actionId: { _id: "ac7", name: "Generate CSV" },
-      conditionId: { _id: "co7", name: "Data Available" },
-      conditionResult: true,
-      status: "canceled",
-      executedAt: "2024-01-15T14:00:00Z",
-      error: "User canceled the operation",
-      details: {
-        canceledBy: "john.doe@company.com",
-        reason: "Wrong date range",
-      },
-      createdAt: "2024-01-15T14:00:00Z",
-      updatedAt: "2024-01-15T14:05:00Z",
-    },
-    {
-      _id: "8",
-      workflowId: { _id: "wf2", name: "Customer Onboarding" },
-      triggerId: { _id: "tr2", name: "User Signed Up" },
-      actionId: { _id: "ac8", name: "Assign Account Manager" },
-      conditionId: { _id: "co8", name: "High Value Customer" },
-      conditionResult: true,
-      status: "pending",
-      executedAt: null,
-      error: null,
-      details: {
-        estimatedStartTime: "2024-01-16T09:00:00Z",
-      },
-      createdAt: "2024-01-15T15:00:00Z",
-      updatedAt: "2024-01-15T15:00:00Z",
-    },
-  ];
+  const fetchHistory = useCallback(async () => {
+    if (!workflowId) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      const token = getTokenByPath();
+      const { data } = await axios.get(`/api/workflows/history/${workflowId}`, {
+        params: {
+          page: currentPage,
+          limit: 10,
+          status: selectedFilter !== "all" ? selectedFilter : undefined,
+          search: searchTerm,
+        },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (data.success) {
+        setHistory(data.data);
+        setPagination(data.pagination);
+
+        // Calculate basic stats for this page (or overall if API provides)
+        const currentStats = {
+          total: data.pagination.totalResults,
+          completed: data.pagination.totalCompleted,
+          failed: data.pagination.totalFailed,
+          inProgress: data.pagination.totalInProgress,
+        };
+        setStats(currentStats);
+      } else {
+        setError(data.message || "Failed to fetch history");
+      }
+    } catch (err: any) {
+      setError(
+        err.response?.data?.message || err.message || "An error occurred",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [workflowId, currentPage, selectedFilter, searchTerm]);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
+
+  const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      setSearchTerm(searchInput);
+      setCurrentPage(1);
+    }
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (pagination && newPage >= 1 && newPage <= pagination.totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
 
   const getStatusIcon = (status: WorkflowStatus): JSX.Element => {
     switch (status) {
@@ -272,27 +235,6 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
     }).format(date);
   };
 
-  const stats: Stats = {
-    total: workflowHistoryData.length,
-    completed: workflowHistoryData.filter((w) => w.status === "completed")
-      .length,
-    failed: workflowHistoryData.filter((w) => w.status === "failed").length,
-    inProgress: workflowHistoryData.filter((w) => w.status === "in-progress")
-      .length,
-  };
-
-  const filteredData: WorkflowHistoryItem[] = workflowHistoryData.filter(
-    (item) => {
-      const matchesSearch =
-        item.workflowId.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.triggerId.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.actionId.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesFilter =
-        selectedFilter === "all" || item.status === selectedFilter;
-      return matchesSearch && matchesFilter;
-    },
-  );
-
   const toggleSelectItem = (id: string): void => {
     setSelectedItems((prev) =>
       prev.includes(id)
@@ -302,10 +244,10 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
   };
 
   const toggleSelectAll = (): void => {
-    if (selectedItems.length === filteredData.length) {
+    if (selectedItems.length === history.length) {
       setSelectedItems([]);
     } else {
-      setSelectedItems(filteredData.map((item) => item._id));
+      setSelectedItems(history.map((item) => item._id));
     }
   };
 
@@ -313,15 +255,15 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
     e: React.ChangeEvent<HTMLSelectElement>,
   ): void => {
     setSelectedFilter(e.target.value);
+    setCurrentPage(1);
   };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    setSearchTerm(e.target.value);
+    setSearchInput(e.target.value);
   };
 
   const handleRefresh = (): void => {
-    // Add refresh logic here
-    console.log("Refresh clicked");
+    fetchHistory();
   };
 
   const handleExport = (): void => {
@@ -329,19 +271,9 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
     console.log("Export clicked");
   };
 
-  const handleView = (id: string): void => {
-    // Add view logic here
-    console.log("View item:", id);
-  };
-
-  const handleCopy = (id: string): void => {
-    // Add copy logic here
-    console.log("Copy item:", id);
-  };
-
-  const handleArchive = (id: string): void => {
-    // Add archive logic here
-    console.log("Archive item:", id);
+  const handleView = (item: WorkflowHistory): void => {
+    setSelectedHistoryItem(item);
+    setIsViewModalOpen(true);
   };
 
   const getConditionResultColor = (result: boolean | null): string => {
@@ -357,7 +289,11 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pb-20">
+      <Head>
+        <title>Workflow History | ZEVA</title>
+      </Head>
+
       {/* Header Section */}
       <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -367,7 +303,7 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
                 Workflow History
               </h1>
               <p className="text-sm text-gray-500 mt-1">
-                Track and monitor all workflow executions
+                {history[0]?.workflowId?.name || "Workflow Execution Logs"}
               </p>
             </div>
             <div className="flex items-center space-x-3">
@@ -380,9 +316,14 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
               </button>
               <button
                 onClick={handleRefresh}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg"
+                disabled={loading}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-gradient-to-r from-[#0A1F44] to-blue-900 hover:from-blue-900 hover:to-[#0A1F44] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg disabled:opacity-50"
               >
-                <RefreshCw className="w-4 h-4 mr-2" />
+                {loading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                )}
                 Refresh
               </button>
             </div>
@@ -401,7 +342,7 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
                   Total Executions
                 </p>
                 <p className="text-2xl font-bold text-gray-900 mt-2">
-                  {stats.total}
+                  {stats.total.toLocaleString()}
                 </p>
               </div>
               <div className="p-3 bg-blue-50 rounded-lg">
@@ -415,7 +356,7 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
               <div>
                 <p className="text-sm font-medium text-gray-600">Completed</p>
                 <p className="text-2xl font-bold text-gray-900 mt-2">
-                  {stats.completed}
+                  {stats.completed.toLocaleString()}
                 </p>
               </div>
               <div className="p-3 bg-green-50 rounded-lg">
@@ -429,7 +370,7 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
               <div>
                 <p className="text-sm font-medium text-gray-600">Failed</p>
                 <p className="text-2xl font-bold text-gray-900 mt-2">
-                  {stats.failed}
+                  {stats.failed.toLocaleString()}
                 </p>
               </div>
               <div className="p-3 bg-red-50 rounded-lg">
@@ -443,7 +384,7 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
               <div>
                 <p className="text-sm font-medium text-gray-600">In Progress</p>
                 <p className="text-2xl font-bold text-gray-900 mt-2">
-                  {stats.inProgress}
+                  {stats.inProgress.toLocaleString()}
                 </p>
               </div>
               <div className="p-3 bg-yellow-50 rounded-lg">
@@ -461,7 +402,7 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
               <select
                 value={selectedFilter}
                 onChange={handleFilterChange}
-                className="text-sm border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                className="text-sm border-gray-300 text-gray-400 rounded-lg focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="all">All Status</option>
                 <option value="completed">Completed</option>
@@ -479,8 +420,9 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
               <input
                 type="text"
                 placeholder="Search workflows..."
-                value={searchTerm}
+                value={searchInput}
                 onChange={handleSearchChange}
+                onKeyDown={handleSearch}
                 className="pl-9 pr-4 py-2 w-full border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
@@ -489,184 +431,249 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
 
         {/* Workflow History Table */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left">
-                    <input
-                      type="checkbox"
-                      checked={
-                        selectedItems.length === filteredData.length &&
-                        filteredData.length > 0
-                      }
-                      onChange={toggleSelectAll}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Workflow
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Trigger / Action
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Condition
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Executed At
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Details
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredData.map((item) => (
-                  <tr
-                    key={item._id}
-                    className={`hover:bg-gray-50 transition-colors duration-150 ${
-                      selectedItems.includes(item._id) ? "bg-blue-50" : ""
-                    }`}
-                  >
-                    <td className="px-6 py-4">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+              <p className="text-gray-500 font-medium">
+                Loading history logs...
+              </p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-20 text-red-500">
+              <AlertCircle className="w-12 h-12 mb-4" />
+              <p className="text-lg font-bold">{error}</p>
+              <button
+                onClick={handleRefresh}
+                className="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          ) : history.length === 0 ? (
+            <div className="text-center py-20">
+              <FileText className="mx-auto h-16 w-16 text-gray-300 mb-4" />
+              <h3 className="text-lg font-bold text-gray-900">
+                No history logs found
+              </h3>
+              <p className="text-gray-500 max-w-xs mx-auto mt-2">
+                We couldn't find any execution logs for this workflow. Try
+                adjusting your filters.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left w-10">
                       <input
                         type="checkbox"
-                        checked={selectedItems.includes(item._id)}
-                        onChange={() => toggleSelectItem(item._id)}
+                        checked={
+                          selectedItems.length === history.length &&
+                          history.length > 0
+                        }
+                        onChange={toggleSelectAll}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        {getStatusIcon(item.status)}
-                        <span
-                          className={`ml-2 px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(item.status)}`}
-                        >
-                          {item.status.charAt(0).toUpperCase() +
-                            item.status.slice(1)}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900">
-                        {item.workflowId.name}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900">
-                        {item.triggerId.name}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {item.actionId.name}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <span
-                          className={`text-xs font-medium px-2 py-1 rounded-full ${getConditionResultColor(item.conditionResult)}`}
-                        >
-                          {getConditionResultText(item.conditionResult)}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      <div className="flex items-center">
-                        <Calendar className="w-4 h-4 mr-1 text-gray-400" />
-                        {formatDate(item.executedAt)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      {item.error ? (
-                        <div
-                          className="text-xs text-red-600 max-w-xs truncate"
-                          title={item.error}
-                        >
-                          <AlertCircle className="w-4 h-4 inline mr-1" />
-                          {item.error}
-                        </div>
-                      ) : (
-                        <div className="text-xs text-gray-500">
-                          {Object.keys(item.details).length > 0
-                            ? "View details"
-                            : "No details"}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm font-medium">
-                      <div className="flex items-center justify-end space-x-2">
-                        <button
-                          onClick={() => handleView(item._id)}
-                          className="p-1 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-                          title="View"
-                        >
-                          <Eye className="w-4 h-4 text-gray-600" />
-                        </button>
-                        <button
-                          onClick={() => handleCopy(item._id)}
-                          className="p-1 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-                          title="Copy"
-                        >
-                          <Copy className="w-4 h-4 text-gray-600" />
-                        </button>
-                        <button
-                          onClick={() => handleArchive(item._id)}
-                          className="p-1 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-                          title="Archive"
-                        >
-                          <Archive className="w-4 h-4 text-gray-600" />
-                        </button>
-                      </div>
-                    </td>
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Trigger / Condition / Action
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Condition
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Executed At
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Details
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {history.map((item) => (
+                    <tr
+                      key={item._id}
+                      className={`hover:bg-gray-50 transition-colors duration-150 ${
+                        selectedItems.includes(item._id) ? "bg-blue-50/50" : ""
+                      }`}
+                    >
+                      <td className="px-6 py-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedItems.includes(item._id)}
+                          onChange={() => toggleSelectItem(item._id)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center">
+                          {getStatusIcon(item.status)}
+                          <span
+                            className={`ml-2 px-2.5 py-0.5 text-[11px] font-bold rounded-full border ${getStatusColor(item.status)} uppercase tracking-tight`}
+                          >
+                            {item.status}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {item?.type === "trigger" && (
+                          <div className="text-sm font-semibold text-gray-700">
+                            {item.triggerId?.name || "Manual Trigger"}
+                          </div>
+                        )}
+                        {item?.type === "condition" && item?.conditionId && (
+                          <div className="text-sm font-semibold text-gray-700">
+                            {getConditionName(item.conditionId?.type as any) ||
+                              "System Condition"}
+                          </div>
+                        )}
+                        {item?.type === "action" && item?.actionId && (
+                          <div className="text-sm font-semibold text-gray-700">
+                            {getActionName(item.actionId?.type as any) ||
+                              "System Action"}{" "}
+                            {item?.actionId?.type === "delay"
+                              ? `for ${item?.actionId?.parameters?.delayTime} ${item?.actionId?.parameters?.delayFormat}`
+                              : ""}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center">
+                          <span
+                            className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${getConditionResultColor(item.conditionResult)}`}
+                          >
+                            {getConditionResultText(item.conditionResult)}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        <div className="flex items-center">
+                          <Calendar className="w-3.5 h-3.5 mr-1.5 text-gray-400" />
+                          {formatDate(item.executedAt || item.createdAt)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {item.error ? (
+                          <div
+                            className="text-xs text-red-600 max-w-xs truncate font-medium flex items-center"
+                            title={item.error}
+                          >
+                            <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" />
+                            {item.error}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-gray-500 italic">
+                            {Object.keys(item.details || {}).length > 0
+                              ? "View properties"
+                              : "No meta data"}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm font-medium">
+                        <div className="flex items-center justify-end space-x-1.5">
+                          <button
+                            onClick={() => handleView(item)}
+                            className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors duration-200 text-gray-600"
+                            title="View Payload"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {/* Pagination */}
-          <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-700">
-                Showing <span className="font-medium">1</span> to{" "}
-                <span className="font-medium">{filteredData.length}</span> of{" "}
-                <span className="font-medium">
-                  {workflowHistoryData.length}
-                </span>{" "}
-                results
-              </div>
-              <div className="flex space-x-2">
-                <button className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50">
-                  Previous
-                </button>
-                <button className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-                  Next
-                </button>
+          {pagination && pagination.totalResults > 0 && (
+            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  Showing{" "}
+                  <span className="font-bold text-gray-900">
+                    {(currentPage - 1) * 10 + 1}
+                  </span>{" "}
+                  to{" "}
+                  <span className="font-bold text-gray-900">
+                    {Math.min(currentPage * 10, pagination.totalResults)}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-bold text-gray-900">
+                    {pagination.totalResults.toLocaleString()}
+                  </span>{" "}
+                  logs
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-all shadow-sm"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <div className="flex items-center gap-1">
+                    {[...Array(pagination.totalPages)].map((_, i) => {
+                      const pageNum = i + 1;
+                      if (
+                        pageNum === 1 ||
+                        pageNum === pagination.totalPages ||
+                        (pageNum >= currentPage - 1 &&
+                          pageNum <= currentPage + 1)
+                      ) {
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => handlePageChange(pageNum)}
+                            className={`w-8 h-8 rounded-lg text-sm font-bold transition-all ${
+                              currentPage === pageNum
+                                ? "bg-[#0A1F44] text-white shadow-md"
+                                : "bg-white border border-gray-300 text-gray-600 hover:bg-gray-50"
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      } else if (
+                        pageNum === currentPage - 2 ||
+                        pageNum === currentPage + 2
+                      ) {
+                        return (
+                          <span key={pageNum} className="text-gray-400 px-1">
+                            ...
+                          </span>
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={!pagination.hasMore}
+                    className="p-2 rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-all shadow-sm"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
-
-        {/* Empty State */}
-        {filteredData.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
-            <FileText className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">
-              No results found
-            </h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Try adjusting your search or filter to find what you're looking
-              for.
-            </p>
-          </div>
-        )}
       </div>
+      <ViewHistoryModal
+        isOpen={isViewModalOpen}
+        onClose={() => setIsViewModalOpen(false)}
+        item={selectedHistoryItem}
+      />
     </div>
   );
 };
