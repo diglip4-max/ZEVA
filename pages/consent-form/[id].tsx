@@ -1,9 +1,10 @@
 // pages/consent-form/[id].tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import axios from "axios";
-import { Check, Signature, Calendar, User } from "lucide-react";
+import { Check, Signature, Calendar, User, Trash2, CheckCircle } from "lucide-react";
+import SignatureCanvas from "react-signature-canvas";
 
 interface ConsentFormData {
   _id: string;
@@ -18,8 +19,9 @@ interface ConsentFormData {
 interface PatientData {
   firstName: string;
   lastName: string;
-  mobileNumber?: string;
-  email?: string;
+  mobileNumber: string;
+  email: string;
+  appointmentId?: string;
 }
 
 const ConsentFormPage: React.FC = () => {
@@ -31,12 +33,16 @@ const ConsentFormPage: React.FC = () => {
   const [consentForm, setConsentForm] = useState<ConsentFormData | null>(null);
   const [patient, setPatient] = useState<PatientData | null>(null);
   const [todayDate, setTodayDate] = useState("");
-  const [patientSignature, setPatientSignature] = useState("");
   const [nameConfirmed, setNameConfirmed] = useState("");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [questionsAnswered, setQuestionsAnswered] = useState(false);
   const [understandResults, setUnderstandResults] = useState(false);
   const [error, setError] = useState("");
+  const [signatureData, setSignatureData] = useState<string>("");
+  const [isEmpty, setIsEmpty] = useState(true);
+  const [appointmentId, setAppointmentId] = useState<string>("");
+  
+  const signatureRef = useRef<SignatureCanvas>(null);
 
   // Get today's date in formatted way
   useEffect(() => {
@@ -66,10 +72,35 @@ const ConsentFormPage: React.FC = () => {
           setError("Consent form not found");
         }
 
-        // Fetch patient data from URL params or session
-        const savedPatientData = sessionStorage.getItem(`patient_${id}`);
-        if (savedPatientData) {
-          setPatient(JSON.parse(savedPatientData));
+        // Fetch patient data from URL query params or sessionStorage
+        let patientFullName = "";
+        const patientDataFromUrl = router.query.patient;
+        
+        if (patientDataFromUrl && typeof patientDataFromUrl === 'string') {
+          try {
+            const decoded = JSON.parse(decodeURIComponent(patientDataFromUrl)) as PatientData;
+            console.log('Decoded patient data:', decoded);
+            setPatient(decoded);
+            setAppointmentId(decoded.appointmentId || "");
+            sessionStorage.setItem(`patient_${id}`, JSON.stringify(decoded));
+            patientFullName = `${decoded.firstName || ""} ${decoded.lastName || ""}`.trim();
+          } catch (e) {
+            console.error("Error parsing patient data:", e);
+          }
+        } else {
+          const savedPatientData = sessionStorage.getItem(`patient_${id}`);
+          console.log('Saved patient data from sessionStorage:', savedPatientData);
+          if (savedPatientData) {
+            const decoded = JSON.parse(savedPatientData) as PatientData;
+            setPatient(decoded);
+            setAppointmentId(decoded.appointmentId || "");
+            patientFullName = `${decoded.firstName || ""} ${decoded.lastName || ""}`.trim();
+          }
+        }
+        
+        // Check if this patient already has a signature for this consent form
+        if (patientFullName) {
+          await fetchExistingSignature(id, patientFullName);
         }
       } catch (err: any) {
         console.error("Error fetching data:", err);
@@ -80,12 +111,55 @@ const ConsentFormPage: React.FC = () => {
     };
 
     fetchData();
-  }, [id]);
+  }, [id, router.query.patient]);
 
-  const handleSignatureDraw = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // For now, we'll use text-based signature
-    // In future, can implement canvas for actual signature drawing
-    setPatientSignature(e.target.value);
+  // Function to fetch existing signature
+  const fetchExistingSignature = async (consentFormId: string, patientName: string) => {
+    try {
+      const response = await axios.get("/api/public/consent-signature-exists", {
+        params: { consentFormId, patientName },
+      });
+
+      if (response.data.success && response.data.signature) {
+        const sig = response.data.signature;
+        
+        // Load signature into canvas
+        setSignatureData(sig.signature);
+        
+        // Set checkbox states
+        setAgreedToTerms(sig.agreedToTerms || false);
+        setQuestionsAnswered(sig.questionsAnswered || false);
+        setUnderstandResults(sig.understandResults || false);
+        setNameConfirmed(sig.nameConfirmed || "");
+        
+        // Mark canvas as not empty
+        setIsEmpty(false);
+        
+        console.log('Loaded existing signature:', sig);
+      }
+    } catch (err: any) {
+      console.error("Error fetching existing signature:", err);
+      // Silently fail - user can just sign again
+    }
+  };
+
+  const handleSignatureBegin = () => {
+    setIsEmpty(false);
+  };
+
+  const handleSignatureEnd = () => {
+    if (signatureRef.current) {
+      const dataURL = signatureRef.current.toDataURL('image/png');
+      setSignatureData(dataURL);
+    }
+  };
+
+  const clearSignature = () => {
+    if (signatureRef.current) {
+      signatureRef.current.clear();
+      setSignatureData("");
+      setIsEmpty(true);
+    }
   };
 
   const handleSubmit = async () => {
@@ -97,7 +171,7 @@ const ConsentFormPage: React.FC = () => {
       return;
     }
 
-    if (consentForm.enableDigitalSignature && !patientSignature.trim()) {
+    if (consentForm.enableDigitalSignature && !signatureData) {
       alert("Please provide your signature");
       return;
     }
@@ -116,13 +190,14 @@ const ConsentFormPage: React.FC = () => {
         patientFirstName: patient?.firstName,
         patientLastName: patient?.lastName,
         date: todayDate,
-        signature: patientSignature,
+        signature: signatureData,
         nameConfirmed: nameConfirmed,
-        agreedToTerms,
-        questionsAnswered,
-        understandResults,
+        agreedToTerms: !!agreedToTerms,
+        questionsAnswered: !!questionsAnswered,
+        understandResults: !!understandResults,
         ipAddress: "", // Can add IP tracking if needed
         userAgent: typeof window !== "undefined" ? navigator.userAgent : "",
+        appointmentId: appointmentId || null,
       };
 
       const { data } = await axios.post("/api/public/consent-signature", payload);
@@ -257,11 +332,12 @@ const ConsentFormPage: React.FC = () => {
             <h2 className="text-lg font-bold text-gray-900 mb-4">Patient Acknowledgment</h2>
             
             <div className="space-y-3">
-              <label className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${agreedToTerms ? "bg-green-50 border-green-300" : "border-gray-200 hover:bg-gray-50"}`}>
+              <label className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${agreedToTerms ? "bg-green-50 border-green-300" : "border-gray-200 hover:bg-gray-50"} ${(signatureData && !isEmpty) ? "opacity-50 cursor-not-allowed" : ""}`}>
                 <input
                   type="checkbox"
-                  checked={agreedToTerms}
+                  checked={!!agreedToTerms}
                   onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  disabled={!!(signatureData && !isEmpty)}
                   className="w-5 h-5 accent-green-600 mt-0.5"
                 />
                 <span className="text-sm text-gray-700">
@@ -269,11 +345,12 @@ const ConsentFormPage: React.FC = () => {
                 </span>
               </label>
 
-              <label className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${questionsAnswered ? "bg-green-50 border-green-300" : "border-gray-200 hover:bg-gray-50"}`}>
+              <label className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${questionsAnswered ? "bg-green-50 border-green-300" : "border-gray-200 hover:bg-gray-50"} ${(signatureData && !isEmpty) ? "opacity-50 cursor-not-allowed" : ""}`}>
                 <input
                   type="checkbox"
-                  checked={questionsAnswered}
+                  checked={!!questionsAnswered}
                   onChange={(e) => setQuestionsAnswered(e.target.checked)}
+                  disabled={!!(signatureData && !isEmpty)}
                   className="w-5 h-5 accent-green-600 mt-0.5"
                 />
                 <span className="text-sm text-gray-700">
@@ -281,11 +358,12 @@ const ConsentFormPage: React.FC = () => {
                 </span>
               </label>
 
-              <label className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${understandResults ? "bg-green-50 border-green-300" : "border-gray-200 hover:bg-gray-50"}`}>
+              <label className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${understandResults ? "bg-green-50 border-green-300" : "border-gray-200 hover:bg-gray-50"} ${(signatureData && !isEmpty) ? "opacity-50 cursor-not-allowed" : ""}`}>
                 <input
                   type="checkbox"
-                  checked={understandResults}
+                  checked={!!understandResults}
                   onChange={(e) => setUnderstandResults(e.target.checked)}
+                  disabled={!!(signatureData && !isEmpty)}
                   className="w-5 h-5 accent-green-600 mt-0.5"
                 />
                 <span className="text-sm text-gray-700">
@@ -303,21 +381,62 @@ const ConsentFormPage: React.FC = () => {
                 Digital Signature
               </h2>
               
-              <div className="border-2 border-dashed border-blue-300 bg-blue-50 rounded-xl p-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Type your full name as signature
-                </label>
-                <input
-                  type="text"
-                  value={patientSignature}
-                  onChange={handleSignatureDraw}
-                  placeholder="Patient signature here"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <p className="text-xs text-gray-500 mt-2">
-                  Patient signs here during appointment
-                </p>
+              <div className="border-2 border-blue-300 bg-white rounded-xl overflow-hidden">
+                {/* Show signature image if already signed, otherwise show canvas */}
+                {signatureData && !isEmpty ? (
+                  // Display existing signature as static image
+                  <div className="bg-green-50 p-4">
+                    <img
+                      src={signatureData}
+                      alt="Patient Signature"
+                      className="w-full h-[200px] object-contain border-2 border-green-300 rounded-lg bg-white"
+                    />
+                    <div className="mt-3 flex items-center gap-2 text-green-700">
+                      <CheckCircle size={16} />
+                      <p className="text-sm font-medium">Signature already provided</p>
+                    </div>
+                  </div>
+                ) : (
+                  // Show signature canvas for new signature
+                  <div className="bg-blue-50 p-4">
+                    <SignatureCanvas
+                      ref={signatureRef}
+                      onBegin={handleSignatureBegin}
+                      onEnd={handleSignatureEnd}
+                      canvasProps={{
+                        width: 600,
+                        height: 200,
+                        className: 'signature-canvas w-full h-[200px] border-2 border-dashed border-blue-300 rounded-lg bg-white',
+                        style: { touchAction: 'none' }
+                      }}
+                    />
+                  </div>
+                )}
+                
+                {/* Status/Action Bar */}
+                {!signatureData || isEmpty ? (
+                  <div className="p-4 flex items-center justify-between bg-gray-50 border-t border-gray-200">
+                    <p className="text-xs text-gray-600">
+                      {isEmpty ? "Sign in the box above" : ""}
+                    </p>
+                    {signatureData && !isEmpty && (
+                      <button
+                        type="button"
+                        onClick={clearSignature}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-all"
+                      >
+                        <Trash2 size={14} />
+                        Clear Signature
+                      </button>
+                    )}
+                  </div>
+                ) : null}
               </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {signatureData && !isEmpty
+                  ? "This signature has been saved and will be stored in your medical records"
+                  : "Use your mouse or finger to sign above"}
+              </p>
             </div>
           )}
 
@@ -332,9 +451,16 @@ const ConsentFormPage: React.FC = () => {
                 type="text"
                 value={nameConfirmed}
                 onChange={(e) => setNameConfirmed(e.target.value)}
+                disabled={!!(signatureData && !isEmpty)}
                 placeholder={`${patient?.firstName || ""} ${patient?.lastName || ""}`.trim()}
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${(signatureData && !isEmpty) ? "bg-gray-100 cursor-not-allowed opacity-60" : "bg-white"}`}
               />
+              {(signatureData && !isEmpty) && (
+                <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                  <CheckCircle size={12} />
+                  Name confirmation already provided
+                </p>
+              )}
             </div>
           )}
 
@@ -373,4 +499,26 @@ const ConsentFormPage: React.FC = () => {
   );
 };
 
+(ConsentFormPage as any).getLayout = function PageLayout(page: React.ReactNode) {
+  return page;
+};
+
 export default ConsentFormPage;
+
+// Add some custom styles for the signature canvas
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = `
+    .signature-canvas {
+      touch-action: none;
+      cursor: crosshair;
+    }
+    .signature-canvas:focus {
+      outline: none;
+    }
+  `;
+  if (!document.getElementById('signature-canvas-styles')) {
+    style.id = 'signature-canvas-styles';
+    document.head.appendChild(style);
+  }
+}

@@ -313,6 +313,21 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>([]);
   const [loadingUpcoming, setLoadingUpcoming] = useState(false);
 
+  // Consent Form Status state
+  interface ConsentFormStatus {
+    _id: string;
+    consentFormId: string;
+    consentFormName: string;
+    description?: string;
+    patientName: string;
+    date: string;
+    hasSignature: boolean;
+    status: "pending" | "signed" | "sent";
+    signedAt?: string;
+  }
+  const [consentStatuses, setConsentStatuses] = useState<ConsentFormStatus[]>([]);
+  const [loadingConsentStatus, setLoadingConsentStatus] = useState(false);
+
   // Clinical Checklist state
   const CHECKLIST_ITEMS = ["Consent Signed", "Allergy Checked", "Photos Uploaded", "Notes Completed"] as const;
   const [checklist, setChecklist] = useState<Record<string, boolean>>({
@@ -509,9 +524,24 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
         // Fetch previous complaints + billing/visit stats
         if (response.data.appointment?.patientId) {
+          console.log("Appointment found, fetching related data:", response.data.appointment);
           fetchPreviousComplaints(response.data.appointment.patientId);
           fetchPatientStats(response.data.appointment.patientId);
           fetchUpcomingAppointments(response.data.appointment.patientId);
+          
+          // Fetch consent form statuses
+          const appointmentId = response.data.appointment._id || response.data.appointment.appointmentId;
+          if (appointmentId) {
+            console.log("Appointment ID exists, fetching consent statuses");
+            fetchConsentStatuses(
+              response.data.appointment.patientId,
+              appointmentId
+            );
+          } else {
+            console.log("No appointment ID found");
+          }
+        } else {
+          console.log("No patient ID in appointment data");
         }
 
         // Fetch smart recommendations based on doctor's departments
@@ -524,6 +554,78 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         );
       } finally {
         setLoading(false);
+      }
+    };
+
+    const fetchConsentStatuses = async (patientId: string, appointmentId: string) => {
+      setLoadingConsentStatus(true);
+      try {
+        console.log("Fetching consent statuses for patient:", patientId, "appointment:", appointmentId);
+        const headers = getAuthHeaders();
+        
+        // Fetch both signed consents and sent logs
+        const [signaturesResponse, logsResponse] = await Promise.all([
+          axios.get("/api/clinic/consent-status", {
+            headers,
+            params: { patientId, appointmentId },
+          }),
+          axios.get("/api/clinic/consent-log", {
+            headers,
+            params: { patientId, appointmentId },
+          }),
+        ]);
+        
+        console.log("Consent status response:", signaturesResponse.data);
+        console.log("Consent logs response:", logsResponse.data);
+
+        if (signaturesResponse.data?.success || logsResponse.data?.success) {
+          const signatures = signaturesResponse.data?.consentStatuses || [];
+          const logs = logsResponse.data?.consentLogs || [];
+          
+          // Merge logs and signatures, avoiding duplicates
+          const logMap = new Map();
+          
+          // Add all logs first (sent forms)
+          logs.forEach((log: any) => {
+            logMap.set(log.consentFormId, {
+              _id: log._id,
+              consentFormId: log.consentFormId,
+              consentFormName: log.consentFormName,
+              description: log.description || "",
+              patientName: log.patientName,
+              date: new Date(log.createdAt).toLocaleDateString("en-GB"),
+              hasSignature: false,
+              status: "sent",
+              signedAt: null,
+            });
+          });
+          
+          // Update with signatures if they exist (signed forms)
+          signatures.forEach((sig: ConsentFormStatus) => {
+            logMap.set(sig.consentFormId, {
+              ...sig,
+              status: "signed",
+            });
+          });
+          
+          // Convert map back to array
+          const mergedConsentStatuses = Array.from(logMap.values());
+          
+          setConsentStatuses(mergedConsentStatuses);
+          
+          // Update "Consent Signed" checklist item based on actual signature status
+          const hasSignedConsent = mergedConsentStatuses.some(
+            (cs: ConsentFormStatus) => cs.status === "signed" && cs.hasSignature
+          );
+          setChecklist((prev) => ({
+            ...prev,
+            "Consent Signed": hasSignedConsent,
+          }));
+        }
+      } catch (err: any) {
+        console.error("Error fetching consent statuses:", err);
+      } finally {
+        setLoadingConsentStatus(false);
       }
     };
 
@@ -1025,7 +1127,22 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         setSendMsgLoading(true);
         setSendingConsent(true);
         const token = getTokenByPath();
-        console.log({ details });
+        console.log('Details object:', details);
+ 
+        // Create patient data object for URL
+        const patientData = {
+          firstName: details?.patientName?.split(" ")[0] || "",
+          lastName: details?.patientName?.split(" ").slice(1).join(" ") || "",
+          mobileNumber: details?.mobileNumber || "",
+          email: details?.email || "",
+          appointmentId: details?._id || details?.appointmentId || "",
+        };
+        
+        console.log('Patient data object:', patientData);
+        const encodedPatientData = encodeURIComponent(JSON.stringify(patientData));
+        console.log('Encoded patient data:', encodedPatientData);
+        const consentUrl = `https://zeva360.com/consent-form/${selectedConsentId}?patient=${encodedPatientData}`;
+        console.log('Final consent URL:', consentUrl);
  
         const { data } = await axios.post(
           "/api/messages/send-message",
@@ -1033,7 +1150,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
             patientId: details?.patientId,
             providerId: "6952256c4a46b2f1eb01be86",
             channel: "whatsapp",
-            content: `Please review and sign the consent form by clicking the link below:\n\n https://zeva360.com/consent-form/${selectedConsentId}\n\n Thank you.`,
+            content: `Please review and sign the consent form by clicking the link below:\n\n ${consentUrl}\n\n Thank you.`,
             mediaUrl: "",
             mediaType: "",
             source: "Zeva",
@@ -1044,7 +1161,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
             bodyParameters: [
               {
                 type: "text",
-                text: `https://zeva360.com/consent-form/${selectedConsentId}`,
+                text: consentUrl,
               },
             ],
             attachments: [],
@@ -1058,6 +1175,38 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
  
         if (data && data?.success) {
           setConsentSent(true);
+          
+          // Log the sent consent form
+          try {
+            const token = getTokenByPath();
+            const selectedForm = consentForms.find((f) => f._id === selectedConsentId);
+            await axios.post(
+              "/api/clinic/consent-log",
+              {
+                consentFormId: selectedConsentId,
+                consentFormName: selectedForm?.formName || "",
+                patientId: details?.patientId,
+                patientName: details?.patientName || "",
+                appointmentId: details?.appointmentId,
+                sentVia: "whatsapp",
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+            
+            // Force re-fetch of consent statuses by clearing and setting state
+            setConsentStatuses([]);
+            if (details?.patientId && details?.appointmentId) {
+              setTimeout(() => {
+                fetchConsentStatuses(details.patientId, details.appointmentId);
+              }, 100);
+            }
+          } catch (logError) {
+            console.error("Error logging consent form sent:", logError);
+          }
         }
       } catch (error: any) {
         console.log(
@@ -2276,6 +2425,63 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           </table>
                         </div>
                       </div>
+
+                      {/* Consent Form Status */}
+                      {consentStatuses.length > 0 && (
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3 mb-3">
+                          <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-blue-600" /> Consent Forms
+                          </h3>
+                          <div className="space-y-2">
+                            {consentStatuses.map((consent) => (
+                              <div
+                                key={consent._id}
+                                className={`flex items-center justify-between p-3 rounded-lg border ${
+                                  consent.status === "signed"
+                                    ? "border-green-200 bg-green-50"
+                                    : "border-blue-200 bg-blue-50"
+                                }`}
+                              >
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-xs font-semibold text-gray-800">
+                                      {consent.consentFormName}
+                                    </p>
+                                    {consent.status === "signed" && (
+                                      <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                                    )}
+                                    {consent.status === "sent" && (
+                                      <Send className="w-3.5 h-3.5 text-blue-600" />
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-gray-500 mt-0.5">
+                                    {consent.description || "Consent form"}
+                                  </p>
+                                  <div className="flex items-center gap-3 mt-1">
+                                    <span className="text-[10px] text-gray-400">
+                                      Patient: {consent.patientName}
+                                    </span>
+                                    <span className="text-[10px] text-gray-400">
+                                      Date: {consent.date}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${
+                                      consent.status === "signed"
+                                        ? "bg-green-100 text-green-700"
+                                        : "bg-blue-100 text-blue-700"
+                                    }`}
+                                  >
+                                    {consent.status === "signed" ? "SIGNED" : "SENT"}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Clinical Checklist */}
                       <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
@@ -3606,6 +3812,63 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         )}
                       </div>
 
+                      {/* Consent Form Status */}
+                      {consentStatuses.length > 0 && (
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3 mb-3">
+                          <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-blue-600" /> Consent Forms
+                          </h3>
+                          <div className="space-y-2">
+                            {consentStatuses.map((consent) => (
+                              <div
+                                key={consent._id}
+                                className={`flex items-center justify-between p-3 rounded-lg border ${
+                                  consent.status === "signed"
+                                    ? "border-green-200 bg-green-50"
+                                    : "border-gray-200 bg-gray-50"
+                                }`}
+                              >
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-xs font-semibold text-gray-800">
+                                      {consent.consentFormName}
+                                    </p>
+                                    {consent.status === "signed" && (
+                                      <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                                    )}
+                                    {consent.status === "sent" && (
+                                      <Send className="w-3.5 h-3.5 text-blue-600" />
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-gray-500 mt-0.5">
+                                    {consent.description || "Consent form"}
+                                  </p>
+                                  <div className="flex items-center gap-3 mt-1">
+                                    <span className="text-[10px] text-gray-400">
+                                      Patient: {consent.patientName}
+                                    </span>
+                                    <span className="text-[10px] text-gray-400">
+                                      Date: {consent.date}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide ${
+                                      consent.status === "signed"
+                                        ? "bg-green-100 text-green-700"
+                                        : "bg-blue-100 text-blue-700"
+                                    }`}
+                                  >
+                                    {consent.status}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Stock Used (All Sessions) */}
                       {previousComplaints.some((c) => Array.isArray(c.items) && c.items.length > 0) && (
                         <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
@@ -3874,7 +4137,52 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                     </div>
                   </div>
                   <div className="px-4 py-3 space-y-2">
-                    {consentSent ? (
+                    {consentStatuses.length > 0 ? (
+                      <div className="space-y-2">
+                        {consentStatuses.map((consent) => (
+                          <div
+                            key={consent._id}
+                            className={`flex items-start gap-2 p-2 rounded-lg border ${
+                              consent.status === "signed"
+                                ? "border-green-200 bg-green-50"
+                                : "border-blue-200 bg-blue-50"
+                            }`}
+                          >
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              consent.status === "signed"
+                                ? "bg-green-100"
+                                : "bg-blue-100"
+                            }`}>
+                              {consent.status === "signed" ? (
+                                <CheckCircle className="w-3 h-3 text-green-600" />
+                              ) : (
+                                <Send className="w-3 h-3 text-blue-600" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-gray-700 truncate">
+                                {consent.consentFormName}
+                              </p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide ${
+                                  consent.status === "signed"
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-blue-100 text-blue-700"
+                                }`}>
+                                  {consent.status === "signed" ? "SIGNED" : "SENT"}
+                                </span>
+                                <span className="text-[10px] text-gray-400">
+                                  {consent.date}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-gray-500 mt-0.5 truncate">
+                                Patient: {consent.patientName}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : consentSent ? (
                       <div className="flex items-start gap-2">
                         <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                           <Check className="w-3 h-3 text-green-600" />
