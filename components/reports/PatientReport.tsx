@@ -7,6 +7,12 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
+  LineChart,
+  Line,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
 import ExportButtons from "./ExportButtons";
 
@@ -165,6 +171,8 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
     },
   ], [data]);
 
+  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d", "#ffc658", "#8dd1e1", "#a4de6c", "#d0ed57"];
+
   return (
     <div className="space-y-6">
       <div className="flex justify-end">
@@ -215,13 +223,24 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
           </div>
           <div className="w-full" style={{ height: 320 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={packageChart} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
-                <YAxis />
+              <PieChart>
+                <Pie
+                  data={packageChart}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  paddingAngle={5}
+                  dataKey="revenue"
+                  label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                >
+                  {packageChart.map((_: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
                 <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
-                <Bar dataKey="revenue" fill="#0EA5E9" />
-              </BarChart>
+                <Legend verticalAlign="bottom" height={36} />
+              </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
@@ -310,13 +329,22 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
         </div>
         <div className="w-full" style={{ height: 320 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={revenueChart} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
-              <CartesianGrid strokeDasharray="3 3" />
+            <LineChart data={revenueChart} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
-              <YAxis />
+              <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
               <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
-              <Bar dataKey="revenue" fill="#8B5CF6" />
-            </BarChart>
+              <Legend verticalAlign="top" height={36}/>
+              <Line 
+                type="monotone" 
+                dataKey="revenue" 
+                name="Total Revenue" 
+                stroke="#8B5CF6" 
+                strokeWidth={3} 
+                dot={{ r: 4, fill: "#8B5CF6", strokeWidth: 2 }} 
+                activeDot={{ r: 6, strokeWidth: 0 }} 
+              />
+            </LineChart>
           </ResponsiveContainer>
         </div>
       </div>

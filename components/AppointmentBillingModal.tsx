@@ -55,7 +55,10 @@ interface Package {
   price?: number;
   totalPrice: number;
   totalSessions: number;
-  sessionPrice: number;
+  sessionPrice?: number;
+  isUserPackage?: boolean;
+  remainingSessions?: number;
+  patientPackageId?: string;
   treatments: Array<{
     treatmentName: string;
     treatmentSlug: string;
@@ -72,6 +75,8 @@ interface SelectedTreatment {
   price: number;
   quantity: number;
   totalPrice: number;
+  usesFreeConsultation?: boolean;
+  usesMembershipDiscount?: boolean;
 }
 
 interface PackageTreatmentSession {
@@ -85,8 +90,10 @@ interface PackageTreatmentSession {
     sessions: number;
     date: string;
   }>; // Detailed usage history
-  isSelected: boolean; // Checkbox to select if patient took this treatment
-  sessionPrice: number; // Price per session for this treatment
+  isSelected: boolean;
+  sessionPrice: number;
+  usesFreeConsultation?: boolean;
+  usesMembershipDiscount?: boolean;
 }
 
 interface AppointmentBillingModalProps {
@@ -107,6 +114,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
+  const [userPackages, setUserPackages] = useState<any[]>([]);
   const [memberships, setMemberships] = useState<any[]>([]);
   const [patientDetails, setPatientDetails] = useState<any>(null);
   const [selectedService, setSelectedService] = useState<
@@ -133,6 +141,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [loadingMembershipUsage, setLoadingMembershipUsage] = useState(false);
   const [activePackageUsage, setActivePackageUsage] = useState<any[]>([]);
   const [loadingActivePackageUsage, setLoadingActivePackageUsage] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [expandedPackages, setExpandedPackages] = useState<Record<string, boolean>>({});
 
   // Smart Recommendations state
@@ -226,6 +235,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     pastAdvanceUsed50Percent: "0.00",
     pastAdvanceUsed54Percent: "0.00",
     pastAdvanceUsed159Flat: "0.00",
+    pendingUsed: "0.00",
   });
 
   const treatmentDropdownRef = useRef<HTMLDivElement>(null);
@@ -319,6 +329,46 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           setPackages(packagesRes.data.packages || []);
         }
 
+        // Fetch userPackages (packages created via public form) for this patient
+        if (appointment?.patientId) {
+          try {
+            const userPkgRes = await axios.get(`/api/clinic/patient-registration?id=${appointment.patientId}`, { headers });
+            if (userPkgRes.data.success && userPkgRes.data.patient?.userPackages) {
+              const approvedUserPackages = userPkgRes.data.patient.userPackages.filter(
+                (pkg: any) => pkg.approvalStatus === 'approved'
+              );
+              // Fetch full package details for each userPackage from UserPackage model
+              const fullUserPackages: any[] = [];
+              for (const pkg of approvedUserPackages) {
+                try {
+                  const pkgDetailsRes = await axios.get(
+                    `/api/clinic/public-package?patientId=${appointment.patientId}`,
+                    { headers }
+                  );
+                  if (pkgDetailsRes.data.success && pkgDetailsRes.data.existingPackages) {
+                    const fullPkg = pkgDetailsRes.data.existingPackages.find(
+                      (p: any) => p._id === pkg.packageId
+                    );
+                    if (fullPkg) {
+                      fullUserPackages.push({
+                        ...fullPkg,
+                        assignedDate: pkg.assignedDate,
+                        patientPackageId: pkg._id,
+                        isUserPackage: true,
+                      });
+                    }
+                  }
+                } catch (e) {
+                  console.error(`Error fetching userPackage ${pkg.packageId}:`, e);
+                }
+              }
+              setUserPackages(fullUserPackages);
+            }
+          } catch (e) {
+            console.error("Error fetching userPackages:", e);
+          }
+        }
+
         // Fetch memberships
         const membershipsRes = await axios.get("/api/clinic/memberships", {
           headers,
@@ -330,6 +380,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         // Fetch Smart Recommendations (departments & services) based on doctor
         try {
           if (appointment?.doctorId) {
+            setLoadingSmartRec(true);
             const deptRes = await axios.get("/api/clinic/doctor-departments", {
               headers,
               params: { doctorStaffId: appointment.doctorId },
@@ -370,6 +421,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         } catch (error) {
           console.log("Smart Rec fetch error:", error);
           // Ignore smart rec errors
+        } finally {
+          setLoadingSmartRec(false);
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -601,7 +654,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       } catch (logError) {
         console.error("Error logging consent form sent:", logError);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error sending consent form:", error?.response?.data || error.message);
     } finally {
       setSendingConsent(false);
@@ -905,15 +958,100 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       !membershipUsage?.isExpired &&
       !membershipTransferredOut
     ) {
-      const hasRemainingFreeConsultations =
-        membershipUsage.remainingFreeConsultations > 0;
+      const remainingFreeConsultations = membershipUsage.remainingFreeConsultations || 0;
       const discountPercentage = membershipUsage.discountPercentage || 0;
 
-      if (hasRemainingFreeConsultations) {
-        // Free consultation applies - set total to 0
+      // Treatment service
+      if (selectedService === "Treatment" && selectedTreatments.length > 0) {
+        const sortedTreatments = [...selectedTreatments].sort((a, b) => a.price - b.price);
+        let freeAvailable = remainingFreeConsultations;
+        let totalFree = 0;
+        let totalDiscount = 0;
+
+        const updated = sortedTreatments.map((t) => {
+          let usesFree = false;
+          let usesDiscount = false;
+          
+          if (freeAvailable > 0 && t.quantity > 0) {
+            const qtyFree = Math.min(t.quantity, freeAvailable);
+            if (qtyFree > 0) {
+              usesFree = true;
+              totalFree += t.price * qtyFree;
+              freeAvailable -= qtyFree;
+              const remainingQty = t.quantity - qtyFree;
+              if (remainingQty > 0 && discountPercentage > 0) {
+                usesDiscount = true;
+                totalDiscount += (t.price * remainingQty * discountPercentage) / 100;
+              }
+            }
+          } else if (discountPercentage > 0 && t.totalPrice > 0) {
+            usesDiscount = true;
+            totalDiscount += (t.totalPrice * discountPercentage) / 100;
+          }
+          return { ...t, usesFreeConsultation: usesFree, usesMembershipDiscount: usesDiscount };
+        });
+
+        const map = new Map(updated.map((t: any) => [t.treatmentSlug, t]));
+        setSelectedTreatments(prev => prev.map((t: any) => map.get(t.treatmentSlug) || t));
+        membershipDiscount = totalDiscount;
+        finalTotal = Math.max(0, baseTotal - totalFree - totalDiscount);
+      } 
+      // Package service - process sessions only when sessions > 0
+      else if (selectedService === "Package" && packageTreatmentSessions.some(t => t.isSelected)) {
+        const hasSessions = packageTreatmentSessions.some(t => t.isSelected && (t.usedSessions || 0) > 0);
+        
+        if (hasSessions) {
+          const selectedSessions = packageTreatmentSessions
+            .filter((t: any) => t.isSelected && (t.usedSessions || 0) > 0)
+            .sort((a, b) => a.sessionPrice - b.sessionPrice);
+          
+          let freeAvailable = remainingFreeConsultations;
+          let totalFree = 0;
+          let totalDiscount = 0;
+
+          const withFreeInfo = selectedSessions.map((t: any) => {
+            const sessions = t.usedSessions || 0;
+            let sessionsFree = 0;
+            if (freeAvailable > 0 && sessions > 0) {
+              sessionsFree = Math.min(sessions, freeAvailable);
+              freeAvailable -= sessionsFree;
+            }
+            return { ...t, sessionsFree, remainingSessions: sessions - sessionsFree };
+          });
+
+          // Create a map of updated flags by treatmentSlug
+          const sessionUpdates = new Map();
+          withFreeInfo.forEach((t: any) => {
+            const sf = t.sessionsFree || 0;
+            const rs = t.remainingSessions || 0;
+            let usesFree = sf > 0;
+            let usesDiscount = false;
+            
+            if (sf > 0) totalFree += t.sessionPrice * sf;
+            
+            if (rs > 0 && discountPercentage > 0) {
+              usesDiscount = true;
+              totalDiscount += (t.sessionPrice * rs * discountPercentage) / 100;
+            }
+            
+            sessionUpdates.set(t.treatmentSlug, { usesFreeConsultation: usesFree, usesMembershipDiscount: usesDiscount });
+          });
+
+          // Update only the flags in the existing state (don't replace the array)
+          setPackageTreatmentSessions(prev => prev.map((t: any) => {
+            const update = sessionUpdates.get(t.treatmentSlug);
+            if (update) {
+              return { ...t, ...update };
+            }
+            return { ...t, usesFreeConsultation: false, usesMembershipDiscount: false };
+          }));
+
+          membershipDiscount = totalDiscount;
+          finalTotal = Math.max(0, baseTotal - totalFree - totalDiscount);
+        }
+      } else if (remainingFreeConsultations > 0 && baseTotal > 0) {
         finalTotal = 0;
       } else if (discountPercentage > 0 && baseTotal > 0) {
-        // Apply discount percentage
         membershipDiscount = (baseTotal * discountPercentage) / 100;
         finalTotal = baseTotal - membershipDiscount;
       }
@@ -934,6 +1072,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       ...prev,
       discountedAmount: finalTotal.toFixed(2),
       originalAmount: baseTotal.toFixed(2),
+      // Auto-set paid to 0.00 if total is 0 (free consultation)
+      paid: finalTotal === 0 ? "0.00" : prev.paid,
     }));
   }, [
     selectedTreatments,
@@ -948,18 +1088,35 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   // Override displayed invoice total to include previous pending
   useEffect(() => {
     const discountedTotal = parseFloat(formData.discountedAmount || "0") || 0;
+    
+    // Always ensure amount has a value - either with previous pending or just the discounted total
     const invoiceTotal = Number(
       (discountedTotal + (balances.pendingBalance || 0)).toFixed(2),
     );
-    setFormData((prev) => ({
-      ...prev,
-      amount: invoiceTotal.toFixed(2),
-    }));
+    
+    console.log("Adding previous pending:", {
+      discountedTotal,
+      previousPending: balances.pendingBalance,
+      invoiceTotal,
+      currentAmount: formData.amount
+    });
+    
+    // Only update if the amount has changed to avoid infinite loops
+    if (Math.abs(parseFloat(formData.amount || "0") - invoiceTotal) > 0.001) {
+      setFormData((prev) => ({
+        ...prev,
+        amount: invoiceTotal.toFixed(2),
+      }));
+    }
   }, [balances.pendingBalance, formData.discountedAmount]);
 
   // Auto-calc pending/advance considering applied advance balances
   useEffect(() => {
     const amountNum = parseFloat(formData.amount) || 0;
+    const discountedAmount = parseFloat(formData.discountedAmount || "0") || 0;
+    
+    // Calculate how much previous pending is being rolled into this billing
+    const pendingBeingRolledIn = Math.max(0, amountNum - discountedAmount);
 
     // Calculate applied credits
     const appliedAdvance = applyAdvance
@@ -1021,6 +1178,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         pastAdvanceUsed50Percent: appliedPastAdvance50Percent.toFixed(2),
         pastAdvanceUsed54Percent: appliedPastAdvance54Percent.toFixed(2),
         pastAdvanceUsed159Flat: appliedPastAdvance159Flat.toFixed(2),
+        // Track previous pending being rolled into this billing
+        pendingUsed: pendingBeingRolledIn.toFixed(2),
       };
 
       // Auto-set paid when advance is applied
@@ -1275,10 +1434,237 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   };
 
   // Handle form submission
+  const generateInvoicePDF = async () => {
+    try {
+      setIsGeneratingPDF(true);
+      const { jsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
+
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      // Header
+      doc.setFontSize(22);
+      doc.setTextColor(20, 184, 166); // teal-600
+      doc.setFont("helvetica", "bold");
+      doc.text("ZEVA CLINIC", 14, 20);
+
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139); // slate-500
+      doc.setFont("helvetica", "normal");
+      doc.text("Billing Statement / Invoice", 14, 26);
+
+      doc.setFontSize(14);
+      doc.setTextColor(30, 41, 59); // slate-800
+      doc.text("INVOICE", pageWidth - 14, 20, { align: "right" });
+
+      const today = new Date().toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+      doc.setFontSize(9);
+      doc.text(`Date: ${today}`, pageWidth - 14, 26, { align: "right" });
+      doc.text(
+        `Invoice #: ${formData.invoiceNumber || "-"}`,
+        pageWidth - 14,
+        31,
+        { align: "right" },
+      );
+
+      // Patient Details
+      doc.setDrawColor(226, 232, 240); // slate-200
+      doc.line(14, 36, pageWidth - 14, 36);
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(71, 85, 105); // slate-600
+      doc.text("PATIENT INFORMATION", 14, 44);
+
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(15, 23, 42); // slate-900
+      doc.text(
+        `Name: ${appointment?.patientName || "-"}`,
+        14,
+        50,
+      );
+      doc.text(`Patient ID: ${appointment?.patientId || "-"}`, 14, 55);
+      doc.text(`EMR No: ${appointment?.emrNumber || "-"}`, 14, 60);
+
+      doc.text(
+        `Mobile: ${appointment?.patientNumber || "-"}`,
+        pageWidth / 2,
+        50,
+      );
+      doc.text(`Email: ${appointment?.patientEmail || "-"}`, pageWidth / 2, 55);
+      doc.text(`Gender: ${appointment?.gender || "-"}`, pageWidth / 2, 60);
+
+      // Billing Details Table
+      const tableRows = [];
+      if (selectedService === "Treatment") {
+        selectedTreatments.forEach((t) => {
+          tableRows.push([
+            t.treatmentName,
+            "Treatment",
+            t.quantity.toString(),
+            `AED ${t.price.toFixed(2)}`,
+            `AED ${t.totalPrice.toFixed(2)}`,
+          ]);
+        });
+      } else if (selectedService === "Package") {
+        const selectedPackageTreatments = packageTreatmentSessions.filter(
+          (t) => t.isSelected,
+        );
+        tableRows.push([
+          selectedPackage?.name || "-",
+          "Package",
+          "1",
+          `AED ${selectedPackage?.totalPrice.toFixed(2) || "0.00"}`,
+          `AED ${selectedPackage?.totalPrice.toFixed(2) || "0.00"}`,
+        ]);
+        selectedPackageTreatments.forEach((t) => {
+          tableRows.push([
+            `  • ${t.treatmentName}`,
+            "Session",
+            t.usedSessions.toString(),
+            "-",
+            "-",
+          ]);
+        });
+      }
+
+      autoTable(doc, {
+        startY: 70,
+        head: [["Description", "Type", "Qty/Sessions", "Unit Price", "Total"]],
+        body: tableRows,
+        theme: "striped",
+        headStyles: {
+          fillColor: [31, 41, 55], // Gray-800
+          fontSize: 9,
+          fontStyle: "bold",
+        },
+        bodyStyles: { fontSize: 9 },
+        columnStyles: {
+          3: { halign: "right" },
+          4: { halign: "right" },
+        },
+      });
+
+      // Split Payment Details (if any)
+      let currentY = (doc as any).lastAutoTable.finalY + 10;
+      const effectivePayments = useMultiplePayments 
+        ? multiplePayments.filter(p => parseFloat(p.amount) > 0)
+        : [{ paymentMethod: formData.paymentMethod, amount: formData.paid }];
+
+      if (effectivePayments.length > 0) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(31, 41, 55);
+        doc.text("PAYMENT BREAKDOWN", 14, currentY);
+        currentY += 6;
+
+        const paymentRows = effectivePayments.map((p: any) => [
+          p.paymentMethod, 
+          `AED ${parseFloat(p.amount || "0").toFixed(2)}`
+        ]);
+
+        autoTable(doc, {
+          startY: currentY,
+          head: [["Payment Method", "Amount"]],
+          body: paymentRows,
+          theme: "plain",
+          headStyles: { fontSize: 8, fontStyle: "bold", fillColor: [243, 244, 246] },
+          bodyStyles: { fontSize: 8 },
+          margin: { left: 14 },
+          tableWidth: 80,
+        });
+        currentY = (doc as any).lastAutoTable.finalY + 10;
+      }
+
+      // Summary Section
+      const finalY = currentY;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(31, 41, 55);
+      doc.text("SUMMARY", pageWidth - 70, finalY);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text("Total Amount:", pageWidth - 70, finalY + 6);
+      doc.text(
+        `AED ${parseFloat(formData.amount || "0").toFixed(2)}`,
+        pageWidth - 14,
+        finalY + 6,
+        { align: "right" },
+      );
+
+      doc.text("Paid Amount:", pageWidth - 70, finalY + 11);
+      doc.setTextColor(5, 150, 105); // emerald-600
+      doc.text(
+        `AED ${parseFloat(formData.paid || "0").toFixed(2)}`,
+        pageWidth - 14,
+        finalY + 11,
+        { align: "right" },
+      );
+
+      doc.setTextColor(220, 38, 38); // red-600
+      doc.setFont("helvetica", "bold");
+      doc.text("Outstanding:", pageWidth - 70, finalY + 16);
+      doc.text(
+        `AED ${parseFloat(formData.pending || "0").toFixed(2)}`,
+        pageWidth - 14,
+        finalY + 16,
+        { align: "right" },
+      );
+
+      // Notes
+      if (formData.notes) {
+        doc.setTextColor(71, 85, 105); // slate-600
+        doc.setFont("helvetica", "bold");
+        doc.text("NOTES", 14, finalY + 30);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        const splitNotes = doc.splitTextToSize(formData.notes, pageWidth - 28);
+        doc.text(splitNotes, 14, finalY + 35);
+      }
+
+      // Footer
+      const pageCount = (doc.internal as any).getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(148, 163, 184); // slate-400
+        doc.text(
+          `Page ${i} of ${pageCount} | ZEVA Clinic Management System`,
+          pageWidth / 2,
+          doc.internal.pageSize.getHeight() - 10,
+          { align: "center" },
+        );
+      }
+
+      doc.save(
+        `Invoice_${appointment?.patientName || "Patient"}_${new Date().getTime()}.pdf`,
+      );
+    } catch (err) {
+      console.error("PDF generation error:", err);
+      alert("Failed to generate PDF. Please try again.");
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrors({});
+
+    console.log("Submitting billing with formData:", {
+      amount: formData.amount,
+      discountedAmount: formData.discountedAmount,
+      paid: formData.paid,
+      pending: formData.pending,
+      pendingUsed: formData.pendingUsed,
+    });
 
     try {
       const headers = getAuthHeaders();
@@ -1448,9 +1834,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           parseFloat(formData.pastAdvanceUsed54Percent) || 0,
         pastAdvanceUsed159Flat:
           parseFloat(formData.pastAdvanceUsed159Flat) || 0,
-        pendingUsed:
-          parseFloat(formData.amount || "0") -
-            parseFloat(formData.pending || "0") || 0,
+        pendingUsed: parseFloat(formData.pendingUsed || "0") || 0,
         pending: parseFloat(formData.pending || "0") || 0,
         advance: parseFloat(formData.advance) || 0,
         pastAdvance: parseFloat(formData.pastAdvance) || 0,
@@ -1609,7 +1993,23 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     return false;
   });
 
-  const filteredPackages = packages.filter((pkg) => {
+  // Combine regular packages with userPackages for the dropdown
+  const allPackagesForDropdown: Package[] = [
+    ...packages.map((pkg: any) => ({ ...pkg, isUserPackage: false })),
+    ...userPackages.map((pkg: any) => ({
+      _id: pkg._id,
+      name: pkg.packageName,
+      totalPrice: pkg.totalPrice,
+      totalSessions: pkg.totalSessions,
+      sessionPrice: pkg.sessionPrice || (pkg.totalSessions > 0 ? pkg.totalPrice / pkg.totalSessions : 0),
+      treatments: pkg.treatments || [],
+      isUserPackage: true,
+      remainingSessions: pkg.remainingSessions,
+      patientPackageId: pkg.patientPackageId,
+    })),
+  ];
+
+  const filteredAllPackages = allPackagesForDropdown.filter((pkg) => {
     if (!packageSearchQuery.trim()) return false;
     const query = packageSearchQuery.toLowerCase();
     return pkg.name.toLowerCase().includes(query);
@@ -1620,10 +2020,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
   // Use API values for pending and advance balance display at top
   const apiPendingBalance = balances.pendingBalance || 0;
-  const apiAdvanceBalance = (balances.advanceBalance || 0) + (balances.pastAdvanceBalance || 0);
+  const apiAdvanceBalance = (balances.advanceBalance || 0) + 
+                            (balances.pastAdvance50PercentBalance || 0) + 
+                            (balances.pastAdvance54PercentBalance || 0) + 
+                            (balances.pastAdvance159FlatBalance || 0);
   
-  const pendingAmt = parseFloat(formData.pending || "0") || 0;
-  const advanceAmt = parseFloat(formData.advance || "0") || 0;
+
 
   return (
     <>
@@ -1705,6 +2107,21 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                     {consentSent ? "Sent" : "Send"}
                   </button>
                 </div>
+
+                {/* Generate Invoice Button */}
+                <button
+                  type="button"
+                  onClick={generateInvoicePDF}
+                  disabled={isGeneratingPDF || (!selectedTreatments.length && !selectedPackage)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] bg-teal-600 text-white rounded hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold shadow-sm"
+                >
+                  {isGeneratingPDF ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <FileText className="w-3.5 h-3.5" />
+                  )}
+                  {isGeneratingPDF ? "Generating..." : "Generate Invoice"}
+                </button>
               </div>
           
               {/* Right: Pending, Advance, Visits */}
@@ -1932,6 +2349,16 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                       <div className="min-w-0">
                                         <div className="text-xs font-semibold text-gray-900 truncate">{treatment.treatmentName}</div>
                                         <div className="text-[10px] text-gray-500">Dr. {appointment.doctorName}</div>
+                                        {(treatment.usesFreeConsultation || treatment.usesMembershipDiscount) && (
+                                          <div className="flex items-center gap-1 mt-0.5">
+                                            {treatment.usesFreeConsultation && (
+                                              <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-semibold">Free</span>
+                                            )}
+                                            {treatment.usesMembershipDiscount && (
+                                              <span className="text-[9px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-semibold">{membershipUsage?.discountPercentage || 10}% Off</span>
+                                            )}
+                                          </div>
+                                        )}
                                         {isJustAdded && (
                                           <div className="text-[9px] text-emerald-600 font-semibold mt-0.5 flex items-center gap-1">
                                             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -1986,11 +2413,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                 />
                               </div>
                               <div className="overflow-y-auto max-h-40">
-                                {filteredPackages.length === 0 ? (
+                                {filteredAllPackages.length === 0 ? (
                                   <div className="p-2 text-center text-xs text-gray-500">{packageSearchQuery.trim() ? "No packages found" : "Start typing..."}</div>
                                 ) : (
                                   <div className="p-1">
-                                    {filteredPackages.map((pkg) => (
+                                    {filteredAllPackages.map((pkg) => (
                                       <button key={pkg._id} type="button"
                                         onClick={(e) => { e.stopPropagation(); handlePackageSelect(pkg); }}
                                         className="w-full text-left px-2 py-1.5 rounded text-xs text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
@@ -2054,6 +2481,16 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                                 isFullyUsed ? "text-red-600" : treatment.isSelected ? "text-gray-900" : "text-gray-700"
                                               }`}>{treatment.treatmentName}</div>
                                               <div className="text-[10px] text-teal-600 font-medium">AED {treatment.sessionPrice.toFixed(2)}/session</div>
+                                              {(treatment.usesFreeConsultation || treatment.usesMembershipDiscount) && (
+                                                <div className="flex items-center gap-1 mt-0.5">
+                                                  {treatment.usesFreeConsultation && (
+                                                    <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-semibold">Free Session</span>
+                                                  )}
+                                                  {treatment.usesMembershipDiscount && (
+                                                    <span className="text-[9px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-semibold">{membershipUsage?.discountPercentage || 10}% Off</span>
+                                                  )}
+                                                </div>
+                                              )}
                                               {treatment.previouslyUsedSessions > 0 ? (
                                                 <div className={`text-[10px] mt-0.5 font-medium flex items-center gap-1 ${
                                                   isFullyUsed ? "text-red-600" : "text-amber-600"
@@ -2364,6 +2801,134 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       />
                     </div>
                   </div>
+
+                  {/* Billing Summary */}
+                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <svg className="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-xs font-bold text-gray-900">Billing Summary</span>
+                      {/* Free Consultation Tag */}
+                      {membershipUsage && membershipUsage.hasMembership && !membershipUsage.isExpired && membershipUsage.remainingFreeConsultations > 0 && parseFloat(formData.originalAmount || "0") > 0 && (
+                        <span className="ml-auto px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 rounded-full">
+                          Free Consultation Applied
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      {/* Original Amount (before discounts) */}
+                      {parseFloat(formData.originalAmount || "0") > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-600">Original Amount</span>
+                          <span className="font-semibold text-gray-900">AED {parseFloat(formData.originalAmount || "0").toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      {/* Doctor Discount (if applied) */}
+                      {isDoctorDiscountApplied && doctorDiscount && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-600">
+                            Doctor Discount ({doctorDiscount.discountType === "percentage" ? `${doctorDiscount.discountAmount}%` : "Fixed"})
+                          </span>
+                          <span className="font-semibold text-red-500">
+                            −AED {(() => {
+                              const originalAmt = parseFloat(formData.originalAmount || formData.amount || "0");
+                              if (doctorDiscount.discountType === "percentage") {
+                                return ((originalAmt * doctorDiscount.discountAmount) / 100).toFixed(2);
+                              }
+                              return doctorDiscount.discountAmount.toFixed(2);
+                            })()}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Membership Discount (if applied) */}
+                      {membershipUsage && membershipUsage.hasMembership && !membershipUsage.isExpired && membershipUsage.discountPercentage > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-600">
+                            Membership Discount ({membershipUsage.discountPercentage}%)
+                          </span>
+                          <span className="font-semibold text-blue-600">
+                            −AED {((parseFloat(formData.originalAmount || "0") * membershipUsage.discountPercentage) / 100).toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Divider */}
+                      <div className="border-t border-gray-200 my-2"></div>
+
+                      {/* Total Amount (after discounts) */}
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-gray-700 font-medium">Total Amount</span>
+                        <span className="font-bold text-gray-900">AED {parseFloat(formData.amount || "0").toFixed(2)}</span>
+                      </div>
+
+                      {/* Previous Pending Rolled In */}
+                      {parseFloat(formData.pendingUsed || "0") > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-600">Previous Pending Rolled In</span>
+                          <span className="font-semibold text-amber-600">+AED {parseFloat(formData.pendingUsed || "0").toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      {/* Advance Balance Used */}
+                      {parseFloat(formData.advanceUsed || "0") > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-600">Advance Balance Used</span>
+                          <span className="font-semibold text-purple-600">−AED {parseFloat(formData.advanceUsed || "0").toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      {/* Past Advance Used */}
+                      {parseFloat(formData.pastAdvanceUsed || "0") > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-600">Past Advance Used</span>
+                          <span className="font-semibold text-purple-600">−AED {parseFloat(formData.pastAdvanceUsed || "0").toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      {/* Divider */}
+                      <div className="border-t border-gray-200 my-2"></div>
+
+                      {/* Paid Amount */}
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-gray-700 font-medium">Paid Amount</span>
+                        <span className="font-bold text-emerald-600">AED {parseFloat(formData.paid || "0").toFixed(2)}</span>
+                      </div>
+
+                      {/* Split Payment Breakdown */}
+                      {useMultiplePayments && multiplePayments.length > 0 && (
+                        <div className="pl-3 space-y-1 border-l-2 border-emerald-100 mt-1 mb-2">
+                          {multiplePayments.map((payment, idx) => (
+                            parseFloat(payment.amount || "0") > 0 && (
+                              <div key={idx} className="flex items-center justify-between text-[10px] text-gray-500 font-medium">
+                                <span>{payment.paymentMethod === 'BT' ? 'Bank Transfer (BT)' : payment.paymentMethod}</span>
+                                <span>AED {parseFloat(payment.amount || "0").toFixed(2)}</span>
+                              </div>
+                            )
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Pending Amount */}
+                      {parseFloat(formData.pending || "0") > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-600">Pending Amount</span>
+                          <span className="font-semibold text-amber-600">AED {parseFloat(formData.pending || "0").toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      {/* Advance Given */}
+                      {parseFloat(formData.advance || "0") > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-600">Advance Given</span>
+                          <span className="font-semibold text-purple-600">AED {parseFloat(formData.advance || "0").toFixed(2)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 
                   {/* Action Buttons */}
                   <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-200">
@@ -2482,96 +3047,122 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {patientDetails && (patientDetails.packages || []).filter((p: any) => {
-                          return !patientDetails.packageTransfers?.some((t: any) => t.type === "out" && String(t.packageId) === String(p.packageId));
-                        }).length === 0 ? (
-                          <div className="text-[10px] text-gray-400 py-1">No active packages</div>
-                        ) : (
-                          (() => {
-                            const purchasedPackages = (patientDetails?.packages || []).filter((p: any) => {
-                              return !patientDetails.packageTransfers?.some((t: any) => t.type === "out" && String(t.packageId) === String(p.packageId));
-                            });
-                            const usageMap = new Map();
-                            activePackageUsage.forEach(u => usageMap.set(u.packageName, u));
+                        {/* Combine regular packages and userPackages */}
+                        {(() => {
+                          const purchasedPackages = (patientDetails?.packages || []).filter((p: any) => {
+                            return !patientDetails.packageTransfers?.some((t: any) => t.type === "out" && String(t.packageId) === String(p.packageId));
+                          });
+                          
+                          // Add userPackages (approved packages from PatientRegistration.userPackages)
+                          const approvedUserPackages = (patientDetails?.userPackages || []).filter(
+                            (pkg: any) => pkg.approvalStatus === 'approved'
+                          );
+                          
+                          const allPackages = [
+                            ...purchasedPackages.map((p: any) => ({ ...p, isUserPackage: false })),
+                            ...approvedUserPackages.map((p: any) => ({ ...p, isUserPackage: true }))
+                          ];
+                          
+                          if (allPackages.length === 0) {
+                            return <div className="text-[10px] text-gray-400 py-1">No active packages</div>;
+                          }
+                          
+                          const usageMap = new Map();
+                          activePackageUsage.forEach(u => usageMap.set(u.packageName, u));
 
-                            return purchasedPackages.map((pkg: any, pkgIndex: number) => {
-                              const packageDef = packages.find(p => p._id === pkg.packageId);
-                              const packageName = packageDef?.name || pkg.packageId;
-                              const usageData = usageMap.get(packageName);
-                              const isExpanded = expandedPackages[packageName] || false;
-                              const displayData = usageData || {
-                                packageName,
-                                treatments: packageDef?.treatments || [],
-                                totalSessions: packageDef?.treatments?.reduce((s: number, t: any) => s + (t.sessions || 0), 0) || 0,
-                                billingHistory: []
-                              };
+                          return allPackages.map((pkg: any, pkgIndex: number) => {
+                            let packageName: string;
+                            let packageDef: any = null;
+                            let treatments: any[] = [];
+                            let totalSessions = 0;
+                            
+                            if (pkg.isUserPackage) {
+                              // Handle userPackage
+                              packageName = pkg.packageName;
+                              treatments = pkg.treatments || [];
+                              totalSessions = pkg.totalSessions || 0;
+                            } else {
+                              // Handle regular package
+                              packageDef = packages.find(p => p._id === pkg.packageId);
+                              packageName = packageDef?.name || pkg.packageId;
+                              treatments = packageDef?.treatments || [];
+                              totalSessions = packageDef?.treatments?.reduce((s: number, t: any) => s + (t.sessions || 0), 0) || 0;
+                            }
+                            
+                            const usageData = usageMap.get(packageName);
+                            const isExpanded = expandedPackages[packageName] || false;
+                            const displayData = usageData || {
+                              packageName,
+                              treatments,
+                              totalSessions,
+                              billingHistory: []
+                            };
 
-                              return (
-                                <div key={`${pkg.packageId}-${pkgIndex}`} className="border border-teal-200 rounded-xl overflow-hidden bg-gradient-to-br from-teal-50 to-cyan-50">
-                                  <button type="button"
-                                    onClick={() => togglePackageExpansion(packageName)}
-                                    className="w-full px-3 py-2 flex items-center justify-between hover:bg-teal-100/50 transition-colors"
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center">
-                                        <span className="text-[8px] font-bold text-white">#{pkgIndex + 1}</span>
-                                      </div>
-                                      <div className="text-left">
-                                        <div className="text-[10px] font-semibold text-gray-900">{packageName}</div>
-                                        <div className="text-[9px] text-gray-500">{displayData.treatments?.length || 0} treatments · {displayData.totalSessions || 0} sessions</div>
-                                      </div>
+                            return (
+                              <div key={`${pkg.packageId || pkg._id}-${pkgIndex}`} className="border border-teal-200 rounded-xl overflow-hidden bg-gradient-to-br from-teal-50 to-cyan-50">
+                                <button type="button"
+                                  onClick={() => togglePackageExpansion(packageName)}
+                                  className="w-full px-3 py-2 flex items-center justify-between hover:bg-teal-100/50 transition-colors"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center">
+                                      <span className="text-[8px] font-bold text-white">#{pkgIndex + 1}</span>
                                     </div>
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-teal-100 text-teal-700 font-medium">{displayData.billingHistory?.length || 0} bills</span>
-                                      {isExpanded ? <ChevronUp className="w-3 h-3 text-gray-500" /> : <ChevronDown className="w-3 h-3 text-gray-500" />}
+                                    <div className="text-left">
+                                      <div className="text-[10px] font-semibold text-gray-900">{packageName}</div>
+                                      <div className="text-[9px] text-gray-500">{displayData.treatments?.length || 0} treatments · {displayData.totalSessions || 0} sessions</div>
                                     </div>
-                                  </button>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-teal-100 text-teal-700 font-medium">{displayData.billingHistory?.length || 0} bills</span>
+                                    {isExpanded ? <ChevronUp className="w-3 h-3 text-gray-500" /> : <ChevronDown className="w-3 h-3 text-gray-500" />}
+                                  </div>
+                                </button>
 
-                                  {isExpanded && (
-                                    <div className="border-t border-teal-200 p-2.5 space-y-2">
-                                      {displayData.treatments && displayData.treatments.length > 0 ? (
-                                        displayData.treatments.map((treatment: any, tIndex: number) => {
-                                          const treatmentUsage = usageData?.treatments?.find((t: any) => t.treatmentSlug === treatment.treatmentSlug);
-                                          const maxSessions = treatment.sessions || treatment.maxSessions || 0;
-                                          const totalUsedSessions = treatmentUsage?.totalUsedSessions || 0;
-                                          const remainingSessions = maxSessions - totalUsedSessions;
-                                          const isFullyUsed = maxSessions > 0 && totalUsedSessions >= maxSessions;
-                                          const usagePercent = maxSessions > 0 ? Math.round((totalUsedSessions / maxSessions) * 100) : 0;
+                                {isExpanded && (
+                                  <div className="border-t border-teal-200 p-2.5 space-y-2">
+                                    {displayData.treatments && displayData.treatments.length > 0 ? (
+                                      displayData.treatments.map((treatment: any, tIndex: number) => {
+                                        const treatmentUsage = usageData?.treatments?.find((t: any) => t.treatmentSlug === treatment.treatmentSlug);
+                                        const maxSessions = treatment.sessions || treatment.maxSessions || 0;
+                                        const totalUsedSessions = treatmentUsage?.totalUsedSessions || 0;
+                                        const remainingSessions = maxSessions - totalUsedSessions;
+                                        const isFullyUsed = maxSessions > 0 && totalUsedSessions >= maxSessions;
+                                        const usagePercent = maxSessions > 0 ? Math.round((totalUsedSessions / maxSessions) * 100) : 0;
 
-                                          return (
-                                            <div key={treatment.treatmentSlug || tIndex}
-                                              className={`rounded-lg border p-2 ${
-                                                isFullyUsed ? "bg-green-50 border-green-200" : remainingSessions > 0 ? "bg-amber-50 border-amber-200" : "bg-gray-50 border-gray-200"
-                                              }`}
-                                            >
-                                              <div className="flex items-center justify-between mb-1">
-                                                <span className="font-medium text-gray-900 text-[10px]">{treatment.treatmentName}</span>
-                                                <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-medium ${
-                                                  isFullyUsed ? "bg-green-100 text-green-700" : remainingSessions > 0 ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"
-                                                }`}>{isFullyUsed ? "Complete" : remainingSessions > 0 ? `${remainingSessions} left` : "0 left"}</span>
-                                              </div>
-                                              <div className="flex justify-between text-[9px] mb-0.5">
-                                                <span className="text-gray-500">Progress</span>
-                                                <span className="font-medium text-gray-800">{totalUsedSessions}/{maxSessions}</span>
-                                              </div>
-                                              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                                                <div className={`h-full rounded-full ${
-                                                  isFullyUsed ? "bg-green-500" : remainingSessions > 0 ? "bg-amber-500" : "bg-gray-400"
-                                                }`} style={{ width: `${Math.min(usagePercent, 100)}%` }} />
-                                              </div>
+                                        return (
+                                          <div key={treatment.treatmentSlug || tIndex}
+                                            className={`rounded-lg border p-2 ${
+                                              isFullyUsed ? "bg-green-50 border-green-200" : remainingSessions > 0 ? "bg-amber-50 border-amber-200" : "bg-gray-50 border-gray-200"
+                                            }`}
+                                          >
+                                            <div className="flex items-center justify-between mb-1">
+                                              <span className="font-medium text-gray-900 text-[10px]">{treatment.treatmentName}</span>
+                                              <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-medium ${
+                                                isFullyUsed ? "bg-green-100 text-green-700" : remainingSessions > 0 ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"
+                                              }`}>{isFullyUsed ? "Complete" : remainingSessions > 0 ? `${remainingSessions} left` : "0 left"}</span>
                                             </div>
-                                          );
-                                        })
-                                      ) : (
-                                        <div className="text-[10px] text-gray-400 text-center py-1">No treatments found</div>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            });
-                          })()
-                        )}
+                                            <div className="flex justify-between text-[9px] mb-0.5">
+                                              <span className="text-gray-500">Progress</span>
+                                              <span className="font-medium text-gray-800">{totalUsedSessions}/{maxSessions}</span>
+                                            </div>
+                                            <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                              <div className={`h-full rounded-full ${
+                                                isFullyUsed ? "bg-green-500" : remainingSessions > 0 ? "bg-amber-500" : "bg-gray-400"
+                                              }`} style={{ width: `${Math.min(usagePercent, 100)}%` }} />
+                                            </div>
+                                          </div>
+                                        );
+                                      })
+                                    ) : (
+                                      <div className="text-[10px] text-gray-400 text-center py-1">No treatments found</div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          });
+                        })()}
                       </div>
                     )}
                   </div>
@@ -2618,19 +3209,27 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-1">
-                              <span className={`text-[9px] px-2 py-0.5 rounded-full font-semibold ${
-                                (billing.pending || 0) <= 0 && (billing.paid || 0) > 0
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : (billing.pending || 0) > 0 && (billing.paid || 0) > 0
-                                    ? "bg-amber-100 text-amber-700"
-                                    : "bg-gray-100 text-gray-600"
-                              }`}>
-                                {(billing.pending || 0) <= 0 && (billing.paid || 0) > 0 ? "completed" : (billing.pending || 0) > 0 ? "pending" : "pending"}
-                              </span>
                               <span className="text-[9px] text-gray-400">{billing.invoiceNumber}</span>
                             </div>
                           </div>
                         ))}
+                        {last3Billings.length > 0 && (
+                          <button
+                            onClick={() => {
+                              const router = window.location.href.includes('/clinic/') 
+                                ? (window as any).router || { push: (url: string) => window.location.href = url }
+                                : null;
+                              if (router) {
+                                router.push(`/clinic/billing-history?patientId=${appointment.patientId}`);
+                              } else {
+                                window.location.href = `/clinic/billing-history?patientId=${appointment.patientId}`;
+                              }
+                            }}
+                            className="w-full mt-2 py-2 text-[10px] font-semibold text-teal-700 hover:text-teal-900 hover:bg-teal-50 rounded-lg transition-colors border border-teal-200"
+                          >
+                            View All Invoices →
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

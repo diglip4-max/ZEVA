@@ -99,7 +99,7 @@ const ConsentFormPage: React.FC = () => {
         }
         
         // Check if this patient already has a signature for this consent form
-        if (patientFullName) {
+        if (patientFullName && typeof id === 'string') {
           await fetchExistingSignature(id, patientFullName);
         }
       } catch (err: any) {

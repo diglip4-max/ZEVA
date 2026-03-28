@@ -225,6 +225,30 @@ export default async function handler(req, res) {
             { $project: { status: "$_id", count: 1 } },
             { $sort: { count: -1 } },
           ],
+          appointmentsByDept: [
+            {
+              $group: {
+                _id: "$svc.departmentId",
+                count: { $sum: 1 },
+              },
+            },
+            {
+              $lookup: {
+                from: "departments",
+                localField: "_id",
+                foreignField: "_id",
+                as: "dept",
+              },
+            },
+            {
+              $project: {
+                departmentId: "$_id",
+                count: 1,
+                departmentName: { $ifNull: [{ $arrayElemAt: ["$dept.name", 0] }, "Unassigned"] },
+              },
+            },
+            { $sort: { count: -1 } },
+          ],
           cancelledAppointments: [
             { $match: { status: { $in: statusCancelled } } },
             { $lookup: { from: "patients", localField: "patientId", foreignField: "_id", as: "patient" } },
@@ -354,6 +378,7 @@ export default async function handler(req, res) {
         summary: (out.summary && out.summary[0]) || { totalAppointments: 0, completedAppointments: 0, cancelledAppointments: 0, noShowAppointments: 0 },
         doctorReport: out.doctorReport || [],
         statusCounts: statusCountsAll,
+        appointmentsByDept: out.appointmentsByDept || [],
         cancelledAppointments: out.cancelledAppointments || [],
         noShowAppointments: out.noShowAppointments || [],
         filters: { doctors, departments },

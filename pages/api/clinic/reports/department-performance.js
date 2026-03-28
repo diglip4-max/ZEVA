@@ -4,6 +4,7 @@ import { getClinicIdFromUser, checkClinicPermission } from "../../lead-ms/permis
 import Billing from "../../../../models/Billing";
 import mongoose from "mongoose";
 import Department from "../../../../models/Department";
+import Appointment from "../../../../models/Appointment";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -206,12 +207,66 @@ export default async function handler(req, res) {
       });
     }
 
+    // Aggregation for appointments by department
+    const appointmentMatch = {};
+    if (user.role !== "admin") {
+      appointmentMatch.clinicId = new mongoose.Types.ObjectId(String(clinicId));
+    } else if (req.query.clinicId) {
+      appointmentMatch.clinicId = new mongoose.Types.ObjectId(String(req.query.clinicId));
+    }
+    if (startDate || endDate) {
+      appointmentMatch.startDate = {};
+      if (startDate) appointmentMatch.startDate.$gte = new Date(startDate);
+      if (endDate) appointmentMatch.startDate.$lte = new Date(endDate);
+      if (Object.keys(appointmentMatch.startDate).length === 0) delete appointmentMatch.startDate;
+    }
+
+    const appointmentPipeline = [
+      { $match: appointmentMatch },
+      {
+        $lookup: {
+          from: "services",
+          localField: "serviceId",
+          foreignField: "_id",
+          as: "serviceInfo",
+        },
+      },
+      {
+        $unwind: { path: "$serviceInfo", preserveNullAndEmptyArrays: true },
+      },
+      {
+        $group: {
+          _id: "$serviceInfo.departmentId",
+          totalAppointments: { $sum: 1 },
+        },
+      },
+      {
+        $lookup: {
+          from: "departments",
+          localField: "_id",
+          foreignField: "_id",
+          as: "deptInfo",
+        },
+      },
+      {
+        $project: {
+          departmentId: "$_id",
+          departmentName: { $ifNull: [{ $arrayElemAt: ["$deptInfo.name", 0] }, "Unassigned"] },
+          totalAppointments: 1,
+        },
+      },
+      { $sort: { totalAppointments: -1 } },
+    ];
+
+    const appointmentsByDept = await Appointment.aggregate(appointmentPipeline);
+
     return res.status(200).json({
       success: true,
       data: {
         departments,
         topDepartments,
         servicesByDepartment,
+        appointmentsByDept,
       },
     });
   } catch (error) {

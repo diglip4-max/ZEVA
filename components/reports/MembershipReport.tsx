@@ -28,6 +28,7 @@ interface TopRow {
   membershipName: string;
   totalRevenue: number;
   count: number;
+  totalAppointments: number;
 }
 
 interface Row {
@@ -82,6 +83,7 @@ export default function MembershipReport({ startDate, endDate, headers }: Props)
         name: t.membershipName || "Unnamed",
         revenue: Math.round(t.totalRevenue || 0),
         count: t.count || 0,
+        appointments: t.totalAppointments || 0,
       })),
     [top]
   );
@@ -89,10 +91,11 @@ export default function MembershipReport({ startDate, endDate, headers }: Props)
   const membershipExportSections = useMemo(() => [
     {
       title: "Top Memberships by Revenue",
-      headers: ["Membership Name", "Count", "Total Revenue (AED)"],
+      headers: ["Membership Name", "Count", "Total Appointments", "Total Revenue (AED)"],
       data: top.map(t => ({
         "Membership Name": t.membershipName || "Unnamed",
         "Count": t.count || 0,
+        "Total Appointments": t.totalAppointments || 0,
         "Total Revenue (AED)": Math.round(t.totalRevenue || 0),
       })),
     },
@@ -111,35 +114,73 @@ export default function MembershipReport({ startDate, endDate, headers }: Props)
   ], [top, rows]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-end">
+    <div className="space-y-4 sm:space-y-6">
+      {/* Export Buttons */}
+      <div className="flex justify-start sm:justify-end">
         <ExportButtons
           sections={membershipExportSections}
           filename={`membership_report_${startDate}_to_${endDate}`}
           title="Membership Performance Report"
         />
       </div>
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-800">Top Memberships (Revenue)</h3>
-        </div>
-        <div className="w-full" style={{ height: 320 }}>
+
+      {/* Appointments by Membership Chart */}
+      <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+        <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">Appointments by Membership</h3>
+        <div className="w-full" style={{ height: 300, minHeight: 250 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 50 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis 
+                dataKey="name" 
+                angle={-45} 
+                textAnchor="end" 
+                interval={0} 
+                height={70}
+                tick={{ fontSize: 10 }}
+              />
+              <YAxis 
+                allowDecimals={false}
+                tick={{ fontSize: 10 }}
+              />
+              <Tooltip contentStyle={{ fontSize: 11 }} />
+              <Bar dataKey="appointments" name="Appointments" fill="#10B981" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Top Memberships by Revenue Chart */}
+      <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+        <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">Top Memberships by Revenue</h3>
+        <div className="w-full" style={{ height: 300, minHeight: 250 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 50 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
-              <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
-              <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
+              <XAxis 
+                dataKey="name" 
+                angle={-45} 
+                textAnchor="end" 
+                interval={0} 
+                height={70}
+                tick={{ fontSize: 10 }}
+              />
+              <YAxis 
+                tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} 
+                tick={{ fontSize: 10 }}
+              />
+              <Tooltip formatter={(v: any) => currency(Number(v || 0))} contentStyle={{ fontSize: 11 }} />
               <Bar dataKey="revenue" fill="#2D9AA5" />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-800">Membership Reports</h3>
-          <div className="flex items-center gap-4">
+      {/* Membership Reports Table with Pagination */}
+      <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-3">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-800">Membership Reports</h3>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto">
             <ExportButtons
               sections={[
                 {
@@ -158,17 +199,17 @@ export default function MembershipReport({ startDate, endDate, headers }: Props)
               filename={`membership_report_${startDate}_to_${endDate}`}
               title="Membership Performance Report"
             />
-            <div className="flex items-center gap-2 border-l pl-4">
+            <div className="flex items-center gap-1 sm:gap-2 border-l border-gray-300 pl-2 sm:pl-4 w-full sm:w-auto justify-center sm:justify-end">
               <button
-                className="px-3 py-1.5 rounded border text-sm"
+                className="px-2 sm:px-3 py-1 sm:py-1.5 rounded border text-xs sm:text-sm bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 transition-colors min-w-[60px] sm:min-w-[70px]"
                 disabled={page <= 1}
                 onClick={() => fetchData(Math.max(1, page - 1))}
               >
                 Prev
               </button>
-              <span className="text-sm text-gray-700">Page {page}</span>
+              <span className="text-xs sm:text-sm text-gray-700 font-medium whitespace-nowrap">Page {page}</span>
               <button
-                className="px-3 py-1.5 rounded border text-sm"
+                className="px-2 sm:px-3 py-1 sm:py-1.5 rounded border text-xs sm:text-sm bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 transition-colors min-w-[60px] sm:min-w-[70px]"
                 disabled={!hasNext}
                 onClick={() => fetchData(page + 1)}
               >
@@ -177,29 +218,29 @@ export default function MembershipReport({ startDate, endDate, headers }: Props)
             </div>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap">
                   Membership Name
                 </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap">
                   Patient Name
                 </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap">
                   Start Date
                 </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap">
                   Expiry Date
                 </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap">
                   Status
                 </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap">
                   Total Revenue
                 </th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
+                <th className="px-3 sm:px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap">
                   Actions
                 </th>
               </tr>
@@ -207,17 +248,17 @@ export default function MembershipReport({ startDate, endDate, headers }: Props)
             <tbody className="bg-white divide-y divide-gray-100">
               {rows.map((r) => (
                 <tr key={`${r.membershipName}-${r.patientName}-${r.startDate}`}>
-                  <td className="px-4 py-2 text-sm text-gray-800">{r.membershipName || "-"}</td>
-                  <td className="px-4 py-2 text-sm">{r.patientName || "-"}</td>
-                  <td className="px-4 py-2 text-sm">
+                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-800 max-w-[120px] sm:max-w-none truncate">{r.membershipName || "-"}</td>
+                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm max-w-[100px] sm:max-w-none truncate">{r.patientName || "-"}</td>
+                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">
                     {r.startDate ? new Date(r.startDate).toLocaleDateString() : "-"}
                   </td>
-                  <td className="px-4 py-2 text-sm">
+                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">
                     {r.endDate ? new Date(r.endDate).toLocaleDateString() : "-"}
                   </td>
-                  <td className="px-4 py-2 text-sm">{r.status}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{currency(r.totalRevenue || 0)}</td>
-                  <td className="px-4 py-2 text-sm text-right">
+                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">{r.status}</td>
+                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium whitespace-nowrap">{currency(r.totalRevenue || 0)}</td>
+                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-right whitespace-nowrap">
                     <button
                       className="px-3 py-1.5 rounded bg-[#2D9AA5] text-white text-xs"
                       onClick={async () => {

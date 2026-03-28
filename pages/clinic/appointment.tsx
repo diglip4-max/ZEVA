@@ -12,7 +12,7 @@ import Loader from "../../components/Loader";
 import AppointmentBookingModal from "../../components/AppointmentBookingModal";
 import ImportAppointmentsModal from "../../components/ImportAppointmentsModal";
 import EditAppointmentModal from "../../components/EditAppointmentModal";
-import { toast } from "react-hot-toast";
+import { toast, Toaster } from "react-hot-toast";
 import { useAgentPermissions } from '../../hooks/useAgentPermissions';
 
 interface DoctorStaff {
@@ -54,6 +54,28 @@ const ROW_INTERVAL_MINUTES = 30;
 const SLOT_INTERVAL_MINUTES = 15;
 const ROW_HEIGHT_PX = 40; // Reduced from 56 to allow more rows
 const SUB_SLOT_HEIGHT_PX = ROW_HEIGHT_PX / 2;
+
+// Helper function to format date correctly without timezone issues
+function formatDateForDisplay(dateString: string): string {
+  // Parse the date string in YYYY-MM-DD format directly
+  const [year, month, day] = dateString.split('-').map(Number);
+  // Create date object using local time to avoid timezone shifts
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString("en-GB", {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  }).replace(/\//g, "-");
+}
+
+// Helper function to get today's date in local timezone (YYYY-MM-DD format)
+function getLocalTodayDate(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 function timeStringToMinutes(time24: string): number {
   const [hourStr, minuteStr] = time24.split(":");
@@ -399,19 +421,29 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("appointmentSelectedDate");
+      const today = getLocalTodayDate();
+      
       if (saved) {
         try {
           // Validate the saved date format
           if (/^\d{4}-\d{2}-\d{2}$/.test(saved)) {
-            return saved;
+            // Only use saved date if it's today, otherwise reset to today
+            // This ensures that when user logs in, they always see today's date
+            if (saved === today) {
+              return saved;
+            } else {
+              // Saved date is from a different day, reset to today
+              localStorage.setItem("appointmentSelectedDate", today);
+              return today;
+            }
           }
         } catch (e) {
           // Swallow parse errors silently
         }
       }
     }
-    // Default to today's date if no saved date
-    return new Date().toISOString().split("T")[0];
+    // Default to today's date if no saved date (using local timezone)
+    return getLocalTodayDate();
   });
   const [doctorTreatmentsMap, setDoctorTreatmentsMap] = useState<Record<string, DoctorTreatmentSummary[]>>({});
   const [doctorTreatmentsLoading, setDoctorTreatmentsLoading] = useState<Record<string, boolean>>({});
@@ -679,6 +711,8 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   const dragStopTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const timeDragSelectionRef = useRef(timeDragSelection);
   const dateInputRef = useRef<HTMLInputElement | null>(null);
+  const dataScrollRef = useRef<HTMLDivElement | null>(null);
+  const timeScrollRef = useRef<HTMLDivElement | null>(null);
  
   // Keep ref in sync with state
   useEffect(() => {
@@ -2365,7 +2399,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           localStorage.setItem("appointmentSelectedDate", firstDate);
         }
         toast.success(
-          `Appointments imported! Navigated to ${new Date(firstDate).toLocaleDateString()}.`,
+          `Appointments imported! Navigated to ${formatDateForDisplay(firstDate)}.`,
           { duration: 4000 }
         );
       } else {
@@ -2713,7 +2747,7 @@ useEffect(() => {
                           if (typeof window !== "undefined") {
                             localStorage.setItem("appointmentSelectedDate", newDate);
                           }
-                          toast(`Viewing appointments for ${new Date(newDate).toLocaleDateString()}`, {
+                          toast(`Viewing appointments for ${formatDateForDisplay(newDate)}`, {
                             duration: 2000,
                             icon: "â„¹ï¸ ",
                           });
@@ -2722,7 +2756,7 @@ useEffect(() => {
                         title="Select date"
                       />
                       <span className="text-[10px] font-bold text-teal-600 select-none pointer-events-none">
-                        {new Date(selectedDate).toLocaleDateString("en-GB").replace(/\//g, "-")}
+                        {formatDateForDisplay(selectedDate)}
                       </span>
                       <Calendar className="w-3.5 h-3.5 text-gray-600 dark:text-gray-700 pointer-events-none" />
                     </div>
@@ -3043,17 +3077,43 @@ useEffect(() => {
             </div>
             )}
 
-            <div className="border border-gray-200 dark:border-gray-300 rounded overflow-hidden bg-white dark:bg-gray-50">
-            {/* Scrollable container */}
-            <div className="overflow-x-auto max-h-[75vh] overflow-y-auto relative">
-            {/* Header with doctor names and rooms */}
-              <div className="flex bg-gray-50 dark:bg-gray-200 border-b border-gray-200 dark:border-gray-300 sticky top-0 z-[40]">
-                <div className="w-16 sm:w-18 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 p-1 bg-white dark:bg-gray-50 sticky left-0 z-[70] after:content-[''] after:absolute after:top-0 after:bottom-0 after:right-[-2px] after:w-[2px] after:bg-white dark:after:bg-gray-50 after:pointer-events-none">
+            <div className="border border-gray-200 dark:border-gray-300 rounded bg-white dark:bg-gray-50 flex" style={{ maxHeight: '75vh' }}>
+              {/* LEFT: Fixed time column - physically outside horizontal scroll */}
+              <div
+                ref={timeScrollRef}
+                className="flex-shrink-0 w-16 border-r border-gray-200 dark:border-gray-300 overflow-y-auto bg-white dark:bg-gray-50 scrollbar-hide"
+              >
+                {/* Time header */}
+                <div className="sticky top-0 z-50 bg-gray-50 dark:bg-gray-200 border-b border-gray-200 dark:border-gray-300 p-1">
                   <div className="flex items-center gap-0.5 text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900">
                     <Clock className="w-2.5 h-2.5" />
-                  <span>Time</span>
+                    <span>Time</span>
+                  </div>
                 </div>
+                {/* Time slot labels */}
+                {timeSlots.map((slot) => (
+                  <div
+                    key={slot.time}
+                    className="border-b border-gray-100 dark:border-gray-300 p-1 relative bg-white dark:bg-gray-50 hover:bg-gray-50/50 dark:hover:bg-gray-100/50"
+                    style={{ height: ROW_HEIGHT_PX }}
+                  >
+                    <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900">{slot.displayTime}</p>
+                    <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 dark:border-gray-300 pointer-events-none" />
+                  </div>
+                ))}
               </div>
+              {/* RIGHT: Scrollable data area - scrolls both horizontally and vertically */}
+              <div
+                ref={dataScrollRef}
+                className="flex-1 overflow-x-auto overflow-y-auto"
+                onScroll={(e) => {
+                  if (timeScrollRef.current) {
+                    timeScrollRef.current.scrollTop = e.currentTarget.scrollTop;
+                  }
+                }}
+              >
+            {/* Header with doctor names and rooms */}
+              <div className="flex bg-gray-50 dark:bg-gray-200 border-b border-gray-200 dark:border-gray-300 sticky top-0 z-[40]" style={{ minWidth: 'max-content' }}>
               {/* Unified columns (doctors and rooms in order) */}
                 {orderedColumns.map((column, index) => {
                   const columnKey = column.type === "doctor" ? `doctor:${column.data._id}` : `room:${column.data._id}`;
@@ -3187,20 +3247,11 @@ useEffect(() => {
             </div>
 
             {/* Time slots grid */}
-              <div className="min-w-max">
+              <div style={{ minWidth: 'max-content' }}>
               {timeSlots.map((slot) => {
                 const rowStartMinutes = timeStringToMinutes(slot.time);
                 return (
-                  <div key={slot.time} className="flex hover:bg-gray-50/50 dark:hover:bg-gray-100/50 transition-colors min-w-max">
-                    {/* Time column */}
-                    <div
-                      className="w-16 sm:w-18 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 p-1 bg-white dark:bg-gray-50 sticky left-0 z-[30] after:content-[''] after:absolute after:top-0 after:bottom-0 after:right-[-2px] after:w-[2px] after:bg-white dark:after:bg-gray-50 after:pointer-events-none"
-                      style={{ height: ROW_HEIGHT_PX }}
-                    >
-                      <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900">{slot.displayTime}</p>
-                      <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 dark:border-gray-300" />
-                    </div>
-
+                  <div key={slot.time} className="flex hover:bg-gray-50/50 dark:hover:bg-gray-100/50 transition-colors" style={{ minWidth: 'max-content' }}>
                     {/* Unified columns (doctors and rooms in order) */}
                           {orderedColumns.map((column, colIndex) => {
                       const isLastColumn = colIndex === orderedColumns.length - 1;
@@ -3908,7 +3959,13 @@ useEffect(() => {
                           const slots = generateTimeSlots(customStartTime, customEndTime);
                           setTimeSlots(slots);
                           setClosingMinutes(endMinutes);
-                          toast.success("Custom time slots saved and applied", { duration: 2000 });
+                          
+                          // Show success pop-up with time details
+                          toast.success(
+                            `Custom time slots applied: ${formatTime(customStartTime)} - ${formatTime(customEndTime)}`,
+                            { duration: 3000 }
+                          );
+                          
                           setCustomTimeSlotModalOpen(false);
                         } catch (err: any) {
                           console.error("Error saving custom time slots:", err);
@@ -3949,7 +4006,10 @@ useEffect(() => {
                             setClosingMinutes(timeStringToMinutes(parsed.endTime));
                           }
                         }
-                        toast.success("Reverted to clinic timings", { duration: 2000 });
+                        
+                        // Show success pop-up with duration
+                        toast.success("Reverted to clinic timings", { duration: 3000 });
+                        
                         setCustomTimeSlotModalOpen(false);
                       } catch (err: any) {
                         console.error("Error saving custom time slots:", err);
@@ -4252,7 +4312,33 @@ useEffect(() => {
         </div>
       )}
     </div>
-    </div>
+    
+    {/* Toast Notification Container */}
+    <Toaster
+      position="top-right"
+      toastOptions={{
+        duration: 3000,
+        success: {
+          style: {
+            background: '#10B981',
+            color: '#fff',
+            fontWeight: '600',
+          },
+          iconTheme: {
+            primary: '#fff',
+            secondary: '#10B981',
+          },
+        },
+        error: {
+          style: {
+            background: '#EF4444',
+            color: '#fff',
+            fontWeight: '600',
+          },
+        },
+      }}
+    />
+  </div>
   );
 }
 

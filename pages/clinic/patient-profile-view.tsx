@@ -58,6 +58,9 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
   const [consentStatuses, setConsentStatuses] = useState<any[]>([]);
   const [loadingConsentStatus, setLoadingConsentStatus] = useState(false);
   
+  // Package Link State
+  const [sendingPackageLink, setSendingPackageLink] = useState(false);
+  
   // Stats state - fetched on mount
   const [statsData, setStatsData] = useState({
     totalVisits: 0,
@@ -779,6 +782,70 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
     }
   };
 
+  const sendPackageLink = async () => {
+    if (!patientData?._id || !patientData?.clinicId) {
+      alert('Patient data not available');
+      return;
+    }
+
+    try {
+      setSendingPackageLink(true);
+      const headers = getAuthHeaders();
+      if (!headers) {
+        alert('Authentication required');
+        return;
+      }
+
+      const patientName = patientData?.fullName || `${patientData?.firstName || ''} ${patientData?.lastName || ''}`.trim();
+      const patientMobile = patientData?.mobileNumber || '';
+      const patientEmail = patientData?.email || '';
+
+      // Generate package creation URL
+      const packageUrl = `https://zeva360.com/public/create-package?clinicId=${patientData.clinicId}&patientId=${patientData._id}&patientName=${encodeURIComponent(patientName)}&patientMobile=${encodeURIComponent(patientMobile)}&patientEmail=${encodeURIComponent(patientEmail)}`;
+
+      console.log("=== SENDING PACKAGE LINK VIA WHATSAPP ===");
+      console.log("Package URL:", packageUrl);
+      console.log("Patient Name:", patientName);
+      console.log("Patient Mobile:", patientMobile);
+      console.log("Patient Email:", patientEmail);
+      console.log("Clinic ID:", patientData.clinicId);
+      console.log("Patient ID:", patientData._id);
+      console.log("==========================================");
+
+      // Send via WhatsApp message API
+      const token = getStoredToken();
+      await axios.post(
+        "/api/messages/send-message",
+        {
+          patientId: patientData._id,
+          providerId: "6952256c4a46b2f1eb01be86",
+          channel: "whatsapp",
+          content: `Hello ${patientName}! Click the link below to create your treatment package:\n\n${packageUrl}\n\nThank you!`,
+          mediaUrl: "",
+          mediaType: "",
+          source: "Zeva",
+          messageType: "conversational",
+          templateId: "",
+          headerParameters: [],
+          bodyParameters: [],
+          attachments: [],
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      alert('Package link sent successfully!');
+    } catch (error: any) {
+      console.error("Error sending package link:", error);
+      alert(error?.response?.data?.message || 'Failed to send package link');
+    } finally {
+      setSendingPackageLink(false);
+    }
+  };
+
   const fetchPatientBalance = async (patientId: string) => {
     const headers = getAuthHeaders();
     if (!headers) return;
@@ -946,23 +1013,23 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                   <stat.icon className={`w-3.5 h-3.5 ${stat.color}`} />
                 </div>
               </div>
-              <div className="text-xl font-bold text-gray-900">{stat.value}</div>
-              <div className="text-[10px] sm:text-xs text-gray-600">{stat.label}</div>
+              <div className="text-lg sm:text-xl font-bold text-gray-900">{stat.value}</div>
+              <div className="text-[10px] sm:text-xs text-gray-600 truncate">{stat.label}</div>
             </div>
           ))}
         </div>
 
         {/* Tab Navigation */}
-        <div className="border-b border-gray-200 mb-4">
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide border-b border-gray-200 px-2 py-2">
+        <div className="border-b border-gray-200 mb-4 sticky top-14 sm:top-16 bg-gray-50 z-[9] -mx-3 sm:mx-0 px-3 sm:px-0">
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide border-b border-gray-200 py-2">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`inline-flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap rounded-lg ${
                   activeTab === tab.id
-                    ? 'border-b-0 border-transparent text-teal-600 bg-white underline-offset-4 transition-all underline '
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 underline-offset-4 transition-all'
+                    ? 'text-teal-600 bg-white shadow-sm ring-1 ring-gray-200 underline underline-offset-4'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                 }`}
               >
                 {tab.label}
@@ -2116,7 +2183,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                   {/* Payment Details */}
                                   <div className="flex-1 min-w-0">
                                     <div className="text-base font-bold text-gray-900">
-                                      ${payment.amount || payment.paid || 0}
+                                      AED {payment.amount || payment.paid || 0}
                                     </div>
                                     <div className="text-sm text-gray-600 mt-0.5">
                                       {payment.paymentMethod ? (
@@ -2145,15 +2212,6 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                           }) 
                                         : 'N/A'}
                                     </div>
-                                    {payment.status && (
-                                      <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${
-                                        payment.status === 'Active' ? 'bg-green-100 text-green-700' :
-                                        payment.status === 'Refunded' ? 'bg-red-100 text-red-700' :
-                                        'bg-gray-100 text-gray-700'
-                                      }`}>
-                                        {payment.status}
-                                      </span>
-                                    )}
                                   </div>
                                 </div>
                                 
@@ -2185,7 +2243,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                   <div className="flex items-center justify-between">
                                     <span className="text-sm font-medium text-gray-600">Total Paid</span>
                                     <span className="text-lg font-bold text-gray-900">
-                                      ${totalPaid.toFixed(2)}
+                                      AED {totalPaid.toFixed(2)}
                                     </span>
                                   </div>
                                   
@@ -2193,7 +2251,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                   <div className="flex items-center justify-between">
                                     <span className="text-sm font-medium text-gray-600">Outstanding</span>
                                     <span className="text-lg font-bold text-red-600">
-                                      ${totalPending.toFixed(2)}
+                                      AED {totalPending.toFixed(2)}
                                     </span>
                                   </div>
                                   
@@ -2201,7 +2259,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                   <div className="flex items-center justify-between pt-2 border-t border-gray-200">
                                     <span className="text-sm font-semibold text-gray-700">Total Amount</span>
                                     <span className="text-xl font-bold text-gray-900">
-                                      ${totalAmount.toFixed(2)}
+                                      AED {totalAmount.toFixed(2)}
                                     </span>
                                   </div>
                                 </>
@@ -2535,8 +2593,40 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                 );
               })()
             ) : activeTab === 'communication' ? (
-              /* Communication Log - Consent Form Status */
+              /* Communication Log - Consent Form Status + Package Link */
               <div className="space-y-4">
+                {/* Send Package Link Button */}
+                <div className="bg-gradient-to-r from-teal-50 to-emerald-50 rounded-xl border border-teal-200 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
+                        <Package className="w-5 h-5 text-teal-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-gray-900">Create Package</h3>
+                        <p className="text-xs text-gray-500">Send a link for patient to select treatments</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => sendPackageLink()}
+                      disabled={sendingPackageLink}
+                      className="px-4 py-2 bg-teal-600 text-white text-xs font-semibold rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {sendingPackageLink ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3.5 h-3.5" />
+                          Send Link
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
                 {loadingConsentStatus ? (
                   <div className="flex items-center justify-center py-16">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -2722,52 +2812,6 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                 </div>
 
                 {/* Modals */}
-                <AddPatientAdvancePaymentModal
-                  isOpen={showAddAdvancePaymentModal}
-                  onClose={() => setShowAddAdvancePaymentModal(false)}
-                  patientId={patientData._id}
-                  patientName={`${patientData.firstName} ${patientData.lastName}`}
-                  onSuccess={async () => {
-                    const updated = await fetchPatientBalance(patientData._id);
-                    if (updated) setBalance(updated as typeof balance);
-                  }}
-                />
-                <AddPatientPastAdvancePaymentModal
-                  isOpen={showAddPastAdvancePayment50PercentModal}
-                  onClose={() => setShowAddPastAdvancePayment50PercentModal(false)}
-                  patientId={patientData._id}
-                  patientName={`${patientData.firstName} ${patientData.lastName}`}
-                  onSuccess={async () => {
-                    const updated = await fetchPatientBalance(patientData._id);
-                    if (updated) setBalance(updated as typeof balance);
-                  }}
-                  pastAdvanceType="50% Offer"
-                  primaryColor="amber"
-                />
-                <AddPatientPastAdvancePaymentModal
-                  isOpen={showAddPastAdvancePayment54PercentModal}
-                  onClose={() => setShowAddPastAdvancePayment54PercentModal(false)}
-                  patientId={patientData._id}
-                  patientName={`${patientData.firstName} ${patientData.lastName}`}
-                  onSuccess={async () => {
-                    const updated = await fetchPatientBalance(patientData._id);
-                    if (updated) setBalance(updated as typeof balance);
-                  }}
-                  pastAdvanceType="54% Offer"
-                  primaryColor="blue"
-                />
-                <AddPatientPastAdvancePaymentModal
-                  isOpen={showAddPastAdvancePayment159FlatModal}
-                  onClose={() => setShowAddPastAdvancePayment159FlatModal(false)}
-                  patientId={patientData._id}
-                  patientName={`${patientData.firstName} ${patientData.lastName}`}
-                  onSuccess={async () => {
-                    const updated = await fetchPatientBalance(patientData._id);
-                    if (updated) setBalance(updated as typeof balance);
-                  }}
-                  pastAdvanceType="159 Flat"
-                  primaryColor="purple"
-                />
               </div>
             ) : (
               /* Default Overview Tab - Compact Professional Dashboard */
@@ -2988,6 +3032,54 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
             </div>
           </div>
         )}
+
+        {/* Global Modals */}
+        <AddPatientAdvancePaymentModal
+          isOpen={showAddAdvancePaymentModal}
+          onClose={() => setShowAddAdvancePaymentModal(false)}
+          patientId={patientData._id}
+          patientName={`${patientData.firstName} ${patientData.lastName}`}
+          onSuccess={async () => {
+            const updated = await fetchPatientBalance(patientData._id);
+            if (updated) setBalance(updated as typeof balance);
+          }}
+        />
+        <AddPatientPastAdvancePaymentModal
+          isOpen={showAddPastAdvancePayment50PercentModal}
+          onClose={() => setShowAddPastAdvancePayment50PercentModal(false)}
+          patientId={patientData._id}
+          patientName={`${patientData.firstName} ${patientData.lastName}`}
+          onSuccess={async () => {
+            const updated = await fetchPatientBalance(patientData._id);
+            if (updated) setBalance(updated as typeof balance);
+          }}
+          pastAdvanceType="50% Offer"
+          primaryColor="amber"
+        />
+        <AddPatientPastAdvancePaymentModal
+          isOpen={showAddPastAdvancePayment54PercentModal}
+          onClose={() => setShowAddPastAdvancePayment54PercentModal(false)}
+          patientId={patientData._id}
+          patientName={`${patientData.firstName} ${patientData.lastName}`}
+          onSuccess={async () => {
+            const updated = await fetchPatientBalance(patientData._id);
+            if (updated) setBalance(updated as typeof balance);
+          }}
+          pastAdvanceType="54% Offer"
+          primaryColor="blue"
+        />
+        <AddPatientPastAdvancePaymentModal
+          isOpen={showAddPastAdvancePayment159FlatModal}
+          onClose={() => setShowAddPastAdvancePayment159FlatModal(false)}
+          patientId={patientData._id}
+          patientName={`${patientData.firstName} ${patientData.lastName}`}
+          onSuccess={async () => {
+            const updated = await fetchPatientBalance(patientData._id);
+            if (updated) setBalance(updated as typeof balance);
+          }}
+          pastAdvanceType="159 Flat"
+          primaryColor="purple"
+        />
     </div>
   );
 };

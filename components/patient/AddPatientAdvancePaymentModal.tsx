@@ -134,40 +134,40 @@ const AddPatientAdvancePaymentModal: React.FC<
       />
 
       {/* Modal Content */}
-      <div className="relative bg-white rounded-3xl shadow-2xl max-w-xl w-full overflow-hidden transform transition-all animate-in fade-in zoom-in duration-300">
+      <div className="relative bg-white rounded-2xl sm:rounded-3xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto transform transition-all animate-in fade-in zoom-in duration-300">
         {/* Header with gradient */}
-        <div className="bg-gradient-to-r from-emerald-600 to-teal-700 px-8 py-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-              <Wallet className="w-6 h-6 text-white" />
+        <div className="bg-gradient-to-r from-emerald-600 to-teal-700 px-5 sm:px-8 py-4 sm:py-6 flex items-center justify-between sticky top-0 z-10">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="p-1.5 sm:p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+              <Wallet className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-white">
+              <h3 className="text-lg sm:text-xl font-bold text-white">
                 Add Advance Payment
               </h3>
-              <p className="text-emerald-100 text-xs font-medium opacity-80">
+              <p className="text-emerald-100 text-[10px] sm:text-xs font-medium opacity-80">
                 Record a credit balance for {patientName || "the patient"}
               </p>
             </div>
           </div>
           <button
             onClick={handleClose}
-            className="p-2 hover:bg-white/10 rounded-xl text-white/80 hover:text-white transition-all"
+            className="p-1.5 sm:p-2 hover:bg-white/10 rounded-xl text-white/80 hover:text-white transition-all"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 space-y-6">
+        <form onSubmit={handleSubmit} className="p-5 sm:p-8 space-y-5 sm:space-y-6">
           {/* Amount Input */}
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
-              <DollarSign className="w-4 h-4 text-emerald-500" />
+            <label className="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-700">
+              <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" />
               Amount to Add
             </label>
             <div className="relative group">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-emerald-500 transition-colors">
-                <span className="text-lg font-bold">AED</span>
+              <div className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-emerald-500 transition-colors">
+                <span className="text-base sm:text-lg font-bold">AED</span>
               </div>
               <input
                 type="number"
@@ -176,7 +176,7 @@ const AddPatientAdvancePaymentModal: React.FC<
                 placeholder="0.00"
                 step="0.01"
                 min="0.01"
-                className="w-full pl-16 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all text-xl font-bold text-gray-700 placeholder:text-gray-300"
+                className="w-full pl-12 sm:pl-16 pr-4 py-3 sm:py-4 bg-gray-50 border border-gray-200 rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all text-lg sm:text-xl font-bold text-gray-700 placeholder:text-gray-300"
                 required
                 autoFocus
               />
@@ -185,11 +185,11 @@ const AddPatientAdvancePaymentModal: React.FC<
 
           {/* Payment Method */}
           <div className="space-y-3">
-            <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
-              <CreditCard className="w-4 h-4 text-blue-500" />
+            <label className="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-700">
+              <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500" />
               Payment Method
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
               {paymentMethods.map((method) => {
                 const Icon = method.icon;
                 const isSelected = paymentMethod === method.value;
@@ -199,7 +199,7 @@ const AddPatientAdvancePaymentModal: React.FC<
                     type="button"
                     onClick={() => setPaymentMethod(method.value)}
                     className={cn(
-                      "flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all gap-1",
+                      "flex flex-row sm:flex-col items-center justify-center p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border-2 transition-all gap-2 sm:gap-1",
                       isSelected
                         ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/10"
                         : "border-gray-100 hover:border-gray-200 bg-white",
@@ -207,7 +207,7 @@ const AddPatientAdvancePaymentModal: React.FC<
                   >
                     <Icon
                       className={cn(
-                        "w-5 h-5",
+                        "w-4 h-4 sm:w-5 sm:h-5",
                         isSelected ? method.color : "text-gray-400",
                       )}
                     />
@@ -227,38 +227,38 @@ const AddPatientAdvancePaymentModal: React.FC<
 
           {/* Notes */}
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
-              <MessageSquare className="w-4 h-4 text-indigo-500" />
+            <label className="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-700">
+              <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-500" />
               Notes (Optional)
             </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="E.g. Advance for laser treatment package..."
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all h-24 resize-none text-gray-600 placeholder:text-gray-400 font-medium"
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all h-20 sm:h-24 resize-none text-xs sm:text-sm text-gray-600 placeholder:text-gray-400 font-medium"
             />
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 p-4 rounded-2xl border border-red-100 animate-in fade-in slide-in-from-top-1">
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-red-600 bg-red-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-red-100 animate-in fade-in slide-in-from-top-1">
               <X className="w-4 h-4 shrink-0" />
               <span className="font-bold">{error}</span>
             </div>
           )}
 
           {/* Action Buttons */}
-          <div className="flex gap-4 pt-4">
+          <div className="flex flex-col-reverse sm:flex-row gap-3 sm:gap-4 pt-2 sm:pt-4">
             <button
               type="button"
               onClick={handleClose}
-              className="flex-1 px-6 py-4 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-all active:scale-[0.98]"
+              className="px-6 py-3 sm:py-4 bg-gray-100 text-gray-600 text-sm font-bold rounded-xl sm:rounded-2xl hover:bg-gray-200 transition-all active:scale-[0.98]"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-6 py-4 bg-gradient-to-r from-emerald-600 to-teal-700 text-white font-bold rounded-2xl hover:shadow-lg hover:shadow-emerald-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-6 py-3 sm:py-4 bg-gradient-to-r from-emerald-600 to-teal-700 text-white text-sm font-bold rounded-xl sm:rounded-2xl hover:shadow-lg hover:shadow-emerald-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />

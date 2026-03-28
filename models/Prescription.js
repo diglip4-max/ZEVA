@@ -65,6 +65,10 @@ const PrescriptionSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    pdfUrl: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,

@@ -7,6 +7,12 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+  Legend,
 } from "recharts";
 import ExportButtons from "./ExportButtons";
 
@@ -100,10 +106,12 @@ export default function LeadReport({ startDate, endDate, headers }: Props) {
     () =>
       (statuses || []).map((st) => ({
         name: st.status || "Unknown",
-        count: st.count || 0,
-      })),
+        value: st.count || 0,
+      })).filter(s => s.value > 0),
     [statuses]
   );
+
+  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d", "#ffc658", "#8dd1e1", "#a4de6c", "#d0ed57"];
 
   const leadExportSections = useMemo(() => [
     {
@@ -204,13 +212,22 @@ export default function LeadReport({ startDate, endDate, headers }: Props) {
         </div>
         <div className="w-full" style={{ height: 320 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={treatmentsChart} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
-              <CartesianGrid strokeDasharray="3 3" />
+            <LineChart data={treatmentsChart} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="converted" fill="#0EA5E9" />
-            </BarChart>
+              <Legend verticalAlign="top" height={36}/>
+              <Line 
+                type="monotone" 
+                dataKey="converted" 
+                name="Converted Leads" 
+                stroke="#0EA5E9" 
+                strokeWidth={3} 
+                dot={{ r: 4, fill: "#0EA5E9", strokeWidth: 2 }} 
+                activeDot={{ r: 6, strokeWidth: 0 }} 
+              />
+            </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -221,13 +238,22 @@ export default function LeadReport({ startDate, endDate, headers }: Props) {
         </div>
         <div className="w-full" style={{ height: 320 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={sourcesChart} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
-              <CartesianGrid strokeDasharray="3 3" />
+            <LineChart data={sourcesChart} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
               <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
               <Tooltip formatter={(v: any, k: any) => (k === "ratio" ? `${Number(v || 0)}%` : v)} />
-              <Bar dataKey="ratio" fill="#FB923C" />
-            </BarChart>
+              <Legend verticalAlign="top" height={36}/>
+              <Line 
+                type="monotone" 
+                dataKey="ratio" 
+                name="Conversion Rate (%)" 
+                stroke="#FB923C" 
+                strokeWidth={3} 
+                dot={{ r: 4, fill: "#FB923C", strokeWidth: 2 }} 
+                activeDot={{ r: 6, strokeWidth: 0 }} 
+              />
+            </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -236,15 +262,26 @@ export default function LeadReport({ startDate, endDate, headers }: Props) {
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-800">Lead Status Distribution</h3>
         </div>
-        <div className="w-full" style={{ height: 320 }}>
+        <div className="w-full" style={{ height: 360 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={statusesChart} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
-              <YAxis />
+            <PieChart>
+              <Pie
+                data={statusesChart}
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={100}
+                paddingAngle={5}
+                dataKey="value"
+                label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+              >
+                {statusesChart.map((_, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
               <Tooltip />
-              <Bar dataKey="count" fill="#6366F1" />
-            </BarChart>
+              <Legend verticalAlign="bottom" height={36}/>
+            </PieChart>
           </ResponsiveContainer>
         </div>
       </div>

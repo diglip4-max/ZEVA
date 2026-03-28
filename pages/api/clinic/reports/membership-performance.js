@@ -87,10 +87,28 @@ export default async function handler(req, res) {
       { $unwind: { path: "$plan", preserveNullAndEmptyArrays: true } },
       ...(targetClinicId ? [{ $match: { "plan.clinicId": targetClinicId } }] : []),
       {
+        $lookup: {
+          from: "appointments",
+          let: { pid: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$patientId", "$$pid"] },
+                ...(targetClinicId ? { clinicId: targetClinicId } : {}),
+                ...(applyBillingDate ? { startDate: billingDateFilter } : {}),
+              },
+            },
+            { $project: { _id: 1 } },
+          ],
+          as: "apts",
+        },
+      },
+      {
         $group: {
           _id: "$plan.name",
           totalRevenue: { $sum: { $ifNull: ["$plan.price", 0] } },
           count: { $sum: 1 },
+          totalAppointments: { $sum: { $size: { $ifNull: ["$apts", []] } } },
         },
       },
       {
@@ -98,6 +116,7 @@ export default async function handler(req, res) {
           membershipName: "$_id",
           totalRevenue: 1,
           count: 1,
+          totalAppointments: 1,
         },
       },
       { $sort: { totalRevenue: -1 } },
