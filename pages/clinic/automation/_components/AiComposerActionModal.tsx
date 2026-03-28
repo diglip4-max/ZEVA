@@ -14,6 +14,7 @@ import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
 import { clsx, type ClassValue } from "clsx";
 import VariableMappingDropdown from "./VariableMappingDropdown";
+import { WorkflowEntity } from "@/types/workflows";
 
 function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
@@ -24,6 +25,7 @@ interface AiComposerActionModalProps {
   onClose: () => void;
   actionId: string | null;
   onUpdate: (updatedAction: any) => void;
+  entity?: WorkflowEntity;
 }
 
 const AiComposerActionModal: React.FC<AiComposerActionModalProps> = ({
@@ -31,6 +33,7 @@ const AiComposerActionModal: React.FC<AiComposerActionModalProps> = ({
   onClose,
   actionId,
   onUpdate,
+  entity = "Lead",
 }) => {
   const [prompt, setPrompt] = useState<string>("");
   const [model, setModel] = useState<string>("gpt-3.5-turbo");
@@ -207,7 +210,8 @@ const AiComposerActionModal: React.FC<AiComposerActionModalProps> = ({
                     onSelect={(value: string) =>
                       setPrompt((prev) => `${prev} ${value}`)
                     }
-                    entity={"Lead"}
+                    entity={entity}
+                    nodeId={actionId as string}
                   />
 
                   <div className="space-y-2">

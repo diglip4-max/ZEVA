@@ -2,8 +2,8 @@
 import { Redis } from "ioredis";
 
 const redis = new Redis(
-  "redis://default:MDXqZeSqqZCo6O2PGo7pSLEaM0jx6WYy@redis-13789.c232.us-east-1-2.ec2.cloud.redislabs.com:13789",
-  // "redis://localhost:6379",
+  // "redis://default:MDXqZeSqqZCo6O2PGo7pSLEaM0jx6WYy@redis-13789.c232.us-east-1-2.ec2.cloud.redislabs.com:13789",
+  "redis://localhost:6379",
   {
     maxRetriesPerRequest: null, // ✅ REQUIRED FOR BULLMQ
     enableReadyCheck: false, // ✅ REQUIRED FOR BULLMQ

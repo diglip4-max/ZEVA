@@ -7,6 +7,11 @@ import User from "../../../models/Users";
 import { getUserFromReq } from "../lead-ms/auth";
 import { getClinicIdFromUser } from "../lead-ms/permissions-helper";
 import { formatDoctorTreatments } from "../../../server/staff/doctorTreatmentService";
+import {
+  executeWorkflows,
+  WORKFLOW_ENTITY_TYPE,
+  WORKFLOW_TRIGGER_TYPE,
+} from "../../../bullmq/workflow";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -17,8 +22,17 @@ export default async function handler(req, res) {
     if (!clinicUser) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
-    if (!["clinic", "admin", "agent", "doctor", "doctorStaff", "staff"].includes(clinicUser.role)) {
-      return res.status(403).json({ success: false, message: "Access denied. Clinic role required." });
+    if (
+      !["clinic", "admin", "agent", "doctor", "doctorStaff", "staff"].includes(
+        clinicUser.role,
+      )
+    ) {
+      return res
+        .status(403)
+        .json({
+          success: false,
+          message: "Access denied. Clinic role required.",
+        });
     }
 
     let { clinicId, error, isAdmin } = await getClinicIdFromUser(clinicUser);
@@ -28,36 +42,54 @@ export default async function handler(req, res) {
 
     // Ensure clinicId is set correctly
     if (!clinicId && clinicUser.role === "clinic") {
-      const clinic = await Clinic.findOne({ owner: clinicUser._id }).select("_id");
+      const clinic = await Clinic.findOne({ owner: clinicUser._id }).select(
+        "_id",
+      );
       if (!clinic) {
-        return res.status(404).json({ success: false, message: "Clinic not found" });
+        return res
+          .status(404)
+          .json({ success: false, message: "Clinic not found" });
       }
       clinicId = clinic._id;
     }
 
     if (!clinicId) {
-      return res.status(404).json({ success: false, message: "Clinic not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Clinic not found" });
     }
 
     // GET: Fetch appointments for the clinic
     if (req.method === "GET") {
       // ✅ Check permission for reading appointments (only for agent, doctorStaff roles)
       // Clinic, doctor, and staff roles have full access by default, admin bypasses
-      if (!isAdmin && clinicId && ["agent", "doctorStaff"].includes(clinicUser.role)) {
-        const { checkAgentPermission } = await import("../agent/permissions-helper");
+      if (
+        !isAdmin &&
+        clinicId &&
+        ["agent", "doctorStaff"].includes(clinicUser.role)
+      ) {
+        const { checkAgentPermission } =
+          await import("../agent/permissions-helper");
         const result = await checkAgentPermission(
           clinicUser._id,
           "clinic_Appointment",
-          "read"
+          "read",
         );
 
         // If module doesn't exist in permissions yet, allow access by default
-        if (!result.hasPermission && result.error && result.error.includes("not found in agent permissions")) {
-          console.log(`[appointments] Module clinic_Appointment not found in permissions for user ${clinicUser._id}, allowing access by default`);
+        if (
+          !result.hasPermission &&
+          result.error &&
+          result.error.includes("not found in agent permissions")
+        ) {
+          console.log(
+            `[appointments] Module clinic_Appointment not found in permissions for user ${clinicUser._id}, allowing access by default`,
+          );
         } else if (!result.hasPermission) {
           return res.status(403).json({
             success: false,
-            message: result.error || "You do not have permission to view appointments"
+            message:
+              result.error || "You do not have permission to view appointments",
           });
         }
       }
@@ -65,12 +97,12 @@ export default async function handler(req, res) {
       const { date, doctorId, roomId } = req.query;
 
       let query = { clinicId };
-      
+
       // If user is doctorStaff, only show their appointments
       if (clinicUser.role === "doctorStaff") {
         query.doctorId = clinicUser._id;
       }
-      
+
       let parsedDateMatch = null; // Store for debugging later
 
       // Filter by date if provided
@@ -79,45 +111,57 @@ export default async function handler(req, res) {
         console.log("=== APPOINTMENTS QUERY DEBUG ===");
         console.log("Received date query parameter:", date);
         console.log("Type of date:", typeof date);
-        
+
         // Parse date string (expected format: YYYY-MM-DD)
-        parsedDateMatch = String(date).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        parsedDateMatch = String(date)
+          .trim()
+          .match(/^(\d{4})-(\d{2})-(\d{2})$/);
         if (parsedDateMatch) {
           const year = parseInt(parsedDateMatch[1], 10);
           const month = parseInt(parsedDateMatch[2], 10) - 1; // Month is 0-indexed
           const day = parseInt(parsedDateMatch[3], 10);
-          
-          console.log(`Parsed date components: year=${year}, month=${month + 1}, day=${day}`);
-          
+
+          console.log(
+            `Parsed date components: year=${year}, month=${month + 1}, day=${day}`,
+          );
+
           // Create start of day in UTC (00:00:00.000)
           const startOfDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
           // Create end of day in UTC (23:59:59.999)
-          const endOfDay = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
-          
+          const endOfDay = new Date(
+            Date.UTC(year, month, day, 23, 59, 59, 999),
+          );
+
           console.log("Query startOfDay (UTC):", startOfDay.toISOString());
           console.log("Query endOfDay (UTC):", endOfDay.toISOString());
           console.log("Query startOfDay timestamp:", startOfDay.getTime());
           console.log("Query endOfDay timestamp:", endOfDay.getTime());
-          
+
           // Use a wider range to catch any timezone edge cases
           // Start from previous day 12:00 UTC to next day 12:00 UTC to ensure we catch all dates
           const safeStart = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
           safeStart.setUTCHours(0, 0, 0, 0);
           const safeEnd = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
           safeEnd.setUTCHours(23, 59, 59, 999);
-          
+
           query.startDate = { $gte: safeStart, $lte: safeEnd };
         } else {
           // Fallback: try parsing as-is, but normalize to UTC
-          console.log("Date format didn't match YYYY-MM-DD, trying fallback parsing");
+          console.log(
+            "Date format didn't match YYYY-MM-DD, trying fallback parsing",
+          );
           const parsedDate = new Date(date);
           if (!isNaN(parsedDate.getTime())) {
             const year = parsedDate.getUTCFullYear();
             const month = parsedDate.getUTCMonth();
             const day = parsedDate.getUTCDate();
-            console.log(`Fallback parsed: year=${year}, month=${month + 1}, day=${day}`);
+            console.log(
+              `Fallback parsed: year=${year}, month=${month + 1}, day=${day}`,
+            );
             const startOfDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-            const endOfDay = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+            const endOfDay = new Date(
+              Date.UTC(year, month, day, 23, 59, 59, 999),
+            );
             console.log("Fallback startOfDay (UTC):", startOfDay.toISOString());
             console.log("Fallback endOfDay (UTC):", endOfDay.toISOString());
             query.startDate = { $gte: startOfDay, $lte: endOfDay };
@@ -125,10 +169,17 @@ export default async function handler(req, res) {
             console.log("ERROR: Could not parse date:", date);
           }
         }
-        console.log("Final query.startDate:", JSON.stringify({
-          $gte: query.startDate?.$gte?.toISOString(),
-          $lte: query.startDate?.$lte?.toISOString()
-        }, null, 2));
+        console.log(
+          "Final query.startDate:",
+          JSON.stringify(
+            {
+              $gte: query.startDate?.$gte?.toISOString(),
+              $lte: query.startDate?.$lte?.toISOString(),
+            },
+            null,
+            2,
+          ),
+        );
         console.log("==");
       }
 
@@ -146,7 +197,10 @@ export default async function handler(req, res) {
       // (booked, Arrived, Consultation, Cancelled, etc. should all be shown)
 
       const appointments = await Appointment.find(query)
-        .populate("patientId", "firstName lastName mobileNumber email invoiceNumber emrNumber gender")
+        .populate(
+          "patientId",
+          "firstName lastName mobileNumber email invoiceNumber emrNumber gender",
+        )
         .populate("doctorId", "name email")
         .populate("roomId", "name")
         .populate("serviceId", "name")
@@ -155,19 +209,28 @@ export default async function handler(req, res) {
         .lean();
 
       // Fetch doctor treatments for each unique doctor
-      const doctorIds = [...new Set(appointments.map(apt => apt.doctorId?._id?.toString()).filter(Boolean))];
+      const doctorIds = [
+        ...new Set(
+          appointments
+            .map((apt) => apt.doctorId?._id?.toString())
+            .filter(Boolean),
+        ),
+      ];
       const doctorTreatmentsMap = {};
-      
+
       for (const doctorId of doctorIds) {
         try {
           const treatments = await formatDoctorTreatments(doctorId);
-          doctorTreatmentsMap[doctorId] = treatments.map(t => ({
+          doctorTreatmentsMap[doctorId] = treatments.map((t) => ({
             mainTreatment: t.treatmentName,
             mainTreatmentSlug: t.treatmentId,
-            subTreatments: t.subcategories || []
+            subTreatments: t.subcategories || [],
           }));
         } catch (error) {
-          console.error(`Error fetching treatments for doctor ${doctorId}:`, error);
+          console.error(
+            `Error fetching treatments for doctor ${doctorId}:`,
+            error,
+          );
           doctorTreatmentsMap[doctorId] = [];
         }
       }
@@ -177,15 +240,21 @@ export default async function handler(req, res) {
       console.log(`Found ${appointments.length} appointments matching query`);
       appointments.forEach((apt) => {
         console.log(`Appointment ${apt._id}:`);
-        console.log(`  - bookedFrom="${apt.bookedFrom}" (type: ${typeof apt.bookedFrom})`);
+        console.log(
+          `  - bookedFrom="${apt.bookedFrom}" (type: ${typeof apt.bookedFrom})`,
+        );
         console.log(`  - startDate (raw): ${apt.startDate}`);
         console.log(`  - startDate (ISO): ${apt.startDate?.toISOString()}`);
-        console.log(`  - startDate (UTC date): ${apt.startDate ? new Date(apt.startDate).toISOString().split('T')[0] : 'N/A'}`);
+        console.log(
+          `  - startDate (UTC date): ${apt.startDate ? new Date(apt.startDate).toISOString().split("T")[0] : "N/A"}`,
+        );
       });
-      
+
       // Also log what dates exist in DB for debugging
       if (date && appointments.length === 0) {
-        console.log("⚠️ No appointments found for query date. Checking what dates exist in DB...");
+        console.log(
+          "⚠️ No appointments found for query date. Checking what dates exist in DB...",
+        );
         const allAppointments = await Appointment.find({ clinicId })
           .select("startDate _id")
           .limit(20)
@@ -195,14 +264,19 @@ export default async function handler(req, res) {
         allAppointments.forEach((apt) => {
           if (apt.startDate) {
             const dbDate = new Date(apt.startDate);
-            const dbDateStr = dbDate.toISOString().split('T')[0];
-            const dbDateUTC = new Date(Date.UTC(
-              dbDate.getUTCFullYear(),
-              dbDate.getUTCMonth(),
-              dbDate.getUTCDate(),
-              0, 0, 0, 0
-            ));
-            const dbDateUTCStr = dbDateUTC.toISOString().split('T')[0];
+            const dbDateStr = dbDate.toISOString().split("T")[0];
+            const dbDateUTC = new Date(
+              Date.UTC(
+                dbDate.getUTCFullYear(),
+                dbDate.getUTCMonth(),
+                dbDate.getUTCDate(),
+                0,
+                0,
+                0,
+                0,
+              ),
+            );
+            const dbDateUTCStr = dbDateUTC.toISOString().split("T")[0];
             console.log(`  - ID: ${apt._id}`);
             console.log(`    Raw ISO: ${dbDate.toISOString()}`);
             console.log(`    Date string: ${dbDateStr}`);
@@ -210,25 +284,29 @@ export default async function handler(req, res) {
             console.log(`    Timestamp: ${dbDate.getTime()}`);
           }
         });
-        
+
         // Also check if there are any appointments with dates close to the query date
         if (parsedDateMatch) {
           const year = parseInt(parsedDateMatch[1], 10);
           const month = parseInt(parsedDateMatch[2], 10) - 1;
           const day = parseInt(parsedDateMatch[3], 10);
-          
+
           // Check day before and after
-          const dayBefore = new Date(Date.UTC(year, month, day - 1, 0, 0, 0, 0));
-          const dayAfter = new Date(Date.UTC(year, month, day + 1, 23, 59, 59, 999));
-          
+          const dayBefore = new Date(
+            Date.UTC(year, month, day - 1, 0, 0, 0, 0),
+          );
+          const dayAfter = new Date(
+            Date.UTC(year, month, day + 1, 23, 59, 59, 999),
+          );
+
           const nearbyAppointments = await Appointment.find({
             clinicId,
-            startDate: { $gte: dayBefore, $lte: dayAfter }
+            startDate: { $gte: dayBefore, $lte: dayAfter },
           })
-          .select("startDate _id")
-          .limit(10)
-          .lean();
-          
+            .select("startDate _id")
+            .limit(10)
+            .lean();
+
           console.log(`Appointments within ±1 day of query date (${date}):`);
           nearbyAppointments.forEach((apt) => {
             if (apt.startDate) {
@@ -265,17 +343,30 @@ export default async function handler(req, res) {
           patientGender: apt.patientId?.gender || null,
           patientEmail: apt.patientId?.email || null,
           patientMobileNumber: apt.patientId?.mobileNumber || null,
-          bookedFrom: (apt.bookedFrom === "room" || apt.bookedFrom === "doctor") 
-            ? apt.bookedFrom 
-            : (apt.bookedFrom ? apt.bookedFrom : "doctor"), // Include booking source, default to "doctor" for old appointments without this field
-          doctorTreatments: doctorTreatmentsMap[apt.doctorId?._id?.toString()] || [],
+          bookedFrom:
+            apt.bookedFrom === "room" || apt.bookedFrom === "doctor"
+              ? apt.bookedFrom
+              : apt.bookedFrom
+                ? apt.bookedFrom
+                : "doctor", // Include booking source, default to "doctor" for old appointments without this field
+          doctorTreatments:
+            doctorTreatmentsMap[apt.doctorId?._id?.toString()] || [],
           serviceId: apt.serviceId?._id?.toString() || null,
           serviceName: apt.serviceId?.name || null,
-          serviceIds: Array.isArray(apt.serviceIds) ? apt.serviceIds.map(s => s?._id?.toString()).filter(Boolean) : [],
+          serviceIds: Array.isArray(apt.serviceIds)
+            ? apt.serviceIds.map((s) => s?._id?.toString()).filter(Boolean)
+            : [],
           serviceNames: (() => {
-            const fromServiceIds = Array.isArray(apt.serviceIds) ? apt.serviceIds.map(s => s?.name || "").filter(Boolean) : [];
+            const fromServiceIds = Array.isArray(apt.serviceIds)
+              ? apt.serviceIds.map((s) => s?.name || "").filter(Boolean)
+              : [];
             const fromServiceId = apt.serviceId?.name || "";
-            const combined = fromServiceId ? [fromServiceId, ...fromServiceIds.filter(n => n !== fromServiceId)] : fromServiceIds;
+            const combined = fromServiceId
+              ? [
+                  fromServiceId,
+                  ...fromServiceIds.filter((n) => n !== fromServiceId),
+                ]
+              : fromServiceIds;
             return combined;
           })(),
           createdAt: apt.createdAt,
@@ -287,21 +378,34 @@ export default async function handler(req, res) {
     if (req.method === "POST") {
       // ✅ Check permission for creating appointments (only for agent, doctorStaff roles)
       // Clinic, doctor, and staff roles have full access by default, admin bypasses
-      if (!isAdmin && clinicId && ["agent", "doctorStaff"].includes(clinicUser.role)) {
-        const { checkAgentPermission } = await import("../agent/permissions-helper");
+      if (
+        !isAdmin &&
+        clinicId &&
+        ["agent", "doctorStaff"].includes(clinicUser.role)
+      ) {
+        const { checkAgentPermission } =
+          await import("../agent/permissions-helper");
         const result = await checkAgentPermission(
           clinicUser._id,
           "clinic_Appointment",
-          "create"
+          "create",
         );
 
         // If module doesn't exist in permissions yet, allow access by default
-        if (!result.hasPermission && result.error && result.error.includes("not found in agent permissions")) {
-          console.log(`[appointments] Module clinic_Appointment not found in permissions for user ${clinicUser._id}, allowing access by default`);
+        if (
+          !result.hasPermission &&
+          result.error &&
+          result.error.includes("not found in agent permissions")
+        ) {
+          console.log(
+            `[appointments] Module clinic_Appointment not found in permissions for user ${clinicUser._id}, allowing access by default`,
+          );
         } else if (!result.hasPermission) {
           return res.status(403).json({
             success: false,
-            message: result.error || "You do not have permission to create appointments"
+            message:
+              result.error ||
+              "You do not have permission to create appointments",
           });
         }
       }
@@ -362,11 +466,14 @@ export default async function handler(req, res) {
       console.log("Type of bookedFrom:", typeof bookedFrom);
       console.log("bookedFrom === 'room':", bookedFrom === "room");
       console.log("bookedFrom === 'doctor':", bookedFrom === "doctor");
-      console.log("bookedFrom value (stringified):", JSON.stringify(bookedFrom));
+      console.log(
+        "bookedFrom value (stringified):",
+        JSON.stringify(bookedFrom),
+      );
       console.log("Request body bookedFrom:", req.body.bookedFrom);
       console.log("Full request body:", JSON.stringify(req.body, null, 2));
       console.log("==================================");
-      
+
       // Ensure bookedFrom is a valid value - use explicit string comparison
       // CRITICAL: Check the actual value received from the request
       let validBookedFrom;
@@ -375,20 +482,37 @@ export default async function handler(req, res) {
       console.log("🔍 Type of received value:", typeof receivedValue);
       console.log("🔍 Is it exactly 'room'?", receivedValue === "room");
       console.log("🔍 Is it exactly 'doctor'?", receivedValue === "doctor");
-      console.log("🔍 String comparison 'room':", String(receivedValue) === "room");
-      console.log("🔍 String comparison 'doctor':", String(receivedValue) === "doctor");
-      
+      console.log(
+        "🔍 String comparison 'room':",
+        String(receivedValue) === "room",
+      );
+      console.log(
+        "🔍 String comparison 'doctor':",
+        String(receivedValue) === "doctor",
+      );
+
       if (receivedValue === "room" || String(receivedValue) === "room") {
         validBookedFrom = "room";
         console.log("✅ Setting validBookedFrom to 'room'");
-      } else if (receivedValue === "doctor" || String(receivedValue) === "doctor") {
+      } else if (
+        receivedValue === "doctor" ||
+        String(receivedValue) === "doctor"
+      ) {
         validBookedFrom = "doctor";
         console.log("✅ Setting validBookedFrom to 'doctor'");
       } else {
         validBookedFrom = "doctor";
-        console.log("⚠️ bookedFrom is not 'room' or 'doctor', defaulting to 'doctor'. Received value was:", receivedValue, "Type:", typeof receivedValue);
+        console.log(
+          "⚠️ bookedFrom is not 'room' or 'doctor', defaulting to 'doctor'. Received value was:",
+          receivedValue,
+          "Type:",
+          typeof receivedValue,
+        );
       }
-      console.log("🎯 Final validBookedFrom that will be saved:", validBookedFrom);
+      console.log(
+        "🎯 Final validBookedFrom that will be saved:",
+        validBookedFrom,
+      );
 
       // REMOVED: All validation checks
       // Allow unlimited bookings - no restrictions on doctor or patient concurrency
@@ -397,8 +521,10 @@ export default async function handler(req, res) {
       // Add missing date parsing logic
       // Normalize startDate to UTC midnight for consistent comparison
       let appointmentDate;
-      if (typeof startDate === 'string') {
-        const dateMatch = String(startDate).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (typeof startDate === "string") {
+        const dateMatch = String(startDate)
+          .trim()
+          .match(/^(\d{4})-(\d{2})-(\d{2})/);
         if (dateMatch) {
           const year = parseInt(dateMatch[1], 10);
           const month = parseInt(dateMatch[2], 10) - 1;
@@ -423,17 +549,19 @@ export default async function handler(req, res) {
         appointmentDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
       }
 
-      
       // Query for appointments on the same date (using date range)
       const startOfDay = new Date(appointmentDate);
-      const endOfDay = new Date(Date.UTC(
-        appointmentDate.getUTCFullYear(),
-        appointmentDate.getUTCMonth(),
-        appointmentDate.getUTCDate(),
-        23, 59, 59, 999
-      ));
-      
-      
+      const endOfDay = new Date(
+        Date.UTC(
+          appointmentDate.getUTCFullYear(),
+          appointmentDate.getUTCMonth(),
+          appointmentDate.getUTCDate(),
+          23,
+          59,
+          59,
+          999,
+        ),
+      );
 
       // Validation 2: Check for duplicate booking for the same patient
       // Prevent same patient from being booked in the same room OR with the same doctor at the same time
@@ -444,7 +572,7 @@ export default async function handler(req, res) {
         startDate: { $gte: startOfDay, $lte: endOfDay },
         fromTime,
         toTime,
-        $or: []
+        $or: [],
       };
 
       if (roomId) {
@@ -473,7 +601,10 @@ export default async function handler(req, res) {
       // Skip the "different doctor same room/time" validation for these roles
       // Keep restriction for other roles (e.g., doctor, staff, unknown)
       // Note: "same doctor same room/time" restriction still applies to prevent duplicate bookings by the same doctor
-      if (roomId && !["clinic", "agent", "doctorStaff"].includes(clinicUser.role)) {
+      if (
+        roomId &&
+        !["clinic", "agent", "doctorStaff"].includes(clinicUser.role)
+      ) {
         const differentDoctorSameRoomAppointment = await Appointment.findOne({
           clinicId,
           roomId,
@@ -493,24 +624,30 @@ export default async function handler(req, res) {
         if (differentDoctorSameRoomAppointment) {
           return res.status(400).json({
             success: false,
-            message: "Another doctor is already booked in this room at this time",
+            message:
+              "Another doctor is already booked in this room at this time",
           });
         }
       }
 
-
       // Create appointment
       console.log("💾 Creating appointment with bookedFrom:", validBookedFrom);
       // Ensure appointmentDate is normalized to UTC midnight
-      const normalizedAppointmentDate = appointmentDate instanceof Date 
-        ? new Date(Date.UTC(
-            appointmentDate.getUTCFullYear(),
-            appointmentDate.getUTCMonth(),
-            appointmentDate.getUTCDate(),
-            0, 0, 0, 0
-          ))
-        : appointmentDate;
-      
+      const normalizedAppointmentDate =
+        appointmentDate instanceof Date
+          ? new Date(
+              Date.UTC(
+                appointmentDate.getUTCFullYear(),
+                appointmentDate.getUTCMonth(),
+                appointmentDate.getUTCDate(),
+                0,
+                0,
+                0,
+                0,
+              ),
+            )
+          : appointmentDate;
+
       const appointmentData = {
         clinicId,
         patientId,
@@ -531,45 +668,88 @@ export default async function handler(req, res) {
       // Optional service selection
       if (req.body.serviceId) {
         try {
-          const svc = await Service.findOne({ _id: req.body.serviceId, clinicId }).select("_id").lean();
+          const svc = await Service.findOne({
+            _id: req.body.serviceId,
+            clinicId,
+          })
+            .select("_id")
+            .lean();
           if (!svc) {
-            return res.status(400).json({ success: false, message: "Selected service not found for this clinic" });
+            return res
+              .status(400)
+              .json({
+                success: false,
+                message: "Selected service not found for this clinic",
+              });
           }
           appointmentData.serviceId = req.body.serviceId;
         } catch {
-          return res.status(400).json({ success: false, message: "Invalid service selected" });
+          return res
+            .status(400)
+            .json({ success: false, message: "Invalid service selected" });
         }
       }
-      if (Array.isArray(req.body.serviceIds) && req.body.serviceIds.length > 0) {
+      if (
+        Array.isArray(req.body.serviceIds) &&
+        req.body.serviceIds.length > 0
+      ) {
         const ids = req.body.serviceIds.filter(Boolean).map((id) => String(id));
-        const svcs = await Service.find({ _id: { $in: ids }, clinicId }).select("_id").lean();
+        const svcs = await Service.find({ _id: { $in: ids }, clinicId })
+          .select("_id")
+          .lean();
         const validIds = svcs.map((s) => s._id?.toString()).filter(Boolean);
         appointmentData.serviceIds = validIds;
       }
-      console.log("💾 Appointment data being saved:", JSON.stringify(appointmentData, null, 2));
-      
+      console.log(
+        "💾 Appointment data being saved:",
+        JSON.stringify(appointmentData, null, 2),
+      );
+
       const appointment = await Appointment.create(appointmentData);
 
       console.log("✅ Appointment created. ID:", appointment._id);
-      console.log("✅ Appointment bookedFrom immediately after create:", appointment.bookedFrom);
-      console.log("✅ Appointment bookedFrom type:", typeof appointment.bookedFrom);
+      console.log(
+        "✅ Appointment bookedFrom immediately after create:",
+        appointment.bookedFrom,
+      );
+      console.log(
+        "✅ Appointment bookedFrom type:",
+        typeof appointment.bookedFrom,
+      );
 
       // Force-set bookedFrom in case schema hot-reload missed the new field
       if (appointment.bookedFrom !== validBookedFrom) {
-        console.log("⚠ bookedFrom on created doc is", appointment.bookedFrom, "-> forcing update to", validBookedFrom);
-        await Appointment.updateOne({ _id: appointment._id }, { $set: { bookedFrom: validBookedFrom } });
+        console.log(
+          "⚠ bookedFrom on created doc is",
+          appointment.bookedFrom,
+          "-> forcing update to",
+          validBookedFrom,
+        );
+        await Appointment.updateOne(
+          { _id: appointment._id },
+          { $set: { bookedFrom: validBookedFrom } },
+        );
       }
 
       const populatedAppointment = await Appointment.findById(appointment._id)
-        .populate("patientId", "firstName lastName mobileNumber email invoiceNumber emrNumber gender")
+        .populate(
+          "patientId",
+          "firstName lastName mobileNumber email invoiceNumber emrNumber gender",
+        )
         .populate("doctorId", "name email")
         .populate("roomId", "name")
         .populate("serviceId", "name")
         .populate("serviceIds", "name")
         .lean();
-      
-      console.log("📖 Populated appointment bookedFrom from DB:", populatedAppointment.bookedFrom);
-      console.log("📖 Populated appointment bookedFrom type:", typeof populatedAppointment.bookedFrom);
+
+      console.log(
+        "📖 Populated appointment bookedFrom from DB:",
+        populatedAppointment.bookedFrom,
+      );
+      console.log(
+        "📖 Populated appointment bookedFrom type:",
+        typeof populatedAppointment.bookedFrom,
+      );
 
       // Fetch doctor treatments for the created appointment's doctor
       let doctorTreatments = [];
@@ -577,16 +757,28 @@ export default async function handler(req, res) {
         const did = populatedAppointment.doctorId?._id?.toString();
         if (did) {
           const treatments = await formatDoctorTreatments(did);
-          doctorTreatments = (treatments || []).map(t => ({
+          doctorTreatments = (treatments || []).map((t) => ({
             mainTreatment: t.treatmentName,
             mainTreatmentSlug: t.treatmentId,
-            subTreatments: t.subcategories || []
+            subTreatments: t.subcategories || [],
           }));
         }
       } catch (err) {
-        console.error("Error fetching doctor treatments for created appointment:", err);
+        console.error(
+          "Error fetching doctor treatments for created appointment:",
+          err,
+        );
         doctorTreatments = [];
       }
+
+      // Note: Execute workflow for the created appointment
+      executeWorkflows({
+        entity: WORKFLOW_ENTITY_TYPE.APPOINTMENT,
+        trigger: WORKFLOW_TRIGGER_TYPE.BOOKED_APPOINTMENT,
+        appointmentId: appointment._id?.toString(),
+        patientId: patientId,
+        clinicId: clinicId?.toString(),
+      });
 
       return res.status(201).json({
         success: true,
@@ -609,33 +801,59 @@ export default async function handler(req, res) {
           referral: populatedAppointment.referral,
           emergency: populatedAppointment.emergency,
           notes: populatedAppointment.notes,
-          bookedFrom: (populatedAppointment.bookedFrom === "room" || populatedAppointment.bookedFrom === "doctor") 
-            ? populatedAppointment.bookedFrom 
-            : validBookedFrom, // Use value from database, fallback to validated value
+          bookedFrom:
+            populatedAppointment.bookedFrom === "room" ||
+            populatedAppointment.bookedFrom === "doctor"
+              ? populatedAppointment.bookedFrom
+              : validBookedFrom, // Use value from database, fallback to validated value
           doctorTreatments,
           serviceId: populatedAppointment.serviceId?._id?.toString() || null,
           serviceName: populatedAppointment.serviceId?.name || null,
-          serviceIds: Array.isArray(populatedAppointment.serviceIds) ? populatedAppointment.serviceIds.map(s => s?._id?.toString()).filter(Boolean) : [],
+          serviceIds: Array.isArray(populatedAppointment.serviceIds)
+            ? populatedAppointment.serviceIds
+                .map((s) => s?._id?.toString())
+                .filter(Boolean)
+            : [],
           serviceNames: (() => {
-            const fromServiceIds = Array.isArray(populatedAppointment.serviceIds) ? populatedAppointment.serviceIds.map(s => s?.name || "").filter(Boolean) : [];
+            const fromServiceIds = Array.isArray(
+              populatedAppointment.serviceIds,
+            )
+              ? populatedAppointment.serviceIds
+                  .map((s) => s?.name || "")
+                  .filter(Boolean)
+              : [];
             const fromServiceId = populatedAppointment.serviceId?.name || "";
-            const combined = fromServiceId ? [fromServiceId, ...fromServiceIds.filter(n => n !== fromServiceId)] : fromServiceIds;
+            const combined = fromServiceId
+              ? [
+                  fromServiceId,
+                  ...fromServiceIds.filter((n) => n !== fromServiceId),
+                ]
+              : fromServiceIds;
             return combined;
           })(),
-          patientInvoiceNumber: populatedAppointment.patientId?.invoiceNumber || null,
+          patientInvoiceNumber:
+            populatedAppointment.patientId?.invoiceNumber || null,
           patientEmrNumber: populatedAppointment.patientId?.emrNumber || null,
           patientGender: populatedAppointment.patientId?.gender || null,
           patientEmail: populatedAppointment.patientId?.email || null,
-          patientMobileNumber: populatedAppointment.patientId?.mobileNumber || null,
+          patientMobileNumber:
+            populatedAppointment.patientId?.mobileNumber || null,
         },
       });
     }
 
     res.setHeader("Allow", ["GET", "POST"]);
-    return res.status(405).json({ success: false, message: "Method not allowed" });
+    return res
+      .status(405)
+      .json({ success: false, message: "Method not allowed" });
   } catch (error) {
     console.error("Error in appointments API:", error);
-    return res.status(500).json({ success: false, message: "Internal server error", error: error.message });
+    return res
+      .status(500)
+      .json({
+        success: false,
+        message: "Internal server error",
+        error: error.message,
+      });
   }
 }
-
