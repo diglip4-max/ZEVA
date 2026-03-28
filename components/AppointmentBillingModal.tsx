@@ -107,6 +107,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
+  const [userPackages, setUserPackages] = useState<any[]>([]);
   const [memberships, setMemberships] = useState<any[]>([]);
   const [patientDetails, setPatientDetails] = useState<any>(null);
   const [selectedService, setSelectedService] = useState<
@@ -317,6 +318,46 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         });
         if (packagesRes.data.success) {
           setPackages(packagesRes.data.packages || []);
+        }
+
+        // Fetch userPackages (packages created via public form) for this patient
+        if (appointment?.patientId) {
+          try {
+            const userPkgRes = await axios.get(`/api/clinic/patient-registration?id=${appointment.patientId}`, { headers });
+            if (userPkgRes.data.success && userPkgRes.data.patient?.userPackages) {
+              const approvedUserPackages = userPkgRes.data.patient.userPackages.filter(
+                (pkg: any) => pkg.approvalStatus === 'approved'
+              );
+              // Fetch full package details for each userPackage from UserPackage model
+              const fullUserPackages: any[] = [];
+              for (const pkg of approvedUserPackages) {
+                try {
+                  const pkgDetailsRes = await axios.get(
+                    `/api/clinic/public-package?patientId=${appointment.patientId}`,
+                    { headers }
+                  );
+                  if (pkgDetailsRes.data.success && pkgDetailsRes.data.existingPackages) {
+                    const fullPkg = pkgDetailsRes.data.existingPackages.find(
+                      (p: any) => p._id === pkg.packageId
+                    );
+                    if (fullPkg) {
+                      fullUserPackages.push({
+                        ...fullPkg,
+                        assignedDate: pkg.assignedDate,
+                        patientPackageId: pkg._id,
+                        isUserPackage: true,
+                      });
+                    }
+                  }
+                } catch (e) {
+                  console.error(`Error fetching userPackage ${pkg.packageId}:`, e);
+                }
+              }
+              setUserPackages(fullUserPackages);
+            }
+          } catch (e) {
+            console.error("Error fetching userPackages:", e);
+          }
         }
 
         // Fetch memberships
@@ -1727,6 +1768,27 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     return pkg.name.toLowerCase().includes(query);
   });
 
+  // Combine regular packages with userPackages for the dropdown
+  const allPackagesForDropdown = [
+    ...packages.map(pkg => ({ ...pkg, isUserPackage: false })),
+    ...userPackages.map(pkg => ({
+      _id: pkg._id,
+      name: pkg.packageName,
+      totalPrice: pkg.totalPrice,
+      totalSessions: pkg.totalSessions,
+      treatments: pkg.treatments || [],
+      isUserPackage: true,
+      remainingSessions: pkg.remainingSessions,
+      patientPackageId: pkg.patientPackageId,
+    })),
+  ];
+
+  const filteredAllPackages = allPackagesForDropdown.filter((pkg) => {
+    if (!packageSearchQuery.trim()) return false;
+    const query = packageSearchQuery.toLowerCase();
+    return pkg.name.toLowerCase().includes(query);
+  });
+
   // Last 3 billing invoices for Payment History section
   const last3Billings = billingHistory.slice(0, 3);
 
@@ -2111,11 +2173,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                 />
                               </div>
                               <div className="overflow-y-auto max-h-40">
-                                {filteredPackages.length === 0 ? (
+                                {filteredAllPackages.length === 0 ? (
                                   <div className="p-2 text-center text-xs text-gray-500">{packageSearchQuery.trim() ? "No packages found" : "Start typing..."}</div>
                                 ) : (
                                   <div className="p-1">
-                                    {filteredPackages.map((pkg) => (
+                                    {filteredAllPackages.map((pkg) => (
                                       <button key={pkg._id} type="button"
                                         onClick={(e) => { e.stopPropagation(); handlePackageSelect(pkg); }}
                                         className="w-full text-left px-2 py-1.5 rounded text-xs text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
@@ -2745,96 +2807,122 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {patientDetails && (patientDetails.packages || []).filter((p: any) => {
-                          return !patientDetails.packageTransfers?.some((t: any) => t.type === "out" && String(t.packageId) === String(p.packageId));
-                        }).length === 0 ? (
-                          <div className="text-[10px] text-gray-400 py-1">No active packages</div>
-                        ) : (
-                          (() => {
-                            const purchasedPackages = (patientDetails?.packages || []).filter((p: any) => {
-                              return !patientDetails.packageTransfers?.some((t: any) => t.type === "out" && String(t.packageId) === String(p.packageId));
-                            });
-                            const usageMap = new Map();
-                            activePackageUsage.forEach(u => usageMap.set(u.packageName, u));
+                        {/* Combine regular packages and userPackages */}
+                        {(() => {
+                          const purchasedPackages = (patientDetails?.packages || []).filter((p: any) => {
+                            return !patientDetails.packageTransfers?.some((t: any) => t.type === "out" && String(t.packageId) === String(p.packageId));
+                          });
+                          
+                          // Add userPackages (approved packages from PatientRegistration.userPackages)
+                          const approvedUserPackages = (patientDetails?.userPackages || []).filter(
+                            (pkg: any) => pkg.approvalStatus === 'approved'
+                          );
+                          
+                          const allPackages = [
+                            ...purchasedPackages.map(p => ({ ...p, isUserPackage: false })),
+                            ...approvedUserPackages.map(p => ({ ...p, isUserPackage: true }))
+                          ];
+                          
+                          if (allPackages.length === 0) {
+                            return <div className="text-[10px] text-gray-400 py-1">No active packages</div>;
+                          }
+                          
+                          const usageMap = new Map();
+                          activePackageUsage.forEach(u => usageMap.set(u.packageName, u));
 
-                            return purchasedPackages.map((pkg: any, pkgIndex: number) => {
-                              const packageDef = packages.find(p => p._id === pkg.packageId);
-                              const packageName = packageDef?.name || pkg.packageId;
-                              const usageData = usageMap.get(packageName);
-                              const isExpanded = expandedPackages[packageName] || false;
-                              const displayData = usageData || {
-                                packageName,
-                                treatments: packageDef?.treatments || [],
-                                totalSessions: packageDef?.treatments?.reduce((s: number, t: any) => s + (t.sessions || 0), 0) || 0,
-                                billingHistory: []
-                              };
+                          return allPackages.map((pkg: any, pkgIndex: number) => {
+                            let packageName: string;
+                            let packageDef: any = null;
+                            let treatments: any[] = [];
+                            let totalSessions = 0;
+                            
+                            if (pkg.isUserPackage) {
+                              // Handle userPackage
+                              packageName = pkg.packageName;
+                              treatments = pkg.treatments || [];
+                              totalSessions = pkg.totalSessions || 0;
+                            } else {
+                              // Handle regular package
+                              packageDef = packages.find(p => p._id === pkg.packageId);
+                              packageName = packageDef?.name || pkg.packageId;
+                              treatments = packageDef?.treatments || [];
+                              totalSessions = packageDef?.treatments?.reduce((s: number, t: any) => s + (t.sessions || 0), 0) || 0;
+                            }
+                            
+                            const usageData = usageMap.get(packageName);
+                            const isExpanded = expandedPackages[packageName] || false;
+                            const displayData = usageData || {
+                              packageName,
+                              treatments,
+                              totalSessions,
+                              billingHistory: []
+                            };
 
-                              return (
-                                <div key={`${pkg.packageId}-${pkgIndex}`} className="border border-teal-200 rounded-xl overflow-hidden bg-gradient-to-br from-teal-50 to-cyan-50">
-                                  <button type="button"
-                                    onClick={() => togglePackageExpansion(packageName)}
-                                    className="w-full px-3 py-2 flex items-center justify-between hover:bg-teal-100/50 transition-colors"
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center">
-                                        <span className="text-[8px] font-bold text-white">#{pkgIndex + 1}</span>
-                                      </div>
-                                      <div className="text-left">
-                                        <div className="text-[10px] font-semibold text-gray-900">{packageName}</div>
-                                        <div className="text-[9px] text-gray-500">{displayData.treatments?.length || 0} treatments · {displayData.totalSessions || 0} sessions</div>
-                                      </div>
+                            return (
+                              <div key={`${pkg.packageId || pkg._id}-${pkgIndex}`} className="border border-teal-200 rounded-xl overflow-hidden bg-gradient-to-br from-teal-50 to-cyan-50">
+                                <button type="button"
+                                  onClick={() => togglePackageExpansion(packageName)}
+                                  className="w-full px-3 py-2 flex items-center justify-between hover:bg-teal-100/50 transition-colors"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center">
+                                      <span className="text-[8px] font-bold text-white">#{pkgIndex + 1}</span>
                                     </div>
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-teal-100 text-teal-700 font-medium">{displayData.billingHistory?.length || 0} bills</span>
-                                      {isExpanded ? <ChevronUp className="w-3 h-3 text-gray-500" /> : <ChevronDown className="w-3 h-3 text-gray-500" />}
+                                    <div className="text-left">
+                                      <div className="text-[10px] font-semibold text-gray-900">{packageName}</div>
+                                      <div className="text-[9px] text-gray-500">{displayData.treatments?.length || 0} treatments · {displayData.totalSessions || 0} sessions</div>
                                     </div>
-                                  </button>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-teal-100 text-teal-700 font-medium">{displayData.billingHistory?.length || 0} bills</span>
+                                    {isExpanded ? <ChevronUp className="w-3 h-3 text-gray-500" /> : <ChevronDown className="w-3 h-3 text-gray-500" />}
+                                  </div>
+                                </button>
 
-                                  {isExpanded && (
-                                    <div className="border-t border-teal-200 p-2.5 space-y-2">
-                                      {displayData.treatments && displayData.treatments.length > 0 ? (
-                                        displayData.treatments.map((treatment: any, tIndex: number) => {
-                                          const treatmentUsage = usageData?.treatments?.find((t: any) => t.treatmentSlug === treatment.treatmentSlug);
-                                          const maxSessions = treatment.sessions || treatment.maxSessions || 0;
-                                          const totalUsedSessions = treatmentUsage?.totalUsedSessions || 0;
-                                          const remainingSessions = maxSessions - totalUsedSessions;
-                                          const isFullyUsed = maxSessions > 0 && totalUsedSessions >= maxSessions;
-                                          const usagePercent = maxSessions > 0 ? Math.round((totalUsedSessions / maxSessions) * 100) : 0;
+                                {isExpanded && (
+                                  <div className="border-t border-teal-200 p-2.5 space-y-2">
+                                    {displayData.treatments && displayData.treatments.length > 0 ? (
+                                      displayData.treatments.map((treatment: any, tIndex: number) => {
+                                        const treatmentUsage = usageData?.treatments?.find((t: any) => t.treatmentSlug === treatment.treatmentSlug);
+                                        const maxSessions = treatment.sessions || treatment.maxSessions || 0;
+                                        const totalUsedSessions = treatmentUsage?.totalUsedSessions || 0;
+                                        const remainingSessions = maxSessions - totalUsedSessions;
+                                        const isFullyUsed = maxSessions > 0 && totalUsedSessions >= maxSessions;
+                                        const usagePercent = maxSessions > 0 ? Math.round((totalUsedSessions / maxSessions) * 100) : 0;
 
-                                          return (
-                                            <div key={treatment.treatmentSlug || tIndex}
-                                              className={`rounded-lg border p-2 ${
-                                                isFullyUsed ? "bg-green-50 border-green-200" : remainingSessions > 0 ? "bg-amber-50 border-amber-200" : "bg-gray-50 border-gray-200"
-                                              }`}
-                                            >
-                                              <div className="flex items-center justify-between mb-1">
-                                                <span className="font-medium text-gray-900 text-[10px]">{treatment.treatmentName}</span>
-                                                <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-medium ${
-                                                  isFullyUsed ? "bg-green-100 text-green-700" : remainingSessions > 0 ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"
-                                                }`}>{isFullyUsed ? "Complete" : remainingSessions > 0 ? `${remainingSessions} left` : "0 left"}</span>
-                                              </div>
-                                              <div className="flex justify-between text-[9px] mb-0.5">
-                                                <span className="text-gray-500">Progress</span>
-                                                <span className="font-medium text-gray-800">{totalUsedSessions}/{maxSessions}</span>
-                                              </div>
-                                              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                                                <div className={`h-full rounded-full ${
-                                                  isFullyUsed ? "bg-green-500" : remainingSessions > 0 ? "bg-amber-500" : "bg-gray-400"
-                                                }`} style={{ width: `${Math.min(usagePercent, 100)}%` }} />
-                                              </div>
+                                        return (
+                                          <div key={treatment.treatmentSlug || tIndex}
+                                            className={`rounded-lg border p-2 ${
+                                              isFullyUsed ? "bg-green-50 border-green-200" : remainingSessions > 0 ? "bg-amber-50 border-amber-200" : "bg-gray-50 border-gray-200"
+                                            }`}
+                                          >
+                                            <div className="flex items-center justify-between mb-1">
+                                              <span className="font-medium text-gray-900 text-[10px]">{treatment.treatmentName}</span>
+                                              <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-medium ${
+                                                isFullyUsed ? "bg-green-100 text-green-700" : remainingSessions > 0 ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"
+                                              }`}>{isFullyUsed ? "Complete" : remainingSessions > 0 ? `${remainingSessions} left` : "0 left"}</span>
                                             </div>
-                                          );
-                                        })
-                                      ) : (
-                                        <div className="text-[10px] text-gray-400 text-center py-1">No treatments found</div>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            });
-                          })()
-                        )}
+                                            <div className="flex justify-between text-[9px] mb-0.5">
+                                              <span className="text-gray-500">Progress</span>
+                                              <span className="font-medium text-gray-800">{totalUsedSessions}/{maxSessions}</span>
+                                            </div>
+                                            <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                              <div className={`h-full rounded-full ${
+                                                isFullyUsed ? "bg-green-500" : remainingSessions > 0 ? "bg-amber-500" : "bg-gray-400"
+                                              }`} style={{ width: `${Math.min(usagePercent, 100)}%` }} />
+                                            </div>
+                                          </div>
+                                        );
+                                      })
+                                    ) : (
+                                      <div className="text-[10px] text-gray-400 text-center py-1">No treatments found</div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          });
+                        })()}
                       </div>
                     )}
                   </div>
