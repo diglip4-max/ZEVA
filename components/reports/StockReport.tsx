@@ -220,7 +220,6 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
     statusStats: { name: string; count: number }[];
     locations: any[];
   }>({ total: 0, statusStats: [], locations: [] });
-  const [purchaseRecordTypeStats, setPurchaseRecordTypeStats] = useState<{ name: string; count: number }[]>([]);
   const [detailedPurchaseRequests, setDetailedPurchaseRequests] = useState<any[]>([]);
   const [grnStats, setGrnStats] = useState<{
     total: number;
@@ -285,7 +284,6 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
       setStatusStats(json.data.statusStats || []);
       setUomTimeline(json.data.uomTimeline || []);
       setLocationStats(json.data.locationStats || { total: 0, statusStats: [], locations: [] });
-      setPurchaseRecordTypeStats(json.data.purchaseRecordTypeStats || []);
       setDetailedPurchaseRequests(json.data.detailedPurchaseRequests || []);
       setGrnStats(json.data.grnStats || { total: 0, sourceStats: [], statusStats: [], recentInvoicedGRNs: [] });
       setPurchaseInvoiceStats(json.data.purchaseInvoiceStats || { total: 0, statusStats: [], recentInvoices: [], topPaidGRNs: [] });
@@ -619,9 +617,9 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                       outerRadius={100}
                       paddingAngle={5}
                       dataKey="count"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                     >
-                      {locationStats.statusStats.map((entry, index) => (
+                      {locationStats.statusStats.map((_: any, index: number) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
@@ -789,7 +787,7 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
               <Tooltip cursor={{ strokeDasharray: '3 3' }} />
               <Legend />
               <Scatter name="Stock Types" data={typeStats} fill="#8884d8">
-                {typeStats.map((entry, index) => (
+                {typeStats.map((_: any, index: number) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Scatter>

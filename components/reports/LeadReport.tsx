@@ -273,9 +273,9 @@ export default function LeadReport({ startDate, endDate, headers }: Props) {
                 outerRadius={100}
                 paddingAngle={5}
                 dataKey="value"
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
               >
-                {statusesChart.map((entry, index) => (
+                {statusesChart.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>

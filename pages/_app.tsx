@@ -157,7 +157,7 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
 
       window.scrollTo(originalScrollX, originalScrollY);
 
-      const base64 = canvas.toDataURL("image/jpeg", 0.68); //0.68
+      canvas.toDataURL("image/jpeg", 0.68); //0.68
 
       console.log(`[capture] Canvas ready — ${canvas.width}×${canvas.height}`);
 
