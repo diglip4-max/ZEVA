@@ -4,14 +4,31 @@ import {
   Zap,
   User,
   Building,
-  Webhook,
+  // Webhook,
   Calendar,
   ChevronRight,
+  MessageSquare,
+  FileText,
+  Clock,
+  RefreshCw,
+  XCircle,
+  Mail,
+  Phone,
+  Smartphone,
+  Users,
+  Home,
+  Activity,
   ChevronDown,
   X,
-  MessageSquare,
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
+import { useRouter } from "next/router";
+import useTriggerByWorkflowId from "@/hooks/useTriggerByWorkflowId";
+import {
+  getDynamicRestApiVariables,
+  getDynamicWebhookVariables,
+} from "@/lib/workflows";
+import usePrevRestApiAction from "@/hooks/usePrevRestApiAction";
 
 function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
@@ -30,7 +47,417 @@ interface VariableMappingSelectProps {
   placeholder?: string;
   entity?: string; // Lead, Appointment, etc.
   className?: string;
+  nodeId: string;
 }
+
+const appointmentVariables: Variable[] = [
+  // Patient Information
+  {
+    label: "Patient ID",
+    value: "{{appointment.patientId}}",
+    category: "Appointment",
+    icon: User,
+  },
+  {
+    label: "Patient Name",
+    value: "{{appointment.patientName}}",
+    category: "Appointment",
+    icon: User,
+  },
+  {
+    label: "Patient First Name",
+    value: "{{appointment.patientFirstName}}",
+    category: "Appointment",
+    icon: User,
+  },
+  {
+    label: "Patient Last Name",
+    value: "{{appointment.patientLastName}}",
+    category: "Appointment",
+    icon: User,
+  },
+  {
+    label: "Patient Gender",
+    value: "{{appointment.patientGender}}",
+    category: "Appointment",
+    icon: User,
+  },
+  {
+    label: "Patient Email",
+    value: "{{appointment.patientEmail}}",
+    category: "Appointment",
+    icon: Mail,
+  },
+  {
+    label: "Patient Phone",
+    value: "{{appointment.patientPhone}}",
+    category: "Appointment",
+    icon: Phone,
+  },
+  {
+    label: "Patient Mobile Number",
+    value: "{{appointment.patientMobileNumber}}",
+    category: "Appointment",
+    icon: Smartphone,
+  },
+  {
+    label: "Patient Type",
+    value: "{{appointment.patientType}}",
+    category: "Appointment",
+    icon: User,
+  },
+
+  // Doctor Information
+  {
+    label: "Doctor ID",
+    value: "{{appointment.doctorId}}",
+    category: "Appointment",
+    icon: User,
+  },
+  {
+    label: "Doctor Name",
+    value: "{{appointment.doctorName}}",
+    category: "Appointment",
+    icon: User,
+  },
+  {
+    label: "Doctor Email",
+    value: "{{appointment.doctorEmail}}",
+    category: "Appointment",
+    icon: Mail,
+  },
+  {
+    label: "Doctor Phone",
+    value: "{{appointment.doctorPhone}}",
+    category: "Appointment",
+    icon: Phone,
+  },
+  {
+    label: "Doctor Gender",
+    value: "{{appointment.doctorGender}}",
+    category: "Appointment",
+    icon: User,
+  },
+  {
+    label: "Doctor Age",
+    value: "{{appointment.doctorAge}}",
+    category: "Appointment",
+    icon: Calendar,
+  },
+  {
+    label: "Doctor Date of Birth",
+    value: "{{appointment.doctorDob}}",
+    category: "Appointment",
+    icon: Calendar,
+  },
+
+  // Room Information
+  {
+    label: "Room ID",
+    value: "{{appointment.roomId}}",
+    category: "Appointment",
+    icon: Home,
+  },
+  {
+    label: "Room Name",
+    value: "{{appointment.roomName}}",
+    category: "Appointment",
+    icon: Home,
+  },
+
+  // Appointment Information
+  {
+    label: "Appointment ID",
+    value: "{{appointment.id}}",
+    category: "Appointment",
+    icon: FileText,
+  },
+  {
+    label: "Appointment Date",
+    value: "{{appointment.date}}",
+    category: "Appointment",
+    icon: Calendar,
+  },
+  {
+    label: "Appointment Time",
+    value: "{{appointment.time}}",
+    category: "Appointment",
+    icon: Clock,
+  },
+  {
+    label: "Follow Type",
+    value: "{{appointment.followType}}",
+    category: "Appointment",
+    icon: RefreshCw,
+  },
+  {
+    label: "Status",
+    value: "{{appointment.status}}",
+    category: "Appointment",
+    icon: Activity,
+  },
+  {
+    label: "Cancellation Reason",
+    value: "{{appointment.cancellationReason}}",
+    category: "Appointment",
+    icon: XCircle,
+  },
+  {
+    label: "Referral",
+    value: "{{appointment.referral}}",
+    category: "Appointment",
+    icon: Users,
+  },
+  {
+    label: "Notes",
+    value: "{{appointment.notes}}",
+    category: "Appointment",
+    icon: FileText,
+  },
+  {
+    label: "Treatment",
+    value: "{{appointment.treatment}}",
+    category: "Appointment",
+    icon: Activity,
+  },
+];
+
+const variables: Variable[] = [
+  // Lead
+  {
+    label: "Lead Name",
+    value: "{{lead.name}}",
+    category: "Lead",
+    icon: User,
+  },
+  {
+    label: "Lead Email",
+    value: "{{lead.email}}",
+    category: "Lead",
+    icon: User,
+  },
+  {
+    label: "Lead Phone",
+    value: "{{lead.phone}}",
+    category: "Lead",
+    icon: User,
+  },
+  {
+    label: "Lead Gender",
+    value: "{{lead.gender}}",
+    category: "Lead",
+    icon: User,
+  },
+  { label: "Lead Age", value: "{{lead.age}}", category: "Lead", icon: User },
+  {
+    label: "Lead Source",
+    value: "{{lead.source}}",
+    category: "Lead",
+    icon: User,
+  },
+  {
+    label: "Lead Custom Source",
+    value: "{{lead.customSource}}",
+    category: "Lead",
+    icon: User,
+  },
+  {
+    label: "Lead Offer",
+    value: "{{lead.offerTag}}",
+    category: "Lead",
+    icon: User,
+  },
+  {
+    label: "Lead Status",
+    value: "{{lead.status}}",
+    category: "Lead",
+    icon: User,
+  },
+  {
+    label: "Lead Custom Status",
+    value: "{{lead.customStatus}}",
+    category: "Lead",
+    icon: User,
+  },
+  {
+    label: "Clinic Name",
+    value: "{{lead.clinicName}}",
+    category: "Lead",
+    icon: Building,
+  },
+
+  // Patient
+  {
+    label: "Patient Name",
+    value: "{{patient.name}}",
+    category: "Patient",
+    icon: User,
+  },
+  {
+    label: "Patient Email",
+    value: "{{patient.email}}",
+    category: "Patient",
+    icon: User,
+  },
+  {
+    label: "Patient Phone",
+    value: "{{patient.phone}}",
+    category: "Patient",
+    icon: User,
+  },
+  {
+    label: "Patient Gender",
+    value: "{{patient.gender}}",
+    category: "Patient",
+    icon: User,
+  },
+  {
+    label: "Patient Age",
+    value: "{{patient.age}}",
+    category: "Patient",
+    icon: User,
+  },
+  {
+    label: "Patient Source",
+    value: "{{patient.source}}",
+    category: "Patient",
+    icon: User,
+  },
+  {
+    label: "Patient Custom Source",
+    value: "{{patient.customSource}}",
+    category: "Patient",
+    icon: User,
+  },
+  {
+    label: "Patient Status",
+    value: "{{patient.status}}",
+    category: "Patient",
+    icon: User,
+  },
+  {
+    label: "Patient Custom Status",
+    value: "{{patient.customStatus}}",
+    category: "Patient",
+    icon: User,
+  },
+  {
+    label: "Clinic Name",
+    value: "{{patient.clinicName}}",
+    category: "Patient",
+    icon: Building,
+  },
+
+  // Clinic
+  {
+    label: "Clinic Name",
+    value: "{{clinic.name}}",
+    category: "Clinic",
+    icon: Building,
+  },
+  {
+    label: "Clinic Address",
+    value: "{{clinic.address}}",
+    category: "Clinic",
+    icon: Building,
+  },
+  {
+    label: "Clinic Phone",
+    value: "{{clinic.phone}}",
+    category: "Clinic",
+    icon: Building,
+  },
+
+  // Webhook
+  // {
+  //   label: "Webhook Payload",
+  //   value: "{{webhook.payload}}",
+  //   category: "Webhook",
+  //   icon: Webhook,
+  // },
+
+  // Message
+  {
+    label: "Message ID",
+    value: "{{incoming_message.id}}",
+    category: "Incoming Message",
+    icon: MessageSquare,
+  },
+  {
+    label: "Message Content",
+    value: "{{incoming_message.content}}",
+    category: "Incoming Message",
+    icon: MessageSquare,
+  },
+  {
+    label: "Message Channel",
+    value: "{{incoming_message.channel}}",
+    category: "Incoming Message",
+    icon: MessageSquare,
+  },
+  {
+    label: "Message Status",
+    value: "{{incoming_message.status}}",
+    category: "Incoming Message",
+    icon: MessageSquare,
+  },
+  {
+    label: "Message Direction",
+    value: "{{incoming_message.direction}}",
+    category: "Incoming Message",
+    icon: MessageSquare,
+  },
+  {
+    label: "Message Sender ID",
+    value: "{{incoming_message.senderId}}",
+    category: "Incoming Message",
+    icon: User,
+  },
+  {
+    label: "Message Recipient ID",
+    value: "{{incoming_message.recipientId}}",
+    category: "Incoming Message",
+    icon: User,
+  },
+  {
+    label: "Message Sent At",
+    value: "{{incoming_message.sentAt}}",
+    category: "Incoming Message",
+    icon: Calendar,
+  },
+  {
+    label: "Message Received At",
+    value: "{{incoming_message.receivedAt}}",
+    category: "Incoming Message",
+    icon: Calendar,
+  },
+  {
+    label: "Message Media URL",
+    value: "{{incoming_message.mediaUrl}}",
+    category: "Incoming Message",
+    icon: MessageSquare,
+  },
+  {
+    label: "Message Media Type",
+    value: "{{incoming_message.mediaType}}",
+    category: "Incoming Message",
+    icon: MessageSquare,
+  },
+
+  // System
+  {
+    label: "Current Date",
+    value: "{{system.date}}",
+    category: "System",
+    icon: Zap,
+  },
+  {
+    label: "Current Time",
+    value: "{{system.time}}",
+    category: "System",
+    icon: Zap,
+  },
+];
 
 const VariableMappingSelect: React.FC<VariableMappingSelectProps> = ({
   value,
@@ -38,245 +465,102 @@ const VariableMappingSelect: React.FC<VariableMappingSelectProps> = ({
   placeholder = "Select variable...",
   entity = "Lead",
   className,
+  nodeId,
 }) => {
-  console.log({ entity });
+  const router = useRouter();
+  const { workflowId } = router.query;
+  const { trigger } = useTriggerByWorkflowId({
+    workflowId: workflowId as string,
+  });
+  const { prevRestApiAction } = usePrevRestApiAction({
+    workflowId: workflowId as string,
+    nodeId,
+  });
+  const webhookVariables = getDynamicWebhookVariables(
+    trigger?.webhookResponse || {},
+  );
+  const restApiVariables = getDynamicRestApiVariables(
+    prevRestApiAction?.apiResponse || {},
+  );
+
+  console.log("vari workflowId: ", workflowId);
+  console.log("trigger: ", trigger);
+  console.log("webhookVariables: ", webhookVariables);
+  console.log("restApiVariables: ", restApiVariables);
+
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const variables: Variable[] = [
-    // Lead
-    {
-      label: "Lead Name",
-      value: "{{lead.name}}",
-      category: "Lead",
-      icon: User,
-    },
-    {
-      label: "Lead Email",
-      value: "{{lead.email}}",
-      category: "Lead",
-      icon: User,
-    },
-    {
-      label: "Lead Phone",
-      value: "{{lead.phone}}",
-      category: "Lead",
-      icon: User,
-    },
-    {
-      label: "Lead Gender",
-      value: "{{lead.gender}}",
-      category: "Lead",
-      icon: User,
-    },
-    { label: "Lead Age", value: "{{lead.age}}", category: "Lead", icon: User },
-    {
-      label: "Lead Source",
-      value: "{{lead.source}}",
-      category: "Lead",
-      icon: User,
-    },
-    {
-      label: "Lead Custom Source",
-      value: "{{lead.customSource}}",
-      category: "Lead",
-      icon: User,
-    },
-    {
-      label: "Lead Offer",
-      value: "{{lead.offerTag}}",
-      category: "Lead",
-      icon: User,
-    },
-    {
-      label: "Lead Status",
-      value: "{{lead.status}}",
-      category: "Lead",
-      icon: User,
-    },
-    {
-      label: "Lead Custom Status",
-      value: "{{lead.customStatus}}",
-      category: "Lead",
-      icon: User,
-    },
-    {
-      label: "Clinic Name",
-      value: "{{lead.clinicName}}",
-      category: "Lead",
-      icon: Building,
-    },
-
-    // Patient
-    {
-      label: "Patient Name",
-      value: "{{patient.name}}",
-      category: "Patient",
-      icon: User,
-    },
-    {
-      label: "Patient Email",
-      value: "{{patient.email}}",
-      category: "Patient",
-      icon: User,
-    },
-    {
-      label: "Patient Phone",
-      value: "{{patient.phone}}",
-      category: "Patient",
-      icon: User,
-    },
-    {
-      label: "Patient Gender",
-      value: "{{patient.gender}}",
-      category: "Patient",
-      icon: User,
-    },
-    {
-      label: "Patient Age",
-      value: "{{patient.age}}",
-      category: "Patient",
-      icon: User,
-    },
-    {
-      label: "Patient Source",
-      value: "{{patient.source}}",
-      category: "Patient",
-      icon: User,
-    },
-    {
-      label: "Patient Custom Source",
-      value: "{{patient.customSource}}",
-      category: "Patient",
-      icon: User,
-    },
-    {
-      label: "Patient Status",
-      value: "{{patient.status}}",
-      category: "Patient",
-      icon: User,
-    },
-    {
-      label: "Patient Custom Status",
-      value: "{{patient.customStatus}}",
-      category: "Patient",
-      icon: User,
-    },
-    {
-      label: "Clinic Name",
-      value: "{{patient.clinicName}}",
-      category: "Patient",
-      icon: Building,
-    },
-
-    // Clinic
-    {
-      label: "Clinic Name",
-      value: "{{clinic.name}}",
-      category: "Clinic",
-      icon: Building,
-    },
-    {
-      label: "Clinic Address",
-      value: "{{clinic.address}}",
-      category: "Clinic",
-      icon: Building,
-    },
-    {
-      label: "Clinic Phone",
-      value: "{{clinic.phone}}",
-      category: "Clinic",
-      icon: Building,
-    },
-
-    // Webhook
-    {
-      label: "Webhook Payload",
-      value: "{{webhook.payload}}",
-      category: "Webhook",
-      icon: Webhook,
-    },
-
-    // Message
-    {
-      label: "Message Content",
-      value: "{{message.content}}",
-      category: "Message",
-      icon: MessageSquare,
-    },
-    {
-      label: "Message Channel",
-      value: "{{message.channel}}",
-      category: "Message",
-      icon: MessageSquare,
-    },
-    {
-      label: "Message Direction",
-      value: "{{message.direction}}",
-      category: "Message",
-      icon: MessageSquare,
-    },
-    {
-      label: "Message Sender",
-      value: "{{message.senderId}}",
-      category: "Message",
-      icon: User,
-    },
-    {
-      label: "Message Recipient",
-      value: "{{message.recipientId}}",
-      category: "Message",
-      icon: User,
-    },
-
-    // Appointment
-    {
-      label: "Appointment Date",
-      value: "{{appointment.date}}",
-      category: "Appointment",
-      icon: Calendar,
-    },
-    {
-      label: "Appointment Time",
-      value: "{{appointment.time}}",
-      category: "Appointment",
-      icon: Calendar,
-    },
-    {
-      label: "Doctor Name",
-      value: "{{appointment.doctor}}",
-      category: "Appointment",
-      icon: User,
-    },
-
-    // System
-    {
-      label: "Current Date",
-      value: "{{system.date}}",
-      category: "System",
-      icon: Zap,
-    },
-    {
-      label: "Current Time",
-      value: "{{system.time}}",
-      category: "System",
-      icon: Zap,
-    },
-  ];
-
-  const filteredVariables = variables.filter(
-    (v) =>
-      v.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      v.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      v.value.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  const filteredVariables = [
+    ...webhookVariables,
+    ...restApiVariables,
+    ...appointmentVariables,
+    ...variables,
+  ]
+    ?.filter((v) => {
+      switch (entity) {
+        case "Lead":
+          return (
+            v.category === "Lead" ||
+            v.category === "System" ||
+            (Object.entries(restApiVariables).length > 0 &&
+              v.category === "Rest API")
+          );
+        case "Patient":
+          return (
+            v.category === "Patient" ||
+            v.category === "System" ||
+            (Object.entries(restApiVariables).length > 0 &&
+              v.category === "Rest API")
+          );
+        case "Clinic":
+          return (
+            v.category === "Clinic" ||
+            v.category === "System" ||
+            (Object.entries(restApiVariables).length > 0 &&
+              v.category === "Rest API")
+          );
+        case "Webhook":
+          return (
+            v.category === "Webhook" ||
+            v.category === "System" ||
+            (Object.entries(restApiVariables).length > 0 &&
+              v.category === "Rest API")
+          );
+        case "Message":
+          return (
+            v.category === "Incoming Message" ||
+            v.category === "Lead" ||
+            v.category === "System" ||
+            (Object.entries(restApiVariables).length > 0 &&
+              v.category === "Rest API")
+          );
+        case "Appointment":
+          return (
+            v.category === "Appointment" ||
+            v.category === "System" ||
+            (Object.entries(restApiVariables).length > 0 &&
+              v.category === "Rest API")
+          );
+        case "System":
+          return v.category === "System";
+        default:
+          return true;
+      }
+    })
+    .filter(
+      (v) =>
+        v.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        v.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        v.value.toLowerCase().includes(searchTerm.toLowerCase()),
+    );
 
   const categories = Array.from(
     new Set(filteredVariables.map((v) => v.category)),
   );
 
-  const selectedVariable = variables.find((v) => v.value === value);
+  const selectedVariable = filteredVariables.find((v) => v.value === value);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
