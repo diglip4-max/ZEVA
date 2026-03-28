@@ -58,6 +58,9 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
   const [consentStatuses, setConsentStatuses] = useState<any[]>([]);
   const [loadingConsentStatus, setLoadingConsentStatus] = useState(false);
   
+  // Package Link State
+  const [sendingPackageLink, setSendingPackageLink] = useState(false);
+  
   // Stats state - fetched on mount
   const [statsData, setStatsData] = useState({
     totalVisits: 0,
@@ -776,6 +779,70 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
       setConsentStatuses([]);
     } finally {
       setLoadingConsentStatus(false);
+    }
+  };
+
+  const sendPackageLink = async () => {
+    if (!patientData?._id || !patientData?.clinicId) {
+      alert('Patient data not available');
+      return;
+    }
+
+    try {
+      setSendingPackageLink(true);
+      const headers = getAuthHeaders();
+      if (!headers) {
+        alert('Authentication required');
+        return;
+      }
+
+      const patientName = patientData?.fullName || `${patientData?.firstName || ''} ${patientData?.lastName || ''}`.trim();
+      const patientMobile = patientData?.mobileNumber || '';
+      const patientEmail = patientData?.email || '';
+
+      // Generate package creation URL
+      const packageUrl = `https://zeva360.com/public/create-package?clinicId=${patientData.clinicId}&patientId=${patientData._id}&patientName=${encodeURIComponent(patientName)}&patientMobile=${encodeURIComponent(patientMobile)}&patientEmail=${encodeURIComponent(patientEmail)}`;
+
+      console.log("=== SENDING PACKAGE LINK VIA WHATSAPP ===");
+      console.log("Package URL:", packageUrl);
+      console.log("Patient Name:", patientName);
+      console.log("Patient Mobile:", patientMobile);
+      console.log("Patient Email:", patientEmail);
+      console.log("Clinic ID:", patientData.clinicId);
+      console.log("Patient ID:", patientData._id);
+      console.log("==========================================");
+
+      // Send via WhatsApp message API
+      const token = getStoredToken();
+      await axios.post(
+        "/api/messages/send-message",
+        {
+          patientId: patientData._id,
+          providerId: "6952256c4a46b2f1eb01be86",
+          channel: "whatsapp",
+          content: `Hello ${patientName}! Click the link below to create your treatment package:\n\n${packageUrl}\n\nThank you!`,
+          mediaUrl: "",
+          mediaType: "",
+          source: "Zeva",
+          messageType: "conversational",
+          templateId: "",
+          headerParameters: [],
+          bodyParameters: [],
+          attachments: [],
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      alert('Package link sent successfully!');
+    } catch (error: any) {
+      console.error("Error sending package link:", error);
+      alert(error?.response?.data?.message || 'Failed to send package link');
+    } finally {
+      setSendingPackageLink(false);
     }
   };
 
@@ -2535,8 +2602,40 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                 );
               })()
             ) : activeTab === 'communication' ? (
-              /* Communication Log - Consent Form Status */
+              /* Communication Log - Consent Form Status + Package Link */
               <div className="space-y-4">
+                {/* Send Package Link Button */}
+                <div className="bg-gradient-to-r from-teal-50 to-emerald-50 rounded-xl border border-teal-200 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
+                        <Package className="w-5 h-5 text-teal-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-gray-900">Create Package</h3>
+                        <p className="text-xs text-gray-500">Send a link for patient to select treatments</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => sendPackageLink()}
+                      disabled={sendingPackageLink}
+                      className="px-4 py-2 bg-teal-600 text-white text-xs font-semibold rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {sendingPackageLink ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3.5 h-3.5" />
+                          Send Link
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
                 {loadingConsentStatus ? (
                   <div className="flex items-center justify-center py-16">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
