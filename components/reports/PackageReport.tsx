@@ -28,6 +28,7 @@ interface PackageRow {
   packageName: string;
   totalRevenue: number;
   totalBookings: number;
+  totalAppointments: number;
 }
 
 interface Props {
@@ -84,6 +85,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         name: r.packageName || "Unnamed",
         revenue: Math.round(r.totalRevenue || 0),
         bookings: r.totalBookings || 0,
+        appointments: r.totalAppointments || 0,
       })),
     [rows]
   );
@@ -137,13 +139,23 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-800">Top Packages (Revenue)</h3>
         </div>
-        <div className="w-full" style={{ height: 320 }}>
+        <div className="w-full" style={{ height: 300, minHeight: 250 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 50 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
-              <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
-              <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
+              <XAxis 
+                dataKey="name" 
+                angle={-45} 
+                textAnchor="end" 
+                interval={0} 
+                height={70}
+                tick={{ fontSize: 10 }}
+              />
+              <YAxis 
+                tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} 
+                tick={{ fontSize: 10 }}
+              />
+              <Tooltip formatter={(v: any) => currency(Number(v || 0))} contentStyle={{ fontSize: 11 }} />
               <Bar dataKey="revenue" fill="#2D9AA5" />
             </BarChart>
           </ResponsiveContainer>
@@ -151,7 +163,32 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       </div>
 
       <div className="bg-white rounded-lg shadow p-4">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Top Packages</h3>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Appointments by Package</h3>
+        <div className="w-full" style={{ height: 300, minHeight: 250 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 50 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis 
+                dataKey="name" 
+                angle={-45} 
+                textAnchor="end" 
+                interval={0} 
+                height={70}
+                tick={{ fontSize: 10 }}
+              />
+              <YAxis 
+                allowDecimals={false}
+                tick={{ fontSize: 10 }}
+              />
+              <Tooltip contentStyle={{ fontSize: 11 }} />
+              <Bar dataKey="appointments" name="Appointments" fill="#10B981" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-4 overflow-hidden">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Package Performance</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {rows.map((p) => (
             <div key={p.packageName} className="border rounded-lg p-4">
@@ -164,12 +201,22 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-800">Package Reports — Track Packages Sold</h3>
-          <div className="flex items-center gap-4">
+      <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-3">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-800">Package Reports — Track Packages Sold</h3>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto">
             <ExportButtons
               sections={[
+                {
+                  title: "Package Performance Summary",
+                  headers: ["Package Name", "Total Bookings", "Total Appointments", "Total Revenue (AED)"],
+                  data: rows.map(r => ({
+                    "Package Name": r.packageName || "Unnamed",
+                    "Total Bookings": r.totalBookings || 0,
+                    "Total Appointments": r.totalAppointments || 0,
+                    "Total Revenue (AED)": Math.round(r.totalRevenue || 0),
+                  })),
+                },
                 {
                   title: "Packages Sold",
                   headers: ["Package Name", "Patient Name", "Doctor Name", "Total Sessions", "Sessions Used", "Remaining Sessions", "Payment Status"],
@@ -187,17 +234,17 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               filename={`package_report_${startDate}_to_${endDate}`}
               title="Package Sales Report"
             />
-            <div className="flex items-center gap-2 border-l pl-4">
+            <div className="flex items-center gap-1 sm:gap-2 border-l border-gray-300 pl-2 sm:pl-4 w-full sm:w-auto justify-center sm:justify-end">
               <button
-                className="px-3 py-1.5 rounded border text-sm"
+                className="px-2 sm:px-3 py-1 sm:py-1.5 rounded border text-xs sm:text-sm bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 transition-colors min-w-[60px] sm:min-w-[70px]"
                 disabled={page <= 1}
                 onClick={() => fetchPackagesSold(Math.max(1, page - 1))}
               >
                 Prev
               </button>
-              <span className="text-sm text-gray-700">Page {page}</span>
+              <span className="text-xs sm:text-sm text-gray-700 font-medium whitespace-nowrap">Page {page}</span>
               <button
-                className="px-3 py-1.5 rounded border text-sm"
+                className="px-2 sm:px-3 py-1 sm:py-1.5 rounded border text-xs sm:text-sm bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 transition-colors min-w-[60px] sm:min-w-[70px]"
                 disabled={!hasNext}
                 onClick={() => fetchPackagesSold(page + 1)}
               >

@@ -107,30 +107,30 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({ data, filename, headers, 
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2 mb-3 sm:mb-4">
       <button
         onClick={exportToCSV}
-        className="flex items-center gap-1 px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded text-sm transition-colors shadow-sm"
+        className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-xs sm:text-sm transition-colors shadow-sm min-w-[70px] sm:min-w-[85px]"
         title="Download CSV"
       >
-        <FileText className="w-4 h-4 text-green-600" />
-        CSV
+        <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
+        <span className="font-medium">CSV</span>
       </button>
       <button
         onClick={exportToExcel}
-        className="flex items-center gap-1 px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded text-sm transition-colors shadow-sm"
+        className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-xs sm:text-sm transition-colors shadow-sm min-w-[70px] sm:min-w-[85px]"
         title="Download Excel"
       >
-        <FileSpreadsheet className="w-4 h-4 text-teal-600" />
-        Excel
+        <FileSpreadsheet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-teal-600" />
+        <span className="font-medium">Excel</span>
       </button>
       <button
         onClick={exportToPDF}
-        className="flex items-center gap-1 px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded text-sm transition-colors shadow-sm"
+        className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-xs sm:text-sm transition-colors shadow-sm min-w-[70px] sm:min-w-[85px]"
         title="Download PDF"
       >
-        <FilePdf className="w-4 h-4 text-red-600" />
-        PDF
+        <FilePdf className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-600" />
+        <span className="font-medium">PDF</span>
       </button>
     </div>
   );
