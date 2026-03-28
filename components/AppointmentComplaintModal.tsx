@@ -387,6 +387,66 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     return () => document.removeEventListener("mousedown", handler);
   }, [isAllocatedDropdownOpen]);
 
+  // Fetch consent statuses function - defined outside useEffect for access throughout component
+  const fetchConsentStatuses = async (patientId: string, appointmentId: string) => {
+    setLoadingConsentStatus(true);
+    try {
+      console.log("Fetching consent statuses for patient:", patientId, "appointment:", appointmentId);
+      const headers = getAuthHeaders();
+      
+      const [signaturesResponse, logsResponse] = await Promise.all([
+        axios.get("/api/clinic/consent-status", {
+          headers,
+          params: { patientId, appointmentId },
+        }),
+        axios.get("/api/clinic/consent-log", {
+          headers,
+          params: { patientId, appointmentId },
+        }),
+      ]);
+      
+      if (signaturesResponse.data?.success) {
+        // Update consent statuses with the results
+        setConsentStatuses(signaturesResponse.data.consentStatuses || []);
+      }
+      if (logsResponse.data?.success) {
+        // Also merge with consent logs if needed
+        const signatures = signaturesResponse.data?.consentStatuses || [];
+        const logs = logsResponse.data?.consentLogs || [];
+        
+        // Merge logs and signatures
+        const logMap = new Map();
+        
+        logs.forEach((log: any) => {
+          logMap.set(log.consentFormId, {
+            _id: log._id,
+            consentFormId: log.consentFormId,
+            consentFormName: log.consentFormName,
+            description: log.description || "",
+            patientName: log.patientName,
+            date: new Date(log.createdAt).toLocaleDateString("en-GB"),
+            hasSignature: false,
+            status: "sent",
+            signedAt: null,
+          });
+        });
+        
+        signatures.forEach((sig: any) => {
+          logMap.set(sig.consentFormId, {
+            ...sig,
+            status: "signed",
+          });
+        });
+        
+        setConsentStatuses(Array.from(logMap.values()));
+      }
+    } catch (err) {
+      console.error("Error fetching consent statuses:", err);
+    } finally {
+      setLoadingConsentStatus(false);
+    }
+  };
+
   // fetch allocated stock items
   const {
     allocatedItems,
@@ -555,78 +615,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         );
       } finally {
         setLoading(false);
-      }
-    };
-
-    const fetchConsentStatuses = async (patientId: string, appointmentId: string) => {
-      setLoadingConsentStatus(true);
-      try {
-        console.log("Fetching consent statuses for patient:", patientId, "appointment:", appointmentId);
-        const headers = getAuthHeaders();
-        
-        // Fetch both signed consents and sent logs
-        const [signaturesResponse, logsResponse] = await Promise.all([
-          axios.get("/api/clinic/consent-status", {
-            headers,
-            params: { patientId, appointmentId },
-          }),
-          axios.get("/api/clinic/consent-log", {
-            headers,
-            params: { patientId, appointmentId },
-          }),
-        ]);
-        
-        console.log("Consent status response:", signaturesResponse.data);
-        console.log("Consent logs response:", logsResponse.data);
-
-        if (signaturesResponse.data?.success || logsResponse.data?.success) {
-          const signatures = signaturesResponse.data?.consentStatuses || [];
-          const logs = logsResponse.data?.consentLogs || [];
-          
-          // Merge logs and signatures, avoiding duplicates
-          const logMap = new Map();
-          
-          // Add all logs first (sent forms)
-          logs.forEach((log: any) => {
-            logMap.set(log.consentFormId, {
-              _id: log._id,
-              consentFormId: log.consentFormId,
-              consentFormName: log.consentFormName,
-              description: log.description || "",
-              patientName: log.patientName,
-              date: new Date(log.createdAt).toLocaleDateString("en-GB"),
-              hasSignature: false,
-              status: "sent",
-              signedAt: null,
-            });
-          });
-          
-          // Update with signatures if they exist (signed forms)
-          signatures.forEach((sig: ConsentFormStatus) => {
-            logMap.set(sig.consentFormId, {
-              ...sig,
-              status: "signed",
-            });
-          });
-          
-          // Convert map back to array
-          const mergedConsentStatuses = Array.from(logMap.values());
-          
-          setConsentStatuses(mergedConsentStatuses);
-          
-          // Update "Consent Signed" checklist item based on actual signature status
-          const hasSignedConsent = mergedConsentStatuses.some(
-            (cs: ConsentFormStatus) => cs.status === "signed" && cs.hasSignature
-          );
-          setChecklist((prev) => ({
-            ...prev,
-            "Consent Signed": hasSignedConsent,
-          }));
-        }
-      } catch (err: any) {
-        console.error("Error fetching consent statuses:", err);
-      } finally {
-        setLoadingConsentStatus(false);
       }
     };
 
@@ -1219,7 +1207,61 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         setSendingConsent(false);
       }
     };
- 
+
+    /*---------------------------
+    // SEND PRESCRIPTION MESSAGE ON WHATSAPP
+    //---------------------------*/
+    const handleSendPrescriptionWhatsapp = async (prescriptionLink: string) => {
+      if (!prescriptionLink) return;
+      
+      try {
+        setSendMsgLoading(true);
+        const token = getTokenByPath();
+        
+        console.log("=== SENDING PRESCRIPTION VIA WHATSAPP ===");
+        console.log("Prescription Link:", prescriptionLink);
+        console.log("Patient Name:", details?.patientName);
+        console.log("Patient Mobile:", details?.mobileNumber);
+        console.log("==========================================");
+        
+        const { data } = await axios.post(
+          "/api/messages/send-message",
+          {
+            patientId: details?.patientId,
+            providerId: "6952256c4a46b2f1eb01be86",
+            channel: "whatsapp",
+            content: `Please check out this prescription form by clicking the link below:\n\n ${prescriptionLink}\n\n Thank you.`,
+            mediaUrl: "",
+            mediaType: "",
+            source: "Zeva",
+            messageType: "conversational",
+            templateId: "69c679add3dde2931e28d893",
+            headerParameters: [],
+            bodyParameters: [
+              {
+                type: "text",
+                text: prescriptionLink,
+              },
+            ],
+            attachments: [],
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+        
+        if (data && data?.success) {
+          alert("Prescription sent via WhatsApp successfully!");
+        }
+      } catch (error: any) {
+        console.log("Error in send prescription msg on whatsapp: ", error?.message);
+        alert(error?.response?.data?.message || "Failed to send prescription via WhatsApp");
+      } finally {
+        setSendMsgLoading(false);
+      }
+    };
 
   if (!isOpen || !appointment) {
     return null;
@@ -3504,11 +3546,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               pdfUrl,
                             }, { headers });
                             
-                            // Get patient mobile number
-                            const patientRes = await axios.get(`/api/clinic/patient-registration?id=${details.patientId}`, { headers });
-                            const patientMobile = patientRes.data?.patient?.mobileNumber;
-                            
-                            if (patientMobile && pdfUrl) {
+                            if (pdfUrl) {
                               // Generate public prescription link
                               const baseUrl = window.location.origin;
                               const prescriptionId = saveRes.data?.prescription?._id;
@@ -3522,16 +3560,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               console.log("PDF URL:", pdfUrl);
                               console.log("===================================");
                               
-                              // Send WhatsApp message
-                              const waMessage = `Hello ${details.patientName}, your prescription from Dr. ${details.doctorName} is ready. View it here: ${prescriptionLink}`;
-                              await axios.post("/api/marketing/send-whatsapp", {
-                                to: patientMobile,
-                                message: waMessage,
-                              }, { headers });
-                              
-                              alert("Prescription sent via WhatsApp successfully!");
-                            } else if (!patientMobile) {
-                              alert("Patient mobile number not found. Please update patient details.");
+                              // Send WhatsApp message using the dedicated function
+                              await handleSendPrescriptionWhatsapp(prescriptionLink);
                             } else {
                               alert("Prescription saved but failed to send WhatsApp message.");
                             }
