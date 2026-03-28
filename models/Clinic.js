@@ -85,6 +85,12 @@ const ClinicSchema = new mongoose.Schema(
       enableOnlineBooking:{ type: Boolean, default: true },
       featuredListing:    { type: Boolean, default: false },
     },
+    // Custom time slots for appointment scheduling (legacy support)
+    customTimeSlots: {
+      useCustomTimeSlots: { type: Boolean, default: false },
+      customStartTime: { type: String, default: "" },
+      customEndTime: { type: String, default: "" },
+    },
   },
   { timestamps: true }
 );

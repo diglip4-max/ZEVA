@@ -946,23 +946,23 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                   <stat.icon className={`w-3.5 h-3.5 ${stat.color}`} />
                 </div>
               </div>
-              <div className="text-xl font-bold text-gray-900">{stat.value}</div>
-              <div className="text-[10px] sm:text-xs text-gray-600">{stat.label}</div>
+              <div className="text-lg sm:text-xl font-bold text-gray-900">{stat.value}</div>
+              <div className="text-[10px] sm:text-xs text-gray-600 truncate">{stat.label}</div>
             </div>
           ))}
         </div>
 
         {/* Tab Navigation */}
-        <div className="border-b border-gray-200 mb-4">
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide border-b border-gray-200 px-2 py-2">
+        <div className="border-b border-gray-200 mb-4 sticky top-14 sm:top-16 bg-gray-50 z-[9] -mx-3 sm:mx-0 px-3 sm:px-0">
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide border-b border-gray-200 py-2">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`inline-flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap rounded-lg ${
                   activeTab === tab.id
-                    ? 'border-b-0 border-transparent text-teal-600 bg-white underline-offset-4 transition-all underline '
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 underline-offset-4 transition-all'
+                    ? 'text-teal-600 bg-white shadow-sm ring-1 ring-gray-200 underline underline-offset-4'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                 }`}
               >
                 {tab.label}
@@ -2722,52 +2722,6 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                 </div>
 
                 {/* Modals */}
-                <AddPatientAdvancePaymentModal
-                  isOpen={showAddAdvancePaymentModal}
-                  onClose={() => setShowAddAdvancePaymentModal(false)}
-                  patientId={patientData._id}
-                  patientName={`${patientData.firstName} ${patientData.lastName}`}
-                  onSuccess={async () => {
-                    const updated = await fetchPatientBalance(patientData._id);
-                    if (updated) setBalance(updated as typeof balance);
-                  }}
-                />
-                <AddPatientPastAdvancePaymentModal
-                  isOpen={showAddPastAdvancePayment50PercentModal}
-                  onClose={() => setShowAddPastAdvancePayment50PercentModal(false)}
-                  patientId={patientData._id}
-                  patientName={`${patientData.firstName} ${patientData.lastName}`}
-                  onSuccess={async () => {
-                    const updated = await fetchPatientBalance(patientData._id);
-                    if (updated) setBalance(updated as typeof balance);
-                  }}
-                  pastAdvanceType="50% Offer"
-                  primaryColor="amber"
-                />
-                <AddPatientPastAdvancePaymentModal
-                  isOpen={showAddPastAdvancePayment54PercentModal}
-                  onClose={() => setShowAddPastAdvancePayment54PercentModal(false)}
-                  patientId={patientData._id}
-                  patientName={`${patientData.firstName} ${patientData.lastName}`}
-                  onSuccess={async () => {
-                    const updated = await fetchPatientBalance(patientData._id);
-                    if (updated) setBalance(updated as typeof balance);
-                  }}
-                  pastAdvanceType="54% Offer"
-                  primaryColor="blue"
-                />
-                <AddPatientPastAdvancePaymentModal
-                  isOpen={showAddPastAdvancePayment159FlatModal}
-                  onClose={() => setShowAddPastAdvancePayment159FlatModal(false)}
-                  patientId={patientData._id}
-                  patientName={`${patientData.firstName} ${patientData.lastName}`}
-                  onSuccess={async () => {
-                    const updated = await fetchPatientBalance(patientData._id);
-                    if (updated) setBalance(updated as typeof balance);
-                  }}
-                  pastAdvanceType="159 Flat"
-                  primaryColor="purple"
-                />
               </div>
             ) : (
               /* Default Overview Tab - Compact Professional Dashboard */
@@ -2988,6 +2942,54 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
             </div>
           </div>
         )}
+
+        {/* Global Modals */}
+        <AddPatientAdvancePaymentModal
+          isOpen={showAddAdvancePaymentModal}
+          onClose={() => setShowAddAdvancePaymentModal(false)}
+          patientId={patientData._id}
+          patientName={`${patientData.firstName} ${patientData.lastName}`}
+          onSuccess={async () => {
+            const updated = await fetchPatientBalance(patientData._id);
+            if (updated) setBalance(updated as typeof balance);
+          }}
+        />
+        <AddPatientPastAdvancePaymentModal
+          isOpen={showAddPastAdvancePayment50PercentModal}
+          onClose={() => setShowAddPastAdvancePayment50PercentModal(false)}
+          patientId={patientData._id}
+          patientName={`${patientData.firstName} ${patientData.lastName}`}
+          onSuccess={async () => {
+            const updated = await fetchPatientBalance(patientData._id);
+            if (updated) setBalance(updated as typeof balance);
+          }}
+          pastAdvanceType="50% Offer"
+          primaryColor="amber"
+        />
+        <AddPatientPastAdvancePaymentModal
+          isOpen={showAddPastAdvancePayment54PercentModal}
+          onClose={() => setShowAddPastAdvancePayment54PercentModal(false)}
+          patientId={patientData._id}
+          patientName={`${patientData.firstName} ${patientData.lastName}`}
+          onSuccess={async () => {
+            const updated = await fetchPatientBalance(patientData._id);
+            if (updated) setBalance(updated as typeof balance);
+          }}
+          pastAdvanceType="54% Offer"
+          primaryColor="blue"
+        />
+        <AddPatientPastAdvancePaymentModal
+          isOpen={showAddPastAdvancePayment159FlatModal}
+          onClose={() => setShowAddPastAdvancePayment159FlatModal(false)}
+          patientId={patientData._id}
+          patientName={`${patientData.firstName} ${patientData.lastName}`}
+          onSuccess={async () => {
+            const updated = await fetchPatientBalance(patientData._id);
+            if (updated) setBalance(updated as typeof balance);
+          }}
+          pastAdvanceType="159 Flat"
+          primaryColor="purple"
+        />
     </div>
   );
 };

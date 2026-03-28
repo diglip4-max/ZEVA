@@ -10,6 +10,14 @@ import {
   ResponsiveContainer,
   CartesianGrid,
   Legend,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+  ScatterChart,
+  Scatter,
+  ZAxis,
 } from "recharts";
 import ExportButtons from "./ExportButtons";
 
@@ -331,6 +339,8 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
     }));
   }, [items]);
 
+  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d", "#ffc658", "#8dd1e1", "#a4de6c", "#d0ed57"];
+
   if (loading) return <div className="p-10 text-center">Loading Stock Report...</div>;
 
   return (
@@ -446,17 +456,25 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
       {/* Graphs */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h4 className="text-lg font-semibold mb-4 text-gray-800">Distribution by Type</h4>
+          <h4 className="text-lg font-semibold mb-4 text-gray-800">Top 10 Items by Quantity (Line Graph)</h4>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={typeStats} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
-                <CartesianGrid strokeDasharray="3 3" />
+              <LineChart data={items.slice(0, 10)} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
-                <YAxis allowDecimals={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
+                <YAxis />
                 <Tooltip />
-                <Legend />
-                <Bar dataKey="count" fill="#2D9AA5" radius={[4, 4, 0, 0]} />
-              </BarChart>
+                <Legend verticalAlign="top" height={36}/>
+                <Line 
+                  type="monotone" 
+                  dataKey="currentQuantity" 
+                  name="Qty In Hand" 
+                  stroke="#2D9AA5" 
+                  strokeWidth={3}
+                  dot={{ r: 4, fill: "#2D9AA5" }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
@@ -592,14 +610,24 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
               <h5 className="text-md font-semibold text-gray-700">Location Distribution by Status</h5>
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={locationStats.statusStats} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
-                    <YAxis allowDecimals={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
+                  <PieChart>
+                    <Pie
+                      data={locationStats.statusStats}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={5}
+                      dataKey="count"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {locationStats.statusStats.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
                     <Tooltip />
-                    <Legend />
-                    <Bar dataKey="count" fill="#2D9AA5" radius={[4, 4, 0, 0]} />
-                  </BarChart>
+                    <Legend verticalAlign="bottom" height={36}/>
+                  </PieChart>
                 </ResponsiveContainer>
               </div>
             </div>
@@ -617,32 +645,6 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                     <p className="text-2xl font-bold text-gray-800">{stat.count}</p>
                   </div>
                 ))}
-              </div>
-
-              {/* Mini Table for Locations */}
-              <div className="border rounded-lg overflow-hidden">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="px-3 py-2">Status</th>
-                      <th className="px-3 py-2">Items</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {locationStats.locations.map((loc, idx) => (
-                      <tr key={idx}>
-                        <td className="px-3 py-2">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            loc.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                          }`}>
-                            {loc.status}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 text-gray-600">{loc.itemCount}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
               </div>
             </div>
           </div>
@@ -776,16 +778,22 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
 
       {/* Purchase Record Type Analysis Section */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        <h4 className="text-xl font-bold text-gray-800 mb-6">Purchase Record Distribution by Type</h4>
+        <h4 className="text-xl font-bold text-gray-800 mb-6">Stock Type Distribution (Dot Graph)</h4>
         <div className="h-[350px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={purchaseRecordTypeStats}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="count" fill="#2D9AA5" radius={[4, 4, 0, 0]} />
-            </BarChart>
+            <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+              <CartesianGrid />
+              <XAxis dataKey="name" name="Type" type="category" />
+              <YAxis dataKey="count" name="Count" unit=" items" />
+              <ZAxis range={[100, 1000]} />
+              <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+              <Legend />
+              <Scatter name="Stock Types" data={typeStats} fill="#8884d8">
+                {typeStats.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Scatter>
+            </ScatterChart>
           </ResponsiveContainer>
         </div>
       </div>
