@@ -385,6 +385,10 @@ export default async function handler(req, res) {
       finalAdvance = 0;
     }
 
+    // Use the calculated final values for storage
+    const pendingToStore = finalPending;
+    const advanceToStore = finalAdvance;
+
     // Create billing record
     const billingData = {
       clinicId: clinic._id,
@@ -413,8 +417,8 @@ export default async function handler(req, res) {
       pastAdvanceUsed54Percent: pastAdvanceUsed54PercentNum,
       pastAdvanceUsed159Flat: pastAdvanceUsed159FlatNum,
       pastAdvanceType,
-      pending: pendingNum,
-      advance: advance,
+      pending: pendingToStore,
+      advance: advanceToStore,
       pastAdvance: pastAdvance,
       paymentMethod,
       multiplePayments: multiPayArr.map((mp) => ({

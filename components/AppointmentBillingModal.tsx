@@ -10,6 +10,8 @@ import {
   XCircle,
   Package,
   ChevronUp,
+  Send,
+  FileText,
 } from "lucide-react";
 
 interface Appointment {
@@ -83,8 +85,8 @@ interface PackageTreatmentSession {
     sessions: number;
     date: string;
   }>; // Detailed usage history
-  isSelected: boolean; // Checkbox to select if patient took this treatment
-  sessionPrice: number; // Price per session for this treatment
+  isSelected: boolean;
+  sessionPrice: number;
 }
 
 interface AppointmentBillingModalProps {
@@ -168,6 +170,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [applyPastAdvance50Percent, setApplyPastAdvance50Percent] = useState(false);
   const [applyPastAdvance54Percent, setApplyPastAdvance54Percent] = useState(false);
   const [applyPastAdvance159Flat, setApplyPastAdvance159Flat] = useState(false);
+
+  // Consent Form States
+  const [consentForms, setConsentForms] = useState<any[]>([]);
+  const [selectedConsentId, setSelectedConsentId] = useState("");
+  const [sendingConsent, setSendingConsent] = useState(false);
+  const [consentSent, setConsentSent] = useState(false);
+  const [consentStatuses, setConsentStatuses] = useState<any[]>([]);
+  const [loadingConsentStatus, setLoadingConsentStatus] = useState(false);
 
   // Multiple payment method support
   const [useMultiplePayments, setUseMultiplePayments] = useState(false);
@@ -434,6 +444,169 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     };
     fetchBalances();
   }, [isOpen, appointment?.patientId, getAuthHeaders]);
+
+  // Fetch consent forms
+  useEffect(() => {
+    if (!isOpen) return;
+    const fetchConsentForms = async () => {
+      try {
+        const headers = getAuthHeaders();
+        if (!headers.Authorization) return;
+        const res = await axios.get("/api/clinic/consent", { headers });
+        if (res.data?.success) setConsentForms(res.data.consents || []);
+      } catch (err) {
+        console.error("Error fetching consent forms:", err);
+      }
+    };
+    fetchConsentForms();
+  }, [isOpen, getAuthHeaders]);
+
+  // Fetch consent statuses
+  useEffect(() => {
+    if (!isOpen || !appointment?.patientId || !appointment?._id) return;
+    const fetchConsentStatuses = async () => {
+      setLoadingConsentStatus(true);
+      try {
+        const headers = getAuthHeaders();
+        if (!headers.Authorization) return;
+        
+        const [signaturesRes, logsRes] = await Promise.all([
+          axios.get("/api/clinic/consent-status", {
+            headers,
+            params: { patientId: appointment.patientId, appointmentId: appointment._id },
+          }),
+          axios.get("/api/clinic/consent-log", {
+            headers,
+            params: { patientId: appointment.patientId, appointmentId: appointment._id },
+          }),
+        ]);
+
+        const signatures = signaturesRes.data?.consentStatuses || [];
+        const logs = logsRes.data?.consentLogs || [];
+
+        const logMap = new Map();
+        logs.forEach((log: any) => {
+          logMap.set(log.consentFormId, {
+            _id: log._id,
+            consentFormId: log.consentFormId,
+            consentFormName: log.consentFormName,
+            description: log.description || "",
+            patientName: log.patientName,
+            date: new Date(log.createdAt).toLocaleDateString("en-GB"),
+            hasSignature: false,
+            status: "sent",
+            signedAt: null,
+          });
+        });
+
+        signatures.forEach((sig: any) => {
+          logMap.set(sig.consentFormId, {
+            ...sig,
+            status: "signed",
+          });
+        });
+
+        setConsentStatuses(Array.from(logMap.values()));
+      } catch (err) {
+        console.error("Error fetching consent statuses:", err);
+      } finally {
+        setLoadingConsentStatus(false);
+      }
+    };
+    fetchConsentStatuses();
+  }, [isOpen, appointment?.patientId, appointment?._id, getAuthHeaders]);
+
+  // Send Consent Form on WhatsApp
+  const handleSendConsentMsgOnWhatsapp = async () => {
+    if (!selectedConsentId || !appointment) return;
+ 
+    try {
+      setSendingConsent(true);
+      
+      const patientData = {
+        firstName: appointment.patientName?.split(" ")[0] || "",
+        lastName: appointment.patientName?.split(" ").slice(1).join(" ") || "",
+        mobileNumber: appointment.patientNumber || "",
+        email: appointment.patientEmail || "",
+        appointmentId: appointment._id,
+      };
+      
+      const encodedPatientData = encodeURIComponent(JSON.stringify(patientData));
+      const consentUrl = `https://zeva360.com/consent-form/${selectedConsentId}?patient=${encodedPatientData}`;
+ 
+      await axios.post(
+        "/api/messages/send-message",
+        {
+          patientId: appointment.patientId,
+          providerId: "6952256c4a46b2f1eb01be86",
+          channel: "whatsapp",
+          content: `Please review and sign the consent form by clicking the link below:\n\n ${consentUrl}\n\n Thank you.`,
+          mediaUrl: "",
+          mediaType: "",
+          source: "Zeva",
+          messageType: "conversational",
+          templateId: "69c38b4d26b8217e1ba78f8a",
+          headerParameters: [],
+          bodyParameters: [{ type: "text", text: consentUrl }],
+          attachments: [],
+        },
+        { headers: getAuthHeaders() }
+      );
+ 
+      setConsentSent(true);
+      
+      // Log the sent consent form
+      try {
+        const selectedForm = consentForms.find((f) => f._id === selectedConsentId);
+        await axios.post(
+          "/api/clinic/consent-log",
+          {
+            consentFormId: selectedConsentId,
+            consentFormName: selectedForm?.formName || "",
+            patientId: appointment.patientId,
+            patientName: appointment.patientName || "",
+            appointmentId: appointment._id,
+            sentVia: "whatsapp",
+          },
+          { headers: getAuthHeaders() }
+        );
+        
+        // Refresh consent statuses
+        setTimeout(() => {
+          const headers = getAuthHeaders();
+          axios.get("/api/clinic/consent-log", {
+            headers,
+            params: { patientId: appointment.patientId, appointmentId: appointment._id },
+          }).then((logsRes) => {
+            const logs = logsRes.data?.consentLogs || [];
+            const logMap = new Map();
+            
+            logs.forEach((log: any) => {
+              logMap.set(log.consentFormId, {
+                _id: log._id,
+                consentFormId: log.consentFormId,
+                consentFormName: log.consentFormName,
+                description: log.description || "",
+                patientName: log.patientName,
+                date: new Date(log.createdAt).toLocaleDateString("en-GB"),
+                hasSignature: false,
+                status: "sent",
+                signedAt: null,
+              });
+            });
+            
+            setConsentStatuses(Array.from(logMap.values()));
+          });
+        }, 100);
+      } catch (logError) {
+        console.error("Error logging consent form sent:", logError);
+      }
+    } catch (error) {
+      console.error("Error sending consent form:", error?.response?.data || error.message);
+    } finally {
+      setSendingConsent(false);
+    }
+  };
 
   const monthsUntil = (endDate?: string | Date) => {
     if (!endDate) return null;
@@ -732,15 +905,100 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       !membershipUsage?.isExpired &&
       !membershipTransferredOut
     ) {
-      const hasRemainingFreeConsultations =
-        membershipUsage.remainingFreeConsultations > 0;
+      const remainingFreeConsultations = membershipUsage.remainingFreeConsultations || 0;
       const discountPercentage = membershipUsage.discountPercentage || 0;
 
-      if (hasRemainingFreeConsultations) {
-        // Free consultation applies - set total to 0
+      // Treatment service
+      if (selectedService === "Treatment" && selectedTreatments.length > 0) {
+        const sortedTreatments = [...selectedTreatments].sort((a, b) => a.price - b.price);
+        let freeAvailable = remainingFreeConsultations;
+        let totalFree = 0;
+        let totalDiscount = 0;
+
+        const updated = sortedTreatments.map((t) => {
+          let usesFree = false;
+          let usesDiscount = false;
+          
+          if (freeAvailable > 0 && t.quantity > 0) {
+            const qtyFree = Math.min(t.quantity, freeAvailable);
+            if (qtyFree > 0) {
+              usesFree = true;
+              totalFree += t.price * qtyFree;
+              freeAvailable -= qtyFree;
+              const remainingQty = t.quantity - qtyFree;
+              if (remainingQty > 0 && discountPercentage > 0) {
+                usesDiscount = true;
+                totalDiscount += (t.price * remainingQty * discountPercentage) / 100;
+              }
+            }
+          } else if (discountPercentage > 0 && t.totalPrice > 0) {
+            usesDiscount = true;
+            totalDiscount += (t.totalPrice * discountPercentage) / 100;
+          }
+          return { ...t, usesFreeConsultation: usesFree, usesMembershipDiscount: usesDiscount };
+        });
+
+        const map = new Map(updated.map(t => [t.treatmentSlug, t]));
+        setSelectedTreatments(prev => prev.map(t => map.get(t.treatmentSlug) || t));
+        membershipDiscount = totalDiscount;
+        finalTotal = Math.max(0, baseTotal - totalFree - totalDiscount);
+      } 
+      // Package service - process sessions only when sessions > 0
+      else if (selectedService === "Package" && packageTreatmentSessions.some(t => t.isSelected)) {
+        const hasSessions = packageTreatmentSessions.some(t => t.isSelected && (t.usedSessions || 0) > 0);
+        
+        if (hasSessions) {
+          const selectedSessions = packageTreatmentSessions
+            .filter(t => t.isSelected && (t.usedSessions || 0) > 0)
+            .sort((a, b) => a.sessionPrice - b.sessionPrice);
+          
+          let freeAvailable = remainingFreeConsultations;
+          let totalFree = 0;
+          let totalDiscount = 0;
+
+          const withFreeInfo = selectedSessions.map(t => {
+            const sessions = t.usedSessions || 0;
+            let sessionsFree = 0;
+            if (freeAvailable > 0 && sessions > 0) {
+              sessionsFree = Math.min(sessions, freeAvailable);
+              freeAvailable -= sessionsFree;
+            }
+            return { ...t, sessionsFree, remainingSessions: sessions - sessionsFree };
+          });
+
+          // Create a map of updated flags by treatmentSlug
+          const sessionUpdates = new Map();
+          withFreeInfo.forEach(t => {
+            const sf = t.sessionsFree || 0;
+            const rs = t.remainingSessions || 0;
+            let usesFree = sf > 0;
+            let usesDiscount = false;
+            
+            if (sf > 0) totalFree += t.sessionPrice * sf;
+            
+            if (rs > 0 && discountPercentage > 0) {
+              usesDiscount = true;
+              totalDiscount += (t.sessionPrice * rs * discountPercentage) / 100;
+            }
+            
+            sessionUpdates.set(t.treatmentSlug, { usesFreeConsultation: usesFree, usesMembershipDiscount: usesDiscount });
+          });
+
+          // Update only the flags in the existing state (don't replace the array)
+          setPackageTreatmentSessions(prev => prev.map(t => {
+            const update = sessionUpdates.get(t.treatmentSlug);
+            if (update) {
+              return { ...t, ...update };
+            }
+            return { ...t, usesFreeConsultation: false, usesMembershipDiscount: false };
+          }));
+
+          membershipDiscount = totalDiscount;
+          finalTotal = Math.max(0, baseTotal - totalFree - totalDiscount);
+        }
+      } else if (remainingFreeConsultations > 0 && baseTotal > 0) {
         finalTotal = 0;
       } else if (discountPercentage > 0 && baseTotal > 0) {
-        // Apply discount percentage
         membershipDiscount = (baseTotal * discountPercentage) / 100;
         finalTotal = baseTotal - membershipDiscount;
       }
@@ -761,6 +1019,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       ...prev,
       discountedAmount: finalTotal.toFixed(2),
       originalAmount: baseTotal.toFixed(2),
+      // Auto-set paid to 0.00 if total is 0 (free consultation)
+      paid: finalTotal === 0 ? "0.00" : prev.paid,
     }));
   }, [
     selectedTreatments,
@@ -775,18 +1035,35 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   // Override displayed invoice total to include previous pending
   useEffect(() => {
     const discountedTotal = parseFloat(formData.discountedAmount || "0") || 0;
+    
+    // Always ensure amount has a value - either with previous pending or just the discounted total
     const invoiceTotal = Number(
       (discountedTotal + (balances.pendingBalance || 0)).toFixed(2),
     );
-    setFormData((prev) => ({
-      ...prev,
-      amount: invoiceTotal.toFixed(2),
-    }));
+    
+    console.log("Adding previous pending:", {
+      discountedTotal,
+      previousPending: balances.pendingBalance,
+      invoiceTotal,
+      currentAmount: formData.amount
+    });
+    
+    // Only update if the amount has changed to avoid infinite loops
+    if (Math.abs(parseFloat(formData.amount || "0") - invoiceTotal) > 0.001) {
+      setFormData((prev) => ({
+        ...prev,
+        amount: invoiceTotal.toFixed(2),
+      }));
+    }
   }, [balances.pendingBalance, formData.discountedAmount]);
 
   // Auto-calc pending/advance considering applied advance balances
   useEffect(() => {
     const amountNum = parseFloat(formData.amount) || 0;
+    const discountedAmount = parseFloat(formData.discountedAmount || "0") || 0;
+    
+    // Calculate how much previous pending is being rolled into this billing
+    const pendingBeingRolledIn = Math.max(0, amountNum - discountedAmount);
 
     // Calculate applied credits
     const appliedAdvance = applyAdvance
@@ -848,6 +1125,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         pastAdvanceUsed50Percent: appliedPastAdvance50Percent.toFixed(2),
         pastAdvanceUsed54Percent: appliedPastAdvance54Percent.toFixed(2),
         pastAdvanceUsed159Flat: appliedPastAdvance159Flat.toFixed(2),
+        // Track previous pending being rolled into this billing
+        pendingUsed: pendingBeingRolledIn.toFixed(2),
       };
 
       // Auto-set paid when advance is applied
@@ -1107,6 +1386,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     setLoading(true);
     setErrors({});
 
+    console.log("Submitting billing with formData:", {
+      amount: formData.amount,
+      discountedAmount: formData.discountedAmount,
+      paid: formData.paid,
+      pending: formData.pending,
+      pendingUsed: formData.pendingUsed,
+    });
+
     try {
       const headers = getAuthHeaders();
       if (!headers.Authorization) {
@@ -1275,9 +1562,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           parseFloat(formData.pastAdvanceUsed54Percent) || 0,
         pastAdvanceUsed159Flat:
           parseFloat(formData.pastAdvanceUsed159Flat) || 0,
-        pendingUsed:
-          parseFloat(formData.amount || "0") -
-            parseFloat(formData.pending || "0") || 0,
+        pendingUsed: parseFloat(formData.pendingUsed || "0") || 0,
         pending: parseFloat(formData.pending || "0") || 0,
         advance: parseFloat(formData.advance) || 0,
         pastAdvance: parseFloat(formData.pastAdvance) || 0,
@@ -1445,6 +1730,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   // Last 3 billing invoices for Payment History section
   const last3Billings = billingHistory.slice(0, 3);
 
+  // Use API values for pending and advance balance display at top
+  const apiPendingBalance = balances.pendingBalance || 0;
+  const apiAdvanceBalance = (balances.advanceBalance || 0) + 
+                            (balances.pastAdvance50PercentBalance || 0) + 
+                            (balances.pastAdvance54PercentBalance || 0) + 
+                            (balances.pastAdvance159FlatBalance || 0);
+  
   const pendingAmt = parseFloat(formData.pending || "0") || 0;
   const advanceAmt = parseFloat(formData.advance || "0") || 0;
 
@@ -1503,20 +1795,45 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                     </div>
                   </div>
                 )}
+                
+                {/* Send Consent Form Option */}
+                <div className="flex items-center gap-2">
+                  <select
+                    value={selectedConsentId}
+                    onChange={(e) => { setSelectedConsentId(e.target.value); setConsentSent(false); }}
+                    disabled={sendingConsent}
+                    className="text-[10px] border border-gray-200 rounded px-2 py-1 bg-white text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-300 max-w-[120px]"
+                  >
+                    <option value="">Select Consent</option>
+                    {consentForms.map((form) => (
+                      <option key={form._id} value={form._id}>
+                        {form.formName}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleSendConsentMsgOnWhatsapp}
+                    disabled={!selectedConsentId || sendingConsent}
+                    className="flex items-center gap-1 px-2 py-1 text-[9px] bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    {sendingConsent ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                    {consentSent ? "Sent" : "Send"}
+                  </button>
+                </div>
               </div>
           
               {/* Right: Pending, Advance, Visits */}
               <div className="flex items-center gap-4 flex-shrink-0">
                 <div className="text-right">
                   <div className="text-[9px] text-gray-400 uppercase tracking-wider">Pending</div>
-                  <div className={`text-sm font-bold ${pendingAmt > 0 ? "text-red-600" : "text-gray-400"}`}>
-                    AED {pendingAmt.toFixed(2)}
+                  <div className={`text-sm font-bold ${apiPendingBalance > 0 ? "text-red-600" : "text-gray-400"}`}>
+                    AED {apiPendingBalance.toFixed(2)}
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="text-[9px] text-gray-400 uppercase tracking-wider">Advance</div>
-                  <div className={`text-sm font-bold ${advanceAmt > 0 ? "text-emerald-600" : "text-gray-400"}`}>
-                    AED {advanceAmt.toFixed(2)}
+                  <div className={`text-sm font-bold ${apiAdvanceBalance > 0 ? "text-emerald-600" : "text-gray-400"}`}>
+                    AED {apiAdvanceBalance.toFixed(2)}
                   </div>
                 </div>
                 <div className="text-right">
@@ -1730,6 +2047,16 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                       <div className="min-w-0">
                                         <div className="text-xs font-semibold text-gray-900 truncate">{treatment.treatmentName}</div>
                                         <div className="text-[10px] text-gray-500">Dr. {appointment.doctorName}</div>
+                                        {(treatment.usesFreeConsultation || treatment.usesMembershipDiscount) && (
+                                          <div className="flex items-center gap-1 mt-0.5">
+                                            {treatment.usesFreeConsultation && (
+                                              <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-semibold">Free</span>
+                                            )}
+                                            {treatment.usesMembershipDiscount && (
+                                              <span className="text-[9px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-semibold">{membershipUsage?.discountPercentage || 10}% Off</span>
+                                            )}
+                                          </div>
+                                        )}
                                         {isJustAdded && (
                                           <div className="text-[9px] text-emerald-600 font-semibold mt-0.5 flex items-center gap-1">
                                             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -1852,6 +2179,16 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                                 isFullyUsed ? "text-red-600" : treatment.isSelected ? "text-gray-900" : "text-gray-700"
                                               }`}>{treatment.treatmentName}</div>
                                               <div className="text-[10px] text-teal-600 font-medium">AED {treatment.sessionPrice.toFixed(2)}/session</div>
+                                              {(treatment.usesFreeConsultation || treatment.usesMembershipDiscount) && (
+                                                <div className="flex items-center gap-1 mt-0.5">
+                                                  {treatment.usesFreeConsultation && (
+                                                    <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-semibold">Free Session</span>
+                                                  )}
+                                                  {treatment.usesMembershipDiscount && (
+                                                    <span className="text-[9px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-semibold">{membershipUsage?.discountPercentage || 10}% Off</span>
+                                                  )}
+                                                </div>
+                                              )}
                                               {treatment.previouslyUsedSessions > 0 ? (
                                                 <div className={`text-[10px] mt-0.5 font-medium flex items-center gap-1 ${
                                                   isFullyUsed ? "text-red-600" : "text-amber-600"
@@ -2162,6 +2499,120 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       />
                     </div>
                   </div>
+
+                  {/* Billing Summary */}
+                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <svg className="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-xs font-bold text-gray-900">Billing Summary</span>
+                      {/* Free Consultation Tag */}
+                      {membershipUsage && membershipUsage.hasMembership && !membershipUsage.isExpired && membershipUsage.remainingFreeConsultations > 0 && parseFloat(formData.originalAmount || "0") > 0 && (
+                        <span className="ml-auto px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 rounded-full">
+                          Free Consultation Applied
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      {/* Original Amount (before discounts) */}
+                      {parseFloat(formData.originalAmount || "0") > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-600">Original Amount</span>
+                          <span className="font-semibold text-gray-900">AED {parseFloat(formData.originalAmount || "0").toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      {/* Doctor Discount (if applied) */}
+                      {isDoctorDiscountApplied && doctorDiscount && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-600">
+                            Doctor Discount ({doctorDiscount.discountType === "percentage" ? `${doctorDiscount.discountAmount}%` : "Fixed"})
+                          </span>
+                          <span className="font-semibold text-red-500">
+                            −AED {(() => {
+                              const originalAmt = parseFloat(formData.originalAmount || formData.amount || "0");
+                              if (doctorDiscount.discountType === "percentage") {
+                                return ((originalAmt * doctorDiscount.discountAmount) / 100).toFixed(2);
+                              }
+                              return doctorDiscount.discountAmount.toFixed(2);
+                            })()}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Membership Discount (if applied) */}
+                      {membershipUsage && membershipUsage.hasMembership && !membershipUsage.isExpired && membershipUsage.discountPercentage > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-600">
+                            Membership Discount ({membershipUsage.discountPercentage}%)
+                          </span>
+                          <span className="font-semibold text-blue-600">
+                            −AED {((parseFloat(formData.originalAmount || "0") * membershipUsage.discountPercentage) / 100).toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Divider */}
+                      <div className="border-t border-gray-200 my-2"></div>
+
+                      {/* Total Amount (after discounts) */}
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-gray-700 font-medium">Total Amount</span>
+                        <span className="font-bold text-gray-900">AED {parseFloat(formData.amount || "0").toFixed(2)}</span>
+                      </div>
+
+                      {/* Previous Pending Rolled In */}
+                      {parseFloat(formData.pendingUsed || "0") > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-600">Previous Pending Rolled In</span>
+                          <span className="font-semibold text-amber-600">+AED {parseFloat(formData.pendingUsed || "0").toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      {/* Advance Balance Used */}
+                      {parseFloat(formData.advanceUsed || "0") > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-600">Advance Balance Used</span>
+                          <span className="font-semibold text-purple-600">−AED {parseFloat(formData.advanceUsed || "0").toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      {/* Past Advance Used */}
+                      {parseFloat(formData.pastAdvanceUsed || "0") > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-600">Past Advance Used</span>
+                          <span className="font-semibold text-purple-600">−AED {parseFloat(formData.pastAdvanceUsed || "0").toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      {/* Divider */}
+                      <div className="border-t border-gray-200 my-2"></div>
+
+                      {/* Paid Amount */}
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-gray-700 font-medium">Paid Amount</span>
+                        <span className="font-bold text-emerald-600">AED {parseFloat(formData.paid || "0").toFixed(2)}</span>
+                      </div>
+
+                      {/* Pending Amount */}
+                      {parseFloat(formData.pending || "0") > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-600">Pending Amount</span>
+                          <span className="font-semibold text-amber-600">AED {parseFloat(formData.pending || "0").toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      {/* Advance Given */}
+                      {parseFloat(formData.advance || "0") > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-600">Advance Given</span>
+                          <span className="font-semibold text-purple-600">AED {parseFloat(formData.advance || "0").toFixed(2)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 
                   {/* Action Buttons */}
                   <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-200">
@@ -2406,7 +2857,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                 </svg>
                               </div>
                               <div>
-                                <div className="text-xs font-semibold text-gray-900">AED {billing.amount?.toFixed(2) || "0.00"}</div>
+                                <div className="text-xs font-semibold text-gray-900">AED {billing.paid?.toFixed(2) || "0.00"}</div>
                                 <div className="text-[10px] text-gray-500">
                                   {billing.paymentMethod || (billing.multiplePayments?.length > 0 ? billing.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ") : "–")}
                                   {billing.invoicedDate && (
@@ -2423,12 +2874,91 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                     ? "bg-amber-100 text-amber-700"
                                     : "bg-gray-100 text-gray-600"
                               }`}>
-                                {(billing.pending || 0) <= 0 && (billing.paid || 0) > 0 ? "completed" : (billing.pending || 0) > 0 && (billing.paid || 0) > 0 ? "partial" : "pending"}
+                                {(billing.pending || 0) <= 0 && (billing.paid || 0) > 0 ? "completed" : (billing.pending || 0) > 0 ? "pending" : "pending"}
                               </span>
                               <span className="text-[9px] text-gray-400">{billing.invoiceNumber}</span>
                             </div>
                           </div>
                         ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Communication Log - Consent Form Status */}
+                  <div className="bg-white rounded-xl border border-gray-200 p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
+                        <FileText className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-gray-900">Communication Log</div>
+                        <div className="text-[10px] text-gray-500">Consent form status</div>
+                      </div>
+                    </div>
+
+                    {loadingConsentStatus ? (
+                      <div className="flex items-center gap-2 py-3">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
+                        <span className="text-[10px] text-gray-500">Loading status...</span>
+                      </div>
+                    ) : consentStatuses.length === 0 ? (
+                      <div className="text-[10px] text-gray-400 py-2">No consent forms sent yet</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {consentStatuses.map((consent: any, index: number) => {
+                          // Generate consent form URL
+                          const patientInfo = {
+                            firstName: appointment?.patientName?.split(" ")[0] || "",
+                            lastName: appointment?.patientName?.split(" ").slice(1).join(" ") || "",
+                            mobileNumber: appointment?.patientNumber || "",
+                            email: appointment?.patientEmail || "",
+                            appointmentId: appointment?._id,
+                          };
+                          const encodedPatientData = encodeURIComponent(JSON.stringify(patientInfo));
+                          const consentUrl = `https://zeva360.com/consent-form/${consent.consentFormId}?patient=${encodedPatientData}`;
+                          
+                          return (
+                            <div
+                              key={consent._id || index}
+                              className={`flex items-center justify-between p-2.5 rounded-xl border ${
+                                consent.status === "signed"
+                                  ? "border-green-200 bg-green-50"
+                                  : "border-blue-200 bg-blue-50"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                {consent.status === "signed" ? (
+                                  <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                ) : (
+                                  <Send className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                                )}
+                                <div className="min-w-0">
+                                  <div className="text-xs font-semibold text-gray-900 truncate">
+                                    {consent.consentFormName}
+                                  </div>
+                                  <div className="text-[9px] text-gray-500">
+                                    <span className={`px-1.5 py-0.5 rounded-full font-semibold ${
+                                      consent.status === "signed"
+                                        ? "bg-green-100 text-green-700"
+                                        : "bg-blue-100 text-blue-700"
+                                    }`}>
+                                      {consent.status === "signed" ? "SIGNED" : "SENT"}
+                                    </span>
+                                    <span className="ml-1">{consent.date}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <a
+                                href={consentUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[9px] text-blue-600 hover:text-blue-800 underline flex-shrink-0"
+                              >
+                                Open
+                              </a>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

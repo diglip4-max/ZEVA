@@ -55,7 +55,7 @@ export default async function handler(req, res) {
 
   // ── POST (create or upsert per appointment) ───────────────────────────────────
   if (req.method === "POST") {
-    const { appointmentId, patientId, medicines, aftercareInstructions, includeInPdf } = req.body || {};
+    const { appointmentId, patientId, medicines, aftercareInstructions, includeInPdf, pdfUrl } = req.body || {};
 
     if (!appointmentId || !patientId) {
       return res.status(400).json({ success: false, message: "appointmentId and patientId are required" });
@@ -95,6 +95,7 @@ export default async function handler(req, res) {
             })),
             aftercareInstructions: aftercareInstructions?.trim() || "",
             includeInPdf: includeInPdf !== undefined ? !!includeInPdf : true,
+            pdfUrl: pdfUrl || null,
           },
         },
         { new: true, upsert: true },
