@@ -108,8 +108,13 @@ export const handleUpload = async (file: File) => {
   try {
     const formData = new FormData();
     formData.append("file", file);
+    
+    // Get auth headers if available
+    const authHeaders = getAuthHeaders() || {};
+    
     const { data } = await axios.post("/api/upload", formData, {
       headers: {
+        ...authHeaders,
         "Content-Type": "multipart/form-data",
       },
     });

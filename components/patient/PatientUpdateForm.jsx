@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/router";
+import axios from "axios";
 import {
   Calendar,
   User,
@@ -10,6 +11,8 @@ import {
   DollarSign,
   Edit,
   Loader2,
+  Send,
+  ChevronDown,
 } from "lucide-react";
 
 const genderOptions = ["", "Male", "Female", "Other"];
@@ -163,6 +166,15 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
   const [selectedTargetPatient, setSelectedTargetPatient] = useState(null);
   const [transferSubmitting, setTransferSubmitting] = useState(false);
   const [transferNameMap, setTransferNameMap] = useState({});
+  
+  // Consent Form States
+  const [consentForms, setConsentForms] = useState([]);
+  const [selectedConsentId, setSelectedConsentId] = useState("");
+  const [sendingConsent, setSendingConsent] = useState(false);
+  const [consentSent, setConsentSent] = useState(false);
+  const [consentStatuses, setConsentStatuses] = useState([]);
+  const [loadingConsentStatus, setLoadingConsentStatus] = useState(false);
+  
   const formatDate = useCallback((dateObj) => {
     const y = dateObj.getFullYear();
     const m = String(dateObj.getMonth() + 1).padStart(2, "0");
@@ -300,6 +312,192 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
     };
     fetchLists();
   }, [authToken]);
+
+  // Fetch Consent Forms
+  useEffect(() => {
+    if (!resolvedId || !authToken) return;
+    
+    const fetchConsentForms = async () => {
+      try {
+        const headers = { Authorization: `Bearer ${authToken}` };
+        const res = await axios.get("/api/clinic/consent", { headers });
+        if (res.data?.success) setConsentForms(res.data.consents || []);
+      } catch (err) {
+        console.error("Error fetching consent forms:", err);
+      }
+    };
+    
+    fetchConsentForms();
+  }, [resolvedId, authToken]);
+
+  // Fetch Consent Statuses
+  useEffect(() => {
+    if (!resolvedId || !authToken) return;
+    
+    const fetchConsentStatuses = async () => {
+      setLoadingConsentStatus(true);
+      try {
+        const headers = { Authorization: `Bearer ${authToken}` };
+        
+        // Fetch both signed consents and sent logs
+        const [signaturesRes, logsRes] = await Promise.all([
+          axios.get("/api/clinic/consent-status", {
+            headers,
+            params: { patientId: resolvedId },
+          }),
+          axios.get("/api/clinic/consent-log", {
+            headers,
+            params: { patientId: resolvedId },
+          }),
+        ]);
+        
+        const signatures = signaturesRes.data?.consentStatuses || [];
+        const logs = logsRes.data?.consentLogs || [];
+        
+        // Merge logs and signatures
+        const logMap = new Map();
+        
+        // Add all logs first (sent forms)
+        logs.forEach((log) => {
+          logMap.set(log.consentFormId, {
+            _id: log._id,
+            consentFormId: log.consentFormId,
+            consentFormName: log.consentFormName,
+            description: log.description || "",
+            patientName: log.patientName,
+            date: new Date(log.createdAt).toLocaleDateString("en-GB"),
+            hasSignature: false,
+            status: "sent",
+            signedAt: null,
+          });
+        });
+        
+        // Update with signatures if they exist (signed forms)
+        signatures.forEach((sig) => {
+          logMap.set(sig.consentFormId, {
+            ...sig,
+            status: "signed",
+          });
+        });
+        
+        const merged = Array.from(logMap.values());
+        setConsentStatuses(merged);
+      } catch (err) {
+        console.error("Error fetching consent statuses:", err);
+      } finally {
+        setLoadingConsentStatus(false);
+      }
+    };
+    
+    fetchConsentStatuses();
+  }, [resolvedId, authToken]);
+
+  // Send Consent Form on WhatsApp
+  const handleSendConsentMsgOnWhatsapp = async () => {
+    if (!selectedConsentId || !formData) return;
+ 
+    try {
+      setSendingConsent(true);
+      
+      // Create patient data object for URL
+      const patientData = {
+        firstName: formData.firstName || "",
+        lastName: formData.lastName || "",
+        mobileNumber: formData.mobileNumber || "",
+        email: formData.email || "",
+      };
+      
+      const encodedPatientData = encodeURIComponent(JSON.stringify(patientData));
+      const consentUrl = `https://zeva360.com/consent-form/${selectedConsentId}?patient=${encodedPatientData}`;
+ 
+      const { data } = await axios.post(
+        "/api/messages/send-message",
+        {
+          patientId: resolvedId,
+          providerId: "6952256c4a46b2f1eb01be86",
+          channel: "whatsapp",
+          content: `Please review and sign the consent form by clicking the link below:\n\n ${consentUrl}\n\n Thank you.`,
+          mediaUrl: "",
+          mediaType: "",
+          source: "Zeva",
+          messageType: "conversational",
+          templateId: "69c38b4d26b8217e1ba78f8a",
+          headerParameters: [],
+          bodyParameters: [
+            {
+              type: "text",
+              text: consentUrl,
+            },
+          ],
+          attachments: [],
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        }
+      );
+ 
+      if (data && data?.success) {
+        setConsentSent(true);
+        
+        // Log the sent consent form
+        try {
+          const selectedForm = consentForms.find((f) => f._id === selectedConsentId);
+          await axios.post(
+            "/api/clinic/consent-log",
+            {
+              consentFormId: selectedConsentId,
+              consentFormName: selectedForm?.formName || "",
+              patientId: resolvedId,
+              patientName: `${formData.firstName} ${formData.lastName}`.trim(),
+              sentVia: "whatsapp",
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${authToken}`,
+              },
+            }
+          );
+          
+          // Refresh consent statuses
+          setTimeout(() => {
+            const headers = { Authorization: `Bearer ${authToken}` };
+            axios.get("/api/clinic/consent-log", {
+              headers,
+              params: { patientId: resolvedId },
+            }).then((logsRes) => {
+              const logs = logsRes.data?.consentLogs || [];
+              const logMap = new Map();
+              
+              logs.forEach((log) => {
+                logMap.set(log.consentFormId, {
+                  _id: log._id,
+                  consentFormId: log.consentFormId,
+                  consentFormName: log.consentFormName,
+                  description: log.description || "",
+                  patientName: log.patientName,
+                  date: new Date(log.createdAt).toLocaleDateString("en-GB"),
+                  hasSignature: false,
+                  status: "sent",
+                  signedAt: null,
+                });
+              });
+              
+              setConsentStatuses(Array.from(logMap.values()));
+            });
+          }, 100);
+        } catch (logError) {
+          console.error("Error logging consent form sent:", logError);
+        }
+      }
+    } catch (error) {
+      console.error("Error sending consent form:", error?.response?.data || error.message);
+      showToast("Failed to send consent form", "error");
+    } finally {
+      setSendingConsent(false);
+    }
+  };
 
   useEffect(() => {
     // Prevent this effect from running when processing an update
@@ -1534,13 +1732,58 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                 </div>
 
                 {/* Actions */}
-                <div className="flex justify-end gap-2 pt-3 mt-3">
-                  <button
-                    onClick={handleFullUpdate}
-                    className="px-4 py-2 text-[11px] bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 font-bold shadow-lg transform hover:scale-105"
-                  >
-                    Update
-                  </button>
+                <div className="pt-3 mt-3 border-t border-gray-200">
+                  {/* Send Consent Form - Full Width */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 mb-3 border border-blue-200">
+                    <div className="flex items-center justify-between gap-3">
+                      <select
+                        value={selectedConsentId}
+                        onChange={(e) => setSelectedConsentId(e.target.value)}
+                        disabled={sendingConsent || consentSent}
+                        className="flex-1 px-4 py-2.5 text-[11px] border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <option value="">Select Consent Form</option>
+                        {consentForms.map((form) => (
+                          <option key={form._id} value={form._id}>
+                            {form.formName}
+                          </option>
+                        ))}
+                      </select>
+                      
+                      <button
+                        onClick={handleSendConsentMsgOnWhatsapp}
+                        disabled={!selectedConsentId || sendingConsent || consentSent}
+                        className="px-4 py-2.5 text-[11px] bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 font-bold shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+                      >
+                        {sendingConsent ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            Sending...
+                          </>
+                        ) : consentSent ? (
+                          <>
+                            <CheckCircle className="w-3 h-3" />
+                            Sent
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-3 h-3" />
+                            Send Consent
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Update Button - Bottom Right Corner */}
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleFullUpdate}
+                      className="px-6 py-2.5 text-[11px] bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 font-bold shadow-lg transform hover:scale-105"
+                    >
+                      Update Patient Details
+                    </button>
+                  </div>
                 </div>
                 </>
               )}

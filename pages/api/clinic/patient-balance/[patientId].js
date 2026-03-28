@@ -63,6 +63,7 @@ export default async function handler(req, res) {
       .select(
         "pending advance advanceUsed pendingUsed pastAdvance pastAdvanceUsed pastAdvanceType createdAt",
       )
+      .sort({ createdAt: -1 }) // Sort by newest first
       .lean();
 
     let totalPending = 0;

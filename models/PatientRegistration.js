@@ -129,6 +129,17 @@ const patientRegistrationSchema = new mongoose.Schema(
         assignedDate: { type: Date, default: Date.now },
       },
     ],
+    userPackages: [
+      {
+        packageId: { type: mongoose.Schema.Types.ObjectId, ref: "UserPackage" },
+        packageName: { type: String, trim: true },
+        totalSessions: { type: Number, min: 0 },
+        remainingSessions: { type: Number, min: 0 },
+        totalPrice: { type: Number, min: 0 },
+        assignedDate: { type: Date, default: Date.now },
+        approvalStatus: { type: String, enum: ["pending", "approved", "rejected"], default: "approved" },
+      },
+    ],
     membershipTransfers: [
       {
         type: { type: String, enum: ["in", "out"], required: true },

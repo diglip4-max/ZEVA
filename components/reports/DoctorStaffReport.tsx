@@ -7,6 +7,9 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
+  LineChart,
+  Line,
+  Legend,
 } from "recharts";
 import ExportButtons from "./ExportButtons";
 
@@ -203,7 +206,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
             <BarChart data={chartBookings} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
-              <YAxis />
+              <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
               <Tooltip />
               <Bar dataKey="bookings" fill="#2D9AA5" />
             </BarChart>
@@ -218,14 +221,31 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
         <div className="grid grid-cols-1 gap-6">
           <div className="w-full" style={{ height: 320 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartRevenue} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
-                <CartesianGrid strokeDasharray="3 3" />
+              <LineChart data={chartRevenue} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
-                <YAxis />
+                <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
                 <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
-                <Bar dataKey="revenue" fill="#0EA5E9" />
-                <Bar dataKey="normalizedRevenue" fill="#8884d8" name="Normalized Revenue" unit="%" />
-              </BarChart>
+                <Legend verticalAlign="top" height={36}/>
+                <Line 
+                  type="monotone" 
+                  dataKey="revenue" 
+                  name="Revenue (AED)" 
+                  stroke="#0EA5E9" 
+                  strokeWidth={3} 
+                  dot={{ r: 4, fill: "#0EA5E9", strokeWidth: 2 }} 
+                  activeDot={{ r: 6, strokeWidth: 0 }} 
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="normalizedRevenue" 
+                  name="Normalized Revenue (%)" 
+                  stroke="#8884d8" 
+                  strokeWidth={2} 
+                  strokeDasharray="5 5"
+                  dot={{ r: 3, fill: "#8884d8" }}
+                />
+              </LineChart>
             </ResponsiveContainer>
           </div>
           <div className="overflow-x-auto">
@@ -370,7 +390,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
             <BarChart data={chartPatients} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
-              <YAxis />
+              <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
               <Tooltip />
               <Bar dataKey="patients" fill="#F59E0B" />
             </BarChart>

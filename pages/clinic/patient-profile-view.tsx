@@ -5,7 +5,7 @@ import {
   Calendar, User, DollarSign, FileText, AlertCircle, Activity,
   CreditCard, TrendingUp, Package, Phone,
   Mail, Clock, Shield, X, CheckCircle, XCircle,
-  AlertTriangle, Info, Plus, FileImage, Wallet, ClipboardList
+  AlertTriangle, Info, Plus, FileImage, Wallet, ClipboardList, Send
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -42,13 +42,24 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
   const [appointments, setAppointments] = useState([]);
   const [appointmentFilter, setAppointmentFilter] = useState('all');
   const [loadingAppointments, setLoadingAppointments] = useState(false);
-  const [packages, setPackages] = useState([]);
+    const [packages, setPackages] = useState([]);
   const [memberships, setMemberships] = useState([]);
+  const [transferredInPackages, setTransferredInPackages] = useState<any[]>([]);
+  const [transferredOutPackages, setTransferredOutPackages] = useState<any[]>([]);
+  const [transferredInMemberships, setTransferredInMemberships] = useState<any[]>([]);
+  const [transferredOutMemberships, setTransferredOutMemberships] = useState<any[]>([]);
   const [loadingPackages, setLoadingPackages] = useState(false);
   const [billingHistory, setBillingHistory] = useState<any>(null);
   const [loadingBilling, setLoadingBilling] = useState(false);
   const [mediaDocuments, setMediaDocuments] = useState<any[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
+  
+  // Consent Form Status States
+  const [consentStatuses, setConsentStatuses] = useState<any[]>([]);
+  const [loadingConsentStatus, setLoadingConsentStatus] = useState(false);
+  
+  // Package Link State
+  const [sendingPackageLink, setSendingPackageLink] = useState(false);
   
   // Stats state - fetched on mount
   const [statsData, setStatsData] = useState({
@@ -95,6 +106,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
     { id: 'packages-memberships', label: 'Packages & Memberships' },
     { id: 'insurance', label: 'Insurance' },
     { id: 'media', label: 'Media & Documents' },
+    { id: 'communication', label: 'Communication Log' },
     { id: 'advance', label: 'Advance & Pending Balance' }
   ];
 
@@ -301,6 +313,13 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
     }
   }, [activeTab]);
 
+  // Fetch consent form statuses when communication tab is active
+  useEffect(() => {
+    if (activeTab === 'communication' && patientData?._id) {
+      fetchConsentStatuses();
+    }
+  }, [activeTab]);
+
   // Fetch notes and communication when notes tab is active (commented out - replaced by Advance & Pending)
   // useEffect(() => {
   //   if (activeTab === 'notes' && patientData?._id) {
@@ -383,15 +402,17 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
       const allPackages = pRes.data?.packages || [];
       
       // Get patient's assigned package IDs and membership IDs
-      const patientPackageIds = (patientData?.packages || []).map((p: any) => p.packageId);
-      const patientMembershipIds = (patientData?.memberships || []).map((m: any) => m.membershipId);
+      let patientPackageIds = (patientData?.packages || []).map((p: any) => p.packageId);
+      let patientMembershipIds = (patientData?.memberships || []).map((m: any) => m.membershipId);
       
       // Fetch package usage data for this patient
       let packageUsageData = [];
+      let packageTransferredOutData: any[] = [];
       try {
         const usageRes = await axios.get(`/api/clinic/package-usage/${patientData._id}`, { headers });
         if (usageRes.data.success) {
           packageUsageData = usageRes.data.packageUsage || [];
+          packageTransferredOutData = usageRes.data.transferredOut || [];
         }
       } catch (err: any) {
         console.error('Error fetching package usage:', err.message);
@@ -399,16 +420,26 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
       
       // Fetch membership usage data for this patient
       let membershipUsageData: any = null;
+      let membershipTransferredOutData: any = null;
       try {
         const membershipUsageRes = await axios.get(`/api/clinic/membership-usage/${patientData._id}`, { headers });
         if (membershipUsageRes.data.success && membershipUsageRes.data.hasMembership) {
           membershipUsageData = membershipUsageRes.data;
+        } else if (membershipUsageRes.data.success && membershipUsageRes.data.transferredOut) {
+          membershipTransferredOutData = membershipUsageRes.data;
         }
       } catch (err: any) {
         console.error('Error fetching membership usage:', err.message);
       }
       
-      // Process packages with usage data
+      // Process packages with usage data - separate active, transferred-in, and transferred-out
+      const transferredOutPackageIds = new Set(packageTransferredOutData.map(p => String(p.packageId)));
+      
+      // Filter patientPackageIds to exclude transferred-out packages
+      patientPackageIds = patientPackageIds.filter((pkgId: any) => 
+        !transferredOutPackageIds.has(String(pkgId))
+      );
+      
       const patientPackages = allPackages.filter((pkg: any) => 
         patientPackageIds.includes(pkg._id)
       ).map((pkg: any) => {
@@ -449,12 +480,36 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
           isTransferred: usage?.isTransferred || false,
           transferredFrom: usage?.transferredFrom || null,
           transferredFromName: usage?.transferredFromName || null,
+          transferredPackageName: usage?.transferredPackageName || (usage?.isTransferred ? usage?.packageName : null) || null,
           totalAllowedSessions: usage?.totalAllowedSessions || null,
           remainingSessions: usage?.remainingSessions || null
         };
       });
       
-      // Process memberships with usage data
+      // Separate transferred-in packages from usage data
+      const transferredInPkgs = packageUsageData
+        .filter((u: any) => u.isTransferred && u.transferredFrom)
+        .map((u: any) => ({
+          packageName: u.packageName,
+          transferredFromName: u.transferredFromName,
+          transferredSessions: u.transferredSessions || 0,
+          totalAllowedSessions: u.totalAllowedSessions || 0,
+          remainingSessions: u.remainingSessions || 0,
+          treatments: u.treatments || [],
+          billingHistory: u.billingHistory || []
+        }));
+      
+      // Process memberships with usage data - separate active, transferred-in, and transferred-out
+      // Filter patientMembershipIds to exclude transferred-out memberships
+      const transferredOutMembershipIds = new Set(
+        (patientData?.membershipTransfers || [])
+          .filter((t: any) => t.type === 'out')
+          .map((t: any) => String(t.membershipId))
+      );
+      patientMembershipIds = patientMembershipIds.filter((membershipId: any) => 
+        !transferredOutMembershipIds.has(String(membershipId))
+      );
+      
       const patientMemberships = allMemberships.filter((membership: any) => 
         patientMembershipIds.includes(membership._id)
       ).map((membership: any) => {
@@ -477,8 +532,24 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
         return enrichedMembership;
       });
       
+      // Separate transferred-in memberships from usage data
+      const transferredInMembs = membershipUsageData && membershipUsageData.isTransferred ? [{
+        membershipName: membershipUsageData.membershipName,
+        transferredFromName: membershipUsageData.transferredFromName,
+        transferredFreeConsultations: membershipUsageData.transferredFreeConsultations || 0,
+        totalFreeConsultations: membershipUsageData.totalFreeConsultations || 0,
+        remainingFreeConsultations: membershipUsageData.remainingFreeConsultations || 0,
+        discountPercentage: membershipUsageData.discountPercentage || 0,
+        isExpired: false,
+        hasFreeConsultations: membershipUsageData.hasFreeConsultations || false
+      }] : [];
+      
       setPackages(patientPackages);
       setMemberships(patientMemberships);
+      setTransferredInPackages(transferredInPkgs);
+      setTransferredOutPackages(packageTransferredOutData);
+      setTransferredInMemberships(transferredInMembs);
+      setTransferredOutMemberships(membershipTransferredOutData ? [membershipTransferredOutData] : []);
     } catch (error: any) {
       console.error('Error fetching packages and memberships:', error.message);
       setPackages([]);
@@ -653,6 +724,128 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
     }
   };
 
+  // Fetch consent form statuses
+  const fetchConsentStatuses = async () => {
+    setLoadingConsentStatus(true);
+    try {
+      const headers = getAuthHeaders();
+      if (!headers) return;
+
+      // Fetch both signed consents and sent logs
+      const [signaturesRes, logsRes] = await Promise.all([
+        axios.get('/api/clinic/consent-status', {
+          headers,
+          params: { patientId: patientData._id },
+        }),
+        axios.get('/api/clinic/consent-log', {
+          headers,
+          params: { patientId: patientData._id },
+        }),
+      ]);
+
+      const signatures = signaturesRes.data?.consentStatuses || [];
+      const logs = logsRes.data?.consentLogs || [];
+
+      // Merge logs and signatures
+      const logMap = new Map();
+
+      // Add all logs first (sent forms)
+      logs.forEach((log: any) => {
+        logMap.set(log.consentFormId, {
+          _id: log._id,
+          consentFormId: log.consentFormId,
+          consentFormName: log.consentFormName,
+          description: log.description || "",
+          patientName: log.patientName,
+          date: new Date(log.createdAt).toLocaleDateString('en-GB'),
+          hasSignature: false,
+          status: 'sent',
+          signedAt: null,
+        });
+      });
+
+      // Update with signatures if they exist (signed forms)
+      signatures.forEach((sig: any) => {
+        logMap.set(sig.consentFormId, {
+          ...sig,
+          status: 'signed',
+        });
+      });
+
+      const merged = Array.from(logMap.values());
+      setConsentStatuses(merged);
+    } catch (error: any) {
+      console.error('Error fetching consent statuses:', error.message);
+      setConsentStatuses([]);
+    } finally {
+      setLoadingConsentStatus(false);
+    }
+  };
+
+  const sendPackageLink = async () => {
+    if (!patientData?._id || !patientData?.clinicId) {
+      alert('Patient data not available');
+      return;
+    }
+
+    try {
+      setSendingPackageLink(true);
+      const headers = getAuthHeaders();
+      if (!headers) {
+        alert('Authentication required');
+        return;
+      }
+
+      const patientName = patientData?.fullName || `${patientData?.firstName || ''} ${patientData?.lastName || ''}`.trim();
+      const patientMobile = patientData?.mobileNumber || '';
+      const patientEmail = patientData?.email || '';
+
+      // Generate package creation URL
+      const packageUrl = `https://zeva360.com/public/create-package?clinicId=${patientData.clinicId}&patientId=${patientData._id}&patientName=${encodeURIComponent(patientName)}&patientMobile=${encodeURIComponent(patientMobile)}&patientEmail=${encodeURIComponent(patientEmail)}`;
+
+      console.log("=== SENDING PACKAGE LINK VIA WHATSAPP ===");
+      console.log("Package URL:", packageUrl);
+      console.log("Patient Name:", patientName);
+      console.log("Patient Mobile:", patientMobile);
+      console.log("Patient Email:", patientEmail);
+      console.log("Clinic ID:", patientData.clinicId);
+      console.log("Patient ID:", patientData._id);
+      console.log("==========================================");
+
+      // Send via WhatsApp message API
+      const token = getStoredToken();
+      await axios.post(
+        "/api/messages/send-message",
+        {
+          patientId: patientData._id,
+          providerId: "6952256c4a46b2f1eb01be86",
+          channel: "whatsapp",
+          content: `Hello ${patientName}! Click the link below to create your treatment package:\n\n${packageUrl}\n\nThank you!`,
+          mediaUrl: "",
+          mediaType: "",
+          source: "Zeva",
+          messageType: "conversational",
+          templateId: "",
+          headerParameters: [],
+          bodyParameters: [],
+          attachments: [],
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      alert('Package link sent successfully!');
+    } catch (error: any) {
+      console.error("Error sending package link:", error);
+      alert(error?.response?.data?.message || 'Failed to send package link');
+    } finally {
+      setSendingPackageLink(false);
+    }
+  };
+
   const fetchPatientBalance = async (patientId: string) => {
     const headers = getAuthHeaders();
     if (!headers) return;
@@ -820,23 +1013,23 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                   <stat.icon className={`w-3.5 h-3.5 ${stat.color}`} />
                 </div>
               </div>
-              <div className="text-xl font-bold text-gray-900">{stat.value}</div>
-              <div className="text-[10px] sm:text-xs text-gray-600">{stat.label}</div>
+              <div className="text-lg sm:text-xl font-bold text-gray-900">{stat.value}</div>
+              <div className="text-[10px] sm:text-xs text-gray-600 truncate">{stat.label}</div>
             </div>
           ))}
         </div>
 
         {/* Tab Navigation */}
-        <div className="border-b border-gray-200 mb-4">
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide border-b border-gray-200 px-2 py-2">
+        <div className="border-b border-gray-200 mb-4 sticky top-14 sm:top-16 bg-gray-50 z-[9] -mx-3 sm:mx-0 px-3 sm:px-0">
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide border-b border-gray-200 py-2">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`inline-flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap rounded-lg ${
                   activeTab === tab.id
-                    ? 'border-b-0 border-transparent text-teal-600 bg-white underline-offset-4 transition-all underline '
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 underline-offset-4 transition-all'
+                    ? 'text-teal-600 bg-white shadow-sm ring-1 ring-gray-200 underline underline-offset-4'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                 }`}
               >
                 {tab.label}
@@ -990,9 +1183,58 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
                     </div>
                   ) : packages.length === 0 ? (
-                    <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-                      <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                      <p className="text-gray-600 font-medium">No packages assigned to this patient</p>
+                    <div className="space-y-4">
+                      {/* Transferred Out Packages */}
+                      {transferredOutPackages && transferredOutPackages.length > 0 ? (
+                        transferredOutPackages.map((pkg: any, idx: number) => (
+                          <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
+                            <div className="flex items-start gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                <Package className="w-5 h-5 text-amber-600" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h3 className="text-base font-bold text-amber-900">
+                                    {pkg.packageName || 'Package'}
+                                  </h3>
+                                  <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[10px] font-bold">
+                                    Transferred Out
+                                  </span>
+                                </div>
+                                <p className="text-xs text-amber-700 mb-3">
+                                  This package was transferred to another patient.
+                                </p>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {pkg.transferredToName && (
+                                    <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
+                                      <div className="text-[10px] text-gray-500 mb-0.5">Transferred To</div>
+                                      <div className="flex items-center gap-1.5">
+                                        <User className="w-3.5 h-3.5 text-amber-600" />
+                                        <span className="text-xs font-bold text-amber-900">
+                                          {pkg.transferredToName}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
+                                  {pkg.transferredSessions > 0 && (
+                                    <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
+                                      <div className="text-[10px] text-gray-500 mb-0.5">Sessions Transferred</div>
+                                      <span className="text-xs font-bold text-amber-900">
+                                        {pkg.transferredSessions}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
+                          <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                          <p className="text-gray-600 font-medium">No packages assigned to this patient</p>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -1199,6 +1441,12 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                   <h5 className="text-xs font-bold text-green-800">Transferred Package</h5>
                                 </div>
                                 <div className="space-y-1.5 text-[10px]">
+                                  {pkg.transferredPackageName && (
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-gray-700">Package Name:</span>
+                                      <span className="font-semibold text-green-900">{pkg.transferredPackageName}</span>
+                                    </div>
+                                  )}
                                   <div className="flex justify-between items-center">
                                     <span className="text-gray-700">Transferred From:</span>
                                     <span className="font-semibold text-green-900">{pkg.transferredFromName || 'Unknown Patient'}</span>
@@ -1241,9 +1489,58 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                   </h3>
                               
                   {memberships.length === 0 ? (
-                    <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
-                      <Shield className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                      <p className="text-sm text-gray-600 font-medium">No memberships assigned to this patient</p>
+                    <div className="space-y-4">
+                      {/* Transferred Out Memberships */}
+                      {transferredOutMemberships && transferredOutMemberships.length > 0 ? (
+                        transferredOutMemberships.map((membership: any, idx: number) => (
+                          <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
+                            <div className="flex items-start gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                <Shield className="w-5 h-5 text-amber-600" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h3 className="text-base font-bold text-amber-900">
+                                    {membership.membershipName || 'Membership'}
+                                  </h3>
+                                  <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[10px] font-bold">
+                                    Transferred Out
+                                  </span>
+                                </div>
+                                <p className="text-xs text-amber-700 mb-3">
+                                  This membership was transferred to another patient.
+                                </p>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {membership.transferredToName && (
+                                    <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
+                                      <div className="text-[10px] text-gray-500 mb-0.5">Transferred To</div>
+                                      <div className="flex items-center gap-1.5">
+                                        <User className="w-3.5 h-3.5 text-amber-600" />
+                                        <span className="text-xs font-bold text-amber-900">
+                                          {membership.transferredToName}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
+                                  {membership.transferredFreeConsultations > 0 && (
+                                    <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
+                                      <div className="text-[10px] text-gray-500 mb-0.5">Consultations Transferred</div>
+                                      <span className="text-xs font-bold text-amber-900">
+                                        {membership.transferredFreeConsultations}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
+                          <Shield className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                          <p className="text-gray-600 font-medium">No memberships assigned to this patient</p>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -1519,6 +1816,203 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                     </div>
                   )}
                 </div>
+
+                {/* Transferred In Packages Section */}
+                {transferredInPackages && transferredInPackages.length > 0 && (
+                  <div className="mt-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <Package className="w-5 h-5 text-green-600" />
+                      Transferred In Packages
+                    </h3>
+                    <div className="space-y-4">
+                      {transferredInPackages.map((pkg: any, idx: number) => (
+                        <div key={idx} className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+                              <Package className="w-5 h-5 text-green-600" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-base font-bold text-green-900">
+                                  {pkg.packageName || 'Package'}
+                                </h3>
+                                <span className="px-2 py-0.5 rounded-full bg-green-200 text-green-800 text-[10px] font-bold">
+                                  Transferred In
+                                </span>
+                              </div>
+                              <p className="text-xs text-green-700 mb-3">
+                                This package was transferred from another patient.
+                              </p>
+                              <div className="grid grid-cols-2 gap-2">
+                                {pkg.transferredFromName && (
+                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred From</div>
+                                    <div className="flex items-center gap-1.5">
+                                      <User className="w-3.5 h-3.5 text-green-600" />
+                                      <span className="text-xs font-bold text-green-900">
+                                        {pkg.transferredFromName}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                                {pkg.transferredSessions > 0 && (
+                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred Sessions</div>
+                                    <span className="text-xs font-bold text-green-900">
+                                      {pkg.transferredSessions}
+                                    </span>
+                                  </div>
+                                )}
+                                {pkg.totalAllowedSessions && (
+                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Total Allowed Sessions</div>
+                                    <span className="text-xs font-bold text-green-900">
+                                      {pkg.totalAllowedSessions}
+                                    </span>
+                                  </div>
+                                )}
+                                {typeof pkg.remainingSessions === 'number' && (
+                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Remaining Sessions</div>
+                                    <span className="text-xs font-bold text-green-900">
+                                      {pkg.remainingSessions}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Transferred Out Packages Section */}
+                {transferredOutPackages && transferredOutPackages.length > 0 && (
+                  <div className="mt-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <Package className="w-5 h-5 text-amber-600" />
+                      Transferred Out Packages
+                    </h3>
+                    <div className="space-y-4">
+                      {transferredOutPackages.map((pkg: any, idx: number) => (
+                        <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                              <Package className="w-5 h-5 text-amber-600" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-base font-bold text-amber-900">
+                                  {pkg.packageName || 'Package'}
+                                </h3>
+                                <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[10px] font-bold">
+                                  Transferred Out
+                                </span>
+                              </div>
+                              <p className="text-xs text-amber-700 mb-3">
+                                This package was transferred to another patient.
+                              </p>
+                              <div className="grid grid-cols-2 gap-2">
+                                {pkg.transferredToName && (
+                                  <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred To</div>
+                                    <div className="flex items-center gap-1.5">
+                                      <User className="w-3.5 h-3.5 text-amber-600" />
+                                      <span className="text-xs font-bold text-amber-900">
+                                        {pkg.transferredToName}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                                {pkg.transferredSessions > 0 && (
+                                  <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Sessions Transferred</div>
+                                    <span className="text-xs font-bold text-amber-900">
+                                      {pkg.transferredSessions}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Transferred In Memberships Section */}
+                {transferredInMemberships && transferredInMemberships.length > 0 && (
+                  <div className="mt-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-green-600" />
+                      Transferred In Memberships
+                    </h3>
+                    <div className="space-y-4">
+                      {transferredInMemberships.map((membership: any, idx: number) => (
+                        <div key={idx} className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+                              <Shield className="w-5 h-5 text-green-600" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-base font-bold text-green-900">
+                                  {membership.membershipName || 'Membership'}
+                                </h3>
+                                <span className="px-2 py-0.5 rounded-full bg-green-200 text-green-800 text-[10px] font-bold">
+                                  Transferred In
+                                </span>
+                              </div>
+                              <p className="text-xs text-green-700 mb-3">
+                                This membership was transferred from another patient.
+                              </p>
+                              <div className="grid grid-cols-2 gap-2">
+                                {membership.transferredFromName && (
+                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred From</div>
+                                    <div className="flex items-center gap-1.5">
+                                      <User className="w-3.5 h-3.5 text-green-600" />
+                                      <span className="text-xs font-bold text-green-900">
+                                        {membership.transferredFromName}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                                {membership.transferredFreeConsultations !== null && (
+                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred Consultations</div>
+                                    <span className="text-xs font-bold text-green-900">
+                                      {membership.transferredFreeConsultations}
+                                    </span>
+                                  </div>
+                                )}
+                                {membership.totalFreeConsultations && (
+                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Total Available Consultations</div>
+                                    <span className="text-xs font-bold text-green-900">
+                                      {membership.totalFreeConsultations}
+                                    </span>
+                                  </div>
+                                )}
+                                {membership.remainingFreeConsultations !== null && (
+                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Remaining Consultations</div>
+                                    <span className="text-xs font-bold text-green-900">
+                                      {membership.remainingFreeConsultations}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : activeTab === 'billing' ? (
               /* Billing Tab Content - Modern Two-Column Dashboard */
@@ -1689,7 +2183,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                   {/* Payment Details */}
                                   <div className="flex-1 min-w-0">
                                     <div className="text-base font-bold text-gray-900">
-                                      ${payment.amount || payment.paid || 0}
+                                      AED {payment.amount || payment.paid || 0}
                                     </div>
                                     <div className="text-sm text-gray-600 mt-0.5">
                                       {payment.paymentMethod ? (
@@ -1718,15 +2212,6 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                           }) 
                                         : 'N/A'}
                                     </div>
-                                    {payment.status && (
-                                      <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${
-                                        payment.status === 'Active' ? 'bg-green-100 text-green-700' :
-                                        payment.status === 'Refunded' ? 'bg-red-100 text-red-700' :
-                                        'bg-gray-100 text-gray-700'
-                                      }`}>
-                                        {payment.status}
-                                      </span>
-                                    )}
                                   </div>
                                 </div>
                                 
@@ -1758,7 +2243,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                   <div className="flex items-center justify-between">
                                     <span className="text-sm font-medium text-gray-600">Total Paid</span>
                                     <span className="text-lg font-bold text-gray-900">
-                                      ${totalPaid.toFixed(2)}
+                                      AED {totalPaid.toFixed(2)}
                                     </span>
                                   </div>
                                   
@@ -1766,7 +2251,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                   <div className="flex items-center justify-between">
                                     <span className="text-sm font-medium text-gray-600">Outstanding</span>
                                     <span className="text-lg font-bold text-red-600">
-                                      ${totalPending.toFixed(2)}
+                                      AED {totalPending.toFixed(2)}
                                     </span>
                                   </div>
                                   
@@ -1774,7 +2259,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                   <div className="flex items-center justify-between pt-2 border-t border-gray-200">
                                     <span className="text-sm font-semibold text-gray-700">Total Amount</span>
                                     <span className="text-xl font-bold text-gray-900">
-                                      ${totalAmount.toFixed(2)}
+                                      AED {totalAmount.toFixed(2)}
                                     </span>
                                   </div>
                                 </>
@@ -2107,6 +2592,139 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                   </div>
                 );
               })()
+            ) : activeTab === 'communication' ? (
+              /* Communication Log - Consent Form Status + Package Link */
+              <div className="space-y-4">
+                {/* Send Package Link Button */}
+                <div className="bg-gradient-to-r from-teal-50 to-emerald-50 rounded-xl border border-teal-200 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
+                        <Package className="w-5 h-5 text-teal-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-gray-900">Create Package</h3>
+                        <p className="text-xs text-gray-500">Send a link for patient to select treatments</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => sendPackageLink()}
+                      disabled={sendingPackageLink}
+                      className="px-4 py-2 bg-teal-600 text-white text-xs font-semibold rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {sendingPackageLink ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3.5 h-3.5" />
+                          Send Link
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {loadingConsentStatus ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : consentStatuses.length === 0 ? (
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div className="h-1.5 bg-gradient-to-r from-blue-400 to-indigo-400" />
+                    <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-200 flex items-center justify-center mb-4">
+                        <FileText className="w-9 h-9 text-blue-400" />
+                      </div>
+                      <h3 className="text-lg font-bold text-gray-800 mb-2">No Consent Forms Sent</h3>
+                      <p className="text-gray-500 text-sm max-w-xs">
+                        Consent form communication will appear here once sent to the patient.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FileText className="w-5 h-5 text-blue-600" />
+                      <h3 className="text-base font-bold text-gray-900">Consent Form Status</h3>
+                      <span className="ml-auto px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                        {consentStatuses.length} Record{consentStatuses.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    {consentStatuses.map((consent: any, index: number) => {
+                      // Generate the consent form URL using patient data from props
+                      const patient = patientData as any;
+                      const patientName = patient?.fullName || `${patient?.firstName || ''} ${patient?.lastName || ''}`.trim();
+                      const patientInfo = {
+                        firstName: patient?.firstName || patientName.split(" ")[0] || "",
+                        lastName: patient?.lastName || patientName.split(" ").slice(1).join(" ") || "",
+                        mobileNumber: patient?.mobileNumber || "",
+                        email: patient?.email || "",
+                      };
+                      const encodedPatientData = encodeURIComponent(JSON.stringify(patientInfo));
+                      const consentUrl = `https://zeva360.com/consent-form/${consent.consentFormId}?patient=${encodedPatientData}`;
+                      
+                      return (
+                        <div
+                          key={consent._id || index}
+                          className={`flex items-center justify-between p-4 rounded-lg border ${
+                            consent.status === 'signed'
+                              ? 'border-green-200 bg-green-50'
+                              : 'border-blue-200 bg-blue-50'
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-semibold text-gray-800 truncate">
+                                {consent.consentFormName}
+                              </p>
+                              {consent.status === 'signed' ? (
+                                <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                              ) : (
+                                <Send className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className="text-xs text-gray-400">
+                                Date: {consent.date}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 mt-1">
+                              <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
+                                consent.status === 'signed'
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-blue-100 text-blue-700'
+                              }`}>
+                                {consent.status === 'signed' ? 'SIGNED' : 'SENT'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 ml-3">
+                            {/* Open Form Button */}
+                            <a
+                              href={consentUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-all border border-blue-200"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              Open Form
+                            </a>
+                            {consent.status === 'signed' && consent.hasSignature && (
+                              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                                <CheckCircle className="w-5 h-5 text-green-600" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             ) : activeTab === 'advance' ? (
               /* Advance & Pending Tab Content */
               <div className="space-y-5">
@@ -2194,52 +2812,6 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                 </div>
 
                 {/* Modals */}
-                <AddPatientAdvancePaymentModal
-                  isOpen={showAddAdvancePaymentModal}
-                  onClose={() => setShowAddAdvancePaymentModal(false)}
-                  patientId={patientData._id}
-                  patientName={`${patientData.firstName} ${patientData.lastName}`}
-                  onSuccess={async () => {
-                    const updated = await fetchPatientBalance(patientData._id);
-                    if (updated) setBalance(updated as typeof balance);
-                  }}
-                />
-                <AddPatientPastAdvancePaymentModal
-                  isOpen={showAddPastAdvancePayment50PercentModal}
-                  onClose={() => setShowAddPastAdvancePayment50PercentModal(false)}
-                  patientId={patientData._id}
-                  patientName={`${patientData.firstName} ${patientData.lastName}`}
-                  onSuccess={async () => {
-                    const updated = await fetchPatientBalance(patientData._id);
-                    if (updated) setBalance(updated as typeof balance);
-                  }}
-                  pastAdvanceType="50% Offer"
-                  primaryColor="amber"
-                />
-                <AddPatientPastAdvancePaymentModal
-                  isOpen={showAddPastAdvancePayment54PercentModal}
-                  onClose={() => setShowAddPastAdvancePayment54PercentModal(false)}
-                  patientId={patientData._id}
-                  patientName={`${patientData.firstName} ${patientData.lastName}`}
-                  onSuccess={async () => {
-                    const updated = await fetchPatientBalance(patientData._id);
-                    if (updated) setBalance(updated as typeof balance);
-                  }}
-                  pastAdvanceType="54% Offer"
-                  primaryColor="blue"
-                />
-                <AddPatientPastAdvancePaymentModal
-                  isOpen={showAddPastAdvancePayment159FlatModal}
-                  onClose={() => setShowAddPastAdvancePayment159FlatModal(false)}
-                  patientId={patientData._id}
-                  patientName={`${patientData.firstName} ${patientData.lastName}`}
-                  onSuccess={async () => {
-                    const updated = await fetchPatientBalance(patientData._id);
-                    if (updated) setBalance(updated as typeof balance);
-                  }}
-                  pastAdvanceType="159 Flat"
-                  primaryColor="purple"
-                />
               </div>
             ) : (
               /* Default Overview Tab - Compact Professional Dashboard */
@@ -2460,6 +3032,54 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
             </div>
           </div>
         )}
+
+        {/* Global Modals */}
+        <AddPatientAdvancePaymentModal
+          isOpen={showAddAdvancePaymentModal}
+          onClose={() => setShowAddAdvancePaymentModal(false)}
+          patientId={patientData._id}
+          patientName={`${patientData.firstName} ${patientData.lastName}`}
+          onSuccess={async () => {
+            const updated = await fetchPatientBalance(patientData._id);
+            if (updated) setBalance(updated as typeof balance);
+          }}
+        />
+        <AddPatientPastAdvancePaymentModal
+          isOpen={showAddPastAdvancePayment50PercentModal}
+          onClose={() => setShowAddPastAdvancePayment50PercentModal(false)}
+          patientId={patientData._id}
+          patientName={`${patientData.firstName} ${patientData.lastName}`}
+          onSuccess={async () => {
+            const updated = await fetchPatientBalance(patientData._id);
+            if (updated) setBalance(updated as typeof balance);
+          }}
+          pastAdvanceType="50% Offer"
+          primaryColor="amber"
+        />
+        <AddPatientPastAdvancePaymentModal
+          isOpen={showAddPastAdvancePayment54PercentModal}
+          onClose={() => setShowAddPastAdvancePayment54PercentModal(false)}
+          patientId={patientData._id}
+          patientName={`${patientData.firstName} ${patientData.lastName}`}
+          onSuccess={async () => {
+            const updated = await fetchPatientBalance(patientData._id);
+            if (updated) setBalance(updated as typeof balance);
+          }}
+          pastAdvanceType="54% Offer"
+          primaryColor="blue"
+        />
+        <AddPatientPastAdvancePaymentModal
+          isOpen={showAddPastAdvancePayment159FlatModal}
+          onClose={() => setShowAddPastAdvancePayment159FlatModal(false)}
+          patientId={patientData._id}
+          patientName={`${patientData.firstName} ${patientData.lastName}`}
+          onSuccess={async () => {
+            const updated = await fetchPatientBalance(patientData._id);
+            if (updated) setBalance(updated as typeof balance);
+          }}
+          pastAdvanceType="159 Flat"
+          primaryColor="purple"
+        />
     </div>
   );
 };

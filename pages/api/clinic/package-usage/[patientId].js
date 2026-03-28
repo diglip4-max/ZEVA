@@ -58,10 +58,30 @@ export default async function handler(req, res) {
     const transfersOut = Array.isArray(patient?.packageTransfers)
       ? patient.packageTransfers.filter(t => t.type === 'out')
       : [];
+
+    // Import Package model early so we can fill in missing packageNames
+    const Package = (await import("../../../../models/Package")).default;
+
+    // Fill in missing packageNames for transfers that only have packageId
+    const allMissingNameIds = [
+      ...transfersIn.filter(t => !t.packageName && t.packageId).map(t => t.packageId),
+      ...transfersOut.filter(t => !t.packageName && t.packageId).map(t => t.packageId),
+    ];
+    if (allMissingNameIds.length > 0) {
+      const pkgsForNames = await Package.find({ _id: { $in: allMissingNameIds } }).select('name').lean();
+      const pkgIdToName = {};
+      pkgsForNames.forEach(p => { pkgIdToName[String(p._id)] = p.name; });
+      [...transfersIn, ...transfersOut].forEach(t => {
+        if (!t.packageName && t.packageId) {
+          t.packageName = pkgIdToName[String(t.packageId)] || null;
+        }
+      });
+    }
+
     const transferredOutPackageIds = transfersOut.map(t => String(t.packageId));
     const transferredOutPackageNames = transfersOut.map(t => t.packageName).filter(Boolean);
     
-    // Build a map of packageId -> source patient info for transfers
+    // Build a map of packageName -> source patient info for transfers
     const transferSourceMap = {};
     transfersIn.forEach(t => {
       const key = t.packageName || String(t.packageId || "");
@@ -105,6 +125,31 @@ export default async function handler(req, res) {
       query.package = packageName;
     }
 
+    // Fetch names for all target patients in transfersOut
+    const targetIds = Array.from(new Set(transfersOut.map(t => String(t.toPatientId || "")).filter(Boolean)));
+    const targetPatients = targetIds.length
+      ? await PatientRegistration.find({ _id: { $in: targetIds } }).select("firstName lastName").lean()
+      : [];
+    const targetNameMap = {};
+    targetPatients.forEach(tp => {
+      const fn = (tp.firstName || "").trim();
+      const ln = (tp.lastName || "").trim();
+      targetNameMap[String(tp._id)] = `${fn} ${ln}`.trim() || "Unknown";
+    });
+
+    // Build transferredOut map for quick lookup
+    const transferredOutMap = {};
+    transfersOut.forEach(t => {
+      const key = t.packageName || String(t.packageId || "");
+      transferredOutMap[key] = {
+        toPatientId: t.toPatientId,
+        transferredToName: targetNameMap[String(t.toPatientId)] || null,
+        transferredSessions: t.transferredSessions || 0,
+        packageId: t.packageId,
+        packageName: t.packageName
+      };
+    });
+
     // Fetch all package billing records for this patient and source patients
     const billings = await Billing.find(query)
       .sort({ createdAt: -1 }) // Most recent first
@@ -112,7 +157,6 @@ export default async function handler(req, res) {
       .lean();
 
     // Fetch package definitions to get max sessions for each treatment
-    const Package = (await import("../../../../models/Package")).default;
     const packageNames = [...new Set(billings.map(b => b.package).filter(Boolean))];
     const packageDefinitions = await Package.find({
       clinicId: clinicId,
@@ -247,6 +291,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       packageUsage: Object.values(packageUsage),
+      transferredOut: Object.keys(transferredOutMap).length > 0 ? Object.values(transferredOutMap) : [],
     });
   } catch (error) {
     console.error("Error fetching package usage:", error);

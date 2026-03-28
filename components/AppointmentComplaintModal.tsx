@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import {
@@ -38,6 +38,7 @@ import {
   Mars,
   AlertCircle,
 } from "lucide-react";
+import { jsPDF } from "jspdf";
 import useStockItems from "@/hooks/useStockItems";
 import useUoms from "@/hooks/useUoms";
 import { getTokenByPath, handleUpload } from "@/lib/helper";
@@ -313,6 +314,21 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>([]);
   const [loadingUpcoming, setLoadingUpcoming] = useState(false);
 
+  // Consent Form Status state
+  interface ConsentFormStatus {
+    _id: string;
+    consentFormId: string;
+    consentFormName: string;
+    description?: string;
+    patientName: string;
+    date: string;
+    hasSignature: boolean;
+    status: "pending" | "signed" | "sent";
+    signedAt?: string;
+  }
+  const [consentStatuses, setConsentStatuses] = useState<ConsentFormStatus[]>([]);
+  const [loadingConsentStatus, setLoadingConsentStatus] = useState(false);
+
   // Clinical Checklist state
   const CHECKLIST_ITEMS = ["Consent Signed", "Allergy Checked", "Photos Uploaded", "Notes Completed"] as const;
   const [checklist, setChecklist] = useState<Record<string, boolean>>({
@@ -370,6 +386,66 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [isAllocatedDropdownOpen]);
+
+  // Fetch consent statuses function - defined outside useEffect for access throughout component
+  const fetchConsentStatuses = async (patientId: string, appointmentId: string) => {
+    setLoadingConsentStatus(true);
+    try {
+      console.log("Fetching consent statuses for patient:", patientId, "appointment:", appointmentId);
+      const headers = getAuthHeaders();
+      
+      const [signaturesResponse, logsResponse] = await Promise.all([
+        axios.get("/api/clinic/consent-status", {
+          headers,
+          params: { patientId, appointmentId },
+        }),
+        axios.get("/api/clinic/consent-log", {
+          headers,
+          params: { patientId, appointmentId },
+        }),
+      ]);
+      
+      if (signaturesResponse.data?.success) {
+        // Update consent statuses with the results
+        setConsentStatuses(signaturesResponse.data.consentStatuses || []);
+      }
+      if (logsResponse.data?.success) {
+        // Also merge with consent logs if needed
+        const signatures = signaturesResponse.data?.consentStatuses || [];
+        const logs = logsResponse.data?.consentLogs || [];
+        
+        // Merge logs and signatures
+        const logMap = new Map();
+        
+        logs.forEach((log: any) => {
+          logMap.set(log.consentFormId, {
+            _id: log._id,
+            consentFormId: log.consentFormId,
+            consentFormName: log.consentFormName,
+            description: log.description || "",
+            patientName: log.patientName,
+            date: new Date(log.createdAt).toLocaleDateString("en-GB"),
+            hasSignature: false,
+            status: "sent",
+            signedAt: null,
+          });
+        });
+        
+        signatures.forEach((sig: any) => {
+          logMap.set(sig.consentFormId, {
+            ...sig,
+            status: "signed",
+          });
+        });
+        
+        setConsentStatuses(Array.from(logMap.values()));
+      }
+    } catch (err) {
+      console.error("Error fetching consent statuses:", err);
+    } finally {
+      setLoadingConsentStatus(false);
+    }
+  };
 
   // fetch allocated stock items
   const {
@@ -509,9 +585,24 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
         // Fetch previous complaints + billing/visit stats
         if (response.data.appointment?.patientId) {
+          console.log("Appointment found, fetching related data:", response.data.appointment);
           fetchPreviousComplaints(response.data.appointment.patientId);
           fetchPatientStats(response.data.appointment.patientId);
           fetchUpcomingAppointments(response.data.appointment.patientId);
+          
+          // Fetch consent form statuses
+          const appointmentId = response.data.appointment._id || response.data.appointment.appointmentId;
+          if (appointmentId) {
+            console.log("Appointment ID exists, fetching consent statuses");
+            fetchConsentStatuses(
+              response.data.appointment.patientId,
+              appointmentId
+            );
+          } else {
+            console.log("No appointment ID found");
+          }
+        } else {
+          console.log("No patient ID in appointment data");
         }
 
         // Fetch smart recommendations based on doctor's departments
@@ -1016,28 +1107,39 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   };
 
   /*---------------------------
-    // SEND CONSENT FORM MESSAGE ON WHATSAPP 
+    // SEND CONSENT FORM MESSAGE ON WHATSAPP
     //---------------------------*/
     const handleSendConsentMsgOnWhatsapp = async () => {
       if (!selectedConsentId) return;
-  
+ 
       try {
         setSendMsgLoading(true);
         setSendingConsent(true);
         const token = getTokenByPath();
-        console.log({ details });
-  
+        console.log('Details object:', details);
+ 
+        // Create patient data object for URL
+        const patientData = {
+          firstName: details?.patientName?.split(" ")[0] || "",
+          lastName: details?.patientName?.split(" ").slice(1).join(" ") || "",
+          mobileNumber: details?.mobileNumber || "",
+          email: details?.email || "",
+          appointmentId: details?._id || details?.appointmentId || "",
+        };
+        
+        console.log('Patient data object:', patientData);
+        const encodedPatientData = encodeURIComponent(JSON.stringify(patientData));
+        console.log('Encoded patient data:', encodedPatientData);
+        const consentUrl = `https://zeva360.com/consent-form/${selectedConsentId}?patient=${encodedPatientData}`;
+        console.log('Final consent URL:', consentUrl);
+ 
         const { data } = await axios.post(
           "/api/messages/send-message",
           {
             patientId: details?.patientId,
             providerId: "6952256c4a46b2f1eb01be86",
             channel: "whatsapp",
-            content: `Please review and sign the consent form by clicking the link below:
-  
-  https://consent-form.zeva.co.ke
-  
-  Thank you.`,
+            content: `Please review and sign the consent form by clicking the link below:\n\n ${consentUrl}\n\n Thank you.`,
             mediaUrl: "",
             mediaType: "",
             source: "Zeva",
@@ -1048,7 +1150,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
             bodyParameters: [
               {
                 type: "text",
-                text: "https://consent-form.zeva.co.ke",
+                text: consentUrl,
               },
             ],
             attachments: [],
@@ -1059,9 +1161,41 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
             },
           },
         );
-  
+ 
         if (data && data?.success) {
           setConsentSent(true);
+          
+          // Log the sent consent form
+          try {
+            const token = getTokenByPath();
+            const selectedForm = consentForms.find((f) => f._id === selectedConsentId);
+            await axios.post(
+              "/api/clinic/consent-log",
+              {
+                consentFormId: selectedConsentId,
+                consentFormName: selectedForm?.formName || "",
+                patientId: details?.patientId,
+                patientName: details?.patientName || "",
+                appointmentId: details?.appointmentId,
+                sentVia: "whatsapp",
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+            
+            // Force re-fetch of consent statuses by clearing and setting state
+            setConsentStatuses([]);
+            if (details?.patientId && details?.appointmentId) {
+              setTimeout(() => {
+                fetchConsentStatuses(details.patientId, details.appointmentId);
+              }, 100);
+            }
+          } catch (logError) {
+            console.error("Error logging consent form sent:", logError);
+          }
         }
       } catch (error: any) {
         console.log(
@@ -1073,7 +1207,61 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         setSendingConsent(false);
       }
     };
-  
+
+    /*---------------------------
+    // SEND PRESCRIPTION MESSAGE ON WHATSAPP
+    //---------------------------*/
+    const handleSendPrescriptionWhatsapp = async (prescriptionLink: string) => {
+      if (!prescriptionLink) return;
+      
+      try {
+        setSendMsgLoading(true);
+        const token = getTokenByPath();
+        
+        console.log("=== SENDING PRESCRIPTION VIA WHATSAPP ===");
+        console.log("Prescription Link:", prescriptionLink);
+        console.log("Patient Name:", details?.patientName);
+        console.log("Patient Mobile:", details?.mobileNumber);
+        console.log("==========================================");
+        
+        const { data } = await axios.post(
+          "/api/messages/send-message",
+          {
+            patientId: details?.patientId,
+            providerId: "6952256c4a46b2f1eb01be86",
+            channel: "whatsapp",
+            content: `Please check out this prescription form by clicking the link below:\n\n ${prescriptionLink}\n\n Thank you.`,
+            mediaUrl: "",
+            mediaType: "",
+            source: "Zeva",
+            messageType: "conversational",
+            templateId: "69c679add3dde2931e28d893",
+            headerParameters: [],
+            bodyParameters: [
+              {
+                type: "text",
+                text: prescriptionLink,
+              },
+            ],
+            attachments: [],
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+        
+        if (data && data?.success) {
+          alert("Prescription sent via WhatsApp successfully!");
+        }
+      } catch (error: any) {
+        console.log("Error in send prescription msg on whatsapp: ", error?.message);
+        alert(error?.response?.data?.message || "Failed to send prescription via WhatsApp");
+      } finally {
+        setSendMsgLoading(false);
+      }
+    };
 
   if (!isOpen || !appointment) {
     return null;
@@ -1432,6 +1620,15 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Before Image</p>
                               <div className="relative flex items-center gap-2">
                                 <div className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                  {beforeImage && (
+                                    <button 
+                                      onClick={() => setBeforeImage("")} 
+                                      className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 shadow-md hover:bg-red-600 transition-colors z-10"
+                                      title="Remove image"
+                                    >
+                                      <X size={10} />
+                                    </button>
+                                  )}
                                   {beforeImage ? (
                                     <img src={beforeImage} alt="Before" className="w-full h-full object-cover" />
                                   ) : (
@@ -1453,13 +1650,21 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                     }}
                                   />
                                 </div>
-                                {beforeImage && <button onClick={() => setBeforeImage("")} className="text-xs text-red-500 hover:underline">Remove</button>}
                               </div>
                             </div>
                             <div>
                               <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">After Image</p>
                               <div className="relative flex items-center gap-2">
                                 <div className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                  {afterImage && (
+                                    <button 
+                                      onClick={() => setAfterImage("")} 
+                                      className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 shadow-md hover:bg-red-600 transition-colors z-10"
+                                      title="Remove image"
+                                    >
+                                      <X size={10} />
+                                    </button>
+                                  )}
                                   {afterImage ? (
                                     <img src={afterImage} alt="After" className="w-full h-full object-cover" />
                                   ) : (
@@ -1481,7 +1686,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                     }}
                                   />
                                 </div>
-                                {afterImage && <button onClick={() => setAfterImage("")} className="text-xs text-red-500 hover:underline">Remove</button>}
                               </div>
                             </div>
                           </div>
@@ -2280,6 +2484,63 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           </table>
                         </div>
                       </div>
+
+                      {/* Consent Form Status */}
+                      {consentStatuses.length > 0 && (
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3 mb-3">
+                          <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-blue-600" /> Consent Forms
+                          </h3>
+                          <div className="space-y-2">
+                            {consentStatuses.map((consent) => (
+                              <div
+                                key={consent._id}
+                                className={`flex items-center justify-between p-3 rounded-lg border ${
+                                  consent.status === "signed"
+                                    ? "border-green-200 bg-green-50"
+                                    : "border-blue-200 bg-blue-50"
+                                }`}
+                              >
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-xs font-semibold text-gray-800">
+                                      {consent.consentFormName}
+                                    </p>
+                                    {consent.status === "signed" && (
+                                      <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                                    )}
+                                    {consent.status === "sent" && (
+                                      <Send className="w-3.5 h-3.5 text-blue-600" />
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-gray-500 mt-0.5">
+                                    {consent.description || "Consent form"}
+                                  </p>
+                                  <div className="flex items-center gap-3 mt-1">
+                                    <span className="text-[10px] text-gray-400">
+                                      Patient: {consent.patientName}
+                                    </span>
+                                    <span className="text-[10px] text-gray-400">
+                                      Date: {consent.date}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${
+                                      consent.status === "signed"
+                                        ? "bg-green-100 text-green-700"
+                                        : "bg-blue-100 text-blue-700"
+                                    }`}
+                                  >
+                                    {consent.status === "signed" ? "SIGNED" : "SENT"}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Clinical Checklist */}
                       <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
@@ -3106,8 +3367,209 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         >
                           {savingPrescription ? <><RefreshCw size={13} className="animate-spin" /> Saving...</> : <><Check size={13} /> Save Prescription</>}
                         </button>
-                        <button type="button" disabled={medicines.every((m) => !m.medicineName.trim())} className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gray-800 text-white text-sm font-semibold hover:bg-gray-900 disabled:opacity-40 shadow-sm"><FileText size={13} /> Generate PDF</button>
-                        <button type="button" disabled={medicines.every((m) => !m.medicineName.trim())} className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-semibold hover:bg-gray-50 disabled:opacity-40"><Send size={13} /> Send via WhatsApp</button>
+                        <button type="button" disabled={medicines.every((m) => !m.medicineName.trim())} onClick={() => {
+                          const validMeds = medicines.filter((m) => m.medicineName.trim());
+                          if (!validMeds.length || !details) return;
+                          
+                          const doc = new jsPDF();
+                          const pageWidth = doc.internal.pageSize.getWidth();
+                          
+                          // Header - Clinic Name
+                          doc.setFontSize(18);
+                          doc.setFont("helvetica", "bold");
+                          doc.text("PRESCRIPTION", pageWidth / 2, 20, { align: "center" });
+                          
+                          // Patient Information
+                          doc.setFontSize(12);
+                          doc.setFont("helvetica", "normal");
+                          doc.text(`Patient Name: ${details.patientName || "N/A"}`, 20, 35);
+                          doc.text(`Doctor: Dr. ${details.doctorName || "N/A"}`, 20, 43);
+                          const appointmentDate = details.startDate ? new Date(details.startDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A";
+                          const appointmentTime = details.fromTime || "N/A";
+                          doc.text(`Date: ${appointmentDate} at ${appointmentTime}`, 20, 51);
+                          
+                          // Divider line
+                          doc.setLineWidth(0.5);
+                          doc.line(20, 58, pageWidth - 20, 58);
+                          
+                          // Prescribed Medicines Section
+                          doc.setFontSize(14);
+                          doc.setFont("helvetica", "bold");
+                          doc.text("Prescribed Medicines", 20, 68);
+                          
+                          // Medicines table header
+                          doc.setFontSize(10);
+                          doc.setFont("helvetica", "bold");
+                          doc.setFillColor(240, 240, 240);
+                          doc.rect(20, 73, pageWidth - 40, 8, "F");
+                          doc.text("#", 22, 78);
+                          doc.text("Medicine", 30, 78);
+                          doc.text("Dosage", 90, 78);
+                          doc.text("Duration", 120, 78);
+                          doc.text("Notes", 150, 78);
+                          
+                          // Medicines table rows
+                          doc.setFont("helvetica", "normal");
+                          let yPos = 83;
+                          validMeds.forEach((med, index) => {
+                            doc.text(String(index + 1), 22, yPos);
+                            doc.text(med.medicineName || "-", 30, yPos);
+                            doc.text(med.dosage || "-", 90, yPos);
+                            doc.text(med.duration || "-", 120, yPos);
+                            doc.text(med.notes || "-", 150, yPos);
+                            yPos += 8;
+                          });
+                          
+                          // Aftercare Instructions Section
+                          if (aftercareInstructions.trim()) {
+                            yPos += 10;
+                            doc.setFontSize(14);
+                            doc.setFont("helvetica", "bold");
+                            doc.text("Aftercare Instructions", 20, yPos);
+                            yPos += 8;
+                            
+                            doc.setFontSize(10);
+                            doc.setFont("helvetica", "normal");
+                            const aftercareLines = doc.splitTextToSize(aftercareInstructions, pageWidth - 40);
+                            doc.text(aftercareLines, 20, yPos);
+                          }
+                          
+                          // Footer
+                          doc.setFontSize(8);
+                          doc.setTextColor(128, 128, 128);
+                          doc.text(`Generated on: ${new Date().toLocaleString()}`, pageWidth / 2, 285, { align: "center" });
+                          
+                          // Save the PDF
+                          doc.save(`Prescription_${details.patientName?.replace(/\s+/g, "_") || "Patient"}_${new Date().toISOString().split("T")[0]}.pdf`);
+                        }} className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gray-800 text-white text-sm font-semibold hover:bg-gray-900 disabled:opacity-40 shadow-sm"><FileText size={13} /> Generate PDF</button>
+                        <button type="button" disabled={medicines.every((m) => !m.medicineName.trim())} onClick={async () => {
+                          const validMeds = medicines.filter((m) => m.medicineName.trim());
+                          if (!validMeds.length || !details) return;
+                          
+                          try {
+                            const headers = getAuthHeaders();
+                            
+                            // Generate PDF
+                            const doc = new jsPDF();
+                            const pageWidth = doc.internal.pageSize.getWidth();
+                            
+                            doc.setFontSize(18);
+                            doc.setFont("helvetica", "bold");
+                            doc.text("PRESCRIPTION", pageWidth / 2, 20, { align: "center" });
+                            
+                            doc.setFontSize(12);
+                            doc.setFont("helvetica", "normal");
+                            doc.text(`Patient Name: ${details.patientName || "N/A"}`, 20, 35);
+                            doc.text(`Doctor: Dr. ${details.doctorName || "N/A"}`, 20, 43);
+                            const appointmentDate = details.startDate ? new Date(details.startDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A";
+                            const appointmentTime = details.fromTime || "N/A";
+                            doc.text(`Date: ${appointmentDate} at ${appointmentTime}`, 20, 51);
+                            
+                            doc.setLineWidth(0.5);
+                            doc.line(20, 58, pageWidth - 20, 58);
+                            
+                            doc.setFontSize(14);
+                            doc.setFont("helvetica", "bold");
+                            doc.text("Prescribed Medicines", 20, 68);
+                            
+                            doc.setFontSize(10);
+                            doc.setFont("helvetica", "bold");
+                            doc.setFillColor(240, 240, 240);
+                            doc.rect(20, 73, pageWidth - 40, 8, "F");
+                            doc.text("#", 22, 78);
+                            doc.text("Medicine", 30, 78);
+                            doc.text("Dosage", 90, 78);
+                            doc.text("Duration", 120, 78);
+                            doc.text("Notes", 150, 78);
+                            
+                            doc.setFont("helvetica", "normal");
+                            let yPos = 83;
+                            validMeds.forEach((med, index) => {
+                              doc.text(String(index + 1), 22, yPos);
+                              doc.text(med.medicineName || "-", 30, yPos);
+                              doc.text(med.dosage || "-", 90, yPos);
+                              doc.text(med.duration || "-", 120, yPos);
+                              doc.text(med.notes || "-", 150, yPos);
+                              yPos += 8;
+                            });
+                            
+                            if (aftercareInstructions.trim()) {
+                              yPos += 10;
+                              doc.setFontSize(14);
+                              doc.setFont("helvetica", "bold");
+                              doc.text("Aftercare Instructions", 20, yPos);
+                              yPos += 8;
+                              
+                              doc.setFontSize(10);
+                              doc.setFont("helvetica", "normal");
+                              const aftercareLines = doc.splitTextToSize(aftercareInstructions, pageWidth - 40);
+                              doc.text(aftercareLines, 20, yPos);
+                            }
+                            
+                            doc.setFontSize(8);
+                            doc.setTextColor(128, 128, 128);
+                            doc.text(`Generated on: ${new Date().toLocaleString()}`, pageWidth / 2, 285, { align: "center" });
+                            
+                            // Convert PDF to base64
+                            const pdfBase64 = doc.output("datauristring");
+                            
+                            // Upload PDF to server using FormData
+                            const pdfFileName = `Prescription_${details.patientName?.replace(/\s+/g, "_") || "Patient"}_${Date.now()}.pdf`;
+                            const formData = new FormData();
+                            
+                            // Convert base64 to blob
+                            const base64Response = await fetch(pdfBase64);
+                            const pdfBlob = await base64Response.blob();
+                            formData.append("file", pdfBlob, pdfFileName);
+                            
+                            const uploadRes = await axios.post("/api/upload", formData, {
+                              headers: {
+                                ...headers,
+                                "Content-Type": "multipart/form-data",
+                              },
+                            });
+                            
+                            let pdfUrl = "";
+                            if (uploadRes.data?.url) {
+                              pdfUrl = uploadRes.data.url;
+                            } else if (uploadRes.data?.success && uploadRes.data?.fileUrl) {
+                              pdfUrl = uploadRes.data.fileUrl;
+                            }
+                            
+                            // Save prescription with PDF URL
+                            const saveRes = await axios.post("/api/clinic/prescriptions", {
+                              appointmentId: details.appointmentId,
+                              patientId: details.patientId,
+                              medicines: validMeds,
+                              aftercareInstructions,
+                              includeInPdf: true,
+                              pdfUrl,
+                            }, { headers });
+                            
+                            if (pdfUrl) {
+                              // Generate public prescription link
+                              const baseUrl = window.location.origin;
+                              const prescriptionId = saveRes.data?.prescription?._id;
+                              const prescriptionLink = prescriptionId ? `${baseUrl}/prescription/${prescriptionId}` : pdfUrl;
+                              
+                              // Log the prescription link to console
+                              console.log("=== PRESCRIPTION LINK GENERATED ===");
+                              console.log("Prescription Link:", prescriptionLink);
+                              console.log("Prescription ID:", prescriptionId);
+                              console.log("Base URL:", baseUrl);
+                              console.log("PDF URL:", pdfUrl);
+                              console.log("===================================");
+                              
+                              // Send WhatsApp message using the dedicated function
+                              await handleSendPrescriptionWhatsapp(prescriptionLink);
+                            } else {
+                              alert("Prescription saved but failed to send WhatsApp message.");
+                            }
+                          } catch (err: any) {
+                            console.error("Error sending prescription:", err);
+                            alert(err.response?.data?.message || "Failed to send prescription via WhatsApp");
+                          }
+                        }} className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-semibold hover:bg-gray-50 disabled:opacity-40"><Send size={13} /> Send via WhatsApp</button>
                       </div>
 
                       {/* Prescription History */}
@@ -3610,6 +4072,63 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         )}
                       </div>
 
+                      {/* Consent Form Status */}
+                      {consentStatuses.length > 0 && (
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3 mb-3">
+                          <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-blue-600" /> Consent Forms
+                          </h3>
+                          <div className="space-y-2">
+                            {consentStatuses.map((consent) => (
+                              <div
+                                key={consent._id}
+                                className={`flex items-center justify-between p-3 rounded-lg border ${
+                                  consent.status === "signed"
+                                    ? "border-green-200 bg-green-50"
+                                    : "border-gray-200 bg-gray-50"
+                                }`}
+                              >
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-xs font-semibold text-gray-800">
+                                      {consent.consentFormName}
+                                    </p>
+                                    {consent.status === "signed" && (
+                                      <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                                    )}
+                                    {consent.status === "sent" && (
+                                      <Send className="w-3.5 h-3.5 text-blue-600" />
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-gray-500 mt-0.5">
+                                    {consent.description || "Consent form"}
+                                  </p>
+                                  <div className="flex items-center gap-3 mt-1">
+                                    <span className="text-[10px] text-gray-400">
+                                      Patient: {consent.patientName}
+                                    </span>
+                                    <span className="text-[10px] text-gray-400">
+                                      Date: {consent.date}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide ${
+                                      consent.status === "signed"
+                                        ? "bg-green-100 text-green-700"
+                                        : "bg-blue-100 text-blue-700"
+                                    }`}
+                                  >
+                                    {consent.status}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Stock Used (All Sessions) */}
                       {previousComplaints.some((c) => Array.isArray(c.items) && c.items.length > 0) && (
                         <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
@@ -3878,7 +4397,52 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                     </div>
                   </div>
                   <div className="px-4 py-3 space-y-2">
-                    {consentSent ? (
+                    {consentStatuses.length > 0 ? (
+                      <div className="space-y-2">
+                        {consentStatuses.map((consent) => (
+                          <div
+                            key={consent._id}
+                            className={`flex items-start gap-2 p-2 rounded-lg border ${
+                              consent.status === "signed"
+                                ? "border-green-200 bg-green-50"
+                                : "border-blue-200 bg-blue-50"
+                            }`}
+                          >
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              consent.status === "signed"
+                                ? "bg-green-100"
+                                : "bg-blue-100"
+                            }`}>
+                              {consent.status === "signed" ? (
+                                <CheckCircle className="w-3 h-3 text-green-600" />
+                              ) : (
+                                <Send className="w-3 h-3 text-blue-600" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-gray-700 truncate">
+                                {consent.consentFormName}
+                              </p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide ${
+                                  consent.status === "signed"
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-blue-100 text-blue-700"
+                                }`}>
+                                  {consent.status === "signed" ? "SIGNED" : "SENT"}
+                                </span>
+                                <span className="text-[10px] text-gray-400">
+                                  {consent.date}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-gray-500 mt-0.5 truncate">
+                                Patient: {consent.patientName}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : consentSent ? (
                       <div className="flex items-start gap-2">
                         <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                           <Check className="w-3 h-3 text-green-600" />

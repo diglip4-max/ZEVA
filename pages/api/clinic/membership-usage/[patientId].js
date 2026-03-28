@@ -86,6 +86,16 @@ export default async function handler(req, res) {
       }
     } else if (patient.membership === 'Yes' && patient.membershipId) {
       activeMembershipId = patient.membershipId;
+      // Also check if this membership was transferred IN to this patient
+      if (Array.isArray(patient.membershipTransfers)) {
+        const inTransfer = [...patient.membershipTransfers].reverse().find(
+          t => t.type === 'in' && String(t.membershipId) === String(patient.membershipId)
+        );
+        if (inTransfer) {
+          transferredAllowance = inTransfer.transferredFreeConsultations || null;
+          sourcePatientId = inTransfer.fromPatientId;
+        }
+      }
     } else if (Array.isArray(patient.membershipTransfers)) {
       const lastIn = [...patient.membershipTransfers].reverse().find(t => t.type === 'in');
       if (lastIn) {
@@ -109,11 +119,43 @@ export default async function handler(req, res) {
       : false;
     
     if (transferredOut) {
+      // Find the specific out-transfer record to get membership name and who it was transferred to
+      const outTransfer = Array.isArray(patient.membershipTransfers)
+        ? [...patient.membershipTransfers]
+            .reverse()
+            .find(t => t.type === 'out' && String(t.membershipId) === String(activeMembershipId))
+        : null;
+
+      let membershipName = outTransfer?.membershipName || null;
+      let transferredToName = null;
+
+      // If membershipName not stored in transfer record, look up MembershipPlan
+      if (!membershipName && activeMembershipId) {
+        const plan = await MembershipPlan.findById(activeMembershipId).select('name').lean();
+        membershipName = plan?.name || null;
+      }
+
+      // Fetch the name of the patient it was transferred TO
+      if (outTransfer?.toPatientId) {
+        const toPat = await PatientRegistration.findById(outTransfer.toPatientId)
+          .select('firstName lastName')
+          .lean();
+        if (toPat) {
+          const fn = (toPat.firstName || '').trim();
+          const ln = (toPat.lastName || '').trim();
+          transferredToName = `${fn} ${ln}`.trim() || 'Unknown';
+        }
+      }
+
       return res.status(200).json({
         success: true,
         hasMembership: false,
         message: "Membership was transferred to another patient",
         transferredOut: true,
+        membershipName,
+        transferredToPatientId: outTransfer?.toPatientId || null,
+        transferredToName,
+        transferredFreeConsultations: outTransfer?.transferredFreeConsultations || 0,
       });
     }
 
