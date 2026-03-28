@@ -2116,7 +2116,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                   {/* Payment Details */}
                                   <div className="flex-1 min-w-0">
                                     <div className="text-base font-bold text-gray-900">
-                                      ${payment.amount || payment.paid || 0}
+                                      AED {payment.amount || payment.paid || 0}
                                     </div>
                                     <div className="text-sm text-gray-600 mt-0.5">
                                       {payment.paymentMethod ? (
@@ -2145,15 +2145,6 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                           }) 
                                         : 'N/A'}
                                     </div>
-                                    {payment.status && (
-                                      <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${
-                                        payment.status === 'Active' ? 'bg-green-100 text-green-700' :
-                                        payment.status === 'Refunded' ? 'bg-red-100 text-red-700' :
-                                        'bg-gray-100 text-gray-700'
-                                      }`}>
-                                        {payment.status}
-                                      </span>
-                                    )}
                                   </div>
                                 </div>
                                 
@@ -2185,7 +2176,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                   <div className="flex items-center justify-between">
                                     <span className="text-sm font-medium text-gray-600">Total Paid</span>
                                     <span className="text-lg font-bold text-gray-900">
-                                      ${totalPaid.toFixed(2)}
+                                      AED {totalPaid.toFixed(2)}
                                     </span>
                                   </div>
                                   
@@ -2193,7 +2184,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                   <div className="flex items-center justify-between">
                                     <span className="text-sm font-medium text-gray-600">Outstanding</span>
                                     <span className="text-lg font-bold text-red-600">
-                                      ${totalPending.toFixed(2)}
+                                      AED {totalPending.toFixed(2)}
                                     </span>
                                   </div>
                                   
@@ -2201,7 +2192,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                   <div className="flex items-center justify-between pt-2 border-t border-gray-200">
                                     <span className="text-sm font-semibold text-gray-700">Total Amount</span>
                                     <span className="text-xl font-bold text-gray-900">
-                                      ${totalAmount.toFixed(2)}
+                                      AED {totalAmount.toFixed(2)}
                                     </span>
                                   </div>
                                 </>

@@ -2596,6 +2596,20 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         <span className="font-bold text-emerald-600">AED {parseFloat(formData.paid || "0").toFixed(2)}</span>
                       </div>
 
+                      {/* Split Payment Breakdown */}
+                      {useMultiplePayments && multiplePayments.length > 0 && (
+                        <div className="pl-3 space-y-1 border-l-2 border-emerald-100 mt-1 mb-2">
+                          {multiplePayments.map((payment, idx) => (
+                            parseFloat(payment.amount || "0") > 0 && (
+                              <div key={idx} className="flex items-center justify-between text-[10px] text-gray-500 font-medium">
+                                <span>{payment.paymentMethod === 'BT' ? 'Bank Transfer (BT)' : payment.paymentMethod}</span>
+                                <span>AED {parseFloat(payment.amount || "0").toFixed(2)}</span>
+                              </div>
+                            )
+                          ))}
+                        </div>
+                      )}
+
                       {/* Pending Amount */}
                       {parseFloat(formData.pending || "0") > 0 && (
                         <div className="flex items-center justify-between text-[11px]">
@@ -2867,19 +2881,27 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-1">
-                              <span className={`text-[9px] px-2 py-0.5 rounded-full font-semibold ${
-                                (billing.pending || 0) <= 0 && (billing.paid || 0) > 0
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : (billing.pending || 0) > 0 && (billing.paid || 0) > 0
-                                    ? "bg-amber-100 text-amber-700"
-                                    : "bg-gray-100 text-gray-600"
-                              }`}>
-                                {(billing.pending || 0) <= 0 && (billing.paid || 0) > 0 ? "completed" : (billing.pending || 0) > 0 ? "pending" : "pending"}
-                              </span>
                               <span className="text-[9px] text-gray-400">{billing.invoiceNumber}</span>
                             </div>
                           </div>
                         ))}
+                        {last3Billings.length > 0 && (
+                          <button
+                            onClick={() => {
+                              const router = window.location.href.includes('/clinic/') 
+                                ? (window as any).router || { push: (url: string) => window.location.href = url }
+                                : null;
+                              if (router) {
+                                router.push(`/clinic/billing-history?patientId=${appointment.patientId}`);
+                              } else {
+                                window.location.href = `/clinic/billing-history?patientId=${appointment.patientId}`;
+                              }
+                            }}
+                            className="w-full mt-2 py-2 text-[10px] font-semibold text-teal-700 hover:text-teal-900 hover:bg-teal-50 rounded-lg transition-colors border border-teal-200"
+                          >
+                            View All Invoices →
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

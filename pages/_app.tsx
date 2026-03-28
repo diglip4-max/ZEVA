@@ -77,7 +77,7 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
     Component.getLayout || ((page: ReactNode) => <Layout>{page}</Layout>);
 
   // Check if current route should have no layout
-  const noLayoutRoutes = ["/consent-success"];
+  const noLayoutRoutes = ["/consent-success", "/clinic/billing-history"];
   if (noLayoutRoutes.includes(router.pathname)) {
     getLayout = (page: ReactNode) => <>{page}</>;
   }
