@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import type { ReactNode } from 'react';
 import axios from 'axios';
 import { Package, Check, ChevronRight, Loader2 } from 'lucide-react';
 
@@ -21,6 +22,7 @@ export default function CreatePackagePage() {
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [services, setServices] = useState([]);
   const [treatments, setTreatments] = useState([]);
   const [selectedTreatments, setSelectedTreatments] = useState<SelectedTreatment[]>([]);
@@ -183,8 +185,7 @@ export default function CreatePackagePage() {
       });
 
       if (response.data.success) {
-        alert('Package created successfully!');
-        router.push(`/clinic/patient-profile-view?id=${patientId}`);
+        setSuccess(true);
       }
     } catch (error: any) {
       console.error("Error creating package:", error);
@@ -193,6 +194,29 @@ export default function CreatePackagePage() {
       setSubmitting(false);
     }
   };
+
+  // Show success message
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-teal-50 to-blue-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle className="w-10 h-10 text-green-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Package Created!</h2>
+          <p className="text-gray-600 mb-6">
+            Your package has been created successfully. The clinic will review and approve your package shortly.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full py-3 px-6 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-semibold rounded-xl hover:from-teal-600 hover:to-teal-700 transition-colors"
+          >
+            Create Another Package
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -508,3 +532,7 @@ export default function CreatePackagePage() {
     </div>
   );
 }
+
+(CreatePackagePage as any).getLayout = function PageLayout(page: React.ReactNode) {
+  return page;
+};

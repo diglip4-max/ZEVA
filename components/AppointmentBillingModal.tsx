@@ -1895,9 +1895,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             sessions: t.usedSessions,
           }),
         );
+        // For user packages, also send the patientPackageId
+        if (selectedPackage?.isUserPackage && selectedPackage?.patientPackageId) {
+          payload.patientPackageId = selectedPackage.patientPackageId;
+          payload.isUserPackage = true;
+        }
       }
 
-      // Create billing
       const response = await axios.post(
         "/api/clinic/create-patient-registration",
         payload,
