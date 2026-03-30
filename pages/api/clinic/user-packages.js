@@ -14,7 +14,7 @@ export default async function handler(req, res) {
 
   let user;
   try {
-    user = await getAuthorizedStaffUser(req, { allowedRoles: ["clinic", "staff", "admin"] });
+    user = await getAuthorizedStaffUser(req, { allowedRoles: ["clinic", "staff", "admin", "agent", "doctorStaff"] });
   } catch (err) {
     return res.status(err.status || 401).json({ success: false, message: err.message || "Authentication error" });
   }

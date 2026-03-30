@@ -135,41 +135,7 @@ const UserPackagesPage: NextPageWithLayout = () => {
     }
   };
 
-  const handleApprovePackage = async (packageId: string) => {
-    try {
-      const response = await axios.patch(
-        `/api/clinic/user-packages/${packageId}`,
-        { action: 'approve' },
-        { headers: getAuthHeaders() }
-      );
 
-      if (response.data.success) {
-        alert('Package approved successfully!');
-        fetchPackages();
-      }
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to approve package');
-    }
-  };
-
-  const handleRejectPackage = async (packageId: string) => {
-    if (!confirm('Are you sure you want to reject this package?')) return;
-    
-    try {
-      const response = await axios.patch(
-        `/api/clinic/user-packages/${packageId}`,
-        { action: 'reject' },
-        { headers: getAuthHeaders() }
-      );
-
-      if (response.data.success) {
-        alert('Package rejected successfully!');
-        fetchPackages();
-      }
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to reject package');
-    }
-  };
 
   const handleViewDetails = (pkg: UserPackage) => {
     setSelectedPackage(pkg);
