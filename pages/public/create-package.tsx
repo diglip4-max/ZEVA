@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import type { ReactNode } from 'react';
 import axios from 'axios';
-import { Package, Check, ChevronRight, Loader2, X, CheckCircle } from 'lucide-react';
+import { Package, Check, ChevronRight, Loader2 } from 'lucide-react';
 
 interface SelectedTreatment {
   treatmentName: string;

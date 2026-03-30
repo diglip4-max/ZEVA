@@ -307,7 +307,7 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
                 outerRadius={100}
                 paddingAngle={5}
                 dataKey="value"
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
               >
                 <Cell fill="#EF4444" />
                 <Cell fill="#F59E0B" />

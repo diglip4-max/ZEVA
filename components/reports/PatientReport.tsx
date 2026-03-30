@@ -232,9 +232,9 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
                   outerRadius={100}
                   paddingAngle={5}
                   dataKey="revenue"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                 >
-                  {packageChart.map((entry, index) => (
+                  {packageChart.map((_: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>

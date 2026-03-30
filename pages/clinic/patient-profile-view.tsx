@@ -43,6 +43,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
   const [appointmentFilter, setAppointmentFilter] = useState('all');
   const [loadingAppointments, setLoadingAppointments] = useState(false);
     const [packages, setPackages] = useState([]);
+  const [userPackages, setUserPackages] = useState<any[]>([]);
   const [memberships, setMemberships] = useState([]);
   const [transferredInPackages, setTransferredInPackages] = useState<any[]>([]);
   const [transferredOutPackages, setTransferredOutPackages] = useState<any[]>([]);
@@ -60,6 +61,9 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
   
   // Package Link State
   const [sendingPackageLink, setSendingPackageLink] = useState(false);
+// Created Packages State (from UserPackage model)
+const [createdPackages, setCreatedPackages] = useState<any[]>([]);
+const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   
   // Stats state - fetched on mount
   const [statsData, setStatsData] = useState({
@@ -315,10 +319,11 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
 
   // Fetch consent form statuses when communication tab is active
   useEffect(() => {
-    if (activeTab === 'communication' && patientData?._id) {
-      fetchConsentStatuses();
-    }
-  }, [activeTab]);
+  if (activeTab === 'communication' && patientData?._id) {
+    fetchConsentStatuses();
+    fetchCreatedPackages();
+  }
+}, [activeTab]);
 
   // Fetch notes and communication when notes tab is active (commented out - replaced by Advance & Pending)
   // useEffect(() => {
@@ -545,6 +550,39 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
       }] : [];
       
       setPackages(patientPackages);
+      // Fetch user packages (created via public form)
+      try {
+        const patientRegRes = await axios.get(`/api/clinic/patient-registration?id=${patientData._id}`, { headers });
+        if (patientRegRes.data.success && patientRegRes.data.patient?.userPackages) {
+          const approvedUserPackages = patientRegRes.data.patient.userPackages.filter(
+            (pkg: any) => pkg.approvalStatus === 'approved'
+          );
+          
+          // Initially set from patient record (partial data)
+          setUserPackages(approvedUserPackages);
+          
+          const publicPkgRes = await axios.get('/api/clinic/public-package', {
+            headers,
+            params: {
+              patientId: patientData._id,
+              clinicId: patientData.clinicId,
+            },
+          });
+          
+          if (publicPkgRes.data.success && publicPkgRes.data.existingPackages) {
+            const fullUserPackages = approvedUserPackages.map((userPkg: any) => {
+              const fullPkg = publicPkgRes.data.existingPackages.find(
+                (p: any) => p._id === userPkg.packageId
+              );
+              return fullPkg ? { ...fullPkg, assignedDate: userPkg.assignedDate } : userPkg;
+            });
+            setUserPackages(fullUserPackages);
+          }
+        }
+      } catch (err: any) {
+        console.error('Error fetching user packages:', err.message);
+      }
+
       setMemberships(patientMemberships);
       setTransferredInPackages(transferredInPkgs);
       setTransferredOutPackages(packageTransferredOutData);
@@ -820,14 +858,19 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
           patientId: patientData._id,
           providerId: "6952256c4a46b2f1eb01be86",
           channel: "whatsapp",
-          content: `Hello ${patientName}! Click the link below to create your treatment package:\n\n${packageUrl}\n\nThank you!`,
+          content: "Create your own package by clicking the link below -\n1\n\nThank you.",
           mediaUrl: "",
           mediaType: "",
           source: "Zeva",
-          messageType: "conversational",
-          templateId: "",
+          messageType: "template",
+          templateId: "69c7afded3dde2931e28d8b6",
           headerParameters: [],
-          bodyParameters: [],
+          bodyParameters: [
+            {
+              type: "text",
+              text: packageUrl,
+            },
+          ],
           attachments: [],
         },
         {
@@ -846,6 +889,32 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
     }
   };
 
+
+// Fetch created packages from UserPackage model
+const fetchCreatedPackages = async () => {
+  setLoadingCreatedPackages(true);
+  try {
+    const headers = getAuthHeaders();
+    if (!headers) return;
+
+    const response = await axios.get('/api/clinic/public-package', {
+      headers,
+      params: { 
+        patientId: patientData._id,
+        clinicId: patientData.clinicId,
+      },
+    });
+
+    if (response.data.success) {
+      setCreatedPackages(response.data.existingPackages || []);
+    }
+  } catch (error: any) {
+    console.error("Error fetching created packages:", error);
+    setCreatedPackages([]);
+  } finally {
+    setLoadingCreatedPackages(false);
+  }
+};
   const fetchPatientBalance = async (patientId: string) => {
     const headers = getAuthHeaders();
     if (!headers) return;
@@ -1182,7 +1251,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                     <div className="flex items-center justify-center py-12">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
                     </div>
-                  ) : packages.length === 0 ? (
+                  ) : (packages.length === 0 && userPackages.length === 0) ? (
                     <div className="space-y-4">
                       {/* Transferred Out Packages */}
                       {transferredOutPackages && transferredOutPackages.length > 0 ? (
@@ -1238,15 +1307,16 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {packages.map((pkg: any, index: number) => {
+                      {[...packages, ...userPackages].map((pkg: any, index: number) => {
                       const packageId = pkg.packageId || pkg._id;
                       const packageName = pkg.packageName || pkg.name || 'Package';
-                      const assignedDate = pkg.assignedDate || pkg.createdAt;
+                      const assignedDate = pkg.assignedDate || pkg.createdAt || pkg.startDate;
+                      const isUserPackage = pkg.approvalStatus === 'approved';
                       
                       // Session calculations - use actual data from API
                       const totalSessions = pkg.totalSessions || 0;
-                      const usedSessions = pkg.usedSessions || 0;
-                      const remainingSessions = Math.max(0, totalSessions - usedSessions);
+                      const usedSessions = pkg.usedSessions || (totalSessions - (pkg.remainingSessions || 0));
+                      const remainingSessions = typeof pkg.remainingSessions === 'number' ? pkg.remainingSessions : Math.max(0, totalSessions - usedSessions);
                       const progressPercent = totalSessions > 0 ? Math.min(100, Math.round((usedSessions / totalSessions) * 100)) : 0;
                       
                       // Price calculation
@@ -1256,19 +1326,29 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                       return (
                         <div key={pkg._id || packageId || index} className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
                           {/* Header Section */}
-                          <div className="px-5 py-4 bg-gradient-to-r from-teal-50 to-cyan-50 border-b border-gray-200">
+                          <div className={`px-5 py-4 bg-gradient-to-r ${isUserPackage ? 'from-indigo-50 to-purple-50' : 'from-teal-50 to-cyan-50'} border-b border-gray-200`}>
                             <div className="flex items-start justify-between">
                               <div className="flex items-start gap-3 flex-1">
                                 {/* Package Icon */}
-                                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-teal-100 to-cyan-100 flex items-center justify-center flex-shrink-0 shadow-sm">
-                                  <Package className="w-7 h-7 text-teal-600" />
+                                <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${isUserPackage ? 'from-indigo-100 to-purple-100' : 'from-teal-100 to-cyan-100'} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                                  <Package className={`w-7 h-7 ${isUserPackage ? 'text-indigo-600' : 'text-teal-600'}`} />
                                 </div>
                                 
                                 {/* Package Info */}
                                 <div className="flex-1">
-                                  <h3 className="text-lg font-bold text-gray-900 mb-1">{packageName}</h3>
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <h3 className="text-lg font-bold text-gray-900">{packageName}</h3>
+                                    {isUserPackage && (
+                                      <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold">
+                                        User Package
+                                      </span>
+                                    )}
+                                  </div>
                                   <div className="flex items-center gap-3 text-sm">
                                     <span className="font-semibold text-gray-900">{formattedPrice}</span>
+                                    {pkg.sessionPrice > 0 && (
+                                      <span className="text-gray-500 font-medium">({`د.إ${pkg.sessionPrice.toFixed(2)}/session`})</span>
+                                    )}
                                     {assignedDate && (
                                       <div className="flex items-center gap-1.5 text-gray-600">
                                         <Calendar className="w-3.5 h-3.5" />
@@ -1291,7 +1371,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                               {/* Progress Bar */}
                               <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
                                 <div 
-                                  className="h-full bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full transition-all duration-500 ease-out"
+                                  className={`h-full bg-gradient-to-r ${isUserPackage ? 'from-indigo-500 to-purple-500' : 'from-teal-500 to-cyan-500'} rounded-full transition-all duration-500 ease-out`}
                                   style={{ width: `${progressPercent}%` }}
                                 ></div>
                               </div>
@@ -1317,6 +1397,37 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                 <div className="text-xs text-orange-600 mt-1 font-medium">Remaining</div>
                               </div>
                             </div>
+
+                            {/* User Package Specific Details */}
+                            {isUserPackage && (
+                              <div className="grid grid-cols-2 gap-3 mb-4">
+                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                  <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">Status & Payment</div>
+                                  <div className="flex flex-wrap gap-2">
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                      pkg.status === 'active' ? 'bg-green-100 text-green-700' :
+                                      pkg.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+                                      'bg-gray-100 text-gray-700'
+                                    }`}>
+                                      {pkg.status || 'Active'}
+                                    </span>
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                      pkg.paymentStatus === 'paid' ? 'bg-emerald-100 text-emerald-700' :
+                                      pkg.paymentStatus === 'partial' ? 'bg-amber-100 text-amber-700' :
+                                      'bg-rose-100 text-rose-700'
+                                    }`}>
+                                      {pkg.paymentStatus || 'Paid'}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                  <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">Validity Period</div>
+                                  <div className="text-xs font-medium text-gray-700">
+                                    {pkg.startDate && new Date(pkg.startDate).toLocaleDateString()} - {pkg.endDate && new Date(pkg.endDate).toLocaleDateString()}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                             
                             {/* Treatment Breakdown */}
                             {pkg.treatments && pkg.treatments.length > 0 && (
@@ -1360,6 +1471,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                         </div>
                                         <div className="flex items-center justify-between text-[9px] text-gray-600">
                                           <span>Remaining: {remaining} sessions</span>
+                                          {treatment.sessionPrice > 0 && <span>د.إ{treatment.sessionPrice.toFixed(2)} / session</span>}
                                           <span>{percent}% complete</span>
                                         </div>
                                         
@@ -2626,6 +2738,118 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                     </button>
                   </div>
                 </div>
+{/* Created Packages Section */}
+{loadingCreatedPackages ? (
+  <div className="flex items-center justify-center py-8">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+  </div>
+) : createdPackages.length > 0 ? (
+  <div className="space-y-3">
+    <div className="flex items-center gap-2 mb-2">
+      <Package className="w-5 h-5 text-teal-600" />
+      <h3 className="text-base font-bold text-gray-900">Created Packages</h3>
+      <span className="ml-auto px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">
+        {createdPackages.length} Package{createdPackages.length !== 1 ? 's' : ''}
+      </span>
+    </div>
+
+    {createdPackages.map((pkg: any, index: number) => (
+      <div
+        key={pkg._id || index}
+        className="p-4 rounded-lg border border-teal-200 bg-gradient-to-br from-teal-50 to-white"
+      >
+        {/* Package Header */}
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1">
+            <h4 className="text-sm font-bold text-gray-900 mb-1">{pkg.packageName}</h4>
+            <p className="text-xs text-gray-500">
+              Created: {new Date(pkg.createdAt).toLocaleDateString('en-GB')}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${
+              pkg.approvalStatus === 'approved'
+                ? 'bg-green-100 text-green-700'
+                : pkg.approvalStatus === 'rejected'
+                ? 'bg-red-100 text-red-700'
+                : 'bg-yellow-100 text-yellow-700'
+            }`}>
+              {pkg.approvalStatus}
+            </span>
+          </div>
+        </div>
+
+        {/* Package Details */}
+        <div className="grid grid-cols-2 gap-3 mb-3 text-xs">
+          <div>
+            <span className="text-gray-500">Total Sessions:</span>
+            <span className="ml-1 font-semibold text-gray-900">{pkg.totalSessions}</span>
+          </div>
+          <div>
+            <span className="text-gray-500">Remaining:</span>
+            <span className="ml-1 font-semibold text-gray-900">{pkg.remainingSessions}</span>
+          </div>
+          <div>
+            <span className="text-gray-500">Total Price:</span>
+            <span className="ml-1 font-bold text-teal-600">د.إ{pkg.totalPrice?.toFixed(2)}</span>
+          </div>
+          <div>
+            <span className="text-gray-500">Per Session:</span>
+            <span className="ml-1 font-semibold text-gray-900">د.إ{pkg.sessionPrice?.toFixed(2)}</span>
+          </div>
+        </div>
+
+        {/* Treatments List */}
+        {pkg.treatments && pkg.treatments.length > 0 && (
+          <div className="border-t border-teal-200 pt-3 mt-3">
+            <h5 className="text-xs font-semibold text-gray-700 mb-2">Treatments:</h5>
+            <div className="space-y-1.5">
+              {pkg.treatments.map((treatment: any, tIdx: number) => (
+                <div key={tIdx} className="flex items-center justify-between text-xs">
+                  <span className="text-gray-600 truncate flex-1">
+                    {treatment.treatmentName || treatment.name} × {treatment.sessions} sessions
+                  </span>
+                  <span className="font-semibold text-gray-900 ml-2 whitespace-nowrap">
+                    د.إ{(treatment.allocatedPrice || treatment.sessionPrice * treatment.sessions).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Action Button */}
+        {pkg.approvalStatus === 'pending' && (
+          <div className="mt-3 pt-3 border-t border-teal-200">
+            <button
+              onClick={async () => {
+                const headers = getAuthHeaders();
+                if (!headers) return alert('Authentication required');
+                
+                try {
+                  const response = await axios.post('/api/clinic/public-package?action=approve', {
+                    packageId: pkg._id,
+                  }, { headers });
+                  
+                  if (response.data.success) {
+                    alert('Package approved successfully!');
+                    fetchCreatedPackages(); // Refresh list
+                  }
+                } catch (error: any) {
+                  alert(error.response?.data?.message || 'Failed to approve package');
+                }
+              }}
+              className="w-full py-2 px-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 transition-colors flex items-center justify-center gap-2"
+            >
+              <CheckCircle className="w-3.5 h-3.5" />
+              Approve Package
+            </button>
+          </div>
+        )}
+      </div>
+    ))}
+  </div>
+) : null}
 
                 {loadingConsentStatus ? (
                   <div className="flex items-center justify-center py-16">

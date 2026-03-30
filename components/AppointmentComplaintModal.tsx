@@ -59,6 +59,7 @@ interface AppointmentLite {
 }
 
 interface AppointmentDetails {
+  _id?: string;
   appointmentId: string;
   patientId: string;
   patientName: string;
@@ -4278,7 +4279,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           Selected Treatments {selectedServices.length > 5 ? `(Last 5 of ${selectedServices.length})` : ''}
                         </p>
                         <div className="space-y-1.5">
-                          {selectedServices.slice(-5).map((svc, i) => (
+                          {selectedServices.slice(-5).map((svc) => (
                             <div key={svc._id} className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-gray-50 border border-gray-100">
                               <div className="flex items-center gap-2 flex-1 min-w-0">
                                 <div className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
@@ -4397,7 +4398,12 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                     </div>
                   </div>
                   <div className="px-4 py-3 space-y-2">
-                    {consentStatuses.length > 0 ? (
+                    {loadingConsentStatus ? (
+                      <div className="flex flex-col items-center justify-center py-6 gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                        <span className="text-[10px] font-medium text-gray-500 italic">Syncing communication log...</span>
+                      </div>
+                    ) : consentStatuses.length > 0 ? (
                       <div className="space-y-2">
                         {consentStatuses.map((consent) => (
                           <div

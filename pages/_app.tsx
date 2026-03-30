@@ -77,7 +77,7 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
     Component.getLayout || ((page: ReactNode) => <Layout>{page}</Layout>);
 
   // Check if current route should have no layout
-  const noLayoutRoutes = ["/consent-success", "/clinic/billing-history"];
+  const noLayoutRoutes = ["/consent-success", "/clinic-management-software-india", "/clinic/billing-history"];
   if (noLayoutRoutes.includes(router.pathname)) {
     getLayout = (page: ReactNode) => <>{page}</>;
   }
@@ -157,7 +157,7 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
 
       window.scrollTo(originalScrollX, originalScrollY);
 
-      const base64 = canvas.toDataURL("image/jpeg", 0.68); //0.68
+      canvas.toDataURL("image/jpeg", 0.68); //0.68
 
       console.log(`[capture] Canvas ready — ${canvas.width}×${canvas.height}`);
 
