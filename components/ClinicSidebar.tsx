@@ -551,6 +551,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               children: nonNull(
                 pickTop("Manage Health Center"),
                 { label: "Create Offers", path: "/clinic/create-offer", icon: "🎁" },
+                { label: "User Package", path: "/clinic/userpackages", icon: "package" },
                 { label: "Service Setup", path: "/clinic/services_setup", icon: "services" },
                 { label: "Setup & Operation", path: "/clinic/add-room", icon: "clinic" },
                 pickChild("Membership"),
