@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
+import toast from "react-hot-toast";
 import {
   X,
   Plus,
@@ -939,6 +940,29 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     const unchecked = CHECKLIST_ITEMS.filter((item) => !checklist[item]);
     if (unchecked.length > 0) {
       setChecklistError(`Please tick all checklist items before saving: ${unchecked.join(", ")}`);
+      toast.error(
+        <div className="flex flex-col gap-1">
+          <span className="font-semibold">⚠ Incomplete Checklist</span>
+          <span className="text-xs opacity-80">Please tick all checklist items before saving: {unchecked.join(", ")}</span>
+        </div>,
+        {
+          duration: 5000,
+          position: 'top-right',
+          style: {
+            background: '#ef4444',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            zIndex: 9999,
+            maxWidth: '600px',
+          },
+          iconTheme: {
+            primary: '#fff',
+            secondary: '#ef4444',
+          },
+        }
+      );
       return;
     }
     setChecklistError("");
@@ -1620,24 +1644,24 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             <div>
                               <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Before Image</p>
                               <div className="relative flex items-center gap-2">
-                                <div className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                <div className="w-32 h-32 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                                   {beforeImage && (
                                     <button 
                                       onClick={() => setBeforeImage("")} 
-                                      className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 shadow-md hover:bg-red-600 transition-colors z-10"
+                                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-10"
                                       title="Remove image"
                                     >
-                                      <X size={10} />
+                                      <X size={14} />
                                     </button>
                                   )}
                                   {beforeImage ? (
                                     <img src={beforeImage} alt="Before" className="w-full h-full object-cover" />
                                   ) : (
-                                    <Upload className="w-5 h-5 text-gray-300" />
+                                    <Upload className="w-8 h-8 text-gray-300" />
                                   )}
                                   {uploadingBefore && (
                                     <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                                      <RefreshCw className="w-4 h-4 text-white animate-spin" />
+                                      <RefreshCw className="w-6 h-6 text-white animate-spin" />
                                     </div>
                                   )}
                                   <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer"
@@ -1656,24 +1680,24 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             <div>
                               <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">After Image</p>
                               <div className="relative flex items-center gap-2">
-                                <div className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                <div className="w-32 h-32 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                                   {afterImage && (
                                     <button 
                                       onClick={() => setAfterImage("")} 
-                                      className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 shadow-md hover:bg-red-600 transition-colors z-10"
+                                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-10"
                                       title="Remove image"
                                     >
-                                      <X size={10} />
+                                      <X size={14} />
                                     </button>
                                   )}
                                   {afterImage ? (
                                     <img src={afterImage} alt="After" className="w-full h-full object-cover" />
                                   ) : (
-                                    <Upload className="w-5 h-5 text-gray-300" />
+                                    <Upload className="w-8 h-8 text-gray-300" />
                                   )}
                                   {uploadingAfter && (
                                     <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                                      <RefreshCw className="w-4 h-4 text-white animate-spin" />
+                                      <RefreshCw className="w-6 h-6 text-white animate-spin" />
                                     </div>
                                   )}
                                   <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer"

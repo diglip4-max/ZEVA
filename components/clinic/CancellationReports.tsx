@@ -24,7 +24,7 @@ interface NoShowPatient {
 }
 
 interface CancellationReportsProps {
-  timeRange: 'week' | 'month' | 'overall';
+  timeRange: 'today' | 'week' | 'month' | 'overall';
   selectedDate?: Date;
 }
 
@@ -57,7 +57,9 @@ const CancellationReports: React.FC<CancellationReportsProps> = ({
 
       const params: any = { filter: timeRange };
         
-       if (timeRange === 'week' && selectedDate) {
+       if (timeRange === 'today' && selectedDate) {
+        params.date = selectedDate.toISOString().split('T')[0];
+        } else if (timeRange === 'week' && selectedDate) {
         params.date = selectedDate.toISOString().split('T')[0];
         } else if (timeRange === 'month' && selectedDate) {
         const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
@@ -184,6 +186,7 @@ const handlePrevPage = () => {
           <div className="mb-4">
             <h3 className="text-lg font-bold text-gray-900">Cancellation Trend</h3>
             <p className="text-sm text-gray-500 mt-1">
+              {timeRange === 'today' && 'Today\'s overview'}
               {timeRange === 'week' && 'Weekly overview'}
               {timeRange === 'month' && 'Monthly overview'}
               {timeRange === 'overall' && 'Overall overview'}

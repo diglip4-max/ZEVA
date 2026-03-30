@@ -3395,7 +3395,9 @@ useEffect(() => {
                           {permissions.canRead && rowAppointments.length > 0
                             ? (() => {
                                 // Filter to only show appointments that START in this row to avoid duplication across rows
+                                // Also filter out cancelled appointments - don't show them in UI
                                 const startingAppointments = rowAppointments.filter(apt => {
+                                  if (apt.status === 'Cancelled') return false;
                                   const aptStart = timeStringToMinutes(apt.fromTime);
                                   return aptStart >= rowStartMinutes && aptStart < rowStartMinutes + ROW_INTERVAL_MINUTES;
                                 });
@@ -3683,7 +3685,9 @@ useEffect(() => {
                           {permissions.canRead && roomAppointments.length > 0
                             ? (() => {
                                 // Filter to only show appointments that START in this row to avoid duplication across rows
+                                // Also filter out cancelled appointments - don't show them in UI
                                 const startingAppointments = roomAppointments.filter(apt => {
+                                  if (apt.status === 'Cancelled') return false;
                                   const aptStart = timeStringToMinutes(apt.fromTime);
                                   return aptStart >= rowStartMinutes && aptStart < rowStartMinutes + ROW_INTERVAL_MINUTES;
                                 });

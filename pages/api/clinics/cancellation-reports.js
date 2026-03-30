@@ -59,7 +59,11 @@ export default async function handler(req, res) {
       let queryStartDate;
       let queryEndDate;
 
-     if (filter === 'week') {
+      if (filter === 'today') {
+        const baseDate = date ? dayjs(date) : dayjs();
+        queryStartDate = baseDate.startOf('day').toDate();
+        queryEndDate = baseDate.endOf('day').toDate();
+      } else if (filter === 'week') {
        const baseDate = date ? dayjs(date) : dayjs();
         queryStartDate = baseDate.subtract(1, 'week').startOf('day').toDate();
         queryEndDate = baseDate.endOf('day').toDate();
@@ -102,25 +106,36 @@ export default async function handler(req, res) {
 
       // 1. Cancellation Trend Data (monthly breakdown)
      const cancellationTrend = [];
-     const monthsToAnalyze = filter === 'week' ? 1 : filter === 'month' ? 6 : 12;
+      const monthsToAnalyze = filter === 'today' ? 1 : filter === 'week' ? 1 : filter === 'month' ? 6 : 12;
       
-      for(let i = monthsToAnalyze - 1; i >= 0; i--) {
-       const monthStart = dayjs(queryEndDate).subtract(i, 'month').startOf('month');
-       const monthEnd = monthStart.endOf('month');
-        
-       const monthCancellations = cancelledAppointments.filter(apt => 
-          dayjs(apt.startDate).isBetween(monthStart, monthEnd, null, '[]')
-        ).length;
-
-       const monthNoShows = noShowAppointments.filter(apt => 
-          dayjs(apt.startDate).isBetween(monthStart, monthEnd, null, '[]')
-        ).length;
-
+      if (filter === 'today') {
+        // Show only today's data as a single point
+        const today = dayjs(queryStartDate);
         cancellationTrend.push({
-          month: monthStart.format('MMM'),
-          cancellations: monthCancellations,
-          noShows: monthNoShows
+          month: today.format('MMM DD'),
+          cancellations: cancelledAppointments.length,
+          noShows: noShowAppointments.length
         });
+      } else {
+        // Show monthly trend for other filters
+        for(let i = monthsToAnalyze - 1; i >= 0; i--) {
+         const monthStart = dayjs(queryEndDate).subtract(i, 'month').startOf('month');
+         const monthEnd = monthStart.endOf('month');
+          
+         const monthCancellations = cancelledAppointments.filter(apt => 
+            dayjs(apt.startDate).isBetween(monthStart, monthEnd, null, '[]')
+          ).length;
+
+         const monthNoShows = noShowAppointments.filter(apt => 
+            dayjs(apt.startDate).isBetween(monthStart, monthEnd, null, '[]')
+          ).length;
+
+          cancellationTrend.push({
+            month: monthStart.format('MMM'),
+            cancellations: monthCancellations,
+            noShows: monthNoShows
+          });
+        }
       }
 
       // 2. Cancellation Reasons Data - handle missing field gracefully
