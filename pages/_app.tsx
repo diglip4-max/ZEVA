@@ -4,6 +4,7 @@ import type { ReactElement, ReactNode } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { DefaultSeo } from "next-seo";
+import { Toaster } from "react-hot-toast";
 import Layout from "../components/Layout";
 import AgentLayout from "../components/AgentLayout";
 import SEO from "../next-seo.config";
@@ -552,6 +553,39 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
 
   return (
     <>
+      <Toaster
+        position="top-right"
+        gutter={8}
+        containerStyle={{
+          top: 8,
+          right: 8,
+          zIndex: 9999,
+        }}
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            maxWidth: '500px',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#fff',
+            },
+          },
+        }}
+      />
       {/* ✅ Show loader only for public (non-excluded) routes */}
       {!isExcludedRoute && loading && <Loader />}
 
