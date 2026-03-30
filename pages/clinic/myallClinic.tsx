@@ -382,11 +382,29 @@ function ClinicManagementDashboard(): ReactElement {
       if (status === "OK" && res && res[0]) {
         const loc = res[0].geometry.location;
         setMapCenter({ lat: loc.lat(), lng: loc.lng() });
+        toast.success("Location located on map!");
       } else {
         setMapCenter({ lat: 28.474389, lng: 77.50399 });
+        toast.error("Could not locate this address");
       }
     });
   };
+
+  // Auto-locate address on map when editing a clinic with an address
+  useEffect(() => {
+    if (!mapsLoaded || !editForm?._id || !editForm?.address) return;
+    
+    const addr = (editForm.address || "").trim();
+    if (!addr) return;
+    
+    const g = new window.google.maps.Geocoder();
+    g.geocode({ address: addr }, (res, status) => {
+      if (status === "OK" && res && res[0]) {
+        const loc = res[0].geometry.location;
+        setMapCenter({ lat: loc.lat(), lng: loc.lng() });
+      }
+    });
+  }, [mapsLoaded, editForm?._id]);
 
   const isDirty = useMemo(() => {
     if (!stateSnapshot) return false;
