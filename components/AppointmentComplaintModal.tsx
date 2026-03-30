@@ -2702,6 +2702,63 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           </div>
                         </div>
                       )}
+
+                      {/* Next Session Booking - Added to Complaints Section */}
+                      <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-5">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Calendar className="w-4 h-4 text-blue-600" />
+                          <h3 className="text-sm font-semibold text-gray-800">Next Session Booking</h3>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1.5">Select Date</label>
+                            <input
+                              type="date"
+                              value={nextSessionDate}
+                              min={new Date().toISOString().slice(0, 10)}
+                              onChange={(e) => { setNextSessionDate(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1.5">Select Time</label>
+                            <select
+                              value={nextSessionTime}
+                              onChange={(e) => { setNextSessionTime(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                            >
+                              {["07:00","07:30","08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30","20:00"].map((t) => {
+                                const [h, m] = t.split(":").map(Number);
+                                const ampm = h < 12 ? "AM" : "PM";
+                                const h12 = h % 12 || 12;
+                                return <option key={t} value={t}>{`${h12}:${String(m).padStart(2, "0")} ${ampm}`}</option>;
+                              })}
+                            </select>
+                          </div>
+                        </div>
+                        {nextSessionError && (
+                          <div className="mb-3 flex items-center gap-2 p-2.5 rounded-lg bg-red-50 border border-red-200">
+                            <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                            <p className="text-red-600 text-xs">{nextSessionError}</p>
+                          </div>
+                        )}
+                        {nextSessionBooked && (
+                          <div className="mb-3 flex items-center gap-2 p-2.5 rounded-lg bg-green-50 border border-green-200">
+                            <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                            <p className="text-green-700 text-xs font-medium">Session booked successfully!</p>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={bookNextSession}
+                          disabled={bookingNextSession || nextSessionBooked}
+                          className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 active:bg-blue-800 disabled:opacity-60 transition-colors shadow-sm"
+                        >
+                          <Calendar size={15} />
+                          {bookingNextSession ? "Booking..." : nextSessionBooked ? "Session Booked!" : "Book Next Session"}
+                        </button>
+                      </div>
                     </div>
                   )}
 

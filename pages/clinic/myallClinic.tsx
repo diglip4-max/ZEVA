@@ -110,7 +110,7 @@ function ClinicManagementDashboard(): ReactElement {
   const [customAdded, setCustomAdded] = useState(false);
   const [activeTab, setActiveTab] = useState<
     'General Info' | 'Contact' | 'Documents' | 'Listing' | 'Clinic Timing' |
-    'Branches' | 'Notifications' | 'Branding' | 'Integrations'
+    'Branches' 
   >('General Info');
   const [contactForm, setContactForm] = useState({ phone: '', whatsapp: '', email: '', website: '' });
   const [listingVisibility, setListingVisibility] = useState({
@@ -1118,7 +1118,7 @@ function ClinicManagementDashboard(): ReactElement {
         {/* Tabs - Positioned below header */}
         <div className="px-3 py-4 max-w-7xl">
           <div className="flex items-center gap-2 h-10 rounded-full bg-white/80 border border-gray-200 shadow-sm px-2 overflow-x-auto whitespace-nowrap">
-            {(['General Info','Contact','Documents','Listing','Clinic Timing','Branches','Notifications','Branding','Integrations'] as const).map(tab => (
+            {(['General Info','Contact','Documents','Listing','Clinic Timing','Branches'] as const).map(tab => (
               <button
                 key={tab}
                 type="button"
@@ -2724,20 +2724,21 @@ function ClinicManagementDashboard(): ReactElement {
                 </div>
               )}
 
-              {/* Notifications */}
+              {/* Notifications - Commented Out */}
+              {/* 
               {activeTab === 'Notifications' && (
                 <div className="w-full">
-                  {/* Header */}
+                  {/* Header *}
                   <div className="mb-6">
                     <h2 className="text-2xl font-bold text-gray-900">Notification Preferences</h2>
                     <p className="text-sm text-gray-500 mt-1">Manage how you receive notifications and updates</p>
                   </div>
 
-                  {/* Notification Settings Card */}
+                  {/* Notification Settings Card *}
                   <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                     <div className="divide-y divide-gray-100">
                       
-                      {/* Email Notifications */}
+                      {/* Email Notifications *}
                       <div className="p-6 hover:bg-gray-50 transition-colors">
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex items-center gap-4">
@@ -2763,7 +2764,7 @@ function ClinicManagementDashboard(): ReactElement {
                         </div>
                       </div>
 
-                      {/* WhatsApp Notifications */}
+                      {/* WhatsApp Notifications *}
                       <div className="p-6 hover:bg-gray-50 transition-colors">
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex items-center gap-4">
@@ -2789,7 +2790,7 @@ function ClinicManagementDashboard(): ReactElement {
                         </div>
                       </div>
 
-                      {/* Appointment Notifications */}
+                      {/* Appointment Notifications *}
                       <div className="p-6 hover:bg-gray-50 transition-colors">
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex items-center gap-4">
@@ -2815,7 +2816,7 @@ function ClinicManagementDashboard(): ReactElement {
                         </div>
                       </div>
 
-                      {/* Lead Notifications */}
+                      {/* Lead Notifications *}
                       <div className="p-6 hover:bg-gray-50 transition-colors">
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex items-center gap-4">
@@ -2841,7 +2842,7 @@ function ClinicManagementDashboard(): ReactElement {
                         </div>
                       </div>
 
-                      {/* Marketing Notifications */}
+                      {/* Marketing Notifications *}
                       <div className="p-6 hover:bg-gray-50 transition-colors">
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex items-center gap-4">
@@ -2867,7 +2868,7 @@ function ClinicManagementDashboard(): ReactElement {
                         </div>
                       </div>
 
-                      {/* SMS Notifications */}
+                      {/* SMS Notifications *}
                       <div className="p-6 hover:bg-gray-50 transition-colors">
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex items-center gap-4">
@@ -2897,11 +2898,13 @@ function ClinicManagementDashboard(): ReactElement {
                   </div>
                 </div>
               )}
+              */}
 
-              {/* Branding */}
+              {/* Branding - Commented Out */}
+              {/* 
               {activeTab === 'Branding' && (
                 <div className="space-y-6">
-                  {/* Brand Colors */}
+                  {/* Brand Colors *}
                   <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between mb-4">
                       <div>
@@ -2913,7 +2916,7 @@ function ClinicManagementDashboard(): ReactElement {
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Primary */}
+                      {/* Primary *}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Primary Color</label>
                         <div className="flex items-center gap-3">
@@ -2932,7 +2935,7 @@ function ClinicManagementDashboard(): ReactElement {
                         </div>
                         <p className="text-xs text-gray-500 mt-2">Used for buttons, links, and primary elements</p>
                       </div>
-                      {/* Secondary */}
+                      {/* Secondary *}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Secondary Color</label>
                         <div className="flex items-center gap-3">
@@ -2952,7 +2955,7 @@ function ClinicManagementDashboard(): ReactElement {
                         <p className="text-xs text-gray-500 mt-2">Used for accents and highlights</p>
                       </div>
                     </div>
-                    {/* Preview */}
+                    {/* Preview *}
                     <div className="mt-6">
                       <h4 className="text-sm font-semibold text-gray-900 mb-3">Color Preview</h4>
                       <div className="bg-white rounded-lg border border-gray-200 p-4">
@@ -2976,7 +2979,7 @@ function ClinicManagementDashboard(): ReactElement {
                     </div>
                   </div>
 
-                  {/* Invoice Branding */}
+                  {/* Invoice Branding *}
                   <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between mb-4">
                       <div>
@@ -2985,7 +2988,7 @@ function ClinicManagementDashboard(): ReactElement {
                       </div>
                     </div>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                      {/* Upload area */}
+                      {/* Upload area *}
                       <div className="lg:col-span-3">
                         <label className="block">
                           <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-teal-400 hover:bg-teal-50/30 transition-all cursor-pointer">
@@ -3009,7 +3012,7 @@ function ClinicManagementDashboard(): ReactElement {
                         </label>
                       </div>
 
-                      {/* Invoice Preview */}
+                      {/* Invoice Preview *}
                       <div className="lg:col-span-3">
                         <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
                           <h4 className="text-sm font-semibold text-gray-900 mb-3">Invoice Preview</h4>
@@ -3044,8 +3047,10 @@ function ClinicManagementDashboard(): ReactElement {
                   </div>
                 </div>
               )}
+              */}
 
-              {/* Integrations */}
+              {/* Integrations - Commented Out */}
+              {/* 
               {activeTab === 'Integrations' && (
                 <div className="space-y-6">
                   <div>
@@ -3191,6 +3196,7 @@ function ClinicManagementDashboard(): ReactElement {
                   </div>
                 </div>
               )}
+              */}
 
             </div>
           ) : (

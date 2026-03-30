@@ -2191,7 +2191,6 @@ const fetchCreatedPackages = async () => {
                               <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Treatment</th>
                               <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
                               <th className="px-5 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                              <th className="px-5 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Action</th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-100">
@@ -2232,17 +2231,6 @@ const fetchCreatedPackages = async () => {
                                     <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${statusColor}`}>
                                       {statusLabel}
                                     </span>
-                                  </td>
-                                  <td className="px-5 py-4 whitespace-nowrap text-center">
-                                    <button 
-                                      className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors" 
-                                      title="Download Invoice"
-                                      onClick={() => alert('Download invoice: ' + billing.invoiceNumber)}
-                                    >
-                                      <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                      </svg>
-                                    </button>
                                   </td>
                                 </tr>
                               );
