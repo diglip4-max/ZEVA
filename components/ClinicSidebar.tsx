@@ -561,6 +561,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               label: "HR Management",
               icon: "users",
               children: nonNull(
+                { label: "Consent Form", path: "/clinic/consent", icon: "📝" },
                 { label: "Job Posting", path: "/clinic/job-posting", icon: "📝" },
                 { label: "Commission", path: "/clinic/commission", icon: "💰" },
                 pickTop("Assigned Leads"),
