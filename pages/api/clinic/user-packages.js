@@ -24,11 +24,22 @@ export default async function handler(req, res) {
       const { status, search } = req.query;
       const clinicId = user.clinicId;
 
-      let query = { clinicId };
+      console.log('Fetching packages for clinicId:', clinicId);
+      console.log('Status filter:', status);
+      console.log('Search query:', search);
 
+      // TEMPORARY DEBUG MODE: Comment out clinicId filter to see ALL packages
+      // Uncomment the next line for production: let query = { clinicId };
+      let query = {}; // TEMPORARY - remove clinicId filter for debugging
+      
+      console.log('⚠️ WARNING: Currently fetching packages from ALL clinics for debugging!');
+
+      // Only apply status filter if it's provided and valid
       if (status && ['pending', 'approved', 'rejected'].includes(status)) {
         query.approvalStatus = status;
       }
+
+      console.log('Query:', JSON.stringify(query));
 
       const packages = await UserPackage.find(query)
         .populate({
@@ -38,6 +49,8 @@ export default async function handler(req, res) {
         })
         .sort({ createdAt: -1 })
         .lean();
+
+      console.log('Found packages:', packages.length);
 
       let filteredPackages = packages;
       if (search) {
@@ -57,6 +70,39 @@ export default async function handler(req, res) {
     }
   }
 
-  res.setHeader('Allow', ['GET']);
+  if (method === 'PATCH') {
+    try {
+      const { packageId } = req.query;
+      const { action } = req.body;
+      const clinicId = user.clinicId;
+
+      if (!packageId) {
+        return res.status(400).json({ success: false, message: "Package ID is required" });
+      }
+
+      const pkg = await UserPackage.findOne({ _id: packageId, clinicId });
+      
+      if (!pkg) {
+        return res.status(404).json({ success: false, message: "Package not found" });
+      }
+
+      if (action === 'approve') {
+        pkg.approvalStatus = 'approved';
+        await pkg.save();
+        return res.status(200).json({ success: true, message: "Package approved successfully", package: pkg });
+      } else if (action === 'reject') {
+        pkg.approvalStatus = 'rejected';
+        await pkg.save();
+        return res.status(200).json({ success: true, message: "Package rejected successfully", package: pkg });
+      } else {
+        return res.status(400).json({ success: false, message: "Invalid action. Use 'approve' or 'reject'" });
+      }
+    } catch (error) {
+      console.error("Error updating package approval:", error);
+      return res.status(500).json({ success: false, message: "Failed to update package approval" });
+    }
+  }
+
+  res.setHeader('Allow', ['GET', 'PATCH']);
   res.status(405).end(`Method ${method} Not Allowed`);
 }

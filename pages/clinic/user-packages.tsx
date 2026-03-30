@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Search, Package, User, Clock, CheckCircle, XCircle } from 'lucide-react';
-import ClinicLayout from '../../components/clinic/ClinicLayout';
-import { withClinicAuth } from '../../../lib/auth';
-import { getAuthHeaders } from '../../../lib/auth';
+import ClinicLayout from '../../components/ClinicLayout';
+import { withClinicAuth } from '../../lib/auth';
+import { getAuthHeaders } from '../../lib/auth';
 
 const UserPackagesPage = () => {
   const [packages, setPackages] = useState([]);
