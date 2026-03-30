@@ -1,6 +1,6 @@
-import dbConnect from "../../../../lib/database";
-import UserPackage from "../../../../models/UserPackage";
-import { getAuthorizedStaffUser } from "../../../../server/staff/authHelpers";
+import dbConnect from "../../../../../lib/database";
+import UserPackage from "../../../../../models/UserPackage";
+import { getAuthorizedStaffUser } from "../../../../../server/staff/authHelpers";
 
 export default async function handler(req, res) {
   await dbConnect();

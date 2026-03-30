@@ -1,7 +1,7 @@
 import React, { useState, useEffect, ReactElement, useMemo } from "react";
 import { toast, Toaster } from "react-hot-toast";
 import axios from "axios";
-import { Building2, Edit3, X, Plus, ChevronLeft, ChevronRight, Clock, MapPin, DollarSign, Users, Star, Heart, Activity, Check, FileText, Upload, Eye, Download, Trash2, AlertCircle, Palette, CreditCard, Calendar as CalendarIcon, MessageSquare, Plug, Save } from "lucide-react";
+import { Building2, Edit3, X, Plus, ChevronLeft, ChevronRight, Clock, MapPin, DollarSign, Users, Star, Heart, Activity, Check, FileText, Upload, Eye, Download, Trash2, AlertCircle , Save } from "lucide-react";
 import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import type { NextPageWithLayout } from "../_app";
@@ -202,7 +202,6 @@ function ClinicManagementDashboard(): ReactElement {
   });
   const [brandPrimary, setBrandPrimary] = useState<string>("#14B8A6");
   const [brandSecondary, setBrandSecondary] = useState<string>("#5eead4");
-  const [invoiceLogoPreview, setInvoiceLogoPreview] = useState<string | null>(null);
   const [integrations, setIntegrations] = useState({
     whatsapp: { connected: true, lastSynced: "2 hours ago" },
     payment: { connected: true, lastSynced: "Just now" },
