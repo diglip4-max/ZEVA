@@ -183,11 +183,10 @@ const CountryPhoneInput = ({ countryCode, phone, onCountryChange, onPhoneChange 
           type="tel"
           value={phone}
           onChange={e => onPhoneChange(e.target.value)}
-          maxLength={10}
+          maxLength={15}
           inputMode="numeric"
-          pattern="[0-9]*"
           className="flex-1 px-2 py-1 text-[10px] focus:outline-none"
-          placeholder="10-digit number"
+          placeholder="Enter mobile number"
         />
       </div>
       {open && (
@@ -226,7 +225,7 @@ const CountryPhoneInput = ({ countryCode, phone, onCountryChange, onPhoneChange 
 
 const INITIAL_FORM_DATA = {
   invoiceNumber: "", emrNumber: "", firstName: "", lastName: "", email: "",
-  mobileNumber: "", countryCode: "+91", gender: "", patientType: "New", referredBy: "No",
+  mobileNumber: "+91", countryCode: "+91", gender: "", patientType: "New", referredBy: "No",
   insurance: "No", advanceGivenAmount: "", coPayPercent: "", advanceClaimStatus: "Pending",
   insuranceType: "Paid",
   membership: "No", membershipStartDate: "", membershipEndDate: "", membershipId: "",
@@ -302,7 +301,7 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
   const handleNext = useCallback(() => {
     const errs = {};
     if (!formData.firstName?.trim()) errs.firstName = "First name is required";
-    if (!formData.mobileNumber?.trim() || formData.mobileNumber.length !== 10) errs.mobileNumber = "Enter 10-digit number";
+    if (!formData.mobileNumber?.trim()) errs.mobileNumber = "Mobile number is required";
     setErrors(errs);
     if (Object.keys(errs).length === 0) {
       setCurrentStep(2);
@@ -517,10 +516,10 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
       return;
     }
 
-    // Handle mobileNumber - digits only, max 10
+    // Handle mobileNumber - digits and leading + only, max 15
     if (name === "mobileNumber") {
-      const numericValue = value.replace(/\D/g, '').slice(0, 10);
-      setFormData(prev => ({ ...prev, [name]: numericValue }));
+      const sanitized = value.replace(/[^\d+]/g, '').slice(0, 15);
+      setFormData(prev => ({ ...prev, [name]: sanitized }));
       if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
       return;
     }
@@ -632,7 +631,6 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
     // Unified validation: Only First Name and Mobile Number are mandatory for all roles
     if (!firstName.trim()) newErrors.firstName = "Required";
     if (!mobileNumber.trim()) newErrors.mobileNumber = "Required";
-    else if (mobileNumber.replace(/\D/g, '').length !== 10) newErrors.mobileNumber = "Enter 10-digit number";
     
     // Optional fields validation if provided
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = "Invalid email";
@@ -917,8 +915,32 @@ return (
                   <CountryPhoneInput
                     countryCode={formData.countryCode}
                     phone={formData.mobileNumber}
-                    onCountryChange={(code) => setFormData(prev => ({ ...prev, countryCode: code }))}
-                    onPhoneChange={(val) => setFormData(prev => ({ ...prev, mobileNumber: String(val).replace(/\D/g,"").slice(0,10) }))}
+                    onCountryChange={(code) => {
+                      setFormData(prev => {
+                        // If number already starts with the old code, replace it
+                        // Otherwise, just prepend the new code if the number is empty or doesn't have a code
+                        let newMobile = prev.mobileNumber;
+                        const oldCode = prev.countryCode;
+                        
+                        if (newMobile.startsWith(oldCode)) {
+                          newMobile = code + newMobile.slice(oldCode.length);
+                        } else if (!newMobile.startsWith('+')) {
+                          newMobile = code + newMobile;
+                        } else {
+                          // If it starts with a different code already (maybe manual entry), just replace it
+                          // but this is complex, let's keep it simple: always use the new code as prefix
+                          newMobile = code + newMobile.replace(/^\+\d+/, '');
+                        }
+                        
+                        return { ...prev, countryCode: code, mobileNumber: newMobile };
+                      });
+                    }}
+                    onPhoneChange={(val) => {
+                      // Allow digits and the leading '+'
+                      const sanitized = val.replace(/[^\d+]/g, "").slice(0, 15);
+                      setFormData(prev => ({ ...prev, mobileNumber: sanitized }));
+                      if (errors.mobileNumber) setErrors(prev => ({ ...prev, mobileNumber: "" }));
+                    }}
                   />
                   {errors.mobileNumber && (
                     <p className="text-red-500 text-[9px] mt-1 flex items-center gap-0.5">

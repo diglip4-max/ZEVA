@@ -18,7 +18,7 @@ interface SelectedTreatment {
 
 export default function CreatePackagePage() {
   const router = useRouter()
-  const { clinicId, patientId, patientName, patientMobile, patientEmail } = router.query;
+  const { clinicId, patientId, patientName, patientMobile } = router.query;
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -32,7 +32,6 @@ export default function CreatePackagePage() {
   // Patient info states - initialize from URL params
   const [patientNameInput, setPatientNameInput] = useState('');
   const [patientMobileInput, setPatientMobileInput] = useState('');
-  const [patientEmailInput, setPatientEmailInput] = useState('');
 
   // Initialize patient info from URL on mount
   useEffect(() => {
@@ -42,10 +41,7 @@ export default function CreatePackagePage() {
     if (patientMobile) {
       setPatientMobileInput(Array.isArray(patientMobile) ? patientMobile[0] : patientMobile);
     }
-    if (patientEmail) {
-      setPatientEmailInput(Array.isArray(patientEmail) ? patientEmail[0] : patientEmail);
-    }
-  }, [patientName, patientMobile, patientEmail]);
+  }, [patientName, patientMobile]);
 
   useEffect(() => {
     if (clinicId) {
@@ -175,7 +171,6 @@ export default function CreatePackagePage() {
         patientId,
         patientName: patientNameInput,
         patientMobile: patientMobileInput,
-        patientEmail: patientEmailInput,
         packageName: packageName || `Package for ${patientNameInput}`,
         totalPrice,
         totalSessions,
@@ -230,48 +225,38 @@ export default function CreatePackagePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 to-blue-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-teal-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 py-8 px-4">
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
          
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Your Package</h2>
-          <p className="text-gray-600">Select treatments to create a custom package</p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Create Your Package</h2>
+          <p className="text-gray-600 dark:text-gray-400">Select treatments to create a custom package</p>
         </div>
 
         {/* Patient Info Card */}
         {patientName && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">Patient Information</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Patient Information</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Full Name</label>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Full Name</label>
                 <input
                   type="text"
                   value={patientNameInput}
                   onChange={(e) => setPatientNameInput(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   placeholder="Enter patient name"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Phone Number</label>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Phone Number</label>
                 <input
                   type="text"
                   value={patientMobileInput}
                   onChange={(e) => setPatientMobileInput(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   placeholder="Enter phone number"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={patientEmailInput}
-                  onChange={(e) => setPatientEmailInput(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  placeholder="Enter email"
                 />
               </div>
             </div>
@@ -279,23 +264,23 @@ export default function CreatePackagePage() {
         )}
 
         {/* Package Name Input */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Package Name</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Package Name</h2>
           <input
             type="text"
             value={packageName}
             onChange={(e) => setPackageName(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             placeholder="e.g., Smile Design Package, Dental Care Plan, etc."
           />
-          <p className="text-xs text-gray-500 mt-2">Give your package a name to easily identify it later</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Give your package a name to easily identify it later</p>
         </div>
 
         {/* Services and Treatments Selection - 3 Column Grid */}
         <div className="mb-6">
           {/* Services Selection */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <svg className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
               </svg>
@@ -303,7 +288,7 @@ export default function CreatePackagePage() {
             </h2>
             
             {services.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No services available</p>
+              <p className="text-gray-500 dark:text-gray-400 text-center py-8">No services available</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {services.map((service: any) => {
@@ -317,16 +302,16 @@ export default function CreatePackagePage() {
                       key={service._id || service.serviceSlug}
                       className={`relative rounded-xl border-2 cursor-pointer transition-all duration-200 overflow-hidden ${
                         isSelected 
-                          ? 'border-teal-500 bg-gradient-to-br from-teal-50 to-blue-50 shadow-md' 
-                          : 'border-gray-200 hover:border-teal-300 hover:shadow-sm'
+                          ? 'border-teal-500 bg-gradient-to-br from-teal-50 to-blue-50 dark:from-teal-900/20 dark:to-blue-900/20 shadow-md' 
+                          : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-teal-300 dark:hover:border-teal-700 hover:shadow-sm'
                       }`}
                       onClick={() => handleServiceSelect(service, price)}
                     >
                       <div className="p-4">
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex-1">
-                            <p className="text-sm font-semibold text-gray-900 mb-1 line-clamp-2">{service.name}</p>
-                            <p className="text-xs text-gray-500 flex items-center gap-1">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1 line-clamp-2">{service.name}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
@@ -334,14 +319,14 @@ export default function CreatePackagePage() {
                             </p>
                           </div>
                           <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ml-2 ${
-                            isSelected ? 'border-teal-500 bg-teal-500' : 'border-gray-300'
+                            isSelected ? 'border-teal-500 bg-teal-500' : 'border-gray-300 dark:border-gray-600'
                           }`}>
                             {isSelected && <Check className="w-3 h-3 text-white" />}
                           </div>
                         </div>
                         
                         {isSelected && selectedTreatment ? (
-                          <div className="flex items-center justify-between gap-2 pt-3 border-t border-gray-200">
+                          <div className="flex items-center justify-between gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
                             <div className="flex items-center gap-1">
                               <button
                                 type="button"
@@ -351,29 +336,29 @@ export default function CreatePackagePage() {
                                     handleServiceUpdate(service.serviceSlug, sessionCount - 1);
                                   }
                                 }}
-                                className="w-6 h-6 rounded-md bg-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-300 text-xs font-bold transition-colors"
+                                className="w-6 h-6 rounded-md bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 text-xs font-bold transition-colors"
                               >
                                 -
                               </button>
-                              <span className="text-sm font-bold w-6 text-center text-gray-900">{sessionCount}</span>
+                              <span className="text-sm font-bold w-6 text-center text-gray-900 dark:text-white">{sessionCount}</span>
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleServiceUpdate(service.serviceSlug, sessionCount + 1);
                                 }}
-                                className="w-6 h-6 rounded-md bg-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-300 text-xs font-bold transition-colors"
+                                className="w-6 h-6 rounded-md bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 text-xs font-bold transition-colors"
                               >
                                 +
                               </button>
                             </div>
-                            <span className="text-xs font-bold text-teal-600">
+                            <span className="text-xs font-bold text-teal-600 dark:text-teal-400">
                               AED {(price * sessionCount).toFixed(2)}
                             </span>
                           </div>
                         ) : (
-                          <div className="pt-3 border-t border-gray-200">
-                            <span className="text-sm font-bold text-teal-600">AED {price}</span>
+                          <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+                            <span className="text-sm font-bold text-teal-600 dark:text-teal-400">AED {price}</span>
                           </div>
                         )}
                       </div>
@@ -388,11 +373,11 @@ export default function CreatePackagePage() {
           </div>
 
           {/* Treatments Selection */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
            
                       
             {treatments.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No treatments available</p>
+              <p className="text-gray-500 dark:text-gray-400 text-center py-8">No treatments available</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {treatments.map((treatment: any) => (
@@ -406,29 +391,29 @@ export default function CreatePackagePage() {
                         key={`${treatment.slug}-${idx}`}
                         className={`relative rounded-xl border-2 cursor-pointer transition-all duration-200 overflow-hidden ${
                           isSelected 
-                            ? 'border-teal-500 bg-gradient-to-br from-teal-50 to-blue-50 shadow-md' 
-                            : 'border-gray-200 hover:border-teal-300 hover:shadow-sm'
+                            ? 'border-teal-500 bg-gradient-to-br from-teal-50 to-blue-50 dark:from-teal-900/20 dark:to-blue-900/20 shadow-md' 
+                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-teal-300 dark:hover:border-teal-700 hover:shadow-sm'
                         }`}
                         onClick={() => handleTreatmentSelect(treatment, idx)}
                       >
                         <div className="p-4">
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1">
-                              <p className="text-sm font-semibold text-gray-900 mb-1 line-clamp-2">{subcat.name}</p>
-                              <p className="text-xs text-gray-500 mt-1">{treatment.name}</p>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1 line-clamp-2">{subcat.name}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{treatment.name}</p>
                             </div>
                             <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ml-2 ${
-                              isSelected ? 'border-teal-500 bg-teal-500' : 'border-gray-300'
+                              isSelected ? 'border-teal-500 bg-teal-500' : 'border-gray-300 dark:border-gray-600'
                             }`}>
                               {isSelected && <Check className="w-3 h-3 text-white" />}
                             </div>
                           </div>
-                          <p className="text-xs text-gray-500 mb-2">Per session</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Per session</p>
                                     
                           {(() => {
                             const sessionCount = selectedTreatment?.sessions || 1;
                             return isSelected && selectedTreatment ? (
-                              <div className="flex items-center justify-between gap-2 pt-3 border-t border-gray-200">
+                              <div className="flex items-center justify-between gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
                                 <div className="flex items-center gap-1">
                                   <button
                                     type="button"
@@ -438,29 +423,29 @@ export default function CreatePackagePage() {
                                         updateTreatmentSessions(treatment.slug, idx, sessionCount - 1);
                                       }
                                     }}
-                                    className="w-6 h-6 rounded-md bg-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-300 text-xs font-bold transition-colors"
+                                    className="w-6 h-6 rounded-md bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 text-xs font-bold transition-colors"
                                   >
                                     -
                                   </button>
-                                  <span className="text-sm font-bold w-6 text-center text-gray-900">{sessionCount}</span>
+                                  <span className="text-sm font-bold w-6 text-center text-gray-900 dark:text-white">{sessionCount}</span>
                                   <button
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       updateTreatmentSessions(treatment.slug, idx, sessionCount + 1);
                                     }}
-                                    className="w-6 h-6 rounded-md bg-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-300 text-xs font-bold transition-colors"
+                                    className="w-6 h-6 rounded-md bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 text-xs font-bold transition-colors"
                                   >
                                     +
                                   </button>
                                 </div>
-                                <span className="text-xs font-bold text-teal-600">
+                                <span className="text-xs font-bold text-teal-600 dark:text-teal-400">
                                   AED {(subcat.price * sessionCount).toFixed(2)}
                                 </span>
                               </div>
                             ) : (
-                              <div className="pt-3 border-t border-gray-200">
-                                <span className="text-sm font-bold text-teal-600">AED {subcat.price}</span>
+                              <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+                                <span className="text-sm font-bold text-teal-600 dark:text-teal-400">AED {subcat.price}</span>
                               </div>
                             );
                           })()}
@@ -558,7 +543,7 @@ export default function CreatePackagePage() {
         <div className="flex flex-col sm:flex-row gap-4">
           <button
             onClick={() => router.back()}
-            className="flex-1 py-4 px-6 bg-white border-2 border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm hover:shadow-md"
+            className="flex-1 py-4 px-6 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 font-bold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-600 transition-all shadow-sm hover:shadow-md"
           >
             Cancel
           </button>
