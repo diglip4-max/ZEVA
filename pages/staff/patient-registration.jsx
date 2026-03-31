@@ -226,7 +226,7 @@ const CountryPhoneInput = ({ countryCode, phone, onCountryChange, onPhoneChange 
 
 const INITIAL_FORM_DATA = {
   invoiceNumber: "", emrNumber: "", firstName: "", lastName: "", email: "",
-  mobileNumber: "", countryCode: "+91", gender: "", patientType: "", referredBy: "No",
+  mobileNumber: "", countryCode: "+91", gender: "", patientType: "New", referredBy: "No",
   insurance: "No", advanceGivenAmount: "", coPayPercent: "", advanceClaimStatus: "Pending",
   insuranceType: "Paid",
   membership: "No", membershipStartDate: "", membershipEndDate: "", membershipId: "",
@@ -607,7 +607,7 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
             email: f.email || "",
             mobileNumber: f.mobileNumber || "",
             gender: f.gender || "",
-            patientType: f.patientType || "",
+            patientType: f.patientType || "New",
             referredBy: f.referredBy || "No"
           }));
         showToast("Patient details loaded successfully", "success");
@@ -933,7 +933,6 @@ return (
                 {(() => {
                   const secondRowFields = [
                     { name: "gender", label: "Gender", type: "select", options: ["Male", "Female", "Other"], required: false },
-                    { name: "patientType", label: "Patient Type", type: "select", options: ["New", "Old"], required: false },
                     { name: "referredBy", label: "Referred By" }
                   ];
                   return secondRowFields;
