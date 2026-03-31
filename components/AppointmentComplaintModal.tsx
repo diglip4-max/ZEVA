@@ -1039,6 +1039,31 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       // set items to empty array
       setItems([]);
       fetchAllocatedItems();
+      
+      // Show success toast
+      toast.success(
+        <div className="flex flex-col gap-1">
+          <span className="font-semibold">✓ Complaints Saved Successfully</span>
+          <span className="text-xs opacity-80">Your complaint notes have been saved to the patient record.</span>
+        </div>,
+        {
+          duration: 3000,
+          position: 'top-right',
+          style: {
+            background: '#10b981',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            zIndex: 9999,
+            maxWidth: '500px',
+          },
+          iconTheme: {
+            primary: '#fff',
+            secondary: '#10b981',
+          },
+        }
+      );
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to save complaints");
     } finally {
