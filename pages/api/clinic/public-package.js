@@ -70,7 +70,7 @@ export default async function handler(req, res) {
           patientId, 
           clinicId: finalClinicId,
         })
-        .select('packageName totalSessions remainingSessions endDate treatments approvalStatus status')
+        .select('_id packageName totalSessions remainingSessions totalPrice sessionPrice startDate endDate treatments approvalStatus status paymentStatus createdAt')
         .sort({ createdAt: -1 })
         .lean();
       }
@@ -84,6 +84,66 @@ export default async function handler(req, res) {
     } catch (error) {
       console.error("Error fetching services/treatments:", error);
       return res.status(500).json({ success: false, message: "Failed to fetch data" });
+    }
+  }
+
+  // POST /approve - Approve a package and sync to PatientRegistration (MUST BE BEFORE GENERIC POST)
+  if (method === 'POST' && req.query.action === 'approve') {
+    try {
+      const { packageId } = req.body;
+
+      if (!packageId) {
+        return res.status(400).json({ success: false, message: "Package ID is required" });
+      }
+
+      const userPackage = await UserPackage.findById(packageId);
+      if (!userPackage) {
+        return res.status(404).json({ success: false, message: "Package not found" });
+      }
+
+      if (userPackage.approvalStatus === 'approved') {
+        return res.status(400).json({ success: false, message: "Package already approved" });
+      }
+
+      // Update approval status
+      userPackage.approvalStatus = 'approved';
+      userPackage.status = 'active';
+      
+      // Add package to patient registration
+      const PatientRegistration = (await import("../../../models/PatientRegistration")).default;
+      console.log("=== APPROVING PACKAGE ===");
+      console.log("UserPackage ID:", userPackage._id);
+      console.log("Patient ID:", userPackage.patientId);
+      console.log("Package Name:", userPackage.packageName);
+      console.log("Treatments:", JSON.stringify(userPackage.treatments, null, 2));
+      
+      const updateResult = await PatientRegistration.findByIdAndUpdate(userPackage.patientId, {
+        $push: {
+          userPackages: {
+            packageId: userPackage._id,
+            packageName: userPackage.packageName,
+            totalSessions: userPackage.totalSessions,
+            remainingSessions: userPackage.remainingSessions,
+            totalPrice: userPackage.totalPrice,
+            treatments: userPackage.treatments,
+            approvalStatus: 'approved',
+          }
+        }
+      }, { new: true });
+      
+      console.log("PatientRegistration update result:", updateResult?._id);
+      console.log("==========================");
+      
+      await userPackage.save();
+
+      return res.status(200).json({ 
+        success: true, 
+        message: "Package approved successfully",
+        package: userPackage
+      });
+    } catch (error) {
+      console.error("Error approving package:", error);
+      return res.status(500).json({ success: false, message: "Failed to approve package" });
     }
   }
 
@@ -178,6 +238,7 @@ export default async function handler(req, res) {
                 totalSessions: userPackage.totalSessions,
                 remainingSessions: userPackage.remainingSessions,
                 totalPrice: userPackage.totalPrice,
+                treatments: userPackage.treatments,
                 approvalStatus: 'approved',
               }
             }

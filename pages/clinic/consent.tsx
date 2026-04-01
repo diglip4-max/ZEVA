@@ -42,7 +42,7 @@ interface Service {
 interface ConsentForm {
   _id: string;
   formName: string;
-  departmentId?: { _id: string; name: string } | null;
+  departmentIds?: { _id: string; name: string }[];
   language: string;
   version: string;
   description: string;
@@ -83,7 +83,7 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
 
   // Step 2 – Form Details
   const [formName, setFormName] = useState("");
-  const [selectedDeptId, setSelectedDeptId] = useState("");
+  const [selectedDeptIds, setSelectedDeptIds] = useState<string[]>([]);
   const [language, setLanguage] = useState("English");
   const [version, setVersion] = useState("1.0");
   const [description, setDescription] = useState("");
@@ -240,7 +240,7 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
       const token = getToken();
       const payload = {
         formName,
-        departmentId: selectedDeptId || null,
+        departmentIds: selectedDeptIds,
         language,
         version,
         description,
@@ -269,8 +269,6 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
       setSubmitting(false);
     }
   };
-
-  const selectedDept = departments.find((d) => d._id === selectedDeptId);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
@@ -413,23 +411,47 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
 
               {/* Department */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                <select
-                  value={selectedDeptId}
-                  onChange={(e) => setSelectedDeptId(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                >
-                  <option value="">-- Select Department --</option>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">Department</label>
+                  {!loadingDepts && departments.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (selectedDeptIds.length === departments.length) {
+                          setSelectedDeptIds([]);
+                        } else {
+                          setSelectedDeptIds(departments.map(d => d._id));
+                        }
+                      }}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      {selectedDeptIds.length === departments.length ? "Deselect All" : "Select All Departments"}
+                    </button>
+                  )}
+                </div>
+                <div className="border border-gray-300 rounded-lg p-3 max-h-40 overflow-y-auto space-y-2 bg-white">
                   {loadingDepts ? (
-                    <option disabled>Loading...</option>
+                    <p className="text-xs text-gray-500">Loading...</p>
+                  ) : departments.length === 0 ? (
+                    <p className="text-xs text-gray-500 italic">No departments available</p>
                   ) : (
                     departments.map((d) => (
-                      <option key={d._id} value={d._id}>
-                        {d.name}
-                      </option>
+                      <label key={d._id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={selectedDeptIds.includes(d._id)}
+                          onChange={() => {
+                            setSelectedDeptIds(prev => 
+                              prev.includes(d._id) ? prev.filter(id => id !== d._id) : [...prev, d._id]
+                            );
+                          }}
+                          className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 accent-blue-600"
+                        />
+                        <span className="text-sm text-gray-700">{d.name}</span>
+                      </label>
                     ))
                   )}
-                </select>
+                </div>
               </div>
 
               {/* Language */}
@@ -672,7 +694,16 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
                     <ReviewRow label="Form Name" value={formName || "—"} />
                     <ReviewRow
                       label="Department"
-                      value={selectedDept?.name || "Not selected"}
+                      value={
+                        selectedDeptIds.length === 0
+                          ? "Not selected"
+                          : selectedDeptIds.length === departments.length
+                          ? "All Departments"
+                          : departments
+                              .filter((d) => selectedDeptIds.includes(d._id))
+                              .map((d) => d.name)
+                              .join(", ")
+                      }
                     />
                     <ReviewRow label="Language" value={language} />
                     <ReviewRow label="Version" value={version || "1.0"} />
@@ -925,9 +956,17 @@ function ViewConsentModal({ consent, onClose }: ViewConsentModalProps) {
               </div>
               <div>
                 <p className="text-xs text-gray-400 font-medium">Department</p>
-                <p className="text-sm font-semibold text-gray-800">
-                  {consent.departmentId?.name || "Not assigned"}
-                </p>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {consent.departmentIds && consent.departmentIds.length > 0 ? (
+                    consent.departmentIds.map((d) => (
+                      <span key={d._id} className="px-2 py-0.5 rounded bg-gray-100 text-gray-700 text-xs font-medium">
+                        {d.name}
+                      </span>
+                    ))
+                  ) : (
+                    <p className="text-sm font-semibold text-gray-800">Not assigned</p>
+                  )}
+                </div>
               </div>
               <div>
                 <p className="text-xs text-gray-400 font-medium">Language</p>
@@ -1236,7 +1275,23 @@ const ConsentPage: NextPageWithLayout = () => {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-600">
-                        {consent.departmentId?.name || (
+                        {consent.departmentIds && consent.departmentIds.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {consent.departmentIds.slice(0, 2).map((d) => (
+                              <span
+                                key={d._id}
+                                className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 text-[10px]"
+                              >
+                                {d.name}
+                              </span>
+                            ))}
+                            {consent.departmentIds.length > 2 && (
+                              <span className="text-[10px] text-gray-400">
+                                +{consent.departmentIds.length - 2}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
                           <span className="text-gray-300">—</span>
                         )}
                       </td>

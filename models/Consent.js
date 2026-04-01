@@ -27,11 +27,12 @@ const ConsentSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    departmentId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Department",
-      default: null,
-    },
+    departmentIds: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Department",
+      },
+    ],
     language: {
       type: String,
       enum: ["English", "Spanish", "French", "Arabic", "Hindi"],
@@ -77,4 +78,10 @@ const ConsentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.models.Consent || mongoose.model("Consent", ConsentSchema);
+// Force model schema update for plural field
+if (mongoose.models.Consent) {
+  delete mongoose.models.Consent;
+}
+
+const Consent = mongoose.model("Consent", ConsentSchema);
+export default Consent;

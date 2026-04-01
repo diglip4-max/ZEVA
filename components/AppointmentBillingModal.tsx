@@ -55,7 +55,10 @@ interface Package {
   price?: number;
   totalPrice: number;
   totalSessions: number;
-  sessionPrice: number;
+  sessionPrice?: number;
+  isUserPackage?: boolean;
+  remainingSessions?: number;
+  patientPackageId?: string;
   treatments: Array<{
     treatmentName: string;
     treatmentSlug: string;
@@ -72,6 +75,8 @@ interface SelectedTreatment {
   price: number;
   quantity: number;
   totalPrice: number;
+  usesFreeConsultation?: boolean;
+  usesMembershipDiscount?: boolean;
 }
 
 interface PackageTreatmentSession {
@@ -87,6 +92,8 @@ interface PackageTreatmentSession {
   }>; // Detailed usage history
   isSelected: boolean;
   sessionPrice: number;
+  usesFreeConsultation?: boolean;
+  usesMembershipDiscount?: boolean;
 }
 
 interface AppointmentBillingModalProps {
@@ -134,6 +141,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [loadingMembershipUsage, setLoadingMembershipUsage] = useState(false);
   const [activePackageUsage, setActivePackageUsage] = useState<any[]>([]);
   const [loadingActivePackageUsage, setLoadingActivePackageUsage] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [expandedPackages, setExpandedPackages] = useState<Record<string, boolean>>({});
 
   // Smart Recommendations state
@@ -227,6 +235,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     pastAdvanceUsed50Percent: "0.00",
     pastAdvanceUsed54Percent: "0.00",
     pastAdvanceUsed159Flat: "0.00",
+    pendingUsed: "0.00",
   });
 
   const treatmentDropdownRef = useRef<HTMLDivElement>(null);
@@ -371,6 +380,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         // Fetch Smart Recommendations (departments & services) based on doctor
         try {
           if (appointment?.doctorId) {
+            setLoadingSmartRec(true);
             const deptRes = await axios.get("/api/clinic/doctor-departments", {
               headers,
               params: { doctorStaffId: appointment.doctorId },
@@ -399,6 +409,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           clinicPrice: s.clinicPrice,
                           durationMinutes: s.durationMinutes,
                           departmentId: dept._id,
+                          serviceSlug: s.serviceSlug,
                         }))
                       : [];
                   return { _id: dept._id, name: dept.name, services };
@@ -411,6 +422,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         } catch (error) {
           console.log("Smart Rec fetch error:", error);
           // Ignore smart rec errors
+        } finally {
+          setLoadingSmartRec(false);
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -642,7 +655,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       } catch (logError) {
         console.error("Error logging consent form sent:", logError);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error sending consent form:", error?.response?.data || error.message);
     } finally {
       setSendingConsent(false);
@@ -979,8 +992,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           return { ...t, usesFreeConsultation: usesFree, usesMembershipDiscount: usesDiscount };
         });
 
-        const map = new Map(updated.map(t => [t.treatmentSlug, t]));
-        setSelectedTreatments(prev => prev.map(t => map.get(t.treatmentSlug) || t));
+        const map = new Map(updated.map((t: any) => [t.treatmentSlug, t]));
+        setSelectedTreatments(prev => prev.map((t: any) => map.get(t.treatmentSlug) || t));
         membershipDiscount = totalDiscount;
         finalTotal = Math.max(0, baseTotal - totalFree - totalDiscount);
       } 
@@ -990,14 +1003,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         
         if (hasSessions) {
           const selectedSessions = packageTreatmentSessions
-            .filter(t => t.isSelected && (t.usedSessions || 0) > 0)
+            .filter((t: any) => t.isSelected && (t.usedSessions || 0) > 0)
             .sort((a, b) => a.sessionPrice - b.sessionPrice);
           
           let freeAvailable = remainingFreeConsultations;
           let totalFree = 0;
           let totalDiscount = 0;
 
-          const withFreeInfo = selectedSessions.map(t => {
+          const withFreeInfo = selectedSessions.map((t: any) => {
             const sessions = t.usedSessions || 0;
             let sessionsFree = 0;
             if (freeAvailable > 0 && sessions > 0) {
@@ -1009,7 +1022,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
           // Create a map of updated flags by treatmentSlug
           const sessionUpdates = new Map();
-          withFreeInfo.forEach(t => {
+          withFreeInfo.forEach((t: any) => {
             const sf = t.sessionsFree || 0;
             const rs = t.remainingSessions || 0;
             let usesFree = sf > 0;
@@ -1026,7 +1039,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           });
 
           // Update only the flags in the existing state (don't replace the array)
-          setPackageTreatmentSessions(prev => prev.map(t => {
+          setPackageTreatmentSessions(prev => prev.map((t: any) => {
             const update = sessionUpdates.get(t.treatmentSlug);
             if (update) {
               return { ...t, ...update };
@@ -1422,6 +1435,225 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   };
 
   // Handle form submission
+  const generateInvoicePDF = async () => {
+    try {
+      setIsGeneratingPDF(true);
+      const { jsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
+
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      // Header
+      doc.setFontSize(22);
+      doc.setTextColor(20, 184, 166); // teal-600
+      doc.setFont("helvetica", "bold");
+      doc.text("ZEVA CLINIC", 14, 20);
+
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139); // slate-500
+      doc.setFont("helvetica", "normal");
+      doc.text("Billing Statement / Invoice", 14, 26);
+
+      doc.setFontSize(14);
+      doc.setTextColor(30, 41, 59); // slate-800
+      doc.text("INVOICE", pageWidth - 14, 20, { align: "right" });
+
+      const today = new Date().toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+      doc.setFontSize(9);
+      doc.text(`Date: ${today}`, pageWidth - 14, 26, { align: "right" });
+      doc.text(
+        `Invoice #: ${formData.invoiceNumber || "-"}`,
+        pageWidth - 14,
+        31,
+        { align: "right" },
+      );
+
+      // Patient Details
+      doc.setDrawColor(226, 232, 240); // slate-200
+      doc.line(14, 36, pageWidth - 14, 36);
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(71, 85, 105); // slate-600
+      doc.text("PATIENT INFORMATION", 14, 44);
+
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(15, 23, 42); // slate-900
+      doc.text(
+        `Name: ${appointment?.patientName || "-"}`,
+        14,
+        50,
+      );
+      doc.text(`Patient ID: ${appointment?.patientId || "-"}`, 14, 55);
+      doc.text(`EMR No: ${appointment?.emrNumber || "-"}`, 14, 60);
+
+      doc.text(
+        `Mobile: ${appointment?.patientNumber || "-"}`,
+        pageWidth / 2,
+        50,
+      );
+      doc.text(`Email: ${appointment?.patientEmail || "-"}`, pageWidth / 2, 55);
+      doc.text(`Gender: ${appointment?.gender || "-"}`, pageWidth / 2, 60);
+
+      // Billing Details Table
+      const tableRows = [];
+      if (selectedService === "Treatment") {
+        selectedTreatments.forEach((t) => {
+          tableRows.push([
+            t.treatmentName,
+            "Treatment",
+            t.quantity.toString(),
+            `AED ${t.price.toFixed(2)}`,
+            `AED ${t.totalPrice.toFixed(2)}`,
+          ]);
+        });
+      } else if (selectedService === "Package") {
+        const selectedPackageTreatments = packageTreatmentSessions.filter(
+          (t) => t.isSelected,
+        );
+        tableRows.push([
+          selectedPackage?.name || "-",
+          "Package",
+          "1",
+          `AED ${selectedPackage?.totalPrice.toFixed(2) || "0.00"}`,
+          `AED ${selectedPackage?.totalPrice.toFixed(2) || "0.00"}`,
+        ]);
+        selectedPackageTreatments.forEach((t) => {
+          tableRows.push([
+            `  • ${t.treatmentName}`,
+            "Session",
+            t.usedSessions.toString(),
+            "-",
+            "-",
+          ]);
+        });
+      }
+
+      autoTable(doc, {
+        startY: 70,
+        head: [["Description", "Type", "Qty/Sessions", "Unit Price", "Total"]],
+        body: tableRows,
+        theme: "striped",
+        headStyles: {
+          fillColor: [31, 41, 55], // Gray-800
+          fontSize: 9,
+          fontStyle: "bold",
+        },
+        bodyStyles: { fontSize: 9 },
+        columnStyles: {
+          3: { halign: "right" },
+          4: { halign: "right" },
+        },
+      });
+
+      // Split Payment Details (if any)
+      let currentY = (doc as any).lastAutoTable.finalY + 10;
+      const effectivePayments = useMultiplePayments 
+        ? multiplePayments.filter(p => parseFloat(p.amount) > 0)
+        : [{ paymentMethod: formData.paymentMethod, amount: formData.paid }];
+
+      if (effectivePayments.length > 0) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(31, 41, 55);
+        doc.text("PAYMENT BREAKDOWN", 14, currentY);
+        currentY += 6;
+
+        const paymentRows = effectivePayments.map((p: any) => [
+          p.paymentMethod, 
+          `AED ${parseFloat(p.amount || "0").toFixed(2)}`
+        ]);
+
+        autoTable(doc, {
+          startY: currentY,
+          head: [["Payment Method", "Amount"]],
+          body: paymentRows,
+          theme: "plain",
+          headStyles: { fontSize: 8, fontStyle: "bold", fillColor: [243, 244, 246] },
+          bodyStyles: { fontSize: 8 },
+          margin: { left: 14 },
+          tableWidth: 80,
+        });
+        currentY = (doc as any).lastAutoTable.finalY + 10;
+      }
+
+      // Summary Section
+      const finalY = currentY;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(31, 41, 55);
+      doc.text("SUMMARY", pageWidth - 70, finalY);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text("Total Amount:", pageWidth - 70, finalY + 6);
+      doc.text(
+        `AED ${parseFloat(formData.amount || "0").toFixed(2)}`,
+        pageWidth - 14,
+        finalY + 6,
+        { align: "right" },
+      );
+
+      doc.text("Paid Amount:", pageWidth - 70, finalY + 11);
+      doc.setTextColor(5, 150, 105); // emerald-600
+      doc.text(
+        `AED ${parseFloat(formData.paid || "0").toFixed(2)}`,
+        pageWidth - 14,
+        finalY + 11,
+        { align: "right" },
+      );
+
+      doc.setTextColor(220, 38, 38); // red-600
+      doc.setFont("helvetica", "bold");
+      doc.text("Outstanding:", pageWidth - 70, finalY + 16);
+      doc.text(
+        `AED ${parseFloat(formData.pending || "0").toFixed(2)}`,
+        pageWidth - 14,
+        finalY + 16,
+        { align: "right" },
+      );
+
+      // Notes
+      if (formData.notes) {
+        doc.setTextColor(71, 85, 105); // slate-600
+        doc.setFont("helvetica", "bold");
+        doc.text("NOTES", 14, finalY + 30);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        const splitNotes = doc.splitTextToSize(formData.notes, pageWidth - 28);
+        doc.text(splitNotes, 14, finalY + 35);
+      }
+
+      // Footer
+      const pageCount = (doc.internal as any).getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(148, 163, 184); // slate-400
+        doc.text(
+          `Page ${i} of ${pageCount} | ZEVA Clinic Management System`,
+          pageWidth / 2,
+          doc.internal.pageSize.getHeight() - 10,
+          { align: "center" },
+        );
+      }
+
+      doc.save(
+        `Invoice_${appointment?.patientName || "Patient"}_${new Date().getTime()}.pdf`,
+      );
+    } catch (err) {
+      console.error("PDF generation error:", err);
+      alert("Failed to generate PDF. Please try again.");
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -1664,9 +1896,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             sessions: t.usedSessions,
           }),
         );
+        // For user packages, also send the patientPackageId
+        if (selectedPackage?.isUserPackage && selectedPackage?.patientPackageId) {
+          payload.patientPackageId = selectedPackage.patientPackageId;
+          payload.isUserPackage = true;
+        }
       }
 
-      // Create billing
       const response = await axios.post(
         "/api/clinic/create-patient-registration",
         payload,
@@ -1762,20 +1998,15 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     return false;
   });
 
-  const filteredPackages = packages.filter((pkg) => {
-    if (!packageSearchQuery.trim()) return false;
-    const query = packageSearchQuery.toLowerCase();
-    return pkg.name.toLowerCase().includes(query);
-  });
-
   // Combine regular packages with userPackages for the dropdown
-  const allPackagesForDropdown = [
-    ...packages.map(pkg => ({ ...pkg, isUserPackage: false })),
-    ...userPackages.map(pkg => ({
+  const allPackagesForDropdown: Package[] = [
+    ...packages.map((pkg: any) => ({ ...pkg, isUserPackage: false })),
+    ...userPackages.map((pkg: any) => ({
       _id: pkg._id,
       name: pkg.packageName,
       totalPrice: pkg.totalPrice,
       totalSessions: pkg.totalSessions,
+      sessionPrice: pkg.sessionPrice || (pkg.totalSessions > 0 ? pkg.totalPrice / pkg.totalSessions : 0),
       treatments: pkg.treatments || [],
       isUserPackage: true,
       remainingSessions: pkg.remainingSessions,
@@ -1799,8 +2030,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             (balances.pastAdvance54PercentBalance || 0) + 
                             (balances.pastAdvance159FlatBalance || 0);
   
-  const pendingAmt = parseFloat(formData.pending || "0") || 0;
-  const advanceAmt = parseFloat(formData.advance || "0") || 0;
+
 
   return (
     <>
@@ -1882,6 +2112,21 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                     {consentSent ? "Sent" : "Send"}
                   </button>
                 </div>
+
+                {/* Generate Invoice Button */}
+                <button
+                  type="button"
+                  onClick={generateInvoicePDF}
+                  disabled={isGeneratingPDF || (!selectedTreatments.length && !selectedPackage)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] bg-teal-600 text-white rounded hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold shadow-sm"
+                >
+                  {isGeneratingPDF ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <FileText className="w-3.5 h-3.5" />
+                  )}
+                  {isGeneratingPDF ? "Generating..." : "Generate Invoice"}
+                </button>
               </div>
           
               {/* Right: Pending, Advance, Visits */}
@@ -2819,8 +3064,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           );
                           
                           const allPackages = [
-                            ...purchasedPackages.map(p => ({ ...p, isUserPackage: false })),
-                            ...approvedUserPackages.map(p => ({ ...p, isUserPackage: true }))
+                            ...purchasedPackages.map((p: any) => ({ ...p, isUserPackage: false })),
+                            ...approvedUserPackages.map((p: any) => ({ ...p, isUserPackage: true }))
                           ];
                           
                           if (allPackages.length === 0) {
@@ -3129,14 +3374,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                               // Match how services are loaded: use serviceSlug if available, otherwise _id
                                               const treatmentSlug = svc.serviceSlug || svc._id;
                                               
-                                              // Find matching treatment from treatments array
+                                              // 1. Ensure Treatment service is selected
+                                              setSelectedService("Treatment");
+
+                                              // 2. Find matching treatment from treatments array
                                               const matchingTreatment = treatments.find(
                                                 (t) => t.slug === treatmentSlug || 
                                                 (t.name && t.name.toLowerCase() === svc.name.toLowerCase())
                                               );
                                               
                                               if (matchingTreatment) {
-                                                // 1. Add to selected treatments with notification
+                                                // 3. Add to selected treatments with notification
                                                 handleTreatmentToggle(matchingTreatment, true);
                                               } else {
                                                 // Create treatment object manually if not found in treatments array
@@ -3148,7 +3396,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                                 handleTreatmentToggle(newTreatment, true);
                                               }
                                               
-                                              // 2. Save to appointment via API
+                                              // 4. Save to appointment via API
                                               if (appointment?._id && appointment?.patientId) {
                                                 try {
                                                   const headers = getAuthHeaders();
@@ -3195,3 +3443,5 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 };
 
 export default AppointmentBillingModal;
+
+

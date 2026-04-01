@@ -64,11 +64,19 @@ export const clinicNavigationItems = [
     order: 9,
   },
   {
+    label: "User Packages",
+    path: "/clinic/userpackages",
+    icon: "package",
+    description: "Manage patient-created packages",
+    moduleKey: "user_packages",
+    order: 10,
+  },
+  {
     label: "Staff Management",
     icon: "users",
     description: "Manage Staff",
     moduleKey: "staff_management",
-    order: 10,
+    order: 11,
     children: [
       {
         label: "Patient Information",
@@ -120,14 +128,14 @@ export const clinicNavigationItems = [
     icon: "gift",
     description: "Manage Offers",
     moduleKey: "create_offers",
-    order: 11,
+    order: 12,
   },
   {
     label: "Marketing",
     icon: "bar-chart",
     description: "Manage Marketing",
     moduleKey: "marketing",
-    order: 12,
+    order: 13,
     children: [
       {
         label: "SMS marketing",
@@ -158,7 +166,7 @@ export const clinicNavigationItems = [
     icon: "briefcase",
     description: "Manage job postings",
     moduleKey: "job_posting",
-    order: 13,
+    order: 14,
   },
   {
     label: "Write Blog",
@@ -166,7 +174,7 @@ export const clinicNavigationItems = [
     icon: "file-text",
     description: "Manage Blogs",
     moduleKey: "write_blog",
-    order: 14,
+    order: 15,
   },
   {
     label: "Workflow Guide",
@@ -174,7 +182,7 @@ export const clinicNavigationItems = [
     icon: "book-open",
     description: "Complete clinic workflow documentation",
     moduleKey: "workflow_guide",
-    order: 15,
+    order: 16,
   },
   {
     label: "Commission",
@@ -182,6 +190,6 @@ export const clinicNavigationItems = [
     icon: "percent",
     description: "Referral & staff commissions",
     moduleKey: "clinic_commission",
-    order: 16,
+    order: 17,
   },
 ];

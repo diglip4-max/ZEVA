@@ -31,13 +31,164 @@ const BillingHistoryPage = () => {
   const { appointmentId, patientId } = router.query;
   const [billingHistory, setBillingHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [patientData, setPatientData] = useState<any>(null);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (appointmentId || patientId) {
       fetchBillingHistory();
+      if (patientId) {
+        fetchPatientDetails();
+      }
     }
   }, [appointmentId, patientId]);
+
+  const fetchPatientDetails = async () => {
+    try {
+      const headers = getAuthHeaders();
+      const response = await axios.get(
+        `/api/clinic/patient-registration?id=${patientId}`,
+        headers ? { headers } : undefined
+      );
+      if (response.data.success) {
+        setPatientData(response.data.patient);
+      }
+    } catch (err) {
+      console.error('Error fetching patient details:', err);
+    }
+  };
+
+  const generateInvoicePDF = async () => {
+    try {
+      setIsGeneratingPDF(true);
+      const { jsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
+
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      // Header
+      doc.setFontSize(22);
+      doc.setTextColor(20, 184, 166); // teal-600
+      doc.setFont("helvetica", "bold");
+      doc.text("ZEVA CLINIC", 14, 20);
+
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139); // slate-500
+      doc.setFont("helvetica", "normal");
+      doc.text("Billing Statement / Invoice History", 14, 26);
+
+      doc.setFontSize(14);
+      doc.setTextColor(30, 41, 59); // slate-800
+      doc.text("INVOICE", pageWidth - 14, 20, { align: "right" });
+
+      const today = new Date().toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+      doc.setFontSize(9);
+      doc.text(`Generated: ${today}`, pageWidth - 14, 26, { align: "right" });
+
+      // Patient Details
+      doc.setDrawColor(226, 232, 240); // slate-200
+      doc.line(14, 32, pageWidth - 14, 32);
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(71, 85, 105); // slate-600
+      doc.text("PATIENT INFORMATION", 14, 40);
+
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(15, 23, 42); // slate-900
+      doc.text(`Name: ${patientData?.firstName || ''} ${patientData?.lastName || ''}`, 14, 46);
+      doc.text(`Patient ID: ${patientId || '—'}`, 14, 51);
+      doc.text(`EMR No: ${patientData?.emrNumber || '—'}`, 14, 56);
+      
+      doc.text(`Mobile: ${patientData?.mobileNumber || '—'}`, pageWidth / 2, 46);
+      doc.text(`Email: ${patientData?.email || '—'}`, pageWidth / 2, 51);
+      doc.text(`Gender: ${patientData?.gender || '—'}`, pageWidth / 2, 56);
+
+      // Billing History Table
+      const tableRows = billingHistory.map(item => [
+        formatDate(item.invoicedDate),
+        item.invoiceNumber || '—',
+        item.treatment || item.package || '—',
+        formatCurrency(item.amount),
+        formatCurrency(item.paid),
+        formatCurrency(item.pending || 0),
+        item.multiplePayments && item.multiplePayments.length > 0 
+          ? item.multiplePayments.map((p: any) => `${p.paymentMethod}: ${Number(p.amount || 0).toFixed(2)}`).join('\n')
+          : item.paymentMethod || '—'
+      ]);
+
+      autoTable(doc, {
+        startY: 65,
+        head: [['Date', 'Invoice ID', 'Treatment/Package', 'Total', 'Paid', 'Pending', 'Method']],
+        body: tableRows,
+        theme: 'striped',
+        headStyles: { 
+          fillColor: [31, 41, 55], // Gray-800
+          fontSize: 8,
+          fontStyle: 'bold',
+        },
+        bodyStyles: { fontSize: 8 },
+        columnStyles: {
+          3: { halign: 'right' },
+          4: { halign: 'right' },
+          5: { halign: 'right' }
+        },
+        margin: { top: 65 }
+      });
+
+      // Summary Section
+      const finalY = (doc as any).lastAutoTable.finalY + 10;
+      const totalAmount = billingHistory.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+      const totalPaid = billingHistory.reduce((sum, b) => sum + (Number(b.paid) || 0), 0);
+      const totalPending = billingHistory.reduce((sum, b) => sum + (Number(b.pending) || 0), 0);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(31, 41, 55);
+      doc.text('SUMMARY', pageWidth - 70, finalY);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text('Total Billed:', pageWidth - 70, finalY + 6);
+      doc.text(`AED ${formatCurrency(totalAmount)}`, pageWidth - 14, finalY + 6, { align: 'right' });
+      
+      doc.text('Total Paid:', pageWidth - 70, finalY + 11);
+      doc.setTextColor(5, 150, 105); // emerald-600
+      doc.text(`AED ${formatCurrency(totalPaid)}`, pageWidth - 14, finalY + 11, { align: 'right' });
+      
+      doc.setTextColor(220, 38, 38); // red-600
+      doc.setFont('helvetica', 'bold');
+      doc.text('Total Outstanding:', pageWidth - 70, finalY + 16);
+      doc.text(`AED ${formatCurrency(totalPending)}`, pageWidth - 14, finalY + 16, { align: 'right' });
+
+      // Footer
+      const pageCount = (doc as any).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(148, 163, 184); // slate-400
+        doc.text(
+          `Page ${i} of ${pageCount} | ZEVA Clinic Management System`,
+          pageWidth / 2,
+          doc.internal.pageSize.getHeight() - 10,
+          { align: 'center' }
+        );
+      }
+
+      doc.save(`Invoice_${patientData?.firstName || 'Patient'}_${new Date().getTime()}.pdf`);
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
 
   const fetchBillingHistory = async () => {
     try {
@@ -102,6 +253,20 @@ const BillingHistoryPage = () => {
                 {patientId ? `Patient ID: ${patientId}` : `Appointment ID: ${appointmentId}`}
               </p>
             </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={generateInvoicePDF}
+              disabled={isGeneratingPDF || billingHistory.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-400 text-white text-sm font-semibold rounded-lg transition-all shadow-sm hover:shadow-md"
+            >
+              {isGeneratingPDF ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <FileText className="w-4 h-4" />
+              )}
+              {isGeneratingPDF ? "Generating..." : "Generate Invoice"}
+            </button>
           </div>
         </div>
       </div>

@@ -283,7 +283,7 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
                 label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                 labelLine={{ fontSize: 9 }}
               >
-                {services.slice(0, 5).map((entry, index) => (
+                {services.slice(0, 5).map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>

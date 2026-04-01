@@ -99,7 +99,7 @@ const ConsentFormPage: React.FC = () => {
         }
         
         // Check if this patient already has a signature for this consent form
-        if (patientFullName) {
+        if (patientFullName && typeof id === 'string') {
           await fetchExistingSignature(id, patientFullName);
         }
       } catch (err: any) {
@@ -327,52 +327,6 @@ const ConsentFormPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Patient Acknowledgment */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">Patient Acknowledgment</h2>
-            
-            <div className="space-y-3">
-              <label className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${agreedToTerms ? "bg-green-50 border-green-300" : "border-gray-200 hover:bg-gray-50"} ${(signatureData && !isEmpty) ? "opacity-50 cursor-not-allowed" : ""}`}>
-                <input
-                  type="checkbox"
-                  checked={!!agreedToTerms}
-                  onChange={(e) => setAgreedToTerms(e.target.checked)}
-                  disabled={!!(signatureData && !isEmpty)}
-                  className="w-5 h-5 accent-green-600 mt-0.5"
-                />
-                <span className="text-sm text-gray-700">
-                  I confirm that I have read and understood all the information provided about this treatment
-                </span>
-              </label>
-
-              <label className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${questionsAnswered ? "bg-green-50 border-green-300" : "border-gray-200 hover:bg-gray-50"} ${(signatureData && !isEmpty) ? "opacity-50 cursor-not-allowed" : ""}`}>
-                <input
-                  type="checkbox"
-                  checked={!!questionsAnswered}
-                  onChange={(e) => setQuestionsAnswered(e.target.checked)}
-                  disabled={!!(signatureData && !isEmpty)}
-                  className="w-5 h-5 accent-green-600 mt-0.5"
-                />
-                <span className="text-sm text-gray-700">
-                  I have had the opportunity to ask questions and all my questions have been answered satisfactorily
-                </span>
-              </label>
-
-              <label className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${understandResults ? "bg-green-50 border-green-300" : "border-gray-200 hover:bg-gray-50"} ${(signatureData && !isEmpty) ? "opacity-50 cursor-not-allowed" : ""}`}>
-                <input
-                  type="checkbox"
-                  checked={!!understandResults}
-                  onChange={(e) => setUnderstandResults(e.target.checked)}
-                  disabled={!!(signatureData && !isEmpty)}
-                  className="w-5 h-5 accent-green-600 mt-0.5"
-                />
-                <span className="text-sm text-gray-700">
-                  I understand that results may vary and are not guaranteed
-                </span>
-              </label>
-            </div>
-          </div>
-
           {/* Digital Signature */}
           {consentForm.enableDigitalSignature && (
             <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
@@ -440,6 +394,49 @@ const ConsentFormPage: React.FC = () => {
             </div>
           )}
 
+          {/* Patient Acknowledgment */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">Patient Acknowledgment</h2>
+            
+            <div className="space-y-3">
+              <label className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${agreedToTerms ? "bg-green-50 border-green-300" : "border-gray-200 hover:bg-gray-50"}`}>
+                <input
+                  type="checkbox"
+                  checked={!!agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  className="w-5 h-5 accent-green-600 mt-0.5"
+                />
+                <span className="text-sm text-gray-700">
+                  I confirm that I have read and understood all the information provided about this treatment
+                </span>
+              </label>
+
+              <label className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${questionsAnswered ? "bg-green-50 border-green-300" : "border-gray-200 hover:bg-gray-50"}`}>
+                <input
+                  type="checkbox"
+                  checked={!!questionsAnswered}
+                  onChange={(e) => setQuestionsAnswered(e.target.checked)}
+                  className="w-5 h-5 accent-green-600 mt-0.5"
+                />
+                <span className="text-sm text-gray-700">
+                  I have had the opportunity to ask questions and all my questions have been answered satisfactorily
+                </span>
+              </label>
+
+              <label className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${understandResults ? "bg-green-50 border-green-300" : "border-gray-200 hover:bg-gray-50"}`}>
+                <input
+                  type="checkbox"
+                  checked={!!understandResults}
+                  onChange={(e) => setUnderstandResults(e.target.checked)}
+                  className="w-5 h-5 accent-green-600 mt-0.5"
+                />
+                <span className="text-sm text-gray-700">
+                  I understand that results may vary and are not guaranteed
+                </span>
+              </label>
+            </div>
+          </div>
+
           {/* Name Confirmation */}
           {consentForm.requireNameConfirmation && (
             <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
@@ -451,9 +448,8 @@ const ConsentFormPage: React.FC = () => {
                 type="text"
                 value={nameConfirmed}
                 onChange={(e) => setNameConfirmed(e.target.value)}
-                disabled={!!(signatureData && !isEmpty)}
                 placeholder={`${patient?.firstName || ""} ${patient?.lastName || ""}`.trim()}
-                className={`w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${(signatureData && !isEmpty) ? "bg-gray-100 cursor-not-allowed opacity-60" : "bg-white"}`}
+                className={`w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white`}
               />
               {(signatureData && !isEmpty) && (
                 <p className="text-xs text-green-600 mt-2 flex items-center gap-1">

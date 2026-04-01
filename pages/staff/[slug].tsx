@@ -196,6 +196,8 @@ const routeMap: { [key: string]: () => Promise<any> } = {
 
  
  
+  'clinic-consent': () => import('../clinic/consent'),
+  'clinic-userpackages': () => import('../clinic/userpackages'),
   // stocks routes
   "clinic-stocks-uom": () => import("../clinic/stocks/uom"),
   "clinic-stocks-locations": () => import("../clinic/stocks/locations"),

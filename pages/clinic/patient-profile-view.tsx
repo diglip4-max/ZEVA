@@ -5,7 +5,7 @@ import {
   Calendar, User, DollarSign, FileText, AlertCircle, Activity,
   CreditCard, TrendingUp, Package, Phone,
   Mail, Clock, Shield, X, CheckCircle, XCircle,
-  AlertTriangle, Info, Plus, FileImage, Wallet, ClipboardList, Send
+  AlertTriangle, Info, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -35,14 +35,395 @@ const getAuthHeaders = () => {
   return token ? { Authorization: `Bearer ${token}` } : null;
 };
 
+// Transfer Section Component - Copied from PatientUpdateForm
+const TransferSection = ({ patientId }: { patientId: string }) => {
+  const [showTransfer, setShowTransfer] = useState(false);
+  const [transferType, setTransferType] = useState("");
+  const [selectedMembershipId, setSelectedMembershipId] = useState("");
+  const [membershipUsage, setMembershipUsage] = useState<any>(null);
+  const [selectedPackageId, setSelectedPackageId] = useState("");
+  const [packageUsage, setPackageUsage] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [selectedTargetPatient, setSelectedTargetPatient] = useState<any>(null);
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
+  const [memberships, setMemberships] = useState<any[]>([]);
+  const [packages, setPackages] = useState<any[]>([]);
+  const [referrals, setReferrals] = useState<any[]>([]);
+  const [patientData, setPatientData] = useState<any>(null);
+
+  // Fetch patient data, memberships, packages, and referrals on mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const headers = getAuthHeaders() || {};
+        
+        // Fetch patient data
+        const patientRes = await axios.get(`/api/clinic/patient-registration?id=${patientId}`, { headers });
+        if (patientRes.data.success) {
+          setPatientData(patientRes.data.patient);
+        }
+
+        // Fetch memberships
+        const membershipsRes = await axios.get('/api/clinic/memberships', { headers });
+        if (membershipsRes.data.success) {
+          setMemberships(membershipsRes.data.memberships || []);
+        }
+
+        // Fetch packages
+        const packagesRes = await axios.get('/api/clinic/packages', { headers });
+        if (packagesRes.data.success) {
+          setPackages(packagesRes.data.packages || []);
+        }
+
+        // Fetch referrals
+        const referralsRes = await axios.get('/api/clinic/referrals', { headers });
+        if (referralsRes.data.success) {
+          setReferrals(referralsRes.data.referrals || []);
+        }
+      } catch (error) {
+        console.error('Error fetching transfer data:', error);
+      }
+    };
+
+    fetchData();
+  }, [patientId]);
+
+  // Fetch membership usage when membership is selected
+  useEffect(() => {
+    if (transferType === "membership" && selectedMembershipId) {
+      const fetchMembershipUsage = async () => {
+        try {
+          const headers = getAuthHeaders() || {};
+          const res = await axios.get(`/api/clinic/membership-usage/${patientId}?membershipId=${selectedMembershipId}`, { headers });
+          if (res.data.success) {
+            setMembershipUsage(res.data.usage || null);
+          }
+        } catch (error) {
+          console.error('Error fetching membership usage:', error);
+        }
+      };
+      fetchMembershipUsage();
+    }
+  }, [transferType, selectedMembershipId, patientId]);
+
+  // Fetch package usage when package is selected
+  useEffect(() => {
+    if (transferType === "package" && selectedPackageId) {
+      const fetchPackageUsage = async () => {
+        try {
+          const headers = getAuthHeaders() || {};
+          const res = await axios.get(`/api/clinic/package-usage/${patientId}`, { headers });
+          if (res.data.success) {
+            const usage = res.data.packageUsage?.find((p: any) => p.packageId === selectedPackageId);
+            setPackageUsage(usage || null);
+          }
+        } catch (error) {
+          console.error('Error fetching package usage:', error);
+        }
+      };
+      fetchPackageUsage();
+    }
+  }, [transferType, selectedPackageId, patientId]);
+
+  // Search for target patients
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (searchQuery.length < 2) {
+        setSearchResults([]);
+        return;
+      }
+
+      setSearchLoading(true);
+      try {
+        const headers = getAuthHeaders() || {};
+        const res = await axios.get(`/api/clinic/patient-registration?search=${searchQuery}`, { headers });
+        if (res.data.success) {
+          setSearchResults(res.data.patients || []);
+        }
+      } catch (error) {
+        console.error('Error searching patients:', error);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const handleSubmitTransfer = async () => {
+    if (!selectedTargetPatient) {
+      alert('Please select a target patient');
+      return;
+    }
+
+    setTransferSubmitting(true);
+    try {
+      const headers = getAuthHeaders() || {};
+      const payload: any = {
+        fromPatientId: patientId,
+        toPatientId: selectedTargetPatient._id,
+      };
+
+      if (transferType === "membership") {
+        payload.membershipId = selectedMembershipId;
+        await axios.post('/api/clinic/transfer-benefits', payload, { headers });
+      } else if (transferType === "package") {
+        payload.packageId = selectedPackageId;
+        await axios.post('/api/clinic/transfer-package', payload, { headers });
+      }
+
+      alert('Transfer completed successfully!');
+      setShowTransfer(false);
+      setTransferType("");
+      setSelectedTargetPatient(null);
+      setSelectedMembershipId("");
+      setSelectedPackageId("");
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Transfer failed');
+    } finally {
+      setTransferSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 border border-emerald-200 shadow-md">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-[14px] font-bold text-emerald-700">Transfer</h2>
+        <label className="inline-flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={showTransfer}
+            onChange={(e) => {
+              setShowTransfer(e.target.checked);
+              if (!e.target.checked) {
+                setTransferType("");
+                setMembershipUsage(null);
+                setPackageUsage(null);
+                setSelectedTargetPatient(null);
+                setSelectedPackageId("");
+                setSelectedMembershipId("");
+              }
+            }}
+          />
+          <span className="text-[11px] text-gray-700">Enable</span>
+        </label>
+      </div>
+      {showTransfer && (
+        <div className="space-y-3">
+          <div className="flex gap-3">
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="radio"
+                name="transferType"
+                value="membership"
+                checked={transferType === "membership"}
+                onChange={(e) => {
+                  setTransferType(e.target.value);
+                  setSelectedPackageId("");
+                  setPackageUsage(null);
+                  const arr = Array.isArray(patientData?.memberships) ? patientData.memberships : [];
+                  if (arr.length > 0) {
+                    setSelectedMembershipId(arr[0].membershipId);
+                  } else if (patientData?.membership === "Yes" && patientData.membershipId) {
+                    setSelectedMembershipId(patientData.membershipId);
+                  } else {
+                    setSelectedMembershipId("");
+                  }
+                }}
+              />
+              <span className="text-[11px]">Transfer Membership</span>
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="radio"
+                name="transferType"
+                value="package"
+                checked={transferType === "package"}
+                onChange={(e) => {
+                  setTransferType(e.target.value);
+                  setMembershipUsage(null);
+                }}
+              />
+              <span className="text-[11px]">Transfer Package</span>
+            </label>
+          </div>
+          {transferType === "membership" && (
+            <div className="rounded-lg border border-emerald-200 bg-white p-3">
+              <div className="mb-2">
+                <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Select Membership</label>
+                <select
+                  value={selectedMembershipId}
+                  onChange={(e) => setSelectedMembershipId(e.target.value)}
+                  className="text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 border-gray-300 hover:border-indigo-400"
+                >
+                  <option value="">Select membership</option>
+                  {(Array.isArray(patientData?.memberships) ? patientData.memberships : []).map((m: any, idx: number) => {
+                    const plan = memberships.find((x) => x._id === m.membershipId);
+                    return (
+                      <option key={`${m.membershipId}-${idx}`} value={m.membershipId}>
+                        {plan?.name || m.membershipId} ({m.startDate?.slice(0,10)} → {m.endDate?.slice(0,10)})
+                      </option>
+                    );
+                  })}
+                  {patientData?.membership === "Yes" && patientData.membershipId && !(Array.isArray(patientData?.memberships) ? patientData.memberships : []).some((m: any) => m.membershipId === patientData.membershipId) && (
+                    <option value={patientData.membershipId}>
+                      {(() => {
+                        const plan = memberships.find((x) => x._id === patientData.membershipId);
+                        return plan?.name || patientData.membershipId;
+                      })()} ({patientData.membershipStartDate?.slice(0,10)} → {patientData.membershipEndDate?.slice(0,10)})
+                    </option>
+                  )}
+                </select>
+              </div>
+              {membershipUsage ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="text-[11px]">
+                    <div className="font-semibold text-gray-700">Total Free Consultations</div>
+                    <div className="text-gray-900">{membershipUsage.totalFreeConsultations || 0}</div>
+                  </div>
+                  <div className="text-[11px]">
+                    <div className="font-semibold text-gray-700">Used Free Consultations</div>
+                    <div className="text-gray-900">{membershipUsage.usedFreeConsultations || 0}</div>
+                  </div>
+                  <div className="text-[11px]">
+                    <div className="font-semibold text-gray-700">Remaining</div>
+                    <div className="text-gray-900">{membershipUsage.remainingFreeConsultations || 0}</div>
+                  </div>
+                  <div className="text-[11px]">
+                    <div className="font-semibold text-gray-700">Discount %</div>
+                    <div className="text-gray-900">{membershipUsage.discountPercentage || 0}</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-[11px] text-gray-600">Loading membership usage...</div>
+              )}
+            </div>
+          )}
+          {transferType === "package" && (
+            <div className="rounded-lg border border-emerald-200 bg-white p-3 space-y-2">
+              <div>
+                <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Select Package</label>
+                <select
+                  value={selectedPackageId}
+                  onChange={(e) => setSelectedPackageId(e.target.value)}
+                  className="text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 border-gray-300 hover:border-indigo-400"
+                >
+                  <option value="">Select package</option>
+                  {(Array.isArray(patientData?.packages) ? patientData.packages : []).map((p: any) => {
+                    const pkg = packages.find(x => x._id === p.packageId);
+                    return pkg ? (
+                      <option key={pkg._id} value={pkg._id}>
+                        {pkg.name} (₹{pkg.totalPrice}, {pkg.totalSessions} sessions)
+                      </option>
+                    ) : null;
+                  })}
+                </select>
+              </div>
+              {selectedPackageId && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="text-[11px]">
+                    <div className="font-semibold text-gray-700">Total Sessions</div>
+                    <div className="text-gray-900">
+                      {(() => {
+                        const pkg = packages.find(p => p._id === selectedPackageId);
+                        return pkg ? pkg.totalSessions : 0;
+                      })()}
+                    </div>
+                  </div>
+                  <div className="text-[11px]">
+                    <div className="font-semibold text-gray-700">Used Sessions</div>
+                    <div className="text-gray-900">{packageUsage?.totalSessions || 0}</div>
+                  </div>
+                  <div className="text-[11px]">
+                    <div className="font-semibold text-gray-700">Remaining</div>
+                    <div className="text-gray-900">
+                      {typeof packageUsage?.remainingSessions === "number"
+                        ? packageUsage.remainingSessions
+                        : Math.max(0, (() => {
+                            const pkg = packages.find(p => p._id === selectedPackageId);
+                            const totalSess = pkg ? pkg.totalSessions : 0;
+                            return totalSess - (packageUsage?.totalSessions || 0);
+                          })())}
+                    </div>
+                  </div>
+                  <div className="text-[11px]">
+                    <div className="font-semibold text-gray-700">Package</div>
+                    <div className="text-gray-900">
+                      {(() => {
+                        const pkg = packages.find(p => p._id === selectedPackageId);
+                        return pkg ? pkg.name : "-";
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="rounded-lg border border-emerald-200 bg-white p-3 space-y-2">
+            <div>
+              <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Search Target Patient</label>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Type name, mobile, or EMR"
+                className="w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 border-gray-300 hover:border-indigo-400"
+              />
+            </div>
+            <div className="max-h-48 overflow-auto border border-gray-200 rounded">
+              {searchLoading ? (
+                <div className="p-2 text-[10px] text-gray-600">Searching...</div>
+              ) : (searchResults || []).length === 0 ? (
+                <div className="p-2 text-[10px] text-gray-600">No results</div>
+              ) : (
+                <ul className="divide-y divide-gray-200">
+                  {searchResults.map((p: any) => (
+                    <li key={p._id} className="p-2 hover:bg-gray-50 cursor-pointer text-[11px]" onClick={() => setSelectedTargetPatient(p)}>
+                      <div className="font-medium text-gray-900">{p.fullName || `${p.firstName} ${p.lastName}`}</div>
+                      <div className="text-gray-600">{p.emrNumber} • {p.mobileNumber}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {selectedTargetPatient && (
+              <div className="text-[11px] text-gray-800">
+                Selected: {selectedTargetPatient.fullName || `${selectedTargetPatient.firstName} ${selectedTargetPatient.lastName}`} ({selectedTargetPatient.emrNumber})
+              </div>
+            )}
+            <div className="flex justify-end">
+              <button
+                onClick={handleSubmitTransfer}
+                disabled={
+                  transferSubmitting ||
+                  !selectedTargetPatient ||
+                  (transferType === "membership" && (!selectedMembershipId)) ||
+                  (transferType === "package" && (!selectedPackageId))
+                }
+                className="px-4 py-2 text-[11px] bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 transition-all duration-300 font-bold shadow-lg"
+              >
+                {transferSubmitting ? "Transferring..." : "Confirm Transfer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Modern Patient Profile Dashboard Component
 const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; onClose: () => void }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [showBeforeAfterModal, setShowBeforeAfterModal] = useState(false);
   const [appointments, setAppointments] = useState([]);
+  const [upcomingAppointments, setUpcomingAppointments] = useState([]);
   const [appointmentFilter, setAppointmentFilter] = useState('all');
   const [loadingAppointments, setLoadingAppointments] = useState(false);
     const [packages, setPackages] = useState([]);
+  const [userPackages, setUserPackages] = useState<any[]>([]);
   const [memberships, setMemberships] = useState([]);
   const [transferredInPackages, setTransferredInPackages] = useState<any[]>([]);
   const [transferredOutPackages, setTransferredOutPackages] = useState<any[]>([]);
@@ -60,6 +441,15 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
   
   // Package Link State
   const [sendingPackageLink, setSendingPackageLink] = useState(false);
+// Created Packages State (from UserPackage model)
+const [createdPackages, setCreatedPackages] = useState<any[]>([]);
+const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
+  
+  // Progress Notes & Prescription States
+  const [progressNotes, setProgressNotes] = useState<any[]>([]);
+  const [prescriptions, setPrescriptions] = useState<any[]>([]);
+  const [loadingProgressNotes, setLoadingProgressNotes] = useState(false);
+  const [loadingPrescriptions, setLoadingPrescriptions] = useState(false);
   
   // Stats state - fetched on mount
   const [statsData, setStatsData] = useState({
@@ -73,21 +463,21 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
   });
   const [loadingStats, setLoadingStats] = useState(false);
   
-  // Financial snapshot state
+  // Financial snapshot state - initialized from patientData.initialBalance if available
   const [financialData, setFinancialData] = useState({
     totalSpent: 0,
-    pendingPayment: 0,
-    advanceBalance: 0
+    pendingPayment: Number(patientData?.initialBalance?.pendingBalance || 0),
+    advanceBalance: Number(patientData?.initialBalance?.advanceBalance || 0)
   });
 
-  // Advance & Pending balance state
+  // Advance & Pending balance state - initialized from patientData.initialBalance if available
   const [balance, setBalance] = useState({
-    pendingBalance: 0,
-    advanceBalance: 0,
-    pastAdvanceBalance: 0,
-    pastAdvance50PercentBalance: 0,
-    pastAdvance54PercentBalance: 0,
-    pastAdvance159FlatBalance: 0,
+    pendingBalance: Number(patientData?.initialBalance?.pendingBalance || 0),
+    advanceBalance: Number(patientData?.initialBalance?.advanceBalance || 0),
+    pastAdvanceBalance: Number(patientData?.initialBalance?.pastAdvanceBalance || 0),
+    pastAdvance50PercentBalance: Number(patientData?.initialBalance?.pastAdvance50PercentBalance || 0),
+    pastAdvance54PercentBalance: Number(patientData?.initialBalance?.pastAdvance54PercentBalance || 0),
+    pastAdvance159FlatBalance: Number(patientData?.initialBalance?.pastAdvance159FlatBalance || 0),
   });
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [showAddAdvancePaymentModal, setShowAddAdvancePaymentModal] = useState(false);
@@ -277,14 +667,49 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
     return `${first?.charAt(0) || ''}${last?.charAt(0) || ''}`.toUpperCase();
   };
 
-  // Fetch appointments when appointments tab is active
+  // Fetch patient balance, overview data, appointments, billing, packages, media, and consent on mount
+  useEffect(() => {
+    if (patientData?._id) {
+      // 1. Fetch Overview & Dashboard Stats
+      fetchOverviewData();
+      
+      // 2. Fetch Appointments & Billing (needed for Overview Timeline & Financials)
+      fetchAppointments();
+      fetchBillingHistory();
+      
+      // 3. Fetch Real Advance & Pending Balances
+      setBalanceLoading(true);
+      fetchPatientBalance(patientData._id).then((data: any) => {
+        if (data) {
+          setBalance(data);
+          setFinancialData((prev: any) => ({
+            ...prev,
+            advanceBalance: data.advanceBalance || 0,
+            pendingPayment: data.pendingBalance || prev.pendingPayment,
+          }));
+        }
+      }).finally(() => setBalanceLoading(false));
+
+      // 4. Pre-fetch other tab data for first render
+      fetchPackagesAndMemberships();
+      fetchMediaDocuments();
+      fetchConsentStatuses();
+      fetchCreatedPackages();
+    }
+  }, [patientData?._id]);
+
+  // Tab-specific refreshes (optional: keeps current behavior if tab changes)
   useEffect(() => {
     if (activeTab === 'appointments' && patientData?._id) {
-      fetchAppointments();
+      // Fetch upcoming appointments when filter is 'upcoming', otherwise fetch all
+      if (appointmentFilter === 'upcoming') {
+        fetchUpcomingAppointments();
+      } else {
+        fetchAppointments();
+      }
     }
   }, [activeTab, appointmentFilter]);
 
-  // Fetch appointments + billing for Treatments tab
   useEffect(() => {
     if (activeTab === 'treatments' && patientData?._id) {
       fetchAppointments();
@@ -292,42 +717,27 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
     }
   }, [activeTab]);
 
-  // Fetch packages and memberships when packages-memberships tab is active
   useEffect(() => {
-    if (activeTab === 'packages-memberships' && patientData?._id) {
-      fetchPackagesAndMemberships();
-    }
+    if (activeTab === 'packages-memberships' && patientData?._id) fetchPackagesAndMemberships();
   }, [activeTab]);
 
-  // Fetch billing history when billing tab is active
   useEffect(() => {
-    if (activeTab === 'billing' && patientData?._id) {
-      fetchBillingHistory();
-    }
+    if (activeTab === 'billing' && patientData?._id) fetchBillingHistory();
   }, [activeTab]);
 
-  // Fetch media and documents when media tab is active
   useEffect(() => {
-    if (activeTab === 'media' && patientData?._id) {
-      fetchMediaDocuments();
-    }
+    if (activeTab === 'media' && patientData?._id) fetchMediaDocuments();
   }, [activeTab]);
 
-  // Fetch consent form statuses when communication tab is active
   useEffect(() => {
     if (activeTab === 'communication' && patientData?._id) {
       fetchConsentStatuses();
+      fetchCreatedPackages();
+      fetchProgressNotes();
+      fetchPrescriptions();
     }
   }, [activeTab]);
 
-  // Fetch notes and communication when notes tab is active (commented out - replaced by Advance & Pending)
-  // useEffect(() => {
-  //   if (activeTab === 'notes' && patientData?._id) {
-  //     fetchNotesAndCommunication();
-  //   }
-  // }, [activeTab]);
-
-  // Fetch patient balance when advance tab is active
   useEffect(() => {
     if (activeTab === 'advance' && patientData?._id) {
       setBalanceLoading(true);
@@ -336,25 +746,6 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
       }).finally(() => setBalanceLoading(false));
     }
   }, [activeTab]);
-
-  // Fetch stats on mount
-  useEffect(() => {
-    if (patientData?._id) {
-      fetchOverviewData();
-      fetchAppointments();   // also load appointments for Overview timeline
-      fetchBillingHistory(); // also load billing for Overview financial/timeline
-      // Fetch real advance & pending balances for Financial Snapshot
-      fetchPatientBalance(patientData._id).then((data: any) => {
-        if (data) {
-          setFinancialData((prev: any) => ({
-            ...prev,
-            advanceBalance: data.advanceBalance || 0,
-            pendingPayment: data.pendingBalance || prev.pendingPayment,
-          }));
-        }
-      });
-    }
-  }, [patientData?._id]);
 
   const fetchAppointments = async () => {
     try {
@@ -381,6 +772,31 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
       console.error('Error fetching appointments:', error.message);
       // Set empty appointments on error to prevent continuous loading
       setAppointments([]);
+    } finally {
+      setLoadingAppointments(false);
+    }
+  };
+
+  const fetchUpcomingAppointments = async () => {
+    try {
+      setLoadingAppointments(true);
+      const headers = getAuthHeaders();
+      if (!headers || !patientData?._id) return;
+
+      // Fetch upcoming appointments from dedicated API
+      const response = await axios.get('/api/clinic/patient-upcoming-appointments', { 
+        headers,
+        params: { patientId: patientData._id }
+      });
+      
+      if (response.data.success) {
+        const upcomingAppts = response.data.appointments || [];
+        setUpcomingAppointments(upcomingAppts);
+      }
+    } catch (error: any) {
+      console.error('Error fetching upcoming appointments:', error.message);
+      // Set empty upcoming appointments on error
+      setUpcomingAppointments([]);
     } finally {
       setLoadingAppointments(false);
     }
@@ -545,6 +961,39 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
       }] : [];
       
       setPackages(patientPackages);
+      // Fetch user packages (created via public form)
+      try {
+        const patientRegRes = await axios.get(`/api/clinic/patient-registration?id=${patientData._id}`, { headers });
+        if (patientRegRes.data.success && patientRegRes.data.patient?.userPackages) {
+          const approvedUserPackages = patientRegRes.data.patient.userPackages.filter(
+            (pkg: any) => pkg.approvalStatus === 'approved'
+          );
+          
+          // Initially set from patient record (partial data)
+          setUserPackages(approvedUserPackages);
+          
+          const publicPkgRes = await axios.get('/api/clinic/public-package', {
+            headers,
+            params: {
+              patientId: patientData._id,
+              clinicId: patientData.clinicId,
+            },
+          });
+          
+          if (publicPkgRes.data.success && publicPkgRes.data.existingPackages) {
+            const fullUserPackages = approvedUserPackages.map((userPkg: any) => {
+              const fullPkg = publicPkgRes.data.existingPackages.find(
+                (p: any) => p._id === userPkg.packageId
+              );
+              return fullPkg ? { ...fullPkg, assignedDate: userPkg.assignedDate } : userPkg;
+            });
+            setUserPackages(fullUserPackages);
+          }
+        }
+      } catch (err: any) {
+        console.error('Error fetching user packages:', err.message);
+      }
+
       setMemberships(patientMemberships);
       setTransferredInPackages(transferredInPkgs);
       setTransferredOutPackages(packageTransferredOutData);
@@ -559,20 +1008,19 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
     }
   };
 
-  const fetchBillingHistory = async () => {
+  const fetchBillingHistory = async (): Promise<any[]> => {
+    setLoadingBilling(true);
     try {
-      setLoadingBilling(true);
       const headers = getAuthHeaders();
-      if (!headers) return;
+      if (!headers) return [];
 
       const response = await axios.get(`/api/clinic/billing-history/${patientData._id}`, { headers });
       
       if (response.data.success) {
         const billings = response.data.billings || [];
         setBillingHistory(billings);
-        
-        // Calculate financial snapshot from billing data
         calculateFinancialSnapshot(billings);
+        return billings;
       }
     } catch (error: any) {
       console.error('Error fetching billing history:', error.message);
@@ -580,21 +1028,20 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
     } finally {
       setLoadingBilling(false);
     }
+    return [];
   };
 
   const calculateFinancialSnapshot = (billings: any[]) => {
     let totalSpent = 0;
 
     billings.forEach((billing: any) => {
-      // Use `billing.paid` — the actual paid field from Billing model
       const paid = parseFloat(billing.paid) || 0;
       totalSpent += paid;
     });
 
     setFinancialData((prev: any) => ({
       ...prev,
-      totalSpent: Math.round(totalSpent),
-      // pendingPayment and advanceBalance come from /api/clinic/patient-balance on mount
+      totalSpent: totalSpent, // Keep the exact value, don't round it
     }));
   };
 
@@ -608,14 +1055,14 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
       const oneYearAgo = new Date();
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
-      // Fetch appointments + package-usage + billing in parallel
+      // Fetch appointments, package-usage, and billing in parallel
       const [appointmentsRes, packageUsageRes, billingRes] = await Promise.all([
         axios.get(
           `/api/clinic/all-appointments?page=1&limit=1000&fromDate=${oneYearAgo.toISOString().split('T')[0]}&toDate=${today}`,
           { headers }
         ),
         axios.get(`/api/clinic/package-usage/${patientData._id}`, { headers }).catch(() => ({ data: { success: false } })),
-        axios.get(`/api/clinic/billing-history/${patientData._id}`, { headers }).catch(() => ({ data: { success: false } }))
+        fetchBillingHistory() // Use the unified function here
       ]);
 
       let totalVisits = 0;
@@ -631,7 +1078,15 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
         const patientAppointments = appointmentsRes.data.appointments?.filter(
           (apt: any) => apt.patientId === patientData._id
         ) || [];
-        totalVisits = patientAppointments.length;
+        
+        // Count total visits based on specific statuses
+        // Statuses that count as visits: Arrived, Waiting, Consultation, Approved, Rescheduled, Completed, Discharge, invoice
+        const visitStatuses = ['arrived', 'waiting', 'consultation', 'approved', 'rescheduled', 'completed', 'discharge', 'invoice'];
+        totalVisits = patientAppointments.filter((apt: any) => {
+          const status = (apt.status || '').toLowerCase();
+          return visitStatuses.includes(status);
+        }).length;
+        
         patientAppointments.forEach((apt: any) => {
           const status = (apt.status || apt.appointmentStatus || '').toLowerCase();
           if (['cancelled', 'rejected', 'no show', 'no-show'].includes(status)) {
@@ -654,19 +1109,12 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
         });
       }
 
-      // Completed invoices + Total Spent — from billing-history API
-      if (billingRes.data.success) {
-        const billings: any[] = billingRes.data.billings || [];
+      // Completed invoices from billing history
+      if (billingRes) {
+        const billings: any[] = billingRes;
         completedInvoices = billings.filter(
           (b: any) => (b.status || '').toLowerCase() === 'paid' || (b.paid >= b.amount && b.amount > 0)
         ).length;
-
-        // Total Spent = sum of all paid amounts (same as "Total Paid" in Billing tab)
-        const totalSpent = billings.reduce((sum: number, b: any) => sum + (Number(b.paid) || 0), 0);
-        setFinancialData((prev: any) => ({
-          ...prev,
-          totalSpent: Math.round(totalSpent),
-        }));
       }
 
       // Insurance
@@ -798,16 +1246,14 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
 
       const patientName = patientData?.fullName || `${patientData?.firstName || ''} ${patientData?.lastName || ''}`.trim();
       const patientMobile = patientData?.mobileNumber || '';
-      const patientEmail = patientData?.email || '';
 
       // Generate package creation URL
-      const packageUrl = `https://zeva360.com/public/create-package?clinicId=${patientData.clinicId}&patientId=${patientData._id}&patientName=${encodeURIComponent(patientName)}&patientMobile=${encodeURIComponent(patientMobile)}&patientEmail=${encodeURIComponent(patientEmail)}`;
+      const packageUrl = `https://zeva360.com/public/create-package?clinicId=${patientData.clinicId}&patientId=${patientData._id}&patientName=${encodeURIComponent(patientName)}&patientMobile=${encodeURIComponent(patientMobile)}`;
 
       console.log("=== SENDING PACKAGE LINK VIA WHATSAPP ===");
       console.log("Package URL:", packageUrl);
       console.log("Patient Name:", patientName);
       console.log("Patient Mobile:", patientMobile);
-      console.log("Patient Email:", patientEmail);
       console.log("Clinic ID:", patientData.clinicId);
       console.log("Patient ID:", patientData._id);
       console.log("==========================================");
@@ -820,14 +1266,19 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
           patientId: patientData._id,
           providerId: "6952256c4a46b2f1eb01be86",
           channel: "whatsapp",
-          content: `Hello ${patientName}! Click the link below to create your treatment package:\n\n${packageUrl}\n\nThank you!`,
+          content: "Create your own package by clicking the link below:\n\n ${packageUrl}\n\nThank you.",
           mediaUrl: "",
           mediaType: "",
           source: "Zeva",
-          messageType: "conversational",
-          templateId: "",
+          messageType: "template",
+          templateId: "69c7afded3dde2931e28d8b6",
           headerParameters: [],
-          bodyParameters: [],
+          bodyParameters: [
+            {
+              type: "text",
+              text: packageUrl,
+            },
+          ],
           attachments: [],
         },
         {
@@ -846,6 +1297,78 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
     }
   };
 
+
+// Fetch created packages from UserPackage model
+const fetchCreatedPackages = async () => {
+  setLoadingCreatedPackages(true);
+  try {
+    const headers = getAuthHeaders();
+    if (!headers) return;
+
+    const response = await axios.get('/api/clinic/public-package', {
+      headers,
+      params: { 
+        patientId: patientData._id,
+        clinicId: patientData.clinicId,
+      },
+    });
+
+    if (response.data.success) {
+      setCreatedPackages(response.data.existingPackages || []);
+    }
+  } catch (error: any) {
+    console.error("Error fetching created packages:", error);
+    setCreatedPackages([]);
+  } finally {
+    setLoadingCreatedPackages(false);
+  }
+};
+
+// Fetch progress notes
+const fetchProgressNotes = async () => {
+  setLoadingProgressNotes(true);
+  try {
+    const headers = getAuthHeaders();
+    if (!headers) return;
+
+    const response = await axios.get('/api/clinic/progress-notes', {
+      headers,
+      params: { patientId: patientData._id },
+    });
+
+    if (response.data.success) {
+      setProgressNotes(response.data.notes || []);
+    }
+  } catch (error: any) {
+    console.error("Error fetching progress notes:", error);
+    setProgressNotes([]);
+  } finally {
+    setLoadingProgressNotes(false);
+  }
+};
+
+// Fetch prescriptions
+const fetchPrescriptions = async () => {
+  setLoadingPrescriptions(true);
+  try {
+    const headers = getAuthHeaders();
+    if (!headers) return;
+
+    const response = await axios.get('/api/clinic/prescriptions', {
+      headers,
+      params: { patientId: patientData._id },
+    });
+
+    if (response.data.success) {
+      setPrescriptions(response.data.prescriptions || []);
+    }
+  } catch (error: any) {
+    console.error("Error fetching prescriptions:", error);
+    setPrescriptions([]);
+  } finally {
+    setLoadingPrescriptions(false);
+  }
+};
   const fetchPatientBalance = async (patientId: string) => {
     const headers = getAuthHeaders();
     if (!headers) return;
@@ -872,6 +1395,12 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
 
   const filterAppointments = (appointmentsList: any[], filter: string) => {
     if (filter === 'all') return appointmentsList;
+    
+    // For 'upcoming' filter, use the already-fetched upcoming appointments
+    if (filter === 'upcoming') {
+      return upcomingAppointments;
+    }
+    
     return appointmentsList.filter((apt: any) => {
       const status = (apt.status || apt.appointmentStatus || '').toLowerCase();
       return status === filter.toLowerCase();
@@ -906,7 +1435,9 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
     );
   };
 
-  const filteredAppointments = filterAppointments(appointments, appointmentFilter);
+  const filteredAppointments = appointmentFilter === 'upcoming' 
+    ? filterAppointments(upcomingAppointments, appointmentFilter)
+    : filterAppointments(appointments, appointmentFilter);
 
   return (
     <div className="min-h-screen bg-gray-50 w-full">
@@ -1059,6 +1590,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                     { key: 'Cancelled',    label: 'Cancelled' },
                     { key: 'Rejected',     label: 'Rejected' },
                     { key: 'No Show',      label: 'No Show' },
+                    { key: 'upcoming',     label: 'Upcoming' },
                   ].map((filter) => (
                     <button
                       key={filter.key}
@@ -1091,7 +1623,9 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                         <thead className="bg-gray-50">
                           <tr>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Service</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Doctor</th>
+                            {appointmentFilter !== 'upcoming' && (
+                              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Doctor</th>
+                            )}
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date & Time</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Duration</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
@@ -1115,16 +1649,18 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                   </div>
                                 </div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center flex-shrink-0">
-                                    <User className="w-4 h-4 text-blue-600" />
+                              {appointmentFilter !== 'upcoming' && (
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center flex-shrink-0">
+                                      <User className="w-4 h-4 text-blue-600" />
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {appointment.doctorName || 'Dr. Not Assigned'}
+                                    </span>
                                   </div>
-                                  <span className="text-sm font-medium text-gray-900">
-                                    {appointment.doctorName || 'Dr. Not Assigned'}
-                                  </span>
-                                </div>
-                              </td>
+                                </td>
+                              )}
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="flex flex-col gap-1">
                                   <span className="text-sm font-semibold text-gray-900">
@@ -1171,6 +1707,31 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
             ) : activeTab === 'packages-memberships' ? (
               /* Packages & Memberships Tab Content - Modern Combined Cards */
               <div className="space-y-4">
+                {/* Referred By Section - Copied from Patient Update Form */}
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-200 shadow-md">
+                  <div className="flex flex-col gap-4">
+                    <div className="w-full">
+                      <label className="block text-[10px] mb-0.5 font-medium text-gray-700">
+                        Referred By
+                      </label>
+                      <div className={`text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg bg-gray-50`}>
+                        {patientData?.referredBy && patientData.referredBy !== "No" ? (
+                          <span className="font-medium text-gray-900">
+                            {patientData.referredBy}
+                          </span>
+                        ) : (
+                          <span className="text-gray-500 italic">
+                            Not specified
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Transfer Section - Copied from Patient Update Form with Enable/Disable Functionality */}
+                <TransferSection patientId={patientData._id} />
+
                 {/* Packages Section */}
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -1182,7 +1743,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                     <div className="flex items-center justify-center py-12">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
                     </div>
-                  ) : packages.length === 0 ? (
+                  ) : (packages.length === 0 && userPackages.length === 0) ? (
                     <div className="space-y-4">
                       {/* Transferred Out Packages */}
                       {transferredOutPackages && transferredOutPackages.length > 0 ? (
@@ -1238,15 +1799,16 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {packages.map((pkg: any, index: number) => {
+                      {[...packages, ...userPackages].map((pkg: any, index: number) => {
                       const packageId = pkg.packageId || pkg._id;
                       const packageName = pkg.packageName || pkg.name || 'Package';
-                      const assignedDate = pkg.assignedDate || pkg.createdAt;
+                      const assignedDate = pkg.assignedDate || pkg.createdAt || pkg.startDate;
+                      const isUserPackage = pkg.approvalStatus === 'approved';
                       
                       // Session calculations - use actual data from API
                       const totalSessions = pkg.totalSessions || 0;
-                      const usedSessions = pkg.usedSessions || 0;
-                      const remainingSessions = Math.max(0, totalSessions - usedSessions);
+                      const usedSessions = pkg.usedSessions || (totalSessions - (pkg.remainingSessions || 0));
+                      const remainingSessions = typeof pkg.remainingSessions === 'number' ? pkg.remainingSessions : Math.max(0, totalSessions - usedSessions);
                       const progressPercent = totalSessions > 0 ? Math.min(100, Math.round((usedSessions / totalSessions) * 100)) : 0;
                       
                       // Price calculation
@@ -1256,19 +1818,29 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                       return (
                         <div key={pkg._id || packageId || index} className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
                           {/* Header Section */}
-                          <div className="px-5 py-4 bg-gradient-to-r from-teal-50 to-cyan-50 border-b border-gray-200">
+                          <div className={`px-5 py-4 bg-gradient-to-r ${isUserPackage ? 'from-indigo-50 to-purple-50' : 'from-teal-50 to-cyan-50'} border-b border-gray-200`}>
                             <div className="flex items-start justify-between">
                               <div className="flex items-start gap-3 flex-1">
                                 {/* Package Icon */}
-                                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-teal-100 to-cyan-100 flex items-center justify-center flex-shrink-0 shadow-sm">
-                                  <Package className="w-7 h-7 text-teal-600" />
+                                <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${isUserPackage ? 'from-indigo-100 to-purple-100' : 'from-teal-100 to-cyan-100'} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                                  <Package className={`w-7 h-7 ${isUserPackage ? 'text-indigo-600' : 'text-teal-600'}`} />
                                 </div>
                                 
                                 {/* Package Info */}
                                 <div className="flex-1">
-                                  <h3 className="text-lg font-bold text-gray-900 mb-1">{packageName}</h3>
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <h3 className="text-lg font-bold text-gray-900">{packageName}</h3>
+                                    {isUserPackage && (
+                                      <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold">
+                                        User Package
+                                      </span>
+                                    )}
+                                  </div>
                                   <div className="flex items-center gap-3 text-sm">
                                     <span className="font-semibold text-gray-900">{formattedPrice}</span>
+                                    {pkg.sessionPrice > 0 && (
+                                      <span className="text-gray-500 font-medium">({`د.إ${pkg.sessionPrice.toFixed(2)}/session`})</span>
+                                    )}
                                     {assignedDate && (
                                       <div className="flex items-center gap-1.5 text-gray-600">
                                         <Calendar className="w-3.5 h-3.5" />
@@ -1291,7 +1863,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                               {/* Progress Bar */}
                               <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
                                 <div 
-                                  className="h-full bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full transition-all duration-500 ease-out"
+                                  className={`h-full bg-gradient-to-r ${isUserPackage ? 'from-indigo-500 to-purple-500' : 'from-teal-500 to-cyan-500'} rounded-full transition-all duration-500 ease-out`}
                                   style={{ width: `${progressPercent}%` }}
                                 ></div>
                               </div>
@@ -1317,6 +1889,37 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                 <div className="text-xs text-orange-600 mt-1 font-medium">Remaining</div>
                               </div>
                             </div>
+
+                            {/* User Package Specific Details */}
+                            {isUserPackage && (
+                              <div className="grid grid-cols-2 gap-3 mb-4">
+                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                  <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">Status & Payment</div>
+                                  <div className="flex flex-wrap gap-2">
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                      pkg.status === 'active' ? 'bg-green-100 text-green-700' :
+                                      pkg.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+                                      'bg-gray-100 text-gray-700'
+                                    }`}>
+                                      {pkg.status || 'Active'}
+                                    </span>
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                      pkg.paymentStatus === 'paid' ? 'bg-emerald-100 text-emerald-700' :
+                                      pkg.paymentStatus === 'partial' ? 'bg-amber-100 text-amber-700' :
+                                      'bg-rose-100 text-rose-700'
+                                    }`}>
+                                      {pkg.paymentStatus || 'Paid'}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                  <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">Validity Period</div>
+                                  <div className="text-xs font-medium text-gray-700">
+                                    {pkg.startDate && new Date(pkg.startDate).toLocaleDateString()} - {pkg.endDate && new Date(pkg.endDate).toLocaleDateString()}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                             
                             {/* Treatment Breakdown */}
                             {pkg.treatments && pkg.treatments.length > 0 && (
@@ -1360,6 +1963,7 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                         </div>
                                         <div className="flex items-center justify-between text-[9px] text-gray-600">
                                           <span>Remaining: {remaining} sessions</span>
+                                          {treatment.sessionPrice > 0 && <span>د.إ{treatment.sessionPrice.toFixed(2)} / session</span>}
                                           <span>{percent}% complete</span>
                                         </div>
                                         
@@ -2079,7 +2683,6 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                               <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Treatment</th>
                               <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
                               <th className="px-5 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                              <th className="px-5 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Action</th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-100">
@@ -2120,17 +2723,6 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                                     <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${statusColor}`}>
                                       {statusLabel}
                                     </span>
-                                  </td>
-                                  <td className="px-5 py-4 whitespace-nowrap text-center">
-                                    <button 
-                                      className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors" 
-                                      title="Download Invoice"
-                                      onClick={() => alert('Download invoice: ' + billing.invoiceNumber)}
-                                    >
-                                      <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                      </svg>
-                                    </button>
                                   </td>
                                 </tr>
                               );
@@ -2232,39 +2824,29 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                         {/* Summary Section */}
                         {billingHistory.length > 0 && (
                           <div className="pt-4 space-y-3">
-                            {(() => {
-                              const totalAmount = billingHistory.reduce((sum: number, b: any) => sum + (b.amount || 0), 0);
-                              const totalPaid = billingHistory.reduce((sum: number, b: any) => sum + (b.paid || 0), 0);
-                              const totalPending = billingHistory.reduce((sum: number, b: any) => sum + (b.pending || 0), 0);
-
-                              return (
-                                <>
-                                  {/* Total Paid */}
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium text-gray-600">Total Paid</span>
-                                    <span className="text-lg font-bold text-gray-900">
-                                      AED {totalPaid.toFixed(2)}
-                                    </span>
-                                  </div>
-                                  
-                                  {/* Outstanding */}
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium text-gray-600">Outstanding</span>
-                                    <span className="text-lg font-bold text-red-600">
-                                      AED {totalPending.toFixed(2)}
-                                    </span>
-                                  </div>
-                                  
-                                  {/* Total Amount */}
-                                  <div className="flex items-center justify-between pt-2 border-t border-gray-200">
-                                    <span className="text-sm font-semibold text-gray-700">Total Amount</span>
-                                    <span className="text-xl font-bold text-gray-900">
-                                      AED {totalAmount.toFixed(2)}
-                                    </span>
-                                  </div>
-                                </>
-                              );
-                            })()}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                              {/* Total Billed */}
+                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                                <div className="text-sm text-blue-600 mb-1">Total Billed</div>
+                                <div className="text-2xl font-bold text-blue-800">
+                                  {formatAED(billingHistory.reduce((acc: number, b: any) => acc + (Number(b.amount) || 0), 0))}
+                                </div>
+                              </div>
+                              {/* Total Paid */}
+                              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                                <div className="text-sm text-green-600 mb-1">Total Paid</div>
+                                <div className="text-2xl font-bold text-green-800">
+                                  {formatAED(billingHistory.reduce((acc: number, b: any) => acc + (Number(b.paid) || 0), 0))}
+                                </div>
+                              </div>
+                              {/* Outstanding */}
+                              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                                <div className="text-sm text-red-600 mb-1">Outstanding</div>
+                                <div className="text-2xl font-bold text-red-800">
+                                  {formatAED(balance.pendingBalance)}
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -2593,7 +3175,6 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                 );
               })()
             ) : activeTab === 'communication' ? (
-              /* Communication Log - Consent Form Status + Package Link */
               <div className="space-y-4">
                 {/* Send Package Link Button */}
                 <div className="bg-gradient-to-r from-teal-50 to-emerald-50 rounded-xl border border-teal-200 p-4">
@@ -2627,103 +3208,313 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
                   </div>
                 </div>
 
-                {loadingConsentStatus ? (
-                  <div className="flex items-center justify-center py-16">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                  </div>
-                ) : consentStatuses.length === 0 ? (
-                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div className="h-1.5 bg-gradient-to-r from-blue-400 to-indigo-400" />
-                    <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-200 flex items-center justify-center mb-4">
-                        <FileText className="w-9 h-9 text-blue-400" />
+                {/* Two-Section Layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Section 1: Progress Notes & Prescriptions */}
+                  <div className="space-y-4">
+                    {/* Progress Notes */}
+                    <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                      <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                            <TrendingUp className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-bold text-gray-900">Progress Notes</h3>
+                            <p className="text-[10px] text-gray-500">Clinical progress notes history</p>
+                          </div>
+                          {progressNotes.length > 0 && (
+                            <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                              {progressNotes.length}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <h3 className="text-lg font-bold text-gray-800 mb-2">No Consent Forms Sent</h3>
-                      <p className="text-gray-500 text-sm max-w-xs">
-                        Consent form communication will appear here once sent to the patient.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FileText className="w-5 h-5 text-blue-600" />
-                      <h3 className="text-base font-bold text-gray-900">Consent Form Status</h3>
-                      <span className="ml-auto px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
-                        {consentStatuses.length} Record{consentStatuses.length !== 1 ? 's' : ''}
-                      </span>
+                      <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
+                        {loadingProgressNotes ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                          </div>
+                        ) : progressNotes.length === 0 ? (
+                          <div className="text-center py-8">
+                            <TrendingUp className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                            <p className="text-sm text-gray-500">No progress notes yet</p>
+                          </div>
+                        ) : (
+                          progressNotes.map((note: any, idx: number) => (
+                            <div key={note._id || idx} className="p-3 rounded-lg border border-blue-100 bg-blue-50/30 hover:bg-blue-50/50 transition-colors">
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <User className="w-3.5 h-3.5 text-blue-600" />
+                                  </div>
+                                  <span className="text-xs font-semibold text-gray-900">
+                                    {typeof note.doctorId === 'object' ? note.doctorId.name : 'Doctor'}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-gray-500">
+                                  {new Date(note.noteDate || note.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-700 line-clamp-3">{note.note}</p>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
 
-                    {consentStatuses.map((consent: any, index: number) => {
-                      // Generate the consent form URL using patient data from props
-                      const patient = patientData as any;
-                      const patientName = patient?.fullName || `${patient?.firstName || ''} ${patient?.lastName || ''}`.trim();
-                      const patientInfo = {
-                        firstName: patient?.firstName || patientName.split(" ")[0] || "",
-                        lastName: patient?.lastName || patientName.split(" ").slice(1).join(" ") || "",
-                        mobileNumber: patient?.mobileNumber || "",
-                        email: patient?.email || "",
-                      };
-                      const encodedPatientData = encodeURIComponent(JSON.stringify(patientInfo));
-                      const consentUrl = `https://zeva360.com/consent-form/${consent.consentFormId}?patient=${encodedPatientData}`;
-                      
-                      return (
-                        <div
-                          key={consent._id || index}
-                          className={`flex items-center justify-between p-4 rounded-lg border ${
-                            consent.status === 'signed'
-                              ? 'border-green-200 bg-green-50'
-                              : 'border-blue-200 bg-blue-50'
-                          }`}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-semibold text-gray-800 truncate">
-                                {consent.consentFormName}
-                              </p>
-                              {consent.status === 'signed' ? (
-                                <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-                              ) : (
-                                <Send className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                    {/* Prescriptions */}
+                    <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                      <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                            <Pill className="w-4 h-4 text-purple-600" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-bold text-gray-900">Prescriptions</h3>
+                            <p className="text-[10px] text-gray-500">Medication prescriptions history</p>
+                          </div>
+                          {prescriptions.length > 0 && (
+                            <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
+                              {prescriptions.length}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
+                        {loadingPrescriptions ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+                          </div>
+                        ) : prescriptions.length === 0 ? (
+                          <div className="text-center py-8">
+                            <Pill className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                            <p className="text-sm text-gray-500">No prescriptions yet</p>
+                          </div>
+                        ) : (
+                          prescriptions.map((rx: any, idx: number) => (
+                            <div key={rx._id || idx} className="p-3 rounded-lg border border-purple-100 bg-purple-50/30 hover:bg-purple-50/50 transition-colors">
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center">
+                                    <FileText className="w-3.5 h-3.5 text-purple-600" />
+                                  </div>
+                                  <span className="text-xs font-semibold text-gray-900">
+                                    {typeof rx.doctorId === 'object' ? rx.doctorId.name : 'Doctor'}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-gray-500">
+                                  {new Date(rx.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </span>
+                              </div>
+                              <div className="space-y-1">
+                                {rx.medicines && rx.medicines.length > 0 && (
+                                  <div className="text-[10px] text-gray-700">
+                                    <div className="space-y-1.5">
+                                      {rx.medicines.slice(0, 3).map((med: any, mIdx: number) => (
+                                        <div key={mIdx} className="bg-white/50 rounded px-2 py-1.5 border border-purple-100">
+                                          <div className="flex items-center gap-1.5 mb-1">
+                                            <Pill className="w-2.5 h-2.5 text-purple-600 flex-shrink-0" />
+                                            <span className="font-semibold text-gray-900">{med.medicineName || 'N/A'}</span>
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-x-3 gap-y-1 ml-4 text-[9px]">
+                                            {med.dosage && (
+                                              <div className="flex items-center gap-1">
+                                                <span className="text-gray-500">Dosage:</span>
+                                                <span className="font-medium text-gray-800">{med.dosage}</span>
+                                              </div>
+                                            )}
+                                            {med.duration && (
+                                              <div className="flex items-center gap-1">
+                                                <span className="text-gray-500">Duration:</span>
+                                                <span className="font-medium text-gray-800">{med.duration}</span>
+                                              </div>
+                                            )}
+                                            {med.notes && (
+                                              <div className="col-span-2 flex items-start gap-1">
+                                                <span className="text-gray-500">Notes:</span>
+                                                <span className="font-medium text-gray-800">{med.notes}</span>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    {rx.medicines.length > 3 && (
+                                      <p className="text-[10px] text-gray-500 mt-2 italic">+{rx.medicines.length - 3} more medications...</p>
+                                    )}
+                                  </div>
+                                )}
+                                {rx.aftercareInstructions && (
+                                  <div className="mt-2 pt-2 border-t border-purple-100">
+                                    <p className="text-[10px] text-gray-600 italic">
+                                      <span className="font-semibold">Aftercare:</span> {rx.aftercareInstructions}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 2: Consent Form Status & Created Packages */}
+                  <div className="space-y-4">
+                    {/* Consent Form Status */}
+                    <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                      <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                            <ClipboardCheck className="w-4 h-4 text-green-600" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-bold text-gray-900">Consent Form Status</h3>
+                            <p className="text-[10px] text-gray-500">Signed and pending consent forms</p>
+                          </div>
+                          {consentStatuses.length > 0 && (
+                            <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                              {consentStatuses.length}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
+                        {loadingConsentStatus ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
+                          </div>
+                        ) : consentStatuses.length === 0 ? (
+                          <div className="text-center py-8">
+                            <ClipboardCheck className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                            <p className="text-sm text-gray-500">No consent forms sent yet</p>
+                          </div>
+                        ) : (
+                          consentStatuses.map((consent: any, idx: number) => (
+                            <div key={consent._id || idx} className="p-3 rounded-lg border border-green-100 bg-green-50/30 hover:bg-green-50/50 transition-colors">
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                                    consent.status === 'signed' ? 'bg-green-100' : 'bg-yellow-100'
+                                  }`}>
+                                    {consent.status === 'signed' ? (
+                                      <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                                    ) : (
+                                      <Clock className="w-3.5 h-3.5 text-yellow-600" />
+                                    )}
+                                  </div>
+                                  <span className="text-xs font-semibold text-gray-900 truncate flex-1 ml-2">
+                                    {consent.consentFormName || consent.formName || 'Consent Form'}
+                                  </span>
+                                </div>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ml-2 ${
+                                  consent.status === 'signed'
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-yellow-100 text-yellow-700'
+                                }`}>
+                                  {consent.status === 'signed' ? 'Signed' : 'Pending'}
+                                </span>
+                              </div>
+                              {consent.signedAt && (
+                                <p className="text-[10px] text-gray-500">
+                                  Signed: {new Date(consent.signedAt).toLocaleDateString('en-GB')}
+                                </p>
                               )}
                             </div>
-                            <div className="flex items-center gap-3 mt-1">
-                              <span className="text-xs text-gray-400">
-                                Date: {consent.date}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1 mt-1">
-                              <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
-                                consent.status === 'signed'
-                                  ? 'bg-green-100 text-green-700'
-                                  : 'bg-blue-100 text-blue-700'
-                              }`}>
-                                {consent.status === 'signed' ? 'SIGNED' : 'SENT'}
-                              </span>
-                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Created Packages */}
+                    <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                      <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center">
+                            <Package className="w-4 h-4 text-teal-600" />
                           </div>
-                          <div className="flex items-center gap-2 ml-3">
-                            {/* Open Form Button */}
-                            <a
-                              href={consentUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-all border border-blue-200"
-                            >
-                              <FileText className="w-3.5 h-3.5" />
-                              Open Form
-                            </a>
-                            {consent.status === 'signed' && consent.hasSignature && (
-                              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                                <CheckCircle className="w-5 h-5 text-green-600" />
-                              </div>
-                            )}
+                          <div>
+                            <h3 className="text-sm font-bold text-gray-900">Created Packages</h3>
+                            <p className="text-[10px] text-gray-500">Patient-created treatment packages</p>
                           </div>
+                          {createdPackages.length > 0 && (
+                            <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">
+                              {createdPackages.length}
+                            </span>
+                          )}
                         </div>
-                      );
-                    })}
+                      </div>
+                      <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
+                        {loadingCreatedPackages ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-600"></div>
+                          </div>
+                        ) : createdPackages.length === 0 ? (
+                          <div className="text-center py-8">
+                            <Package className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                            <p className="text-sm text-gray-500">No packages created yet</p>
+                          </div>
+                        ) : (
+                          createdPackages.map((pkg: any, idx: number) => (
+                            <div key={pkg._id || idx} className="p-3 rounded-lg border border-teal-100 bg-teal-50/30 hover:bg-teal-50/50 transition-colors">
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex-1">
+                                  <h4 className="text-xs font-bold text-gray-900 mb-0.5">{pkg.packageName}</h4>
+                                  <p className="text-[10px] text-gray-500">
+                                    Created: {new Date(pkg.createdAt).toLocaleDateString('en-GB')}
+                                  </p>
+                                </div>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase whitespace-nowrap ml-2 ${
+                                  pkg.approvalStatus === 'approved'
+                                    ? 'bg-green-100 text-green-700'
+                                    : pkg.approvalStatus === 'rejected'
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-yellow-100 text-yellow-700'
+                                }`}>
+                                  {pkg.approvalStatus}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-[10px]">
+                                <div>
+                                  <span className="text-gray-500">Sessions:</span>
+                                  <span className="ml-1 font-semibold text-gray-900">{pkg.totalSessions}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Price:</span>
+                                  <span className="ml-1 font-bold text-teal-600">د.إ{pkg.totalPrice?.toFixed(2)}</span>
+                                </div>
+                              </div>
+                              {pkg.approvalStatus === 'pending' && (
+                                <button
+                                  onClick={async () => {
+                                    const headers = getAuthHeaders();
+                                    if (!headers) return alert('Authentication required');
+                                    try {
+                                      const response = await axios.post('/api/clinic/public-package?action=approve', {
+                                        packageId: pkg._id,
+                                      }, { headers });
+                                      if (response.data.success) {
+                                        alert('Package approved successfully!');
+                                        fetchCreatedPackages();
+                                      }
+                                    } catch (error: any) {
+                                      alert(error.response?.data?.message || 'Failed to approve package');
+                                    }
+                                  }}
+                                  className="w-full mt-2 py-1.5 px-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-[10px] font-semibold rounded-md hover:from-green-600 hover:to-emerald-700 transition-colors flex items-center justify-center gap-1"
+                                >
+                                  <CheckCircle className="w-3 h-3" />
+                                  Approve Package
+                                </button>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             ) : activeTab === 'advance' ? (
               /* Advance & Pending Tab Content */
@@ -3106,10 +3897,19 @@ function PatientProfileView() {
         return;
       }
 
-      // Fetch patient data from API
-      const response = await axios.get(`/api/clinic/patient-registration?id=${id}`, { headers });
-      if (response.data.success && response.data.patient) {
-        setPatient(response.data.patient);
+      // Fetch patient data and balance in parallel for first render speed
+      const [patientRes, balanceRes] = await Promise.all([
+        axios.get(`/api/clinic/patient-registration?id=${id}`, { headers }),
+        axios.get(`/api/clinic/patient-balance/${id}`, { headers }).catch(() => ({ data: { balances: {} } }))
+      ]);
+
+      if (patientRes.data.success && patientRes.data.patient) {
+        // Attach balance data to patient object so dashboard can initialize with it
+        const patientData = {
+          ...patientRes.data.patient,
+          initialBalance: balanceRes.data.balances || {}
+        };
+        setPatient(patientData);
       }
     } catch (error) {
       console.error('Error fetching patient data:', error);
