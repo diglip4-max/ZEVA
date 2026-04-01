@@ -77,21 +77,21 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   });
   const [loadingStats, setLoadingStats] = useState(false);
   
-  // Financial snapshot state
+  // Financial snapshot state - initialized from patientData.initialBalance if available
   const [financialData, setFinancialData] = useState({
     totalSpent: 0,
-    pendingPayment: 0,
-    advanceBalance: 0
+    pendingPayment: Number(patientData?.initialBalance?.pendingBalance || 0),
+    advanceBalance: Number(patientData?.initialBalance?.advanceBalance || 0)
   });
 
-  // Advance & Pending balance state
+  // Advance & Pending balance state - initialized from patientData.initialBalance if available
   const [balance, setBalance] = useState({
-    pendingBalance: 0,
-    advanceBalance: 0,
-    pastAdvanceBalance: 0,
-    pastAdvance50PercentBalance: 0,
-    pastAdvance54PercentBalance: 0,
-    pastAdvance159FlatBalance: 0,
+    pendingBalance: Number(patientData?.initialBalance?.pendingBalance || 0),
+    advanceBalance: Number(patientData?.initialBalance?.advanceBalance || 0),
+    pastAdvanceBalance: Number(patientData?.initialBalance?.pastAdvanceBalance || 0),
+    pastAdvance50PercentBalance: Number(patientData?.initialBalance?.pastAdvance50PercentBalance || 0),
+    pastAdvance54PercentBalance: Number(patientData?.initialBalance?.pastAdvance54PercentBalance || 0),
+    pastAdvance159FlatBalance: Number(patientData?.initialBalance?.pastAdvance159FlatBalance || 0),
   });
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [showAddAdvancePaymentModal, setShowAddAdvancePaymentModal] = useState(false);
@@ -281,14 +281,42 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     return `${first?.charAt(0) || ''}${last?.charAt(0) || ''}`.toUpperCase();
   };
 
-  // Fetch appointments when appointments tab is active
+  // Fetch patient balance, overview data, appointments, billing, packages, media, and consent on mount
   useEffect(() => {
-    if (activeTab === 'appointments' && patientData?._id) {
+    if (patientData?._id) {
+      // 1. Fetch Overview & Dashboard Stats
+      fetchOverviewData();
+      
+      // 2. Fetch Appointments & Billing (needed for Overview Timeline & Financials)
       fetchAppointments();
+      fetchBillingHistory();
+      
+      // 3. Fetch Real Advance & Pending Balances
+      setBalanceLoading(true);
+      fetchPatientBalance(patientData._id).then((data: any) => {
+        if (data) {
+          setBalance(data);
+          setFinancialData((prev: any) => ({
+            ...prev,
+            advanceBalance: data.advanceBalance || 0,
+            pendingPayment: data.pendingBalance || prev.pendingPayment,
+          }));
+        }
+      }).finally(() => setBalanceLoading(false));
+
+      // 4. Pre-fetch other tab data for first render
+      fetchPackagesAndMemberships();
+      fetchMediaDocuments();
+      fetchConsentStatuses();
+      fetchCreatedPackages();
     }
+  }, [patientData?._id]);
+
+  // Tab-specific refreshes (optional: keeps current behavior if tab changes)
+  useEffect(() => {
+    if (activeTab === 'appointments' && patientData?._id) fetchAppointments();
   }, [activeTab, appointmentFilter]);
 
-  // Fetch appointments + billing for Treatments tab
   useEffect(() => {
     if (activeTab === 'treatments' && patientData?._id) {
       fetchAppointments();
@@ -296,43 +324,25 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     }
   }, [activeTab]);
 
-  // Fetch packages and memberships when packages-memberships tab is active
   useEffect(() => {
-    if (activeTab === 'packages-memberships' && patientData?._id) {
-      fetchPackagesAndMemberships();
+    if (activeTab === 'packages-memberships' && patientData?._id) fetchPackagesAndMemberships();
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'billing' && patientData?._id) fetchBillingHistory();
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'media' && patientData?._id) fetchMediaDocuments();
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'communication' && patientData?._id) {
+      fetchConsentStatuses();
+      fetchCreatedPackages();
     }
   }, [activeTab]);
 
-  // Fetch billing history when billing tab is active
-  useEffect(() => {
-    if (activeTab === 'billing' && patientData?._id) {
-      fetchBillingHistory();
-    }
-  }, [activeTab]);
-
-  // Fetch media and documents when media tab is active
-  useEffect(() => {
-    if (activeTab === 'media' && patientData?._id) {
-      fetchMediaDocuments();
-    }
-  }, [activeTab]);
-
-  // Fetch consent form statuses when communication tab is active
-  useEffect(() => {
-  if (activeTab === 'communication' && patientData?._id) {
-    fetchConsentStatuses();
-    fetchCreatedPackages();
-  }
-}, [activeTab]);
-
-  // Fetch notes and communication when notes tab is active (commented out - replaced by Advance & Pending)
-  // useEffect(() => {
-  //   if (activeTab === 'notes' && patientData?._id) {
-  //     fetchNotesAndCommunication();
-  //   }
-  // }, [activeTab]);
-
-  // Fetch patient balance when advance tab is active
   useEffect(() => {
     if (activeTab === 'advance' && patientData?._id) {
       setBalanceLoading(true);
@@ -341,25 +351,6 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       }).finally(() => setBalanceLoading(false));
     }
   }, [activeTab]);
-
-  // Fetch stats on mount
-  useEffect(() => {
-    if (patientData?._id) {
-      fetchOverviewData();
-      fetchAppointments();   // also load appointments for Overview timeline
-      fetchBillingHistory(); // also load billing for Overview financial/timeline
-      // Fetch real advance & pending balances for Financial Snapshot
-      fetchPatientBalance(patientData._id).then((data: any) => {
-        if (data) {
-          setFinancialData((prev: any) => ({
-            ...prev,
-            advanceBalance: data.advanceBalance || 0,
-            pendingPayment: data.pendingBalance || prev.pendingPayment,
-          }));
-        }
-      });
-    }
-  }, [patientData?._id]);
 
   const fetchAppointments = async () => {
     try {
@@ -597,20 +588,19 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     }
   };
 
-  const fetchBillingHistory = async () => {
+  const fetchBillingHistory = async (): Promise<any[]> => {
+    setLoadingBilling(true);
     try {
-      setLoadingBilling(true);
       const headers = getAuthHeaders();
-      if (!headers) return;
+      if (!headers) return [];
 
       const response = await axios.get(`/api/clinic/billing-history/${patientData._id}`, { headers });
       
       if (response.data.success) {
         const billings = response.data.billings || [];
         setBillingHistory(billings);
-        
-        // Calculate financial snapshot from billing data
         calculateFinancialSnapshot(billings);
+        return billings;
       }
     } catch (error: any) {
       console.error('Error fetching billing history:', error.message);
@@ -618,21 +608,20 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     } finally {
       setLoadingBilling(false);
     }
+    return [];
   };
 
   const calculateFinancialSnapshot = (billings: any[]) => {
     let totalSpent = 0;
 
     billings.forEach((billing: any) => {
-      // Use `billing.paid` — the actual paid field from Billing model
       const paid = parseFloat(billing.paid) || 0;
       totalSpent += paid;
     });
 
     setFinancialData((prev: any) => ({
       ...prev,
-      totalSpent: Math.round(totalSpent),
-      // pendingPayment and advanceBalance come from /api/clinic/patient-balance on mount
+      totalSpent: totalSpent, // Keep the exact value, don't round it
     }));
   };
 
@@ -646,14 +635,14 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       const oneYearAgo = new Date();
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
-      // Fetch appointments + package-usage + billing in parallel
+      // Fetch appointments, package-usage, and billing in parallel
       const [appointmentsRes, packageUsageRes, billingRes] = await Promise.all([
         axios.get(
           `/api/clinic/all-appointments?page=1&limit=1000&fromDate=${oneYearAgo.toISOString().split('T')[0]}&toDate=${today}`,
           { headers }
         ),
         axios.get(`/api/clinic/package-usage/${patientData._id}`, { headers }).catch(() => ({ data: { success: false } })),
-        axios.get(`/api/clinic/billing-history/${patientData._id}`, { headers }).catch(() => ({ data: { success: false } }))
+        fetchBillingHistory() // Use the unified function here
       ]);
 
       let totalVisits = 0;
@@ -692,19 +681,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         });
       }
 
-      // Completed invoices + Total Spent — from billing-history API
-      if (billingRes.data.success) {
-        const billings: any[] = billingRes.data.billings || [];
+      // Completed invoices from billing history
+      if (billingRes) {
+        const billings: any[] = billingRes;
         completedInvoices = billings.filter(
           (b: any) => (b.status || '').toLowerCase() === 'paid' || (b.paid >= b.amount && b.amount > 0)
         ).length;
-
-        // Total Spent = sum of all paid amounts (same as "Total Paid" in Billing tab)
-        const totalSpent = billings.reduce((sum: number, b: any) => sum + (Number(b.paid) || 0), 0);
-        setFinancialData((prev: any) => ({
-          ...prev,
-          totalSpent: Math.round(totalSpent),
-        }));
       }
 
       // Insurance
@@ -836,16 +818,14 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
       const patientName = patientData?.fullName || `${patientData?.firstName || ''} ${patientData?.lastName || ''}`.trim();
       const patientMobile = patientData?.mobileNumber || '';
-      const patientEmail = patientData?.email || '';
 
       // Generate package creation URL
-      const packageUrl = `https://zeva360.com/public/create-package?clinicId=${patientData.clinicId}&patientId=${patientData._id}&patientName=${encodeURIComponent(patientName)}&patientMobile=${encodeURIComponent(patientMobile)}&patientEmail=${encodeURIComponent(patientEmail)}`;
+      const packageUrl = `https://zeva360.com/public/create-package?clinicId=${patientData.clinicId}&patientId=${patientData._id}&patientName=${encodeURIComponent(patientName)}&patientMobile=${encodeURIComponent(patientMobile)}`;
 
       console.log("=== SENDING PACKAGE LINK VIA WHATSAPP ===");
       console.log("Package URL:", packageUrl);
       console.log("Patient Name:", patientName);
       console.log("Patient Mobile:", patientMobile);
-      console.log("Patient Email:", patientEmail);
       console.log("Clinic ID:", patientData.clinicId);
       console.log("Patient ID:", patientData._id);
       console.log("==========================================");
@@ -858,7 +838,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           patientId: patientData._id,
           providerId: "6952256c4a46b2f1eb01be86",
           channel: "whatsapp",
-          content: "Create your own package by clicking the link below -\n1\n\nThank you.",
+          content: "Create your own package by clicking the link below:\n\n ${packageUrl}\n\nThank you.",
           mediaUrl: "",
           mediaType: "",
           source: "Zeva",
@@ -2332,39 +2312,29 @@ const fetchCreatedPackages = async () => {
                         {/* Summary Section */}
                         {billingHistory.length > 0 && (
                           <div className="pt-4 space-y-3">
-                            {(() => {
-                              const totalAmount = billingHistory.reduce((sum: number, b: any) => sum + (b.amount || 0), 0);
-                              const totalPaid = billingHistory.reduce((sum: number, b: any) => sum + (b.paid || 0), 0);
-                              const totalPending = billingHistory.reduce((sum: number, b: any) => sum + (b.pending || 0), 0);
-
-                              return (
-                                <>
-                                  {/* Total Paid */}
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium text-gray-600">Total Paid</span>
-                                    <span className="text-lg font-bold text-gray-900">
-                                      AED {totalPaid.toFixed(2)}
-                                    </span>
-                                  </div>
-                                  
-                                  {/* Outstanding */}
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium text-gray-600">Outstanding</span>
-                                    <span className="text-lg font-bold text-red-600">
-                                      AED {totalPending.toFixed(2)}
-                                    </span>
-                                  </div>
-                                  
-                                  {/* Total Amount */}
-                                  <div className="flex items-center justify-between pt-2 border-t border-gray-200">
-                                    <span className="text-sm font-semibold text-gray-700">Total Amount</span>
-                                    <span className="text-xl font-bold text-gray-900">
-                                      AED {totalAmount.toFixed(2)}
-                                    </span>
-                                  </div>
-                                </>
-                              );
-                            })()}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                              {/* Total Billed */}
+                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                                <div className="text-sm text-blue-600 mb-1">Total Billed</div>
+                                <div className="text-2xl font-bold text-blue-800">
+                                  {formatAED(billingHistory.reduce((acc: number, b: any) => acc + (Number(b.amount) || 0), 0))}
+                                </div>
+                              </div>
+                              {/* Total Paid */}
+                              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                                <div className="text-sm text-green-600 mb-1">Total Paid</div>
+                                <div className="text-2xl font-bold text-green-800">
+                                  {formatAED(billingHistory.reduce((acc: number, b: any) => acc + (Number(b.paid) || 0), 0))}
+                                </div>
+                              </div>
+                              {/* Outstanding */}
+                              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                                <div className="text-sm text-red-600 mb-1">Outstanding</div>
+                                <div className="text-2xl font-bold text-red-800">
+                                  {formatAED(balance.pendingBalance)}
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -3318,10 +3288,19 @@ function PatientProfileView() {
         return;
       }
 
-      // Fetch patient data from API
-      const response = await axios.get(`/api/clinic/patient-registration?id=${id}`, { headers });
-      if (response.data.success && response.data.patient) {
-        setPatient(response.data.patient);
+      // Fetch patient data and balance in parallel for first render speed
+      const [patientRes, balanceRes] = await Promise.all([
+        axios.get(`/api/clinic/patient-registration?id=${id}`, { headers }),
+        axios.get(`/api/clinic/patient-balance/${id}`, { headers }).catch(() => ({ data: { balances: {} } }))
+      ]);
+
+      if (patientRes.data.success && patientRes.data.patient) {
+        // Attach balance data to patient object so dashboard can initialize with it
+        const patientData = {
+          ...patientRes.data.patient,
+          initialBalance: balanceRes.data.balances || {}
+        };
+        setPatient(patientData);
       }
     } catch (error) {
       console.error('Error fetching patient data:', error);

@@ -200,6 +200,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   }
   const [patientStats, setPatientStats] = useState<PatientEMRStats | null>(null);
   const [loadingPatientStats, setLoadingPatientStats] = useState(false);
+  const [patientBalance, setPatientBalance] = useState({ pendingBalance: 0, advanceBalance: 0 });
   // Ref to scroll to Previous Complaints when History is clicked
   const previousComplaintsRef = useRef<HTMLDivElement | null>(null);
   const [expandedComplaints, setExpandedComplaints] = useState<
@@ -622,6 +623,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           console.log("Appointment found, fetching related data:", response.data.appointment);
           fetchPreviousComplaints(response.data.appointment.patientId);
           fetchPatientStats(response.data.appointment.patientId);
+          fetchPatientBalance(response.data.appointment.patientId);
           fetchUpcomingAppointments(response.data.appointment.patientId);
           
           // Fetch consent form statuses
@@ -683,6 +685,18 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         if (res.data?.success) setPatientStats(res.data);
       } catch { /* silent */ }
       finally { setLoadingPatientStats(false); }
+    };
+
+    const fetchPatientBalance = async (patientId: string) => {
+      try {
+        const headers = getAuthHeaders();
+        const res = await axios.get(`/api/clinic/patient-balance/${patientId}`, { headers });
+        if (res.data?.success && res.data.balances) {
+          setPatientBalance(res.data.balances);
+        }
+      } catch {
+        // silent
+      }
     };
 
     fetchDetails();
@@ -4372,7 +4386,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         {patientStats.totalPending > 0 && (
                           <div className="flex items-center justify-between">
                             <span className="text-xs text-gray-500">Outstanding</span>
-                            <span className="text-xs font-semibold text-red-500">AED {patientStats.totalPending.toLocaleString()}</span>
+                            <span className="text-xs font-semibold text-red-500">AED {patientBalance.pendingBalance.toLocaleString()}</span>
                           </div>
                         )}
                         <div className="flex items-center justify-between border-t border-gray-100 pt-2">
