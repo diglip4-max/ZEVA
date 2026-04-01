@@ -7,6 +7,7 @@ export default async function handler(req, res) {
   await dbConnect();
 
   const { triggerId, ...queryParams } = req.query;
+  console.log("Webhook Query Params:", queryParams);
 
   const allowedMethods = ["GET", "POST", "PUT", "PATCH"];
   if (!allowedMethods.includes(req.method)) {
@@ -54,7 +55,11 @@ export default async function handler(req, res) {
       ...(req.body || {}),
     };
 
-    // 5. Log the payload (for debugging)
+    // 5. Store the webhook payload in the database
+    trigger.webhookResponse = payload;
+    await trigger.save();
+
+    // 6. Log the payload (for debugging)
     console.log("Webhook Payload:", payload);
 
     const workflowJob = await workflowQueue.add("workflow", {

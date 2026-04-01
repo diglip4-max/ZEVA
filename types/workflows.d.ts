@@ -75,11 +75,32 @@ export type Workflow = {
   updatedAt: string;
 };
 
+interface WorkflowTrigger {
+  _id: string;
+  clinicId: string;
+  workflowId: string;
+  name: string;
+  description?: string;
+  type: WorkflowTriggerType;
+  webhookUrl?: string;
+  webhookListening?: boolean;
+  webhookResponse?: object;
+  channel?: string;
+  providerId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type WorkflowTriggerType = WorkflowTrigger;
+
 interface WorkflowAction {
   _id: string;
   name: string;
   type: WorkflowActionType;
   parameters: any;
+  apiResponse?: object;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface WorkflowHistory {

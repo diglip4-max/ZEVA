@@ -4,9 +4,13 @@ import PatientRegistration from "../../../../models/PatientRegistration";
 import User from "../../../../models/Users";
 import mongoose from "mongoose";
 import { getAuthorizedStaffUser } from "../../../../server/staff/authHelpers";
+import {
+  executeWorkflows,
+  WORKFLOW_ENTITY_TYPE,
+  WORKFLOW_TRIGGER_TYPE,
+} from "../../../../bullmq/workflow";
 
 const hasRole = (user, roles = []) => roles.includes(user.role);
-
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -26,40 +30,43 @@ export default async function handler(req, res) {
       try {
         user = await getAuthorizedStaffUser(req);
       } catch (err) {
-        return res.status(err.status || 401).json({ success: false, message: err.message });
+        return res
+          .status(err.status || 401)
+          .json({ success: false, message: err.message });
       }
 
       const invoice = await PatientRegistration.findById(id).lean();
 
-      if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+      if (!invoice)
+        return res.status(404).json({ message: "Invoice not found" });
 
       // Check access for agents/doctorStaff
-      if (user.role === 'agent' || user.role === 'doctorStaff') {
-         // If patient is not created by the user, check if they are in the same clinic
-         if (invoice.userId && invoice.userId.toString() !== user._id.toString()) {
-             if (user.clinicId) {
-                const Clinic = (await import("../../../../models/Clinic")).default;
-                const clinic = await Clinic.findById(user.clinicId);
-                if (clinic) {
-                    const User = (await import("../../../../models/Users")).default;
-                    const clinicUsers = await User.find({
-                        $or: [
-                            { _id: clinic.owner },
-                            { clinicId: user.clinicId }
-                        ]
-                    }).select("_id");
-                    
-                    const allowedIds = clinicUsers.map(u => u._id.toString());
-                    if (!allowedIds.includes(invoice.userId.toString())) {
-                         return res.status(403).json({ message: "Access denied" });
-                    }
-                } else {
-                     return res.status(403).json({ message: "Access denied" });
-                }
-             } else {
-                 return res.status(403).json({ message: "Access denied" });
-             }
-         }
+      if (user.role === "agent" || user.role === "doctorStaff") {
+        // If patient is not created by the user, check if they are in the same clinic
+        if (
+          invoice.userId &&
+          invoice.userId.toString() !== user._id.toString()
+        ) {
+          if (user.clinicId) {
+            const Clinic = (await import("../../../../models/Clinic")).default;
+            const clinic = await Clinic.findById(user.clinicId);
+            if (clinic) {
+              const User = (await import("../../../../models/Users")).default;
+              const clinicUsers = await User.find({
+                $or: [{ _id: clinic.owner }, { clinicId: user.clinicId }],
+              }).select("_id");
+
+              const allowedIds = clinicUsers.map((u) => u._id.toString());
+              if (!allowedIds.includes(invoice.userId.toString())) {
+                return res.status(403).json({ message: "Access denied" });
+              }
+            } else {
+              return res.status(403).json({ message: "Access denied" });
+            }
+          } else {
+            return res.status(403).json({ message: "Access denied" });
+          }
+        }
       }
 
       // 🔹 Handle doctor field - it might be a string (name) or ObjectId
@@ -71,7 +78,9 @@ export default async function handler(req, res) {
         } else if (mongoose.Types.ObjectId.isValid(invoice.doctor)) {
           // If it's an ObjectId, try to populate
           try {
-            const doctor = await User.findById(invoice.doctor).select("name role").lean();
+            const doctor = await User.findById(invoice.doctor)
+              .select("name role")
+              .lean();
             if (doctor && doctor.role === "doctorStaff") {
               doctorName = doctor.name || "-";
             }
@@ -106,18 +115,31 @@ export default async function handler(req, res) {
       try {
         user = await getAuthorizedStaffUser(req);
       } catch (err) {
-        return res.status(err.status || 401).json({ success: false, message: err.message });
+        return res
+          .status(err.status || 401)
+          .json({ success: false, message: err.message });
       }
 
       // Check if user has permission
-      if (!hasRole(user, ["clinic", "staff", "admin", "doctor", "doctorStaff", "agent"])) {
-        return res.status(403).json({ success: false, message: "Access denied" });
+      if (
+        !hasRole(user, [
+          "clinic",
+          "staff",
+          "admin",
+          "doctor",
+          "doctorStaff",
+          "agent",
+        ])
+      ) {
+        return res
+          .status(403)
+          .json({ success: false, message: "Access denied" });
       }
 
       const { updateType } = req.body; // 'payment' | 'status' | 'advanceClaim' | 'details'
       const invoice = await PatientRegistration.findById(id);
-      if (!invoice) return res.status(404).json({ message: "Invoice not found" });
-
+      if (!invoice)
+        return res.status(404).json({ message: "Invoice not found" });
 
       let responseMessage = "";
 
@@ -152,7 +174,9 @@ export default async function handler(req, res) {
         } = req.body;
 
         if (!firstName) {
-          return res.status(400).json({ message: "Missing required patient fields" });
+          return res
+            .status(400)
+            .json({ message: "Missing required patient fields" });
         }
 
         if (invoiceNumber) invoice.invoiceNumber = invoiceNumber;
@@ -168,8 +192,10 @@ export default async function handler(req, res) {
 
         invoice.membership = membership || invoice.membership || "No";
         if (membership === "Yes") {
-          if (membershipStartDate) invoice.membershipStartDate = new Date(membershipStartDate);
-          if (membershipEndDate) invoice.membershipEndDate = new Date(membershipEndDate);
+          if (membershipStartDate)
+            invoice.membershipStartDate = new Date(membershipStartDate);
+          if (membershipEndDate)
+            invoice.membershipEndDate = new Date(membershipEndDate);
           if (membershipId) invoice.membershipId = membershipId;
         } else if (membership === "No") {
           invoice.membershipStartDate = null;
@@ -204,9 +230,16 @@ export default async function handler(req, res) {
         // Insurance handling
         if (insurance === "Yes") {
           invoice.insurance = "Yes";
-          invoice.insuranceType = insuranceType || invoice.insuranceType || "Paid";
-          invoice.advanceGivenAmount = advanceGivenAmount !== undefined ? Number(advanceGivenAmount) : invoice.advanceGivenAmount;
-          invoice.coPayPercent = coPayPercent !== undefined ? Number(coPayPercent) : invoice.coPayPercent;
+          invoice.insuranceType =
+            insuranceType || invoice.insuranceType || "Paid";
+          invoice.advanceGivenAmount =
+            advanceGivenAmount !== undefined
+              ? Number(advanceGivenAmount)
+              : invoice.advanceGivenAmount;
+          invoice.coPayPercent =
+            coPayPercent !== undefined
+              ? Number(coPayPercent)
+              : invoice.coPayPercent;
           if (!invoice.advanceClaimStatus) {
             invoice.advanceClaimStatus = "Pending";
           }
@@ -226,6 +259,24 @@ export default async function handler(req, res) {
 
       await invoice.save();
 
+      // -------------------------------
+      // Patient Detail Update
+      // -------------------------------
+      // Note: Execute workflow for the updated patient
+      executeWorkflows({
+        entity: WORKFLOW_ENTITY_TYPE.PATIENT,
+        trigger: WORKFLOW_TRIGGER_TYPE.RECORD_UPDATED,
+        patientId: invoice._id?.toString(),
+        clinicId: invoice.clinicId?.toString(),
+      });
+      // Note: Execute workflow for the created patient
+      executeWorkflows({
+        entity: WORKFLOW_ENTITY_TYPE.PATIENT,
+        trigger: WORKFLOW_TRIGGER_TYPE.RECORD_CREATE_OR_UPDATE,
+        patientId: invoice._id?.toString(),
+        clinicId: invoice.clinicId?.toString(),
+      });
+
       return res.status(200).json({
         message: responseMessage || "Patient details updated successfully",
         updatedInvoice: {
@@ -235,7 +286,8 @@ export default async function handler(req, res) {
           invoicedDate: invoice.invoicedDate?.toISOString(),
           createdAt: invoice.createdAt?.toISOString(),
           updatedAt: invoice.updatedAt?.toISOString(),
-          advanceClaimReleaseDate: invoice.advanceClaimReleaseDate?.toISOString(),
+          advanceClaimReleaseDate:
+            invoice.advanceClaimReleaseDate?.toISOString(),
         },
       });
     }

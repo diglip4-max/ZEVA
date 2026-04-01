@@ -18,8 +18,6 @@ import {
   SkipForward,
   Ban,
   Calendar,
-  Filter,
-  Search,
   Download,
   RefreshCw,
   Eye,
@@ -27,6 +25,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  ArrowLeft,
+  RotateCcw,
 } from "lucide-react";
 import { NextPageWithLayout } from "@/pages/_app";
 import ClinicLayout from "@/components/ClinicLayout";
@@ -106,8 +106,6 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [searchInput, setSearchInput] = useState<string>("");
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pagination, setPagination] = useState<PaginationData | null>(null);
@@ -120,6 +118,7 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
     failed: 0,
     inProgress: 0,
   });
+  const [isExporting, setIsExporting] = useState<boolean>(false);
 
   const fetchHistory = useCallback(async () => {
     if (!workflowId) return;
@@ -133,7 +132,6 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
           page: currentPage,
           limit: 10,
           status: selectedFilter !== "all" ? selectedFilter : undefined,
-          search: searchTerm,
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -162,18 +160,11 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
     } finally {
       setLoading(false);
     }
-  }, [workflowId, currentPage, selectedFilter, searchTerm]);
+  }, [workflowId, currentPage, selectedFilter]);
 
   useEffect(() => {
     fetchHistory();
   }, [fetchHistory]);
-
-  const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      setSearchTerm(searchInput);
-      setCurrentPage(1);
-    }
-  };
 
   const handlePageChange = (newPage: number) => {
     if (pagination && newPage >= 1 && newPage <= pagination.totalPages) {
@@ -251,24 +242,67 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
     }
   };
 
-  const handleFilterChange = (
-    e: React.ChangeEvent<HTMLSelectElement>,
-  ): void => {
-    setSelectedFilter(e.target.value);
-    setCurrentPage(1);
-  };
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    setSearchInput(e.target.value);
-  };
-
   const handleRefresh = (): void => {
     fetchHistory();
   };
 
-  const handleExport = (): void => {
-    // Add export logic here
-    console.log("Export clicked");
+  const handleExport = async (): Promise<void> => {
+    if (!workflowId) return;
+
+    try {
+      setIsExporting(true);
+      const token = getTokenByPath();
+      const response = await axios.get(
+        `/api/workflows/history/export/${workflowId}`,
+        {
+          responseType: "blob",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `workflow-history-${workflowId}-${new Date().toISOString().split("T")[0]}.csv`,
+      );
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error("Export failed:", err);
+      setError(err.response?.data?.message || err.message || "Export failed");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleRetry = async (item: WorkflowHistory): Promise<void> => {
+    if (!item._id) return;
+    try {
+      const token = getTokenByPath();
+      const { data } = await axios.post(
+        `/api/workflows/history/retry/${item._id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      if (data && data?.success) {
+        setError(null);
+        fetchHistory();
+      } else {
+        setError(data?.message || "Retry failed");
+      }
+    } catch (err: any) {
+      console.error("Retry failed:", err);
+      setError(err.response?.data?.message || err.message || "Retry failed");
+    }
   };
 
   const handleView = (item: WorkflowHistory): void => {
@@ -298,21 +332,30 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
       <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                Workflow History
-              </h1>
-              <p className="text-sm text-gray-500 mt-1">
-                {history[0]?.workflowId?.name || "Workflow Execution Logs"}
-              </p>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => router.back()}
+                className="flex items-center space-x-3 p-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm"
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-500" />
+              </button>
+              <div>
+                <h1 className="text-base font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+                  Workflow History
+                </h1>
+                <p className="text-xs text-gray-500 mt-1">
+                  {history[0]?.workflowId?.name || "Workflow Execution Logs"}
+                </p>
+              </div>
             </div>
             <div className="flex items-center space-x-3">
               <button
                 onClick={handleExport}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm disabled:opacity-50"
+                disabled={isExporting}
               >
                 <Download className="w-4 h-4 mr-2" />
-                Export
+                {isExporting ? "Exporting..." : "Export"}
               </button>
               <button
                 onClick={handleRefresh}
@@ -395,38 +438,87 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
         </div>
 
         {/* Filters and Search */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6 shadow-sm">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-3 sm:space-y-0">
-            <div className="flex items-center space-x-2">
-              <Filter className="w-5 h-5 text-gray-400" />
-              <select
-                value={selectedFilter}
-                onChange={handleFilterChange}
-                className="text-sm border-gray-300 text-gray-400 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="all">All Status</option>
-                <option value="completed">Completed</option>
-                <option value="failed">Failed</option>
-                <option value="in-progress">In Progress</option>
-                <option value="pending">Pending</option>
-                <option value="waiting">Waiting</option>
-                <option value="skipped">Skipped</option>
-                <option value="canceled">Canceled</option>
-                <option value="retrying">Retrying</option>
-              </select>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm mb-6 overflow-hidden">
+          <div className="px-5 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            {/* Left — status pill filters */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mr-1">
+                Status
+              </span>
+              {[
+                { value: "all", label: "All" },
+                { value: "completed", label: "Completed" },
+                { value: "failed", label: "Failed" },
+                { value: "in-progress", label: "In Progress" },
+                { value: "pending", label: "Pending" },
+                { value: "waiting", label: "Waiting" },
+                { value: "skipped", label: "Skipped" },
+                { value: "canceled", label: "Canceled" },
+                { value: "retrying", label: "Retrying" },
+              ].map(({ value, label }) => {
+                const isActive = selectedFilter === value;
+                const colorMap: Record<string, string> = {
+                  all: "bg-gray-900 text-white",
+                  completed: "bg-emerald-500 text-white",
+                  failed: "bg-red-500 text-white",
+                  "in-progress": "bg-blue-500 text-white",
+                  pending: "bg-amber-500 text-white",
+                  waiting: "bg-cyan-500 text-white",
+                  skipped: "bg-purple-500 text-white",
+                  canceled: "bg-rose-500 text-white",
+                  retrying: "bg-orange-500 text-white",
+                };
+                return (
+                  <button
+                    key={value}
+                    onClick={() => {
+                      setSelectedFilter(value);
+                      setCurrentPage(1);
+                    }}
+                    className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-all duration-150 border ${
+                      isActive
+                        ? colorMap[value] + " border-transparent shadow-sm"
+                        : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+
+            {/* Right — search */}
+            {/* <div className="relative w-full sm:w-64 shrink-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search workflows..."
+                placeholder="Search histories..."
                 value={searchInput}
                 onChange={handleSearchChange}
                 onKeyDown={handleSearch}
-                className="pl-9 pr-4 py-2 w-full border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
+                className="pl-9 pr-4 py-2 w-full bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               />
-            </div>
+            </div> */}
           </div>
+
+          {/* Active filter indicator strip */}
+          {selectedFilter !== "all" && (
+            <div className="px-5 py-2 bg-blue-50 border-t border-blue-100 flex items-center justify-between">
+              <p className="text-xs text-blue-600 font-medium">
+                Filtering by:{" "}
+                <span className="font-bold capitalize">{selectedFilter}</span>
+              </p>
+              <button
+                onClick={() => {
+                  setSelectedFilter("all");
+                  setCurrentPage(1);
+                }}
+                className="text-xs text-blue-500 hover:text-blue-700 font-semibold underline underline-offset-2 transition-colors"
+              >
+                Clear filter
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Workflow History Table */}
@@ -522,6 +614,7 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
                           </span>
                         </div>
                       </td>
+
                       <td className="px-6 py-4">
                         {item?.type === "trigger" && (
                           <div className="text-sm font-semibold text-gray-700">
@@ -543,6 +636,9 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
                               : ""}
                           </div>
                         )}
+                        <span className="text-xs text-gray-400">
+                          {item?.type?.toUpperCase() || ""}
+                        </span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center">
@@ -585,6 +681,16 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
+                          {item.status === "failed" &&
+                            item.type === "action" && (
+                              <button
+                                onClick={() => handleRetry(item)}
+                                className="p-1.5 hover:bg-red-200 rounded-lg transition-colors duration-200 text-red-600"
+                                title="Retry"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                              </button>
+                            )}
                         </div>
                       </td>
                     </tr>

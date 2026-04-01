@@ -55,8 +55,19 @@ const WorkflowHistorySchema = new Schema(
       type: Map,
       of: Schema.Types.Mixed,
     },
+
+    // retry count
+    retryCount: {
+      type: Number,
+      default: 0,
+    },
     // Store the response of the action if it has one - REST API ACTION or AI_COMPOSER ACTION or WEBHOOK TRIGGER
     response: {
+      type: Map,
+      of: Schema.Types.Mixed,
+    },
+    // Store the payload of the action at the time of execution
+    payload: {
       type: Map,
       of: Schema.Types.Mixed,
     },
