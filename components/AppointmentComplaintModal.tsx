@@ -1,5 +1,5 @@
-﻿"use client";
-import React, { useEffect, useRef, useState } from "react";
+"use client";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import {
@@ -200,6 +200,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   }
   const [patientStats, setPatientStats] = useState<PatientEMRStats | null>(null);
   const [loadingPatientStats, setLoadingPatientStats] = useState(false);
+  const [patientBalance, setPatientBalance] = useState({ pendingBalance: 0, advanceBalance: 0 });
   // Ref to scroll to Previous Complaints when History is clicked
   const previousComplaintsRef = useRef<HTMLDivElement | null>(null);
   const [expandedComplaints, setExpandedComplaints] = useState<
@@ -315,6 +316,38 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   interface UpcomingAppointment { _id: string; startDate: string; fromTime: string; toTime: string; status: string; followType: string; }
   const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>([]);
   const [loadingUpcoming, setLoadingUpcoming] = useState(false);
+
+  // Filter upcoming appointments to only show future ones (date and time)
+  const filteredUpcomingAppointments = useMemo(() => {
+    if (!upcomingAppointments) return [];
+    
+    const now = new Date();
+    // Current date in YYYY-MM-DD format (local time)
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    const todayStr = `${year}-${month}-${day}`;
+    
+    const currentTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+    return upcomingAppointments
+      .filter((appt) => {
+        // appt.startDate might be ISO string or YYYY-MM-DD
+        const d = new Date(appt.startDate);
+        const apptYear = d.getFullYear();
+        const apptMonth = String(d.getMonth() + 1).padStart(2, "0");
+        const apptDay = String(d.getDate()).padStart(2, "0");
+        const apptDateStr = `${apptYear}-${apptMonth}-${apptDay}`;
+        
+        if (apptDateStr > todayStr) return true;
+        if (apptDateStr === todayStr) {
+          // Compare fromTime (HH:mm) with currentTimeStr (HH:mm)
+          return appt.fromTime >= currentTimeStr;
+        }
+        return false;
+      })
+      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+  }, [upcomingAppointments]);
 
   // Consent Form Status state
   interface ConsentFormStatus {
@@ -591,6 +624,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           console.log("Appointment found, fetching related data:", response.data.appointment);
           fetchPreviousComplaints(response.data.appointment.patientId);
           fetchPatientStats(response.data.appointment.patientId);
+          fetchPatientBalance(response.data.appointment.patientId);
           fetchUpcomingAppointments(response.data.appointment.patientId);
           
           // Fetch consent form statuses
@@ -652,6 +686,18 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         if (res.data?.success) setPatientStats(res.data);
       } catch { /* silent */ }
       finally { setLoadingPatientStats(false); }
+    };
+
+    const fetchPatientBalance = async (patientId: string) => {
+      try {
+        const headers = getAuthHeaders();
+        const res = await axios.get(`/api/clinic/patient-balance/${patientId}`, { headers });
+        if (res.data?.success && res.data.balances) {
+          setPatientBalance(res.data.balances);
+        }
+      } catch {
+        // silent
+      }
     };
 
     fetchDetails();
@@ -2788,6 +2834,50 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         </div>
                       )}
 
+                      {/* Appointments - Upcoming */}
+                      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
+                          <ClipboardList className="w-4 h-4 text-blue-600" />
+                          <h3 className="text-sm font-semibold text-gray-800">Appointments</h3>
+                        </div>
+                        <div className="px-5 py-3">
+                          {loadingUpcoming ? (
+                            <div className="flex items-center gap-2 py-3 text-xs text-gray-400">
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading appointments...
+                            </div>
+                          ) : filteredUpcomingAppointments.length === 0 ? (
+                            <p className="text-xs text-gray-400 py-3 text-center">No upcoming appointments</p>
+                          ) : (
+                            <div>
+                              <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider mb-2">Upcoming</p>
+                              <div className="space-y-2">
+                                {filteredUpcomingAppointments.map((appt) => {
+                                  const d = new Date(appt.startDate);
+                                  const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                                  const [fh, fm] = appt.fromTime.split(":").map(Number);
+                                  const ampm = fh < 12 ? "AM" : "PM";
+                                  const h12 = fh % 12 || 12;
+                                  const timeStr = `${h12}:${String(fm).padStart(2, "0")} ${ampm}`;
+                                  const statusColor = appt.status === "booked" || appt.status === "Approved" ? "bg-blue-600 text-white" : appt.status === "Completed" ? "bg-green-100 text-green-700" : appt.status === "Cancelled" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600";
+                                  return (
+                                    <div key={appt._id} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 flex items-center justify-between">
+                                      <div>
+                                        <p className="text-xs font-semibold text-gray-800">{appt.followType === "follow up" ? "Follow-up Session" : appt.followType === "first time" ? "First Visit" : appt.followType}</p>
+                                        <div className="flex items-center gap-3 mt-0.5 text-[11px] text-gray-500">
+                                          <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {dateStr}</span>
+                                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {timeStr}</span>
+                                        </div>
+                                      </div>
+                                      <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-md capitalize ${statusColor}`}>{appt.status}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
                       {/* Next Session Booking - Added to Complaints Section */}
                       <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-5">
                         <div className="flex items-center gap-2 mb-4">
@@ -2977,13 +3067,13 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             <div className="flex items-center gap-2 py-3 text-xs text-gray-400">
                               <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading appointments...
                             </div>
-                          ) : upcomingAppointments.length === 0 ? (
+                          ) : filteredUpcomingAppointments.length === 0 ? (
                             <p className="text-xs text-gray-400 py-3 text-center">No upcoming appointments</p>
                           ) : (
                             <div>
                               <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider mb-2">Upcoming</p>
                               <div className="space-y-2">
-                                {upcomingAppointments.map((appt) => {
+                                {filteredUpcomingAppointments.map((appt) => {
                                   const d = new Date(appt.startDate);
                                   const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
                                   const [fh, fm] = appt.fromTime.split(":").map(Number);
@@ -3824,13 +3914,13 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             <div className="flex items-center gap-2 py-3 text-xs text-gray-400">
                               <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading appointments...
                             </div>
-                          ) : upcomingAppointments.length === 0 ? (
+                          ) : filteredUpcomingAppointments.length === 0 ? (
                             <p className="text-xs text-gray-400 py-3 text-center">No upcoming appointments</p>
                           ) : (
                             <div>
                               <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider mb-2">Upcoming</p>
                               <div className="space-y-2">
-                                {upcomingAppointments.map((appt) => {
+                                {filteredUpcomingAppointments.map((appt) => {
                                   const d = new Date(appt.startDate);
                                   const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
                                   const [fh, fm] = appt.fromTime.split(":").map(Number);
@@ -4362,7 +4452,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         {patientStats.totalPending > 0 && (
                           <div className="flex items-center justify-between">
                             <span className="text-xs text-gray-500">Outstanding</span>
-                            <span className="text-xs font-semibold text-red-500">AED {patientStats.totalPending.toLocaleString()}</span>
+                            <span className="text-xs font-semibold text-red-500">AED {patientBalance.pendingBalance.toLocaleString()}</span>
                           </div>
                         )}
                         <div className="flex items-center justify-between border-t border-gray-100 pt-2">
@@ -4435,7 +4525,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                     {details?.serviceNames && details.serviceNames.length > 0 && (
                       <div>
                         <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5">Active Treatments</p>
-                        {details.serviceNames.slice(0, 3).map((name, i) => (
+                        {details.serviceNames.map((name, i) => (
                           <div key={i} className="flex items-center gap-2 py-1">
                             <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
                             <span className="text-xs text-gray-700 truncate">{name}</span>
@@ -4470,7 +4560,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">Next Session Date</p>
                       <div className="flex items-center gap-2">
                         <Calendar className="w-3.5 h-3.5 text-blue-500" />
-                        <span className="text-xs font-semibold text-gray-700">{nextSessionDate || "Not scheduled"}</span>
+                        <span className="text-xs font-semibold text-gray-700">
+                          {(() => {
+                            const nextFollowUp = filteredUpcomingAppointments?.find(appt => appt.followType === "follow up");
+                            return nextFollowUp 
+                              ? new Date(nextFollowUp.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                              : "Not scheduled";
+                          })()}
+                        </span>
                       </div>
                     </div>
                   </div>

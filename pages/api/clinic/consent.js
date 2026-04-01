@@ -33,8 +33,8 @@ export default async function handler(req, res) {
   if (req.method === "GET") {
     try {
       const consents = await Consent.find({ clinicId })
-        .populate("departmentId", "name")
-        .populate("serviceIds", "name")
+        .populate({ path: "departmentIds", select: "name", strictPopulate: false })
+        .populate({ path: "serviceIds", select: "name", strictPopulate: false })
         .sort({ createdAt: -1 })
         .lean();
       return res.status(200).json({ success: true, consents });
@@ -52,7 +52,7 @@ export default async function handler(req, res) {
         fileName,
         fileSize,
         formName,
-        departmentId,
+        departmentIds,
         language,
         version,
         description,
@@ -72,7 +72,7 @@ export default async function handler(req, res) {
         fileName: fileName || null,
         fileSize: fileSize || null,
         formName,
-        departmentId: departmentId || null,
+        departmentIds: departmentIds || [],
         language: language || "English",
         version: version || "1.0",
         description: description || "",
@@ -84,8 +84,8 @@ export default async function handler(req, res) {
       });
 
       const populated = await Consent.findById(consent._id)
-        .populate("departmentId", "name")
-        .populate("serviceIds", "name")
+        .populate({ path: "departmentIds", select: "name", strictPopulate: false })
+        .populate({ path: "serviceIds", select: "name", strictPopulate: false })
         .lean();
 
       return res.status(201).json({ success: true, consent: populated });
@@ -108,8 +108,8 @@ export default async function handler(req, res) {
         { $set: updateData },
         { new: true }
       )
-        .populate("departmentId", "name")
-        .populate("serviceIds", "name")
+        .populate({ path: "departmentIds", select: "name", strictPopulate: false })
+        .populate({ path: "serviceIds", select: "name", strictPopulate: false })
         .lean();
 
       if (!consent) {

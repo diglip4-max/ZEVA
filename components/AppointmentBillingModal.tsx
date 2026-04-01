@@ -409,6 +409,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           clinicPrice: s.clinicPrice,
                           durationMinutes: s.durationMinutes,
                           departmentId: dept._id,
+                          serviceSlug: s.serviceSlug,
                         }))
                       : [];
                   return { _id: dept._id, name: dept.name, services };
@@ -3373,14 +3374,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                               // Match how services are loaded: use serviceSlug if available, otherwise _id
                                               const treatmentSlug = svc.serviceSlug || svc._id;
                                               
-                                              // Find matching treatment from treatments array
+                                              // 1. Ensure Treatment service is selected
+                                              setSelectedService("Treatment");
+
+                                              // 2. Find matching treatment from treatments array
                                               const matchingTreatment = treatments.find(
                                                 (t) => t.slug === treatmentSlug || 
                                                 (t.name && t.name.toLowerCase() === svc.name.toLowerCase())
                                               );
                                               
                                               if (matchingTreatment) {
-                                                // 1. Add to selected treatments with notification
+                                                // 3. Add to selected treatments with notification
                                                 handleTreatmentToggle(matchingTreatment, true);
                                               } else {
                                                 // Create treatment object manually if not found in treatments array
@@ -3392,7 +3396,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                                 handleTreatmentToggle(newTreatment, true);
                                               }
                                               
-                                              // 2. Save to appointment via API
+                                              // 4. Save to appointment via API
                                               if (appointment?._id && appointment?.patientId) {
                                                 try {
                                                   const headers = getAuthHeaders();
