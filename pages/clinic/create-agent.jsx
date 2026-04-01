@@ -2205,9 +2205,9 @@ const ManageAgentsPage = () => {
         </div>
       )}
       {viewAgent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-7xl bg-white rounded-lg border border-gray-200 shadow-xl max-h-[92vh] overflow-y-auto mx-auto">
-            <div className="px-5 py-3.5 border-b border-gray-200 bg-gray-50 flex items-start justify-between sticky top-0 z-10">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-4 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-4xl sm:max-w-5xl lg:max-w-7xl bg-white rounded-lg sm:rounded-xl border border-gray-200 shadow-xl max-h-[92vh] sm:max-h-[90vh] overflow-hidden flex flex-col mx-auto">
+            <div className="px-4 py-3 sm:px-5 sm:py-3.5 border-b border-gray-200 bg-gray-50 flex items-start justify-between sticky top-0 z-10 flex-shrink-0">
               <div className="flex-1 min-w-0 pr-2">
                 <h3 className="text-sm font-semibold text-teal-900">View Profile</h3>
                 <p className="text-[11px] text-teal-700 mt-0.5">{viewAgent.name} • {viewAgent.email}</p>
@@ -2215,31 +2215,31 @@ const ManageAgentsPage = () => {
               <button
                 type="button"
                 onClick={() => { stopActivityRefresh(); setViewAgent(null); setViewProfile(null); setTotalAppointments(null); setActivity(null); }}
-                className="flex-shrink-0 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-teal-500 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-200"
+                className="flex-shrink-0 p-1.5 sm:p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-teal-500 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-200"
                 aria-label="Close"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
-            <div className="p-5 space-y-6">
+            <div className="p-4 sm:p-5 space-y-4 sm:space-y-6 overflow-y-auto flex-1">
               {viewLoading ? (
                 <div className="py-8 text-center text-sm text-teal-700">Loading...</div>
               ) : (
                 <>
                   <div className="bg-white border border-gray-200 rounded-xl p-5">
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                       <div className="flex items-center gap-4">
-                        <div className="h-14 w-14 rounded-full bg-gray-900 text-white flex items-center justify-center text-lg font-semibold">
+                        <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-gray-900 text-white flex items-center justify-center text-base sm:text-lg font-semibold flex-shrink-0">
                           {(viewAgent?.name || 'U').charAt(0).toUpperCase()}
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <div className="text-lg font-semibold text-teal-900">{viewAgent.name || '—'}</div>
-                            <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">{viewAgent.role || '—'}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className="text-base sm:text-lg font-semibold text-teal-900 truncate">{viewAgent.name || '—'}</div>
+                            <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">{viewAgent.role || '—'}</span>
                           </div>
                           <div className="mt-1 text-xs text-teal-700">
-                            <div className="mt-1 flex flex-wrap gap-3">
-                              <span>ID: {viewAgent?._id?.slice(-6) || '—'}</span>
+                            <div className="mt-1 flex flex-wrap gap-2 sm:gap-3">
+                              <span className="whitespace-nowrap">ID: {viewAgent?._id?.slice(-6) || '—'}</span>
                               <span>
                                 Joined:{' '}
                                 {activity?.profileCreatedAt
@@ -2248,14 +2248,14 @@ const ManageAgentsPage = () => {
                               </span>
                             </div>
                           </div>
-                          <div className="mt-2 flex flex-wrap gap-3 text-xs text-teal-700">
-                            <span>{viewAgent.email || '—'}</span>
-                            <span className="text-gray-300">|</span>
-                            <span>{viewAgent.phone || '—'}</span>
+                          <div className="mt-2 flex flex-wrap gap-2 sm:gap-3 text-xs text-teal-700">
+                            <span className="whitespace-nowrap">{viewAgent.email || '—'}</span>
+                            <span className="text-gray-300 flex-shrink-0">|</span>
+                            <span className="whitespace-nowrap">{viewAgent.phone || '—'}</span>
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2 w-full sm:w-auto mt-3 sm:mt-0">
                         <button
                           type="button"
                           onClick={() => {
@@ -2265,10 +2265,10 @@ const ManageAgentsPage = () => {
                             setViewProfile(null);
                             setTimeout(() => openProfile(a), 0);
                           }}
-                          className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-full text-sm font-medium transition-colors flex items-center gap-2"
+                          className="w-full sm:w-auto px-3 sm:px-4 py-2 sm:py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-full text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-sm"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                          Edit Profile
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 flex-shrink-0"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                          <span className="whitespace-nowrap">Edit Profile</span>
                         </button>
                         <button
                           type="button"
@@ -2279,19 +2279,20 @@ const ManageAgentsPage = () => {
                             setViewProfile(null);
                             setTimeout(() => openProfile(a), 0);
                           }}
-                          className="px-4 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-full text-sm font-medium border border-gray-300 transition-colors flex items-center gap-2"
+                          className="w-full sm:w-auto px-3 sm:px-4 py-2 sm:py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-full text-xs sm:text-sm font-medium border border-gray-300 transition-colors flex items-center justify-center gap-2 shadow-sm"
                         >
-                          <Upload className="w-4 h-4" />
-                          Upload Document
+                          <Upload className="w-4 h-4 flex-shrink-0" />
+                          <span className="whitespace-nowrap hidden sm:inline">Upload Document</span>
+                          <span className="whitespace-nowrap sm:hidden">Documents</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDeactivate(viewAgent?._id)}
-                          className="px-4 py-2.5 bg-white hover:bg-red-50 text-red-600 border border-red-200 rounded-full text-sm font-medium transition-colors flex items-center gap-2"
+                          className="w-full sm:w-auto px-3 sm:px-4 py-2 sm:py-2.5 bg-white hover:bg-red-50 text-red-600 border border-red-200 rounded-full text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-sm"
                           title="Deactivate and delete"
                         >
-                          <UserX className="w-4 h-4" />
-                          Deactivate
+                          <UserX className="w-4 h-4 flex-shrink-0" />
+                          <span className="whitespace-nowrap">Deactivate</span>
                         </button>
                       </div>
                     </div>

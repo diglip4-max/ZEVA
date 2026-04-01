@@ -1839,12 +1839,15 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       // Filter out appointments booked from the room view
       if (apt.bookedFrom === 'room') return false;
 
+      // Filter out cancelled appointments so cancelled slots can be re-booked
+      if (apt.status === 'Cancelled') return false;
+
       // Compare dates in local timezone to match the selectedDate
       const aptDate = formatDateLocal(apt.startDate);
       if (aptDate !== selectedDate) {
         return false;
       }
-      // NOTE: We do NOT filter by status - all statuses (booked, Arrived, Consultation, etc.) should be shown
+      // NOTE: All non-cancelled statuses (booked, Arrived, Consultation, etc.) are shown
      
       const rowStart = timeStringToMinutes(slotTime);
       const rowEnd = rowStart + ROW_INTERVAL_MINUTES;
@@ -1856,8 +1859,8 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   };
 
   // Get appointments for a specific room and row
-  // IMPORTANT: Show ALL appointments regardless of status (booked, Arrived, Consultation, Cancelled, etc.)
   // Show appointments in room column if they match the room AND were not booked specifically from doctor view
+  // Cancelled appointments are excluded so their slots can be re-booked
   const getRoomAppointmentsForRow = (roomId: string, slotTime: string): Appointment[] => {
     return appointments.filter((apt) => {
       if (apt.roomId !== roomId) return false;
@@ -1865,10 +1868,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       // Filter out appointments booked from the doctor view
       if (apt.bookedFrom === 'doctor') return false;
 
+      // Filter out cancelled appointments so cancelled slots can be re-booked
+      if (apt.status === 'Cancelled') return false;
+
       // Compare dates in local timezone to match the selectedDate
       const aptDate = formatDateLocal(apt.startDate);
       if (aptDate !== selectedDate) return false;
-      // NOTE: We do NOT filter by status - all statuses (booked, Arrived, Consultation, etc.) should be shown
+      // NOTE: All non-cancelled statuses (booked, Arrived, Consultation, etc.) are shown
 
       const rowStart = timeStringToMinutes(slotTime);
       const rowEnd = rowStart + ROW_INTERVAL_MINUTES;
@@ -2606,19 +2612,7 @@ useEffect(() => {
                 <div>
                   <h1 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-900">Appointment Schedule</h1>
                   <p className="text-xs text-gray-700 dark:text-gray-800">
-                    {clinic?.name}{clinic?.timings
-                      ? Array.isArray(clinic.timings)
-                        ? (() => {
-                            const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-                            const dayName = DAYS[new Date(selectedDate + 'T00:00:00').getDay()];
-                            const entry = (clinic.timings as any[]).find((t: any) => t.day === dayName);
-                            if (!entry) return '';
-                            return entry.isOpen
-                              ? ` \u2022 ${entry.openingTime} - ${entry.closingTime}`
-                              : ` \u2022 Closed on ${dayName}`;
-                          })()
-                        : ` \u2022 ${clinic.timings}`
-                      : ' \u2022 No timings set'}
+                    {clinic?.name}
                   </p>
                 </div>
                 <div className="flex sm:flex-row sm:items-center gap-3">
@@ -3079,28 +3073,30 @@ useEffect(() => {
 
             <div className="border border-gray-200 dark:border-gray-300 rounded bg-white dark:bg-gray-50 flex" style={{ maxHeight: '75vh' }}>
               {/* LEFT: Fixed time column - physically outside horizontal scroll */}
-              <div
-                ref={timeScrollRef}
-                className="flex-shrink-0 w-16 border-r border-gray-200 dark:border-gray-300 overflow-y-auto bg-white dark:bg-gray-50 scrollbar-hide"
-              >
-                {/* Time header */}
-                <div className="sticky top-0 z-50 bg-gray-50 dark:bg-gray-200 border-b border-gray-200 dark:border-gray-300 p-1">
+              <div className="flex-shrink-0 w-16 border-r border-gray-200 dark:border-gray-300 flex flex-col bg-white dark:bg-gray-50">
+                {/* Time header - fixed outside the scroll area, always visible */}
+                <div className="flex-shrink-0 bg-gray-50 dark:bg-gray-200 border-b border-gray-200 dark:border-gray-300 p-1.5 flex items-center z-50" style={{ height: '36px' }}>
                   <div className="flex items-center gap-0.5 text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900">
-                    <Clock className="w-2.5 h-2.5" />
+                    <Clock className="w-3 h-3" />
                     <span>Time</span>
                   </div>
                 </div>
-                {/* Time slot labels */}
-                {timeSlots.map((slot) => (
-                  <div
-                    key={slot.time}
-                    className="border-b border-gray-100 dark:border-gray-300 p-1 relative bg-white dark:bg-gray-50 hover:bg-gray-50/50 dark:hover:bg-gray-100/50"
-                    style={{ height: ROW_HEIGHT_PX }}
-                  >
-                    <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900">{slot.displayTime}</p>
-                    <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 dark:border-gray-300 pointer-events-none" />
-                  </div>
-                ))}
+                {/* Time slot labels - overflow-y-hidden so only data area scroll controls position */}
+                <div
+                  ref={timeScrollRef}
+                  className="flex-1 overflow-y-hidden bg-white dark:bg-gray-50"
+                >
+                  {timeSlots.map((slot) => (
+                    <div
+                      key={slot.time}
+                      className="border-b border-gray-100 dark:border-gray-300 p-1 relative bg-white dark:bg-gray-50"
+                      style={{ height: ROW_HEIGHT_PX }}
+                    >
+                      <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900">{slot.displayTime}</p>
+                      <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 dark:border-gray-300 pointer-events-none" />
+                    </div>
+                  ))}
+                </div>
               </div>
               {/* RIGHT: Scrollable data area - scrolls both horizontally and vertically */}
               <div
@@ -3113,7 +3109,7 @@ useEffect(() => {
                 }}
               >
             {/* Header with doctor names and rooms */}
-              <div className="flex bg-gray-50 dark:bg-gray-200 border-b border-gray-200 dark:border-gray-300 sticky top-0 z-[40]" style={{ minWidth: 'max-content' }}>
+              <div className="flex bg-gray-50 dark:bg-gray-200 border-b border-gray-200 dark:border-gray-300 sticky top-0 z-[40]" style={{ minWidth: 'max-content', height: '36px' }}>
               {/* Unified columns (doctors and rooms in order) */}
                 {orderedColumns.map((column, index) => {
                   const columnKey = column.type === "doctor" ? `doctor:${column.data._id}` : `room:${column.data._id}`;

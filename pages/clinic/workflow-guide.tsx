@@ -5,6 +5,18 @@ import Link from "next/link";
 import Layout from "../../components/Layout";
 import withClinicAuth from "../../components/withClinicAuth";
 import type { NextPageWithLayout } from "../_app";
+import ManageHealthCenterGuide from "../../components/clinic/ManageHealthCenterGuide";
+import CreateOffersGuide from "../../components/clinic/CreateOffersGuide";
+import UserPackagesGuide from "../../components/clinic/UserPackagesGuide";
+import ServicesGuide from "../../components/clinic/ServicesGuide";
+import SetupOperationGuide from "../../components/clinic/SetupOperationGuide";
+import ConsentFormGuide from "../../components/clinic/ConsentFormGuide";
+import JobPostingGuide from "../../components/clinic/JobPostingGuide";
+import CommissionGuide from "../../components/clinic/CommissionGuide";
+import ClinicManagementGuide from "../../components/clinic/ClinicManagementGuide";
+import ReferralGuide from "../../components/clinic/ReferralGuide";
+import CreateLeadGuide from "../../components/clinic/CreateLeadGuide";
+import { ModernScheduler } from "../../components/clinic/ModernScheduler";
 import {
   UserPlus,
   Calendar,
@@ -16,22 +28,31 @@ import {
   CheckCircle,
   ArrowRight,
   BookOpen,
+  ChevronDown,
+  Filter,
+  Settings,
 } from "lucide-react";
 
 const WorkflowGuide: NextPageWithLayout = () => {
   const [activeSection, setActiveSection] = useState("overview");
+  const [expandedModules, setExpandedModules] = useState<string[]>(["business-management"]);
+  const [selectedSubItem, setSelectedSubItem] = useState<string | null>(null);
+  
   // State for image slideshow in different sections
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
-  // Images for setup-operation slideshow
-  const setupImages = ["/room.png", "/dept.png", "/package.png"];
-  
-  const nextSetupImage = () => {
-    setCurrentImageIndex((prevIndex) => (prevIndex + 1) % setupImages.length);
-  };
-  
-  const prevSetupImage = () => {
-    setCurrentImageIndex((prevIndex) => (prevIndex - 1 + setupImages.length) % setupImages.length);
+  // Helper function to get auth headers
+  const getAuthHeaders = (): Record<string, string> => {
+    if (typeof window === "undefined") return {};
+    const token = 
+      localStorage.getItem("clinicToken") || 
+      sessionStorage.getItem("clinicToken") ||
+      localStorage.getItem("agentToken") ||
+      sessionStorage.getItem("agentToken");
+    if (!token) return {};
+    return {
+      Authorization: `Bearer ${token}`,
+    };
   };
   
   // Images for appointment slideshow
@@ -75,78 +96,110 @@ const WorkflowGuide: NextPageWithLayout = () => {
       description: "Complete clinic workflow from registration to daily operations"
     },
     {
-      id: "registration",
-      title: "User Registration",
-      icon: <UserPlus className="w-5 h-5" />,
-      description: "Create your clinic account and get started"
-    },
-    {
-      id: "login",
-      title: "Login Process",
-      icon: <CheckCircle className="w-5 h-5" />,
-      description: "Access your clinic dashboard securely"
-    },
-    {
       id: "dashboard",
-      title: "Dashboard Overview",
+      title: "Dashboard",
       icon: <Building2 className="w-5 h-5" />,
       description: "Navigate through all available modules"
     },
     {
-      id: "health-center",
-      title: "Manage Health Center",
-      icon: <Building2 className="w-5 h-5" />,
-      description: "View and edit your clinic profile details"
-    },
-    {
-      id: "create-agent",
-      title: "Create Agent",
-      icon: <Users className="w-5 h-5" />,
-      description: "Add doctors and agents with clear role definitions"
-    },
-    {
-      id: "create-lead",
-      title: "Create Lead",
-      icon: <UserPlus className="w-5 h-5" />,
-      description: "Add new leads and manage the complete lead process"
-    },
-    {
-      id: "setup-operation",
-      title: "Setup Operation",
-      icon: <ClipboardList className="w-5 h-5" />,
-      description: "Configure operational settings like rooms and services"
-    },
-    {
-      id: "appointment",
-      title: "Appointment Booking",
-      icon: <Calendar className="w-5 h-5" />,
-      description: "Book appointments with doctors, rooms, and time slots"
-    },
-    {
-      id: "scheduled-appointments",
-      title: "Scheduled Appointments",
-      icon: <Calendar className="w-5 h-5" />,
-      description: "View and manage all upcoming appointments"
-    },
-    {
-      id: "job-posting",
-      title: "Job Posting",
+      id: "business-management",
+      title: "Business Management",
       icon: <Briefcase className="w-5 h-5" />,
-      description: "Post job requirements and manage recruitment"
+     
+      children: [
+        { label: "Manage Health Center", id: "manage-health-center", icon: "🏥" },
+        { label: "Create Offers", id: "create-offers", icon: "🎁" },
+        { label: "User Package", id: "user-package", icon: "📦" },
+        { label: "Service Setup", id: "service-setup", icon: "⚙️" },
+        { label: "Setup & Operation", id: "setup-operation", icon: "🏢" },
+      ]
     },
     {
-      id: "patient-registration",
-      title: "Patient Registration",
+      id: "hr-management",
+      title: "HR Management",
       icon: <Users className="w-5 h-5" />,
-      description: "Register patients and manage their details"
+      
+      children: [
+        { label: "Consent Form", id: "consent-form", icon: "📝" },
+        { label: "Job Posting", id: "job-posting", icon: "📋" },
+        { label: "Commission", id: "commission", icon: "💰" },
+        { label: "Referral", id: "referral", icon: "🎯" },
+        { label: "Create Agent", id: "create-agent", icon: "👤" },
+      ]
     },
     {
-      id: "write-blog",
-      title: "Write Blog",
+      id: "marketing",
+      title: "Marketing",
+      icon: <UserPlus className="w-5 h-5" />,
+     
+      children: [
+        { label: "Create Lead", id: "create-lead", icon: "➕" },
+        { label: "Inbox", id: "inbox", icon: "📨" },
+        { label: "Templates", id: "templates", icon: "📄" },
+        { label: "Providers", id: "providers", icon: "👥" },
+        { label: "Reviews", id: "reviews", icon: "⭐" },
+      ]
+    },
+    {
+      id: "content-seo",
+      title: "Content & SEO",
       icon: <FileText className="w-5 h-5" />,
-      description: "Create and publish blogs using the clinic sidebar"
+     
+      children: [
+        { label: "Write Blog", id: "write-blog", icon: "✍️" },
+      ]
+    },
+    {
+      id: "stock-management",
+      title: "Stock Management",
+      icon: <ClipboardList className="w-5 h-5" />,
+      
+      children: [
+        { label: "Locations", id: "locations", icon: "📍" },
+        { label: "Suppliers", id: "suppliers", icon: "🏭" },
+        { label: "UOM", id: "uom", icon: "📏" },
+        { label: "Purchase Requests", id: "purchase-requests", icon: "📝" },
+        { label: "Purchase Orders", id: "purchase-orders", icon: "🛒" },
+      ]
+    },
+    {
+      id: "security-privacy",
+      title: "Security & Privacy",
+      icon: <CheckCircle className="w-5 h-5" />,
+      description: "Authentication and security settings"
+    },
+    {
+      id: "patients-appointments",
+      title: "Patients & Appointments",
+      icon: <Calendar className="w-5 h-5" />,
+      
+      children: [
+        { label: "Book Appointments", id: "book-appointments", icon: "📅" },
+        { label: "Scheduled Appointments", id: "scheduled-appointments", icon: "✅" },
+        { label: "Patient Registration", id: "patient-registration", icon: "👤" },
+        { label: "Patient Information", id: "patient-information", icon: "📋" },
+      ]
+    },
+    {
+      id: "reports-analytics",
+      title: "Reports & Analytics",
+      icon: <ClipboardList className="w-5 h-5" />,
+     
+      children: [
+      
+        { label: "Petty Cash", id: "petty-cash", icon: "💵" },
+        { label: "Reports", id: "reports", icon: "📊" },
+      ]
     }
   ];
+
+  const toggleModule = (moduleId: string) => {
+    setExpandedModules(prev => 
+      prev.includes(moduleId) 
+        ? prev.filter(id => id !== moduleId)
+        : [...prev, moduleId]
+    );
+  };
 
   const renderSectionContent = () => {
     switch (activeSection) {
@@ -214,120 +267,108 @@ const WorkflowGuide: NextPageWithLayout = () => {
           </div>
         );
 
-      case "registration":
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center gap-3 mb-6">
-              <UserPlus className="w-8 h-8 text-teal-600" />
-              <h2 className="text-2xl font-bold text-gray-900">User Registration</h2>
-            </div>
-            
-            <div className="prose max-w-none">
-              <h3 className="text-xl font-semibold text-gray-800 mb-3">Getting Started</h3>
-              <p className="text-gray-600 mb-4">
-                The first step in your ZEVA journey is to create a clinic account. This process is simple and straightforward.
-              </p>
-              
-              <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-                <h4 className="font-semibold text-blue-800 mb-2">Registration Process:</h4>
-                <ol className="list-decimal list-inside space-y-2 text-blue-700">
-                  <li>Visit the clinic registration page</li>
-                  <li>Enter your clinic details including name, address, and contact information</li>
-                  <li>Set up your pricing and working hours</li>
-                  <li>Verify your email address</li>
-                  <li>Complete the profile setup</li>
-                </ol>
+      case "business-management":
+        // If create-offers sub-item is selected, show CreateOffersGuide
+        if (selectedSubItem === "create-offers") {
+          return <CreateOffersGuide />;
+        }
+        // If user-package sub-item is selected, show UserPackagesGuide
+        if (selectedSubItem === "user-package") {
+          return <UserPackagesGuide />;
+        }
+        if (selectedSubItem === "service-setup") {
+          return <ServicesGuide />;
+        }
+        if (selectedSubItem === "setup-operation") {
+          return <SetupOperationGuide />;
+        }
+        // Otherwise show ManageHealthCenterGuide (default)
+        return <ManageHealthCenterGuide selectedSubItem={selectedSubItem} />;
+
+      case "hr-management":
+        // If no sub-item selected, show default message
+        if (!selectedSubItem) {
+          return (
+            <div className="max-w-4xl mx-auto px-6 py-12">
+              <div className="text-center mb-8">
+                <Users className="w-16 h-16 text-teal-600 mx-auto mb-4" />
+                <h2 className="text-3xl font-bold text-gray-900 mb-2">HR Management</h2>
+                <p className="text-gray-600">Select a Section</p>
               </div>
-              
-              <h4 className="text-lg font-semibold text-gray-800 mb-3">Required Information</h4>
-              <div className="grid md:grid-cols-2 gap-6 mb-6">
-                <div className="bg-white border border-gray-200 rounded-lg p-4 h-full flex flex-col">
-                  <h4 className="font-semibold text-gray-800 mb-3">Registration Features:</h4>
-                  <ul className="space-y-2 text-gray-700 flex-grow">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Simple clinic account creation
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Secure email verification process
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Profile completion wizard
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Instant dashboard access after setup
-                    </li>
-                  </ul>
-                </div>
-                
-                <div className="bg-white border border-gray-200 rounded-lg p-4 h-full flex flex-col">
-                  <h4 className="font-semibold text-gray-800 mb-3">Required Information:</h4>
-                  <ul className="space-y-2 text-gray-700 flex-grow">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-blue-500" />
-                      Clinic name and legal details
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-blue-500" />
-                      Complete physical address
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-blue-500" />
-                      Contact phone and email
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-blue-500" />
-                      Consultation fees and timings
-                    </li>
-                  </ul>
-                </div>
-              </div>
-              
-              <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-6">
-                <h4 className="font-semibold text-yellow-800 mb-2">Additional Registration Benefits:</h4>
-                <ul className="list-disc list-inside space-y-2 text-yellow-700">
-                  <li>24/7 customer support during setup process</li>
-                  <li>Free training materials and documentation</li>
-                  <li>Priority onboarding assistance</li>
-                  <li>Access to premium features trial</li>
-                  <li>Dedicated account manager assignment</li>
-                </ul>
-              </div>
-              
-              <div className="bg-purple-50 border-l-4 border-purple-500 p-4 mb-6">
-                <h4 className="font-semibold text-purple-800 mb-2">Post-Registration Setup:</h4>
-                <ol className="list-decimal list-inside space-y-2 text-purple-700">
-                  <li>Team member invitations and permissions setup</li>
-                  <li>Integration with existing systems</li>
-                  <li>Customization of clinic branding</li>
-                  <li>Configuration of appointment types and durations</li>
-                  <li>Setting up payment methods and insurance panels</li>
-                </ol>
-              </div>
-              
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-semibold text-gray-800 mb-2">Registration Process Screenshot</h4>
-                <div className="border-2 border-gray-300 rounded-lg min-h-[400px] overflow-hidden bg-white">
-                  <img 
-                    src="/image9.png" 
-                    alt="User Registration Form" 
-                    className="w-full h-full object-contain p-4"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      target.nextElementSibling?.classList.remove('hidden');
-                    }}
-                  />
-                  <div className="hidden w-full h-full flex items-center justify-center text-gray-500">
-                    <div className="text-center">
-                      <UserPlus className="w-12 h-12 mx-auto mb-2" />
-                      <p>Registration form screenshot</p>
-                      <p className="text-sm">(Image will appear here)</p>
-                    </div>
+              <div className="bg-blue-50 border-l-4 border-blue-500 p-8 rounded-r-lg shadow-sm">
+                <div className="flex items-start gap-4">
+                  <BookOpen className="w-8 h-8 text-blue-600 flex-shrink-0 mt-1" />
+                  <div>
+                    <h3 className="font-semibold text-blue-900 mb-2">Choose a workflow section from the navigation to get started</h3>
+                    <ul className="list-disc list-inside space-y-2 text-sm text-blue-700 mt-4">
+                      <li>Click on any item in the left sidebar navigation</li>
+                      <li>View detailed guides and documentation</li>
+                      <li>Follow step-by-step instructions for each topic</li>
+                    </ul>
                   </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        
+        if (selectedSubItem === "consent-form") {
+          return <ConsentFormGuide />;
+        }
+        if (selectedSubItem === "job-posting") {
+          return <JobPostingGuide />;
+        }
+        if (selectedSubItem === "commission") {
+          return <CommissionGuide />;
+        }
+        if (selectedSubItem === "referral") {
+          return <ReferralGuide />;
+        }
+        
+        if (selectedSubItem === "create-agent") {
+          return <ClinicManagementGuide />;
+        }
+        // For other HR management items, you can add more cases here
+        // Default: show a message or generic HR guide
+        return (
+          <div className="max-w-7xl mx-auto px-6 py-8">
+            <div className="flex items-center gap-3 mb-8">
+              <Users className="w-10 h-10 text-teal-600" />
+              <h2 className="text-3xl font-bold text-gray-900">HR Management</h2>
+            </div>
+            <div className="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-r-lg">
+              <p className="text-base text-blue-800">
+                Select a specific HR management topic from the menu to view detailed guidance.
+              </p>
+            </div>
+          </div>
+        );
+
+      case "marketing":
+        // If create-lead sub-item is selected, show CreateLeadGuide
+        if (selectedSubItem === "create-lead") {
+          return <CreateLeadGuide />;
+        }
+        // Default: show marketing overview message
+        return (
+          <div className="max-w-4xl mx-auto px-6 py-12">
+            <div className="text-center mb-8">
+              <UserPlus className="w-16 h-16 text-purple-600 mx-auto mb-4" />
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Marketing</h2>
+              <p className="text-gray-600">Select a Section</p>
+            </div>
+            <div className="bg-purple-50 border-l-4 border-purple-500 p-8 rounded-r-lg shadow-sm">
+              <div className="flex items-start gap-4">
+                <FileText className="w-8 h-8 text-purple-600 flex-shrink-0 mt-1" />
+                <div>
+                  <h3 className="font-semibold text-purple-900 mb-2">Choose a marketing section from the navigation to get started</h3>
+                  <ul className="list-disc list-inside space-y-2 text-sm text-purple-700 mt-4">
+                    <li>Create Lead - Add new prospects to your CRM</li>
+                    <li>Inbox - Manage all communications</li>
+                    <li>Templates - Email and SMS templates</li>
+                    <li>Providers - Marketing service providers</li>
+                    <li>Reviews - Patient reviews and ratings</li>
+                  </ul>
                 </div>
               </div>
             </div>
@@ -520,7 +561,7 @@ const WorkflowGuide: NextPageWithLayout = () => {
 
       case "health-center":
         // Array of images for the slideshow
-        const images = ["/clinic.png", "/manage.png"];
+        const images = ["/image.png", "/manage.png"];
         
         const nextImage = () => {
           setCurrentImageIndex((prevIndex) => (prevIndex + 1) % images.length);
@@ -838,269 +879,11 @@ const WorkflowGuide: NextPageWithLayout = () => {
           </div>
         );
 
-      case "create-lead":
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center gap-3 mb-6">
-              <UserPlus className="w-8 h-8 text-teal-600" />
-              <h2 className="text-2xl font-bold text-gray-900">Create Lead</h2>
-            </div>
-            
-            <div className="prose max-w-none">
-              <h3 className="text-xl font-semibold text-gray-800 mb-3">Lead Management System</h3>
-              <p className="text-gray-600 mb-4">
-                Add new leads and manage the complete lead creation and conversion process.
-              </p>
-              
-              <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-6">
-                <h4 className="font-semibold text-green-800 mb-2">Lead Creation Process:</h4>
-                <ol className="list-decimal list-inside space-y-2 text-green-700">
-                  <li>Enter lead source and basic information</li>
-                  <li>Provide contact details (name, phone, email)</li>
-                  <li>Specify service interest and requirements</li>
-                  <li>Assign to appropriate staff member</li>
-                  <li>Set follow-up reminders and deadlines</li>
-                </ol>
-              </div>
-              
-              <div className="grid md:grid-cols-2 gap-6 mb-6 h-full">
-                <div className="bg-white border border-gray-200 rounded-lg p-4 h-full flex flex-col">
-                  <h4 className="font-semibold text-gray-800 mb-3">Lead Information Required:</h4>
-                  <ul className="space-y-2 text-gray-700 flex-grow">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Personal details (name, contact)
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Service requirements
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Preferred appointment timing
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Source of lead information
-                    </li>
-                  </ul>
-                </div>
-                
-                <div className="bg-gray-50 rounded-lg p-4 h-full">
-                  <h4 className="font-semibold text-gray-800 mb-2">Lead Management Features:</h4>
-                  <ul className="space-y-2 text-gray-700">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-blue-500" />
-                      Lead status tracking
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-blue-500" />
-                      Assignment to team members
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-blue-500" />
-                      Follow-up scheduling
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-blue-500" />
-                      Conversion tracking
-                    </li>
-                  </ul>
-                </div>
-              </div>
-              
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-semibold text-gray-800 mb-2">Screenshot: Lead Creation Interface</h4>
-                <div className="border-2 border-gray-300 rounded-lg min-h-[400px] overflow-hidden bg-white">
-                  <img 
-                    src="/lead.png" 
-                    alt="Lead Creation Interface" 
-                    className="w-full h-full object-contain p-4"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      target.nextElementSibling?.classList.remove('hidden');
-                    }}
-                  />
-                  <div className="hidden w-full h-full flex items-center justify-center text-gray-500">
-                    <div className="text-center">
-                      <UserPlus className="w-12 h-12 mx-auto mb-2" />
-                      <p>Lead creation and management form</p>
-                      <p className="text-sm">Complete lead lifecycle management</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
+      case "service-setup":
+        return <ServicesGuide />;
 
       case "setup-operation":
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center gap-3 mb-6">
-              <ClipboardList className="w-8 h-8 text-teal-600" />
-              <h2 className="text-2xl font-bold text-gray-900">Setup Operation</h2>
-            </div>
-            
-            <div className="prose max-w-none">
-              <h3 className="text-xl font-semibold text-gray-800 mb-3">Operational Configuration</h3>
-              <p className="text-gray-600 mb-4">
-                Configure your clinic's operational settings including rooms, services, and facilities.
-              </p>
-              
-              <div className="bg-orange-50 border-l-4 border-orange-500 p-4 mb-6">
-                <h4 className="font-semibold text-orange-800 mb-2">Operational Setup Includes:</h4>
-                <div className="grid md:grid-cols-3 gap-4 mt-3">
-                  <div className="bg-white rounded-lg p-3">
-                    <h5 className="font-semibold text-orange-700 mb-2">Rooms Setup</h5>
-                    <ul className="text-sm text-orange-600 space-y-1">
-                      <li>• Create examination rooms</li>
-                      <li>• Set room capacities</li>
-                      <li>• Define room purposes</li>
-                      <li>• Schedule maintenance</li>
-                    </ul>
-                  </div>
-                  <div className="bg-white rounded-lg p-3">
-                    <h5 className="font-semibold text-orange-700 mb-2">Services Configuration</h5>
-                    <ul className="text-sm text-orange-600 space-y-1">
-                      <li>• Define service categories</li>
-                      <li>• Set service prices</li>
-                      <li>• Configure service duration</li>
-                      <li>• Manage service availability</li>
-                    </ul>
-                  </div>
-                  <div className="bg-white rounded-lg p-3">
-                    <h5 className="font-semibold text-orange-700 mb-2">Facility Management</h5>
-                    <ul className="text-sm text-orange-600 space-y-1">
-                      <li>• Equipment inventory</li>
-                      <li>• Staff scheduling</li>
-                      <li>• Resource allocation</li>
-                      <li>• Operational hours</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="grid md:grid-cols-2 gap-6 mb-6">
-                <div className="bg-white border border-gray-200 rounded-lg p-4 h-full flex flex-col">
-                  <h4 className="font-semibold text-gray-800 mb-3">Room Setup Features:</h4>
-                  <ul className="space-y-2 text-gray-700 flex-grow">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Create and name examination rooms
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Set room capacities and equipment
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Define room purposes and availability
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Schedule maintenance and cleaning
-                    </li>
-                  </ul>
-                </div>
-                
-                <div className="bg-white border border-gray-200 rounded-lg p-4 h-full flex flex-col">
-                  <h4 className="font-semibold text-gray-800 mb-3">Department Management:</h4>
-                  <ul className="space-y-2 text-gray-700 flex-grow">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-blue-500" />
-                      Create and organize departments
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-blue-500" />
-                      Assign staff to departments
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-blue-500" />
-                      Manage department workflows
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-blue-500" />
-                      Track department performance
-                    </li>
-                  </ul>
-                </div>
-              </div>
-              
-              <div className="bg-orange-50 border-l-4 border-orange-500 p-4 mb-6">
-                <h4 className="font-semibold text-orange-800 mb-2">Advanced Setup Features:</h4>
-                <ul className="list-disc list-inside space-y-2 text-orange-700">
-                  <li>Automated room scheduling optimization</li>
-                  <li>Resource allocation algorithms</li>
-                  <li>Integration with medical equipment APIs</li>
-                  <li>Custom workflow automation rules</li>
-                  <li>Real-time capacity monitoring</li>
-                </ul>
-              </div>
-              
-              <div className="bg-cyan-50 border-l-4 border-cyan-500 p-4 mb-6">
-                <h4 className="font-semibold text-cyan-800 mb-2">Setup Best Practices:</h4>
-                <ol className="list-decimal list-inside space-y-2 text-cyan-700">
-                  <li>Plan room layouts based on patient flow patterns</li>
-                  <li>Configure services according to staff expertise</li>
-                  <li>Set realistic operational hours and capacity limits</li>
-                  <li>Establish clear department communication protocols</li>
-                  <li>Regular review and optimization of setup configurations</li>
-                </ol>
-              </div>
-              
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-semibold text-gray-800 mb-2">Operations Setup Interface</h4>
-                <div className="border-2 border-gray-300 rounded-lg min-h-[400px] overflow-hidden bg-white relative">
-                  <div className="relative h-[400px] overflow-hidden">
-                    <img 
-                      src={setupImages[currentImageIndex]} 
-                      alt="Operations Setup" 
-                      className="w-full h-full object-contain p-4"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                        target.nextElementSibling?.classList.remove('hidden');
-                      }}
-                    />
-                    <div className="hidden w-full h-full flex items-center justify-center text-gray-500">
-                      <div className="text-center">
-                        <ClipboardList className="w-12 h-12 mx-auto mb-2" />
-                        <p>Operational setup interface</p>
-                        <p className="text-sm">Rooms, services, and facility configuration</p>
-                      </div>
-                    </div>
-                  </div>
-                  <button 
-                    className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-md transition-all"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      prevSetupImage();
-                    }}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-700" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                  <button 
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-md transition-all"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      nextSetupImage();
-                    }}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-700" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
+        return <SetupOperationGuide />;
 
       case "appointment":
         return (
@@ -1111,209 +894,195 @@ const WorkflowGuide: NextPageWithLayout = () => {
             </div>
             
             <div className="prose max-w-none">
-              <h3 className="text-xl font-semibold text-gray-800 mb-3">Scheduling System</h3>
+              <h3 className="text-xl font-semibold text-gray-800 mb-3">Modern Scheduler Interface</h3>
               <p className="text-gray-600 mb-4">
-                Book appointments by selecting doctors, rooms, and appropriate time slots.
+                Interactive calendar-based appointment scheduling system. Click on any empty time slot to book an appointment, or hover over existing appointments to view details.
               </p>
               
               <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-                <h4 className="font-semibold text-blue-800 mb-2">Appointment Booking Process:</h4>
+                <h4 className="font-semibold text-blue-800 mb-2">How to Use:</h4>
                 <ol className="list-decimal list-inside space-y-2 text-blue-700">
-                  <li>Select the date for the appointment</li>
-                  <li>Choose available doctor from the list</li>
-                  <li>Select appropriate room/facility</li>
-                  <li>Pick available time slot</li>
-                  <li>Enter patient details</li>
-                  <li>Confirm and send appointment notification</li>
+                  <li>Click any empty time slot to book a new appointment</li>
+                  <li>Use filters to search for specific patients, doctors, or rooms</li>
+                  <li>Navigate dates using the date picker at the top</li>
+                  <li>Hover over appointment cards to see full details</li>
+                  <li>Customize status colors using the "Colors" button</li>
                 </ol>
               </div>
-              
-              <div className="grid md:grid-cols-3 gap-4 mb-6 h-full">
-                <div className="bg-white border border-gray-200 rounded-lg p-4 h-full flex flex-col">
-                  <h4 className="font-semibold text-gray-800 mb-2">Doctor Selection</h4>
-                  <p className="text-sm text-gray-600 flex-grow">Choose from available doctors based on specialization and availability</p>
-                </div>
-                <div className="bg-white border border-gray-200 rounded-lg p-4 h-full flex flex-col">
-                  <h4 className="font-semibold text-gray-800 mb-2">Room Assignment</h4>
-                  <p className="text-sm text-gray-600 flex-grow">Select appropriate examination room based on procedure requirements</p>
-                </div>
-                <div className="bg-white border border-gray-200 rounded-lg p-4 h-full flex flex-col">
-                  <h4 className="font-semibold text-gray-800 mb-2">Time Slot Management</h4>
-                  <p className="text-sm text-gray-600 flex-grow">Choose from available time slots with real-time availability updates</p>
-                </div>
+
+              {/* Modern Scheduler Component */}
+              <div className="bg-white dark:bg-gray-50 rounded-xl shadow-sm border border-gray-200 dark:border-gray-300 overflow-hidden">
+                <ModernScheduler
+                  clinicId="workflow-guide"
+                  initialDate={new Date().toISOString().split("T")[0]}
+                  viewMode="both"
+                  getAuthHeaders={getAuthHeaders}
+                  enableDragDrop={true}
+                  showColorSettings={true}
+                  onBookAppointment={(appointment) => {
+                    console.log("✅ Appointment booked in workflow guide:", appointment);
+                  }}
+                  onEditAppointment={(appointment) => {
+                    console.log("✏️ Editing appointment in workflow guide:", appointment);
+                  }}
+                />
               </div>
               
-              <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-6">
-                <h4 className="font-semibold text-green-800 mb-2">Advanced Booking Features:</h4>
-                <ul className="list-disc list-inside space-y-2 text-green-700">
-                  <li>Automated conflict detection and resolution</li>
-                  <li>Recurring appointment scheduling</li>
-                  <li>Integration with medical record systems</li>
-                  <li>Custom appointment types and durations</li>
-                  <li>Resource allocation optimization</li>
-                </ul>
-              </div>
-              
-              <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
-                <h4 className="font-semibold text-red-800 mb-2">Booking Best Practices:</h4>
-                <ol className="list-decimal list-inside space-y-2 text-red-700">
-                  <li>Verify patient availability before scheduling</li>
-                  <li>Consider doctor expertise and room requirements</li>
-                  <li>Allow buffer time between appointments</li>
-                  <li>Send automated reminders to reduce no-shows</li>
-                  <li>Regular review of booking patterns and optimization</li>
-                </ol>
-              </div>
-              
-              <div className="bg-gray-50 rounded-lg p-4 h-full">
-                <h4 className="font-semibold text-gray-800 mb-2">Screenshot: Appointment Booking Interface</h4>
-                <div className="border-2 border-gray-300 rounded-lg h-full min-h-[400px] overflow-hidden bg-white relative">
-                  <div className="relative h-[400px] overflow-hidden">
-                    <img 
-                      src={appointmentImages[currentImageIndex]} 
-                      alt="Appointment Booking Interface" 
-                      className="w-full h-full object-contain p-4"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                        target.nextElementSibling?.classList.remove('hidden');
-                      }}
-                    />
-                    <div className="hidden w-full h-full flex items-center justify-center text-gray-500">
-                      <div className="text-center">
-                        <Calendar className="w-16 h-16 mx-auto mb-2" />
-                        <p>Appointment scheduling calendar view</p>
-                        <p className="text-sm">Doctor, room, and time slot selection interface</p>
-                      </div>
-                    </div>
-                  </div>
-                  <button 
-                    className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-md transition-all"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      prevAppointmentImage();
-                    }}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-700" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                  <button 
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-md transition-all"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      nextAppointmentImage();
-                    }}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-700" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                    </svg>
-                  </button>
+              <div className="grid md:grid-cols-3 gap-4 mb-6 mt-6">
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-blue-600" />
+                    Calendar View
+                  </h4>
+                  <p className="text-sm text-gray-600">
+                    Time-based grid with doctors and rooms as columns
+                  </p>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                    <Filter className="w-4 h-4 text-purple-600" />
+                    Smart Filters
+                  </h4>
+                  <p className="text-sm text-gray-600">
+                    Search by patient, filter by doctor/room/status
+                  </p>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                    <Settings className="w-4 h-4 text-green-600" />
+                    Customization
+                  </h4>
+                  <p className="text-sm text-gray-600">
+                    Customize status colors and view preferences
+                  </p>
                 </div>
               </div>
             </div>
           </div>
         );
 
-      case "scheduled-appointments":
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center gap-3 mb-6">
-              <Calendar className="w-8 h-8 text-teal-600" />
-              <h2 className="text-2xl font-bold text-gray-900">Scheduled Appointments</h2>
-            </div>
-            
-            <div className="prose max-w-none">
-              <h3 className="text-xl font-semibold text-gray-800 mb-3">Appointment Management</h3>
-              <p className="text-gray-600 mb-4">
-                View and manage all upcoming appointments with comprehensive scheduling tools.
-              </p>
-              
-              <div className="bg-teal-50 border-l-4 border-teal-500 p-4 mb-6">
-                <h4 className="font-semibold text-teal-800 mb-2">Appointment Management Features:</h4>
-                <ul className="list-disc list-inside space-y-2 text-teal-700">
-                  <li>View all scheduled appointments in calendar format</li>
-                  <li>Filter appointments by date, doctor, or status</li>
-                  <li>Update appointment details and status</li>
-                  <li>Send appointment reminders to patients</li>
-                  <li>Manage appointment conflicts and rescheduling</li>
-                  <li>Track appointment completion and follow-ups</li>
-                </ul>
+      case "patients-appointments":
+        // Handle specific sub-items
+        if (selectedSubItem === "book-appointments") {
+          return (
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 mb-6">
+                <Calendar className="w-8 h-8 text-teal-600" />
+                <h2 className="text-2xl font-bold text-gray-900">Appointment Booking</h2>
               </div>
               
-              <div className="grid md:grid-cols-2 gap-6 mb-6 h-full">
-                <div className="bg-white border border-gray-200 rounded-lg p-4 h-full flex flex-col">
-                  <h4 className="font-semibold text-gray-800 mb-3">Appointment Status Tracking:</h4>
-                  <ul className="space-y-2 text-gray-700 flex-grow">
-                    <li className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                      <span>Scheduled</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                      <span>Confirmed</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                      <span>Completed</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                      <span>Cancelled</span>
-                    </li>
-                  </ul>
-                </div>
+              <div className="prose max-w-none">
+                <h3 className="text-xl font-semibold text-gray-800 mb-3">Modern Scheduler Interface</h3>
+                <p className="text-gray-600 mb-4">
+                  Interactive calendar-based appointment scheduling system. Click on any empty time slot to book an appointment, or hover over existing appointments to view details.
+                </p>
                 
-                <div className="bg-white border border-gray-200 rounded-lg p-4 h-full">
-                  <h4 className="font-semibold text-gray-800 mb-3">Management Actions:</h4>
-                  <ul className="space-y-2 text-gray-700">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Reschedule appointments
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Send automated reminders
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Update appointment status
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Generate appointment reports
-                    </li>
-                  </ul>
+                <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+                  <h4 className="font-semibold text-blue-800 mb-2">How to Use:</h4>
+                  <ol className="list-decimal list-inside space-y-2 text-blue-700">
+                    <li>Click any empty time slot to book a new appointment</li>
+                    <li>Use filters to search for specific patients, doctors, or rooms</li>
+                    <li>Navigate dates using the date picker at the top</li>
+                    <li>Hover over appointment cards to see full details</li>
+                    <li>Customize status colors using the "Colors" button</li>
+                  </ol>
                 </div>
-              </div>
-              
-              <div className="bg-gray-50 rounded-lg p-4 h-full">
-                <h4 className="font-semibold text-gray-800 mb-2">Screenshot: Appointment Schedule View</h4>
-                <div className="border-2 border-gray-300 rounded-lg h-full min-h-[400px] overflow-hidden bg-white">
-                  <img 
-                    src="/all.png" 
-                    alt="Appointment Schedule View" 
-                    className="w-full h-full object-contain p-4"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      target.nextElementSibling?.classList.remove('hidden');
+
+                {/* Modern Scheduler Component */}
+                <div className="bg-white dark:bg-gray-50 rounded-xl shadow-sm border border-gray-200 dark:border-gray-300 overflow-hidden">
+                  <ModernScheduler
+                    clinicId="workflow-guide"
+                    initialDate={new Date().toISOString().split("T")[0]}
+                    viewMode="both"
+                    getAuthHeaders={getAuthHeaders}
+                    enableDragDrop={true}
+                    showColorSettings={true}
+                    onBookAppointment={(appointment) => {
+                      console.log("✅ Appointment booked in workflow guide:", appointment);
+                    }}
+                    onEditAppointment={(appointment) => {
+                      console.log("✏️ Editing appointment in workflow guide:", appointment);
                     }}
                   />
-                  <div className="hidden w-full h-full flex items-center justify-center text-gray-500">
-                    <div className="text-center">
-                      <Calendar className="w-16 h-16 mx-auto mb-2" />
-                      <p>Comprehensive appointment schedule</p>
-                      <p className="text-sm">Calendar view with all upcoming appointments</p>
-                    </div>
+                </div>
+                
+                <div className="grid md:grid-cols-3 gap-4 mb-6 mt-6">
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-blue-600" />
+                      Calendar View
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      Time-based grid with doctors and rooms as columns
+                    </p>
+                  </div>
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                      <Filter className="w-4 h-4 text-purple-600" />
+                      Smart Filters
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      Search by patient, filter by doctor/room/status
+                    </p>
+                  </div>
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                      <Settings className="w-4 h-4 text-green-600" />
+                      Customization
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      Customize status colors and view preferences
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
+          );
+        }
+        
+        // If no sub-item selected, show default message
+        if (!selectedSubItem) {
+          return (
+            <div className="max-w-4xl mx-auto px-6 py-12">
+              <div className="text-center mb-8">
+                <Calendar className="w-16 h-16 text-teal-600 mx-auto mb-4" />
+                <h2 className="text-3xl font-bold text-gray-900 mb-2">Patients & Appointments</h2>
+                <p className="text-gray-600">Select a Section</p>
+              </div>
+              <div className="bg-blue-50 border-l-4 border-blue-500 p-8 rounded-r-lg shadow-sm">
+                <div className="flex items-start gap-4">
+                  <BookOpen className="w-8 h-8 text-blue-600 flex-shrink-0 mt-1" />
+                  <div>
+                    <h3 className="font-semibold text-blue-900 mb-2">Choose a workflow section from the navigation to get started</h3>
+                    <ul className="list-disc list-inside space-y-2 text-sm text-blue-700 mt-4">
+                      <li>Click on any item in the left sidebar navigation</li>
+                      <li>View detailed guides and documentation</li>
+                      <li>Follow step-by-step instructions for each topic</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        
+        // For other sub-items, you can add more cases here
+        return (
+          <div className="max-w-7xl mx-auto px-6 py-8">
+            <div className="flex items-center gap-3 mb-8">
+              <Calendar className="w-10 h-10 text-teal-600" />
+              <h2 className="text-3xl font-bold text-gray-900">Patients & Appointments</h2>
+            </div>
+            <div className="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-r-lg">
+              <p className="text-base text-blue-800">
+                Select a specific topic from the menu to view detailed guidance.
+              </p>
+            </div>
           </div>
         );
+
+      case "scheduled-appointments":
+        return <ConsentFormGuide />;
 
       case "job-posting":
         return (
@@ -1668,61 +1437,104 @@ const WorkflowGuide: NextPageWithLayout = () => {
       </Head>
 
       <div className="min-h-screen bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-full">
+        <div className="max-w-[1600px] mx-auto px-6 sm:px-8 lg:px-12 py-8 h-full">
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Clinic Workflow Guide</h1>
-                <p className="text-gray-600 mt-2">Complete step-by-step documentation for clinic operations</p>
+                <h1 className="text-4xl font-bold text-gray-900">Clinic Workflow Guide</h1>
+                <p className="text-lg text-gray-600 mt-2">Complete step-by-step documentation for clinic operations</p>
               </div>
               <Link 
                 href="/"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
               >
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-5 h-5" />
                 Back to Zeva
               </Link>
             </div>
           </div>
 
-          <div className="flex flex-col lg:flex-row gap-8 h-full">
+          <div className="flex flex-col lg:flex-row gap-10 h-full">
             {/* Sidebar Navigation */}
-            <div className="lg:w-80 flex-shrink-0">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 h-full flex flex-col">
+            <div className="lg:w-96 flex-shrink-0">
+              <div className="bg-white rounded-xl shadow-lg border border-gray-200 h-full flex flex-col">
                 <div className="p-6 border-b border-gray-200">
-                  <h2 className="font-semibold text-gray-900">Workflow Sections</h2>
+                  <h2 className="text-xl font-semibold text-gray-900">Workflow Sections</h2>
                 </div>
-                <nav className="p-4 flex-1 overflow-y-auto">
-                  <ul className="space-y-1">
-                    {workflowSections.map((section) => (
-                      <li key={section.id}>
-                        <button
-                          onClick={() => setActiveSection(section.id)}
-                          className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${
-                            activeSection === section.id
-                              ? "bg-teal-50 text-teal-700 border border-teal-200"
-                              : "text-gray-700 hover:bg-gray-50"
-                          }`}
-                        >
-                          <span className={activeSection === section.id ? "text-teal-600" : "text-gray-500"}>
-                            {section.icon}
-                          </span>
-                          <div>
-                            <div className="font-medium">{section.title}</div>
-                            <div className="text-sm text-gray-500">{section.description}</div>
+                <nav className="p-5 flex-1 overflow-y-auto">
+                  <ul className="space-y-2">
+                    {workflowSections.map((section) => {
+                      const isExpandable = section.children && section.children.length > 0;
+                      const isExpanded = expandedModules.includes(section.id);
+                      const isActive = activeSection === section.id;
+                      
+                      return (
+                        <li key={section.id}>
+                          <div className="space-y-2">
+                            <button
+                              onClick={() => {
+                                setActiveSection(section.id);
+                                if (isExpandable) {
+                                  toggleModule(section.id);
+                                }
+                              }}
+                              className={`w-full text-left px-5 py-4 rounded-lg flex items-center gap-3 transition-colors ${
+                                isActive
+                                  ? "bg-teal-50 text-teal-700 border-2 border-teal-300"
+                                  : "text-gray-700 hover:bg-gray-50"
+                              }`}
+                            >
+                              <span className={isActive ? "text-teal-600" : "text-gray-500"}>
+                                {section.icon}
+                              </span>
+                              <div className="flex-1">
+                                <div className="font-semibold text-base">{section.title}</div>
+                                <div className="text-sm text-gray-500 line-clamp-2">{section.description}</div>
+                              </div>
+                              {isExpandable && (
+                                <ChevronDown
+                                  className={`w-5 h-5 transition-transform duration-200 ${
+                                    isExpanded ? "rotate-180 text-teal-600" : "text-gray-400"
+                                  }`}
+                                />
+                              )}
+                            </button>
+                            
+                            {/* Sub-items (dropdown) */}
+                            {isExpandable && isExpanded && section.children && (
+                              <div className="ml-9 space-y-1 animate-in slide-in-from-top-2 duration-200">
+                                {section.children.map((child) => (
+                                  <button
+                                    key={child.id}
+                                    onClick={() => {
+                                      setActiveSection(section.id);
+                                      setSelectedSubItem(child.id);
+                                    }}
+                                    className={`w-full flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm transition-all ${
+                                      selectedSubItem === child.id
+                                        ? "bg-teal-100 text-teal-800 border border-teal-200"
+                                        : "text-gray-600 hover:bg-gray-100"
+                                    }`}
+                                  >
+                                    <span className="text-lg">{child.icon}</span>
+                                    <span className="font-medium">{child.label}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                        </button>
-                      </li>
-                    ))}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </nav>
               </div>
             </div>
 
             {/* Main Content */}
-            <div className="flex-1">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 md:p-8 h-full">
+            <div className="flex-1 min-w-0">
+              <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 md:p-10 h-full">
                 {renderSectionContent()}
               </div>
             </div>
