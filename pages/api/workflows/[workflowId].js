@@ -3,6 +3,7 @@ import Clinic from "../../../models/Clinic";
 import Workflow from "../../../models/workflows/Workflow";
 import WorkflowAction from "../../../models/workflows/WorkflowAction";
 import WorkflowCondition from "../../../models/workflows/WorkflowCondition";
+import WorkflowHistory from "../../../models/workflows/WorkflowHistory";
 import WorkflowTrigger from "../../../models/workflows/WorkflowTrigger";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 import mongoose from "mongoose";

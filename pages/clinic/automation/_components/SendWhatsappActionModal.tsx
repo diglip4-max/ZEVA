@@ -284,7 +284,10 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
             whatsappMsgType,
             recipient: recipient === "custom" ? customRecipient : recipient,
             templateName: selectedTemplate?.uniqueName,
-            content: message,
+            content:
+              whatsappMsgType === "template-message"
+                ? selectedTemplate?.content || ""
+                : message,
             variableMappings,
             headerVariableMappings,
             buttonVariableMappings,

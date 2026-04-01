@@ -88,3 +88,17 @@ export const getDynamicRestApiVariables = (
     }),
   );
 };
+
+export const getAiComposerVariables = (outputKey: string) => {
+  if (!outputKey) {
+    return [];
+  }
+  return [
+    {
+      label: outputKey,
+      value: `{{ai_composer.${outputKey}}}`,
+      category: "AI Composer",
+      icon: Webhook, // Make sure RestApi is imported/defined
+    },
+  ];
+};

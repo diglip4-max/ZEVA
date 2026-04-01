@@ -401,7 +401,7 @@ export const workflowWorker = new Worker(
       }).exec();
 
       // Process the workflow
-      await processWorkflow({
+      processWorkflow({
         nodes: workflow.nodes,
         edges: workflow.edges,
         ...rest,
@@ -496,6 +496,7 @@ export const sendWhatsappActionWorker = new Worker(
       // Extract webhook payload
       const webhookPayload = actionData.payload || {};
       const restApiPayload = actionData.api_response || {};
+      const aiComposerPayload = actionData.ai_composer_response || {};
 
       let {
         providerId,
@@ -650,6 +651,7 @@ export const sendWhatsappActionWorker = new Worker(
         "webhook",
         webhookPayload,
       );
+      content = replaceVariableInObject(content, "webhook", webhookPayload);
 
       // Replace header, button and body variables with actual rest api response
       headerVariableMappings = replaceVariableInObject(
@@ -666,6 +668,29 @@ export const sendWhatsappActionWorker = new Worker(
         variableMappings,
         "rest_api",
         restApiPayload,
+      );
+      content = replaceVariableInObject(content, "rest_api", restApiPayload);
+
+      // Replace header, button and body variables with actual ai composer response
+      headerVariableMappings = replaceVariableInObject(
+        headerVariableMappings,
+        "ai_composer",
+        aiComposerPayload,
+      );
+      buttonVariableMappings = replaceVariableInObject(
+        buttonVariableMappings,
+        "ai_composer",
+        aiComposerPayload,
+      );
+      variableMappings = replaceVariableInObject(
+        variableMappings,
+        "ai_composer",
+        aiComposerPayload,
+      );
+      content = replaceVariableInObject(
+        content,
+        "ai_composer",
+        aiComposerPayload,
       );
 
       // Replace header, button and body variables with actual lead data
@@ -685,6 +710,7 @@ export const sendWhatsappActionWorker = new Worker(
         "lead",
         leadPayload,
       );
+      content = replaceVariableInObject(content, "lead", leadPayload);
 
       // Replace header, button and body variables with actual incoming message data
       if (actionData.messageId) {
@@ -701,6 +727,11 @@ export const sendWhatsappActionWorker = new Worker(
         );
         variableMappings = replaceVariableInObject(
           variableMappings,
+          "incoming_message",
+          messagePayload,
+        );
+        content = replaceVariableInObject(
+          content,
           "incoming_message",
           messagePayload,
         );
@@ -724,6 +755,7 @@ export const sendWhatsappActionWorker = new Worker(
           "patient",
           patientPayload,
         );
+        content = replaceVariableInObject(content, "patient", patientPayload);
       }
 
       // Replace header, button and body variables with actual appointment data
@@ -746,6 +778,11 @@ export const sendWhatsappActionWorker = new Worker(
           "appointment",
           appointmentPayload,
         );
+        content = replaceVariableInObject(
+          content,
+          "appointment",
+          appointmentPayload,
+        );
       }
 
       // Replace header, button and body variables with actual system data
@@ -765,6 +802,7 @@ export const sendWhatsappActionWorker = new Worker(
         "system",
         systemPayload,
       );
+      content = replaceVariableInObject(content, "system", systemPayload);
 
       // Make an array of header, button and body parameters for whatsapp message
       let headerParameters = [];
@@ -796,8 +834,6 @@ export const sendWhatsappActionWorker = new Worker(
         );
       }
 
-      // TODO: variable replacing in header, content, buttons and all
-
       // TODO: conversation finding and msg sending functionality
       let conversation;
       if (actionData.conversationId) {
@@ -823,7 +859,7 @@ export const sendWhatsappActionWorker = new Worker(
         clinicId: workflow.clinicId,
         conversationId: conversation._id,
         leadId: lead._id,
-        senderId: action.userId,
+        senderId: workflow.ownerId,
         recipientId: lead._id,
         channel: "whatsapp",
         messageType: "automation",
@@ -853,6 +889,7 @@ export const sendWhatsappActionWorker = new Worker(
         });
         return;
       }
+
       let toPhoneNumber = lead?.phone;
       if (!toPhoneNumber) {
         // Update Workflow History with failed
@@ -989,6 +1026,7 @@ export const sendWhatsappActionWorker = new Worker(
         newMessage.status = "failed";
       } else {
         newMessage.status = "queued";
+        newMessage.providerMessageId = resData?.messages?.[0]?.id || "";
       }
       await Promise.all([newMessage.save(), conversation.save()]);
 
@@ -1020,6 +1058,7 @@ export const sendWhatsappActionWorker = new Worker(
     concurrency: 10,
   },
 );
+
 export const sendEmailActionWorker = new Worker(
   "sendEmailActionQueue",
   async (job) => {
@@ -1640,6 +1679,24 @@ export const aiComposerActionWorker = new Worker(
     const { id: actionId, ...rest } = job.data;
     const { historyId, ...actionData } = rest;
 
+    const webhookPayload = actionData.payload || {};
+    const restApiPayload = actionData.api_response || {};
+    const leadPayload = actionData.leadId
+      ? await getLeadDetails(actionData.leadId)
+      : {};
+    const patientPayload = actionData.patientId
+      ? await getPatientDetails(actionData.patientId)
+      : {};
+    const messagePayload = actionData.messageId
+      ? await getMessageDetails(actionData.messageId)
+      : {};
+    const appointmentPayload = actionData.appointmentId
+      ? await getAppointmentDetails(actionData.appointmentId)
+      : {};
+    const systemPayload = actionData.systemId
+      ? getSystemDetails(actionData.systemId)
+      : {};
+
     try {
       const action = await WorkflowAction.findById(actionId);
       if (!action) {
@@ -1650,7 +1707,7 @@ export const aiComposerActionWorker = new Worker(
         return;
       }
 
-      const { prompt, model, temperature, outputKey } = action.parameters || {};
+      let { prompt, model, temperature, outputKey } = action.parameters || {};
       if (!prompt || !model || temperature === undefined || !outputKey) {
         await WorkflowHistory.findByIdAndUpdate(historyId, {
           status: "failed",
@@ -1659,13 +1716,32 @@ export const aiComposerActionWorker = new Worker(
         return;
       }
 
+      // Replace variables in prompt with actual lead data
+      prompt = replaceVariableInObject(prompt, "webhook", webhookPayload);
+      prompt = replaceVariableInObject(prompt, "rest_api", restApiPayload);
+      prompt = replaceVariableInObject(prompt, "lead", leadPayload);
+      prompt = replaceVariableInObject(prompt, "patient", patientPayload);
+      prompt = replaceVariableInObject(
+        prompt,
+        "incoming_message",
+        messagePayload,
+      );
+      prompt = replaceVariableInObject(
+        prompt,
+        "appointment",
+        appointmentPayload,
+      );
+      prompt = replaceVariableInObject(prompt, "system", systemPayload);
+
+      let result;
       try {
-        const result = await generateAiResponse({
+        result = await generateAiResponse({
           prompt,
           model,
           temperature,
           outputKey,
         });
+        console.log({ result });
         if (!result) {
           await WorkflowHistory.findByIdAndUpdate(historyId, {
             status: "failed",
@@ -1689,6 +1765,17 @@ export const aiComposerActionWorker = new Worker(
           success: true,
           [outputKey]: result[outputKey],
         },
+      });
+
+      // Process the delay action
+      processWorkflow({
+        nodes: rest.nodes,
+        edges: rest.edges,
+        ai_composer_response: {
+          success: true,
+          [outputKey]: result[outputKey],
+        }, // add additional data if needed
+        ...rest,
       });
 
       console.log(`Ai composer action ${actionId} processed successfully`);

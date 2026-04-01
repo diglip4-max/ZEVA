@@ -24,10 +24,12 @@ import { clsx, type ClassValue } from "clsx";
 import { useRouter } from "next/router";
 import useTriggerByWorkflowId from "@/hooks/useTriggerByWorkflowId";
 import {
+  getAiComposerVariables,
   getDynamicRestApiVariables,
   getDynamicWebhookVariables,
 } from "@/lib/workflows";
 import usePrevRestApiAction from "@/hooks/usePrevRestApiAction";
+import usePrevAiComposerAction from "@/hooks/usePrevAiComposerAction";
 
 function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
@@ -476,6 +478,11 @@ const VariableMappingDropdown: React.FC<VariableMappingDropdownProps> = ({
     workflowId: workflowId as string,
     nodeId,
   });
+  const { prevAiComposerAction } = usePrevAiComposerAction({
+    workflowId: workflowId as string,
+    nodeId,
+  });
+
   const webhookVariables = getDynamicWebhookVariables(
     trigger?.webhookResponse || {},
   );
@@ -483,11 +490,16 @@ const VariableMappingDropdown: React.FC<VariableMappingDropdownProps> = ({
     prevRestApiAction?.apiResponse || {},
   );
 
+  const aiComposerVariables = getAiComposerVariables(
+    prevAiComposerAction?.parameters?.outputKey || "",
+  );
+
   console.log("vari workflowId: ", workflowId);
   console.log("trigger: ", trigger);
   console.log("prevRestApiAction: ", prevRestApiAction);
   console.log("webhookVariables: ", webhookVariables);
   console.log("restApiVariables: ", restApiVariables);
+  console.log("prevAiComposerAction: ", prevAiComposerAction);
 
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -496,6 +508,7 @@ const VariableMappingDropdown: React.FC<VariableMappingDropdownProps> = ({
   const filteredVariables = [
     ...webhookVariables,
     ...restApiVariables,
+    ...aiComposerVariables,
     ...appointmentVariables,
     ...variables,
   ]
@@ -506,28 +519,32 @@ const VariableMappingDropdown: React.FC<VariableMappingDropdownProps> = ({
             v.category === "Lead" ||
             v.category === "System" ||
             (Object.entries(restApiVariables).length > 0 &&
-              v.category === "Rest API")
+              v.category === "Rest API") ||
+            (aiComposerVariables?.length > 0 && v.category === "AI Composer")
           );
         case "Patient":
           return (
             v.category === "Patient" ||
             v.category === "System" ||
             (Object.entries(restApiVariables).length > 0 &&
-              v.category === "Rest API")
+              v.category === "Rest API") ||
+            (aiComposerVariables?.length > 0 && v.category === "AI Composer")
           );
         case "Clinic":
           return (
             v.category === "Clinic" ||
             v.category === "System" ||
             (Object.entries(restApiVariables).length > 0 &&
-              v.category === "Rest API")
+              v.category === "Rest API") ||
+            (aiComposerVariables?.length > 0 && v.category === "AI Composer")
           );
         case "Webhook":
           return (
             v.category === "Webhook" ||
             v.category === "System" ||
             (Object.entries(restApiVariables).length > 0 &&
-              v.category === "Rest API")
+              v.category === "Rest API") ||
+            (aiComposerVariables?.length > 0 && v.category === "AI Composer")
           );
         case "Message":
           return (
@@ -535,14 +552,16 @@ const VariableMappingDropdown: React.FC<VariableMappingDropdownProps> = ({
             v.category === "Lead" ||
             v.category === "System" ||
             (Object.entries(restApiVariables).length > 0 &&
-              v.category === "Rest API")
+              v.category === "Rest API") ||
+            (aiComposerVariables?.length > 0 && v.category === "AI Composer")
           );
         case "Appointment":
           return (
             v.category === "Appointment" ||
             v.category === "System" ||
             (Object.entries(restApiVariables).length > 0 &&
-              v.category === "Rest API")
+              v.category === "Rest API") ||
+            (aiComposerVariables?.length > 0 && v.category === "AI Composer")
           );
         case "System":
           return v.category === "System";

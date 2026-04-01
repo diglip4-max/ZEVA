@@ -86,6 +86,17 @@ export const executeWorkflows = async (payload) => {
           patientId: "65f0a0a0a0a0a0a0a0a0a0a0",
           clinicId: "65f0a0a0a0a0a0a0a0a0a0a0",
         }
+
+        Incoming Message Payload:
+        {
+          entity: "Message",
+          trigger: "incoming_message",
+          leadId: "65f0a0a0a0a0a0a0a0a0a0a0",
+          channel: "whatsapp",
+          providerId: "65f0a0a0a0a0a0a0a0a0a0a0",
+          messageId: "65f0a0a0a0a0a0a0a0a0a0a0",
+          conversationId: "65f0a0a0a0a0a0a0a0a0a0a0",
+        }
   */
   const { entity, trigger, clinicId } = payload;
   console.log({ payload });
@@ -214,7 +225,6 @@ export const executeWorkflow = async (workflowId, payload) => {
 
 export async function processWorkflow(workflowData) {
   const { nodes, edges, startNodeId, ...rest } = workflowData;
-  console.log("processWorkflow", { rest, startNodeId });
 
   // 1. Find the starting node
   let currentNode;
@@ -245,7 +255,8 @@ export async function processWorkflow(workflowData) {
     if (
       currentNode.type === "action" &&
       (currentNode.data.subType === "delay" ||
-        currentNode.data.subType === "rest_api")
+        currentNode.data.subType === "rest_api" ||
+        currentNode.data.subType === "ai_composer")
     ) {
       // Delay Action Node Dont perform any action right now
       result = true;
@@ -343,6 +354,16 @@ export async function processWorkflow(workflowData) {
       // 3. Prepare resumption from the next node
       const nextNodeId = nextEdge ? nextEdge.target : null;
 
+      history.payload = {
+        ...currentNode.data,
+        historyId: history._id,
+        nodes, // pass full nodes
+        edges, // pass full edges
+        startNodeId: nextNodeId, // resume from the target of the next edge
+        ...rest, // pass original payload
+      };
+      await history.save();
+
       if (!nextNodeId) {
         console.log("No next node after rest_api, workflow finishes");
         break;
@@ -357,6 +378,299 @@ export async function processWorkflow(workflowData) {
         startNodeId: nextNodeId, // resume from the target of the next edge
         ...rest, // pass original payload
       });
+      break;
+    }
+
+    // 5. If AI Composer Action Node
+    if (
+      currentNode.type === "action" &&
+      currentNode.data.subType === "ai_composer"
+    ) {
+      const actionId = currentNode.data.id;
+      const workflowAction = await WorkflowAction.findById(actionId);
+      if (!workflowAction) {
+        throw new Error(`Action not found: ${actionId}`);
+      }
+
+      // 1. Make an entry in Workflow History
+      const history = await WorkflowHistory.create({
+        workflowId: workflowAction.workflowId,
+        actionId,
+        status: "in-progress",
+        type: "action",
+        executedAt: new Date(),
+      });
+
+      // 3. Prepare resumption from the next node
+      const nextNodeId = nextEdge ? nextEdge.target : null;
+
+      history.payload = {
+        ...currentNode.data,
+        historyId: history._id,
+        nodes, // pass full nodes
+        edges, // pass full edges
+        startNodeId: nextNodeId, // resume from the target of the next edge
+        ...rest, // pass original payload
+      };
+      await history.save();
+
+      if (!nextNodeId) {
+        console.log("No next node after ai_composer, workflow finishes");
+        break;
+      }
+
+      // 4. Create a job in the aiComposerActionQueue
+      const aiComposerActionJob = await aiComposerActionQueue.add(
+        "ai_composer",
+        {
+          ...currentNode.data,
+          historyId: history._id,
+          nodes, // pass full nodes
+          edges, // pass full edges
+          startNodeId: nextNodeId, // resume from the target of the next edge
+          ...rest, // pass original payload
+        },
+      );
+      break;
+    }
+
+    // 4. Move to the next node or stop if no more edges
+    if (nextEdge) {
+      currentNode = nodes.find((n) => n.id === nextEdge.target);
+    } else {
+      currentNode = null; // Workflow finished
+    }
+  }
+}
+export async function processRetryWorkflow(workflowData) {
+  const { nodes, edges, startNodeId, ...rest } = workflowData;
+
+  // 1. Find the starting node
+  let currentNode;
+
+  if (startNodeId) {
+    // Resume from a specific node (e.g., after a delay)
+    currentNode = nodes.find((n) => n.id === startNodeId);
+    console.log(`Resuming workflow from node: ${startNodeId}`);
+  } else {
+    // Start from the trigger node
+    currentNode = nodes.find((n) => n.type === "trigger");
+    console.log("Starting workflow from trigger node");
+  }
+
+  // 2. If no start/trigger node found, use the first node in the array as a fallback
+  if (!currentNode && nodes.length > 0) {
+    console.log(
+      "No specific start or trigger node found, falling back to nodes[0]",
+    );
+    currentNode = nodes[0];
+  }
+
+  while (currentNode) {
+    console.log(`Executing: ${currentNode.data.label}`);
+
+    // Perform the actual action logic here (e.g., Send Message, Wait, etc.)
+    let result;
+    if (
+      currentNode.type === "action" &&
+      (currentNode.data.subType === "delay" ||
+        currentNode.data.subType === "rest_api" ||
+        currentNode.data.subType === "ai_composer")
+    ) {
+      // Delay Action Node Dont perform any action right now
+      result = true;
+    } else {
+      result = await performNodeAction({ node: currentNode, ...rest });
+    }
+
+    // 2. Find the Next Node
+    let nextEdge;
+
+    if (currentNode.type === "condition") {
+      // Branching logic: result of performNodeAction determines 'true' or 'false'
+      const handleToFollow = result ? "true" : "false";
+      nextEdge = edges.find(
+        (e) => e.source === currentNode.id && e.sourceHandle === handleToFollow,
+      );
+    } else {
+      // Sequential logic: just find the next connected node
+      nextEdge = edges.find((e) => e.source === currentNode.id);
+    }
+
+    console.log({ currentNode, nextEdge });
+
+    //3. If Delay Action Node
+    if (currentNode.type === "action" && currentNode.data.subType === "delay") {
+      const actionId = currentNode.data.id;
+      const workflowAction = await WorkflowAction.findById(actionId);
+      if (!workflowAction) {
+        throw new Error(`Action not found: ${actionId}`);
+      }
+      const delayTime = workflowAction.parameters.delayTime || 0; // Default 1 second
+      const delayFormat =
+        workflowAction.parameters.delayFormat || "milliseconds";
+      const delayInMs = calculateDelayInMs(delayTime, delayFormat);
+
+      console.log({ delayTime, delayFormat, delayInMs });
+
+      // 1. Make an entry in Workflow History or update existing entry
+      let history;
+      if (rest?.historyId) {
+        history = await WorkflowHistory.findById(rest.historyId);
+        history.status = "waiting";
+        await history.save();
+      } else {
+        history = await WorkflowHistory.create({
+          workflowId: workflowAction.workflowId,
+          actionId,
+          status: "waiting",
+          type: "action",
+          executedAt: new Date(),
+        });
+      }
+
+      // 3. Prepare resumption from the next node
+      const nextNodeId = nextEdge ? nextEdge.target : null;
+
+      if (!nextNodeId) {
+        console.log("No next node after delay, workflow finishes");
+        break;
+      }
+
+      // 4. Create a job in the delayActionQueue
+      const delayActionJob = await delayActionQueue.add(
+        "delay",
+        {
+          ...currentNode.data,
+          delayInMs,
+          historyId: history._id,
+          nodes, // pass full nodes
+          edges, // pass full edges
+          startNodeId: nextNodeId, // resume from the target of the next edge
+          ...rest, // pass original payload
+        },
+        {
+          delay: delayInMs,
+          removeOnComplete: true,
+        },
+      );
+      break;
+    }
+
+    // 4. If REST API Action Node
+    if (
+      currentNode.type === "action" &&
+      currentNode.data.subType === "rest_api"
+    ) {
+      const actionId = currentNode.data.id;
+      const workflowAction = await WorkflowAction.findById(actionId);
+      if (!workflowAction) {
+        throw new Error(`Action not found: ${actionId}`);
+      }
+
+      // 1. Make an entry in Workflow History or update existing entry
+      let history;
+      if (rest?.historyId) {
+        history = await WorkflowHistory.findById(rest.historyId);
+        history.status = "waiting";
+        await history.save();
+      } else {
+        history = await WorkflowHistory.create({
+          workflowId: workflowAction.workflowId,
+          actionId,
+          status: "waiting",
+          type: "action",
+          executedAt: new Date(),
+        });
+      }
+
+      // 3. Prepare resumption from the next node
+      const nextNodeId = nextEdge ? nextEdge.target : null;
+
+      history.payload = {
+        ...currentNode.data,
+        historyId: history._id,
+        nodes, // pass full nodes
+        edges, // pass full edges
+        startNodeId: nextNodeId, // resume from the target of the next edge
+        ...rest, // pass original payload
+      };
+      await history.save();
+
+      if (!nextNodeId) {
+        console.log("No next node after rest_api, workflow finishes");
+        break;
+      }
+
+      // 4. Create a job in the restApiActionQueue
+      const restApiActionJob = await restApiActionQueue.add("rest_api", {
+        ...currentNode.data,
+        historyId: history._id,
+        nodes, // pass full nodes
+        edges, // pass full edges
+        startNodeId: nextNodeId, // resume from the target of the next edge
+        ...rest, // pass original payload
+      });
+      break;
+    }
+
+    // 5. If AI Composer Action Node
+    if (
+      currentNode.type === "action" &&
+      currentNode.data.subType === "ai_composer"
+    ) {
+      const actionId = currentNode.data.id;
+      const workflowAction = await WorkflowAction.findById(actionId);
+      if (!workflowAction) {
+        throw new Error(`Action not found: ${actionId}`);
+      }
+
+      // 1. Make an entry in Workflow History or update existing entry
+      let history;
+      if (rest?.historyId) {
+        history = await WorkflowHistory.findById(rest.historyId);
+        history.status = "waiting";
+        await history.save();
+      } else {
+        history = await WorkflowHistory.create({
+          workflowId: workflowAction.workflowId,
+          actionId,
+          status: "waiting",
+          type: "action",
+          executedAt: new Date(),
+        });
+      }
+
+      // 3. Prepare resumption from the next node
+      const nextNodeId = nextEdge ? nextEdge.target : null;
+
+      history.payload = {
+        ...currentNode.data,
+        historyId: history._id,
+        nodes, // pass full nodes
+        edges, // pass full edges
+        startNodeId: nextNodeId, // resume from the target of the next edge
+        ...rest, // pass original payload
+      };
+      await history.save();
+
+      if (!nextNodeId) {
+        console.log("No next node after ai_composer, workflow finishes");
+        break;
+      }
+
+      // 4. Create a job in the aiComposerActionQueue
+      const aiComposerActionJob = await aiComposerActionQueue.add(
+        "ai_composer",
+        {
+          ...currentNode.data,
+          historyId: history._id,
+          nodes, // pass full nodes
+          edges, // pass full edges
+          startNodeId: nextNodeId, // resume from the target of the next edge
+          ...rest, // pass original payload
+        },
+      );
       break;
     }
 
@@ -705,12 +1019,27 @@ export const executeAction = async ({ data: actionData, ...rest }) => {
     throw new Error(`Workflow not found: ${action.workflowId}`);
   }
 
-  const history = await WorkflowHistory.create({
-    workflowId: workflow._id,
-    actionId: actionId,
-    type: "action",
-    status: "in-progress",
-  });
+  // 1. Make an entry in Workflow History or update existing entry in case of retry
+  let history;
+  if (rest?.historyId) {
+    history = await WorkflowHistory.findById(rest.historyId);
+    history.status = "waiting";
+    await history.save();
+  } else {
+    history = await WorkflowHistory.create({
+      workflowId: workflow._id,
+      actionId: actionId,
+      type: "action",
+      status: "in-progress",
+    });
+    history.payload = {
+      // for retry purpose
+      ...rest,
+      ...actionData,
+      historyId: history._id,
+    };
+    await history.save();
+  }
 
   // Logic to perform the action (e.g., send a message, update a field)
   switch (subType) {
@@ -767,6 +1096,101 @@ export const executeAction = async ({ data: actionData, ...rest }) => {
       const job = await bookAppointmentActionQueue.add("book_appointment", {
         ...rest,
         ...actionData,
+        historyId: history._id,
+      });
+      console.log(`Job added to bookAppointmentActionQueue with ID: ${job.id}`);
+      return job;
+    }
+    default:
+      return { success: true, message: "Action performed" };
+  }
+};
+
+// execute retry action
+export const executeRetryAction = async ({ ...rest }) => {
+  const { subType, id: actionId } = rest;
+  console.log({ rest });
+  const action = await WorkflowAction.findById(actionId);
+
+  if (!action) {
+    throw new Error(`Action not found: ${actionId}`);
+  }
+  const workflow = await Workflow.findById(action.workflowId);
+
+  if (!workflow) {
+    throw new Error(`Workflow not found: ${action.workflowId}`);
+  }
+
+  // 1. Make an entry in Workflow History or update existing entry in case of retry
+  let history;
+  if (rest?.historyId) {
+    history = await WorkflowHistory.findById(rest.historyId);
+    history.status = "in-progress";
+    history.error = "";
+    history.retryCount++;
+    await history.save();
+  } else {
+    history = await WorkflowHistory.create({
+      workflowId: workflow._id,
+      actionId: actionId,
+      type: "action",
+      status: "in-progress",
+      error: "",
+    });
+    history.payload = {
+      // for retry purpose
+      ...rest,
+      historyId: history._id,
+    };
+    await history.save();
+  }
+
+  // Logic to perform the action (e.g., send a message, update a field)
+  switch (subType) {
+    case "send_whatsapp":
+      return await sendWhatsappActionQueue.add("send_whatsapp", {
+        ...rest,
+        historyId: history._id,
+      });
+    case "send_email":
+      return await sendEmailActionQueue.add("send_email", {
+        ...rest,
+        historyId: history._id,
+      });
+    case "send_sms":
+      return await sendSmsActionQueue.add("send_sms", {
+        ...rest,
+        historyId: history._id,
+      });
+    case "rest_api":
+      return await restApiActionQueue.add("rest_api", {
+        ...rest,
+        historyId: history._id,
+      });
+    case "add_to_segment":
+      return await addToSegmentActionQueue.add("add_to_segment", {
+        ...rest,
+        historyId: history._id,
+      });
+    case "assign_owner":
+      return await assignOwnerActionQueue.add("assign_owner", {
+        ...rest,
+        historyId: history._id,
+      });
+    case "add_tag":
+      return await addTagActionQueue.add("add_tag", {
+        ...rest,
+        historyId: history._id,
+      });
+    case "ai_composer":
+      return await aiComposerActionQueue.add("ai_composer", {
+        ...rest,
+        historyId: history._id,
+      });
+    case "book_appointment": {
+      console.log("Adding to bookAppointmentActionQueue: ", actionData);
+      const job = await bookAppointmentActionQueue.add("book_appointment", {
+        ...rest,
         historyId: history._id,
       });
       console.log(`Job added to bookAppointmentActionQueue with ID: ${job.id}`);
@@ -1097,7 +1521,6 @@ export const getPatientByLeadId = async (leadId) => {
       patientType: "New",
       leadId: lead._id,
     };
-    console.log({ patientData });
     const newPatient = await PatientRegistration.create(patientData);
 
     // Update lead with new patientId

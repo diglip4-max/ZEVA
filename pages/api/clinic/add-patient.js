@@ -7,6 +7,11 @@ import { checkClinicPermission } from "../lead-ms/permissions-helper";
 import { checkAgentPermission } from "../agent/permissions-helper";
 import Clinic from "../../../models/Clinic";
 import Lead from "../../../models/Lead";
+import {
+  executeWorkflows,
+  WORKFLOW_ENTITY_TYPE,
+  WORKFLOW_TRIGGER_TYPE,
+} from "../../../bullmq/workflow";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -210,6 +215,24 @@ export default async function handler(req, res) {
         patientId: newPatient._id,
       });
     }
+
+    // -------------------------------
+    // Patient Detail Create
+    // -------------------------------
+    // Note: Execute workflow for the created patient
+    executeWorkflows({
+      entity: WORKFLOW_ENTITY_TYPE.PATIENT,
+      trigger: WORKFLOW_TRIGGER_TYPE.RECORD_CREATED,
+      patientId: newPatient._id?.toString(),
+      clinicId: newPatient.clinicId?.toString(),
+    });
+    // Note: Execute workflow for the created or updated patient
+    executeWorkflows({
+      entity: WORKFLOW_ENTITY_TYPE.PATIENT,
+      trigger: WORKFLOW_TRIGGER_TYPE.RECORD_CREATE_OR_UPDATE,
+      patientId: newPatient._id?.toString(),
+      clinicId: newPatient.clinicId?.toString(),
+    });
 
     return res.status(201).json({
       success: true,

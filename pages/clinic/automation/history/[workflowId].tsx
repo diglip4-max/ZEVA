@@ -26,6 +26,7 @@ import {
   ChevronRight,
   Loader2,
   ArrowLeft,
+  RotateCcw,
 } from "lucide-react";
 import { NextPageWithLayout } from "@/pages/_app";
 import ClinicLayout from "@/components/ClinicLayout";
@@ -117,6 +118,7 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
     failed: 0,
     inProgress: 0,
   });
+  const [isExporting, setIsExporting] = useState<boolean>(false);
 
   const fetchHistory = useCallback(async () => {
     if (!workflowId) return;
@@ -244,9 +246,63 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
     fetchHistory();
   };
 
-  const handleExport = (): void => {
-    // Add export logic here
-    console.log("Export clicked");
+  const handleExport = async (): Promise<void> => {
+    if (!workflowId) return;
+
+    try {
+      setIsExporting(true);
+      const token = getTokenByPath();
+      const response = await axios.get(
+        `/api/workflows/history/export/${workflowId}`,
+        {
+          responseType: "blob",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `workflow-history-${workflowId}-${new Date().toISOString().split("T")[0]}.csv`,
+      );
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error("Export failed:", err);
+      setError(err.response?.data?.message || err.message || "Export failed");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleRetry = async (item: WorkflowHistory): Promise<void> => {
+    if (!item._id) return;
+    try {
+      const token = getTokenByPath();
+      const { data } = await axios.post(
+        `/api/workflows/history/retry/${item._id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      if (data && data?.success) {
+        setError(null);
+        fetchHistory();
+      } else {
+        setError(data?.message || "Retry failed");
+      }
+    } catch (err: any) {
+      console.error("Retry failed:", err);
+      setError(err.response?.data?.message || err.message || "Retry failed");
+    }
   };
 
   const handleView = (item: WorkflowHistory): void => {
@@ -295,10 +351,11 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
             <div className="flex items-center space-x-3">
               <button
                 onClick={handleExport}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm disabled:opacity-50"
+                disabled={isExporting}
               >
                 <Download className="w-4 h-4 mr-2" />
-                Export
+                {isExporting ? "Exporting..." : "Export"}
               </button>
               <button
                 onClick={handleRefresh}
@@ -557,6 +614,7 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
                           </span>
                         </div>
                       </td>
+
                       <td className="px-6 py-4">
                         {item?.type === "trigger" && (
                           <div className="text-sm font-semibold text-gray-700">
@@ -623,6 +681,16 @@ const WorkflowHistoryPage: NextPageWithLayout = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
+                          {item.status === "failed" &&
+                            item.type === "action" && (
+                              <button
+                                onClick={() => handleRetry(item)}
+                                className="p-1.5 hover:bg-red-200 rounded-lg transition-colors duration-200 text-red-600"
+                                title="Retry"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                              </button>
+                            )}
                         </div>
                       </td>
                     </tr>

@@ -36,7 +36,7 @@ const AiComposerActionModal: React.FC<AiComposerActionModalProps> = ({
   entity = "Lead",
 }) => {
   const [prompt, setPrompt] = useState<string>("");
-  const [model, setModel] = useState<string>("gpt-3.5-turbo");
+  const [model, setModel] = useState<string>("gemini-1.5-flash");
   const [temperature, setTemperature] = useState<number>(0.7);
   const [outputKey, setOutputKey] = useState<string>("ai_response");
   const [isLoading, setIsLoading] = useState(false);
@@ -59,7 +59,7 @@ const AiComposerActionModal: React.FC<AiComposerActionModalProps> = ({
       if (data.success) {
         const params = data.data.parameters || {};
         setPrompt(params.prompt || "");
-        setModel(params.model || "gpt-3.5-turbo");
+        setModel(params.model || "gemini-1.5-flash");
         setTemperature(params.temperature ?? 0.7);
         setOutputKey(params.outputKey || "ai_response");
       }
@@ -225,7 +225,12 @@ const AiComposerActionModal: React.FC<AiComposerActionModalProps> = ({
                     <input
                       type="text"
                       value={outputKey}
-                      onChange={(e) => setOutputKey(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value
+                          .replace(/\s+/g, "_")
+                          .replace(/[^a-zA-Z0-9_]/g, "");
+                        setOutputKey(val);
+                      }}
                       placeholder="e.g. ai_response"
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-yellow-500 outline-none transition-all"
                     />
@@ -241,32 +246,32 @@ const AiComposerActionModal: React.FC<AiComposerActionModalProps> = ({
                     </label>
                     <div className="grid grid-cols-2 gap-3">
                       <button
-                        onClick={() => setModel("gpt-3.5-turbo")}
+                        onClick={() => setModel("gemini-1.5-flash")}
                         className={cn(
                           "p-4 rounded-xl border-2 text-left transition-all",
-                          model === "gpt-3.5-turbo"
+                          model === "gemini-1.5-flash"
                             ? "border-yellow-500 bg-yellow-50"
                             : "border-gray-100 hover:border-gray-200",
                         )}
                       >
                         <div className="text-xs font-bold text-gray-900 mb-1">
-                          GPT-3.5 Turbo
+                          Gemini 1.5 Flash
                         </div>
                         <div className="text-[10px] text-gray-500">
                           Fast & cost-effective for most tasks
                         </div>
                       </button>
                       <button
-                        onClick={() => setModel("gpt-4")}
+                        onClick={() => setModel("gemini-1.5-pro")}
                         className={cn(
                           "p-4 rounded-xl border-2 text-left transition-all",
-                          model === "gpt-4"
+                          model === "gemini-1.5-pro"
                             ? "border-yellow-500 bg-yellow-50"
                             : "border-gray-100 hover:border-gray-200",
                         )}
                       >
                         <div className="text-xs font-bold text-gray-900 mb-1">
-                          GPT-4
+                          Gemini 1.5 Pro
                         </div>
                         <div className="text-[10px] text-gray-500">
                           Advanced reasoning for complex prompts
@@ -292,7 +297,7 @@ const AiComposerActionModal: React.FC<AiComposerActionModalProps> = ({
                     <input
                       type="range"
                       min="0"
-                      max="1"
+                      max="2"
                       step="0.1"
                       value={temperature}
                       onChange={(e) =>
