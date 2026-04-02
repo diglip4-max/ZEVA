@@ -566,12 +566,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   useEffect(() => {
     if (patientData) {
       setEditFormData({
-        membership: patientData?.membership || 'No',
+        membership: 'No',
         membershipId: patientData?.membershipId || '',
         membershipStartDate: patientData?.membershipStartDate || '',
         membershipEndDate: patientData?.membershipEndDate || '',
         memberships: Array.isArray(patientData?.memberships) ? patientData.memberships : [],
-        package: patientData?.package || 'No',
+        package: 'No',
         packageId: patientData?.packageId || '',
         packages: Array.isArray(patientData?.packages) ? patientData.packages : [],
       });
@@ -802,10 +802,11 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         setTimeout(() => setPmToast(null), 3000);
           
         // Fetch fresh patient data to ensure we have the latest saved data
+        let freshData: any = null;
         try {
           const patientRes = await axios.get(`/api/staff/get-patient-data/${patientData._id}`, { headers });
           if (patientRes.data) {
-            const freshData = patientRes.data;
+            freshData = patientRes.data;
                     
             console.log('✅ Fresh data from API:', {
               membership: freshData.membership,
@@ -833,12 +834,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     
             // Update editFormData with fresh saved data
             setEditFormData({
-              membership: freshData?.membership || 'No',
+              membership: 'No',
               membershipId: freshData?.membershipId || '',
               membershipStartDate: freshData?.membershipStartDate || '',
               membershipEndDate: freshData?.membershipEndDate || '',
               memberships: Array.isArray(freshData?.memberships) ? freshData.memberships : [],
-              package: freshData?.package || 'No',
+              package: 'No',
               packageId: freshData?.packageId || '',
               packages: Array.isArray(freshData?.packages) ? freshData.packages : [],
             });
@@ -848,7 +849,11 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         }
           
         // Also refresh packages/memberships display for the lower section
-        fetchPackagesAndMemberships();
+        // Pass fresh data to avoid stale closure issue
+        fetchPackagesAndMemberships({
+          memberships: Array.isArray(freshData?.memberships) ? freshData.memberships : (patientData?.memberships || []),
+          packages: Array.isArray(freshData?.packages) ? freshData.packages : (patientData?.packages || []),
+        });
       } else {
         setPmToast({ message: result.message || 'Failed to update patient details', type: 'error' });
         setTimeout(() => setPmToast(null), 3000);
@@ -1178,7 +1183,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     }
   };
 
-  const fetchPackagesAndMemberships = async () => {
+  const fetchPackagesAndMemberships = async (freshPatientData?: { memberships?: any[]; packages?: any[] }) => {
     try {
       setLoadingPackages(true);
       const headers = getAuthHeaders();
@@ -1194,8 +1199,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       const allPackages = pRes.data?.packages || [];
       
       // Get patient's assigned package IDs and membership IDs
-      let patientPackageIds = (patientData?.packages || []).map((p: any) => p.packageId);
-      let patientMembershipIds = (patientData?.memberships || []).map((m: any) => m.membershipId);
+      // Use freshPatientData if provided (avoids stale closure after save)
+      let patientPackageIds = (freshPatientData?.packages || patientData?.packages || []).map((p: any) => p.packageId);
+      let patientMembershipIds = (freshPatientData?.memberships || patientData?.memberships || []).map((m: any) => m.membershipId);
       
       // Fetch package usage data for this patient
       let packageUsageData = [];
@@ -1212,14 +1218,14 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       
       // Fetch membership usage data for this patient
       let membershipUsageData: any = null;
-      let membershipTransferredOutData: any = null;
+      let membershipTransferredOutData: any[] = [];
       try {
         const membershipUsageRes = await axios.get(`/api/clinic/membership-usage/${patientData._id}`, { headers });
         if (membershipUsageRes.data.success && membershipUsageRes.data.hasMembership) {
           membershipUsageData = membershipUsageRes.data;
-        } else if (membershipUsageRes.data.success && membershipUsageRes.data.transferredOut) {
-          membershipTransferredOutData = membershipUsageRes.data;
         }
+        // Always capture all transferred-out memberships from API
+        membershipTransferredOutData = membershipUsageRes.data.transferredOutMemberships || [];
       } catch (err: any) {
         console.error('Error fetching membership usage:', err.message);
       }
@@ -1374,7 +1380,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       setTransferredInPackages(transferredInPkgs);
       setTransferredOutPackages(packageTransferredOutData);
       setTransferredInMemberships(transferredInMembs);
-      setTransferredOutMemberships(membershipTransferredOutData ? [membershipTransferredOutData] : []);
+      setTransferredOutMemberships(membershipTransferredOutData);
     } catch (error: any) {
       console.error('Error fetching packages and memberships:', error.message);
       setPackages([]);
@@ -2122,34 +2128,6 @@ const fetchPrescriptions = async () => {
                               <option value="Yes">Yes</option>
                             </select>
                           </div>
-                          {editFormData.membership === 'Yes' && (
-                            <div className="flex-1 min-w-[120px]">
-                              <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Select Membership</label>
-                              <select
-                                value={editFormData.membershipId || ''}
-                                onChange={(e) => {
-                                  const sel = allAvailableMemberships.find((m: any) => m._id === e.target.value);
-                                  if (!sel) { setEditFormData((p: any) => ({ ...p, membershipId: '', membership: 'No' })); return; }
-                                  const start = new Date();
-                                  const end = new Date(start);
-                                  end.setMonth(end.getMonth() + (Number(sel.durationMonths) || 1));
-                                  setEditFormData((p: any) => ({
-                                    ...p,
-                                    membership: 'Yes',
-                                    membershipId: e.target.value,
-                                    membershipStartDate: formatPmDate(start),
-                                    membershipEndDate: formatPmDate(end),
-                                  }));
-                                }}
-                                className="text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 border-gray-300 hover:border-indigo-400 transition-all duration-200"
-                              >
-                                <option value="">Select membership</option>
-                                {allAvailableMemberships.filter((m: any) => m.isActive !== false).map((m: any) => (
-                                  <option key={m._id} value={m._id}>{m.name} (₹{m.price}, {m.durationMonths} months)</option>
-                                ))}
-                              </select>
-                            </div>
-                          )}
                         </div>
 
                         {/* Start / End Date */}
@@ -2176,14 +2154,14 @@ const fetchPrescriptions = async () => {
                           </div>
                         )}
 
-                        {/* Add Another Membership */}
-                        {!showAddMembershipDropdown ? (
+                        {/* Add Membership - only when membership is Yes */}
+                        {editFormData.membership === 'Yes' && (!showAddMembershipDropdown ? (
                           <button
                             type="button"
                             onClick={() => setShowAddMembershipDropdown(true)}
                             className="px-3 py-1.5 bg-indigo-600 text-white text-[10px] font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-1"
                           >
-                            <Plus className="w-3 h-3" /> Add Another Membership 
+                            <Plus className="w-3 h-3" /> Add Membership 
                           </button>
                         ) : (
                           <div className="border border-indigo-200 rounded-lg p-2 bg-indigo-50 mb-2">
@@ -2207,51 +2185,60 @@ const fetchPrescriptions = async () => {
                               </div>
                             </div>
                           </div>
-                        )}
+                        ))}
 
-                        {/* Added Memberships List */}
-                        {(editFormData.memberships || []).length > 0 && (
-                          <div className="border border-gray-200 rounded p-2 mt-2">
-                            <div className="text-[10px] font-semibold text-gray-900 mb-1">Added Memberships</div>
-                            <div className="space-y-1">
-                              {(editFormData.memberships || []).map((m: any, idx: number) => {
-                                const plan = allAvailableMemberships.find((x: any) => x._id === m.membershipId);
-                                const k = `${m.membershipId}|${m.startDate}|${m.endDate}`;
-                                const usage = pmMembershipUsageMap[k];
-                                return (
-                                  <div key={`${m.membershipId}-${idx}`} className="flex flex-col text-[10px] border-b border-gray-100 pb-1 last:border-b-0">
-                                    <div className="flex items-center justify-between">
-                                      <div className="text-gray-800 font-medium">
-                                        {plan?.name || m.membershipId} • ₹{plan?.price}
-                                        {plan?.benefits?.priorityBooking && (
-                                          <span className="ml-1 px-1 py-0.5 rounded bg-amber-100 text-amber-700 text-[9px] font-medium">Priority</span>
-                                        )}
-                                      </div>
-                                      <button
-                                        type="button"
-                                        className="px-2 py-0.5 bg-red-50 text-red-700 rounded border border-red-200 text-[9px]"
-                                        onClick={() => handlePmRemoveMembership(idx)}
-                                      >Remove</button>
-                                    </div>
-                                    <div className="text-gray-600 mt-0.5">{m.startDate?.slice(0,10)} → {m.endDate?.slice(0,10)} • {plan?.durationMonths} months</div>
-                                    <div className="text-gray-500 text-[9px] mt-0.5">Benefits: {plan?.benefits?.freeConsultations || 0} consultations, {plan?.benefits?.discountPercentage || 0}% discount</div>
-                                    {usage && !usage.isExpired && (usage.totalFreeConsultations || 0) > 0 && (() => {
-                                      const total = usage.totalFreeConsultations || 0;
-                                      const used = usage.usedFreeConsultations || 0;
-                                      const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
-                                      return (
-                                        <div className="mt-1">
-                                          <div className="flex items-center justify-between text-[9px] text-gray-700 mb-0.5"><span>Free consultations used</span><span>{used}/{total}</span></div>
-                                          <div className="w-full h-2 rounded bg-gray-200 overflow-hidden"><div className="h-full bg-indigo-500" style={{ width: `${pct}%` }} /></div>
+                        {/* Added Memberships List — hide transferred-out memberships */}
+                        {(() => {
+                          const txOutMembershipIds = new Set(
+                            (patientData?.membershipTransfers || []).filter((t: any) => t.type === 'out').map((t: any) => String(t.membershipId))
+                          );
+                          const visibleMemberships = (editFormData.memberships || [])
+                            .map((m: any, originalIdx: number) => ({ m, originalIdx }))
+                            .filter(({ m }: any) => !txOutMembershipIds.has(String(m.membershipId)));
+                          if (visibleMemberships.length === 0) return null;
+                          return (
+                            <div className="border border-gray-200 rounded p-2 mt-2">
+                              <div className="text-[10px] font-semibold text-gray-900 mb-1">Added Memberships</div>
+                              <div className="space-y-1">
+                                {visibleMemberships.map(({ m, originalIdx }: any) => {
+                                  const plan = allAvailableMemberships.find((x: any) => x._id === m.membershipId);
+                                  const k = `${m.membershipId}|${m.startDate}|${m.endDate}`;
+                                  const usage = pmMembershipUsageMap[k];
+                                  return (
+                                    <div key={`${m.membershipId}-${originalIdx}`} className="flex flex-col text-[10px] border-b border-gray-100 pb-1 last:border-b-0">
+                                      <div className="flex items-center justify-between">
+                                        <div className="text-gray-800 font-medium">
+                                          {plan?.name || m.membershipId} • ₹{plan?.price}
+                                          {plan?.benefits?.priorityBooking && (
+                                            <span className="ml-1 px-1 py-0.5 rounded bg-amber-100 text-amber-700 text-[9px] font-medium">Priority</span>
+                                          )}
                                         </div>
-                                      );
-                                    })()}
-                                  </div>
-                                );
-                              })}
+                                        <button
+                                          type="button"
+                                          className="px-2 py-0.5 bg-red-50 text-red-700 rounded border border-red-200 text-[9px]"
+                                          onClick={() => handlePmRemoveMembership(originalIdx)}
+                                        >Remove</button>
+                                      </div>
+                                      <div className="text-gray-600 mt-0.5">{m.startDate?.slice(0,10)} → {m.endDate?.slice(0,10)} • {plan?.durationMonths} months</div>
+                                      <div className="text-gray-500 text-[9px] mt-0.5">Benefits: {plan?.benefits?.freeConsultations || 0} consultations, {plan?.benefits?.discountPercentage || 0}% discount</div>
+                                      {usage && !usage.isExpired && (usage.totalFreeConsultations || 0) > 0 && (() => {
+                                        const total = usage.totalFreeConsultations || 0;
+                                        const used = usage.usedFreeConsultations || 0;
+                                        const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+                                        return (
+                                          <div className="mt-1">
+                                            <div className="flex items-center justify-between text-[9px] text-gray-700 mb-0.5"><span>Free consultations used</span><span>{used}/{total}</span></div>
+                                            <div className="w-full h-2 rounded bg-gray-200 overflow-hidden"><div className="h-full bg-indigo-500" style={{ width: `${pct}%` }} /></div>
+                                          </div>
+                                        );
+                                      })()}
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          );
+                        })()}
                       </div>
 
                       {/* ── Package Card ── */}
@@ -2274,35 +2261,16 @@ const fetchPrescriptions = async () => {
                               <option value="Yes">Yes</option>
                             </select>
                           </div>
-                          {editFormData.package === 'Yes' && (
-                            <div className="flex-1 min-w-[120px]">
-                              <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Select Package</label>
-                              <select
-                                value={editFormData.packageId || ''}
-                                onChange={(e) => setEditFormData((p: any) => ({ 
-                                  ...p, 
-                                  package: e.target.value ? 'Yes' : 'No',
-                                  packageId: e.target.value 
-                                }))}
-                                className="text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-purple-500 border-gray-300 hover:border-purple-400 transition-all duration-200"
-                              >
-                                <option value="">Select package</option>
-                                {allAvailablePackages.map((pkg: any) => (
-                                  <option key={pkg._id} value={pkg._id}>{pkg.name} (₹{pkg.totalPrice}, {pkg.totalSessions} sessions)</option>
-                                ))}
-                              </select>
-                            </div>
-                          )}
                         </div>
 
-                        {/* Add Another Package */}
-                        {!showAddPackageDropdown ? (
+                        {/* Add Package - only when package is Yes */}
+                        {editFormData.package === 'Yes' && (!showAddPackageDropdown ? (
                           <button
                             type="button"
                             onClick={() => setShowAddPackageDropdown(true)}
                             className="px-3 py-1.5 bg-purple-600 text-white text-[10px] font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-1"
                           >
-                            <Plus className="w-3 h-3" /> Add Another Package
+                            <Plus className="w-3 h-3" /> Add Package
                           </button>
                         ) : (
                           <div className="border border-purple-200 rounded-lg p-2 bg-purple-50 mb-2">
@@ -2326,33 +2294,42 @@ const fetchPrescriptions = async () => {
                               </div>
                             </div>
                           </div>
-                        )}
+                        ))}
 
-                        {/* Added Packages List */}
-                        {(editFormData.packages || []).length > 0 && (
-                          <div className="border border-gray-200 rounded p-2 mt-2">
-                            <div className="text-[10px] font-semibold text-gray-900 mb-1">Added Packages</div>
-                            <div className="space-y-1">
-                              {(editFormData.packages || []).map((p: any, idx: number) => {
-                                const pkg = allAvailablePackages.find((x: any) => x._id === p.packageId);
-                                return (
-                                  <div key={`${p.packageId}-${idx}`} className="flex flex-col text-[10px] border-b border-gray-100 pb-1 last:border-b-0">
-                                    <div className="flex items-center justify-between">
-                                      <div className="text-gray-800 font-medium">{pkg?.name || p.packageId} • ₹{pkg?.totalPrice}</div>
-                                      <button
-                                        type="button"
-                                        className="px-2 py-0.5 bg-red-50 text-red-700 rounded border border-red-200 text-[9px]"
-                                        onClick={() => handlePmRemovePackage(idx)}
-                                      >Remove</button>
+                        {/* Added Packages List — hide transferred-out packages */}
+                        {(() => {
+                          const txOutPackageIds = new Set(
+                            transferredOutPackages.map((p: any) => String(p.packageId))
+                          );
+                          const visiblePackages = (editFormData.packages || [])
+                            .map((p: any, originalIdx: number) => ({ p, originalIdx }))
+                            .filter(({ p }: any) => !txOutPackageIds.has(String(p.packageId)));
+                          if (visiblePackages.length === 0) return null;
+                          return (
+                            <div className="border border-gray-200 rounded p-2 mt-2">
+                              <div className="text-[10px] font-semibold text-gray-900 mb-1">Added Packages</div>
+                              <div className="space-y-1">
+                                {visiblePackages.map(({ p, originalIdx }: any) => {
+                                  const pkg = allAvailablePackages.find((x: any) => x._id === p.packageId);
+                                  return (
+                                    <div key={`${p.packageId}-${originalIdx}`} className="flex flex-col text-[10px] border-b border-gray-100 pb-1 last:border-b-0">
+                                      <div className="flex items-center justify-between">
+                                        <div className="text-gray-800 font-medium">{pkg?.name || p.packageId} • ₹{pkg?.totalPrice}</div>
+                                        <button
+                                          type="button"
+                                          className="px-2 py-0.5 bg-red-50 text-red-700 rounded border border-red-200 text-[9px]"
+                                          onClick={() => handlePmRemovePackage(originalIdx)}
+                                        >Remove</button>
+                                      </div>
+                                      <div className="text-gray-600 mt-0.5">{pkg?.totalSessions} sessions • ₹{pkg?.sessionPrice}/session</div>
+                                      <div className="text-gray-500 text-[9px] mt-0.5">Treatments: {pkg?.treatments?.length || 0} included</div>
                                     </div>
-                                    <div className="text-gray-600 mt-0.5">{pkg?.totalSessions} sessions • ₹{pkg?.sessionPrice}/session</div>
-                                    <div className="text-gray-500 text-[9px] mt-0.5">Treatments: {pkg?.treatments?.length || 0} included</div>
-                                  </div>
-                                );
-                              })}
+                                  );
+                                })}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          );
+                        })()}
                       </div>
                     </div>
 
@@ -2437,9 +2414,8 @@ const fetchPrescriptions = async () => {
                 {/* Transfer Section */}
                 <TransferSection patientId={patientData._id} patientData={patientData} onTransferComplete={() => { fetchPackagesAndMemberships(); }} />
 
-                {/* Packages Section - Only show if has packages or user packages */}
-                {(packages.length > 0 || userPackages.length > 0) && (
-                  <div>
+                {/* Packages Section - Always show, empty state when no packages */}
+                <div>
                     <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                       <Package className="w-5 h-5 text-teal-600" />
                       Packages
@@ -2450,59 +2426,10 @@ const fetchPrescriptions = async () => {
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
                       </div>
                     ) : (packages.length === 0 && userPackages.length === 0) ? (
-                    <div className="space-y-4">
-                      {/* Transferred Out Packages */}
-                      {transferredOutPackages && transferredOutPackages.length > 0 ? (
-                        transferredOutPackages.map((pkg: any, idx: number) => (
-                          <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
-                            <div className="flex items-start gap-3">
-                              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
-                                <Package className="w-5 h-5 text-amber-600" />
-                              </div>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <h3 className="text-base font-bold text-amber-900">
-                                    {pkg.packageName || 'Package'}
-                                  </h3>
-                                  <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[10px] font-bold">
-                                    Transferred Out
-                                  </span>
-                                </div>
-                                <p className="text-xs text-amber-700 mb-3">
-                                  This package was transferred to another patient.
-                                </p>
-                                <div className="grid grid-cols-2 gap-2">
-                                  {pkg.transferredToName && (
-                                    <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
-                                      <div className="text-[10px] text-gray-500 mb-0.5">Transferred To</div>
-                                      <div className="flex items-center gap-1.5">
-                                        <User className="w-3.5 h-3.5 text-amber-600" />
-                                        <span className="text-xs font-bold text-amber-900">
-                                          {pkg.transferredToName}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  )}
-                                  {pkg.transferredSessions > 0 && (
-                                    <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
-                                      <div className="text-[10px] text-gray-500 mb-0.5">Sessions Transferred</div>
-                                      <span className="text-xs font-bold text-amber-900">
-                                        {pkg.transferredSessions}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-                          <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                          <p className="text-gray-600 font-medium">No packages assigned to this patient</p>
-                        </div>
-                      )}
-                    </div>
+                      <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
+                        <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                        <p className="text-gray-600 font-medium">No packages assigned to this patient</p>
+                      </div>
                   ) : (
                     <div className="space-y-4">
                       {[...packages, ...userPackages].map((pkg: any, index: number) => {
@@ -2790,7 +2717,6 @@ const fetchPrescriptions = async () => {
                   </div>
                 )}
               </div>
-                )}
 
                 {/* Memberships Section */}
                 <div className="mt-6">
@@ -2800,58 +2726,9 @@ const fetchPrescriptions = async () => {
                   </h3>
                               
                   {memberships.length === 0 ? (
-                    <div className="space-y-4">
-                      {/* Transferred Out Memberships */}
-                      {transferredOutMemberships && transferredOutMemberships.length > 0 ? (
-                        transferredOutMemberships.map((membership: any, idx: number) => (
-                          <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
-                            <div className="flex items-start gap-3">
-                              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
-                                <Shield className="w-5 h-5 text-amber-600" />
-                              </div>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <h3 className="text-base font-bold text-amber-900">
-                                    {membership.membershipName || 'Membership'}
-                                  </h3>
-                                  <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[10px] font-bold">
-                                    Transferred Out
-                                  </span>
-                                </div>
-                                <p className="text-xs text-amber-700 mb-3">
-                                  This membership was transferred to another patient.
-                                </p>
-                                <div className="grid grid-cols-2 gap-2">
-                                  {membership.transferredToName && (
-                                    <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
-                                      <div className="text-[10px] text-gray-500 mb-0.5">Transferred To</div>
-                                      <div className="flex items-center gap-1.5">
-                                        <User className="w-3.5 h-3.5 text-amber-600" />
-                                        <span className="text-xs font-bold text-amber-900">
-                                          {membership.transferredToName}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  )}
-                                  {membership.transferredFreeConsultations > 0 && (
-                                    <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
-                                      <div className="text-[10px] text-gray-500 mb-0.5">Consultations Transferred</div>
-                                      <span className="text-xs font-bold text-amber-900">
-                                        {membership.transferredFreeConsultations}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-                          <Shield className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                          <p className="text-gray-600 font-medium">No memberships assigned to this patient</p>
-                        </div>
-                      )}
+                    <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
+                      <Shield className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-600 font-medium">No memberships assigned to this patient</p>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -3242,6 +3119,61 @@ const fetchPrescriptions = async () => {
                                     <div className="text-[10px] text-gray-500 mb-0.5">Sessions Transferred</div>
                                     <span className="text-xs font-bold text-amber-900">
                                       {pkg.transferredSessions}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Transferred Out Memberships Section */}
+                {transferredOutMemberships && transferredOutMemberships.length > 0 && (
+                  <div className="mt-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-amber-600" />
+                      Transferred Out Memberships
+                    </h3>
+                    <div className="space-y-4">
+                      {transferredOutMemberships.map((membership: any, idx: number) => (
+                        <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                              <Shield className="w-5 h-5 text-amber-600" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-base font-bold text-amber-900">
+                                  {membership.membershipName || 'Membership'}
+                                </h3>
+                                <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[10px] font-bold">
+                                  Transferred Out
+                                </span>
+                              </div>
+                              <p className="text-xs text-amber-700 mb-3">
+                                This membership was transferred to another patient.
+                              </p>
+                              <div className="grid grid-cols-2 gap-2">
+                                {membership.transferredToName && (
+                                  <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred To</div>
+                                    <div className="flex items-center gap-1.5">
+                                      <User className="w-3.5 h-3.5 text-amber-600" />
+                                      <span className="text-xs font-bold text-amber-900">
+                                        {membership.transferredToName}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                                {membership.transferredFreeConsultations > 0 && (
+                                  <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Consultations Transferred</div>
+                                    <span className="text-xs font-bold text-amber-900">
+                                      {membership.transferredFreeConsultations}
                                     </span>
                                   </div>
                                 )}
