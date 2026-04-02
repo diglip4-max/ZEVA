@@ -18,6 +18,7 @@ import { clsx, type ClassValue } from "clsx";
 import useProvider from "@/hooks/useProvider";
 import { Template } from "@/types/templates";
 import VariableMappingDropdown from "./VariableMappingDropdown";
+import { WorkflowEntity } from "@/types/workflows";
 
 function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
@@ -28,6 +29,7 @@ interface SendWhatsappActionModalProps {
   onClose: () => void;
   actionId: string | null;
   onUpdate: (updatedAction: any) => void;
+  entity?: WorkflowEntity;
 }
 
 const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
@@ -35,6 +37,7 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
   onClose,
   actionId,
   onUpdate,
+  entity = "Lead",
 }) => {
   const { whatsappProviders } = useProvider();
   const [selectedProviderId, setSelectedProviderId] = useState<string>("");
@@ -281,7 +284,10 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
             whatsappMsgType,
             recipient: recipient === "custom" ? customRecipient : recipient,
             templateName: selectedTemplate?.uniqueName,
-            content: message,
+            content:
+              whatsappMsgType === "template-message"
+                ? selectedTemplate?.content || ""
+                : message,
             variableMappings,
             headerVariableMappings,
             buttonVariableMappings,
@@ -492,8 +498,9 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
                     />
                     <VariableMappingDropdown
                       onSelect={(value: string) => setCustomRecipient(value)}
+                      entity={entity}
                       align="right"
-                      entity="Lead"
+                      nodeId={actionId as string}
                     />
                   </div>
                 )}
@@ -658,6 +665,8 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
                   <VariableMappingDropdown
                     onSelect={handleInsertVariable}
                     align="left"
+                    entity={entity}
+                    nodeId={actionId as string}
                   />
                 </div>
               )}
@@ -988,6 +997,8 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
                                           }))
                                         }
                                         align="right"
+                                        entity={entity}
+                                        nodeId={actionId as string}
                                       />
                                     </div>
                                   </div>
@@ -1044,6 +1055,8 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
                                       }))
                                     }
                                     align="right"
+                                    entity={entity}
+                                    nodeId={actionId as string}
                                   />
                                 </div>
                                 <p className="text-[10px] text-gray-400">
@@ -1091,6 +1104,8 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
                                   }))
                                 }
                                 align="right"
+                                entity={entity}
+                                nodeId={actionId as string}
                               />
                             </div>
                           </div>

@@ -22,6 +22,9 @@ import Message from "../models/Message.js";
 import PatientRegistration from "../models/PatientRegistration.js";
 import Referral from "../models/Referral.js";
 import { generateEmrNumber } from "../lib/generateEmrNumber.js";
+import Appointment from "../models/Appointment.js";
+import Room from "../models/Room.js";
+import Users from "../models/Users.js";
 
 export const WORKFLOW_ENTITY_TYPE = {
   LEAD: "Lead",
@@ -40,6 +43,7 @@ export const WORKFLOW_TRIGGER_TYPE = {
   RECORD_CREATE_OR_UPDATE: "record_create_or_update",
   WEBHOOK_RECEIVED: "webhook_received",
   INCOMING_MESSAGE: "incoming_message",
+  BOOKED_APPOINTMENT: "booked_appointment",
 };
 
 export const executeWorkflows = async (payload) => {
@@ -72,6 +76,26 @@ export const executeWorkflows = async (payload) => {
           trigger: "record_create_or_update",
           patientId: "65f0a0a0a0a0a0a0a0a0a0a0",
           clinicId: "65f0a0a0a0a0a0a0a0a0a0a0",
+        }
+
+      Booked_Appointment Payload:
+        {
+          entity: "Appointment",
+          trigger: "record_create_or_update",
+          appointmentId: "65f0a0a0a0a0a0a0a0a0a0a0",
+          patientId: "65f0a0a0a0a0a0a0a0a0a0a0",
+          clinicId: "65f0a0a0a0a0a0a0a0a0a0a0",
+        }
+
+        Incoming Message Payload:
+        {
+          entity: "Message",
+          trigger: "incoming_message",
+          leadId: "65f0a0a0a0a0a0a0a0a0a0a0",
+          channel: "whatsapp",
+          providerId: "65f0a0a0a0a0a0a0a0a0a0a0",
+          messageId: "65f0a0a0a0a0a0a0a0a0a0a0",
+          conversationId: "65f0a0a0a0a0a0a0a0a0a0a0",
         }
   */
   const { entity, trigger, clinicId } = payload;
@@ -137,6 +161,15 @@ export const executeWorkflow = async (workflowId, payload) => {
         channel: "sms",
         providerId: "65f0a0a0a0a0a0a0a0a0a0a0",
       }
+
+      Booked_Appointment Payload:
+      {
+        entity: "Appointment",
+        trigger: "record_create_or_update",
+        appointmentId: "65f0a0a0a0a0a0a0a0a0a0a0",
+        patientId: "65f0a0a0a0a0a0a0a0a0a0a0",
+        clinicId: "65f0a0a0a0a0a0a0a0a0a0a0",
+      }
   */
   const workflow = await Workflow.findById(workflowId);
   if (!workflow) {
@@ -192,7 +225,6 @@ export const executeWorkflow = async (workflowId, payload) => {
 
 export async function processWorkflow(workflowData) {
   const { nodes, edges, startNodeId, ...rest } = workflowData;
-  console.log("processWorkflow", { rest, startNodeId });
 
   // 1. Find the starting node
   let currentNode;
@@ -220,7 +252,12 @@ export async function processWorkflow(workflowData) {
 
     // Perform the actual action logic here (e.g., Send Message, Wait, etc.)
     let result;
-    if (currentNode.type === "action" && currentNode.data.subType === "delay") {
+    if (
+      currentNode.type === "action" &&
+      (currentNode.data.subType === "delay" ||
+        currentNode.data.subType === "rest_api" ||
+        currentNode.data.subType === "ai_composer")
+    ) {
       // Delay Action Node Dont perform any action right now
       result = true;
     } else {
@@ -289,6 +326,349 @@ export async function processWorkflow(workflowData) {
         {
           delay: delayInMs,
           removeOnComplete: true,
+        },
+      );
+      break;
+    }
+
+    // 4. If REST API Action Node
+    if (
+      currentNode.type === "action" &&
+      currentNode.data.subType === "rest_api"
+    ) {
+      const actionId = currentNode.data.id;
+      const workflowAction = await WorkflowAction.findById(actionId);
+      if (!workflowAction) {
+        throw new Error(`Action not found: ${actionId}`);
+      }
+
+      // 1. Make an entry in Workflow History
+      const history = await WorkflowHistory.create({
+        workflowId: workflowAction.workflowId,
+        actionId,
+        status: "in-progress",
+        type: "action",
+        executedAt: new Date(),
+      });
+
+      // 3. Prepare resumption from the next node
+      const nextNodeId = nextEdge ? nextEdge.target : null;
+
+      history.payload = {
+        ...currentNode.data,
+        historyId: history._id,
+        nodes, // pass full nodes
+        edges, // pass full edges
+        startNodeId: nextNodeId, // resume from the target of the next edge
+        ...rest, // pass original payload
+      };
+      await history.save();
+
+      if (!nextNodeId) {
+        console.log("No next node after rest_api, workflow finishes");
+        break;
+      }
+
+      // 4. Create a job in the restApiActionQueue
+      const restApiActionJob = await restApiActionQueue.add("rest_api", {
+        ...currentNode.data,
+        historyId: history._id,
+        nodes, // pass full nodes
+        edges, // pass full edges
+        startNodeId: nextNodeId, // resume from the target of the next edge
+        ...rest, // pass original payload
+      });
+      break;
+    }
+
+    // 5. If AI Composer Action Node
+    if (
+      currentNode.type === "action" &&
+      currentNode.data.subType === "ai_composer"
+    ) {
+      const actionId = currentNode.data.id;
+      const workflowAction = await WorkflowAction.findById(actionId);
+      if (!workflowAction) {
+        throw new Error(`Action not found: ${actionId}`);
+      }
+
+      // 1. Make an entry in Workflow History
+      const history = await WorkflowHistory.create({
+        workflowId: workflowAction.workflowId,
+        actionId,
+        status: "in-progress",
+        type: "action",
+        executedAt: new Date(),
+      });
+
+      // 3. Prepare resumption from the next node
+      const nextNodeId = nextEdge ? nextEdge.target : null;
+
+      history.payload = {
+        ...currentNode.data,
+        historyId: history._id,
+        nodes, // pass full nodes
+        edges, // pass full edges
+        startNodeId: nextNodeId, // resume from the target of the next edge
+        ...rest, // pass original payload
+      };
+      await history.save();
+
+      if (!nextNodeId) {
+        console.log("No next node after ai_composer, workflow finishes");
+        break;
+      }
+
+      // 4. Create a job in the aiComposerActionQueue
+      const aiComposerActionJob = await aiComposerActionQueue.add(
+        "ai_composer",
+        {
+          ...currentNode.data,
+          historyId: history._id,
+          nodes, // pass full nodes
+          edges, // pass full edges
+          startNodeId: nextNodeId, // resume from the target of the next edge
+          ...rest, // pass original payload
+        },
+      );
+      break;
+    }
+
+    // 4. Move to the next node or stop if no more edges
+    if (nextEdge) {
+      currentNode = nodes.find((n) => n.id === nextEdge.target);
+    } else {
+      currentNode = null; // Workflow finished
+    }
+  }
+}
+export async function processRetryWorkflow(workflowData) {
+  const { nodes, edges, startNodeId, ...rest } = workflowData;
+
+  // 1. Find the starting node
+  let currentNode;
+
+  if (startNodeId) {
+    // Resume from a specific node (e.g., after a delay)
+    currentNode = nodes.find((n) => n.id === startNodeId);
+    console.log(`Resuming workflow from node: ${startNodeId}`);
+  } else {
+    // Start from the trigger node
+    currentNode = nodes.find((n) => n.type === "trigger");
+    console.log("Starting workflow from trigger node");
+  }
+
+  // 2. If no start/trigger node found, use the first node in the array as a fallback
+  if (!currentNode && nodes.length > 0) {
+    console.log(
+      "No specific start or trigger node found, falling back to nodes[0]",
+    );
+    currentNode = nodes[0];
+  }
+
+  while (currentNode) {
+    console.log(`Executing: ${currentNode.data.label}`);
+
+    // Perform the actual action logic here (e.g., Send Message, Wait, etc.)
+    let result;
+    if (
+      currentNode.type === "action" &&
+      (currentNode.data.subType === "delay" ||
+        currentNode.data.subType === "rest_api" ||
+        currentNode.data.subType === "ai_composer")
+    ) {
+      // Delay Action Node Dont perform any action right now
+      result = true;
+    } else {
+      result = await performNodeAction({ node: currentNode, ...rest });
+    }
+
+    // 2. Find the Next Node
+    let nextEdge;
+
+    if (currentNode.type === "condition") {
+      // Branching logic: result of performNodeAction determines 'true' or 'false'
+      const handleToFollow = result ? "true" : "false";
+      nextEdge = edges.find(
+        (e) => e.source === currentNode.id && e.sourceHandle === handleToFollow,
+      );
+    } else {
+      // Sequential logic: just find the next connected node
+      nextEdge = edges.find((e) => e.source === currentNode.id);
+    }
+
+    console.log({ currentNode, nextEdge });
+
+    //3. If Delay Action Node
+    if (currentNode.type === "action" && currentNode.data.subType === "delay") {
+      const actionId = currentNode.data.id;
+      const workflowAction = await WorkflowAction.findById(actionId);
+      if (!workflowAction) {
+        throw new Error(`Action not found: ${actionId}`);
+      }
+      const delayTime = workflowAction.parameters.delayTime || 0; // Default 1 second
+      const delayFormat =
+        workflowAction.parameters.delayFormat || "milliseconds";
+      const delayInMs = calculateDelayInMs(delayTime, delayFormat);
+
+      console.log({ delayTime, delayFormat, delayInMs });
+
+      // 1. Make an entry in Workflow History or update existing entry
+      let history;
+      if (rest?.historyId) {
+        history = await WorkflowHistory.findById(rest.historyId);
+        history.status = "waiting";
+        await history.save();
+      } else {
+        history = await WorkflowHistory.create({
+          workflowId: workflowAction.workflowId,
+          actionId,
+          status: "waiting",
+          type: "action",
+          executedAt: new Date(),
+        });
+      }
+
+      // 3. Prepare resumption from the next node
+      const nextNodeId = nextEdge ? nextEdge.target : null;
+
+      if (!nextNodeId) {
+        console.log("No next node after delay, workflow finishes");
+        break;
+      }
+
+      // 4. Create a job in the delayActionQueue
+      const delayActionJob = await delayActionQueue.add(
+        "delay",
+        {
+          ...currentNode.data,
+          delayInMs,
+          historyId: history._id,
+          nodes, // pass full nodes
+          edges, // pass full edges
+          startNodeId: nextNodeId, // resume from the target of the next edge
+          ...rest, // pass original payload
+        },
+        {
+          delay: delayInMs,
+          removeOnComplete: true,
+        },
+      );
+      break;
+    }
+
+    // 4. If REST API Action Node
+    if (
+      currentNode.type === "action" &&
+      currentNode.data.subType === "rest_api"
+    ) {
+      const actionId = currentNode.data.id;
+      const workflowAction = await WorkflowAction.findById(actionId);
+      if (!workflowAction) {
+        throw new Error(`Action not found: ${actionId}`);
+      }
+
+      // 1. Make an entry in Workflow History or update existing entry
+      let history;
+      if (rest?.historyId) {
+        history = await WorkflowHistory.findById(rest.historyId);
+        history.status = "waiting";
+        await history.save();
+      } else {
+        history = await WorkflowHistory.create({
+          workflowId: workflowAction.workflowId,
+          actionId,
+          status: "waiting",
+          type: "action",
+          executedAt: new Date(),
+        });
+      }
+
+      // 3. Prepare resumption from the next node
+      const nextNodeId = nextEdge ? nextEdge.target : null;
+
+      history.payload = {
+        ...currentNode.data,
+        historyId: history._id,
+        nodes, // pass full nodes
+        edges, // pass full edges
+        startNodeId: nextNodeId, // resume from the target of the next edge
+        ...rest, // pass original payload
+      };
+      await history.save();
+
+      if (!nextNodeId) {
+        console.log("No next node after rest_api, workflow finishes");
+        break;
+      }
+
+      // 4. Create a job in the restApiActionQueue
+      const restApiActionJob = await restApiActionQueue.add("rest_api", {
+        ...currentNode.data,
+        historyId: history._id,
+        nodes, // pass full nodes
+        edges, // pass full edges
+        startNodeId: nextNodeId, // resume from the target of the next edge
+        ...rest, // pass original payload
+      });
+      break;
+    }
+
+    // 5. If AI Composer Action Node
+    if (
+      currentNode.type === "action" &&
+      currentNode.data.subType === "ai_composer"
+    ) {
+      const actionId = currentNode.data.id;
+      const workflowAction = await WorkflowAction.findById(actionId);
+      if (!workflowAction) {
+        throw new Error(`Action not found: ${actionId}`);
+      }
+
+      // 1. Make an entry in Workflow History or update existing entry
+      let history;
+      if (rest?.historyId) {
+        history = await WorkflowHistory.findById(rest.historyId);
+        history.status = "waiting";
+        await history.save();
+      } else {
+        history = await WorkflowHistory.create({
+          workflowId: workflowAction.workflowId,
+          actionId,
+          status: "waiting",
+          type: "action",
+          executedAt: new Date(),
+        });
+      }
+
+      // 3. Prepare resumption from the next node
+      const nextNodeId = nextEdge ? nextEdge.target : null;
+
+      history.payload = {
+        ...currentNode.data,
+        historyId: history._id,
+        nodes, // pass full nodes
+        edges, // pass full edges
+        startNodeId: nextNodeId, // resume from the target of the next edge
+        ...rest, // pass original payload
+      };
+      await history.save();
+
+      if (!nextNodeId) {
+        console.log("No next node after ai_composer, workflow finishes");
+        break;
+      }
+
+      // 4. Create a job in the aiComposerActionQueue
+      const aiComposerActionJob = await aiComposerActionQueue.add(
+        "ai_composer",
+        {
+          ...currentNode.data,
+          historyId: history._id,
+          nodes, // pass full nodes
+          edges, // pass full edges
+          startNodeId: nextNodeId, // resume from the target of the next edge
+          ...rest, // pass original payload
         },
       );
       break;
@@ -371,7 +751,7 @@ export const evaluateCondition = async ({ data: conditionData, ...rest }) => {
   // Evaluate the conditions based on the workflow condition type
   if (workflowCondition.type === "if_else") {
     // For if_else type, we need to evaluate all condition groups
-    const result = evaluateIfElseConditions({ conditions, ...rest });
+    const result = await evaluateIfElseConditions({ conditions, ...rest });
     // Update Workflow History with result
     await WorkflowHistory.findByIdAndUpdate(history._id, {
       status: "completed",
@@ -380,7 +760,7 @@ export const evaluateCondition = async ({ data: conditionData, ...rest }) => {
     return result;
   } else if (workflowCondition.type === "filter") {
     // For filter type, we might have different logic
-    const result = evaluateFilterConditions({ conditions, ...rest });
+    const result = await evaluateFilterConditions({ conditions, ...rest });
     // Update Workflow History with result
     await WorkflowHistory.findByIdAndUpdate(history._id, {
       status: "completed",
@@ -392,21 +772,43 @@ export const evaluateCondition = async ({ data: conditionData, ...rest }) => {
   return false;
 };
 
-const evaluateIfElseConditions = ({ conditions, ...rest }) => {
+const evaluateIfElseConditions = async ({ conditions, ...rest }) => {
   // For if_else type, we have an array of condition groups
   // Each group has andConditions and orConditions
+  const leadPayload = rest.leadId ? await getLeadDetails(rest.leadId) : {};
+  const patientPayload = rest.patientId
+    ? await getPatientDetails(rest.patientId)
+    : {};
+  const messagePayload = rest.messageId
+    ? await getMessageDetails(rest.messageId)
+    : {};
+  const appointmentPayload = rest.appointmentId
+    ? await getAppointmentDetails(rest.appointmentId)
+    : {};
+  const systemPayload = getSystemDetails(rest.systemId);
+
   for (const conditionGroup of conditions) {
     const { andConditions = [], orConditions = [] } = conditionGroup;
 
     // Evaluate AND conditions (all must be true)
     const andResult = evaluateAndConditions({
       conditions: andConditions,
+      leadPayload,
+      patientPayload,
+      messagePayload,
+      appointmentPayload,
+      systemPayload,
       ...rest,
     });
 
     // Evaluate OR conditions (at least one must be true)
     const orResult = evaluateOrConditions({
       conditions: orConditions,
+      leadPayload,
+      patientPayload,
+      messagePayload,
+      appointmentPayload,
+      systemPayload,
       ...rest,
     });
 
@@ -428,9 +830,21 @@ const evaluateIfElseConditions = ({ conditions, ...rest }) => {
   return true;
 };
 
-const evaluateFilterConditions = ({ conditions, ...rest }) => {
+const evaluateFilterConditions = async ({ conditions, ...rest }) => {
   // For filter type, you might want to evaluate all conditions with AND logic
   // or different logic based on your requirements
+  const leadPayload = rest.leadId ? await getLeadDetails(rest.leadId) : {};
+  const patientPayload = rest.patientId
+    ? await getPatientDetails(rest.patientId)
+    : {};
+  const messagePayload = rest.messageId
+    ? await getMessageDetails(rest.messageId)
+    : {};
+  const appointmentPayload = rest.appointmentId
+    ? await getAppointmentDetails(rest.appointmentId)
+    : {};
+  const systemPayload = getSystemDetails(rest.systemId);
+
   for (const conditionGroup of conditions) {
     const { andConditions = [], orConditions = [] } = conditionGroup;
 
@@ -438,10 +852,20 @@ const evaluateFilterConditions = ({ conditions, ...rest }) => {
     // and at least one OR condition to be true
     const andResult = evaluateAndConditions({
       conditions: andConditions,
+      leadPayload,
+      patientPayload,
+      messagePayload,
+      appointmentPayload,
+      systemPayload,
       ...rest,
     });
     const orResult = evaluateOrConditions({
       conditions: orConditions,
+      leadPayload,
+      patientPayload,
+      messagePayload,
+      appointmentPayload,
+      systemPayload,
       ...rest,
     });
 
@@ -477,9 +901,41 @@ const evaluateSingleCondition = ({ condition, ...rest }) => {
   let { field, operator, value } = condition;
 
   const webhookPayload = rest.payload || {};
+  const restApiPayload = rest.api_response || {};
 
-  field = replaceVariableInString(field, "webhook", webhookPayload);
-  value = replaceVariableInString(value, "webhook", webhookPayload);
+  const leadPayload = rest.leadPayload || {};
+  const patientPayload = rest.patientPayload || {};
+  const messagePayload = rest.messagePayload || {};
+  const appointmentPayload = rest.appointmentPayload || {};
+  const systemPayload = rest.systemPayload || {};
+
+  // Replace with webhook payload
+  field = replaceVariableInString(field, "lead", webhookPayload);
+  value = replaceVariableInString(value, "lead", webhookPayload);
+
+  // Replace with rest api response
+  field = replaceVariableInString(field, "rest_api", restApiPayload);
+  value = replaceVariableInString(value, "rest_api", restApiPayload);
+
+  // Replace with lead payload
+  field = replaceVariableInString(field, "lead", leadPayload);
+  value = replaceVariableInString(value, "lead", leadPayload);
+
+  // Replace with patient payload
+  field = replaceVariableInString(field, "patient", patientPayload);
+  value = replaceVariableInString(value, "patient", patientPayload);
+
+  // Replace with message payload
+  field = replaceVariableInString(field, "message", messagePayload);
+  value = replaceVariableInString(value, "message", messagePayload);
+
+  // Replace with appointment payload
+  field = replaceVariableInString(field, "appointment", appointmentPayload);
+  value = replaceVariableInString(value, "appointment", appointmentPayload);
+
+  // Replace with system payload
+  field = replaceVariableInString(field, "system", systemPayload);
+  value = replaceVariableInString(value, "system", systemPayload);
 
   console.log({ field, operator, value });
 
@@ -563,12 +1019,27 @@ export const executeAction = async ({ data: actionData, ...rest }) => {
     throw new Error(`Workflow not found: ${action.workflowId}`);
   }
 
-  const history = await WorkflowHistory.create({
-    workflowId: workflow._id,
-    actionId: actionId,
-    type: "action",
-    status: "in-progress",
-  });
+  // 1. Make an entry in Workflow History or update existing entry in case of retry
+  let history;
+  if (rest?.historyId) {
+    history = await WorkflowHistory.findById(rest.historyId);
+    history.status = "waiting";
+    await history.save();
+  } else {
+    history = await WorkflowHistory.create({
+      workflowId: workflow._id,
+      actionId: actionId,
+      type: "action",
+      status: "in-progress",
+    });
+    history.payload = {
+      // for retry purpose
+      ...rest,
+      ...actionData,
+      historyId: history._id,
+    };
+    await history.save();
+  }
 
   // Logic to perform the action (e.g., send a message, update a field)
   switch (subType) {
@@ -625,6 +1096,101 @@ export const executeAction = async ({ data: actionData, ...rest }) => {
       const job = await bookAppointmentActionQueue.add("book_appointment", {
         ...rest,
         ...actionData,
+        historyId: history._id,
+      });
+      console.log(`Job added to bookAppointmentActionQueue with ID: ${job.id}`);
+      return job;
+    }
+    default:
+      return { success: true, message: "Action performed" };
+  }
+};
+
+// execute retry action
+export const executeRetryAction = async ({ ...rest }) => {
+  const { subType, id: actionId } = rest;
+  console.log({ rest });
+  const action = await WorkflowAction.findById(actionId);
+
+  if (!action) {
+    throw new Error(`Action not found: ${actionId}`);
+  }
+  const workflow = await Workflow.findById(action.workflowId);
+
+  if (!workflow) {
+    throw new Error(`Workflow not found: ${action.workflowId}`);
+  }
+
+  // 1. Make an entry in Workflow History or update existing entry in case of retry
+  let history;
+  if (rest?.historyId) {
+    history = await WorkflowHistory.findById(rest.historyId);
+    history.status = "in-progress";
+    history.error = "";
+    history.retryCount++;
+    await history.save();
+  } else {
+    history = await WorkflowHistory.create({
+      workflowId: workflow._id,
+      actionId: actionId,
+      type: "action",
+      status: "in-progress",
+      error: "",
+    });
+    history.payload = {
+      // for retry purpose
+      ...rest,
+      historyId: history._id,
+    };
+    await history.save();
+  }
+
+  // Logic to perform the action (e.g., send a message, update a field)
+  switch (subType) {
+    case "send_whatsapp":
+      return await sendWhatsappActionQueue.add("send_whatsapp", {
+        ...rest,
+        historyId: history._id,
+      });
+    case "send_email":
+      return await sendEmailActionQueue.add("send_email", {
+        ...rest,
+        historyId: history._id,
+      });
+    case "send_sms":
+      return await sendSmsActionQueue.add("send_sms", {
+        ...rest,
+        historyId: history._id,
+      });
+    case "rest_api":
+      return await restApiActionQueue.add("rest_api", {
+        ...rest,
+        historyId: history._id,
+      });
+    case "add_to_segment":
+      return await addToSegmentActionQueue.add("add_to_segment", {
+        ...rest,
+        historyId: history._id,
+      });
+    case "assign_owner":
+      return await assignOwnerActionQueue.add("assign_owner", {
+        ...rest,
+        historyId: history._id,
+      });
+    case "add_tag":
+      return await addTagActionQueue.add("add_tag", {
+        ...rest,
+        historyId: history._id,
+      });
+    case "ai_composer":
+      return await aiComposerActionQueue.add("ai_composer", {
+        ...rest,
+        historyId: history._id,
+      });
+    case "book_appointment": {
+      console.log("Adding to bookAppointmentActionQueue: ", actionData);
+      const job = await bookAppointmentActionQueue.add("book_appointment", {
+        ...rest,
         historyId: history._id,
       });
       console.log(`Job added to bookAppointmentActionQueue with ID: ${job.id}`);
@@ -791,8 +1357,8 @@ export const getMessageDetails = async (messageId) => {
       source: message.source,
       error_code: message.errorCode,
       error_message: message.errorMessage,
-      sentAt: message.sentAt,
-      receivedAt: message.receivedAt,
+      sentAt: message.updatedAt,
+      receivedAt: message.createdAt,
     };
     return messageData;
   } catch (error) {
@@ -955,7 +1521,6 @@ export const getPatientByLeadId = async (leadId) => {
       patientType: "New",
       leadId: lead._id,
     };
-    console.log({ patientData });
     const newPatient = await PatientRegistration.create(patientData);
 
     // Update lead with new patientId
@@ -967,4 +1532,67 @@ export const getPatientByLeadId = async (leadId) => {
     console.error("Error in getPatientByLeadId:", error);
     return null;
   }
+};
+
+// Get booked appointment details
+export const getAppointmentDetails = async (appointmentId) => {
+  let appointmentData = {};
+  try {
+    const appointment = await Appointment.findById(appointmentId)
+      .populate("patientId")
+      .populate("doctorId")
+      .populate("roomId")
+      .exec();
+    appointmentData = {
+      patientId: appointment.patientId?.toString(),
+      doctorId: appointment.doctorId?.toString(),
+      roomId: appointment.roomId?.toString(),
+      patientName:
+        `${appointment.patientId?.firstName || ""} ${appointment.patientId?.lastName || ""}`?.trim() ||
+        "",
+      patientFirstName:
+        `${appointment.patientId?.firstName || "" || ""}`?.trim() || "",
+      patientLastName:
+        `${appointment.patientId?.lastName || "" || ""}`?.trim() || "",
+      patientGender:
+        `${appointment.patientId?.gender || "" || ""}`?.trim() || "",
+      patientEmail: `${appointment.patientId?.email || "" || ""}`?.trim() || "",
+      patientPhone:
+        `${appointment.patientId?.mobileNumber || "" || ""}`?.trim() || "",
+      patientMobileNumber:
+        `${appointment.patientId?.mobileNumber || "" || ""}`?.trim() || "",
+      patientType:
+        `${appointment.patientId?.patientType || "" || ""}`?.trim() || "",
+      doctorName: appointment.doctorId?.name || "",
+      doctorEmail: appointment.doctorId?.email || "",
+      doctorPhone: appointment.doctorId?.phone || "",
+      doctorGender: appointment.doctorId?.gender || "",
+      doctorAge: appointment.doctorId?.age || "",
+      doctorDob: appointment.doctorId?.dateOfBirth || "",
+      roomName: appointment.roomId?.name || "",
+      id: appointment._id?.toString(),
+      date: appointment.startDate?.toISOString()?.split("T")[0],
+      time: `${appointment.fromTime || ""} - ${appointment.toTime || ""}` || "",
+      followType: appointment.appointmentFollowType,
+      status: appointment.status,
+      cancellationReason: appointment.cancellationReason,
+      referral: appointment.referral,
+      notes: appointment.notes,
+      treatment: appointment.treatment,
+    };
+    if (!appointmentData) return null;
+    return appointmentData;
+  } catch (error) {
+    console.error("Error in getBookedAppointmentDetails:", error);
+    return appointmentData;
+  }
+};
+
+// Get system variables
+export const getSystemDetails = () => {
+  return {
+    date: new Date().toISOString()?.split("T")[0],
+    time: new Date().toISOString()?.split("T")[1]?.split("Z")[0],
+    user: "System",
+  };
 };

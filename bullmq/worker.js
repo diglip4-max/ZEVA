@@ -19,8 +19,12 @@ import {
 import Message from "../models/Message.js";
 import Workflow from "../models/workflows/Workflow.js";
 import {
+  getAppointmentDetails,
+  getLeadDetails,
+  getMessageDetails,
   getPatientByLeadId,
   getPatientDetails,
+  getSystemDetails,
   processWorkflow,
   replaceVariableInObject,
   replaceVariableInString,
@@ -33,6 +37,7 @@ import Provider from "../models/Provider.js";
 import PatientRegistration from "../models/PatientRegistration.js";
 import Appointment from "../models/Appointment.js";
 import Tag from "../models/Tag.js";
+import { generateAiResponse } from "./ai.js";
 
 console.log("📌 Import Leads Worker Started...");
 dbConnect()
@@ -396,7 +401,7 @@ export const workflowWorker = new Worker(
       }).exec();
 
       // Process the workflow
-      await processWorkflow({
+      processWorkflow({
         nodes: workflow.nodes,
         edges: workflow.edges,
         ...rest,
@@ -473,7 +478,11 @@ export const sendWhatsappActionWorker = new Worker(
       const action = await WorkflowAction.findById(actionId);
       const workflow = await Workflow.findById(action?.workflowId);
       if (!workflow) {
-        throw new Error("Workflow not found");
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Workflow not found",
+        });
+        return;
       }
       if (!action) {
         // Update Workflow History with failed
@@ -484,7 +493,12 @@ export const sendWhatsappActionWorker = new Worker(
         return;
       }
 
-      const {
+      // Extract webhook payload
+      const webhookPayload = actionData.payload || {};
+      const restApiPayload = actionData.api_response || {};
+      const aiComposerPayload = actionData.ai_composer_response || {};
+
+      let {
         providerId,
         templateId,
         recipient,
@@ -502,7 +516,6 @@ export const sendWhatsappActionWorker = new Worker(
         headerText = "",
         footerText = "",
       } = action.parameters || {};
-      console.log({ p: action.parameters });
 
       let provider = await Provider.findById(providerId);
       if (!provider) {
@@ -517,6 +530,281 @@ export const sendWhatsappActionWorker = new Worker(
       if (templateId) {
         template = await Template.findById(templateId);
       }
+
+      let leadId = actionData.leadId || "";
+      let lead = null;
+
+      if (recipient === "{{lead.phone}}") {
+        lead = await Lead.findById(leadId);
+      } else if (recipient === "{{lead.owner}}") {
+        // TODO: get owner phone number from lead
+        lead = await Lead.findById(leadId);
+        if (!lead) {
+          // Update Workflow History with failed
+          await WorkflowHistory.findByIdAndUpdate(historyId, {
+            status: "failed",
+            error: "Lead not found",
+          });
+          return;
+        }
+      } else {
+        // TODO: For custom recipient or custom phone number
+
+        if (recipient === lead?.phone) {
+          // it means user use performed contact details so
+          // no need to lookup in db
+          lead = await Lead.findById(lead._id);
+        } else {
+          // Custom phone number recipient
+          // Replace variables
+          recipient = replaceVariableInString(
+            recipient,
+            "webhook",
+            webhookPayload,
+          );
+          recipient = replaceVariableInString(
+            recipient,
+            "rest_api",
+            restApiPayload,
+          );
+
+          if (actionData.messageId) {
+            const messagePayload = await getMessageDetails(
+              actionData.messageId,
+            );
+            recipient = replaceVariableInString(
+              recipient,
+              "message",
+              messagePayload,
+            );
+          }
+
+          if (actionData.patientId) {
+            const patientPayload = await getPatientDetails(
+              actionData.patientId,
+            );
+            recipient = replaceVariableInString(
+              recipient,
+              "patient",
+              patientPayload,
+            );
+          }
+
+          if (actionData.appointmentId) {
+            const appointmentPayload = await getAppointmentDetails(
+              actionData.appointmentId,
+            );
+            console.log({
+              appointmentPayload,
+              recipient,
+            });
+            recipient = replaceVariableInString(
+              recipient,
+              "appointment",
+              appointmentPayload,
+            );
+          }
+
+          console.log({ recipient });
+
+          lead = await Lead.findOne({
+            clinicId: workflow?.clinicId,
+            phone: recipient,
+          });
+        }
+
+        console.log({ lead });
+
+        if (!lead) {
+          lead = new Lead({
+            clinicId: workflow?.clinicId,
+            name: recipient,
+            phone: recipient,
+            source: "Other",
+            customSource: "Zeva Automation",
+          });
+          await lead.save();
+        }
+      }
+      if (!lead) {
+        // Update Workflow History with failed
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Lead not found",
+        });
+        return;
+      }
+
+      // Replace header, button and body variables with actual values
+      headerVariableMappings = replaceVariableInObject(
+        headerVariableMappings,
+        "webhook",
+        webhookPayload,
+      );
+      buttonVariableMappings = replaceVariableInObject(
+        buttonVariableMappings,
+        "webhook",
+        webhookPayload,
+      );
+      variableMappings = replaceVariableInObject(
+        variableMappings,
+        "webhook",
+        webhookPayload,
+      );
+      content = replaceVariableInObject(content, "webhook", webhookPayload);
+
+      // Replace header, button and body variables with actual rest api response
+      headerVariableMappings = replaceVariableInObject(
+        headerVariableMappings,
+        "rest_api",
+        restApiPayload,
+      );
+      buttonVariableMappings = replaceVariableInObject(
+        buttonVariableMappings,
+        "rest_api",
+        restApiPayload,
+      );
+      variableMappings = replaceVariableInObject(
+        variableMappings,
+        "rest_api",
+        restApiPayload,
+      );
+      content = replaceVariableInObject(content, "rest_api", restApiPayload);
+
+      // Replace header, button and body variables with actual ai composer response
+      headerVariableMappings = replaceVariableInObject(
+        headerVariableMappings,
+        "ai_composer",
+        aiComposerPayload,
+      );
+      buttonVariableMappings = replaceVariableInObject(
+        buttonVariableMappings,
+        "ai_composer",
+        aiComposerPayload,
+      );
+      variableMappings = replaceVariableInObject(
+        variableMappings,
+        "ai_composer",
+        aiComposerPayload,
+      );
+      content = replaceVariableInObject(
+        content,
+        "ai_composer",
+        aiComposerPayload,
+      );
+
+      // Replace header, button and body variables with actual lead data
+      const leadPayload = await getLeadDetails(lead?._id);
+      headerVariableMappings = replaceVariableInObject(
+        headerVariableMappings,
+        "lead",
+        leadPayload,
+      );
+      buttonVariableMappings = replaceVariableInObject(
+        buttonVariableMappings,
+        "lead",
+        leadPayload,
+      );
+      variableMappings = replaceVariableInObject(
+        variableMappings,
+        "lead",
+        leadPayload,
+      );
+      content = replaceVariableInObject(content, "lead", leadPayload);
+
+      // Replace header, button and body variables with actual incoming message data
+      if (actionData.messageId) {
+        const messagePayload = await getMessageDetails(actionData.messageId);
+        headerVariableMappings = replaceVariableInObject(
+          headerVariableMappings,
+          "incoming_message",
+          messagePayload,
+        );
+        buttonVariableMappings = replaceVariableInObject(
+          buttonVariableMappings,
+          "incoming_message",
+          messagePayload,
+        );
+        variableMappings = replaceVariableInObject(
+          variableMappings,
+          "incoming_message",
+          messagePayload,
+        );
+        content = replaceVariableInObject(
+          content,
+          "incoming_message",
+          messagePayload,
+        );
+      }
+
+      // Replace header, button and body variables with actual patient data
+      if (actionData.patientId) {
+        const patientPayload = await getPatientDetails(actionData.patientId);
+        headerVariableMappings = replaceVariableInObject(
+          headerVariableMappings,
+          "patient",
+          patientPayload,
+        );
+        buttonVariableMappings = replaceVariableInObject(
+          buttonVariableMappings,
+          "patient",
+          patientPayload,
+        );
+        variableMappings = replaceVariableInObject(
+          variableMappings,
+          "patient",
+          patientPayload,
+        );
+        content = replaceVariableInObject(content, "patient", patientPayload);
+      }
+
+      // Replace header, button and body variables with actual appointment data
+      if (actionData.appointmentId) {
+        const appointmentPayload = await getAppointmentDetails(
+          actionData.appointmentId,
+        );
+        headerVariableMappings = replaceVariableInObject(
+          headerVariableMappings,
+          "appointment",
+          appointmentPayload,
+        );
+        buttonVariableMappings = replaceVariableInObject(
+          buttonVariableMappings,
+          "appointment",
+          appointmentPayload,
+        );
+        variableMappings = replaceVariableInObject(
+          variableMappings,
+          "appointment",
+          appointmentPayload,
+        );
+        content = replaceVariableInObject(
+          content,
+          "appointment",
+          appointmentPayload,
+        );
+      }
+
+      // Replace header, button and body variables with actual system data
+      const systemPayload = getSystemDetails();
+      headerVariableMappings = replaceVariableInObject(
+        headerVariableMappings,
+        "system",
+        systemPayload,
+      );
+      buttonVariableMappings = replaceVariableInObject(
+        buttonVariableMappings,
+        "system",
+        systemPayload,
+      );
+      variableMappings = replaceVariableInObject(
+        variableMappings,
+        "system",
+        systemPayload,
+      );
+      content = replaceVariableInObject(content, "system", systemPayload);
+
+      // Make an array of header, button and body parameters for whatsapp message
       let headerParameters = [];
       if (headerVariableMappings) {
         headerParameters = Object.entries(headerVariableMappings).map(
@@ -546,47 +834,6 @@ export const sendWhatsappActionWorker = new Worker(
         );
       }
 
-      let leadId = actionData.leadId || "";
-      let lead = null;
-
-      if (recipient === "{{lead.phone}}") {
-        lead = await Lead.findById(leadId);
-      } else if (recipient === "{{lead.owner}}") {
-        // TODO: get owner phone number from lead
-      } else {
-        // TODO: For custom recipient or custom phone number
-
-        if (recipient === lead?.phone) {
-          // it means user use performed contact details so
-          // no need to lookup in db
-          lead = await Lead.findById(lead._id);
-        } else {
-          // Custom phone number recipient
-          lead = await Lead.findOne({ phone: recipient });
-        }
-
-        if (!lead) {
-          lead = new Lead({
-            clinicId: workflow?.clinicId,
-            name: recipient,
-            phone: recipient,
-            source: "Other",
-            customSource: "Zeva Automation",
-          });
-          await lead.save();
-        }
-      }
-      if (!lead) {
-        // Update Workflow History with failed
-        await WorkflowHistory.findByIdAndUpdate(historyId, {
-          status: "failed",
-          error: "Lead not found",
-        });
-        return;
-      }
-
-      // TODO: variable replacing in header, content, buttons and all
-
       // TODO: conversation finding and msg sending functionality
       let conversation;
       if (actionData.conversationId) {
@@ -612,7 +859,7 @@ export const sendWhatsappActionWorker = new Worker(
         clinicId: workflow.clinicId,
         conversationId: conversation._id,
         leadId: lead._id,
-        senderId: action.userId,
+        senderId: workflow.ownerId,
         recipientId: lead._id,
         channel: "whatsapp",
         messageType: "automation",
@@ -642,6 +889,7 @@ export const sendWhatsappActionWorker = new Worker(
         });
         return;
       }
+
       let toPhoneNumber = lead?.phone;
       if (!toPhoneNumber) {
         // Update Workflow History with failed
@@ -778,6 +1026,7 @@ export const sendWhatsappActionWorker = new Worker(
         newMessage.status = "failed";
       } else {
         newMessage.status = "queued";
+        newMessage.providerMessageId = resData?.messages?.[0]?.id || "";
       }
       await Promise.all([newMessage.save(), conversation.save()]);
 
@@ -809,6 +1058,7 @@ export const sendWhatsappActionWorker = new Worker(
     concurrency: 10,
   },
 );
+
 export const sendEmailActionWorker = new Worker(
   "sendEmailActionQueue",
   async (job) => {
@@ -886,6 +1136,21 @@ export const restApiActionWorker = new Worker(
     const { id: actionId, ...rest } = job.data;
     const { historyId, ...actionData } = rest;
     const webhookPayload = actionData.payload || {};
+    const leadPayload = actionData.leadId
+      ? await getLeadDetails(actionData.leadId)
+      : {};
+    const patientPayload = actionData.patientId
+      ? await getPatientDetails(actionData.patientId)
+      : {};
+    const messagePayload = actionData.messageId
+      ? await getMessageDetails(actionData.messageId)
+      : {};
+    const appointmentPayload = actionData.appointmentId
+      ? await getAppointmentDetails(actionData.appointmentId)
+      : {};
+    const systemPayload = actionData.systemId
+      ? getSystemDetails(actionData.systemId)
+      : {};
 
     try {
       const action = await WorkflowAction.findById(actionId);
@@ -953,13 +1218,54 @@ export const restApiActionWorker = new Worker(
 
       // execute rest api action from axios
       let response;
+      let apiHeadersData = {};
+      for (let item of apiHeaders) {
+        apiHeadersData[item.key] = item.value;
+      }
+
+      // replace variables in apiHeadersData with webhookPayload
+      apiHeadersData = replaceVariableInObject(
+        apiHeadersData,
+        "webhook",
+        webhookPayload,
+      );
+      if (actionData.leadId) {
+        apiHeadersData = replaceVariableInObject(
+          apiHeadersData,
+          "lead",
+          leadPayload,
+        );
+      }
+      if (actionData.patientId) {
+        apiHeadersData = replaceVariableInObject(
+          apiHeadersData,
+          "patient",
+          patientPayload,
+        );
+      }
+      if (actionData.messageId) {
+        apiHeadersData = replaceVariableInObject(
+          apiHeadersData,
+          "message",
+          messagePayload,
+        );
+      }
+      if (actionData.appointmentId) {
+        apiHeadersData = replaceVariableInObject(
+          apiHeadersData,
+          "appointment",
+          appointmentPayload,
+        );
+      }
+
+      apiHeadersData = replaceVariableInObject(
+        apiHeadersData,
+        "system",
+        systemPayload,
+      );
+
       if (apiMethod === "GET") {
         // get request
-        let apiHeadersData = {};
-        for (let item of apiHeaders) {
-          apiHeadersData[item.key] = item.value;
-        }
-
         try {
           response = await axios.get(apiEndPointUrl, {
             headers: apiHeadersData,
@@ -974,20 +1280,8 @@ export const restApiActionWorker = new Worker(
         }
       } else if (apiMethod === "POST") {
         // post request
-        let apiHeadersData = {};
         let apiParametersJSONData = {};
         let apiParametersFormData = new FormData();
-
-        for (let item of apiHeaders) {
-          apiHeadersData[item.key] = item.value;
-        }
-
-        // replace variables in apiHeadersData
-        apiHeadersData = replaceVariableInObject(
-          apiHeadersData,
-          "webhook",
-          webhookPayload,
-        );
 
         if (apiPayloadType === "JSON") {
           apiHeadersData["Content-Type"] = "application/json";
@@ -1000,6 +1294,45 @@ export const restApiActionWorker = new Worker(
             apiParametersJSONData,
             "webhook",
             webhookPayload,
+          );
+
+          // replace variables in apiParametersJSONData with leadPayload
+          if (actionData.leadId) {
+            apiParametersJSONData = replaceVariableInObject(
+              apiParametersJSONData,
+              "lead",
+              leadPayload,
+            );
+          }
+          // replace variables in apiParametersJSONData with patientPayload
+          if (actionData.patientId) {
+            apiParametersJSONData = replaceVariableInObject(
+              apiParametersJSONData,
+              "patient",
+              patientPayload,
+            );
+          }
+          // replace variables in apiParametersJSONData with messagePayload
+          if (actionData.messageId) {
+            apiParametersJSONData = replaceVariableInObject(
+              apiParametersJSONData,
+              "message",
+              messagePayload,
+            );
+          }
+          // replace variables in apiParametersJSONData with appointmentPayload
+          if (actionData.appointmentId) {
+            apiParametersJSONData = replaceVariableInObject(
+              apiParametersJSONData,
+              "appointment",
+              appointmentPayload,
+            );
+          }
+
+          apiParametersJSONData = replaceVariableInObject(
+            apiParametersJSONData,
+            "system",
+            systemPayload,
           );
 
           try {
@@ -1022,6 +1355,33 @@ export const restApiActionWorker = new Worker(
               "webhook",
               webhookPayload,
             );
+            newValue = replaceVariableInString(newValue, "lead", leadPayload);
+            newValue = replaceVariableInString(
+              newValue,
+              "patient",
+              patientPayload,
+            );
+            newValue = replaceVariableInString(
+              newValue,
+              "message",
+              messagePayload,
+            );
+
+            // replace variables in item.value with appointmentPayload
+            if (actionData.appointmentId) {
+              newValue = replaceVariableInString(
+                newValue,
+                "appointment",
+                appointmentPayload,
+              );
+            }
+
+            newValue = replaceVariableInString(
+              newValue,
+              "system",
+              systemPayload,
+            );
+
             apiParametersFormData.append(item.key, newValue);
           }
 
@@ -1044,6 +1404,17 @@ export const restApiActionWorker = new Worker(
       await WorkflowHistory.findByIdAndUpdate(historyId, {
         status: "completed",
         response: response.data,
+      });
+      await WorkflowAction.findByIdAndUpdate(actionId, {
+        apiResponse: response.data,
+      });
+
+      // Process the delay action
+      processWorkflow({
+        nodes: rest.nodes,
+        edges: rest.edges,
+        api_response: response.data, // add additional data if needed
+        ...rest,
       });
 
       console.log(`Rest api action ${actionId} processed successfully`);
@@ -1308,6 +1679,24 @@ export const aiComposerActionWorker = new Worker(
     const { id: actionId, ...rest } = job.data;
     const { historyId, ...actionData } = rest;
 
+    const webhookPayload = actionData.payload || {};
+    const restApiPayload = actionData.api_response || {};
+    const leadPayload = actionData.leadId
+      ? await getLeadDetails(actionData.leadId)
+      : {};
+    const patientPayload = actionData.patientId
+      ? await getPatientDetails(actionData.patientId)
+      : {};
+    const messagePayload = actionData.messageId
+      ? await getMessageDetails(actionData.messageId)
+      : {};
+    const appointmentPayload = actionData.appointmentId
+      ? await getAppointmentDetails(actionData.appointmentId)
+      : {};
+    const systemPayload = actionData.systemId
+      ? getSystemDetails(actionData.systemId)
+      : {};
+
     try {
       const action = await WorkflowAction.findById(actionId);
       if (!action) {
@@ -1318,8 +1707,8 @@ export const aiComposerActionWorker = new Worker(
         return;
       }
 
-      const { prompt, model, temperature, outputKey } = action.parameters || {};
-      if (!prompt || !model || !temperature || !outputKey) {
+      let { prompt, model, temperature, outputKey } = action.parameters || {};
+      if (!prompt || !model || temperature === undefined || !outputKey) {
         await WorkflowHistory.findByIdAndUpdate(historyId, {
           status: "failed",
           error: "Prompt, model, temperature, and outputKey are required",
@@ -1327,18 +1716,79 @@ export const aiComposerActionWorker = new Worker(
         return;
       }
 
+      // Replace variables in prompt with actual lead data
+      prompt = replaceVariableInObject(prompt, "webhook", webhookPayload);
+      prompt = replaceVariableInObject(prompt, "rest_api", restApiPayload);
+      prompt = replaceVariableInObject(prompt, "lead", leadPayload);
+      prompt = replaceVariableInObject(prompt, "patient", patientPayload);
+      prompt = replaceVariableInObject(
+        prompt,
+        "incoming_message",
+        messagePayload,
+      );
+      prompt = replaceVariableInObject(
+        prompt,
+        "appointment",
+        appointmentPayload,
+      );
+      prompt = replaceVariableInObject(prompt, "system", systemPayload);
+
+      let result;
+      try {
+        result = await generateAiResponse({
+          prompt,
+          model,
+          temperature,
+          outputKey,
+        });
+        console.log({ result });
+        if (!result) {
+          await WorkflowHistory.findByIdAndUpdate(historyId, {
+            status: "failed",
+            error: "AI response generation failed",
+          });
+          return;
+        }
+      } catch (error) {
+        console.error("Error generating AI response:", error.message);
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: error.message || "AI response generation failed",
+        });
+        return;
+      }
+
       // Update Workflow History with completed
       await WorkflowHistory.findByIdAndUpdate(historyId, {
         status: "completed",
+        response: {
+          success: true,
+          [outputKey]: result[outputKey],
+        },
+      });
+
+      // Process the delay action
+      processWorkflow({
+        nodes: rest.nodes,
+        edges: rest.edges,
+        ai_composer_response: {
+          success: true,
+          [outputKey]: result[outputKey],
+        }, // add additional data if needed
+        ...rest,
       });
 
       console.log(`Ai composer action ${actionId} processed successfully`);
-      return { success: true, actionId };
+      return { success: true, actionId, result };
     } catch (error) {
       console.error(
         `❌ Ai composer action job ${actionId} failed:`,
         error.message,
       );
+      await WorkflowHistory.findByIdAndUpdate(historyId, {
+        status: "failed",
+        error: error.message || "Ai composer action failed",
+      });
       throw error;
     }
   },
@@ -1353,14 +1803,21 @@ export const bookAppointmentActionWorker = new Worker(
   "bookAppointmentActionQueue",
   async (job) => {
     const { id: actionId, ...rest } = job.data;
-    console.log(`Processing book appointment action for actionId: ${actionId}`);
+    console.log(
+      `Processing book appointment action for actionId: ${actionId}: `,
+      job.data,
+    );
     const { historyId, ...actionData } = rest;
 
     try {
       const action = await WorkflowAction.findById(actionId);
       const workflow = await Workflow.findById(action?.workflowId);
       if (!workflow) {
-        throw new Error("Workflow not found");
+        await WorkflowHistory.findByIdAndUpdate(historyId, {
+          status: "failed",
+          error: "Workflow not found",
+        });
+        return;
       }
       if (!action) {
         // Update Workflow History with failed

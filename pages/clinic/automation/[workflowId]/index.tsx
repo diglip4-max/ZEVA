@@ -40,6 +40,7 @@ import {
   Trash2,
   Pencil,
   Webhook,
+  History,
 } from "lucide-react";
 import { useRouter } from "next/router";
 import { NextPageWithLayout } from "@/pages/_app";
@@ -439,6 +440,8 @@ const WorkflowEditor = () => {
     title: "",
     message: "",
   });
+
+  console.log({ nodes, edges });
 
   const onDeleteNode = useCallback((nodeId: string) => {
     setDeleteModal({
@@ -942,6 +945,15 @@ const WorkflowEditor = () => {
             Test Flow
           </button> */}
           <button
+            onClick={() =>
+              router.push(`/clinic/automation/history/${workflowId}`)
+            }
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
+          >
+            <History className="w-4 h-4" />
+            View History
+          </button>
+          <button
             onClick={handleSave}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 rounded-xl text-sm font-semibold text-white hover:bg-blue-700 transition-all shadow-md shadow-blue-200"
           >
@@ -1035,8 +1047,8 @@ const WorkflowEditor = () => {
                     color: "bg-green-500",
                   },
                   workflow?.entity === "Appointment" && {
-                    subType: "appointment",
-                    label: "Appointment",
+                    subType: "booked_appointment",
+                    label: "Booked Appointment",
                     description: "When an appointment is booked",
                     icon: Calendar,
                     color: "bg-amber-500",
@@ -1364,6 +1376,7 @@ const WorkflowEditor = () => {
           fetchWorkflow();
           console.log("Rest API action updated");
         }}
+        entity={workflow?.entity}
       />
 
       {/* Filter Condition Modal */}
@@ -1375,6 +1388,7 @@ const WorkflowEditor = () => {
           fetchWorkflow();
           console.log("Filter condition updated");
         }}
+        entity={workflow?.entity}
       />
 
       {/* If/Else Condition Modal */}
@@ -1386,6 +1400,7 @@ const WorkflowEditor = () => {
           fetchWorkflow();
           console.log("If/Else condition updated");
         }}
+        entity={workflow?.entity}
       />
 
       {/* Webhook Trigger Modal */}
@@ -1443,6 +1458,7 @@ const WorkflowEditor = () => {
           fetchWorkflow();
           console.log("AI composer action updated");
         }}
+        entity={workflow?.entity}
       />
 
       {/* Send WhatsApp Action Modal */}
@@ -1454,6 +1470,7 @@ const WorkflowEditor = () => {
           fetchWorkflow();
           console.log("Send WhatsApp action updated");
         }}
+        entity={workflow?.entity}
       />
 
       {/* Book Appointment Action Modal */}
@@ -1465,6 +1482,7 @@ const WorkflowEditor = () => {
           fetchWorkflow();
           console.log("Book Appointment action updated");
         }}
+        entity={workflow?.entity}
       />
 
       {/* Add Tag Action Modal */}
