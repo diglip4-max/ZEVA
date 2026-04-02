@@ -694,7 +694,8 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
           if (res.ok) {
             const data = await res.json();
             if (data.success) {
-              setBillingHistory(data.billings || []);
+              const filteredBillings = (data.billings || []).filter(b => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance");
+              setBillingHistory(filteredBillings);
             }
           }
         } catch (err) {

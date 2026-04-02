@@ -736,8 +736,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           { headers },
         );
         if (response.data.success) {
-          setBillingHistory(response.data.billings || []);
-        }
+            const filteredBillings = (response.data.billings || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance");
+            setBillingHistory(filteredBillings);
+          }
       } catch (error) {
         console.error("Error fetching billing history:", error);
         setBillingHistory([]);
@@ -2121,7 +2122,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
               ),
             ]);
             if (historyResponse.data.success) {
-              setBillingHistory(historyResponse.data.billings || []);
+              const filteredBillings = (historyResponse.data.billings || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance");
+              setBillingHistory(filteredBillings);
             }
             if (
               balanceResponse.data?.success &&
@@ -2217,11 +2219,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   });
 
   // Last 3 billing invoices for Payment History section
-  const last3Billings = billingHistory.slice(0, 3);
+  const last3Billings = (billingHistory || [])
+    .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
+    .slice(0, 3);
 
-  const isAlreadyBilled = billingHistory.some(
-    (b) => String(b.appointmentId) === String(appointment?._id) || 
-           String(b.appointmentId?._id) === String(appointment?._id)
+  const isAlreadyBilled = (billingHistory || []).some(
+    (b) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance" && (String(b.appointmentId) === String(appointment?._id) || 
+           String(b.appointmentId?._id) === String(appointment?._id))
   );
 
   // Use API values for pending and advance balance display at top

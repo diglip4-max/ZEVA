@@ -205,8 +205,14 @@ const BillingHistoryPage = () => {
       );
       
       // Extract billings array from response (response.data.billings or response.data)
-      const billingData = response.data?.billings || response.data;
+      let billingData = response.data?.billings || response.data;
       if (billingData && Array.isArray(billingData)) {
+        // Filter out advance-only records and pure balance adjustments
+        // but keep actual pending balance payments
+        billingData = billingData.filter((b: any) => 
+          (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") ||
+          b.treatment === "Pending Balance Payment"
+        );
         setBillingHistory(billingData);
       } else {
         setBillingHistory([]);
