@@ -172,6 +172,7 @@ export default async function handler(req, res) {
           if (membershipEndDate) invoice.membershipEndDate = new Date(membershipEndDate);
           if (membershipId) invoice.membershipId = membershipId;
         } else if (membership === "No") {
+          invoice.membership = "No";
           invoice.membershipStartDate = null;
           invoice.membershipEndDate = null;
           invoice.membershipId = null;
@@ -185,18 +186,31 @@ export default async function handler(req, res) {
           invoice.packageId = null;
         }
 
+        // Handle memberships array - update or remove based on formData
         if (Array.isArray(membershipsArray)) {
-          invoice.memberships = membershipsArray.map((m) => ({
-            membershipId: m.membershipId,
-            startDate: m.startDate ? new Date(m.startDate) : undefined,
-            endDate: m.endDate ? new Date(m.endDate) : undefined,
-          }));
+          if (membershipsArray.length === 0 && membership === "No") {
+            // Clear all memberships when membership is set to No
+            invoice.memberships = [];
+          } else {
+            invoice.memberships = membershipsArray.map((m) => ({
+              membershipId: m.membershipId,
+              startDate: m.startDate ? new Date(m.startDate) : undefined,
+              endDate: m.endDate ? new Date(m.endDate) : undefined,
+            }));
+          }
         }
+        
+        // Handle packages array - update or remove based on formData
         if (Array.isArray(packagesArray)) {
-          invoice.packages = packagesArray.map((p) => ({
-            packageId: p.packageId,
-            assignedDate: p.assignedDate ? new Date(p.assignedDate) : undefined,
-          }));
+          if (packagesArray.length === 0 && pkgToggle === "No") {
+            // Clear all packages when package is set to No
+            invoice.packages = [];
+          } else {
+            invoice.packages = packagesArray.map((p) => ({
+              packageId: p.packageId,
+              assignedDate: p.assignedDate ? new Date(p.assignedDate) : undefined,
+            }));
+          }
         }
 
         invoice.notes = notes || "";
