@@ -497,7 +497,7 @@ const processWhatsAppWebhook = async (req) => {
           // check consent for help keyword
           // updateConsentHelpOfContact(teamId, newMessage?._id);
 
-          // Note: Execute workflow for the created lead
+          // Note: Execute workflow for the incoming message
           executeWorkflows({
             entity: WORKFLOW_ENTITY_TYPE.MESSAGE,
             trigger: WORKFLOW_TRIGGER_TYPE.INCOMING_MESSAGE,
@@ -505,6 +505,8 @@ const processWhatsAppWebhook = async (req) => {
             clinicId: findLead.clinicId?.toString(),
             channel: "whatsapp",
             providerId: provider._id?.toString(),
+            messageId: newMessage._id?.toString(),
+            conversationId: conversation._id?.toString(),
           });
         }
       }

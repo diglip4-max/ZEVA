@@ -1,6 +1,5 @@
 import { useState, ReactElement, useEffect, useCallback } from "react";
 import {
-  MoreVertical,
   Zap,
   Plus,
   Search,
@@ -14,11 +13,13 @@ import {
   LayoutGrid,
   List,
   MessageSquare,
+  Trash2,
 } from "lucide-react";
 import { NextPageWithLayout } from "@/pages/_app";
 import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import AddWorkflow from "./_components/AddWorkflow";
+import DeleteWorkflowConfirmModal from "./_components/DeleteWorkflowConfirmModal";
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
 import { Workflow } from "@/types/workflows";
@@ -57,6 +58,10 @@ const entityIcons = {
 const AutomationPage: NextPageWithLayout = () => {
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [workflowToDelete, setWorkflowToDelete] = useState<Workflow | null>(
+    null,
+  );
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -113,6 +118,42 @@ const AutomationPage: NextPageWithLayout = () => {
   useEffect(() => {
     fetchWorkflows();
   }, [fetchWorkflows]);
+
+  const handleDeleteWorkflow = async (workflow: Workflow) => {
+    setWorkflowToDelete(workflow);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteWorkflow = async () => {
+    if (!workflowToDelete) return;
+
+    try {
+      const token = getTokenByPath();
+      const { data } = await axios.delete(
+        `/api/workflows/${workflowToDelete._id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (data.success) {
+        fetchWorkflows();
+        setIsDeleteModalOpen(false);
+        setWorkflowToDelete(null);
+      } else {
+        throw new Error(data.message || "Failed to delete workflow");
+      }
+    } catch (err: any) {
+      console.error("Error deleting workflow:", err);
+      throw new Error(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to delete workflow",
+      );
+    }
+  };
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
@@ -337,9 +378,26 @@ const AutomationPage: NextPageWithLayout = () => {
                               </p>
                             </div>
                           </div>
-                          <button className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors">
-                            <MoreVertical className="w-5 h-5" />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleDeleteWorkflow(workflow)}
+                              className="text-gray-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                              title="Delete Workflow"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() =>
+                                router.push(
+                                  `/clinic/automation/${workflow._id}`,
+                                )
+                              }
+                              className="text-gray-400 hover:text-blue-600 p-2 rounded-lg hover:bg-blue-50 transition-colors"
+                              title="Workflow Settings"
+                            >
+                              <Settings className="w-5 h-5" />
+                            </button>
+                          </div>
                         </div>
 
                         <div className="text-sm text-gray-600 mb-4">
@@ -518,16 +576,26 @@ const AutomationPage: NextPageWithLayout = () => {
                               </div>
                             </td>
                             <td className="px-6 py-4 text-right">
-                              <button
-                                onClick={() =>
-                                  router.push(
-                                    `/clinic/automation/${workflow._id}`,
-                                  )
-                                }
-                                className="p-2 hover:bg-blue-50 text-gray-400 hover:text-blue-600 rounded-lg transition-all"
-                              >
-                                <Settings className="w-4 h-4" />
-                              </button>
+                              <div className="flex justify-end gap-1">
+                                <button
+                                  onClick={() =>
+                                    router.push(
+                                      `/clinic/automation/${workflow._id}`,
+                                    )
+                                  }
+                                  className="p-2 hover:bg-blue-50 text-gray-400 hover:text-blue-600 rounded-lg transition-all"
+                                  title="Workflow Settings"
+                                >
+                                  <Settings className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteWorkflow(workflow)}
+                                  className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-lg transition-all"
+                                  title="Delete Workflow"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -605,6 +673,15 @@ const AutomationPage: NextPageWithLayout = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onWorkflowCreated={fetchWorkflows}
+      />
+      <DeleteWorkflowConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setWorkflowToDelete(null);
+        }}
+        onConfirm={confirmDeleteWorkflow}
+        workflowName={workflowToDelete?.name || ""}
       />
     </div>
   );

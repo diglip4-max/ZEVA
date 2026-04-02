@@ -69,6 +69,43 @@ export default async function handler(req, res) {
       // This can be tightened based on specific requirements
     }
 
+    // Build ALL transferred-out memberships array (similar to package-usage transferredOut)
+    const allMembershipTransfersOut = Array.isArray(patient.membershipTransfers)
+      ? patient.membershipTransfers.filter(t => t.type === 'out')
+      : [];
+    let transferredOutMemberships = [];
+    if (allMembershipTransfersOut.length > 0) {
+      // Fetch names for missing membershipNames
+      const missingNameIds = allMembershipTransfersOut
+        .filter(t => !t.membershipName && t.membershipId)
+        .map(t => t.membershipId);
+      const membershipNameMap = {};
+      if (missingNameIds.length > 0) {
+        const plans = await MembershipPlan.find({ _id: { $in: missingNameIds } }).select('name').lean();
+        plans.forEach(p => { membershipNameMap[String(p._id)] = p.name; });
+      }
+      // Fetch names for recipient patients
+      const recipientIds = [...new Set(allMembershipTransfersOut.map(t => String(t.toPatientId || '')).filter(Boolean))];
+      const recipientNameMap = {};
+      if (recipientIds.length > 0) {
+        const recipients = await PatientRegistration.find({ _id: { $in: recipientIds } }).select('firstName lastName').lean();
+        recipients.forEach(r => {
+          const fn = (r.firstName || '').trim();
+          const ln = (r.lastName || '').trim();
+          recipientNameMap[String(r._id)] = `${fn} ${ln}`.trim() || 'Unknown';
+        });
+      }
+      transferredOutMemberships = allMembershipTransfersOut.map(t => ({
+        membershipId: t.membershipId,
+        membershipName: t.membershipName || membershipNameMap[String(t.membershipId)] || 'Membership',
+        transferredToPatientId: t.toPatientId || null,
+        transferredToName: recipientNameMap[String(t.toPatientId)] || null,
+        transferredFreeConsultations: t.transferredFreeConsultations || 0,
+        discountPercentageTransferred: t.discountPercentageTransferred || 0,
+        transferDate: t.transferDate || null,
+      }));
+    }
+
     // Determine active membership considering transfers
     let activeMembershipId = null;
     let transferredAllowance = null;
@@ -109,6 +146,7 @@ export default async function handler(req, res) {
         success: true,
         hasMembership: false,
         message: "Patient does not have an active membership",
+        transferredOutMemberships,
       });
     }
 
@@ -156,6 +194,7 @@ export default async function handler(req, res) {
         transferredToPatientId: outTransfer?.toPatientId || null,
         transferredToName,
         transferredFreeConsultations: outTransfer?.transferredFreeConsultations || 0,
+        transferredOutMemberships,
       });
     }
 
@@ -170,6 +209,7 @@ export default async function handler(req, res) {
         success: true,
         hasMembership: false,
         message: "Membership plan not found",
+        transferredOutMemberships,
       });
     }
 
@@ -188,6 +228,7 @@ export default async function handler(req, res) {
         isExpired: true,
         membershipName: membershipPlan.name,
         message: "Membership has expired",
+        transferredOutMemberships,
       });
     }
 
@@ -209,6 +250,7 @@ export default async function handler(req, res) {
         remainingFreeConsultations: 0,
         discountPercentage: membershipPlan.benefits?.discountPercentage || 0,
         message: "Membership does not include free consultations",
+        transferredOutMemberships,
       });
     }
 
@@ -338,6 +380,7 @@ export default async function handler(req, res) {
       message: remainingFreeConsultations > 0 
         ? `${remainingFreeConsultations} free consultation(s) remaining`
         : "All free consultations have been used",
+      transferredOutMemberships,
     });
 
   } catch (error) {

@@ -387,6 +387,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
   // Create Package state
   const [showCreatePackage, setShowCreatePackage] = useState(false);
+  const [createdPackage, setCreatedPackage] = useState<any>(null);
   const [pkgModalName, setPkgModalName] = useState("");
   const [pkgModalPrice, setPkgModalPrice] = useState("");
   const [pkgTreatments, setPkgTreatments] = useState<Array<{ name: string; slug: string; type?: string; mainTreatment?: string | null }>>([]);
@@ -915,6 +916,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       }, { headers });
       if (res.data?.success) {
         const newPkgId = res.data.package?._id || res.data.packageId || null;
+        const createdPkgData = res.data.package || null;
         if (addToPatient && newPkgId && details?.patientId) {
           setAddingPackageToPatient(true);
           try {
@@ -923,13 +925,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
               packageId: newPkgId,
             }, { headers });
             setPkgSuccess("Package created and added to patient profile!");
+            setCreatedPackage(createdPkgData);
           } catch {
             setPkgSuccess("Package created. (Could not add to patient profile)");
+            setCreatedPackage(createdPkgData);
           } finally {
             setAddingPackageToPatient(false);
           }
         } else {
           setPkgSuccess("Package created successfully!");
+          setCreatedPackage(createdPkgData);
         }
         setPkgModalName(""); setPkgModalPrice(""); setPkgSelectedTreatments([]); setPkgTreatmentSearch("");
       } else {
@@ -2205,6 +2210,61 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
                                 <CheckCircle className="w-4 h-4 text-green-600" />
                                 <p className="text-xs text-green-700 font-medium">{pkgSuccess}</p>
+                              </div>
+                            )}
+
+                            {/* Created Package Details Display */}
+                            {createdPackage && (
+                              <div className="mb-3 p-3 bg-violet-50 border border-violet-200 rounded-lg">
+                                <div className="flex items-start justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <Package className="w-4 h-4 text-violet-600" />
+                                    <h4 className="text-xs font-bold text-violet-800">Package Created</h4>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setCreatedPackage(null)}
+                                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                                  >
+                                    <XIcon size={14} />
+                                  </button>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] text-gray-600">Name:</span>
+                                    <span className="text-xs font-semibold text-gray-900">{createdPackage.name || "N/A"}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] text-gray-600">Price:</span>
+                                    <span className="text-xs font-bold text-violet-600">AED {parseFloat(createdPackage.totalPrice || 0).toFixed(2)}</span>
+                                  </div>
+                                  
+                                  {(createdPackage.treatments || []).length > 0 && (
+                                    <div className="border-t border-violet-200 pt-2 mt-2">
+                                      <p className="text-[10px] font-semibold text-gray-600 mb-1.5">Included Treatments:</p>
+                                      <div className="space-y-1">
+                                        {(createdPackage.treatments || []).map((treatment: any, idx: number) => (
+                                          <div key={idx} className="flex items-center justify-between text-[10px]">
+                                            <span className="text-gray-700 truncate flex-1">{treatment.treatmentName || "N/A"}</span>
+                                            <span className="text-gray-600 ml-2">{treatment.sessions || 0} session{(treatment.sessions || 0) > 1 ? 's' : ''}</span>
+                                            <span className="text-violet-600 font-semibold ml-2">AED {(treatment.allocatedPrice || 0).toFixed(2)}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  <div className="flex gap-2 mt-2 pt-2 border-t border-violet-200">
+                                    <button
+                                      type="button"
+                                      onClick={() => setCreatedPackage(null)}
+                                      className="w-full px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-all"
+                                    >
+                                      Close
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
                             )}
 
@@ -3570,7 +3630,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                     <div className="space-y-5">
                       <div>
                         <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-sm font-semibold text-gray-800">Prescribed Medicines</h3>
+                          <h3 className="text-sm font-semibold text-gray-800">Prescribed Medicines <span className="text-red-500">*</span></h3>
                           <button type="button" onClick={() => setMedicines((prev) => [...prev, emptyMedicine()])}
                             className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700"
                           >
@@ -3581,8 +3641,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           {medicines.map((med) => (
                             <div key={med.id} className="rounded-xl border border-gray-200 bg-white px-4 py-3 flex flex-col sm:flex-row gap-3 items-start sm:items-center shadow-sm">
                               <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase">Medicine</label>
-                                <input type="text" value={med.medicineName} onChange={(e) => setMedicines((prev) => prev.map((m) => m.id === med.id ? { ...m, medicineName: e.target.value } : m))} placeholder="Medicine name" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300 text-gray-800 placeholder-gray-400" />
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase">Medicine <span className="text-red-500">*</span></label>
+                                <input type="text" value={med.medicineName} onChange={(e) => setMedicines((prev) => prev.map((m) => m.id === med.id ? { ...m, medicineName: e.target.value } : m))} placeholder="Medicine name (required)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300 text-gray-800 placeholder-gray-400" />
                               </div>
                               <div className="flex flex-col gap-0.5 w-full sm:w-28">
                                 <label className="text-[10px] font-semibold text-gray-400 uppercase">Dosage</label>
@@ -3618,6 +3678,12 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
                       {prescriptionError && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{prescriptionError}</div>}
                       {prescriptionSaved && <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 flex items-center gap-2"><Check size={14} /> Prescription saved.</div>}
+                      {medicines.some((m) => !m.medicineName.trim()) && (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 flex items-center gap-2">
+                          <AlertCircle size={14} />
+                          Please fill in all medicine names (marked with *) before saving.
+                        </div>
+                      )}
 
                       <div className="flex items-center gap-3 flex-wrap">
                         <button type="button" disabled={savingPrescription || medicines.every((m) => !m.medicineName.trim())}

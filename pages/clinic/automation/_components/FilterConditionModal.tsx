@@ -3,6 +3,7 @@ import { X, Filter, Save, Loader2, Plus, Trash2 } from "lucide-react";
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
 import VariableMappingSelect from "./VariableMappingSelect";
+import { WorkflowEntity } from "@/types/workflows";
 
 interface Condition {
   conditionType: "and" | "or";
@@ -16,6 +17,7 @@ interface FilterConditionModalProps {
   onClose: () => void;
   conditionId: string | null;
   onUpdate: (updatedCondition: any) => void;
+  entity?: WorkflowEntity;
 }
 
 const operators = [
@@ -40,6 +42,7 @@ const FilterConditionModal: React.FC<FilterConditionModalProps> = ({
   onClose,
   conditionId,
   onUpdate,
+  entity = "Lead",
 }) => {
   const [conditions, setConditions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -255,6 +258,8 @@ const FilterConditionModal: React.FC<FilterConditionModalProps> = ({
                                     val,
                                   )
                                 }
+                                entity={entity}
+                                nodeId={conditionId as string}
                               />
                             </div>
                             <div className="col-span-3">
@@ -350,6 +355,8 @@ const FilterConditionModal: React.FC<FilterConditionModalProps> = ({
                                     val,
                                   )
                                 }
+                                entity={entity}
+                                nodeId={conditionId as string}
                               />
                             </div>
                             <div className="col-span-3">

@@ -37,6 +37,7 @@ const WorkflowTriggerSchema = new Schema(
         "record_create_or_update",
         "webhook_received",
         "incoming_message",
+        "booked_appointment",
       ],
     },
     // for webhook trigger

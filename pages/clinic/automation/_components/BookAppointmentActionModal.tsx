@@ -18,6 +18,7 @@ import { clsx, type ClassValue } from "clsx";
 import VariableMappingSelect from "./VariableMappingSelect";
 import useAgents from "@/hooks/useAgents";
 import useRooms from "@/hooks/useRooms";
+import { WorkflowEntity } from "@/types/workflows";
 
 function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
@@ -28,6 +29,7 @@ interface BookAppointmentActionModalProps {
   onClose: () => void;
   actionId: string | null;
   onUpdate: (updatedAction: any) => void;
+  entity?: WorkflowEntity;
 }
 
 const BookAppointmentActionModal: React.FC<BookAppointmentActionModalProps> = ({
@@ -35,6 +37,7 @@ const BookAppointmentActionModal: React.FC<BookAppointmentActionModalProps> = ({
   onClose,
   actionId,
   onUpdate,
+  entity = "Lead",
 }) => {
   const { agents: doctors } = useAgents({ role: "doctorStaff" })?.state || {
     agents: [],
@@ -463,6 +466,7 @@ const BookAppointmentActionModal: React.FC<BookAppointmentActionModalProps> = ({
                     value={appointmentDate}
                     onChange={setAppointmentDate}
                     placeholder="Map to date variable..."
+                    entity={entity}
                   />
                 </div>
 
@@ -475,6 +479,7 @@ const BookAppointmentActionModal: React.FC<BookAppointmentActionModalProps> = ({
                     value={appointmentTime}
                     onChange={setAppointmentTime}
                     placeholder="Map to time variable..."
+                    entity={entity}
                   />
                 </div>
               </div>

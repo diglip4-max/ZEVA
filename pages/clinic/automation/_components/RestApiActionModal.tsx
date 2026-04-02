@@ -14,6 +14,7 @@ import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
 import { clsx, type ClassValue } from "clsx";
 import VariableMappingDropdown from "./VariableMappingDropdown";
+import { WorkflowEntity } from "@/types/workflows";
 
 function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
@@ -24,6 +25,7 @@ interface RestApiActionModalProps {
   onClose: () => void;
   actionId: string | null;
   onUpdate: (updatedAction: any) => void;
+  entity?: WorkflowEntity;
 }
 
 const RestApiActionModal: React.FC<RestApiActionModalProps> = ({
@@ -31,6 +33,7 @@ const RestApiActionModal: React.FC<RestApiActionModalProps> = ({
   onClose,
   actionId,
   onUpdate,
+  entity = "Lead",
 }) => {
   const [apiMethod, setApiMethod] = useState<string>("POST");
   const [apiEndPointUrl, setApiEndPointUrl] = useState<string>("");
@@ -329,8 +332,9 @@ const RestApiActionModal: React.FC<RestApiActionModalProps> = ({
                             onSelect={(value: string) =>
                               updateHeader(idx, "value", value)
                             }
-                            entity={"Lead"}
+                            entity={entity}
                             align="right"
+                            nodeId={actionId as string}
                           />
                           <button
                             onClick={() => removeHeader(idx)}
@@ -388,8 +392,9 @@ const RestApiActionModal: React.FC<RestApiActionModalProps> = ({
                             onSelect={(value: string) =>
                               updateParam(idx, "value", value)
                             }
-                            entity={"Lead"}
+                            entity={entity}
                             align="right"
+                            nodeId={actionId as string}
                           />
                           <button
                             onClick={() => removeParam(idx)}

@@ -5,7 +5,7 @@ import {
   Calendar, User, DollarSign, FileText, AlertCircle, Activity,
   CreditCard, TrendingUp, Package, Phone,
   Mail, Clock, Shield, X, CheckCircle, XCircle,
-  AlertTriangle, Info, Plus, FileImage, Wallet, ClipboardList, Send
+  AlertTriangle, Info, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -35,11 +35,429 @@ const getAuthHeaders = () => {
   return token ? { Authorization: `Bearer ${token}` } : null;
 };
 
+// Transfer Section Component - Updated to use parent patientData and trigger refresh
+const TransferSection = ({ patientId, patientData, onTransferComplete }: { patientId: string; patientData: any; onTransferComplete?: () => void }) => {
+  const [showTransfer, setShowTransfer] = useState(false);
+  const [transferType, setTransferType] = useState("");
+  const [selectedMembershipId, setSelectedMembershipId] = useState("");
+  const [membershipUsage, setMembershipUsage] = useState<any>(null);
+  const [selectedPackageId, setSelectedPackageId] = useState("");
+  const [packageUsage, setPackageUsage] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [selectedTargetPatient, setSelectedTargetPatient] = useState<any>(null);
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
+  const [localMemberships, setLocalMemberships] = useState<any[]>([]);
+  const [localPackages, setLocalPackages] = useState<any[]>([]);
+  const [referrals, setReferrals] = useState<any[]>([]);
+
+  // Fetch memberships, packages, and referrals on mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const headers = getAuthHeaders() || {};
+        
+        // Fetch memberships
+        const membershipsRes = await axios.get('/api/clinic/memberships', { headers });
+        if (membershipsRes.data.success) {
+          setLocalMemberships(membershipsRes.data.memberships || []);
+        }
+
+        // Fetch packages
+        const packagesRes = await axios.get('/api/clinic/packages', { headers });
+        if (packagesRes.data.success) {
+          setLocalPackages(packagesRes.data.packages || []);
+        }
+
+        // Fetch referrals
+        const referralsRes = await axios.get('/api/clinic/referrals', { headers });
+        if (referralsRes.data.success) {
+          setReferrals(referralsRes.data.referrals || []);
+        }
+      } catch (error) {
+        console.error('Error fetching transfer data:', error);
+      }
+    };
+
+    fetchData();
+  }, [patientId]);
+
+  // Fetch membership usage when membership is selected
+  useEffect(() => {
+    if (transferType === "membership" && selectedMembershipId) {
+      const fetchMembershipUsage = async () => {
+        try {
+          const headers = getAuthHeaders() || {};
+          const res = await axios.get(`/api/clinic/membership-usage/${patientId}?membershipId=${selectedMembershipId}`, { headers });
+          console.log('Membership usage API response:', res.data);
+          
+          // Handle different response structures
+          if (res.data.success) {
+            const usageData = res.data.usage || res.data.data || res.data;
+            setMembershipUsage(usageData || null);
+          } else {
+            console.warn('API returned success=false:', res.data);
+            setMembershipUsage(null);
+          }
+        } catch (error: any) {
+          console.error('Error fetching membership usage:', error.message);
+          console.error('Full error:', error);
+          setMembershipUsage(null);
+        }
+      };
+      fetchMembershipUsage();
+    }
+  }, [transferType, selectedMembershipId, patientId]);
+
+  // Fetch package usage when package is selected
+  useEffect(() => {
+    if (transferType === "package" && selectedPackageId) {
+      const fetchPackageUsage = async () => {
+        try {
+          const headers = getAuthHeaders() || {};
+          const res = await axios.get(`/api/clinic/package-usage/${patientId}`, { headers });
+          if (res.data.success) {
+            const usage = res.data.packageUsage?.find((p: any) => p.packageId === selectedPackageId);
+            setPackageUsage(usage || null);
+          }
+        } catch (error) {
+          console.error('Error fetching package usage:', error);
+        }
+      };
+      fetchPackageUsage();
+    }
+  }, [transferType, selectedPackageId, patientId]);
+
+  // Search for target patients
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (searchQuery.length < 2) {
+        setSearchResults([]);
+        return;
+      }
+
+      setSearchLoading(true);
+      try {
+        const headers = getAuthHeaders() || {};
+        // Use the correct search API endpoint with 'search' parameter
+        const res = await axios.get(`/api/clinic/search-patients?search=${encodeURIComponent(searchQuery)}`, { headers });
+        if (res.data.success || res.data.patients) {
+          setSearchResults(res.data.patients || []);
+        } else if (Array.isArray(res.data)) {
+          setSearchResults(res.data);
+        }
+      } catch (error) {
+        console.error('Error searching patients:', error);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const handleSubmitTransfer = async () => {
+    if (!selectedTargetPatient) {
+      alert('Please select a target patient');
+      return;
+    }
+
+    setTransferSubmitting(true);
+    try {
+      const headers = getAuthHeaders() || {};
+      
+      if (transferType === "membership") {
+        // Check if there are remaining benefits to transfer (same as PatientUpdateForm)
+        if (!selectedMembershipId || !membershipUsage || !membershipUsage.remainingFreeConsultations || membershipUsage.remainingFreeConsultations <= 0) {
+          alert('No remaining membership benefits to transfer');
+          setTransferSubmitting(false);
+          return;
+        }
+        const res = await axios.post('/api/clinic/transfer-benefits', {
+          type: "membership",
+          sourcePatientId: patientId,
+          targetPatientId: selectedTargetPatient._id,
+          membershipId: selectedMembershipId,
+        }, { headers });
+        const data = res.data;
+        if (res.status === 200 || res.status === 201) {
+          alert(data.message || 'Membership transferred successfully!');
+          setShowTransfer(false);
+          setTransferType("");
+          setMembershipUsage(null);
+          setSelectedTargetPatient(null);
+          setSelectedMembershipId("");
+          if (onTransferComplete) onTransferComplete();
+        } else {
+          alert(data.message || 'Transfer failed');
+        }
+      } else if (transferType === "package") {
+        if (!selectedPackageId) {
+          alert('Select a package to transfer');
+          setTransferSubmitting(false);
+          return;
+        }
+        // Use the same endpoint as PatientUpdateForm
+        const res = await axios.post('/api/clinic/transfer-benefits', {
+          type: "package",
+          sourcePatientId: patientId,
+          targetPatientId: selectedTargetPatient._id,
+          packageId: selectedPackageId,
+        }, { headers });
+        const data = res.data;
+        if (res.status === 200 || res.status === 201) {
+          alert(data.message || 'Package transferred successfully!');
+          setShowTransfer(false);
+          setTransferType("");
+          setPackageUsage(null);
+          setSelectedTargetPatient(null);
+          setSelectedPackageId("");
+          if (onTransferComplete) onTransferComplete();
+        } else {
+          alert(data.message || 'Transfer failed');
+        }
+      }
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Transfer failed');
+    } finally {
+      setTransferSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 border border-emerald-200 shadow-md">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-[14px] font-bold text-emerald-700">Transfer</h2>
+        <label className="inline-flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={showTransfer}
+            onChange={(e) => {
+              setShowTransfer(e.target.checked);
+              if (!e.target.checked) {
+                setTransferType("");
+                setMembershipUsage(null);
+                setPackageUsage(null);
+                setSelectedTargetPatient(null);
+                setSelectedPackageId("");
+                setSelectedMembershipId("");
+              }
+            }}
+          />
+          <span className="text-[11px] text-gray-700">Enable</span>
+        </label>
+      </div>
+      {showTransfer && (
+        <div className="space-y-3">
+          <div className="flex gap-3">
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="radio"
+                name="transferType"
+                value="membership"
+                checked={transferType === "membership"}
+                onChange={(e) => {
+                  setTransferType(e.target.value);
+                  setSelectedPackageId("");
+                  setPackageUsage(null);
+                  const arr = Array.isArray(patientData?.memberships) ? patientData.memberships : [];
+                  if (arr.length > 0) {
+                    setSelectedMembershipId(arr[0].membershipId);
+                  } else if (patientData?.membership === "Yes" && patientData.membershipId) {
+                    setSelectedMembershipId(patientData.membershipId);
+                  } else {
+                    setSelectedMembershipId("");
+                  }
+                }}
+              />
+              <span className="text-[11px]">Transfer Membership</span>
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="radio"
+                name="transferType"
+                value="package"
+                checked={transferType === "package"}
+                onChange={(e) => {
+                  setTransferType(e.target.value);
+                  setMembershipUsage(null);
+                }}
+              />
+              <span className="text-[11px]">Transfer Package</span>
+            </label>
+          </div>
+          {transferType === "membership" && (
+            <div className="rounded-lg border border-emerald-200 bg-white p-3">
+              <div className="mb-2">
+                <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Select Membership</label>
+                <select
+                  value={selectedMembershipId}
+                  onChange={(e) => setSelectedMembershipId(e.target.value)}
+                  className="text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 border-gray-300 hover:border-indigo-400"
+                >
+                  <option value="">Select membership</option>
+                  {(Array.isArray(patientData?.memberships) ? patientData.memberships : []).map((m: any, idx: number) => {
+                    const plan = localMemberships.find((x: any) => x._id === m.membershipId);
+                    return (
+                      <option key={`${m.membershipId}-${idx}`} value={m.membershipId}>
+                        {plan?.name || m.membershipId} ({m.startDate?.slice(0,10)} → {m.endDate?.slice(0,10)})
+                      </option>
+                    );
+                  })}
+                  {patientData?.membership === "Yes" && patientData.membershipId && !(Array.isArray(patientData?.memberships) ? patientData.memberships : []).some((m: any) => m.membershipId === patientData.membershipId) && (
+                    <option value={patientData.membershipId}>
+                      {(() => {
+                        const plan = localMemberships.find((x: any) => x._id === patientData.membershipId);
+                        return plan?.name || patientData.membershipId;
+                      })()} ({patientData.membershipStartDate?.slice(0,10)} → {patientData.membershipEndDate?.slice(0,10)})
+                    </option>
+                  )}
+                </select>
+              </div>
+              {membershipUsage ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="text-[11px]">
+                    <div className="font-semibold text-gray-700">Total Free Consultations</div>
+                    <div className="text-gray-900">{membershipUsage.totalFreeConsultations || 0}</div>
+                  </div>
+                  <div className="text-[11px]">
+                    <div className="font-semibold text-gray-700">Used Free Consultations</div>
+                    <div className="text-gray-900">{membershipUsage.usedFreeConsultations || 0}</div>
+                  </div>
+                  <div className="text-[11px]">
+                    <div className="font-semibold text-gray-700">Remaining</div>
+                    <div className="text-gray-900">{membershipUsage.remainingFreeConsultations || 0}</div>
+                  </div>
+                  <div className="text-[11px]">
+                    <div className="font-semibold text-gray-700">Discount %</div>
+                    <div className="text-gray-900">{membershipUsage.discountPercentage || 0}</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-[11px] text-gray-600">Loading membership usage...</div>
+              )}
+            </div>
+          )}
+          {transferType === "package" && (
+            <div className="rounded-lg border border-emerald-200 bg-white p-3 space-y-2">
+              <div>
+                <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Select Package</label>
+                <select
+                  value={selectedPackageId}
+                  onChange={(e) => setSelectedPackageId(e.target.value)}
+                  className="text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 border-gray-300 hover:border-indigo-400"
+                >
+                  <option value="">Select package</option>
+                  {(Array.isArray(patientData?.packages) ? patientData.packages : []).map((p: any) => {
+                    const pkg = localPackages.find(x => x._id === p.packageId);
+                    return pkg ? (
+                      <option key={pkg._id} value={pkg._id}>
+                        {pkg.name} (₹{pkg.totalPrice}, {pkg.totalSessions} sessions)
+                      </option>
+                    ) : null;
+                  })}
+                </select>
+              </div>
+              {selectedPackageId && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="text-[11px]">
+                    <div className="font-semibold text-gray-700">Total Sessions</div>
+                    <div className="text-gray-900">
+                      {(() => {
+                        const pkg = localPackages.find((p: any) => p._id === selectedPackageId);
+                        return pkg ? pkg.totalSessions : 0;
+                      })()}
+                    </div>
+                  </div>
+                  <div className="text-[11px]">
+                    <div className="font-semibold text-gray-700">Used Sessions</div>
+                    <div className="text-gray-900">{packageUsage?.totalSessions || 0}</div>
+                  </div>
+                  <div className="text-[11px]">
+                    <div className="font-semibold text-gray-700">Remaining</div>
+                    <div className="text-gray-900">
+                      {typeof packageUsage?.remainingSessions === "number"
+                        ? packageUsage.remainingSessions
+                        : Math.max(0, (() => {
+                            const pkg = localPackages.find((p: any) => p._id === selectedPackageId);
+                            const totalSess = pkg ? pkg.totalSessions : 0;
+                            return totalSess - (packageUsage?.totalSessions || 0);
+                          })())}
+                    </div>
+                  </div>
+                  <div className="text-[11px]">
+                    <div className="font-semibold text-gray-700">Package</div>
+                    <div className="text-gray-900">
+                      {(() => {
+                        const pkg = localPackages.find((p: any) => p._id === selectedPackageId);
+                        return pkg ? pkg.name : "-";
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="rounded-lg border border-emerald-200 bg-white p-3 space-y-2">
+            <div>
+              <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Search Target Patient</label>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Type name, mobile, or EMR"
+                className="w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 border-gray-300 hover:border-indigo-400"
+              />
+            </div>
+            <div className="max-h-48 overflow-auto border border-gray-200 rounded">
+              {searchLoading ? (
+                <div className="p-2 text-[10px] text-gray-600">Searching...</div>
+              ) : (searchResults || []).length === 0 ? (
+                <div className="p-2 text-[10px] text-gray-600">No results</div>
+              ) : (
+                <ul className="divide-y divide-gray-200">
+                  {searchResults.map((p: any) => (
+                    <li key={p._id} className="p-2 hover:bg-gray-50 cursor-pointer text-[11px]" onClick={() => setSelectedTargetPatient(p)}>
+                      <div className="font-medium text-gray-900">{p.fullName || `${p.firstName} ${p.lastName}`}</div>
+                      <div className="text-gray-600">{p.emrNumber} • {p.mobileNumber}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {selectedTargetPatient && (
+              <div className="text-[11px] text-gray-800">
+                Selected: {selectedTargetPatient.fullName || `${selectedTargetPatient.firstName} ${selectedTargetPatient.lastName}`} ({selectedTargetPatient.emrNumber})
+              </div>
+            )}
+            <div className="flex justify-end">
+              <button
+                onClick={handleSubmitTransfer}
+                disabled={
+                  transferSubmitting ||
+                  !selectedTargetPatient ||
+                  (transferType === "membership" && (!selectedMembershipId)) ||
+                  (transferType === "package" && (!selectedPackageId))
+                }
+                className="px-4 py-2 text-[11px] bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 transition-all duration-300 font-bold shadow-lg"
+              >
+                {transferSubmitting ? "Transferring..." : "Confirm Transfer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Modern Patient Profile Dashboard Component
-const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; onClose: () => void }) => {
+const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { patientData: any; onClose: () => void; onPatientUpdated?: (updatedData: any) => void }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [showBeforeAfterModal, setShowBeforeAfterModal] = useState(false);
   const [appointments, setAppointments] = useState([]);
+  const [upcomingAppointments, setUpcomingAppointments] = useState([]);
   const [appointmentFilter, setAppointmentFilter] = useState('all');
   const [loadingAppointments, setLoadingAppointments] = useState(false);
     const [packages, setPackages] = useState([]);
@@ -64,6 +482,12 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
 // Created Packages State (from UserPackage model)
 const [createdPackages, setCreatedPackages] = useState<any[]>([]);
 const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
+  
+  // Progress Notes & Prescription States
+  const [progressNotes, setProgressNotes] = useState<any[]>([]);
+  const [prescriptions, setPrescriptions] = useState<any[]>([]);
+  const [loadingProgressNotes, setLoadingProgressNotes] = useState(false);
+  const [loadingPrescriptions, setLoadingPrescriptions] = useState(false);
   
   // Stats state - fetched on mount
   const [statsData, setStatsData] = useState({
@@ -99,6 +523,349 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   const [showAddPastAdvancePayment54PercentModal, setShowAddPastAdvancePayment54PercentModal] = useState(false);
   const [showAddPastAdvancePayment159FlatModal, setShowAddPastAdvancePayment159FlatModal] = useState(false);
   const [treatmentFilter, setTreatmentFilter] = useState<'all' | 'ongoing' | 'completed'>('all');
+
+  // ---- Editable Membership & Package State ----
+  const [allAvailableMemberships, setAllAvailableMemberships] = useState<any[]>([]);
+  const [allAvailablePackages, setAllAvailablePackages] = useState<any[]>([]);
+  const [editFormData, setEditFormData] = useState<any>({
+    membership: patientData?.membership || 'No',
+    membershipId: patientData?.membershipId || '',
+    membershipStartDate: patientData?.membershipStartDate || '',
+    membershipEndDate: patientData?.membershipEndDate || '',
+    memberships: Array.isArray(patientData?.memberships) ? patientData.memberships : [],
+    package: patientData?.package || 'No',
+    packageId: patientData?.packageId || '',
+    packages: Array.isArray(patientData?.packages) ? patientData.packages : [],
+  });
+  const [pmSaving, setPmSaving] = useState(false);
+  const [pmToast, setPmToast] = useState<{ message: string; type: string } | null>(null);
+  const [showAddMembershipDropdown, setShowAddMembershipDropdown] = useState(false);
+  const [showAddPackageDropdown, setShowAddPackageDropdown] = useState(false);
+  const [selectedMembershipToAdd, setSelectedMembershipToAdd] = useState('');
+  const [selectedPackageToAdd, setSelectedPackageToAdd] = useState('');
+  const [pmMembershipUsageMap, setPmMembershipUsageMap] = useState<any>({});
+  const [showSaveConfirmModal, setShowSaveConfirmModal] = useState(false);
+
+  // Fetch all available memberships and packages for dropdowns
+  useEffect(() => {
+    const fetchAvailable = async () => {
+      try {
+        const headers = getAuthHeaders() || {};
+        const [mRes, pRes] = await Promise.all([
+          axios.get('/api/clinic/memberships', { headers }),
+          axios.get('/api/clinic/packages', { headers }),
+        ]);
+        if (mRes.data.success) setAllAvailableMemberships(mRes.data.memberships || []);
+        if (pRes.data.success) setAllAvailablePackages(pRes.data.packages || []);
+      } catch (e) { console.error('Error fetching available memberships/packages:', e); }
+    };
+    fetchAvailable();
+  }, []);
+
+  // Sync editFormData when patientData._id changes (initial load)
+  useEffect(() => {
+    if (patientData) {
+      setEditFormData({
+        membership: 'No',
+        membershipId: patientData?.membershipId || '',
+        membershipStartDate: patientData?.membershipStartDate || '',
+        membershipEndDate: patientData?.membershipEndDate || '',
+        memberships: Array.isArray(patientData?.memberships) ? patientData.memberships : [],
+        package: 'No',
+        packageId: patientData?.packageId || '',
+        packages: Array.isArray(patientData?.packages) ? patientData.packages : [],
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patientData?._id]);
+
+  // Fetch membership usage map
+  useEffect(() => {
+    const headers = getAuthHeaders();
+    if (!headers || !patientData?._id) return;
+    const entries: any[] = [];
+    if (editFormData.membership === 'Yes' && editFormData.membershipId && editFormData.membershipStartDate && editFormData.membershipEndDate) {
+      entries.push({ membershipId: editFormData.membershipId, startDate: editFormData.membershipStartDate, endDate: editFormData.membershipEndDate });
+    }
+    if (Array.isArray(editFormData.memberships)) {
+      (editFormData.memberships as any[]).forEach((m: any) => {
+        if (m.membershipId && m.startDate && m.endDate) {
+          entries.push({ membershipId: m.membershipId, startDate: m.startDate, endDate: m.endDate });
+        }
+      });
+    }
+    if (entries.length === 0) { setPmMembershipUsageMap({}); return; }
+    let cancelled = false;
+    const loadAll = async () => {
+      const results: any = {};
+      await Promise.all(entries.map(async (e: any) => {
+        const key = `${e.membershipId}|${e.startDate}|${e.endDate}`;
+        try {
+          const qs = new URLSearchParams();
+          qs.set('membershipId', e.membershipId);
+          qs.set('startDate', e.startDate);
+          qs.set('endDate', e.endDate);
+          const res = await axios.get(`/api/clinic/membership-usage/${patientData._id}?${qs.toString()}`, { headers });
+          results[key] = res.data?.success ? res.data : null;
+        } catch { results[key] = null; }
+      }));
+      if (!cancelled) setPmMembershipUsageMap(results);
+    };
+    loadAll();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patientData?._id, editFormData.membership, editFormData.membershipId, editFormData.membershipStartDate, editFormData.membershipEndDate, JSON.stringify(editFormData.memberships)]);
+
+  const formatPmDate = (d: Date) => {
+    const y = d.getFullYear();
+    const mon = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${mon}-${day}`;
+  };
+
+  const handlePmAddMembership = () => {
+    if (!selectedMembershipToAdd) return;
+    const selected = allAvailableMemberships.find((m: any) => m._id === selectedMembershipToAdd);
+    if (!selected) return;
+    const exists = (editFormData.memberships || []).some((x: any) => x.membershipId === selectedMembershipToAdd);
+    if (exists) {
+      setPmToast({ message: 'This membership is already added', type: 'error' });
+      setTimeout(() => setPmToast(null), 3000);
+      return;
+    }
+    const start = new Date();
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + (Number(selected.durationMonths) || 1));
+    const startStr = formatPmDate(start);
+    const endStr = formatPmDate(end);
+    
+    // Only add to the memberships array - do NOT set individual fields
+    setEditFormData((prev: any) => ({
+      ...prev,
+      memberships: [...(prev.memberships || []), { membershipId: selectedMembershipToAdd, startDate: startStr, endDate: endStr }],
+    }));
+    setSelectedMembershipToAdd('');
+    setShowAddMembershipDropdown(false);
+    setPmToast({ message: 'Membership added', type: 'success' });
+    setTimeout(() => setPmToast(null), 3000);
+  };
+
+  const handlePmAddPackage = () => {
+    if (!selectedPackageToAdd) return;
+    const exists = (editFormData.packages || []).some((x: any) => x.packageId === selectedPackageToAdd);
+    if (exists) {
+      setPmToast({ message: 'This package is already added', type: 'error' });
+      setTimeout(() => setPmToast(null), 3000);
+      return;
+    }
+    
+    // Only add to the packages array - do NOT set individual fields
+    setEditFormData((prev: any) => ({
+      ...prev,
+      packages: [...(prev.packages || []), { packageId: selectedPackageToAdd, assignedDate: new Date().toISOString() }],
+    }));
+    setSelectedPackageToAdd('');
+    setShowAddPackageDropdown(false);
+    setPmToast({ message: 'Package added', type: 'success' });
+    setTimeout(() => setPmToast(null), 3000);
+  };
+
+  // Handle removing membership - with proper cleanup
+  const handlePmRemoveMembership = (indexToRemove: number) => {
+    setEditFormData((prev: any) => {
+      const list = Array.isArray(prev.memberships) ? prev.memberships : [];
+      const newList = list.filter((_: any, idx: number) => idx !== indexToRemove);
+      
+      // If this was the last membership, also clear the main membership fields
+      if (newList.length === 0 && prev.membership === "Yes") {
+        return {
+          ...prev,
+          memberships: newList,
+          membershipId: "",
+          membershipStartDate: "",
+          membershipEndDate: "",
+          membership: "No",
+        };
+      }
+      
+      return {
+        ...prev,
+        memberships: newList,
+      };
+    });
+  };
+
+  // Handle removing package - with proper cleanup
+  const handlePmRemovePackage = (indexToRemove: number) => {
+    setEditFormData((prev: any) => {
+      const list = Array.isArray(prev.packages) ? prev.packages : [];
+      const newList = list.filter((_: any, idx: number) => idx !== indexToRemove);
+      
+      // If this was the last package, also clear the main package fields
+      if (newList.length === 0 && prev.package === "Yes") {
+        return {
+          ...prev,
+          packages: newList,
+          packageId: "",
+          package: "No",
+        };
+      }
+      
+      return {
+        ...prev,
+        packages: newList,
+      };
+    });
+  };
+
+  const handlePmSave = async () => {
+    // Show confirmation modal first
+    setShowSaveConfirmModal(true);
+  };
+
+  const handlePmSaveConfirmed = async () => {
+    setShowSaveConfirmModal(false);
+    try {
+      setPmSaving(true);
+      const headers = getAuthHeaders() || {};
+        
+      // Determine if we should use array data or individual fields
+      const hasMembershipsArray = Array.isArray(editFormData.memberships) && editFormData.memberships.length > 0;
+      const hasPackagesArray = Array.isArray(editFormData.packages) && editFormData.packages.length > 0;
+        
+      // Auto-sync: If individual membershipId exists but memberships array is empty, create the array entry
+      let finalMemberships = Array.isArray(editFormData.memberships) ? editFormData.memberships : [];
+      if (!hasMembershipsArray && editFormData.membershipId && !finalMemberships.some((m: any) => m.membershipId === editFormData.membershipId)) {
+        finalMemberships = [{
+          membershipId: editFormData.membershipId,
+          startDate: editFormData.membershipStartDate || new Date().toISOString(),
+          endDate: editFormData.membershipEndDate || new Date(new Date().setMonth(new Date().getMonth() + 6)).toISOString(),
+        }];
+      }
+        
+      // Auto-sync: If individual packageId exists but packages array is empty, create the array entry
+      let finalPackages = Array.isArray(editFormData.packages) ? editFormData.packages : [];
+      if (!hasPackagesArray && editFormData.packageId && !finalPackages.some((p: any) => p.packageId === editFormData.packageId)) {
+        finalPackages = [{
+          packageId: editFormData.packageId,
+          assignedDate: new Date().toISOString(),
+        }];
+      }
+        
+      console.log('🔍 Current editFormData:', {
+        membership: editFormData.membership,
+        membershipId: editFormData.membershipId,
+        memberships: editFormData.memberships,
+        package: editFormData.package,
+        packageId: editFormData.packageId,
+        packages: editFormData.packages,
+      });
+        
+      console.log('🔄 After auto-sync:', {
+        finalMemberships,
+        finalPackages,
+      });
+        
+      const payload = {
+        updateType: 'details',
+        // Use array data if available, otherwise use individual fields
+        membership: finalMemberships.length > 0 ? 'Yes' : (editFormData.membership || 'No'),
+        membershipId: finalMemberships.length > 0 ? finalMemberships[0]?.membershipId : (editFormData.membershipId || ''),
+        membershipStartDate: finalMemberships.length > 0 ? finalMemberships[0]?.startDate : (editFormData.membershipStartDate || ''),
+        membershipEndDate: finalMemberships.length > 0 ? finalMemberships[0]?.endDate : (editFormData.membershipEndDate || ''),
+        memberships: finalMemberships.length > 0 ? finalMemberships : [],
+        package: finalPackages.length > 0 ? 'Yes' : (editFormData.package || 'No'),
+        packageId: finalPackages.length > 0 ? finalPackages[0]?.packageId : (editFormData.packageId || ''),
+        packages: finalPackages.length > 0 ? finalPackages : [],
+        firstName: patientData.firstName,
+        lastName: patientData.lastName,
+        mobileNumber: patientData.mobileNumber,
+        gender: patientData.gender,
+        email: patientData.email,
+        patientType: patientData.patientType,
+        referredBy: patientData.referredBy,
+        insurance: patientData.insurance,
+        insuranceType: patientData.insuranceType,
+        notes: patientData.notes,
+      };
+        
+      console.log('🟢 Saving payload:', JSON.stringify(payload, null, 2));
+        
+      // Make PUT request (same as PatientUpdateForm)
+      const res = await axios.put(`/api/staff/get-patient-data/${patientData._id}`, payload, { headers });
+      const result = res.data;
+        
+      console.log('📡 API Response:', result);
+        
+      if (res.status === 200 || res.status === 201) {
+        setPmToast({ message: result.message || 'Patient updated successfully!', type: 'success' });
+        setTimeout(() => setPmToast(null), 3000);
+          
+        // Fetch fresh patient data to ensure we have the latest saved data
+        let freshData: any = null;
+        try {
+          const patientRes = await axios.get(`/api/staff/get-patient-data/${patientData._id}`, { headers });
+          if (patientRes.data) {
+            freshData = patientRes.data;
+                    
+            console.log('✅ Fresh data from API:', {
+              membership: freshData.membership,
+              membershipId: freshData.membershipId,
+              memberships: freshData.memberships,
+              package: freshData.package,
+              packageId: freshData.packageId,
+              packages: freshData.packages,
+            });
+                    
+            // Update the main patient state via callback - this will trigger re-fetch of packages/memberships
+            if (onPatientUpdated) {
+              onPatientUpdated({
+                ...patientData,
+                membership: freshData?.membership || 'No',
+                membershipId: freshData?.membershipId || '',
+                membershipStartDate: freshData?.membershipStartDate || '',
+                membershipEndDate: freshData?.membershipEndDate || '',
+                memberships: Array.isArray(freshData?.memberships) ? freshData.memberships : [],
+                package: freshData?.package || 'No',
+                packageId: freshData?.packageId || '',
+                packages: Array.isArray(freshData?.packages) ? freshData.packages : [],
+              });
+            }
+                    
+            // Update editFormData with fresh saved data
+            setEditFormData({
+              membership: 'No',
+              membershipId: freshData?.membershipId || '',
+              membershipStartDate: freshData?.membershipStartDate || '',
+              membershipEndDate: freshData?.membershipEndDate || '',
+              memberships: Array.isArray(freshData?.memberships) ? freshData.memberships : [],
+              package: 'No',
+              packageId: freshData?.packageId || '',
+              packages: Array.isArray(freshData?.packages) ? freshData.packages : [],
+            });
+          }
+        } catch (fetchError) {
+          console.error('Error fetching fresh patient data:', fetchError);
+        }
+          
+        // Also refresh packages/memberships display for the lower section
+        // Pass fresh data to avoid stale closure issue
+        fetchPackagesAndMemberships({
+          memberships: Array.isArray(freshData?.memberships) ? freshData.memberships : (patientData?.memberships || []),
+          packages: Array.isArray(freshData?.packages) ? freshData.packages : (patientData?.packages || []),
+        });
+      } else {
+        setPmToast({ message: result.message || 'Failed to update patient details', type: 'error' });
+        setTimeout(() => setPmToast(null), 3000);
+      }
+    } catch (e: any) {
+      console.error('❌ Error saving patient data:', e);
+      setPmToast({ message: e?.response?.data?.message || 'Network error. Try again later.', type: 'error' });
+      setTimeout(() => setPmToast(null), 3000);
+    } finally {
+      setPmSaving(false);
+    }
+  };
 
   if (!patientData) return null;
 
@@ -314,7 +1081,14 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
   // Tab-specific refreshes (optional: keeps current behavior if tab changes)
   useEffect(() => {
-    if (activeTab === 'appointments' && patientData?._id) fetchAppointments();
+    if (activeTab === 'appointments' && patientData?._id) {
+      // Fetch upcoming appointments when filter is 'upcoming', otherwise fetch all
+      if (appointmentFilter === 'upcoming') {
+        fetchUpcomingAppointments();
+      } else {
+        fetchAppointments();
+      }
+    }
   }, [activeTab, appointmentFilter]);
 
   useEffect(() => {
@@ -340,6 +1114,8 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     if (activeTab === 'communication' && patientData?._id) {
       fetchConsentStatuses();
       fetchCreatedPackages();
+      fetchProgressNotes();
+      fetchPrescriptions();
     }
   }, [activeTab]);
 
@@ -382,7 +1158,32 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     }
   };
 
-  const fetchPackagesAndMemberships = async () => {
+  const fetchUpcomingAppointments = async () => {
+    try {
+      setLoadingAppointments(true);
+      const headers = getAuthHeaders();
+      if (!headers || !patientData?._id) return;
+
+      // Fetch upcoming appointments from dedicated API
+      const response = await axios.get('/api/clinic/patient-upcoming-appointments', { 
+        headers,
+        params: { patientId: patientData._id }
+      });
+      
+      if (response.data.success) {
+        const upcomingAppts = response.data.appointments || [];
+        setUpcomingAppointments(upcomingAppts);
+      }
+    } catch (error: any) {
+      console.error('Error fetching upcoming appointments:', error.message);
+      // Set empty upcoming appointments on error
+      setUpcomingAppointments([]);
+    } finally {
+      setLoadingAppointments(false);
+    }
+  };
+
+  const fetchPackagesAndMemberships = async (freshPatientData?: { memberships?: any[]; packages?: any[] }) => {
     try {
       setLoadingPackages(true);
       const headers = getAuthHeaders();
@@ -398,8 +1199,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       const allPackages = pRes.data?.packages || [];
       
       // Get patient's assigned package IDs and membership IDs
-      let patientPackageIds = (patientData?.packages || []).map((p: any) => p.packageId);
-      let patientMembershipIds = (patientData?.memberships || []).map((m: any) => m.membershipId);
+      // Use freshPatientData if provided (avoids stale closure after save)
+      let patientPackageIds = (freshPatientData?.packages || patientData?.packages || []).map((p: any) => p.packageId);
+      let patientMembershipIds = (freshPatientData?.memberships || patientData?.memberships || []).map((m: any) => m.membershipId);
       
       // Fetch package usage data for this patient
       let packageUsageData = [];
@@ -416,14 +1218,14 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       
       // Fetch membership usage data for this patient
       let membershipUsageData: any = null;
-      let membershipTransferredOutData: any = null;
+      let membershipTransferredOutData: any[] = [];
       try {
         const membershipUsageRes = await axios.get(`/api/clinic/membership-usage/${patientData._id}`, { headers });
         if (membershipUsageRes.data.success && membershipUsageRes.data.hasMembership) {
           membershipUsageData = membershipUsageRes.data;
-        } else if (membershipUsageRes.data.success && membershipUsageRes.data.transferredOut) {
-          membershipTransferredOutData = membershipUsageRes.data;
         }
+        // Always capture all transferred-out memberships from API
+        membershipTransferredOutData = membershipUsageRes.data.transferredOutMemberships || [];
       } catch (err: any) {
         console.error('Error fetching membership usage:', err.message);
       }
@@ -578,7 +1380,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       setTransferredInPackages(transferredInPkgs);
       setTransferredOutPackages(packageTransferredOutData);
       setTransferredInMemberships(transferredInMembs);
-      setTransferredOutMemberships(membershipTransferredOutData ? [membershipTransferredOutData] : []);
+      setTransferredOutMemberships(membershipTransferredOutData);
     } catch (error: any) {
       console.error('Error fetching packages and memberships:', error.message);
       setPackages([]);
@@ -658,7 +1460,15 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         const patientAppointments = appointmentsRes.data.appointments?.filter(
           (apt: any) => apt.patientId === patientData._id
         ) || [];
-        totalVisits = patientAppointments.length;
+        
+        // Count total visits based on specific statuses
+        // Statuses that count as visits: Arrived, Waiting, Consultation, Approved, Rescheduled, Completed, Discharge, invoice
+        const visitStatuses = ['arrived', 'waiting', 'consultation', 'approved', 'rescheduled', 'completed', 'discharge', 'invoice'];
+        totalVisits = patientAppointments.filter((apt: any) => {
+          const status = (apt.status || '').toLowerCase();
+          return visitStatuses.includes(status);
+        }).length;
+        
         patientAppointments.forEach((apt: any) => {
           const status = (apt.status || apt.appointmentStatus || '').toLowerCase();
           if (['cancelled', 'rejected', 'no show', 'no-show'].includes(status)) {
@@ -895,6 +1705,52 @@ const fetchCreatedPackages = async () => {
     setLoadingCreatedPackages(false);
   }
 };
+
+// Fetch progress notes
+const fetchProgressNotes = async () => {
+  setLoadingProgressNotes(true);
+  try {
+    const headers = getAuthHeaders();
+    if (!headers) return;
+
+    const response = await axios.get('/api/clinic/progress-notes', {
+      headers,
+      params: { patientId: patientData._id },
+    });
+
+    if (response.data.success) {
+      setProgressNotes(response.data.notes || []);
+    }
+  } catch (error: any) {
+    console.error("Error fetching progress notes:", error);
+    setProgressNotes([]);
+  } finally {
+    setLoadingProgressNotes(false);
+  }
+};
+
+// Fetch prescriptions
+const fetchPrescriptions = async () => {
+  setLoadingPrescriptions(true);
+  try {
+    const headers = getAuthHeaders();
+    if (!headers) return;
+
+    const response = await axios.get('/api/clinic/prescriptions', {
+      headers,
+      params: { patientId: patientData._id },
+    });
+
+    if (response.data.success) {
+      setPrescriptions(response.data.prescriptions || []);
+    }
+  } catch (error: any) {
+    console.error("Error fetching prescriptions:", error);
+    setPrescriptions([]);
+  } finally {
+    setLoadingPrescriptions(false);
+  }
+};
   const fetchPatientBalance = async (patientId: string) => {
     const headers = getAuthHeaders();
     if (!headers) return;
@@ -921,6 +1777,12 @@ const fetchCreatedPackages = async () => {
 
   const filterAppointments = (appointmentsList: any[], filter: string) => {
     if (filter === 'all') return appointmentsList;
+    
+    // For 'upcoming' filter, use the already-fetched upcoming appointments
+    if (filter === 'upcoming') {
+      return upcomingAppointments;
+    }
+    
     return appointmentsList.filter((apt: any) => {
       const status = (apt.status || apt.appointmentStatus || '').toLowerCase();
       return status === filter.toLowerCase();
@@ -955,7 +1817,9 @@ const fetchCreatedPackages = async () => {
     );
   };
 
-  const filteredAppointments = filterAppointments(appointments, appointmentFilter);
+  const filteredAppointments = appointmentFilter === 'upcoming' 
+    ? filterAppointments(upcomingAppointments, appointmentFilter)
+    : filterAppointments(appointments, appointmentFilter);
 
   return (
     <div className="min-h-screen bg-gray-50 w-full">
@@ -1108,6 +1972,7 @@ const fetchCreatedPackages = async () => {
                     { key: 'Cancelled',    label: 'Cancelled' },
                     { key: 'Rejected',     label: 'Rejected' },
                     { key: 'No Show',      label: 'No Show' },
+                    { key: 'upcoming',     label: 'Upcoming' },
                   ].map((filter) => (
                     <button
                       key={filter.key}
@@ -1140,7 +2005,9 @@ const fetchCreatedPackages = async () => {
                         <thead className="bg-gray-50">
                           <tr>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Service</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Doctor</th>
+                            {appointmentFilter !== 'upcoming' && (
+                              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Doctor</th>
+                            )}
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date & Time</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Duration</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
@@ -1164,16 +2031,18 @@ const fetchCreatedPackages = async () => {
                                   </div>
                                 </div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center flex-shrink-0">
-                                    <User className="w-4 h-4 text-blue-600" />
+                              {appointmentFilter !== 'upcoming' && (
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center flex-shrink-0">
+                                      <User className="w-4 h-4 text-blue-600" />
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {appointment.doctorName || 'Dr. Not Assigned'}
+                                    </span>
                                   </div>
-                                  <span className="text-sm font-medium text-gray-900">
-                                    {appointment.doctorName || 'Dr. Not Assigned'}
-                                  </span>
-                                </div>
-                              </td>
+                                </td>
+                              )}
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="flex flex-col gap-1">
                                   <span className="text-sm font-semibold text-gray-900">
@@ -1218,73 +2087,349 @@ const fetchCreatedPackages = async () => {
                 </div>
               </div>
             ) : activeTab === 'packages-memberships' ? (
-              /* Packages & Memberships Tab Content - Modern Combined Cards */
+              /* Packages & Memberships Tab Content - Fully Editable */
               <div className="space-y-4">
-                {/* Packages Section */}
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <Package className="w-5 h-5 text-teal-600" />
-                    Packages
-                  </h3>
-                  
-                  {loadingPackages ? (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
-                    </div>
-                  ) : (packages.length === 0 && userPackages.length === 0) ? (
-                    <div className="space-y-4">
-                      {/* Transferred Out Packages */}
-                      {transferredOutPackages && transferredOutPackages.length > 0 ? (
-                        transferredOutPackages.map((pkg: any, idx: number) => (
-                          <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
-                            <div className="flex items-start gap-3">
-                              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
-                                <Package className="w-5 h-5 text-amber-600" />
+                {/* Toast Notification */}
+                {pmToast && (
+                  <div className={`fixed top-4 right-4 z-[100] flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg ${
+                    pmToast.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' :
+                    pmToast.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
+                    'bg-blue-50 border-blue-200 text-blue-800'
+                  }`}>
+                    {pmToast.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                    <span className="text-[11px] font-medium">{pmToast.message}</span>
+                    <button onClick={() => setPmToast(null)} className="ml-2"><X className="w-3 h-3" /></button>
+                  </div>
+                )}
+
+                {/* Editable Membership & Package */}
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-200 shadow-md">
+                  <div className="flex flex-col gap-4">
+                    {/* Membership and Package Side by Side */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                      {/* ── Membership Card ── */}
+                      <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                        <h3 className="text-[14px] font-bold text-indigo-700 mb-2 flex items-center gap-1">
+                          <User className="w-4 h-4 text-indigo-600" />
+                          Membership
+                        </h3>
+
+                        {/* Membership Yes/No */}
+                        <div className="flex flex-wrap gap-2 items-end mb-2">
+                          <div className="flex-1 min-w-[120px]">
+                            <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Membership</label>
+                            <select
+                              value={editFormData.membership || 'No'}
+                              onChange={(e) => setEditFormData((p: any) => ({ ...p, membership: e.target.value }))}
+                              className="text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 border-gray-300 hover:border-indigo-400 transition-all duration-200"
+                            >
+                              <option value="No">No</option>
+                              <option value="Yes">Yes</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Start / End Date */}
+                        {editFormData.membership === 'Yes' && (
+                          <div className="flex flex-wrap gap-2 items-end mb-2">
+                            <div className="flex-1 min-w-[120px]">
+                              <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Start Date</label>
+                              <input
+                                type="date"
+                                value={editFormData.membershipStartDate ? editFormData.membershipStartDate.slice(0, 10) : ''}
+                                onChange={(e) => setEditFormData((p: any) => ({ ...p, membershipStartDate: e.target.value }))}
+                                className="w-full px-3 py-2 text-[10px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-gray-900 hover:border-indigo-400"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-[120px]">
+                              <label className="block text-[10px] mb-0.5 font-medium text-gray-700">End Date</label>
+                              <input
+                                type="date"
+                                value={editFormData.membershipEndDate ? editFormData.membershipEndDate.slice(0, 10) : ''}
+                                onChange={(e) => setEditFormData((p: any) => ({ ...p, membershipEndDate: e.target.value }))}
+                                className="w-full px-3 py-2 text-[10px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-gray-900 hover:border-indigo-400"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Add Membership - only when membership is Yes */}
+                        {editFormData.membership === 'Yes' && (!showAddMembershipDropdown ? (
+                          <button
+                            type="button"
+                            onClick={() => setShowAddMembershipDropdown(true)}
+                            className="px-3 py-1.5 bg-indigo-600 text-white text-[10px] font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" /> Add Membership 
+                          </button>
+                        ) : (
+                          <div className="border border-indigo-200 rounded-lg p-2 bg-indigo-50 mb-2">
+                            <div className="flex flex-wrap gap-2 items-end">
+                              <div className="flex-1 min-w-[150px]">
+                                <label className="block text-[9px] mb-0.5 font-medium text-gray-700">Select Membership to Add</label>
+                                <select
+                                  value={selectedMembershipToAdd}
+                                  onChange={(e) => setSelectedMembershipToAdd(e.target.value)}
+                                  className="text-gray-900 w-full px-2 py-1.5 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 border-gray-300 hover:border-indigo-400"
+                                >
+                                  <option value="">Select membership</option>
+                                  {allAvailableMemberships.filter((m: any) => m.isActive !== false).map((m: any) => (
+                                    <option key={m._id} value={m._id}>{m.name} (₹{m.price}, {m.durationMonths} months)</option>
+                                  ))}
+                                </select>
                               </div>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <h3 className="text-base font-bold text-amber-900">
-                                    {pkg.packageName || 'Package'}
-                                  </h3>
-                                  <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[10px] font-bold">
-                                    Transferred Out
-                                  </span>
-                                </div>
-                                <p className="text-xs text-amber-700 mb-3">
-                                  This package was transferred to another patient.
-                                </p>
-                                <div className="grid grid-cols-2 gap-2">
-                                  {pkg.transferredToName && (
-                                    <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
-                                      <div className="text-[10px] text-gray-500 mb-0.5">Transferred To</div>
-                                      <div className="flex items-center gap-1.5">
-                                        <User className="w-3.5 h-3.5 text-amber-600" />
-                                        <span className="text-xs font-bold text-amber-900">
-                                          {pkg.transferredToName}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  )}
-                                  {pkg.transferredSessions > 0 && (
-                                    <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
-                                      <div className="text-[10px] text-gray-500 mb-0.5">Sessions Transferred</div>
-                                      <span className="text-xs font-bold text-amber-900">
-                                        {pkg.transferredSessions}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
+                              <div className="flex gap-1">
+                                <button type="button" onClick={handlePmAddMembership} disabled={!selectedMembershipToAdd} className="px-3 py-1.5 bg-green-600 text-white text-[10px] font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">Add</button>
+                                <button type="button" onClick={() => { setShowAddMembershipDropdown(false); setSelectedMembershipToAdd(''); }} className="px-3 py-1.5 bg-gray-300 text-gray-700 text-[10px] font-medium rounded-lg hover:bg-gray-400">Cancel</button>
                               </div>
                             </div>
                           </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-                          <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                          <p className="text-gray-600 font-medium">No packages assigned to this patient</p>
+                        ))}
+
+                        {/* Added Memberships List — hide transferred-out memberships */}
+                        {(() => {
+                          const txOutMembershipIds = new Set(
+                            (patientData?.membershipTransfers || []).filter((t: any) => t.type === 'out').map((t: any) => String(t.membershipId))
+                          );
+                          const visibleMemberships = (editFormData.memberships || [])
+                            .map((m: any, originalIdx: number) => ({ m, originalIdx }))
+                            .filter(({ m }: any) => !txOutMembershipIds.has(String(m.membershipId)));
+                          if (visibleMemberships.length === 0) return null;
+                          return (
+                            <div className="border border-gray-200 rounded p-2 mt-2">
+                              <div className="text-[10px] font-semibold text-gray-900 mb-1">Added Memberships</div>
+                              <div className="space-y-1">
+                                {visibleMemberships.map(({ m, originalIdx }: any) => {
+                                  const plan = allAvailableMemberships.find((x: any) => x._id === m.membershipId);
+                                  const k = `${m.membershipId}|${m.startDate}|${m.endDate}`;
+                                  const usage = pmMembershipUsageMap[k];
+                                  return (
+                                    <div key={`${m.membershipId}-${originalIdx}`} className="flex flex-col text-[10px] border-b border-gray-100 pb-1 last:border-b-0">
+                                      <div className="flex items-center justify-between">
+                                        <div className="text-gray-800 font-medium">
+                                          {plan?.name || m.membershipId} • ₹{plan?.price}
+                                          {plan?.benefits?.priorityBooking && (
+                                            <span className="ml-1 px-1 py-0.5 rounded bg-amber-100 text-amber-700 text-[9px] font-medium">Priority</span>
+                                          )}
+                                        </div>
+                                        <button
+                                          type="button"
+                                          className="px-2 py-0.5 bg-red-50 text-red-700 rounded border border-red-200 text-[9px]"
+                                          onClick={() => handlePmRemoveMembership(originalIdx)}
+                                        >Remove</button>
+                                      </div>
+                                      <div className="text-gray-600 mt-0.5">{m.startDate?.slice(0,10)} → {m.endDate?.slice(0,10)} • {plan?.durationMonths} months</div>
+                                      <div className="text-gray-500 text-[9px] mt-0.5">Benefits: {plan?.benefits?.freeConsultations || 0} consultations, {plan?.benefits?.discountPercentage || 0}% discount</div>
+                                      {usage && !usage.isExpired && (usage.totalFreeConsultations || 0) > 0 && (() => {
+                                        const total = usage.totalFreeConsultations || 0;
+                                        const used = usage.usedFreeConsultations || 0;
+                                        const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+                                        return (
+                                          <div className="mt-1">
+                                            <div className="flex items-center justify-between text-[9px] text-gray-700 mb-0.5"><span>Free consultations used</span><span>{used}/{total}</span></div>
+                                            <div className="w-full h-2 rounded bg-gray-200 overflow-hidden"><div className="h-full bg-indigo-500" style={{ width: `${pct}%` }} /></div>
+                                          </div>
+                                        );
+                                      })()}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                      {/* ── Package Card ── */}
+                      <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                        <h3 className="text-[14px] font-bold text-purple-700 mb-2 flex items-center gap-1">
+                          <FileText className="w-4 h-4 text-purple-600" />
+                          Package
+                        </h3>
+
+                        {/* Package Yes/No */}
+                        <div className="flex flex-wrap gap-2 items-end mb-2">
+                          <div className="flex-1 min-w-[120px]">
+                            <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Package</label>
+                            <select
+                              value={editFormData.package || 'No'}
+                              onChange={(e) => setEditFormData((p: any) => ({ ...p, package: e.target.value }))}
+                              className="text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 border-gray-300 hover:border-purple-400 transition-all duration-200"
+                            >
+                              <option value="No">No</option>
+                              <option value="Yes">Yes</option>
+                            </select>
+                          </div>
                         </div>
-                      )}
+
+                        {/* Add Package - only when package is Yes */}
+                        {editFormData.package === 'Yes' && (!showAddPackageDropdown ? (
+                          <button
+                            type="button"
+                            onClick={() => setShowAddPackageDropdown(true)}
+                            className="px-3 py-1.5 bg-purple-600 text-white text-[10px] font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" /> Add Package
+                          </button>
+                        ) : (
+                          <div className="border border-purple-200 rounded-lg p-2 bg-purple-50 mb-2">
+                            <div className="flex flex-wrap gap-2 items-end">
+                              <div className="flex-1 min-w-[150px]">
+                                <label className="block text-[9px] mb-0.5 font-medium text-gray-700">Select Package to Add</label>
+                                <select
+                                  value={selectedPackageToAdd}
+                                  onChange={(e) => setSelectedPackageToAdd(e.target.value)}
+                                  className="text-gray-900 w-full px-2 py-1.5 text-[10px] border rounded-lg focus:ring-2 focus:ring-purple-500 border-gray-300 hover:border-purple-400"
+                                >
+                                  <option value="">Select package</option>
+                                  {allAvailablePackages.map((pkg: any) => (
+                                    <option key={pkg._id} value={pkg._id}>{pkg.name} (₹{pkg.totalPrice}, {pkg.totalSessions} sessions)</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="flex gap-1">
+                                <button type="button" onClick={handlePmAddPackage} disabled={!selectedPackageToAdd} className="px-3 py-1.5 bg-green-600 text-white text-[10px] font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">Add</button>
+                                <button type="button" onClick={() => { setShowAddPackageDropdown(false); setSelectedPackageToAdd(''); }} className="px-3 py-1.5 bg-gray-300 text-gray-700 text-[10px] font-medium rounded-lg hover:bg-gray-400">Cancel</button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Added Packages List — hide transferred-out packages */}
+                        {(() => {
+                          const txOutPackageIds = new Set(
+                            transferredOutPackages.map((p: any) => String(p.packageId))
+                          );
+                          const visiblePackages = (editFormData.packages || [])
+                            .map((p: any, originalIdx: number) => ({ p, originalIdx }))
+                            .filter(({ p }: any) => !txOutPackageIds.has(String(p.packageId)));
+                          if (visiblePackages.length === 0) return null;
+                          return (
+                            <div className="border border-gray-200 rounded p-2 mt-2">
+                              <div className="text-[10px] font-semibold text-gray-900 mb-1">Added Packages</div>
+                              <div className="space-y-1">
+                                {visiblePackages.map(({ p, originalIdx }: any) => {
+                                  const pkg = allAvailablePackages.find((x: any) => x._id === p.packageId);
+                                  return (
+                                    <div key={`${p.packageId}-${originalIdx}`} className="flex flex-col text-[10px] border-b border-gray-100 pb-1 last:border-b-0">
+                                      <div className="flex items-center justify-between">
+                                        <div className="text-gray-800 font-medium">{pkg?.name || p.packageId} • ₹{pkg?.totalPrice}</div>
+                                        <button
+                                          type="button"
+                                          className="px-2 py-0.5 bg-red-50 text-red-700 rounded border border-red-200 text-[9px]"
+                                          onClick={() => handlePmRemovePackage(originalIdx)}
+                                        >Remove</button>
+                                      </div>
+                                      <div className="text-gray-600 mt-0.5">{pkg?.totalSessions} sessions • ₹{pkg?.sessionPrice}/session</div>
+                                      <div className="text-gray-500 text-[9px] mt-0.5">Treatments: {pkg?.treatments?.length || 0} included</div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </div>
+
+                    {/* Save Confirmation Modal */}
+                    {showSaveConfirmModal && (
+                      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+                        <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-scaleIn">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
+                              <AlertCircle className="w-6 h-6 text-indigo-600" />
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-900">Confirm Save Changes</h3>
+                          </div>
+                          
+                          <div className="mb-6">
+                            <p className="text-sm text-gray-700 mb-2">
+                              Are you sure you want to save the following changes?
+                            </p>
+                            <div className="bg-gray-50 rounded-lg p-3 text-xs space-y-1">
+                              {editFormData.membership === 'Yes' && editFormData.memberships?.length > 0 && (
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">Memberships:</span>
+                                  <span className="font-medium text-gray-900">{editFormData.memberships.length} active</span>
+                                </div>
+                              )}
+                              {editFormData.package === 'Yes' && editFormData.packages?.length > 0 && (
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">Packages:</span>
+                                  <span className="font-medium text-gray-900">{editFormData.packages.length} active</span>
+                                </div>
+                              )}
+                              {editFormData.membership === 'No' && editFormData.package === 'No' && !editFormData.memberships?.length && !editFormData.packages?.length && (
+                                <div className="text-gray-600 italic">All memberships and packages will be removed</div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex gap-3 justify-end">
+                            <button
+                              type="button"
+                              onClick={() => setShowSaveConfirmModal(false)}
+                              disabled={pmSaving}
+                              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handlePmSaveConfirmed}
+                              disabled={pmSaving}
+                              className="px-5 py-2 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-md disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                              {pmSaving ? (
+                                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Saving...</>
+                              ) : (
+                                <><CheckCircle className="w-4 h-4" /> Yes, Save Changes</>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Save Button */}
+                    <div className="flex justify-end pt-2">
+                      <button
+                        type="button"
+                        onClick={handlePmSave}
+                        disabled={pmSaving}
+                        className="px-5 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[11px] font-semibold rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-md disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {pmSaving ? (
+                          <><div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> Saving...</>
+                        ) : (
+                          <><CheckCircle className="w-3.5 h-3.5" /> Save Changes</>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Transfer Section */}
+                <TransferSection patientId={patientData._id} patientData={patientData} onTransferComplete={() => { fetchPackagesAndMemberships(); }} />
+
+                {/* Packages Section - Always show, empty state when no packages */}
+                <div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <Package className="w-5 h-5 text-teal-600" />
+                      Packages
+                    </h3>
+                    
+                    {loadingPackages ? (
+                      <div className="flex items-center justify-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+                      </div>
+                    ) : (packages.length === 0 && userPackages.length === 0) ? (
+                      <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
+                        <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                        <p className="text-gray-600 font-medium">No packages assigned to this patient</p>
+                      </div>
                   ) : (
                     <div className="space-y-4">
                       {[...packages, ...userPackages].map((pkg: any, index: number) => {
@@ -1581,58 +2726,9 @@ const fetchCreatedPackages = async () => {
                   </h3>
                               
                   {memberships.length === 0 ? (
-                    <div className="space-y-4">
-                      {/* Transferred Out Memberships */}
-                      {transferredOutMemberships && transferredOutMemberships.length > 0 ? (
-                        transferredOutMemberships.map((membership: any, idx: number) => (
-                          <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
-                            <div className="flex items-start gap-3">
-                              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
-                                <Shield className="w-5 h-5 text-amber-600" />
-                              </div>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <h3 className="text-base font-bold text-amber-900">
-                                    {membership.membershipName || 'Membership'}
-                                  </h3>
-                                  <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[10px] font-bold">
-                                    Transferred Out
-                                  </span>
-                                </div>
-                                <p className="text-xs text-amber-700 mb-3">
-                                  This membership was transferred to another patient.
-                                </p>
-                                <div className="grid grid-cols-2 gap-2">
-                                  {membership.transferredToName && (
-                                    <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
-                                      <div className="text-[10px] text-gray-500 mb-0.5">Transferred To</div>
-                                      <div className="flex items-center gap-1.5">
-                                        <User className="w-3.5 h-3.5 text-amber-600" />
-                                        <span className="text-xs font-bold text-amber-900">
-                                          {membership.transferredToName}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  )}
-                                  {membership.transferredFreeConsultations > 0 && (
-                                    <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
-                                      <div className="text-[10px] text-gray-500 mb-0.5">Consultations Transferred</div>
-                                      <span className="text-xs font-bold text-amber-900">
-                                        {membership.transferredFreeConsultations}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-                          <Shield className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                          <p className="text-gray-600 font-medium">No memberships assigned to this patient</p>
-                        </div>
-                      )}
+                    <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
+                      <Shield className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-600 font-medium">No memberships assigned to this patient</p>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -2023,6 +3119,61 @@ const fetchCreatedPackages = async () => {
                                     <div className="text-[10px] text-gray-500 mb-0.5">Sessions Transferred</div>
                                     <span className="text-xs font-bold text-amber-900">
                                       {pkg.transferredSessions}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Transferred Out Memberships Section */}
+                {transferredOutMemberships && transferredOutMemberships.length > 0 && (
+                  <div className="mt-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-amber-600" />
+                      Transferred Out Memberships
+                    </h3>
+                    <div className="space-y-4">
+                      {transferredOutMemberships.map((membership: any, idx: number) => (
+                        <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                              <Shield className="w-5 h-5 text-amber-600" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-base font-bold text-amber-900">
+                                  {membership.membershipName || 'Membership'}
+                                </h3>
+                                <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[10px] font-bold">
+                                  Transferred Out
+                                </span>
+                              </div>
+                              <p className="text-xs text-amber-700 mb-3">
+                                This membership was transferred to another patient.
+                              </p>
+                              <div className="grid grid-cols-2 gap-2">
+                                {membership.transferredToName && (
+                                  <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred To</div>
+                                    <div className="flex items-center gap-1.5">
+                                      <User className="w-3.5 h-3.5 text-amber-600" />
+                                      <span className="text-xs font-bold text-amber-900">
+                                        {membership.transferredToName}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                                {membership.transferredFreeConsultations > 0 && (
+                                  <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Consultations Transferred</div>
+                                    <span className="text-xs font-bold text-amber-900">
+                                      {membership.transferredFreeConsultations}
                                     </span>
                                   </div>
                                 )}
@@ -2663,7 +3814,6 @@ const fetchCreatedPackages = async () => {
                 );
               })()
             ) : activeTab === 'communication' ? (
-              /* Communication Log - Consent Form Status + Package Link */
               <div className="space-y-4">
                 {/* Send Package Link Button */}
                 <div className="bg-gradient-to-r from-teal-50 to-emerald-50 rounded-xl border border-teal-200 p-4">
@@ -2696,216 +3846,314 @@ const fetchCreatedPackages = async () => {
                     </button>
                   </div>
                 </div>
-{/* Created Packages Section */}
-{loadingCreatedPackages ? (
-  <div className="flex items-center justify-center py-8">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
-  </div>
-) : createdPackages.length > 0 ? (
-  <div className="space-y-3">
-    <div className="flex items-center gap-2 mb-2">
-      <Package className="w-5 h-5 text-teal-600" />
-      <h3 className="text-base font-bold text-gray-900">Created Packages</h3>
-      <span className="ml-auto px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">
-        {createdPackages.length} Package{createdPackages.length !== 1 ? 's' : ''}
-      </span>
-    </div>
 
-    {createdPackages.map((pkg: any, index: number) => (
-      <div
-        key={pkg._id || index}
-        className="p-4 rounded-lg border border-teal-200 bg-gradient-to-br from-teal-50 to-white"
-      >
-        {/* Package Header */}
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex-1">
-            <h4 className="text-sm font-bold text-gray-900 mb-1">{pkg.packageName}</h4>
-            <p className="text-xs text-gray-500">
-              Created: {new Date(pkg.createdAt).toLocaleDateString('en-GB')}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${
-              pkg.approvalStatus === 'approved'
-                ? 'bg-green-100 text-green-700'
-                : pkg.approvalStatus === 'rejected'
-                ? 'bg-red-100 text-red-700'
-                : 'bg-yellow-100 text-yellow-700'
-            }`}>
-              {pkg.approvalStatus}
-            </span>
-          </div>
-        </div>
-
-        {/* Package Details */}
-        <div className="grid grid-cols-2 gap-3 mb-3 text-xs">
-          <div>
-            <span className="text-gray-500">Total Sessions:</span>
-            <span className="ml-1 font-semibold text-gray-900">{pkg.totalSessions}</span>
-          </div>
-          <div>
-            <span className="text-gray-500">Remaining:</span>
-            <span className="ml-1 font-semibold text-gray-900">{pkg.remainingSessions}</span>
-          </div>
-          <div>
-            <span className="text-gray-500">Total Price:</span>
-            <span className="ml-1 font-bold text-teal-600">د.إ{pkg.totalPrice?.toFixed(2)}</span>
-          </div>
-          <div>
-            <span className="text-gray-500">Per Session:</span>
-            <span className="ml-1 font-semibold text-gray-900">د.إ{pkg.sessionPrice?.toFixed(2)}</span>
-          </div>
-        </div>
-
-        {/* Treatments List */}
-        {pkg.treatments && pkg.treatments.length > 0 && (
-          <div className="border-t border-teal-200 pt-3 mt-3">
-            <h5 className="text-xs font-semibold text-gray-700 mb-2">Treatments:</h5>
-            <div className="space-y-1.5">
-              {pkg.treatments.map((treatment: any, tIdx: number) => (
-                <div key={tIdx} className="flex items-center justify-between text-xs">
-                  <span className="text-gray-600 truncate flex-1">
-                    {treatment.treatmentName || treatment.name} × {treatment.sessions} sessions
-                  </span>
-                  <span className="font-semibold text-gray-900 ml-2 whitespace-nowrap">
-                    د.إ{(treatment.allocatedPrice || treatment.sessionPrice * treatment.sessions).toFixed(2)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Action Button */}
-        {pkg.approvalStatus === 'pending' && (
-          <div className="mt-3 pt-3 border-t border-teal-200">
-            <button
-              onClick={async () => {
-                const headers = getAuthHeaders();
-                if (!headers) return alert('Authentication required');
-                
-                try {
-                  const response = await axios.post('/api/clinic/public-package?action=approve', {
-                    packageId: pkg._id,
-                  }, { headers });
-                  
-                  if (response.data.success) {
-                    alert('Package approved successfully!');
-                    fetchCreatedPackages(); // Refresh list
-                  }
-                } catch (error: any) {
-                  alert(error.response?.data?.message || 'Failed to approve package');
-                }
-              }}
-              className="w-full py-2 px-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 transition-colors flex items-center justify-center gap-2"
-            >
-              <CheckCircle className="w-3.5 h-3.5" />
-              Approve Package
-            </button>
-          </div>
-        )}
-      </div>
-    ))}
-  </div>
-) : null}
-
-                {loadingConsentStatus ? (
-                  <div className="flex items-center justify-center py-16">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                  </div>
-                ) : consentStatuses.length === 0 ? (
-                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div className="h-1.5 bg-gradient-to-r from-blue-400 to-indigo-400" />
-                    <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-200 flex items-center justify-center mb-4">
-                        <FileText className="w-9 h-9 text-blue-400" />
+                {/* Two-Section Layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Section 1: Progress Notes & Prescriptions */}
+                  <div className="space-y-4">
+                    {/* Progress Notes */}
+                    <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                      <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                            <TrendingUp className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-bold text-gray-900">Progress Notes</h3>
+                            <p className="text-[10px] text-gray-500">Clinical progress notes history</p>
+                          </div>
+                          {progressNotes.length > 0 && (
+                            <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                              {progressNotes.length}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <h3 className="text-lg font-bold text-gray-800 mb-2">No Consent Forms Sent</h3>
-                      <p className="text-gray-500 text-sm max-w-xs">
-                        Consent form communication will appear here once sent to the patient.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FileText className="w-5 h-5 text-blue-600" />
-                      <h3 className="text-base font-bold text-gray-900">Consent Form Status</h3>
-                      <span className="ml-auto px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
-                        {consentStatuses.length} Record{consentStatuses.length !== 1 ? 's' : ''}
-                      </span>
+                      <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
+                        {loadingProgressNotes ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                          </div>
+                        ) : progressNotes.length === 0 ? (
+                          <div className="text-center py-8">
+                            <TrendingUp className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                            <p className="text-sm text-gray-500">No progress notes yet</p>
+                          </div>
+                        ) : (
+                          progressNotes.map((note: any, idx: number) => (
+                            <div key={note._id || idx} className="p-3 rounded-lg border border-blue-100 bg-blue-50/30 hover:bg-blue-50/50 transition-colors">
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <User className="w-3.5 h-3.5 text-blue-600" />
+                                  </div>
+                                  <span className="text-xs font-semibold text-gray-900">
+                                    {typeof note.doctorId === 'object' ? note.doctorId.name : 'Doctor'}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-gray-500">
+                                  {new Date(note.noteDate || note.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-700 line-clamp-3">{note.note}</p>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
 
-                    {consentStatuses.map((consent: any, index: number) => {
-                      // Generate the consent form URL using patient data from props
-                      const patient = patientData as any;
-                      const patientName = patient?.fullName || `${patient?.firstName || ''} ${patient?.lastName || ''}`.trim();
-                      const patientInfo = {
-                        firstName: patient?.firstName || patientName.split(" ")[0] || "",
-                        lastName: patient?.lastName || patientName.split(" ").slice(1).join(" ") || "",
-                        mobileNumber: patient?.mobileNumber || "",
-                        email: patient?.email || "",
-                      };
-                      const encodedPatientData = encodeURIComponent(JSON.stringify(patientInfo));
-                      const consentUrl = `https://zeva360.com/consent-form/${consent.consentFormId}?patient=${encodedPatientData}`;
-                      
-                      return (
-                        <div
-                          key={consent._id || index}
-                          className={`flex items-center justify-between p-4 rounded-lg border ${
-                            consent.status === 'signed'
-                              ? 'border-green-200 bg-green-50'
-                              : 'border-blue-200 bg-blue-50'
-                          }`}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-semibold text-gray-800 truncate">
-                                {consent.consentFormName}
-                              </p>
-                              {consent.status === 'signed' ? (
-                                <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-                              ) : (
-                                <Send className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                    {/* Prescriptions */}
+                    <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                      <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                            <Pill className="w-4 h-4 text-purple-600" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-bold text-gray-900">Prescriptions</h3>
+                            <p className="text-[10px] text-gray-500">Medication prescriptions history</p>
+                          </div>
+                          {prescriptions.length > 0 && (
+                            <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
+                              {prescriptions.length}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
+                        {loadingPrescriptions ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+                          </div>
+                        ) : prescriptions.length === 0 ? (
+                          <div className="text-center py-8">
+                            <Pill className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                            <p className="text-sm text-gray-500">No prescriptions yet</p>
+                          </div>
+                        ) : (
+                          prescriptions.map((rx: any, idx: number) => (
+                            <div key={rx._id || idx} className="p-3 rounded-lg border border-purple-100 bg-purple-50/30 hover:bg-purple-50/50 transition-colors">
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center">
+                                    <FileText className="w-3.5 h-3.5 text-purple-600" />
+                                  </div>
+                                  <span className="text-xs font-semibold text-gray-900">
+                                    {typeof rx.doctorId === 'object' ? rx.doctorId.name : 'Doctor'}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-gray-500">
+                                  {new Date(rx.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </span>
+                              </div>
+                              <div className="space-y-1">
+                                {rx.medicines && rx.medicines.length > 0 && (
+                                  <div className="text-[10px] text-gray-700">
+                                    <div className="space-y-1.5">
+                                      {rx.medicines.slice(0, 3).map((med: any, mIdx: number) => (
+                                        <div key={mIdx} className="bg-white/50 rounded px-2 py-1.5 border border-purple-100">
+                                          <div className="flex items-center gap-1.5 mb-1">
+                                            <Pill className="w-2.5 h-2.5 text-purple-600 flex-shrink-0" />
+                                            <span className="font-semibold text-gray-900">{med.medicineName || 'N/A'}</span>
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-x-3 gap-y-1 ml-4 text-[9px]">
+                                            {med.dosage && (
+                                              <div className="flex items-center gap-1">
+                                                <span className="text-gray-500">Dosage:</span>
+                                                <span className="font-medium text-gray-800">{med.dosage}</span>
+                                              </div>
+                                            )}
+                                            {med.duration && (
+                                              <div className="flex items-center gap-1">
+                                                <span className="text-gray-500">Duration:</span>
+                                                <span className="font-medium text-gray-800">{med.duration}</span>
+                                              </div>
+                                            )}
+                                            {med.notes && (
+                                              <div className="col-span-2 flex items-start gap-1">
+                                                <span className="text-gray-500">Notes:</span>
+                                                <span className="font-medium text-gray-800">{med.notes}</span>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    {rx.medicines.length > 3 && (
+                                      <p className="text-[10px] text-gray-500 mt-2 italic">+{rx.medicines.length - 3} more medications...</p>
+                                    )}
+                                  </div>
+                                )}
+                                {rx.aftercareInstructions && (
+                                  <div className="mt-2 pt-2 border-t border-purple-100">
+                                    <p className="text-[10px] text-gray-600 italic">
+                                      <span className="font-semibold">Aftercare:</span> {rx.aftercareInstructions}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 2: Consent Form Status & Created Packages */}
+                  <div className="space-y-4">
+                    {/* Consent Form Status */}
+                    <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                      <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                            <ClipboardCheck className="w-4 h-4 text-green-600" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-bold text-gray-900">Consent Form Status</h3>
+                            <p className="text-[10px] text-gray-500">Signed and pending consent forms</p>
+                          </div>
+                          {consentStatuses.length > 0 && (
+                            <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                              {consentStatuses.length}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
+                        {loadingConsentStatus ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
+                          </div>
+                        ) : consentStatuses.length === 0 ? (
+                          <div className="text-center py-8">
+                            <ClipboardCheck className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                            <p className="text-sm text-gray-500">No consent forms sent yet</p>
+                          </div>
+                        ) : (
+                          consentStatuses.map((consent: any, idx: number) => (
+                            <div key={consent._id || idx} className="p-3 rounded-lg border border-green-100 bg-green-50/30 hover:bg-green-50/50 transition-colors">
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                                    consent.status === 'signed' ? 'bg-green-100' : 'bg-yellow-100'
+                                  }`}>
+                                    {consent.status === 'signed' ? (
+                                      <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                                    ) : (
+                                      <Clock className="w-3.5 h-3.5 text-yellow-600" />
+                                    )}
+                                  </div>
+                                  <span className="text-xs font-semibold text-gray-900 truncate flex-1 ml-2">
+                                    {consent.consentFormName || consent.formName || 'Consent Form'}
+                                  </span>
+                                </div>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ml-2 ${
+                                  consent.status === 'signed'
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-yellow-100 text-yellow-700'
+                                }`}>
+                                  {consent.status === 'signed' ? 'Signed' : 'Pending'}
+                                </span>
+                              </div>
+                              {consent.signedAt && (
+                                <p className="text-[10px] text-gray-500">
+                                  Signed: {new Date(consent.signedAt).toLocaleDateString('en-GB')}
+                                </p>
                               )}
                             </div>
-                            <div className="flex items-center gap-3 mt-1">
-                              <span className="text-xs text-gray-400">
-                                Date: {consent.date}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1 mt-1">
-                              <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
-                                consent.status === 'signed'
-                                  ? 'bg-green-100 text-green-700'
-                                  : 'bg-blue-100 text-blue-700'
-                              }`}>
-                                {consent.status === 'signed' ? 'SIGNED' : 'SENT'}
-                              </span>
-                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Created Packages */}
+                    <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                      <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center">
+                            <Package className="w-4 h-4 text-teal-600" />
                           </div>
-                          <div className="flex items-center gap-2 ml-3">
-                            {/* Open Form Button */}
-                            <a
-                              href={consentUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-all border border-blue-200"
-                            >
-                              <FileText className="w-3.5 h-3.5" />
-                              Open Form
-                            </a>
-                            {consent.status === 'signed' && consent.hasSignature && (
-                              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                                <CheckCircle className="w-5 h-5 text-green-600" />
-                              </div>
-                            )}
+                          <div>
+                            <h3 className="text-sm font-bold text-gray-900">Created Packages</h3>
+                            <p className="text-[10px] text-gray-500">Patient-created treatment packages</p>
                           </div>
+                          {createdPackages.length > 0 && (
+                            <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">
+                              {createdPackages.length}
+                            </span>
+                          )}
                         </div>
-                      );
-                    })}
+                      </div>
+                      <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
+                        {loadingCreatedPackages ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-600"></div>
+                          </div>
+                        ) : createdPackages.length === 0 ? (
+                          <div className="text-center py-8">
+                            <Package className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                            <p className="text-sm text-gray-500">No packages created yet</p>
+                          </div>
+                        ) : (
+                          createdPackages.map((pkg: any, idx: number) => (
+                            <div key={pkg._id || idx} className="p-3 rounded-lg border border-teal-100 bg-teal-50/30 hover:bg-teal-50/50 transition-colors">
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex-1">
+                                  <h4 className="text-xs font-bold text-gray-900 mb-0.5">{pkg.packageName}</h4>
+                                  <p className="text-[10px] text-gray-500">
+                                    Created: {new Date(pkg.createdAt).toLocaleDateString('en-GB')}
+                                  </p>
+                                </div>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase whitespace-nowrap ml-2 ${
+                                  pkg.approvalStatus === 'approved'
+                                    ? 'bg-green-100 text-green-700'
+                                    : pkg.approvalStatus === 'rejected'
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-yellow-100 text-yellow-700'
+                                }`}>
+                                  {pkg.approvalStatus}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-[10px]">
+                                <div>
+                                  <span className="text-gray-500">Sessions:</span>
+                                  <span className="ml-1 font-semibold text-gray-900">{pkg.totalSessions}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Price:</span>
+                                  <span className="ml-1 font-bold text-teal-600">د.إ{pkg.totalPrice?.toFixed(2)}</span>
+                                </div>
+                              </div>
+                              {pkg.approvalStatus === 'pending' && (
+                                <button
+                                  onClick={async () => {
+                                    const headers = getAuthHeaders();
+                                    if (!headers) return alert('Authentication required');
+                                    try {
+                                      const response = await axios.post('/api/clinic/public-package?action=approve', {
+                                        packageId: pkg._id,
+                                      }, { headers });
+                                      if (response.data.success) {
+                                        alert('Package approved successfully!');
+                                        fetchCreatedPackages();
+                                      }
+                                    } catch (error: any) {
+                                      alert(error.response?.data?.message || 'Failed to approve package');
+                                    }
+                                  }}
+                                  className="w-full mt-2 py-1.5 px-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-[10px] font-semibold rounded-md hover:from-green-600 hover:to-emerald-700 transition-colors flex items-center justify-center gap-1"
+                                >
+                                  <CheckCircle className="w-3 h-3" />
+                                  Approve Package
+                                </button>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             ) : activeTab === 'advance' ? (
               /* Advance & Pending Tab Content */
@@ -2935,21 +4183,6 @@ const fetchCreatedPackages = async () => {
                           <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
                           <span className="text-xs font-bold text-emerald-700">Advance: {formatAED(balance.advanceBalance)}</span>
                         </div>
-                        {/* Past Advance 50% */}
-                        <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
-                          <DollarSign className="w-3.5 h-3.5 text-amber-600" />
-                          <span className="text-xs font-bold text-amber-700">Past Advance 50%: {formatAED(balance.pastAdvance50PercentBalance)}</span>
-                        </div>
-                        {/* Past Advance 54% */}
-                        <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200">
-                          <DollarSign className="w-3.5 h-3.5 text-blue-600" />
-                          <span className="text-xs font-bold text-blue-700">Past Advance 54%: {formatAED(balance.pastAdvance54PercentBalance)}</span>
-                        </div>
-                        {/* Past Advance 159 Flat */}
-                        <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-purple-50 border border-purple-200">
-                          <DollarSign className="w-3.5 h-3.5 text-purple-600" />
-                          <span className="text-xs font-bold text-purple-700">Past Advance 159 Flat: {formatAED(balance.pastAdvance159FlatBalance)}</span>
-                        </div>
                       </div>
                     )}
                   </div>
@@ -2968,27 +4201,6 @@ const fetchCreatedPackages = async () => {
                     >
                       <Plus className="w-4 h-4" />
                       Add Advance Balance
-                    </button>
-                    <button
-                      onClick={() => setShowAddPastAdvancePayment50PercentModal(true)}
-                      className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:bg-amber-700 hover:shadow-lg active:scale-95"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add 50% Past Advance Balance
-                    </button>
-                    <button
-                      onClick={() => setShowAddPastAdvancePayment54PercentModal(true)}
-                      className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:bg-blue-700 hover:shadow-lg active:scale-95"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add 54% Past Advance Balance
-                    </button>
-                    <button
-                      onClick={() => setShowAddPastAdvancePayment159FlatModal(true)}
-                      className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:bg-purple-700 hover:shadow-lg active:scale-95"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add 159 Flat Past Advance Balance
                     </button>
                   </div>
                 </div>
@@ -3266,6 +4478,31 @@ const fetchCreatedPackages = async () => {
   );
 };
 
+// Add animation styles
+if (typeof document !== 'undefined') {
+  const styleId = 'patient-profile-animations';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      @keyframes scaleIn {
+        from {
+          transform: scale(0.9);
+          opacity: 0;
+        }
+        to {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+      .animate-scaleIn {
+        animation: scaleIn 0.2s ease-out;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+}
+
 // Main Page Component
 function PatientProfileView() {
   const router = useRouter();
@@ -3322,7 +4559,13 @@ function PatientProfileView() {
   }
 
   return (
-    <PatientProfileDashboard patientData={patient} onClose={handleClose} />
+    <PatientProfileDashboard 
+      patientData={patient} 
+      onClose={handleClose}
+      onPatientUpdated={(updatedData) => {
+        setPatient(updatedData);
+      }}
+    />
   );
 }
 
