@@ -45,6 +45,18 @@ const PatientComplainsSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    isDoctorDiscountApplied: {
+      type: Boolean,
+      default: false,
+    },
+    doctorDiscountType: {
+      type: String, // "percentage" or "fixed_amount"
+      trim: true,
+    },
+    doctorDiscountAmount: {
+      type: Number,
+      default: 0,
+    },
     items: [
       {
         itemId: {

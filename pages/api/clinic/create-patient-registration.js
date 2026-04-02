@@ -143,6 +143,12 @@ export default async function handler(req, res) {
       isFreeConsultation,
       freeConsultationCount,
       membershipDiscountApplied,
+      isDoctorDiscountApplied,
+      doctorDiscountType,
+      doctorDiscountAmount,
+      isAgentDiscountApplied,
+      agentDiscountType,
+      agentDiscountAmount,
       originalAmount,
     } = req.body;
 
@@ -409,9 +415,9 @@ export default async function handler(req, res) {
           ? selectedPackageTreatments
           : [],
       amount: amountNum,
-      paid: paidNum + advanceUsedNum + totalPastAdvanceUsed,
-      advanceUsed: advanceUsed,
-      pendingUsed: pendingUsed,
+      paid: paidNum, // ONLY store actual money received today (not credits)
+      advanceUsed: advanceUsedNum, // Use the parsed number
+      pendingUsed: pendingUsedNum, // Use the parsed number
       pastAdvanceUsed: totalPastAdvanceUsed,
       pastAdvanceUsed50Percent: pastAdvanceUsed50PercentNum,
       pastAdvanceUsed54Percent: pastAdvanceUsed54PercentNum,
@@ -419,7 +425,7 @@ export default async function handler(req, res) {
       pastAdvanceType,
       pending: pendingToStore,
       advance: advanceToStore,
-      pastAdvance: pastAdvance,
+      pastAdvance: finalPastAdvance,
       paymentMethod,
       multiplePayments: multiPayArr.map((mp) => ({
         paymentMethod: mp.paymentMethod,
@@ -444,6 +450,12 @@ export default async function handler(req, res) {
       isFreeConsultation: isFreeConsultation || false,
       freeConsultationCount: freeConsultationCount || 0,
       membershipDiscountApplied: membershipDiscountApplied || 0,
+      isDoctorDiscountApplied: isDoctorDiscountApplied || false,
+      doctorDiscountType: doctorDiscountType || null,
+      doctorDiscountAmount: doctorDiscountAmount || 0,
+      isAgentDiscountApplied: isAgentDiscountApplied || false,
+      agentDiscountType: agentDiscountType || null,
+      agentDiscountAmount: agentDiscountAmount || 0,
       originalAmount: originalAmount || amountNum,
     };
 

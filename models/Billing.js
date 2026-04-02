@@ -188,6 +188,28 @@ const billingSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    isDoctorDiscountApplied: {
+      type: Boolean,
+      default: false,
+    },
+    doctorDiscountType: {
+      type: String,
+    },
+    doctorDiscountAmount: {
+      type: Number,
+      default: 0,
+    },
+    isAgentDiscountApplied: {
+      type: Boolean,
+      default: false,
+    },
+    agentDiscountType: {
+      type: String,
+    },
+    agentDiscountAmount: {
+      type: Number,
+      default: 0,
+    },
     originalAmount: {
       type: Number,
       default: 0,

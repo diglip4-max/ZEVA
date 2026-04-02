@@ -402,9 +402,15 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [addedRecServices, setAddedRecServices] = useState<Record<string, boolean>>({});
 
    // SEND CONSENT FORM MSG ON WHATSAPP
-    const [sendMsgLoading, setSendMsgLoading] = useState<boolean>(false);
+  const [sendMsgLoading, setSendMsgLoading] = useState<boolean>(false);
 
-
+  // Doctor discount state
+  const [doctorDiscount, setDoctorDiscount] = useState<{
+    discountType: string;
+    discountAmount: number;
+  } | null>(null);
+  const [isDoctorDiscountApplied, setIsDoctorDiscountApplied] =
+    useState(false);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -643,7 +649,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
         // Fetch smart recommendations based on doctor's departments
         if (response.data.appointment?.doctorId) {
-          fetchSmartRecommendations(response.data.appointment.doctorId, headers);
+          const docId = typeof response.data.appointment.doctorId === 'object' 
+            ? response.data.appointment.doctorId._id 
+            : response.data.appointment.doctorId;
+          
+          if (docId) {
+            fetchSmartRecommendations(docId, headers);
+            fetchDoctorDiscount(docId, headers);
+          }
         }
       } catch (err: any) {
         setError(
@@ -747,6 +760,30 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       setLoadingSmartRec(false);
     }
   };
+
+  const fetchDoctorDiscount = async (
+     doctorId: string,
+     headers: Record<string, string>,
+   ) => {
+     try {
+       console.log("Fetching doctor discount for ID:", doctorId);
+       const res = await axios.get(`/api/lead-ms/get-agents?agentId=${doctorId}`, {
+         headers,
+       });
+       console.log("Doctor discount response:", res.data);
+       if (res.data.success && res.data.profile) {
+         const profile = res.data.profile;
+         if (profile.discountType && profile.discountAmount) {
+           setDoctorDiscount({
+             discountType: profile.discountType,
+             discountAmount: parseFloat(profile.discountAmount) || 0,
+           });
+         }
+       }
+     } catch (err) {
+       console.error("Error fetching doctor discount:", err);
+     }
+   };
 
   // Book next session for the same patient + doctor
   const bookNextSession = async () => {
@@ -1026,6 +1063,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           items: items || [],
           beforeImage: beforeImage || null,
           afterImage: afterImage || null,
+          isDoctorDiscountApplied: isDoctorDiscountApplied,
+          doctorDiscountType: isDoctorDiscountApplied ? doctorDiscount?.discountType : null,
+          doctorDiscountAmount: isDoctorDiscountApplied ? doctorDiscount?.discountAmount : 0,
         },
         { headers },
       );
@@ -2986,6 +3026,40 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                       <div key={svc._id} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
                                         <span className="text-xs font-medium text-gray-700">{svc.name}</span>
                                         <span className="text-[10px] text-blue-600">{svc.clinicPrice != null ? `AED ${svc.clinicPrice}` : `AED ${svc.price}`}</span>
+                                        <button type="button" disabled={addingRecService[`${details?.patientId}_${svc._id}`] || addedRecServices[`${details?.patientId}_${svc._id}`]}
+                                          onClick={async () => {
+                                            if (!details?.appointmentId || !details?.patientId) return;
+                                           
+                                            const patientServiceKey = `${details.patientId}_${svc._id}`;
+                                           
+                                            // 1. Add to selectedServices (so it appears in Treatment & Billing)
+                                            const serviceToAdd = {
+                                              _id: svc._id,
+                                              name: svc.name,
+                                              price: svc.price,
+                                              clinicPrice: svc.clinicPrice,
+                                              durationMinutes: svc.durationMinutes,
+                                            } as ClinicService;
+                                           
+                                            setSelectedServices((prev) => [...prev, serviceToAdd]);
+                                            setServicesSaved(false);
+                                           
+                                            // 2. Also save to appointment via API
+                                            setAddingRecService((p) => ({ ...p, [patientServiceKey]: true }));
+                                            try {
+                                              await axios.patch(`/api/clinic/appointment-services/${details.appointmentId}`, { serviceIds: [svc._id] }, { headers: getAuthHeaders() });
+                                              setAddedRecServices((p) => ({ ...p, [patientServiceKey]: true }));
+                                            } catch (err: any) {
+                                              // If API fails, remove from selectedServices
+                                              setSelectedServices((prev) => prev.filter((s) => s._id !== svc._id));
+                                            } finally {
+                                              setAddingRecService((p) => ({ ...p, [patientServiceKey]: false }));
+                                            }
+                                          }}
+                                          className={`flex items-center gap-0.5 rounded px-2 py-1 text-[10px] font-semibold transition-colors ${addedRecServices[`${details?.patientId}_${svc._id}`] ? "bg-green-100 text-green-700 cursor-default" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}
+                                        >
+                                          {addingRecService[`${details?.patientId}_${svc._id}`] ? <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg> : addedRecServices[`${details?.patientId}_${svc._id}`] ? <><Check size={10} /> Added</> : <><Plus size={10} /> Add</>}
+                                        </button>
                                       </div>
                                     ))}
                                   </div>
@@ -3837,6 +3911,69 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         )}
                       </div>
 
+                      {/* Smart Recommendations in prescription tab */}
+                      {(smartDepartments.length > 0 || loadingSmartRec) && (
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Stethoscope className="w-4 h-4 text-blue-600" />
+                            <h3 className="text-sm font-semibold text-gray-800">Smart Recommendations</h3>
+                          </div>
+                          {loadingSmartRec ? (
+                            <div className="text-xs text-gray-400 py-2">Loading...</div>
+                          ) : (
+                            <div className="space-y-2">
+                              {smartDepartments.map((dept) => (
+                                <div key={dept._id}>
+                                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">{dept.name}</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {dept.services.map((svc) => (
+                                      <div key={svc._id} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
+                                        <span className="text-xs font-medium text-gray-700">{svc.name}</span>
+                                        <span className="text-[10px] text-blue-600">{svc.clinicPrice != null ? `AED ${svc.clinicPrice}` : `AED ${svc.price}`}</span>
+                                        <button type="button" disabled={addingRecService[`${details?.patientId}_${svc._id}`] || addedRecServices[`${details?.patientId}_${svc._id}`]}
+                                          onClick={async () => {
+                                            if (!details?.appointmentId || !details?.patientId) return;
+                                           
+                                            const patientServiceKey = `${details.patientId}_${svc._id}`;
+                                           
+                                            // 1. Add to selectedServices (so it appears in Treatment & Billing)
+                                            const serviceToAdd = {
+                                              _id: svc._id,
+                                              name: svc.name,
+                                              price: svc.price,
+                                              clinicPrice: svc.clinicPrice,
+                                              durationMinutes: svc.durationMinutes,
+                                            } as ClinicService;
+                                           
+                                            setSelectedServices((prev) => [...prev, serviceToAdd]);
+                                            setServicesSaved(false);
+                                           
+                                            // 2. Also save to appointment via API
+                                            setAddingRecService((p) => ({ ...p, [patientServiceKey]: true }));
+                                            try {
+                                              await axios.patch(`/api/clinic/appointment-services/${details.appointmentId}`, { serviceIds: [svc._id] }, { headers: getAuthHeaders() });
+                                              setAddedRecServices((p) => ({ ...p, [patientServiceKey]: true }));
+                                            } catch (err: any) {
+                                              // If API fails, remove from selectedServices
+                                              setSelectedServices((prev) => prev.filter((s) => s._id !== svc._id));
+                                            } finally {
+                                              setAddingRecService((p) => ({ ...p, [patientServiceKey]: false }));
+                                            }
+                                          }}
+                                          className={`flex items-center gap-0.5 rounded px-2 py-1 text-[10px] font-semibold transition-colors ${addedRecServices[`${details?.patientId}_${svc._id}`] ? "bg-green-100 text-green-700 cursor-default" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}
+                                        >
+                                          {addingRecService[`${details?.patientId}_${svc._id}`] ? <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg> : addedRecServices[`${details?.patientId}_${svc._id}`] ? <><Check size={10} /> Added</> : <><Plus size={10} /> Add</>}
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* Appointments - Upcoming */}
                       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                         <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
@@ -4437,11 +4574,25 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
                 {/* Treatment Journey */}
                 <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                  <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                  <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Activity className="w-4 h-4 text-blue-600" />
                       <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Treatment History</span>
                     </div>
+                    {doctorDiscount && (
+                      <button
+                        type="button"
+                        onClick={() => setIsDoctorDiscountApplied(!isDoctorDiscountApplied)}
+                        className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                          isDoctorDiscountApplied
+                            ? "bg-green-100 text-green-700 border border-green-200"
+                            : "bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
+                        }`}
+                      >
+                        <TrendingUp size={10} />
+                        {isDoctorDiscountApplied ? "Discount Applied" : "Apply Discount"}
+                      </button>
+                    )}
                   </div>
                   <div className="px-4 py-3 space-y-3">
                     <div>

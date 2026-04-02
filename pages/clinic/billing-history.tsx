@@ -162,10 +162,13 @@ const BillingHistoryPage = () => {
       doc.setTextColor(5, 150, 105); // emerald-600
       doc.text(`AED ${formatCurrency(totalPaid)}`, pageWidth - 14, finalY + 11, { align: 'right' });
       
+      // Removed Total Outstanding (Pending) from summary as per user request
+      /*
       doc.setTextColor(220, 38, 38); // red-600
       doc.setFont('helvetica', 'bold');
       doc.text('Total Outstanding:', pageWidth - 70, finalY + 16);
       doc.text(`AED ${formatCurrency(totalPending)}`, pageWidth - 14, finalY + 16, { align: 'right' });
+      */
 
       // Footer
       const pageCount = (doc as any).internal.getNumberOfPages();
@@ -451,7 +454,8 @@ const BillingHistoryPage = () => {
                       {formatCurrency(billingHistory.reduce((sum, b) => sum + (Number(b.paid) || 0), 0))}
                     </td>
                     <td className="px-4 py-3 text-right text-red-600">
-                      {formatCurrency(billingHistory.reduce((sum, b) => sum + (Number(b.pending) || 0), 0))}
+                      {/* Pending amount sum removed as per user request */}
+                      —
                     </td>
                     <td className="px-4 py-3 text-right text-gray-900">
                       {formatCurrency(billingHistory.reduce((sum, b) => sum + (Number(b.advance) || 0), 0))}
