@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from 'react';
-import { UserPlus, Users, Mail, Phone, Building2, FileText, CheckCircle, AlertCircle, Save, X } from 'lucide-react';
+import { UserPlus,FileText,  Save } from 'lucide-react';
 
 const CreateLeadGuide: React.FC = () => {
   const [activeSection, setActiveSection] = useState("overview");

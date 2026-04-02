@@ -222,8 +222,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     pastAdvance159FlatBalance: 0,
   });
   const [applyAdvance, setApplyAdvance] = useState(false);
-  const [applyPastAdvance50Percent, setApplyPastAdvance50Percent] = useState(false);
-  const [applyPastAdvance54Percent, setApplyPastAdvance54Percent] = useState(false);
+  const [applyPastAdvance50Percent] = useState(false);
+  const [applyPastAdvance54Percent] = useState(false);
   const [applyPastAdvance159Flat, setApplyPastAdvance159Flat] = useState(false);
 
   // Consent Form States
@@ -2812,7 +2812,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                   {doctorAppliedDiscount ? (doctorComplaintDiscount?.discountType === "percentage" ? "%" : " Fixed") : (doctorDiscount?.discountType === "percentage" ? "%" : " Fixed")} 
                                   {doctorAppliedDiscount ? " (Applied)" : " (Available)"}
                                 </span>
-                                {agentDiscount && (doctorAppliedDiscount ? doctorComplaintDiscount?.discountAmount : doctorDiscount?.discountAmount) > agentDiscount.discountAmount && (
+                                {agentDiscount && ((doctorAppliedDiscount ? doctorComplaintDiscount?.discountAmount : doctorDiscount?.discountAmount) || 0) > agentDiscount.discountAmount && (
                                   <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">
                                     Best Value!
                                   </span>
@@ -2851,7 +2851,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                 <span className="text-[10px] text-gray-600 font-medium">
                                   {agentDiscount.discountAmount}{agentDiscount.discountType === "percentage" ? "%" : " Fixed"} available
                                 </span>
-                                {((doctorAppliedDiscount && doctorComplaintDiscount) || doctorDiscount) && agentDiscount.discountAmount > (doctorAppliedDiscount ? doctorComplaintDiscount?.discountAmount : doctorDiscount?.discountAmount) && (
+                                {((doctorAppliedDiscount && doctorComplaintDiscount) || doctorDiscount) && agentDiscount.discountAmount > ((doctorAppliedDiscount ? doctorComplaintDiscount?.discountAmount : doctorDiscount?.discountAmount) || 0) && (
                                   <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold animate-pulse">
                                     Best Value!
                                   </span>

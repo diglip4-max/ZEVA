@@ -146,7 +146,6 @@ const BillingHistoryPage = () => {
       const finalY = (doc as any).lastAutoTable.finalY + 10;
       const totalAmount = billingHistory.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
       const totalPaid = billingHistory.reduce((sum, b) => sum + (Number(b.paid) || 0), 0);
-      const totalPending = billingHistory.reduce((sum, b) => sum + (Number(b.pending) || 0), 0);
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);

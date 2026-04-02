@@ -1,19 +1,19 @@
 "use client";
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect,  useCallback } from "react";
 import {
-  Calendar,
+
   Clock,
-  Users,
+
   Building2,
   ChevronLeft,
   ChevronRight,
   Plus,
   Upload,
   Settings,
-  Filter,
+ 
   Search,
   X,
-  Check,
+
   Loader2,
   User,
   Mail,
@@ -80,10 +80,6 @@ interface TimeSlot {
   displayTime: string;
 }
 
-interface SchedulerViewMode {
-  mode: "doctors" | "rooms" | "both";
-}
-
 interface StatusColor {
   bg: string;
   text: string;
@@ -135,16 +131,6 @@ function getLocalTodayDate(): string {
   return `${year}-${month}-${day}`;
 }
 
-function formatDateForDisplay(dateString: string): string {
-  const [year, month, day] = dateString.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-  return date.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).replace(/\//g, "-");
-}
-
 function generateTimeSlots(startTime: string, endTime: string): TimeSlot[] {
   const slots: TimeSlot[] = [];
   const startMinutes = timeStringToMinutes(startTime);
@@ -173,7 +159,6 @@ function getStatusColor(status: string, customColors?: Record<string, StatusColo
 // ============================================================================
 
 interface ModernSchedulerProps {
-  clinicId: string;
   initialDate?: string;
   viewMode?: "doctors" | "rooms" | "both";
   getAuthHeaders: () => Record<string, string>;
@@ -184,7 +169,6 @@ interface ModernSchedulerProps {
 }
 
 export const ModernScheduler: React.FC<ModernSchedulerProps> = ({
-  clinicId,
   initialDate = getLocalTodayDate(),
   viewMode = "both",
   getAuthHeaders,
@@ -1011,17 +995,17 @@ interface BookingModalWrapperProps {
 }
 
 const BookingModalWrapper: React.FC<BookingModalWrapperProps> = ({
-  isOpen,
+ 
   onClose,
   onSuccess,
   doctorId,
   roomId,
-  slotTime,
+
   slotDisplayTime,
   defaultDate,
   rooms,
   doctorStaff,
-  getAuthHeaders,
+  
 }) => {
   // This would integrate with your existing AppointmentBookingModal
   // For now, showing a placeholder

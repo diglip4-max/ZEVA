@@ -1,9 +1,9 @@
 "use client";
 import React, { useState } from 'react';
-import { Users, User, Settings, Briefcase } from 'lucide-react';
+import { Users, Settings } from 'lucide-react';
 
 const ClinicManagementGuide: React.FC = () => {
-  const [activeSection, setActiveSection] = useState("overview");
+  const [activeSection] = useState("overview");
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-6">

@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from 'react';
-import { DollarSign, Users, FileText, Eye, CheckCircle, TrendingUp, RefreshCw } from 'lucide-react';
+import { DollarSign, Users, FileText } from 'lucide-react';
 
 const CommissionGuide: React.FC = () => {
   const [activeSection, setActiveSection] = useState("overview");
