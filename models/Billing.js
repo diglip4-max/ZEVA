@@ -215,6 +215,10 @@ const billingSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    isAdvanceOnly: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true },
 );
@@ -243,7 +247,8 @@ billingSchema.pre("save", function (next) {
   // Pending is any remaining due after today's payment
   this.pending = Math.max(0, effectiveDue - this.paid);
   // New advance generated if paid exceeds effective due
-  this.advance = Math.max(0, this.paid - effectiveDue);
+  // If pendingUsed is provided, it reduces the amount that can be converted to advance
+  this.advance = Math.max(0, this.paid - effectiveDue - this.pendingUsed);
 
   next();
 });

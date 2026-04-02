@@ -99,6 +99,7 @@ export default async function handler(req, res) {
       pending: 0,
       paymentMethod,
       status: "Completed",
+      isAdvanceOnly: true,
       notes: notes,
       multiplePayments: [],
       paymentHistory: [],

@@ -11,6 +11,7 @@ import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
 import AddPatientAdvancePaymentModal from '@/components/patient/AddPatientAdvancePaymentModal';
 import AddPatientPastAdvancePaymentModal from '@/components/patient/AddPatientPastAdvancePaymentModal';
+import PayPendingBalanceModal from '@/components/patient/PayPendingBalanceModal';
 
 const TOKEN_PRIORITY = [
   "clinicToken",
@@ -522,6 +523,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   const [showAddPastAdvancePayment50PercentModal, setShowAddPastAdvancePayment50PercentModal] = useState(false);
   const [showAddPastAdvancePayment54PercentModal, setShowAddPastAdvancePayment54PercentModal] = useState(false);
   const [showAddPastAdvancePayment159FlatModal, setShowAddPastAdvancePayment159FlatModal] = useState(false);
+  const [showPayPendingModal, setShowPayPendingModal] = useState(false);
   const [treatmentFilter, setTreatmentFilter] = useState<'all' | 'ongoing' | 'completed'>('all');
 
   // ---- Editable Membership & Package State ----
@@ -955,7 +957,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     });
 
     // From billing — add payment entries
-    const billings = Array.isArray(billingHistory) ? billingHistory : [];
+    const billings = Array.isArray(billingHistory) 
+      ? billingHistory.filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") 
+      : [];
     billings.slice(0, 3).forEach((b: any) => {
       if (b.paid > 0) {
         const dateStr = b.invoicedDate || (b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
@@ -987,7 +991,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
     // Pending invoice alert
     const hasPendingInvoice = Array.isArray(billingHistory) && billingHistory.some(
-      (b: any) => (b.status || '').toLowerCase() === 'pending' || (b.pending > 0)
+      (b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance" && ((b.status || '').toLowerCase() === 'pending' || (b.pending > 0))
     );
     if (hasPendingInvoice) {
       list.push({ type: 'warning', icon: AlertTriangle, message: 'Pending invoice payment' });
@@ -1416,7 +1420,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   const calculateFinancialSnapshot = (billings: any[]) => {
     let totalSpent = 0;
 
-    billings.forEach((billing: any) => {
+    (billings || []).forEach((billing: any) => {
+      // Exclude pure balance additions from total spent if they are just adding to advance balance
+      // but INCLUDE them if they are actual payments for pending bills
+      if ((billing.isAdvanceOnly || billing.treatment === "Advance Payment" || billing.treatment === "Historical Advance Balance") && billing.treatment !== "Pending Balance Payment") return;
       const paid = parseFloat(billing.paid) || 0;
       totalSpent += paid;
     });
@@ -3264,7 +3271,7 @@ const fetchPrescriptions = async () => {
                   <div className="col-span-1 lg:col-span-3 flex items-center justify-center py-12">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
                   </div>
-                ) : !billingHistory || billingHistory.length === 0 ? (
+                ) : !billingHistory || (billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length === 0 ? (
                   <div className="col-span-1 lg:col-span-3">
                     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                       {/* Top gradient banner */}
@@ -3325,7 +3332,9 @@ const fetchPrescriptions = async () => {
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-100">
-                            {billingHistory.map((billing: any, index: number) => {
+                            {(billingHistory || [])
+                              .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
+                              .map((billing: any, index: number) => {
                               // Determine invoice status
                               let statusLabel = 'Pending';
                               let statusColor = 'bg-red-100 text-red-700';
@@ -3382,7 +3391,12 @@ const fetchPrescriptions = async () => {
                         
                         <div className="space-y-0">
                           {(() => {
-                            const allPayments = billingHistory.flatMap((billing: any) => 
+                            const allPayments = (billingHistory || [])
+                              .filter((b: any) => 
+                                (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") || 
+                                b.treatment === "Pending Balance Payment"
+                              )
+                              .flatMap((billing: any) => 
                               (billing.paymentHistory || []).map((payment: any, idx: number) => ({
                                 ...payment,
                                 invoiceNumber: billing.invoiceNumber,
@@ -3456,26 +3470,32 @@ const fetchPrescriptions = async () => {
                         </div>
 
                         {/* Divider before Summary */}
-                        {billingHistory.length > 0 && (
+                        {(billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length > 0 && (
                           <div className="h-px bg-gray-200 my-4"></div>
                         )}
 
                         {/* Summary Section */}
-                        {billingHistory.length > 0 && (
+                        {(billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length > 0 && (
                           <div className="pt-4 space-y-3">
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                               {/* Total Billed */}
                               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
                                 <div className="text-sm text-blue-600 mb-1">Total Billed</div>
                                 <div className="text-2xl font-bold text-blue-800">
-                                  {formatAED(billingHistory.reduce((acc: number, b: any) => acc + (Number(b.amount) || 0), 0))}
+                                  {formatAED((billingHistory || []).filter((b: any) => 
+                                    (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") || 
+                                    b.treatment === "Pending Balance Payment"
+                                  ).reduce((acc: number, b: any) => acc + (Number(b.amount) || 0), 0))}
                                 </div>
                               </div>
                               {/* Total Paid */}
                               <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
                                 <div className="text-sm text-green-600 mb-1">Total Paid</div>
                                 <div className="text-2xl font-bold text-green-800">
-                                  {formatAED(billingHistory.reduce((acc: number, b: any) => acc + (Number(b.paid) || 0), 0))}
+                                  {formatAED((billingHistory || []).filter((b: any) => 
+                                    (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") || 
+                                    b.treatment === "Pending Balance Payment"
+                                  ).reduce((acc: number, b: any) => acc + (Number(b.paid) || 0), 0))}
                                 </div>
                               </div>
                               {/* Outstanding */}
@@ -3704,7 +3724,7 @@ const fetchPrescriptions = async () => {
                 // Build treatment list from appointments, cross-ref with billing for status
                 const paidInvoiceAptIds = new Set(
                   (billingHistory || [])
-                    .filter((b: any) => b.paid >= b.amount && b.amount > 0)
+                    .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance" && b.paid >= b.amount && b.amount > 0)
                     .map((b: any) => b.appointmentId?._id || b.appointmentId)
                     .filter(Boolean)
                 );
@@ -4269,7 +4289,7 @@ const fetchPrescriptions = async () => {
                       </div>
                                           
                       {/* Pending Payment */}
-                      <div className="flex items-center p-2 bg-red-50 border border-red-100 rounded-md">
+                      <div className="flex items-center justify-between p-2 bg-red-50 border border-red-100 rounded-md">
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center">
                             <CreditCard className="w-3.5 h-3.5 text-red-600 flex-shrink-0" />
@@ -4279,6 +4299,15 @@ const fetchPrescriptions = async () => {
                             <div className="text-lg font-bold text-red-600">{formatAED(balance.pendingBalance)}</div>
                           </div>
                         </div>
+                        {balance.pendingBalance > 0 && (
+                          <button
+                            onClick={() => setShowPayPendingModal(true)}
+                            className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded shadow-sm transition-all active:scale-95 flex items-center gap-1"
+                          >
+                            <DollarSign className="w-3 h-3" />
+                            Pay
+                          </button>
+                        )}
                       </div>
                                           
                       {/* Advance Balance */}
@@ -4473,6 +4502,21 @@ const fetchPrescriptions = async () => {
           }}
           pastAdvanceType="159 Flat"
           primaryColor="purple"
+        />
+        <PayPendingBalanceModal
+          isOpen={showPayPendingModal}
+          onClose={() => setShowPayPendingModal(false)}
+          patientId={patientData._id}
+          patientName={`${patientData.firstName} ${patientData.lastName}`}
+          pendingBalance={balance.pendingBalance}
+          onSuccess={async () => {
+            const updated = await fetchPatientBalance(patientData._id);
+            if (updated) {
+              setBalance(updated as typeof balance);
+              // Also refresh billing history to show the payment
+              fetchBillingHistory();
+            }
+          }}
         />
     </div>
   );
