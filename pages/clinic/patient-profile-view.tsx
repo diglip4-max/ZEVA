@@ -3521,16 +3521,6 @@ const fetchPrescriptions = async () => {
                               .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
                               .map((billing: any, index: number) => {
                               // Determine invoice status
-                              let statusLabel = 'Pending';
-                              let statusColor = 'bg-red-100 text-red-700';
-                              
-                              if (billing.paid >= billing.amount && billing.amount > 0) {
-                                statusLabel = 'Paid';
-                                statusColor = 'bg-green-100 text-green-700';
-                              } else if (billing.paid > 0 && billing.pending > 0) {
-                                statusLabel = 'Partial';
-                                statusColor = 'bg-yellow-100 text-yellow-700';
-                              }
 
                               return (
                                 <tr key={billing._id || index} className="hover:bg-gray-50 transition-colors">
