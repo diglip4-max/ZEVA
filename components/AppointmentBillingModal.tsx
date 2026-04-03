@@ -60,6 +60,7 @@ interface Package {
   isUserPackage?: boolean;
   remainingSessions?: number;
   patientPackageId?: string;
+  patientPackageSubId?: string;
   treatments: Array<{
     treatmentName: string;
     treatmentSlug: string;
@@ -399,7 +400,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       fullUserPackages.push({
                         ...fullPkg,
                         assignedDate: pkg.assignedDate,
-                        patientPackageId: pkg._id,
+                        patientPackageId: pkg.packageId, // Use the actual UserPackage ID
+                        patientPackageSubId: pkg._id, // Keep the sub-document ID just in case
                         isUserPackage: true,
                       });
                     }
@@ -2122,9 +2124,18 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         // For user packages, also send the patientPackageId
         if (selectedPackage?.isUserPackage && selectedPackage?.patientPackageId) {
           payload.patientPackageId = selectedPackage.patientPackageId;
+          payload.patientPackageSubId = selectedPackage.patientPackageSubId;
           payload.isUserPackage = true;
+          console.log("Submitting user package:", {
+            name: selectedPackage.name,
+            patientPackageId: selectedPackage.patientPackageId,
+            patientPackageSubId: selectedPackage.patientPackageSubId,
+            isUserPackage: true
+          });
         }
       }
+
+      console.log("Final submission payload:", payload);
 
       const response = await axios.post(
         "/api/clinic/create-patient-registration",
@@ -2235,6 +2246,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       isUserPackage: true,
       remainingSessions: pkg.remainingSessions,
       patientPackageId: pkg.patientPackageId,
+      patientPackageSubId: pkg.patientPackageSubId,
     })),
   ];
 

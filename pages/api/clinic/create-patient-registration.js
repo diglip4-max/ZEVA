@@ -137,55 +137,58 @@ export default async function handler(req, res) {
         .json({ success: false, message: "Clinic not found" });
     }
 
-    const {
-      invoiceNumber,
-      invoicedDate,
-      appointmentId,
-      firstName,
-      lastName,
-      email,
-      mobileNumber,
-      gender,
-      doctor,
-      service,
-      treatment,
-      package: packageName,
-      quantity,
-      sessions,
-      amount,
-      paid,
-      pending,
-      advance,
-      advanceUsed,
-      pastAdvance,
-      pastAdvanceUsed,
-      applyPastAdvance,
-      pastAdvanceUsed50Percent,
-      pastAdvanceUsed54Percent,
-      pastAdvanceUsed159Flat,
-      pastAdvanceType,
-      paymentMethod,
-      notes,
-      emrNumber,
-      userId, // PatientRegistration ID from appointment (appointment.patientId)
-      referredBy,
-      selectedPackageTreatments, // Array of treatments with sessions used from package
-      // Multiple payment methods for split payments
-      multiplePayments, // Array of { paymentMethod, amount }
-      pendingUsed, // Amount of previous pending being cleared
-      // Membership tracking fields
-      isFreeConsultation,
-      freeConsultationCount,
-      membershipDiscountApplied,
-      isDoctorDiscountApplied,
-      doctorDiscountType,
-      doctorDiscountAmount,
-      isAgentDiscountApplied,
-      agentDiscountType,
-      agentDiscountAmount,
-      discountPercent,
-      originalAmount,
-    } = req.body;
+      const {
+        invoiceNumber,
+        invoicedDate,
+        appointmentId,
+        firstName,
+        lastName,
+        email,
+        mobileNumber,
+        gender,
+        doctor,
+        service,
+        treatment,
+        package: packageName,
+        quantity,
+        sessions,
+        amount,
+        paid,
+        pending,
+        advance,
+        advanceUsed,
+        pastAdvance,
+        pastAdvanceUsed,
+        applyPastAdvance,
+        pastAdvanceUsed50Percent,
+        pastAdvanceUsed54Percent,
+        pastAdvanceUsed159Flat,
+        pastAdvanceType,
+        paymentMethod,
+        notes,
+        emrNumber,
+        userId, // PatientRegistration ID from appointment (appointment.patientId)
+        referredBy,
+        selectedPackageTreatments, // Array of treatments with sessions used from package
+        // Multiple payment methods for split payments
+        multiplePayments, // Array of { paymentMethod, amount }
+        pendingUsed, // Amount of previous pending being cleared
+        // Membership tracking fields
+        isFreeConsultation,
+        freeConsultationCount,
+        membershipDiscountApplied,
+        isDoctorDiscountApplied,
+        doctorDiscountType,
+        doctorDiscountAmount,
+        isAgentDiscountApplied,
+        agentDiscountType,
+        agentDiscountAmount,
+        discountPercent,
+        originalAmount,
+        isUserPackage, // Added for user-created packages
+        patientPackageId, // Added for user-created packages
+        patientPackageSubId, // Added for user-created packages (sub-document ID)
+      } = req.body;
 
     console.log({ bmModify: req.body });
 
@@ -260,6 +263,13 @@ export default async function handler(req, res) {
       });
     }
 
+    console.log("=== DEBUG BILLING PACKAGE ===");
+    console.log("Service:", service);
+    console.log("Package Name:", packageName);
+    console.log("isUserPackage:", isUserPackage);
+    console.log("patientPackageId:", patientPackageId);
+    console.log("PatientRegistration ID (userId):", userId);
+
     if (service === "Package") {
       if (
         !packageName ||
@@ -272,11 +282,52 @@ export default async function handler(req, res) {
         });
       }
       const Package = (await import("../../../models/Package")).default;
-      const pkgDoc = await Package.findOne({
-        clinicId: clinic._id,
-        name: packageName,
-      }).lean();
+      const UserPackage = (await import("../../../models/UserPackage")).default;
+
+      let pkgDoc;
+      if (isUserPackage && (patientPackageId || patientPackageSubId)) {
+        console.log("Looking up UserPackage with primary ID:", patientPackageId, "or sub-ID:", patientPackageSubId);
+        
+        // Try looking up by primary ID first (actual UserPackage document ID)
+        if (patientPackageId) {
+          pkgDoc = await UserPackage.findById(patientPackageId).lean();
+        }
+        
+        console.log("Initial UserPackage lookup result:", pkgDoc ? "Found" : "NOT FOUND");
+        
+        // If not found, try looking into patientRegistration.userPackages
+        if (!pkgDoc && patientRegistration && patientRegistration.userPackages) {
+          console.log("Checking PatientRegistration.userPackages for match...");
+          const matchInPatient = patientRegistration.userPackages.find(
+            up => (patientPackageId && String(up.packageId) === String(patientPackageId)) || 
+                  (patientPackageSubId && String(up._id) === String(patientPackageSubId)) ||
+                  (patientPackageId && String(up._id) === String(patientPackageId))
+          );
+          
+          if (matchInPatient) {
+            console.log("Found match in PatientRegistration.userPackages:", matchInPatient);
+            // Re-try using the actual packageId from the sub-document
+            pkgDoc = await UserPackage.findById(matchInPatient.packageId).lean();
+            console.log("Retry UserPackage lookup with matchInPatient.packageId:", pkgDoc ? "Found" : "NOT FOUND");
+          }
+        }
+      } else {
+        console.log("Looking up regular Package with name:", packageName, "and clinicId:", clinic._id);
+        // Otherwise, find it by clinicId and name in the regular Package model
+        pkgDoc = await Package.findOne({
+          clinicId: clinic._id,
+          name: packageName,
+        }).lean();
+        console.log("Regular Package lookup result:", pkgDoc ? "Found" : "NOT FOUND");
+      }
+
       if (!pkgDoc) {
+        console.log("PACKAGE NOT FOUND - details:", {
+          packageName,
+          isUserPackage,
+          patientPackageId,
+          clinicId: clinic._id
+        });
         return res.status(404).json({
           success: false,
           message: "Selected package not found",
@@ -288,12 +339,23 @@ export default async function handler(req, res) {
           maxSessionsMap.set(t.treatmentSlug, parseInt(t.sessions) || 0);
         }
       });
-      const previousBillings = await Billing.find({
+
+      const previousBillingsQuery = {
         clinicId: clinic._id,
         patientId: patientRegistration._id,
         service: "Package",
-        package: packageName,
-      })
+      };
+
+      if (isUserPackage && (patientPackageId || patientPackageSubId)) {
+        previousBillingsQuery.$or = [
+          { patientPackageId: patientPackageId },
+          { patientPackageSubId: patientPackageSubId }
+        ];
+      } else {
+        previousBillingsQuery.package = packageName;
+      }
+
+      const previousBillings = await Billing.find(previousBillingsQuery)
         .select("selectedPackageTreatments")
         .lean();
       const previouslyUsedMap = new Map();
@@ -443,6 +505,8 @@ export default async function handler(req, res) {
       service,
       treatment: service === "Treatment" ? treatment || "" : "",
       package: service === "Package" ? packageName || "" : "",
+      patientPackageId: service === "Package" && isUserPackage && patientPackageId ? patientPackageId : null,
+      patientPackageSubId: service === "Package" && isUserPackage && patientPackageSubId ? patientPackageSubId : null,
       quantity: service === "Treatment" ? parseInt(quantity) || 1 : 1,
       sessions: service === "Package" ? parseInt(sessions) || 0 : 0,
       selectedPackageTreatments:
