@@ -60,6 +60,7 @@ interface Package {
   isUserPackage?: boolean;
   remainingSessions?: number;
   patientPackageId?: string;
+  patientPackageSubId?: string;
   treatments: Array<{
     treatmentName: string;
     treatmentSlug: string;
@@ -399,7 +400,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       fullUserPackages.push({
                         ...fullPkg,
                         assignedDate: pkg.assignedDate,
-                        patientPackageId: pkg._id,
+                        patientPackageId: pkg.packageId, // Use the actual UserPackage ID
+                        patientPackageSubId: pkg._id, // Keep the sub-document ID just in case
                         isUserPackage: true,
                       });
                     }
@@ -569,7 +571,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       try {
         const headers = getAuthHeaders();
         if (!headers.Authorization) return;
-        
+       
         const [signaturesRes, logsRes] = await Promise.all([
           axios.get("/api/clinic/consent-status", {
             headers,
@@ -622,7 +624,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
  
     try {
       setSendingConsent(true);
-      
+     
       const patientData = {
         firstName: appointment.patientName?.split(" ")[0] || "",
         lastName: appointment.patientName?.split(" ").slice(1).join(" ") || "",
@@ -630,7 +632,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         email: appointment.patientEmail || "",
         appointmentId: appointment._id,
       };
-      
+     
       const encodedPatientData = encodeURIComponent(JSON.stringify(patientData));
       const consentUrl = `https://zeva360.com/consent-form/${selectedConsentId}?patient=${encodedPatientData}`;
  
@@ -654,7 +656,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       );
  
       setConsentSent(true);
-      
+     
       // Log the sent consent form
       try {
         const selectedForm = consentForms.find((f) => f._id === selectedConsentId);
@@ -670,7 +672,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           },
           { headers: getAuthHeaders() }
         );
-        
+       
         // Refresh consent statuses
         setTimeout(() => {
           const headers = getAuthHeaders();
@@ -680,7 +682,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           }).then((logsRes) => {
             const logs = logsRes.data?.consentLogs || [];
             const logMap = new Map();
-            
+           
             logs.forEach((log: any) => {
               logMap.set(log.consentFormId, {
                 _id: log._id,
@@ -694,7 +696,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                 signedAt: null,
               });
             });
-            
+           
             setConsentStatuses(Array.from(logMap.values()));
           });
         }, 100);
@@ -786,29 +788,29 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       try {
         const headers = getAuthHeaders();
         if (!headers.Authorization) return;
-        
+       
         // Fetch appointments for the past year
         const today = new Date().toISOString().split('T')[0];
         const oneYearAgo = new Date();
         oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-        
+       
         const res = await axios.get(
           `/api/clinic/all-appointments?page=1&limit=1000&fromDate=${oneYearAgo.toISOString().split('T')[0]}&toDate=${today}`,
           { headers }
         );
-        
+       
         if (res.data?.success) {
           const patientAppointments = res.data.appointments?.filter(
             (apt: any) => apt.patientId === appointment.patientId
           ) || [];
-          
+         
           // Count total visits based on specific statuses
           const visitStatuses = ['arrived', 'waiting', 'consultation', 'approved', 'rescheduled', 'completed', 'discharge', 'invoice'];
           const totalVisits = patientAppointments.filter((apt: any) => {
             const status = (apt.status || '').toLowerCase();
             return visitStatuses.includes(status);
           }).length;
-          
+         
           setVisitCount(totalVisits ?? null);
         }
       } catch {
@@ -844,7 +846,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     if (isOpen && appointment && treatments.length > 0 && selectedTreatments.length === 0) {
       // Check if this appointment has already been billed
       const alreadyBilled = billingHistory.some(
-        (b) => String(b.appointmentId) === String(appointment._id) || 
+        (b) => String(b.appointmentId) === String(appointment._id) ||
                String(b.appointmentId?._id) === String(appointment._id)
       );
 
@@ -854,7 +856,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       }
 
       const initialTreatments: SelectedTreatment[] = [];
-      
+     
       // Handle multiple services (serviceNames / serviceIds)
       if (appointment.serviceNames && appointment.serviceNames.length > 0) {
         appointment.serviceNames.forEach((name, index) => {
@@ -872,7 +874,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             });
           }
         });
-      } 
+      }
       // Fallback to single service (serviceName / serviceId)
       else if (appointment.serviceName && appointment.serviceId) {
    
@@ -925,9 +927,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       try {
         const headers = getAuthHeaders();
         if (!headers.Authorization) return;
-        
-        const docId = typeof appointment.doctorId === 'object' 
-          ? (appointment.doctorId as any)._id 
+       
+        const docId = typeof appointment.doctorId === 'object'
+          ? (appointment.doctorId as any)._id
           : appointment.doctorId;
 
         if (!docId) return;
@@ -1000,7 +1002,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           );
           const hasAppliedFromComplaint = !!appliedComplaint;
           setDoctorAppliedDiscount(hasAppliedFromComplaint);
-          
+         
           if (hasAppliedFromComplaint) {
             setDoctorComplaintDiscount({
               discountType: appliedComplaint.doctorDiscountType,
@@ -1010,12 +1012,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
           // Max Discount Logic: Auto-apply the absolute better one
           // We have: doctorDiscount (profile), agentDiscount (profile), doctorComplaintDiscount (complaint)
-          
-          const doctorEffectiveDisc = hasAppliedFromComplaint 
+         
+          const doctorEffectiveDisc = hasAppliedFromComplaint
             ? { type: appliedComplaint.doctorDiscountType, amount: appliedComplaint.doctorDiscountAmount || 0 }
             : (doctorDiscount ? { type: doctorDiscount.discountType, amount: doctorDiscount.discountAmount } : null);
 
-          const agentEffectiveDisc = agentDiscount 
+          const agentEffectiveDisc = agentDiscount
             ? { type: agentDiscount.discountType, amount: agentDiscount.discountAmount }
             : null;
 
@@ -1069,17 +1071,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       if (!isOpen || !appointment?.patientId) return;
       const headers = getAuthHeaders();
       if (!headers.Authorization) return;
-      
+     
       setLoadingActivePackageUsage(true);
       try {
         const response = await axios.get(
           `/api/clinic/package-usage/${appointment.patientId}`,
           { headers }
         );
-        
+       
         if (response.data.success && response.data.packageUsage) {
           setActivePackageUsage(response.data.packageUsage);
-          
+         
           // Auto-expand first package
           const firstPkg = response.data.packageUsage[0]?.packageName;
           if (firstPkg) {
@@ -1095,7 +1097,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         setLoadingActivePackageUsage(false);
       }
     };
-    
+   
     fetchActivePackageUsage();
   }, [isOpen, appointment?.patientId, getAuthHeaders]);
 
@@ -1164,7 +1166,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         const updated = sortedTreatments.map((t) => {
           let usesFree = false;
           let usesDiscount = false;
-          
+         
           if (freeAvailable > 0 && t.quantity > 0) {
             const qtyFree = Math.min(t.quantity, freeAvailable);
             if (qtyFree > 0) {
@@ -1188,16 +1190,16 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         setSelectedTreatments(prev => prev.map((t: any) => map.get(t.treatmentSlug) || t));
         membershipDiscount = totalDiscount;
         finalTotal = Math.max(0, baseTotal - totalFree - totalDiscount);
-      } 
+      }
       // Package service - process sessions only when sessions > 0
       else if (selectedService === "Package" && packageTreatmentSessions.some(t => t.isSelected)) {
         const hasSessions = packageTreatmentSessions.some(t => t.isSelected && (t.usedSessions || 0) > 0);
-        
+       
         if (hasSessions) {
           const selectedSessions = packageTreatmentSessions
             .filter((t: any) => t.isSelected && (t.usedSessions || 0) > 0)
             .sort((a, b) => a.sessionPrice - b.sessionPrice);
-          
+         
           let freeAvailable = remainingFreeConsultations;
           let totalFree = 0;
           let totalDiscount = 0;
@@ -1219,14 +1221,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             const rs = t.remainingSessions || 0;
             let usesFree = sf > 0;
             let usesDiscount = false;
-            
+           
             if (sf > 0) totalFree += t.sessionPrice * sf;
-            
+           
             if (rs > 0 && discountPercentage > 0) {
               usesDiscount = true;
               totalDiscount += (t.sessionPrice * rs * discountPercentage) / 100;
             }
-            
+           
             sessionUpdates.set(t.treatmentSlug, { usesFreeConsultation: usesFree, usesMembershipDiscount: usesDiscount });
           });
 
@@ -1298,19 +1300,19 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   // Override displayed invoice total to include previous pending
   useEffect(() => {
     const discountedTotal = parseFloat(formData.discountedAmount || "0") || 0;
-    
+   
     // Always ensure amount has a value - either with previous pending or just the discounted total
     const invoiceTotal = Number(
       (discountedTotal + (balances.pendingBalance || 0)).toFixed(2),
     );
-    
+   
     console.log("Adding previous pending:", {
       discountedTotal,
       previousPending: balances.pendingBalance,
       invoiceTotal,
       currentAmount: formData.amount
     });
-    
+   
     // Only update if the amount has changed to avoid infinite loops
     if (Math.abs(parseFloat(formData.amount || "0") - invoiceTotal) > 0.001) {
       setFormData((prev) => ({
@@ -1324,7 +1326,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   useEffect(() => {
     const amountNum = parseFloat(formData.amount) || 0;
     const discountedAmount = parseFloat(formData.discountedAmount || "0") || 0;
-    
+   
     // Calculate how much previous pending is being rolled into this billing
     const pendingBeingRolledIn = Math.max(0, amountNum - discountedAmount);
 
@@ -1401,7 +1403,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       ) {
         const currentPaid = parseFloat(prev.paid) || 0;
         const currentAmount = parseFloat(prev.amount) || 0;
-        
+       
         // Use a small epsilon for floating point comparisons
         if (Math.abs(currentPaid - currentAmount) < 0.01 || prev.paid === "" || prev.paid === "0.00") {
           if (netDue === 0) {
@@ -1491,7 +1493,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         totalPrice: treatment.price, // Initial total = price × 1 (not doubled)
       };
       setSelectedTreatments((prev) => [...prev, newTreatment]);
-      
+     
       // Show notification if requested (e.g., from Smart Recommendations)
       if (showNotification) {
         setJustAddedServiceName(treatment.name);
@@ -1766,7 +1768,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
       // Split Payment Details (if any)
       let currentY = (doc as any).lastAutoTable.finalY + 10;
-      const effectivePayments = useMultiplePayments 
+      const effectivePayments = useMultiplePayments
         ? multiplePayments.filter(p => parseFloat(p.amount) > 0)
         : [{ paymentMethod: formData.paymentMethod, amount: formData.paid }];
 
@@ -1778,7 +1780,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         currentY += 6;
 
         const paymentRows = effectivePayments.map((p: any) => [
-          p.paymentMethod, 
+          p.paymentMethod,
           `AED ${parseFloat(p.amount || "0").toFixed(2)}`
         ]);
 
@@ -2084,7 +2086,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         agentDiscountType: isAgentDiscountApplied ? agentDiscount?.discountType : null,
         agentDiscountAmount: isAgentDiscountApplied ? agentDiscount?.discountAmount : 0,
         discountPercent: (isDoctorDiscountApplied || isAgentDiscountApplied)
-          ? (baseAmount - (membershipDiscountApplied || 0) > 0 
+          ? (baseAmount - (membershipDiscountApplied || 0) > 0
               ? (((baseAmount - (membershipDiscountApplied || 0)) - parseFloat(formData.discountedAmount || "0")) / (baseAmount - (membershipDiscountApplied || 0)) * 100)
               : 0)
           : 0,
@@ -2122,9 +2124,18 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         // For user packages, also send the patientPackageId
         if (selectedPackage?.isUserPackage && selectedPackage?.patientPackageId) {
           payload.patientPackageId = selectedPackage.patientPackageId;
+          payload.patientPackageSubId = selectedPackage.patientPackageSubId;
           payload.isUserPackage = true;
+          console.log("Submitting user package:", {
+            name: selectedPackage.name,
+            patientPackageId: selectedPackage.patientPackageId,
+            patientPackageSubId: selectedPackage.patientPackageSubId,
+            isUserPackage: true
+          });
         }
       }
+
+      console.log("Final submission payload:", payload);
 
       const response = await axios.post(
         "/api/clinic/create-patient-registration",
@@ -2235,6 +2246,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       isUserPackage: true,
       remainingSessions: pkg.remainingSessions,
       patientPackageId: pkg.patientPackageId,
+      patientPackageSubId: pkg.patientPackageSubId,
     })),
   ];
 
@@ -2250,14 +2262,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     .slice(0, 3);
 
   const isAlreadyBilled = (billingHistory || []).some(
-    (b) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance" && (String(b.appointmentId) === String(appointment?._id) || 
+    (b) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance" && (String(b.appointmentId) === String(appointment?._id) ||
            String(b.appointmentId?._id) === String(appointment?._id))
   );
 
   // Use API values for pending and advance balance display at top
   const apiPendingBalance = balances.pendingBalance || 0;
   const apiAdvanceBalance = balances.advanceBalance || 0;
-  
+ 
 
 
   return (
@@ -2282,7 +2294,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                   <div className="text-xs text-gray-500 mt-0.5">{appointment.emrNumber && `MRN: ${appointment.emrNumber}`}</div>
                 </div>
               </div>
-          
+         
               {/* Center: Invoice + Appointment Details */}
               <div className="flex items-center gap-6 text-center flex-shrink-0">
                 <div>
@@ -2315,7 +2327,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                     </div>
                   </div>
                 )}
-                
+               
                 {/* Send Consent Form Option */}
                 <div className="flex items-center gap-2">
                   <select
@@ -2356,7 +2368,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                   {isGeneratingPDF ? "Generating..." : "Generate Invoice"}
                 </button>
               </div>
-          
+         
               {/* Right: Pending, Advance, Visits */}
               <div className="flex items-center gap-4 flex-shrink-0">
                 <div className="text-right">
@@ -2822,7 +2834,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                   {/* ── PAYMENT DETAILS ── */}
                   <div className="bg-white rounded-xl border border-gray-200 p-4">
                     <h3 className="text-[10px] font-bold text-gray-700 uppercase tracking-wider mb-3">Payment Details</h3>
-                    
+                   
                     {/* Discount Controls */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                       {/* Doctor Discount Section (From Profile or Complaint) */}
@@ -2839,7 +2851,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                               <div className="flex items-center gap-2">
                                 <span className="text-[10px] text-gray-600 font-medium">
                                   {doctorAppliedDiscount ? doctorComplaintDiscount?.discountAmount : doctorDiscount?.discountAmount}
-                                  {doctorAppliedDiscount ? (doctorComplaintDiscount?.discountType === "percentage" ? "%" : " Fixed") : (doctorDiscount?.discountType === "percentage" ? "%" : " Fixed")} 
+                                  {doctorAppliedDiscount ? (doctorComplaintDiscount?.discountType === "percentage" ? "%" : " Fixed") : (doctorDiscount?.discountType === "percentage" ? "%" : " Fixed")}
                                   {doctorAppliedDiscount ? " (Applied)" : " (Available)"}
                                 </span>
                                 {agentDiscount && ((doctorAppliedDiscount ? doctorComplaintDiscount?.discountAmount : doctorDiscount?.discountAmount) || 0) > agentDiscount.discountAmount && (
@@ -2980,7 +2992,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           </svg>
                           Available Advances
                         </h4>
-                        
+                       
                         {/* Regular Advance Balance */}
                         <label className="flex items-center justify-between cursor-pointer group">
                           <div className="flex items-center gap-2">
@@ -3226,7 +3238,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       )}
                     </div>
                   </div>
-                
+               
                   {/* Action Buttons */}
                   <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-200">
                     <button type="button" onClick={onClose}
@@ -3349,21 +3361,21 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           const purchasedPackages = (patientDetails?.packages || []).filter((p: any) => {
                             return !patientDetails.packageTransfers?.some((t: any) => t.type === "out" && String(t.packageId) === String(p.packageId));
                           });
-                          
+                         
                           // Add userPackages (approved packages from PatientRegistration.userPackages)
                           const approvedUserPackages = (patientDetails?.userPackages || []).filter(
                             (pkg: any) => pkg.approvalStatus === 'approved'
                           );
-                          
+                         
                           const allPackages = [
                             ...purchasedPackages.map((p: any) => ({ ...p, isUserPackage: false })),
                             ...approvedUserPackages.map((p: any) => ({ ...p, isUserPackage: true }))
                           ];
-                          
+                         
                           if (allPackages.length === 0) {
                             return <div className="text-[10px] text-gray-400 py-1">No active packages</div>;
                           }
-                          
+                         
                           const usageMap = new Map();
                           activePackageUsage.forEach(u => usageMap.set(u.packageName, u));
 
@@ -3372,7 +3384,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             let packageDef: any = null;
                             let treatments: any[] = [];
                             let totalSessions = 0;
-                            
+                           
                             if (pkg.isUserPackage) {
                               // Handle userPackage
                               packageName = pkg.packageName;
@@ -3385,7 +3397,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                               treatments = packageDef?.treatments || [];
                               totalSessions = packageDef?.treatments?.reduce((s: number, t: any) => s + (t.sessions || 0), 0) || 0;
                             }
-                            
+                           
                             const usageData = usageMap.get(packageName);
                             const isExpanded = expandedPackages[packageName] || false;
                             const displayData = usageData || {
@@ -3513,7 +3525,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         {last3Billings.length > 0 && (
                           <button
                             onClick={() => {
-                              const router = window.location.href.includes('/clinic/') 
+                              const router = window.location.href.includes('/clinic/')
                                 ? (window as any).router || { push: (url: string) => window.location.href = url }
                                 : null;
                               if (router) {
@@ -3563,7 +3575,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           };
                           const encodedPatientData = encodeURIComponent(JSON.stringify(patientInfo));
                           const consentUrl = `https://zeva360.com/consent-form/${consent.consentFormId}?patient=${encodedPatientData}`;
-                          
+                         
                           return (
                             <div
                               key={consent._id || index}
@@ -3639,7 +3651,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                 {dept.services.map((svc) => {
                                   // Services use serviceSlug or _id as identifier - match both
                                   const serviceIdentifier = svc.serviceSlug || svc._id;
-                                  const isAdded = selectedTreatments.some((t) => 
+                                  const isAdded = selectedTreatments.some((t) =>
                                     t.treatmentSlug === serviceIdentifier ||
                                     t.treatmentSlug === svc._id ||
                                     (t.treatmentName && svc.name && t.treatmentName.toLowerCase() === svc.name.toLowerCase())
@@ -3665,16 +3677,16 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                               const price = svc.clinicPrice != null ? svc.clinicPrice : svc.price;
                                               // Match how services are loaded: use serviceSlug if available, otherwise _id
                                               const treatmentSlug = svc.serviceSlug || svc._id;
-                                              
+                                             
                                               // 1. Ensure Treatment service is selected
                                               setSelectedService("Treatment");
 
                                               // 2. Find matching treatment from treatments array
                                               const matchingTreatment = treatments.find(
-                                                (t) => t.slug === treatmentSlug || 
+                                                (t) => t.slug === treatmentSlug ||
                                                 (t.name && t.name.toLowerCase() === svc.name.toLowerCase())
                                               );
-                                              
+                                             
                                               if (matchingTreatment) {
                                                 // 3. Add to selected treatments with notification
                                                 handleTreatmentToggle(matchingTreatment, true);
@@ -3687,7 +3699,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                                 };
                                                 handleTreatmentToggle(newTreatment, true);
                                               }
-                                              
+                                             
                                               // 4. Save to appointment via API
                                               if (appointment?._id && appointment?.patientId) {
                                                 try {
@@ -3735,5 +3747,3 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 };
 
 export default AppointmentBillingModal;
-
-
