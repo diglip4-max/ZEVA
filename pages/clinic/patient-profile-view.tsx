@@ -3535,12 +3535,35 @@ const fetchPrescriptions = async () => {
                                   </td>
                                   <td className="px-5 py-4 whitespace-nowrap">
                                     <div className="text-sm text-gray-700 max-w-xs truncate" title={billing.treatment}>
-                                      {billing.treatment || '-'}
+                                      {billing.package ? (
+                                        <div className="flex flex-col">
+                                          <div className="font-semibold text-indigo-700 flex items-center gap-1">
+                                            <Package className="w-3 h-3" />
+                                            {billing.package}
+                                          </div>
+                                          <div className="text-xs text-gray-500 mt-0.5">
+                                            {Array.isArray(billing.selectedPackageTreatments) && billing.selectedPackageTreatments.length > 0
+                                              ? billing.selectedPackageTreatments.map((t: any) => t.treatmentName).join(', ')
+                                              : billing.treatment || '-'}
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        billing.treatment || '-'
+                                      )}
                                     </div>
                                   </td>
                                   <td className="px-5 py-4 whitespace-nowrap text-right">
-                                    <div className="text-sm font-bold text-gray-900">${billing.amount || 0}</div>
-                                    <div className="text-xs text-gray-500 mt-0.5">Qty: {billing.quantity || 0}</div>
+                                    <div className="text-sm font-bold text-gray-900">{formatAED(billing.amount || 0)}</div>
+                                    <div className="flex flex-col items-end mt-1 space-y-0.5">
+                                      <div className="text-[10px] text-gray-500">Total: {formatAED(billing.originalAmount || billing.amount || 0)}</div>
+                                      <div className="text-[10px] text-gray-500">Paid: {formatAED(billing.paid || 0)}</div>
+                                      {(billing.discountPercent > 0 || billing.discountPercentage > 0) && (
+                                        <div className="text-[10px] text-teal-600 font-medium">
+                                          Disc: {(billing.discountPercent || billing.discountPercentage || 0).toFixed(1)}%
+                                        </div>
+                                      )}
+                                      <div className="text-[10px] text-gray-400">Qty: {billing.quantity || 0}</div>
+                                    </div>
                                   </td>
                                 </tr>
                               );
