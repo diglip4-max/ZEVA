@@ -5,6 +5,7 @@ import {
   Calendar, User, DollarSign, FileText, AlertCircle, Activity,
   CreditCard, TrendingUp, Package, Phone,
   Mail, Clock, Shield, X, CheckCircle, XCircle,
+  ExternalLink,
   AlertTriangle, Info, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
@@ -51,9 +52,8 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
   const [transferSubmitting, setTransferSubmitting] = useState(false);
   const [localMemberships, setLocalMemberships] = useState<any[]>([]);
   const [localPackages, setLocalPackages] = useState<any[]>([]);
-  const [referrals, setReferrals] = useState<any[]>([]);
 
-  // Fetch memberships, packages, and referrals on mount
+  // Fetch memberships and packages on mount
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -69,12 +69,6 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
         const packagesRes = await axios.get('/api/clinic/packages', { headers });
         if (packagesRes.data.success) {
           setLocalPackages(packagesRes.data.packages || []);
-        }
-
-        // Fetch referrals
-        const referralsRes = await axios.get('/api/clinic/referrals', { headers });
-        if (referralsRes.data.success) {
-          setReferrals(referralsRes.data.referrals || []);
         }
       } catch (error) {
         console.error('Error fetching transfer data:', error);
@@ -477,6 +471,10 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { p
   // Consent Form Status States
   const [consentStatuses, setConsentStatuses] = useState<any[]>([]);
   const [loadingConsentStatus, setLoadingConsentStatus] = useState(false);
+  const [consentForms, setConsentForms] = useState<any[]>([]);
+  const [selectedConsentId, setSelectedConsentId] = useState("");
+  const [sendingConsent, setSendingConsent] = useState(false);
+  const [consentSent, setConsentSent] = useState(false);
   
   // Package Link State
   const [sendingPackageLink, setSendingPackageLink] = useState(false);
@@ -1115,8 +1113,14 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   }, [activeTab]);
 
   useEffect(() => {
+    setConsentSent(false);
+    setSelectedConsentId("");
+  }, [patientData?._id]);
+
+  useEffect(() => {
     if (activeTab === 'communication' && patientData?._id) {
       fetchConsentStatuses();
+      fetchConsentForms();
       fetchCreatedPackages();
       fetchProgressNotes();
       fetchPrescriptions();
@@ -1617,6 +1621,110 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     } finally {
       setLoadingConsentStatus(false);
     }
+  };
+
+  const fetchConsentForms = async () => {
+    try {
+      const headers = getAuthHeaders();
+      if (!headers) return;
+      const res = await axios.get('/api/clinic/consent', { headers });
+      if (res.data?.success) setConsentForms(res.data.consents || []);
+    } catch (err) {
+      console.error('Error fetching consent forms:', err);
+    }
+  };
+
+  const handleSendConsentMsgOnWhatsapp = async () => {
+    if (!selectedConsentId || !patientData) return;
+
+    try {
+      setSendingConsent(true);
+      const headers = getAuthHeaders();
+      if (!headers) {
+        alert('Authentication required');
+        return;
+      }
+
+      // Create patient data object for URL
+      const patientDataObj = {
+        firstName: patientData.firstName || "",
+        lastName: patientData.lastName || "",
+        mobileNumber: patientData.mobileNumber || "",
+        email: patientData.email || "",
+      };
+      
+      const encodedPatientData = encodeURIComponent(JSON.stringify(patientDataObj));
+      const consentUrl = `https://zeva360.com/consent-form/${selectedConsentId}?patient=${encodedPatientData}`;
+
+      const { data } = await axios.post(
+        "/api/messages/send-message",
+        {
+          patientId: patientData._id,
+          providerId: "6952256c4a46b2f1eb01be86",
+          channel: "whatsapp",
+          content: `Please review and sign the consent form by clicking the link below:\n\n ${consentUrl}\n\n Thank you.`,
+          mediaUrl: "",
+          mediaType: "",
+          source: "Zeva",
+          messageType: "conversational",
+          templateId: "69c38b4d26b8217e1ba78f8a",
+          headerParameters: [],
+          bodyParameters: [
+            {
+              type: "text",
+              text: consentUrl,
+            },
+          ],
+          attachments: [],
+        },
+        { headers }
+      );
+
+      if (data && data?.success) {
+        setConsentSent(true);
+        
+        // Log the sent consent form
+        try {
+          const selectedForm = consentForms.find((f) => f._id === selectedConsentId);
+          await axios.post(
+            "/api/clinic/consent-log",
+            {
+              consentFormId: selectedConsentId,
+              consentFormName: selectedForm?.formName || "",
+              patientId: patientData._id,
+              patientName: `${patientData.firstName} ${patientData.lastName}`.trim(),
+              sentVia: "whatsapp",
+            },
+            { headers }
+          );
+          
+          // Refresh consent statuses
+          setTimeout(() => {
+            fetchConsentStatuses();
+          }, 100);
+          alert('Consent form sent successfully!');
+        } catch (logError) {
+          console.error("Error logging consent form sent:", logError);
+        }
+      }
+    } catch (error: any) {
+      console.error("Error sending consent form:", error?.response?.data || error.message);
+      alert("Failed to send consent form");
+    } finally {
+      setSendingConsent(false);
+    }
+  };
+
+  const getConsentUrl = (consentFormId: string) => {
+    if (!patientData) return "";
+    const patientDataObj = {
+      firstName: patientData.firstName || "",
+      lastName: patientData.lastName || "",
+      mobileNumber: patientData.mobileNumber || "",
+      email: patientData.email || "",
+    };
+    const encodedPatientData = encodeURIComponent(JSON.stringify(patientDataObj));
+    return `https://zeva360.com/consent-form/${consentFormId}?patient=${encodedPatientData}`;
   };
 
   const sendPackageLink = async () => {
@@ -3867,6 +3975,60 @@ const fetchPrescriptions = async () => {
                   </div>
                 </div>
 
+                {/* Send Consent Form Section */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-4">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                        <ClipboardCheck className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-gray-900">Send Consent Form</h3>
+                        <p className="text-xs text-gray-500">Send a digital consent form to sign</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                      <select
+                        value={selectedConsentId}
+                        onChange={(e) => setSelectedConsentId(e.target.value)}
+                        disabled={sendingConsent || consentSent}
+                        className="flex-1 sm:w-64 px-3 py-2 text-xs border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                      >
+                        <option value="">Select Consent Form</option>
+                        {consentForms.map((form: any) => (
+                          <option key={form._id} value={form._id}>
+                            {form.formName}
+                          </option>
+                        ))}
+                      </select>
+                      
+                      <button
+                        onClick={handleSendConsentMsgOnWhatsapp}
+                        disabled={!selectedConsentId || sendingConsent || consentSent}
+                        className="px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                      >
+                        {sendingConsent ? (
+                          <>
+                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Sending...
+                          </>
+                        ) : consentSent ? (
+                          <>
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            Sent
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-3.5 h-3.5" />
+                            Send Form
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Two-Section Layout */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Section 1: Progress Notes & Prescriptions */}
@@ -4075,11 +4237,23 @@ const fetchPrescriptions = async () => {
                                   {consent.status === 'signed' ? 'Signed' : 'Pending'}
                                 </span>
                               </div>
-                              {consent.signedAt && (
-                                <p className="text-[10px] text-gray-500">
-                                  Signed: {new Date(consent.signedAt).toLocaleDateString('en-GB')}
-                                </p>
-                              )}
+                              <div className="flex items-center justify-between mt-2">
+                                {consent.signedAt && (
+                                  <p className="text-[10px] text-gray-500">
+                                    Signed: {new Date(consent.signedAt).toLocaleDateString('en-GB')}
+                                  </p>
+                                )}
+                                <button
+                                  onClick={() => {
+                                    const url = getConsentUrl(consent.consentFormId);
+                                    if (url) window.open(url, '_blank');
+                                  }}
+                                  className="ml-auto flex items-center gap-1.5 px-2 py-1 bg-white border border-green-200 text-green-700 rounded-md text-[10px] font-semibold hover:bg-green-50 transition-colors"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  Open Form
+                                </button>
+                              </div>
                             </div>
                           ))
                         )}
