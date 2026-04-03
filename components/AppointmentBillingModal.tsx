@@ -779,16 +779,37 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     fetchMembershipUsage();
   }, [isOpen, appointment?.patientId, getAuthHeaders]);
 
-  // Fetch visit count from patient-emr-stats
+  // Fetch visit count using all-appointments API
   useEffect(() => {
     if (!isOpen || !appointment?.patientId) return;
     const fetchVisitCount = async () => {
       try {
         const headers = getAuthHeaders();
         if (!headers.Authorization) return;
-        const res = await axios.get(`/api/clinic/patient-emr-stats/${appointment.patientId}`, { headers });
+        
+        // Fetch appointments for the past year
+        const today = new Date().toISOString().split('T')[0];
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        
+        const res = await axios.get(
+          `/api/clinic/all-appointments?page=1&limit=1000&fromDate=${oneYearAgo.toISOString().split('T')[0]}&toDate=${today}`,
+          { headers }
+        );
+        
         if (res.data?.success) {
-          setVisitCount(res.data.totalVisits ?? null);
+          const patientAppointments = res.data.appointments?.filter(
+            (apt: any) => apt.patientId === appointment.patientId
+          ) || [];
+          
+          // Count total visits based on specific statuses
+          const visitStatuses = ['arrived', 'waiting', 'consultation', 'approved', 'rescheduled', 'completed', 'discharge', 'invoice'];
+          const totalVisits = patientAppointments.filter((apt: any) => {
+            const status = (apt.status || '').toLowerCase();
+            return visitStatuses.includes(status);
+          }).length;
+          
+          setVisitCount(totalVisits ?? null);
         }
       } catch {
         setVisitCount(null);
