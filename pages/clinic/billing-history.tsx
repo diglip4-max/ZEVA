@@ -407,8 +407,8 @@ const BillingHistoryPage = () => {
                         {(() => {
                           const isDoctorDiscount = billing.isDoctorDiscountApplied;
                           const isAgentDiscount = billing.isAgentDiscountApplied;
-                          const discountType = isDoctorDiscount ? billing.doctorDiscountType : (isAgentDiscount ? billing.agentDiscountType : null);
-                          const discountValue = isDoctorDiscount ? billing.doctorDiscountAmount : (isAgentDiscount ? billing.agentDiscountAmount : 0);
+                          // const discountType = isDoctorDiscount ? billing.doctorDiscountType : (isAgentDiscount ? billing.agentDiscountType : null);
+                          // const discountValue = isDoctorDiscount ? billing.doctorDiscountAmount : (isAgentDiscount ? billing.agentDiscountAmount : 0);
                           const originalAmount = billing.originalAmount || 0;
                           const finalAmount = billing.amount || 0;
                           const discountAmount = originalAmount > finalAmount ? (originalAmount - finalAmount) : 0;

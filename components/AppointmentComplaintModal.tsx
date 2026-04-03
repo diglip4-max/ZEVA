@@ -195,7 +195,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   // Patient EMR stats — total spend from Billing, visits from Appointment
   interface PatientEMRStats {
     totalSpend: number; totalBilled: number; totalPending: number;
-    totalVisits: number; billingCount: number;
+    totalVisits: number; completedVisits: number; cancelledNoShow: number; billingCount: number;
     recentBillings: Array<{ service: string; label: string; amount: number; paid: number; pending: number; date: string }>;
   }
   const [patientStats, setPatientStats] = useState<PatientEMRStats | null>(null);
