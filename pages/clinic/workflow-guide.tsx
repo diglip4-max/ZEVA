@@ -4,6 +4,7 @@ import Head from "next/head";
 import Link from "next/link";
 import Layout from "../../components/Layout";
 import withClinicAuth from "../../components/withClinicAuth";
+import BookAppointmentWorkflowGuide from '../../components/clinic/BookAppointmentWorkflowGuide';
 import type { NextPageWithLayout } from "../_app";
 import ManageHealthCenterGuide from "../../components/clinic/ManageHealthCenterGuide";
 import CreateOffersGuide from "../../components/clinic/CreateOffersGuide";
@@ -17,6 +18,7 @@ import ClinicManagementGuide from "../../components/clinic/ClinicManagementGuide
 import ReferralGuide from "../../components/clinic/ReferralGuide";
 import CreateLeadGuide from "../../components/clinic/CreateLeadGuide";
 import { ModernScheduler } from "../../components/clinic/ModernScheduler";
+
 import {
   UserPlus,
   Calendar,
@@ -282,6 +284,7 @@ const WorkflowGuide: NextPageWithLayout = () => {
         if (selectedSubItem === "setup-operation") {
           return <SetupOperationGuide />;
         }
+        
         // Otherwise show ManageHealthCenterGuide (default)
         return <ManageHealthCenterGuide selectedSubItem={selectedSubItem} />;
 
@@ -885,159 +888,12 @@ const WorkflowGuide: NextPageWithLayout = () => {
       case "setup-operation":
         return <SetupOperationGuide />;
 
-      case "appointment":
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center gap-3 mb-6">
-              <Calendar className="w-8 h-8 text-teal-600" />
-              <h2 className="text-2xl font-bold text-gray-900">Appointment Booking</h2>
-            </div>
-            
-            <div className="prose max-w-none">
-              <h3 className="text-xl font-semibold text-gray-800 mb-3">Modern Scheduler Interface</h3>
-              <p className="text-gray-600 mb-4">
-                Interactive calendar-based appointment scheduling system. Click on any empty time slot to book an appointment, or hover over existing appointments to view details.
-              </p>
-              
-              <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-                <h4 className="font-semibold text-blue-800 mb-2">How to Use:</h4>
-                <ol className="list-decimal list-inside space-y-2 text-blue-700">
-                  <li>Click any empty time slot to book a new appointment</li>
-                  <li>Use filters to search for specific patients, doctors, or rooms</li>
-                  <li>Navigate dates using the date picker at the top</li>
-                  <li>Hover over appointment cards to see full details</li>
-                  <li>Customize status colors using the "Colors" button</li>
-                </ol>
-              </div>
 
-              {/* Modern Scheduler Component */}
-              <div className="bg-white dark:bg-gray-50 rounded-xl shadow-sm border border-gray-200 dark:border-gray-300 overflow-hidden">
-                <ModernScheduler
-                  clinicId="workflow-guide"
-                  initialDate={new Date().toISOString().split("T")[0]}
-                  viewMode="both"
-                  getAuthHeaders={getAuthHeaders}
-                  enableDragDrop={true}
-                  showColorSettings={true}
-                  onBookAppointment={(appointment) => {
-                    console.log("✅ Appointment booked in workflow guide:", appointment);
-                  }}
-                  onEditAppointment={(appointment) => {
-                    console.log("✏️ Editing appointment in workflow guide:", appointment);
-                  }}
-                />
-              </div>
-              
-              <div className="grid md:grid-cols-3 gap-4 mb-6 mt-6">
-                <div className="bg-white border border-gray-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-blue-600" />
-                    Calendar View
-                  </h4>
-                  <p className="text-sm text-gray-600">
-                    Time-based grid with doctors and rooms as columns
-                  </p>
-                </div>
-                <div className="bg-white border border-gray-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                    <Filter className="w-4 h-4 text-purple-600" />
-                    Smart Filters
-                  </h4>
-                  <p className="text-sm text-gray-600">
-                    Search by patient, filter by doctor/room/status
-                  </p>
-                </div>
-                <div className="bg-white border border-gray-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                    <Settings className="w-4 h-4 text-green-600" />
-                    Customization
-                  </h4>
-                  <p className="text-sm text-gray-600">
-                    Customize status colors and view preferences
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
 
       case "patients-appointments":
         // Handle specific sub-items
         if (selectedSubItem === "book-appointments") {
-          return (
-            <div className="space-y-6">
-              <div className="flex items-center gap-3 mb-6">
-                <Calendar className="w-8 h-8 text-teal-600" />
-                <h2 className="text-2xl font-bold text-gray-900">Appointment Booking</h2>
-              </div>
-              
-              <div className="prose max-w-none">
-                <h3 className="text-xl font-semibold text-gray-800 mb-3">Modern Scheduler Interface</h3>
-                <p className="text-gray-600 mb-4">
-                  Interactive calendar-based appointment scheduling system. Click on any empty time slot to book an appointment, or hover over existing appointments to view details.
-                </p>
-                
-                <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-                  <h4 className="font-semibold text-blue-800 mb-2">How to Use:</h4>
-                  <ol className="list-decimal list-inside space-y-2 text-blue-700">
-                    <li>Click any empty time slot to book a new appointment</li>
-                    <li>Use filters to search for specific patients, doctors, or rooms</li>
-                    <li>Navigate dates using the date picker at the top</li>
-                    <li>Hover over appointment cards to see full details</li>
-                    <li>Customize status colors using the "Colors" button</li>
-                  </ol>
-                </div>
-
-                {/* Modern Scheduler Component */}
-                <div className="bg-white dark:bg-gray-50 rounded-xl shadow-sm border border-gray-200 dark:border-gray-300 overflow-hidden">
-                  <ModernScheduler
-                    clinicId="workflow-guide"
-                    initialDate={new Date().toISOString().split("T")[0]}
-                    viewMode="both"
-                    getAuthHeaders={getAuthHeaders}
-                    enableDragDrop={true}
-                    showColorSettings={true}
-                    onBookAppointment={(appointment) => {
-                      console.log("✅ Appointment booked in workflow guide:", appointment);
-                    }}
-                    onEditAppointment={(appointment) => {
-                      console.log("✏️ Editing appointment in workflow guide:", appointment);
-                    }}
-                  />
-                </div>
-                
-                <div className="grid md:grid-cols-3 gap-4 mb-6 mt-6">
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
-                    <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-blue-600" />
-                      Calendar View
-                    </h4>
-                    <p className="text-sm text-gray-600">
-                      Time-based grid with doctors and rooms as columns
-                    </p>
-                  </div>
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
-                    <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                      <Filter className="w-4 h-4 text-purple-600" />
-                      Smart Filters
-                    </h4>
-                    <p className="text-sm text-gray-600">
-                      Search by patient, filter by doctor/room/status
-                    </p>
-                  </div>
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
-                    <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                      <Settings className="w-4 h-4 text-green-600" />
-                      Customization
-                    </h4>
-                    <p className="text-sm text-gray-600">
-                      Customize status colors and view preferences
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
+          return <BookAppointmentWorkflowGuide />;
         }
         
         // If no sub-item selected, show default message

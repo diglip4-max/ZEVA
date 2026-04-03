@@ -629,9 +629,9 @@ const ManageAgentsPage = () => {
                   headers: authHeaders,
                   params: { source: 'staff' }
                 });
-                const items = commRes.data?.results || commRes.data || [];
-                // Support both {results: []} and [] shapes
-                const list = Array.isArray(items) ? items : (Array.isArray(items.results) ? items.results : []);
+                const commData = commRes.data || {};
+                // Support response shapes: {items: []}, {results: []}, or []
+                const list = Array.isArray(commData.items) ? commData.items : (Array.isArray(commData.results) ? commData.results : (Array.isArray(commData) ? commData : []));
                 const me = list.find((row) => String(row.personId || row._id) === String(agent._id));
                 setTotalCommission(typeof me?.totalEarned === 'number' ? me.totalEarned : 0);
                 setCommissionPercent(
@@ -672,12 +672,28 @@ const ManageAgentsPage = () => {
             });
             if (revRes.data?.success) {
               setTotalRevenue(revRes.data.totalRevenue ?? 0);
-              setTotalCommission(0);
-              setCommissionPercent(viewProfile?.commissionPercentage != null ? Number(viewProfile.commissionPercentage) : null);
             } else {
               setTotalRevenue(0);
+            }
+            // Fetch commission earned for this agent from commissions summary
+            try {
+              const commRes = await axios.get("/api/clinic/commissions/summary", {
+                headers: authHeaders,
+                params: { source: 'staff' }
+              });
+              const commData = commRes.data || {};
+              // Support response shapes: {items: []}, {results: []}, or []
+              const list = Array.isArray(commData.items) ? commData.items : (Array.isArray(commData.results) ? commData.results : (Array.isArray(commData) ? commData : []));
+              const me = list.find((row) => String(row.personId || row._id) === String(agent._id));
+              setTotalCommission(typeof me?.totalEarned === 'number' ? me.totalEarned : 0);
+              setCommissionPercent(
+                me && typeof me.percent !== 'undefined'
+                  ? Number(me.percent)
+                  : (p?.commissionPercentage != null ? Number(p.commissionPercentage) : null)
+              );
+            } catch {
               setTotalCommission(0);
-              setCommissionPercent(viewProfile?.commissionPercentage != null ? Number(viewProfile.commissionPercentage) : null);
+              setCommissionPercent(p?.commissionPercentage != null ? Number(p.commissionPercentage) : null);
             }
           }
         } catch {
@@ -2334,9 +2350,6 @@ const ManageAgentsPage = () => {
                             {totalCommission != null ? `$${Number(totalCommission || 0).toLocaleString()}` : '—'}
                           </div>
                           <div className="text-xs opacity-90 mt-1">Commission Earned</div>
-                          <div className="text-[11px] opacity-90 mt-1">
-                            {commissionPercent != null ? `Profile: ${Number(commissionPercent)}%` : 'Profile: —'}
-                          </div>
                         </div>
                       </div>
                     </div>
