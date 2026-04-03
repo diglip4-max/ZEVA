@@ -695,10 +695,69 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       setLoadingPatientStats(true);
       try {
         const headers = getAuthHeaders();
-        const res = await axios.get(`/api/clinic/patient-emr-stats/${patientId}`, { headers });
-        if (res.data?.success) setPatientStats(res.data);
-      } catch { /* silent */ }
-      finally { setLoadingPatientStats(false); }
+        if (!headers) return;
+
+        // Fetch appointments for the past year to calculate total visits
+        const today = new Date().toISOString().split('T')[0];
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        
+        const [appointmentsRes, balanceRes] = await Promise.all([
+          axios.get(
+            `/api/clinic/all-appointments?page=1&limit=1000&fromDate=${oneYearAgo.toISOString().split('T')[0]}&toDate=${today}`,
+            { headers }
+          ),
+          axios.get(`/api/clinic/patient-balance/${patientId}`, { headers }).catch(() => ({ data: { success: false } }))
+        ]);
+
+        let totalVisits = 0;
+        let completedVisits = 0;
+        let cancelledNoShow = 0;
+        let totalSpend = 0;
+
+        if (appointmentsRes.data.success) {
+          const patientAppointments = appointmentsRes.data.appointments?.filter(
+            (apt: any) => apt.patientId === patientId
+          ) || [];
+          
+          // Count total visits based on specific statuses
+          const visitStatuses = ['arrived', 'waiting', 'consultation', 'approved', 'rescheduled', 'completed', 'discharge', 'invoice'];
+          totalVisits = patientAppointments.filter((apt: any) => {
+            const status = (apt.status || '').toLowerCase();
+            return visitStatuses.includes(status);
+          }).length;
+          
+          patientAppointments.forEach((apt: any) => {
+            const status = (apt.status || apt.appointmentStatus || '').toLowerCase();
+            if (['cancelled', 'rejected', 'no show', 'no-show'].includes(status)) {
+              cancelledNoShow += 1;
+            }
+            if (['completed', 'discharge', 'approved'].includes(status)) {
+              completedVisits += 1;
+            }
+          });
+        }
+
+        // Get total spend from patient balance API
+        if (balanceRes.data?.success && balanceRes.data.balances) {
+          totalSpend = Number(balanceRes.data.balances.totalSpent) || 0;
+        }
+
+        setPatientStats({
+          totalSpend,
+          totalVisits,
+          completedVisits,
+          cancelledNoShow,
+          totalBilled: 0,
+          totalPending: 0,
+          billingCount: 0,
+          recentBillings: [],
+        });
+      } catch (error) {
+        console.error('Error fetching patient stats:', error);
+      } finally {
+        setLoadingPatientStats(false);
+      }
     };
 
     const fetchPatientBalance = async (patientId: string) => {
