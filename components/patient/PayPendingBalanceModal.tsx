@@ -8,7 +8,7 @@ import {
   MessageSquare,
   Landmark,
   Zap,
-  CheckCircle2,
+
   AlertCircle,
 } from "lucide-react";
 import axios from "axios";
