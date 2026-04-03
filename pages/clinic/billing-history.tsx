@@ -65,7 +65,11 @@ const BillingHistoryPage = () => {
       const { jsPDF } = await import("jspdf");
       const { default: autoTable } = await import("jspdf-autotable");
 
-      const doc = new jsPDF();
+      const doc = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
+      });
       const pageWidth = doc.internal.pageSize.getWidth();
 
       // Header
@@ -111,35 +115,55 @@ const BillingHistoryPage = () => {
       doc.text(`Gender: ${patientData?.gender || '—'}`, pageWidth / 2, 56);
 
       // Billing History Table
-      const tableRows = billingHistory.map(item => [
-        formatDate(item.invoicedDate),
-        item.invoiceNumber || '—',
-        item.treatment || item.package || '—',
-        formatCurrency(item.amount),
-        formatCurrency(item.paid),
-        formatCurrency(item.pending || 0),
-        item.multiplePayments && item.multiplePayments.length > 0 
-          ? item.multiplePayments.map((p: any) => `${p.paymentMethod}: ${Number(p.amount || 0).toFixed(2)}`).join('\n')
-          : item.paymentMethod || '—'
-      ]);
+      const tableRows = billingHistory.map(item => {
+        const originalAmount = item.originalAmount || 0;
+        const finalAmount = item.amount || 0;
+        const discountAmount = originalAmount > finalAmount ? (originalAmount - finalAmount) : 0;
+        const percent = item.discountPercent || (originalAmount > 0 ? (discountAmount / originalAmount * 100) : 0);
+        
+        return [
+          formatDate(item.invoicedDate),
+          item.invoiceNumber || '—',
+          item.treatment || item.package || '—',
+          percent > 0 ? `${percent.toFixed(1)}%` : '—',
+          formatCurrency(item.amount),
+          formatCurrency(item.paid),
+          formatCurrency(item.pending || 0),
+          formatCurrency(item.advance || 0),
+          formatCurrency(item.advanceUsed || 0),
+          formatCurrency(item.pastAdvance || 0),
+          formatCurrency(item.pastAdvanceUsed || 0),
+          item.quantity || 1,
+          item.sessions || item.session || 0,
+          item.multiplePayments && item.multiplePayments.length > 0 
+            ? item.multiplePayments.map((p: any) => `${p.paymentMethod}: ${Number(p.amount || 0).toFixed(2)}`).join('\n')
+            : item.paymentMethod || '—'
+        ];
+      });
 
       autoTable(doc, {
         startY: 65,
-        head: [['Date', 'Invoice ID', 'Treatment/Package', 'Total', 'Paid', 'Pending', 'Method']],
+        head: [['Date', 'Invoice ID', 'Treatment/Package', 'Disc.', 'Total', 'Paid', 'Pending', 'Adv.', 'Adv.Used', 'PastAdv.', 'P.Adv.Used', 'Qty', 'Sess.', 'Method']],
         body: tableRows,
         theme: 'striped',
         headStyles: { 
           fillColor: [31, 41, 55], // Gray-800
-          fontSize: 8,
+          fontSize: 7,
           fontStyle: 'bold',
         },
-        bodyStyles: { fontSize: 8 },
+        bodyStyles: { fontSize: 7 },
         columnStyles: {
-          3: { halign: 'right' },
           4: { halign: 'right' },
-          5: { halign: 'right' }
+          5: { halign: 'right' },
+          6: { halign: 'right' },
+          7: { halign: 'right' },
+          8: { halign: 'right' },
+          9: { halign: 'right' },
+          10: { halign: 'right' },
+          11: { halign: 'center' },
+          12: { halign: 'center' }
         },
-        margin: { top: 65 }
+        margin: { top: 65, left: 10, right: 10 }
       });
 
       // Summary Section
@@ -289,6 +313,7 @@ const BillingHistoryPage = () => {
                 <tr className="bg-gray-800 text-white text-xs uppercase tracking-wider">
                   <th className="px-4 py-3 text-left font-semibold">Invoice ID</th>
                   <th className="px-4 py-3 text-left font-semibold">Treatment/Package</th>
+                  <th className="px-4 py-3 text-center font-semibold">Discount</th>
                   <th className="px-4 py-3 text-right font-semibold">Total</th>
                   <th className="px-4 py-3 text-right font-semibold">Paid</th>
                   <th className="px-4 py-3 text-right font-semibold text-red-300">Pending</th>
@@ -378,6 +403,42 @@ const BillingHistoryPage = () => {
                           )}
                         </div>
                       </td>
+                      <td className="px-4 py-3 text-center">
+                        {(() => {
+                          const isDoctorDiscount = billing.isDoctorDiscountApplied;
+                          const isAgentDiscount = billing.isAgentDiscountApplied;
+                          const discountType = isDoctorDiscount ? billing.doctorDiscountType : (isAgentDiscount ? billing.agentDiscountType : null);
+                          const discountValue = isDoctorDiscount ? billing.doctorDiscountAmount : (isAgentDiscount ? billing.agentDiscountAmount : 0);
+                          const originalAmount = billing.originalAmount || 0;
+                          const finalAmount = billing.amount || 0;
+                          const discountAmount = originalAmount > finalAmount ? (originalAmount - finalAmount) : 0;
+                          const percent = billing.discountPercent || (originalAmount > 0 ? (discountAmount / originalAmount * 100) : 0);
+
+                          if (!isDoctorDiscount && !isAgentDiscount && percent <= 0) {
+                            return <div className="text-xs text-gray-400">—</div>;
+                          }
+
+                          return (
+                            <div className="flex flex-col items-center gap-1">
+                              {percent > 0 && (
+                                <div className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 shadow-sm">
+                                  {Number(percent).toFixed(1)}% OFF
+                                </div>
+                              )}
+                              {discountAmount > 0 && (
+                                <div className="text-[10px] font-medium text-gray-500">
+                                  Saved AED {formatCurrency(discountAmount)}
+                                </div>
+                              )}
+                              {(isDoctorDiscount || isAgentDiscount) && (
+                                <div className="text-[8px] uppercase tracking-wider text-gray-400 font-bold">
+                                  {isDoctorDiscount ? 'Doctor Disc.' : 'Agent Disc.'}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <div className="text-xs font-semibold text-gray-900">
                           {formatCurrency(billing.amount)}
@@ -451,6 +512,7 @@ const BillingHistoryPage = () => {
                 <tfoot>
                   <tr className="bg-gray-100 border-t-2 border-gray-300 text-xs font-bold">
                     <td className="px-4 py-3 text-gray-900">Totals</td>
+                    <td className="px-4 py-3"></td>
                     <td className="px-4 py-3"></td>
                     <td className="px-4 py-3 text-right text-gray-900">
                       {formatCurrency(billingHistory.reduce((sum, b) => sum + (Number(b.amount) || 0), 0))}

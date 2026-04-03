@@ -2062,6 +2062,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         isAgentDiscountApplied,
         agentDiscountType: isAgentDiscountApplied ? agentDiscount?.discountType : null,
         agentDiscountAmount: isAgentDiscountApplied ? agentDiscount?.discountAmount : 0,
+        discountPercent: (isDoctorDiscountApplied || isAgentDiscountApplied)
+          ? (baseAmount - (membershipDiscountApplied || 0) > 0 
+              ? (((baseAmount - (membershipDiscountApplied || 0)) - parseFloat(formData.discountedAmount || "0")) / (baseAmount - (membershipDiscountApplied || 0)) * 100)
+              : 0)
+          : 0,
         originalAmount: baseAmount,
       };
 

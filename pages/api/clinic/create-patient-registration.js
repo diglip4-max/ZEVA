@@ -56,12 +56,23 @@ export default async function handler(req, res) {
             "patient_registration",
             "create",
           );
+
+        // Fallback: Check clinic_ScheduledAppointment if patient_registration is denied
         if (!agentHasPermission) {
-          return res.status(403).json({
-            success: false,
-            message:
-              agentError || "You do not have permission to create patients",
-          });
+          const { hasPermission: appointmentHasPermission } =
+            await checkAgentPermission(
+              clinicUser._id,
+              "clinic_ScheduledAppointment",
+              "create",
+            );
+
+          if (!appointmentHasPermission) {
+            return res.status(403).json({
+              success: false,
+              message:
+                agentError || "You do not have permission to create patients",
+            });
+          }
         }
       }
       // For doctorStaff role (userToken): Check agent permissions
@@ -72,12 +83,23 @@ export default async function handler(req, res) {
             "patient_registration",
             "create",
           );
+
+        // Fallback: Check clinic_ScheduledAppointment if patient_registration is denied
         if (!agentHasPermission) {
-          return res.status(403).json({
-            success: false,
-            message:
-              agentError || "You do not have permission to create patients",
-          });
+          const { hasPermission: appointmentHasPermission } =
+            await checkAgentPermission(
+              clinicUser._id,
+              "clinic_ScheduledAppointment",
+              "create",
+            );
+
+          if (!appointmentHasPermission) {
+            return res.status(403).json({
+              success: false,
+              message:
+                agentError || "You do not have permission to create patients",
+            });
+          }
         }
       }
     }
@@ -86,13 +108,25 @@ export default async function handler(req, res) {
     let clinic;
     if (clinicUser.role === "clinic") {
       clinic = await Clinic.findOne({ owner: clinicUser._id });
-    } else if (["agent", "doctorStaff", "staff"].includes(clinicUser.role)) {
+    } else if (
+      ["agent", "doctorStaff", "staff", "doctor"].includes(clinicUser.role)
+    ) {
       if (!clinicUser.clinicId) {
         return res
           .status(403)
           .json({ success: false, message: "User not linked to a clinic" });
       }
       clinic = await Clinic.findById(clinicUser.clinicId);
+    } else if (clinicUser.role === "admin") {
+      // For admin, if no clinicId on user, try to get from appointment in body
+      if (clinicUser.clinicId) {
+        clinic = await Clinic.findById(clinicUser.clinicId);
+      } else if (req.body.appointmentId) {
+        const appointment = await Appointment.findById(req.body.appointmentId);
+        if (appointment && appointment.clinicId) {
+          clinic = await Clinic.findById(appointment.clinicId);
+        }
+      }
     } else {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
@@ -149,6 +183,7 @@ export default async function handler(req, res) {
       isAgentDiscountApplied,
       agentDiscountType,
       agentDiscountAmount,
+      discountPercent,
       originalAmount,
     } = req.body;
 
@@ -456,7 +491,9 @@ export default async function handler(req, res) {
       isAgentDiscountApplied: isAgentDiscountApplied || false,
       agentDiscountType: agentDiscountType || null,
       agentDiscountAmount: agentDiscountAmount || 0,
+      discountPercent: discountPercent || 0,
       originalAmount: originalAmount || amountNum,
+      isAdvanceOnly: false,
     };
 
     console.log({ billingData });
