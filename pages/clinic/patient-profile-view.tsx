@@ -3514,7 +3514,6 @@ const fetchPrescriptions = async () => {
                               <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
                               <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Treatment</th>
                               <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
-                              <th className="px-5 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-100">
@@ -3552,11 +3551,6 @@ const fetchPrescriptions = async () => {
                                   <td className="px-5 py-4 whitespace-nowrap text-right">
                                     <div className="text-sm font-bold text-gray-900">${billing.amount || 0}</div>
                                     <div className="text-xs text-gray-500 mt-0.5">Qty: {billing.quantity || 0}</div>
-                                  </td>
-                                  <td className="px-5 py-4 whitespace-nowrap text-center">
-                                    <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${statusColor}`}>
-                                      {statusLabel}
-                                    </span>
                                   </td>
                                 </tr>
                               );
