@@ -3452,259 +3452,324 @@ const fetchPrescriptions = async () => {
               </div>
             ) : activeTab === 'billing' ? (
               /* Billing Tab Content - Modern Two-Column Dashboard */
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {loadingBilling ? (
-                  <div className="col-span-1 lg:col-span-3 flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+              <div className="space-y-4">
+                {/* Billing Overview Stats - Top Row for Mobile */}
+                {!loadingBilling && billingHistory && (billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length > 0 && (
+                  <div className="grid grid-cols-2 lg:hidden gap-3">
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+                      <div className="text-[10px] text-blue-600 font-bold uppercase tracking-wider mb-1">Total Billed</div>
+                      <div className="text-lg font-bold text-blue-800">
+                        {formatAED((billingHistory || []).filter((b: any) => 
+                          (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") || 
+                          b.treatment === "Pending Balance Payment"
+                        ).reduce((acc: number, b: any) => acc + (Number(b.amount) || 0), 0))}
+                      </div>
+                    </div>
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                      <div className="text-[10px] text-red-600 font-bold uppercase tracking-wider mb-1">Outstanding</div>
+                      <div className="text-lg font-bold text-red-800">
+                        {formatAED(balance.pendingBalance)}
+                      </div>
+                    </div>
                   </div>
-                ) : !billingHistory || (billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length === 0 ? (
-                  <div className="col-span-1 lg:col-span-3">
-                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                      {/* Top gradient banner */}
-                      <div className="h-2 bg-gradient-to-r from-teal-400 via-cyan-400 to-blue-400" />
-                      <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-                        {/* Icon circle */}
-                        <div className="relative mb-6">
-                          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-teal-50 to-cyan-100 border-2 border-teal-200 flex items-center justify-center shadow-inner">
-                            <DollarSign className="w-10 h-10 text-teal-400" />
+                )}
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {loadingBilling ? (
+                    <div className="col-span-1 lg:col-span-3 flex items-center justify-center py-12">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+                    </div>
+                  ) : !billingHistory || (billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length === 0 ? (
+                    <div className="col-span-1 lg:col-span-3">
+                      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                        {/* Top gradient banner */}
+                        <div className="h-2 bg-gradient-to-r from-teal-400 via-cyan-400 to-blue-400" />
+                        <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+                          {/* Icon circle */}
+                          <div className="relative mb-6">
+                            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-teal-50 to-cyan-100 border-2 border-teal-200 flex items-center justify-center shadow-inner">
+                              <DollarSign className="w-10 h-10 text-teal-400" />
+                            </div>
+                            <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-orange-100 border-2 border-white flex items-center justify-center">
+                              <FileText className="w-3.5 h-3.5 text-orange-500" />
+                            </div>
                           </div>
-                          <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-orange-100 border-2 border-white flex items-center justify-center">
-                            <FileText className="w-3.5 h-3.5 text-orange-500" />
-                          </div>
-                        </div>
-                        {/* Text */}
-                        <h3 className="text-xl font-bold text-gray-800 mb-2">No Billing Records Yet</h3>
-                        <p className="text-gray-500 text-sm max-w-xs mb-8">
-                          This patient doesn't have any billing history. Invoices will appear here once a session is billed.
-                        </p>
-                        {/* Info pills */}
-                        <div className="flex items-center gap-3 flex-wrap justify-center">
-                          <div className="flex items-center gap-2 px-4 py-2 bg-teal-50 border border-teal-200 rounded-full text-xs font-semibold text-teal-700">
-                            <CheckCircle className="w-3.5 h-3.5" />
-                            Invoices
-                          </div>
-                          <div className="flex items-center gap-2 px-4 py-2 bg-purple-50 border border-purple-200 rounded-full text-xs font-semibold text-purple-700">
-                            <Package className="w-3.5 h-3.5" />
-                            Payments
-                          </div>
-                          <div className="flex items-center gap-2 px-4 py-2 bg-orange-50 border border-orange-200 rounded-full text-xs font-semibold text-orange-700">
-                            <Clock className="w-3.5 h-3.5" />
-                            Pending
+                          {/* Text */}
+                          <h3 className="text-xl font-bold text-gray-800 mb-2">No Billing Records Yet</h3>
+                          <p className="text-gray-500 text-sm max-w-xs mb-8">
+                            This patient doesn't have any billing history. Invoices will appear here once a session is billed.
+                          </p>
+                          {/* Info pills */}
+                          <div className="flex items-center gap-3 flex-wrap justify-center">
+                            <div className="flex items-center gap-2 px-4 py-2 bg-teal-50 border border-teal-200 rounded-full text-xs font-semibold text-teal-700">
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              Invoices
+                            </div>
+                            <div className="flex items-center gap-2 px-4 py-2 bg-purple-50 border border-purple-200 rounded-full text-xs font-semibold text-purple-700">
+                              <Package className="w-3.5 h-3.5" />
+                              Payments
+                            </div>
+                            <div className="flex items-center gap-2 px-4 py-2 bg-orange-50 border border-orange-200 rounded-full text-xs font-semibold text-orange-700">
+                              <Clock className="w-3.5 h-3.5" />
+                              Pending
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ) : (
-                  <>
-                    {/* Left Column - Invoices Table (2 columns width) */}
-                    <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                      <div className="px-5 py-4 border-b border-gray-100">
-                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                          <FileText className="w-5 h-5 text-teal-600" />
-                          Invoices
-                        </h3>
-                      </div>
-                      
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-100">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Invoice</th>
-                              <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
-                              <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Treatment</th>
-                              <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-100">
+                  ) : (
+                    <>
+                      {/* Left Column - Invoices Table (2 columns width) */}
+                      <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-100">
+                          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                            <FileText className="w-5 h-5 text-teal-600" />
+                            Invoices
+                          </h3>
+                        </div>
+                        
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full divide-y divide-gray-100 hidden sm:table">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Invoice</th>
+                                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
+                                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Treatment</th>
+                                <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-100">
+                              {(billingHistory || [])
+                                .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
+                                .map((billing: any, index: number) => {
+                                // Determine invoice status
+
+                                return (
+                                  <tr key={billing._id || index} className="hover:bg-gray-50 transition-colors">
+                                    <td className="px-5 py-4 whitespace-nowrap">
+                                      <div className="text-sm font-semibold text-gray-900">{billing.invoiceNumber || `INV-${String(index + 1).padStart(4, '0')}`}</div>
+                                      <div className="text-xs text-gray-500 mt-0.5">{billing.service || 'Treatment'}</div>
+                                    </td>
+                                    <td className="px-5 py-4 whitespace-nowrap">
+                                      <div className="text-sm text-gray-700">
+                                        {billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                                      </div>
+                                    </td>
+                                    <td className="px-5 py-4 whitespace-nowrap">
+                                      <div className="text-sm text-gray-700 max-w-xs truncate" title={billing.treatment}>
+                                        {billing.package ? (
+                                          <div className="flex flex-col">
+                                            <div className="font-semibold text-indigo-700 flex items-center gap-1">
+                                              <Package className="w-3 h-3" />
+                                              {billing.package}
+                                            </div>
+                                            <div className="text-xs text-gray-500 mt-0.5">
+                                              {Array.isArray(billing.selectedPackageTreatments) && billing.selectedPackageTreatments.length > 0
+                                                ? billing.selectedPackageTreatments.map((t: any) => t.treatmentName).join(', ')
+                                                : billing.treatment || '-'}
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          billing.treatment || '-'
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="px-5 py-4 whitespace-nowrap text-right">
+                                      <div className="text-sm font-bold text-gray-900">{formatAED(billing.amount || 0)}</div>
+                                      <div className="flex flex-col items-end mt-1 space-y-0.5">
+                                        <div className="text-[10px] text-gray-500">Total: {formatAED(billing.originalAmount || billing.amount || 0)}</div>
+                                        <div className="text-[10px] text-gray-500">Paid: {formatAED(billing.paid || 0)}</div>
+                                        {(billing.discountPercent > 0 || billing.discountPercentage > 0) && (
+                                          <div className="text-[10px] text-teal-600 font-medium">
+                                            Disc: {(billing.discountPercent || billing.discountPercentage || 0).toFixed(1)}%
+                                          </div>
+                                        )}
+                                        <div className="text-[10px] text-gray-400">Qty: {billing.quantity || 0}</div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+
+                          {/* Mobile List View */}
+                          <div className="sm:hidden divide-y divide-gray-100">
                             {(billingHistory || [])
                               .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
-                              .map((billing: any, index: number) => {
-                              // Determine invoice status
-
-                              return (
-                                <tr key={billing._id || index} className="hover:bg-gray-50 transition-colors">
-                                  <td className="px-5 py-4 whitespace-nowrap">
-                                    <div className="text-sm font-semibold text-gray-900">{billing.invoiceNumber || `INV-${String(index + 1).padStart(4, '0')}`}</div>
-                                    <div className="text-xs text-gray-500 mt-0.5">{billing.service || 'Treatment'}</div>
-                                  </td>
-                                  <td className="px-5 py-4 whitespace-nowrap">
-                                    <div className="text-sm text-gray-700">
-                                      {billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                              .map((billing: any, index: number) => (
+                                <div key={billing._id || index} className="p-4 hover:bg-gray-50">
+                                  <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                      <div className="text-sm font-bold text-gray-900">{billing.invoiceNumber || `INV-${String(index + 1).padStart(4, '0')}`}</div>
+                                      <div className="text-xs text-gray-500">{billing.service || 'Treatment'}</div>
                                     </div>
-                                  </td>
-                                  <td className="px-5 py-4 whitespace-nowrap">
-                                    <div className="text-sm text-gray-700 max-w-xs truncate" title={billing.treatment}>
-                                      {billing.package ? (
-                                        <div className="flex flex-col">
-                                          <div className="font-semibold text-indigo-700 flex items-center gap-1">
-                                            <Package className="w-3 h-3" />
-                                            {billing.package}
-                                          </div>
-                                          <div className="text-xs text-gray-500 mt-0.5">
-                                            {Array.isArray(billing.selectedPackageTreatments) && billing.selectedPackageTreatments.length > 0
-                                              ? billing.selectedPackageTreatments.map((t: any) => t.treatmentName).join(', ')
-                                              : billing.treatment || '-'}
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        billing.treatment || '-'
-                                      )}
+                                    <div className="text-right">
+                                      <div className="text-sm font-bold text-gray-900">{formatAED(billing.amount || 0)}</div>
+                                      <div className="text-[10px] text-gray-500">{billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString() : 'N/A'}</div>
                                     </div>
-                                  </td>
-                                  <td className="px-5 py-4 whitespace-nowrap text-right">
-                                    <div className="text-sm font-bold text-gray-900">{formatAED(billing.amount || 0)}</div>
-                                    <div className="flex flex-col items-end mt-1 space-y-0.5">
-                                      <div className="text-[10px] text-gray-500">Total: {formatAED(billing.originalAmount || billing.amount || 0)}</div>
-                                      <div className="text-[10px] text-gray-500">Paid: {formatAED(billing.paid || 0)}</div>
-                                      {(billing.discountPercent > 0 || billing.discountPercentage > 0) && (
-                                        <div className="text-[10px] text-teal-600 font-medium">
-                                          Disc: {(billing.discountPercent || billing.discountPercentage || 0).toFixed(1)}%
-                                        </div>
-                                      )}
-                                      <div className="text-[10px] text-gray-400">Qty: {billing.quantity || 0}</div>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    {/* Right Column - Payment History & Summary */}
-                    <div className="lg:col-span-1">
-                      {/* Payment History Card */}
-                      <div className="bg-white rounded-xl border border-gray-200 shadow-lg p-5">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                          <CreditCard className="w-5 h-5 text-green-600" />
-                          Payment History
-                        </h3>
-                        
-                        <div className="space-y-0">
-                          {(() => {
-                            const allPayments = (billingHistory || [])
-                              .filter((b: any) => 
-                                (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") || 
-                                b.treatment === "Pending Balance Payment"
-                              )
-                              .flatMap((billing: any) => 
-                              (billing.paymentHistory || []).map((payment: any, idx: number) => ({
-                                ...payment,
-                                invoiceNumber: billing.invoiceNumber,
-                                billingId: billing._id,
-                                originalIndex: idx
-                              }))
-                            );
-
-                            if (allPayments.length === 0) {
-                              return (
-                                <div className="flex flex-col items-center justify-center py-8">
-                                  <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                                    <DollarSign className="w-8 h-8 text-gray-400" />
                                   </div>
-                                  <p className="text-sm text-gray-500 font-medium">No payment history</p>
-                                  <p className="text-xs text-gray-400 mt-1">Payments will appear here</p>
-                                </div>
-                              );
-                            }
-
-                            return allPayments.map((payment: any, index: number) => (
-                              <div key={`${payment.billingId}-${payment.originalIndex}-${index}`}>
-                                <div className="flex items-start gap-3 py-3">
-                                  {/* Circular Green Icon */}
-                                  <div className="w-10 h-10 rounded-full bg-green-50 border border-green-200 flex items-center justify-center flex-shrink-0">
-                                    <DollarSign className="w-5 h-5 text-green-600" />
-                                  </div>
-                                  
-                                  {/* Payment Details */}
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-base font-bold text-gray-900">
-                                      AED {payment.amount || payment.paid || 0}
-                                    </div>
-                                    <div className="text-sm text-gray-600 mt-0.5">
-                                      {payment.paymentMethod ? (
-                                        <>
-                                          {payment.paymentMethod === 'Card' ? 'Card ending 4242' : 
-                                           payment.paymentMethod === 'Wallet' ? 'Wallet Balance' :
-                                           payment.paymentMethod}
-                                        </>
-                                      ) : 'Payment'}
-                                    </div>
-                                    {payment.invoiceNumber && (
-                                      <div className="text-xs text-gray-500 mt-1">
-                                        {payment.invoiceNumber}
+                                  <div className="text-sm text-gray-700 mb-2">
+                                    {billing.package ? (
+                                      <div className="flex items-center gap-1 font-semibold text-indigo-700">
+                                        <Package className="w-3 h-3" />
+                                        {billing.package}
                                       </div>
+                                    ) : (
+                                      billing.treatment || '-'
                                     )}
                                   </div>
-                                  
-                                  {/* Right-aligned Date */}
-                                  <div className="text-right flex-shrink-0">
-                                    <div className="text-sm text-gray-500">
-                                      {payment.updatedAt 
-                                        ? new Date(payment.updatedAt).toLocaleDateString('en-US', { 
-                                            month: 'short', 
-                                            day: 'numeric',
-                                            year: 'numeric'
-                                          }) 
-                                        : 'N/A'}
+                                  <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-gray-50">
+                                    <div className="text-[10px] text-gray-500">
+                                      <span className="block">Original: {formatAED(billing.originalAmount || billing.amount || 0)}</span>
+                                      <span className="block">Paid: {formatAED(billing.paid || 0)}</span>
+                                    </div>
+                                    <div className="text-[10px] text-right">
+                                      {(billing.discountPercent > 0 || billing.discountPercentage > 0) && (
+                                        <span className="block text-teal-600 font-medium">Disc: {(billing.discountPercent || billing.discountPercentage || 0).toFixed(1)}%</span>
+                                      )}
+                                      <span className="block text-gray-400">Qty: {billing.quantity || 0}</span>
                                     </div>
                                   </div>
                                 </div>
-                                
-                                {/* Thin Divider */}
-                                {index < allPayments.length - 1 && (
-                                  <div className="h-px bg-gray-100 ml-13"></div>
-                                )}
-                              </div>
-                            ));
-                          })()}
+                              ))}
+                          </div>
                         </div>
+                      </div>
 
-                        {/* Divider before Summary */}
-                        {(billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length > 0 && (
-                          <div className="h-px bg-gray-200 my-4"></div>
-                        )}
+                      {/* Right Column - Payment History & Summary */}
+                      <div className="lg:col-span-1">
+                        {/* Payment History Card */}
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-lg p-5">
+                          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <CreditCard className="w-5 h-5 text-green-600" />
+                            Payment History
+                          </h3>
+                          
+                          <div className="space-y-0">
+                            {(() => {
+                              const allPayments = (billingHistory || [])
+                                .filter((b: any) => 
+                                  (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") || 
+                                  b.treatment === "Pending Balance Payment"
+                                )
+                                .flatMap((billing: any) => 
+                                (billing.paymentHistory || []).map((payment: any, idx: number) => ({
+                                  ...payment,
+                                  invoiceNumber: billing.invoiceNumber,
+                                  billingId: billing._id,
+                                  originalIndex: idx
+                                }))
+                              );
 
-                        {/* Summary Section */}
-                        {(billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length > 0 && (
-                          <div className="pt-4 space-y-3">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                              {/* Total Billed */}
-                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-                                <div className="text-sm text-blue-600 mb-1">Total Billed</div>
-                                <div className="text-2xl font-bold text-blue-800">
-                                  {formatAED((billingHistory || []).filter((b: any) => 
-                                    (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") || 
-                                    b.treatment === "Pending Balance Payment"
-                                  ).reduce((acc: number, b: any) => acc + (Number(b.amount) || 0), 0))}
+                              if (allPayments.length === 0) {
+                                return (
+                                  <div className="flex flex-col items-center justify-center py-8">
+                                    <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                                      <DollarSign className="w-8 h-8 text-gray-400" />
+                                    </div>
+                                    <p className="text-sm text-gray-500 font-medium">No payment history</p>
+                                    <p className="text-xs text-gray-400 mt-1">Payments will appear here</p>
+                                  </div>
+                                );
+                              }
+
+                              return allPayments.map((payment: any, index: number) => (
+                                <div key={`${payment.billingId}-${payment.originalIndex}-${index}`}>
+                                  <div className="flex items-start gap-3 py-3">
+                                    {/* Circular Green Icon */}
+                                    <div className="w-10 h-10 rounded-full bg-green-50 border border-green-200 flex items-center justify-center flex-shrink-0">
+                                      <DollarSign className="w-5 h-5 text-green-600" />
+                                    </div>
+                                    
+                                    {/* Payment Details */}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-base font-bold text-gray-900">
+                                        AED {payment.amount || payment.paid || 0}
+                                      </div>
+                                      <div className="text-sm text-gray-600 mt-0.5">
+                                        {payment.paymentMethod ? (
+                                          <>
+                                            {payment.paymentMethod === 'Card' ? 'Card ending 4242' : 
+                                            payment.paymentMethod === 'Wallet' ? 'Wallet Balance' :
+                                            payment.paymentMethod}
+                                          </>
+                                        ) : 'Payment'}
+                                      </div>
+                                      {payment.invoiceNumber && (
+                                        <div className="text-xs text-gray-500 mt-1">
+                                          {payment.invoiceNumber}
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    {/* Right-aligned Date */}
+                                    <div className="text-right flex-shrink-0">
+                                      <div className="text-sm text-gray-500">
+                                        {payment.updatedAt 
+                                          ? new Date(payment.updatedAt).toLocaleDateString('en-US', { 
+                                              month: 'short', 
+                                              day: 'numeric',
+                                              year: 'numeric'
+                                            }) 
+                                          : 'N/A'}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Thin Divider */}
+                                  {index < allPayments.length - 1 && (
+                                    <div className="h-px bg-gray-100 ml-13"></div>
+                                  )}
                                 </div>
-                              </div>
-                              {/* Total Paid */}
-                              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                                <div className="text-sm text-green-600 mb-1">Total Paid</div>
-                                <div className="text-2xl font-bold text-green-800">
-                                  {formatAED((billingHistory || []).filter((b: any) => 
-                                    (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") || 
-                                    b.treatment === "Pending Balance Payment"
-                                  ).reduce((acc: number, b: any) => acc + (Number(b.paid) || 0), 0))}
+                              ));
+                            })()}
+                          </div>
+
+                          {/* Divider before Summary */}
+                          {(billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length > 0 && (
+                            <div className="h-px bg-gray-200 my-4"></div>
+                          )}
+
+                          {/* Summary Section */}
+                          {(billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length > 0 && (
+                            <div className="pt-4 space-y-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                {/* Total Billed */}
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                                  <div className="text-[10px] sm:text-xs text-blue-600 mb-1">Total Billed</div>
+                                  <div className="text-lg sm:text-xl md:text-2xl font-bold text-blue-800">
+                                    {formatAED((billingHistory || []).filter((b: any) => 
+                                      (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") || 
+                                      b.treatment === "Pending Balance Payment"
+                                    ).reduce((acc: number, b: any) => acc + (Number(b.amount) || 0), 0))}
+                                  </div>
                                 </div>
-                              </div>
-                              {/* Outstanding */}
-                              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-                                <div className="text-sm text-red-600 mb-1">Outstanding</div>
-                                <div className="text-2xl font-bold text-red-800">
-                                  {formatAED(balance.pendingBalance)}
+                                {/* Total Paid */}
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                                  <div className="text-[10px] sm:text-xs text-green-600 mb-1">Total Paid</div>
+                                  <div className="text-lg sm:text-xl md:text-2xl font-bold text-green-800">
+                                    {formatAED((billingHistory || []).filter((b: any) => 
+                                      (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") || 
+                                      b.treatment === "Pending Balance Payment"
+                                    ).reduce((acc: number, b: any) => acc + (Number(b.paid) || 0), 0))}
+                                  </div>
+                                </div>
+                                {/* Outstanding */}
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center sm:col-span-2 md:col-span-1">
+                                  <div className="text-[10px] sm:text-xs text-red-600 mb-1">Outstanding</div>
+                                  <div className="text-lg sm:text-xl md:text-2xl font-bold text-red-800">
+                                    {formatAED(balance.pendingBalance)}
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </>
-                )}
+                    </>
+                  )}
+                </div>
               </div>
             ) : activeTab === 'insurance' ? (
               /* Insurance Tab Content */
