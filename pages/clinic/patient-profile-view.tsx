@@ -3549,6 +3549,11 @@ const fetchPrescriptions = async () => {
                                     </div>
                                   </td>
                                   <td className="px-5 py-4 whitespace-nowrap text-right">
+                                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColor}`}>
+                                      {statusLabel}
+                                    </span>
+                                  </td>
+                                  <td className="px-5 py-4 whitespace-nowrap text-right">
                                     <div className="text-sm font-bold text-gray-900">${billing.amount || 0}</div>
                                     <div className="text-xs text-gray-500 mt-0.5">Qty: {billing.quantity || 0}</div>
                                   </td>
