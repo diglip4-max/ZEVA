@@ -1314,83 +1314,8 @@ function ExitIntentPopup() {
     return () => clearTimeout(timer);
   }, []);
 
-  if (!isVisible) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-      <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in duration-300">
-        {/* Close button */}
-        <button
-          onClick={() => setIsVisible(false)}
-          className="absolute top-4 right-4 w-8 h-8 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-all duration-200 z-10"
-          aria-label="Close popup"
-        >
-          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-
-        {/* Blue gradient header */}
-        <div className="bg-gradient-to-br from-[#0B5FFF] to-[#0846B3] p-8 pb-6 relative overflow-hidden">
-          {/* Decorative elements */}
-          <div className="absolute top-4 right-4 opacity-20">
-            <svg className="w-16 h-16 text-white" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2L9.5 9.5L2 12L9.5 14.5L12 22L14.5 14.5L22 12L14.5 9.5L12 2Z" />
-            </svg>
-          </div>
-
-          {/* Lightning bolt icon */}
-          <div className="w-16 h-16 bg-yellow-400 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <svg className="w-8 h-8 text-yellow-700" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-            </svg>
-          </div>
-
-          <h3 className="text-2xl md:text-3xl font-bold text-white text-center mb-2">
-            Wait! Before You Go...
-          </h3>
-          <p className="text-blue-100 text-center text-base">
-            Don't miss your chance for a FREE Clinic Growth Audit
-          </p>
-        </div>
-
-        {/* White content area */}
-        <div className="p-8 pt-6">
-          <div className="bg-blue-50 rounded-xl p-6 mb-6">
-            <h4 className="font-bold text-gray-900 text-base mb-4 text-center">What You'll Get:</h4>
-            <ul className="space-y-3">
-              {[
-                "Identify exactly where you're losing patients",
-                "See how much revenue you could recover",
-                "Get a personalized automation plan",
-                "100% Free, No Obligations"
-              ].map((item, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-sm text-gray-700">
-                  <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <button
-            onClick={() => {
-              setIsVisible(false);
-              document.getElementById('audit')?.scrollIntoView({ behavior: 'smooth' });
-            }}
-            className="w-full py-4 bg-[#0B5FFF] hover:bg-[#0846B3] text-white font-bold rounded-xl transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 text-base flex items-center justify-center gap-2"
-          >
-            Get My Free Audit Now
-            <ArrowRight className="w-4 h-4" />
-          </button>
-
-          <p className="text-center text-sm text-gray-500 mt-4 flex items-center justify-center gap-1.5">
-            <span className="text-base">🔥</span> Only 15 spots left this week
-          </p>
-        </div>
-      </div>
-    </div>
-  );
+  // Popup disabled - returning null
+  return null;
 }
 
 /* ─────────────────────────────── PAGE ─────────────────────────────── */

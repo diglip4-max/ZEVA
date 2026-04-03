@@ -25,7 +25,7 @@ const BookAppointmentWorkflowGuide: React.FC = () => {
           </h2>
           <div className="aspect-video bg-gray-100 rounded-lg border-2 border-gray-200 flex flex-col items-center justify-center relative overflow-hidden group">
             <img 
-              src="/image.png" 
+              src="/image1.png" 
               alt="Appointment Schedule UI" 
               className="w-full h-full object-contain"
               onError={(e) => {

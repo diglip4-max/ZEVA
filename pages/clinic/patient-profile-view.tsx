@@ -447,6 +447,13 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
   );
 };
 
+const formatPmDate = (d: Date) => {
+  const y = d.getFullYear();
+  const mon = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${mon}-${day}`;
+};
+
 // Modern Patient Profile Dashboard Component
 const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { patientData: any; onClose: () => void; onPatientUpdated?: (updatedData: any) => void }) => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -542,6 +549,8 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   const [showAddMembershipDropdown, setShowAddMembershipDropdown] = useState(false);
   const [showAddPackageDropdown, setShowAddPackageDropdown] = useState(false);
   const [selectedMembershipToAdd, setSelectedMembershipToAdd] = useState('');
+  const [addMembStartDate, setAddMembStartDate] = useState(formatPmDate(new Date()));
+  const [addMembEndDate, setAddMembEndDate] = useState('');
   const [selectedPackageToAdd, setSelectedPackageToAdd] = useState('');
   const [pmMembershipUsageMap, setPmMembershipUsageMap] = useState<any>({});
   const [showSaveConfirmModal, setShowSaveConfirmModal] = useState(false);
@@ -616,13 +625,6 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patientData?._id, editFormData.membership, editFormData.membershipId, editFormData.membershipStartDate, editFormData.membershipEndDate, JSON.stringify(editFormData.memberships)]);
 
-  const formatPmDate = (d: Date) => {
-    const y = d.getFullYear();
-    const mon = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${mon}-${day}`;
-  };
-
   const handlePmAddMembership = () => {
     if (!selectedMembershipToAdd) return;
     const selected = allAvailableMemberships.find((m: any) => m._id === selectedMembershipToAdd);
@@ -633,18 +635,15 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       setTimeout(() => setPmToast(null), 3000);
       return;
     }
-    const start = new Date();
-    const end = new Date(start);
-    end.setMonth(end.getMonth() + (Number(selected.durationMonths) || 1));
-    const startStr = formatPmDate(start);
-    const endStr = formatPmDate(end);
     
     // Only add to the memberships array - do NOT set individual fields
     setEditFormData((prev: any) => ({
       ...prev,
-      memberships: [...(prev.memberships || []), { membershipId: selectedMembershipToAdd, startDate: startStr, endDate: endStr }],
+      memberships: [...(prev.memberships || []), { membershipId: selectedMembershipToAdd, startDate: addMembStartDate, endDate: addMembEndDate }],
     }));
     setSelectedMembershipToAdd('');
+    setAddMembStartDate(formatPmDate(new Date()));
+    setAddMembEndDate('');
     setShowAddMembershipDropdown(false);
     setPmToast({ message: 'Membership added', type: 'success' });
     setTimeout(() => setPmToast(null), 3000);
@@ -1375,7 +1374,38 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
               const fullPkg = publicPkgRes.data.existingPackages.find(
                 (p: any) => p._id === userPkg.packageId
               );
-              return fullPkg ? { ...fullPkg, assignedDate: userPkg.assignedDate } : userPkg;
+              
+              if (fullPkg) {
+                // Find usage data for this user package
+                const usage = packageUsageData.find((u: any) => u.packageName === fullPkg.packageName);
+                
+                let usedSessions = 0;
+                let treatmentsWithUsage = fullPkg.treatments || [];
+                
+                if (usage) {
+                  usedSessions = usage.totalSessions || 0;
+                  // Enrich treatments with usage details
+                  treatmentsWithUsage = (fullPkg.treatments || []).map((treatment: any) => {
+                    const treatmentUsage = usage.treatments?.find((t: any) => t.treatmentSlug === (treatment.treatmentSlug || treatment.slug));
+                    return {
+                      ...treatment,
+                      usedSessions: treatmentUsage?.totalUsedSessions || 0,
+                      maxSessions: treatmentUsage?.maxSessions || treatment.sessions || treatment.maxSessions || 0,
+                      usageDetails: treatmentUsage?.usageDetails || []
+                    };
+                  });
+                }
+                
+                return {
+                  ...fullPkg,
+                  usedSessions: usedSessions,
+                  remainingSessions: usage?.remainingSessions ?? (fullPkg.totalSessions - usedSessions),
+                  assignedDate: userPkg.assignedDate,
+                  treatments: treatmentsWithUsage
+                };
+              }
+              
+              return userPkg;
             });
             setUserPackages(fullUserPackages);
           }
@@ -1492,9 +1522,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       }
 
       // Calculate active packages from patientData.packages (one entry per assigned package)
-      // and pending sessions from package-usage API (sums remaining across all name-groups)
+      // and include approved userPackages as well
       const assignedPackages: any[] = patientData?.packages || [];
-      activePackages = assignedPackages.length;
+      const approvedUserPackages: any[] = (patientData?.userPackages || []).filter(
+        (pkg: any) => pkg.approvalStatus === 'approved'
+      );
+      activePackages = assignedPackages.length + approvedUserPackages.length;
       if (packageUsageRes.data.success) {
         const packageUsage: any[] = packageUsageRes.data.packageUsage || [];
         packageUsage.forEach((pkg: any) => {
@@ -2245,30 +2278,6 @@ const fetchPrescriptions = async () => {
                           </div>
                         </div>
 
-                        {/* Start / End Date */}
-                        {editFormData.membership === 'Yes' && (
-                          <div className="flex flex-wrap gap-2 items-end mb-2">
-                            <div className="flex-1 min-w-[120px]">
-                              <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Start Date</label>
-                              <input
-                                type="date"
-                                value={editFormData.membershipStartDate ? editFormData.membershipStartDate.slice(0, 10) : ''}
-                                onChange={(e) => setEditFormData((p: any) => ({ ...p, membershipStartDate: e.target.value }))}
-                                className="w-full px-3 py-2 text-[10px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-gray-900 hover:border-indigo-400"
-                              />
-                            </div>
-                            <div className="flex-1 min-w-[120px]">
-                              <label className="block text-[10px] mb-0.5 font-medium text-gray-700">End Date</label>
-                              <input
-                                type="date"
-                                value={editFormData.membershipEndDate ? editFormData.membershipEndDate.slice(0, 10) : ''}
-                                onChange={(e) => setEditFormData((p: any) => ({ ...p, membershipEndDate: e.target.value }))}
-                                className="w-full px-3 py-2 text-[10px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-gray-900 hover:border-indigo-400"
-                              />
-                            </div>
-                          </div>
-                        )}
-
                         {/* Add Membership - only when membership is Yes */}
                         {editFormData.membership === 'Yes' && (!showAddMembershipDropdown ? (
                           <button
@@ -2285,7 +2294,21 @@ const fetchPrescriptions = async () => {
                                 <label className="block text-[9px] mb-0.5 font-medium text-gray-700">Select Membership to Add</label>
                                 <select
                                   value={selectedMembershipToAdd}
-                                  onChange={(e) => setSelectedMembershipToAdd(e.target.value)}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setSelectedMembershipToAdd(val);
+                                    if (val) {
+                                      const selected = allAvailableMemberships.find((m: any) => m._id === val);
+                                      if (selected) {
+                                        const start = new Date(addMembStartDate);
+                                        const end = new Date(start);
+                                        end.setMonth(end.getMonth() + (Number(selected.durationMonths) || 1));
+                                        setAddMembEndDate(formatPmDate(end));
+                                      }
+                                    } else {
+                                      setAddMembEndDate('');
+                                    }
+                                  }}
                                   className="text-gray-900 w-full px-2 py-1.5 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 border-gray-300 hover:border-indigo-400"
                                 >
                                   <option value="">Select membership</option>
@@ -2293,6 +2316,36 @@ const fetchPrescriptions = async () => {
                                     <option key={m._id} value={m._id}>{m.name} (₹{m.price}, {m.durationMonths} months)</option>
                                   ))}
                                 </select>
+                              </div>
+                              <div className="flex-1 min-w-[120px]">
+                                <label className="block text-[9px] mb-0.5 font-medium text-gray-700">Start Date</label>
+                                <input
+                                  type="date"
+                                  value={addMembStartDate}
+                                  onChange={(e) => {
+                                    const startStr = e.target.value;
+                                    setAddMembStartDate(startStr);
+                                    if (selectedMembershipToAdd) {
+                                      const selected = allAvailableMemberships.find((m: any) => m._id === selectedMembershipToAdd);
+                                      if (selected) {
+                                        const start = new Date(startStr);
+                                        const end = new Date(start);
+                                        end.setMonth(end.getMonth() + (Number(selected.durationMonths) || 1));
+                                        setAddMembEndDate(formatPmDate(end));
+                                      }
+                                    }
+                                  }}
+                                  className="w-full px-2 py-1.5 text-[10px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-gray-900"
+                                />
+                              </div>
+                              <div className="flex-1 min-w-[120px]">
+                                <label className="block text-[9px] mb-0.5 font-medium text-gray-700">End Date</label>
+                                <input
+                                  type="date"
+                                  value={addMembEndDate}
+                                  onChange={(e) => setAddMembEndDate(e.target.value)}
+                                  className="w-full px-2 py-1.5 text-[10px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-gray-900"
+                                />
                               </div>
                               <div className="flex gap-1">
                                 <button type="button" onClick={handlePmAddMembership} disabled={!selectedMembershipToAdd} className="px-3 py-1.5 bg-green-600 text-white text-[10px] font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">Add</button>
@@ -2320,30 +2373,55 @@ const fetchPrescriptions = async () => {
                                   const k = `${m.membershipId}|${m.startDate}|${m.endDate}`;
                                   const usage = pmMembershipUsageMap[k];
                                   return (
-                                    <div key={`${m.membershipId}-${originalIdx}`} className="flex flex-col text-[10px] border-b border-gray-100 pb-1 last:border-b-0">
-                                      <div className="flex items-center justify-between">
-                                        <div className="text-gray-800 font-medium">
-                                          {plan?.name || m.membershipId} • ₹{plan?.price}
-                                          {plan?.benefits?.priorityBooking && (
-                                            <span className="ml-1 px-1 py-0.5 rounded bg-amber-100 text-amber-700 text-[9px] font-medium">Priority</span>
-                                          )}
+                                    <div key={`${m.membershipId}-${originalIdx}`} className="p-2 rounded-lg border border-indigo-100 bg-indigo-50/30 hover:bg-indigo-50/50 transition-colors mb-2 last:mb-0">
+                                      <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-[11px] font-bold text-gray-900">{plan?.name || m.membershipId}</span>
+                                            {plan?.benefits?.priorityBooking && (
+                                              <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[8px] font-bold uppercase tracking-wider">Priority</span>
+                                            )}
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-2 text-[10px] text-gray-600 mb-1">
+                                            <div>
+                                              <span className="text-gray-500">Validity:</span>
+                                              <span className="ml-1 font-semibold text-gray-800">{m.startDate?.slice(0,10)} → {m.endDate?.slice(0,10)}</span>
+                                            </div>
+                                            <div>
+                                              <span className="text-gray-500">Price:</span>
+                                              <span className="ml-1 font-bold text-indigo-600">₹{plan?.price || 0}</span>
+                                            </div>
+                                          </div>
+                                          <div className="text-[9px] text-gray-500 bg-white/50 rounded px-1.5 py-1 border border-indigo-50">
+                                            Benefits: <span className="font-medium text-gray-700">{plan?.benefits?.freeConsultations || 0} consultations, {plan?.benefits?.discountPercentage || 0}% discount, {plan?.durationMonths || 0} months</span>
+                                          </div>
                                         </div>
                                         <button
                                           type="button"
-                                          className="px-2 py-0.5 bg-red-50 text-red-700 rounded border border-red-200 text-[9px]"
+                                          className="ml-2 p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                           onClick={() => handlePmRemoveMembership(originalIdx)}
-                                        >Remove</button>
+                                          title="Remove Membership"
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                        </button>
                                       </div>
-                                      <div className="text-gray-600 mt-0.5">{m.startDate?.slice(0,10)} → {m.endDate?.slice(0,10)} • {plan?.durationMonths} months</div>
-                                      <div className="text-gray-500 text-[9px] mt-0.5">Benefits: {plan?.benefits?.freeConsultations || 0} consultations, {plan?.benefits?.discountPercentage || 0}% discount</div>
+                                      
                                       {usage && !usage.isExpired && (usage.totalFreeConsultations || 0) > 0 && (() => {
                                         const total = usage.totalFreeConsultations || 0;
                                         const used = usage.usedFreeConsultations || 0;
                                         const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
                                         return (
-                                          <div className="mt-1">
-                                            <div className="flex items-center justify-between text-[9px] text-gray-700 mb-0.5"><span>Free consultations used</span><span>{used}/{total}</span></div>
-                                            <div className="w-full h-2 rounded bg-gray-200 overflow-hidden"><div className="h-full bg-indigo-500" style={{ width: `${pct}%` }} /></div>
+                                          <div className="mt-2 pt-2 border-t border-indigo-100">
+                                            <div className="flex items-center justify-between text-[9px] text-gray-700 mb-1">
+                                              <span className="font-medium">Free consultations used</span>
+                                              <span className="font-bold">{used} / {total}</span>
+                                            </div>
+                                            <div className="w-full h-1.5 rounded-full bg-gray-200 overflow-hidden">
+                                              <div 
+                                                className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500" 
+                                                style={{ width: `${pct}%` }} 
+                                              />
+                                            </div>
                                           </div>
                                         );
                                       })()}
@@ -2555,7 +2633,7 @@ const fetchPrescriptions = async () => {
                       
                       // Session calculations - use actual data from API
                       const totalSessions = pkg.totalSessions || 0;
-                      const usedSessions = pkg.usedSessions || (totalSessions - (pkg.remainingSessions || 0));
+                      const usedSessions = typeof pkg.usedSessions === 'number' ? pkg.usedSessions : (totalSessions - (pkg.remainingSessions || 0));
                       const remainingSessions = typeof pkg.remainingSessions === 'number' ? pkg.remainingSessions : Math.max(0, totalSessions - usedSessions);
                       const progressPercent = totalSessions > 0 ? Math.min(100, Math.round((usedSessions / totalSessions) * 100)) : 0;
                       
@@ -4192,7 +4270,7 @@ const fetchPrescriptions = async () => {
                           </div>
                           <div>
                             <h3 className="text-sm font-bold text-gray-900">Consent Form Status</h3>
-                            <p className="text-[10px] text-gray-500">Signed and pending consent forms</p>
+                            <p className="text-[10px] text-gray-500">Signed and sent consent forms</p>
                           </div>
                           {consentStatuses.length > 0 && (
                             <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
@@ -4234,7 +4312,7 @@ const fetchPrescriptions = async () => {
                                     ? 'bg-green-100 text-green-700'
                                     : 'bg-yellow-100 text-yellow-700'
                                 }`}>
-                                  {consent.status === 'signed' ? 'Signed' : 'Pending'}
+                                  {consent.status === 'signed' ? 'Signed' : 'Sent'}
                                 </span>
                               </div>
                               <div className="flex items-center justify-between mt-2">
@@ -4308,16 +4386,42 @@ const fetchPrescriptions = async () => {
                                   {pkg.approvalStatus}
                                 </span>
                               </div>
-                              <div className="grid grid-cols-2 gap-2 text-[10px]">
+                              <div className="grid grid-cols-2 gap-2 text-[10px] mb-3">
                                 <div>
                                   <span className="text-gray-500">Sessions:</span>
                                   <span className="ml-1 font-semibold text-gray-900">{pkg.totalSessions}</span>
                                 </div>
                                 <div>
-                                  <span className="text-gray-500">Price:</span>
+                                  <span className="text-gray-500">Total Price:</span>
                                   <span className="ml-1 font-bold text-teal-600">د.إ{pkg.totalPrice?.toFixed(2)}</span>
                                 </div>
                               </div>
+
+                              {/* Treatment Breakdown */}
+                              {pkg.treatments && pkg.treatments.length > 0 && (
+                                <div className="mt-2 space-y-2 border-t border-teal-100 pt-2">
+                                  <div className="text-[10px] font-bold text-gray-700 uppercase tracking-wider mb-1">Treatments Selected:</div>
+                                  {pkg.treatments.map((t: any, tIdx: number) => (
+                                    <div key={tIdx} className="bg-white/50 rounded p-2 border border-teal-50">
+                                      <div className="flex justify-between items-start mb-1">
+                                        <span className="text-[11px] font-bold text-gray-900">{t.treatmentName}</span>
+                                        <span className="text-[10px] font-bold text-teal-700">{t.sessions} {t.sessions === 1 ? 'Session' : 'Sessions'}</span>
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-gray-500">Session Price:</span>
+                                          <span className="font-semibold text-gray-800">د.إ{t.sessionPrice?.toFixed(2)}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-gray-500">Allocated Price:</span>
+                                          <span className="font-bold text-teal-600">د.إ{t.allocatedPrice?.toFixed(2)}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
                               {pkg.approvalStatus === 'pending' && (
                                 <button
                                   onClick={async () => {

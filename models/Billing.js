@@ -210,6 +210,10 @@ const billingSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    discountPercent: {
+      type: Number,
+      default: 0,
+    },
     originalAmount: {
       type: Number,
       default: 0,
