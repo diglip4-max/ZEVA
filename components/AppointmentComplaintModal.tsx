@@ -1365,6 +1365,23 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         if (data && data?.success) {
           setConsentSent(true);
           
+          // Show success popup
+          toast.success("Consent form sent successfully!", {
+            duration: 4000,
+            style: {
+              background: "#10B981",
+              color: "#fff",
+              fontWeight: "600",
+              padding: "14px 20px",
+              borderRadius: "10px",
+              fontSize: "14px",
+            },
+            iconTheme: {
+              primary: "#fff",
+              secondary: "#10B981",
+            },
+          });
+          
           // Log the sent consent form
           try {
             const token = getTokenByPath();
