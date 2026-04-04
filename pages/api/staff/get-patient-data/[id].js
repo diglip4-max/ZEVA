@@ -207,9 +207,17 @@ export default async function handler(req, res) {
         if (pkgToggle === "Yes") {
           invoice.package = "Yes";
           invoice.packageId = packageId || invoice.packageId || null;
+          if (req.body.packageTotalPrice !== undefined) invoice.packageTotalPrice = req.body.packageTotalPrice;
+          if (req.body.packagePaidAmount !== undefined) invoice.packagePaidAmount = req.body.packagePaidAmount;
+          if (req.body.packagePaymentStatus !== undefined) invoice.packagePaymentStatus = req.body.packagePaymentStatus;
+          if (req.body.packagePaymentMethod !== undefined) invoice.packagePaymentMethod = req.body.packagePaymentMethod;
         } else if (pkgToggle === "No") {
           invoice.package = "No";
           invoice.packageId = null;
+          invoice.packageTotalPrice = 0;
+          invoice.packagePaidAmount = 0;
+          invoice.packagePaymentStatus = "Unpaid";
+          invoice.packagePaymentMethod = "";
         }
 
         // Handle memberships array - update or remove based on formData
@@ -235,6 +243,13 @@ export default async function handler(req, res) {
             invoice.packages = packagesArray.map((p) => ({
               packageId: p.packageId,
               assignedDate: p.assignedDate ? new Date(p.assignedDate) : undefined,
+              validityInMonths: p.validityInMonths || 0,
+              startDate: p.startDate ? new Date(p.startDate) : undefined,
+              endDate: p.endDate ? new Date(p.endDate) : undefined,
+              totalPrice: p.totalPrice || 0,
+              paidAmount: p.paidAmount || 0,
+              paymentStatus: p.paymentStatus || "Unpaid",
+              paymentMethod: p.paymentMethod || "",
             }));
           }
         }

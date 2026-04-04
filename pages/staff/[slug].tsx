@@ -128,6 +128,7 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   "clinic-add-service": () => import("../staff/add-service"),
   "clinic-patient-registration": () => import("../clinic/patient-registration"),
   "clinic-patient-information": () => import("../clinic/patient-information"),
+  "clinic-patient-profile-view": () => import("../clinic/patient-profile-view"),
   "clinic-eodNotes": () => import("../staff/eodNotes"),
   "clinic-AddPettyCashForm": () => import("../staff/AddPettyCashForm"),
   "clinic-add-vendor": () => import("../staff/add-vendor"),

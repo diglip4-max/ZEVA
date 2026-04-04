@@ -63,6 +63,19 @@ const PackageSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+
+    validityInMonths: {
+      type: Number,
+      default: 0,
+    },
+
+    startDate: {
+      type: Date,
+    },
+
+    endDate: {
+      type: Date,
+    },
   },
   { timestamps: true }
 );

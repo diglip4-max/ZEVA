@@ -390,6 +390,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [createdPackage, setCreatedPackage] = useState<any>(null);
   const [pkgModalName, setPkgModalName] = useState("");
   const [pkgModalPrice, setPkgModalPrice] = useState("");
+  const [pkgModalValidityInMonths, setPkgModalValidityInMonths] = useState("");
+  const [pkgModalStartDate, setPkgModalStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [pkgModalEndDate, setPkgModalEndDate] = useState("");
   const [pkgTreatments, setPkgTreatments] = useState<Array<{ name: string; slug: string; type?: string; mainTreatment?: string | null }>>([]);
   const [pkgSelectedTreatments, setPkgSelectedTreatments] = useState<Array<{ treatmentName: string; treatmentSlug: string; sessions: number; allocatedPrice: number }>>([]);
   const [pkgTreatmentDropdownOpen, setPkgTreatmentDropdownOpen] = useState(false);
@@ -401,6 +404,19 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [addingRecService, setAddingRecService] = useState<Record<string, boolean>>({});
   // Track added services per patient (key format: "patientId_serviceId")
   const [addedRecServices, setAddedRecServices] = useState<Record<string, boolean>>({});
+
+  // Auto-calculate end date for package creation
+  useEffect(() => {
+    if (pkgModalStartDate && pkgModalValidityInMonths && !isNaN(parseInt(pkgModalValidityInMonths))) {
+      const start = new Date(pkgModalStartDate);
+      const months = parseInt(pkgModalValidityInMonths);
+      const end = new Date(start);
+      end.setMonth(start.getMonth() + months);
+      setPkgModalEndDate(end.toISOString().split('T')[0]);
+    } else {
+      setPkgModalEndDate("");
+    }
+  }, [pkgModalStartDate, pkgModalValidityInMonths]);
 
    // SEND CONSENT FORM MSG ON WHATSAPP
   const [sendMsgLoading, setSendMsgLoading] = useState<boolean>(false);
@@ -971,6 +987,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       const res = await axios.post("/api/clinic/packages", {
         name: pkgModalName.trim(),
         totalPrice: packagePrice,
+        validityInMonths: parseInt(pkgModalValidityInMonths) || 0,
+        startDate: pkgModalStartDate,
+        endDate: pkgModalEndDate,
         treatments: pkgSelectedTreatments,
       }, { headers });
       if (res.data?.success) {
@@ -982,6 +1001,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
             await axios.post("/api/clinic/assign-package-to-patient", {
               patientId: details.patientId,
               packageId: newPkgId,
+              validityInMonths: parseInt(pkgModalValidityInMonths) || 0,
+              startDate: pkgModalStartDate,
+              endDate: pkgModalEndDate,
             }, { headers });
             setPkgSuccess("Package created and added to patient profile!");
             setCreatedPackage(createdPkgData);
@@ -995,7 +1017,13 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           setPkgSuccess("Package created successfully!");
           setCreatedPackage(createdPkgData);
         }
-        setPkgModalName(""); setPkgModalPrice(""); setPkgSelectedTreatments([]); setPkgTreatmentSearch("");
+        setPkgModalName(""); 
+        setPkgModalPrice(""); 
+        setPkgModalValidityInMonths("");
+        setPkgModalStartDate(new Date().toISOString().split('T')[0]);
+        setPkgModalEndDate("");
+        setPkgSelectedTreatments([]); 
+        setPkgTreatmentSearch("");
       } else {
         setPkgError(res.data?.message || "Failed to create package");
       }
@@ -2072,7 +2100,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 </div>
                                 <span className="text-sm font-bold text-violet-800">Create New Package</span>
                               </div>
-                              <button type="button" onClick={() => { setShowCreatePackage(false); setPkgError(""); setPkgSuccess(""); setPkgModalName(""); setPkgModalPrice(""); setPkgSelectedTreatments([]); }} className="text-gray-400 hover:text-gray-600 transition-colors">
+                              <button type="button" onClick={() => { setShowCreatePackage(false); setPkgError(""); setPkgSuccess(""); setPkgModalName(""); setPkgModalPrice(""); setPkgModalValidityInMonths(""); setPkgModalStartDate(new Date().toISOString().split('T')[0]); setPkgModalEndDate(""); setPkgSelectedTreatments([]); }} className="text-gray-400 hover:text-gray-600 transition-colors">
                                 <XIcon size={16} />
                               </button>
                             </div>
@@ -2102,6 +2130,39 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   onChange={(e) => setPkgModalPrice(e.target.value)}
                                   placeholder="0.00"
                                   className="w-full pl-12 pr-4 py-2 text-sm font-semibold border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Validity & Dates */}
+                            <div className="grid grid-cols-3 gap-3 mb-3">
+                              <div>
+                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">Validity (Months)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={pkgModalValidityInMonths}
+                                  onChange={(e) => setPkgModalValidityInMonths(e.target.value)}
+                                  placeholder="e.g. 12"
+                                  className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">Start Date</label>
+                                <input
+                                  type="date"
+                                  value={pkgModalStartDate}
+                                  onChange={(e) => setPkgModalStartDate(e.target.value)}
+                                  className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">End Date</label>
+                                <input
+                                  type="date"
+                                  value={pkgModalEndDate}
+                                  readOnly
+                                  className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-violet-50 text-violet-700 cursor-not-allowed shadow-sm"
                                 />
                               </div>
                             </div>
@@ -2315,6 +2376,32 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                     <span className="text-[10px] text-gray-600">Price:</span>
                                     <span className="text-xs font-bold text-violet-600">AED {parseFloat(createdPackage.totalPrice || 0).toFixed(2)}</span>
                                   </div>
+
+                                  {/* Validity Display */}
+                                  {(createdPackage.validityInMonths || createdPackage.startDate || createdPackage.endDate) && (
+                                    <div className="bg-white/50 rounded p-1.5 border border-violet-100 mt-1">
+                                      <div className="flex items-center justify-between text-[9px] mb-1">
+                                        <span className="text-violet-600 font-semibold flex items-center gap-1">
+                                          <Clock className="w-2.5 h-2.5" />
+                                          Validity: {createdPackage.validityInMonths || 0} Months
+                                        </span>
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-2 text-[9px]">
+                                        <div>
+                                          <span className="text-gray-500">Start:</span>
+                                          <span className="text-gray-700 font-bold ml-1">
+                                            {createdPackage.startDate ? new Date(createdPackage.startDate).toLocaleDateString() : '-'}
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <span className="text-gray-500">End:</span>
+                                          <span className="text-gray-700 font-bold ml-1">
+                                            {createdPackage.endDate ? new Date(createdPackage.endDate).toLocaleDateString() : '-'}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
                                   
                                   {(createdPackage.treatments || []).length > 0 && (
                                     <div className="border-t border-violet-200 pt-2 mt-2">
@@ -3450,7 +3537,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 </div>
                                 <span className="text-sm font-bold text-violet-800">Create New Package</span>
                               </div>
-                              <button type="button" onClick={() => { setShowCreatePackage(false); setPkgError(""); setPkgSuccess(""); setPkgModalName(""); setPkgModalPrice(""); setPkgSelectedTreatments([]); }} className="text-gray-400 hover:text-gray-600 transition-colors"><XIcon size={16} /></button>
+                              <button type="button" onClick={() => { setShowCreatePackage(false); setPkgError(""); setPkgSuccess(""); setPkgModalName(""); setPkgModalPrice(""); setPkgModalValidityInMonths(""); setPkgModalStartDate(new Date().toISOString().split('T')[0]); setPkgModalEndDate(""); setPkgSelectedTreatments([]); }} className="text-gray-400 hover:text-gray-600 transition-colors"><XIcon size={16} /></button>
                             </div>
                             <div className="mb-3">
                               <label className="block text-xs font-semibold text-violet-700 mb-1.5">Package Name <span className="text-red-500">*</span></label>
@@ -3461,6 +3548,39 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               <div className="relative">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">AED</span>
                                 <input type="number" min="0" step="0.01" value={pkgModalPrice} onChange={(e) => setPkgModalPrice(e.target.value)} placeholder="0.00" className="w-full pl-12 pr-4 py-2 text-sm font-semibold border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm" />
+                              </div>
+                            </div>
+
+                            {/* Validity & Dates */}
+                            <div className="grid grid-cols-3 gap-3 mb-3">
+                              <div>
+                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">Validity (Months)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={pkgModalValidityInMonths}
+                                  onChange={(e) => setPkgModalValidityInMonths(e.target.value)}
+                                  placeholder="e.g. 12"
+                                  className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">Start Date</label>
+                                <input
+                                  type="date"
+                                  value={pkgModalStartDate}
+                                  onChange={(e) => setPkgModalStartDate(e.target.value)}
+                                  className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">End Date</label>
+                                <input
+                                  type="date"
+                                  value={pkgModalEndDate}
+                                  readOnly
+                                  className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-violet-50 text-violet-700 cursor-not-allowed shadow-sm"
+                                />
                               </div>
                             </div>
                             <div className="mb-3">
@@ -4326,7 +4446,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 </div>
                                 <span className="text-sm font-bold text-violet-800">Create New Package</span>
                               </div>
-                              <button type="button" onClick={() => { setShowCreatePackage(false); setPkgError(""); setPkgSuccess(""); setPkgModalName(""); setPkgModalPrice(""); setPkgSelectedTreatments([]); }} className="text-gray-400 hover:text-gray-600 transition-colors"><XIcon size={16} /></button>
+                              <button type="button" onClick={() => { setShowCreatePackage(false); setPkgError(""); setPkgSuccess(""); setPkgModalName(""); setPkgModalPrice(""); setPkgModalValidityInMonths(""); setPkgModalStartDate(new Date().toISOString().split('T')[0]); setPkgModalEndDate(""); setPkgSelectedTreatments([]); }} className="text-gray-400 hover:text-gray-600 transition-colors"><XIcon size={16} /></button>
                             </div>
                             <div className="mb-3">
                               <label className="block text-xs font-semibold text-violet-700 mb-1.5">Package Name <span className="text-red-500">*</span></label>
@@ -4337,6 +4457,39 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               <div className="relative">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">AED</span>
                                 <input type="number" min="0" step="0.01" value={pkgModalPrice} onChange={(e) => setPkgModalPrice(e.target.value)} placeholder="0.00" className="w-full pl-12 pr-4 py-2 text-sm font-semibold border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm" />
+                              </div>
+                            </div>
+
+                            {/* Validity & Dates */}
+                            <div className="grid grid-cols-3 gap-3 mb-3">
+                              <div>
+                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">Validity (Months)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={pkgModalValidityInMonths}
+                                  onChange={(e) => setPkgModalValidityInMonths(e.target.value)}
+                                  placeholder="e.g. 12"
+                                  className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">Start Date</label>
+                                <input
+                                  type="date"
+                                  value={pkgModalStartDate}
+                                  onChange={(e) => setPkgModalStartDate(e.target.value)}
+                                  className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">End Date</label>
+                                <input
+                                  type="date"
+                                  value={pkgModalEndDate}
+                                  readOnly
+                                  className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-violet-50 text-violet-700 cursor-not-allowed shadow-sm"
+                                />
                               </div>
                             </div>
                             <div className="mb-3">

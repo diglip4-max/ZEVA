@@ -53,6 +53,10 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: "Membership plan not found" });
       }
 
+      // Find original membership entry to copy payment details
+      const sourceMembEntry = (source.memberships || []).find(m => String(m.membershipId) === String(membershipId)) || {};
+      const { paymentStatus = "Unpaid", paidAmount = 0, paymentMethod = "" } = sourceMembEntry;
+
       const total = plan.benefits?.freeConsultations || 0;
       // Determine selected membership time window to count used consultations correctly
       let startDate = null;
@@ -119,6 +123,9 @@ export default async function handler(req, res) {
           toPatientId: target._id,
           transferredFreeConsultations: remaining,
           discountPercentageTransferred: plan.benefits?.discountPercentage || 0,
+          paymentStatus,
+          paidAmount,
+          paymentMethod,
           transferDate: new Date(),
         });
         await source.save({ session });
@@ -129,7 +136,14 @@ export default async function handler(req, res) {
           target.membershipId = membershipId; // keep single for backward-compat only if empty
         }
         target.memberships = Array.isArray(target.memberships) ? target.memberships : [];
-        target.memberships.push({ membershipId, startDate, endDate });
+        target.memberships.push({ 
+          membershipId, 
+          startDate, 
+          endDate,
+          paymentStatus,
+          paidAmount,
+          paymentMethod,
+        });
         target.membershipTransfers = target.membershipTransfers || [];
         target.membershipTransfers.push({
           type: "in",
@@ -140,6 +154,9 @@ export default async function handler(req, res) {
           fromPatientId: source._id,
           transferredFreeConsultations: remaining,
           discountPercentageTransferred: plan.benefits?.discountPercentage || 0,
+          paymentStatus,
+          paidAmount,
+          paymentMethod,
           transferDate: new Date(),
         });
         await target.save({ session });
@@ -172,6 +189,11 @@ export default async function handler(req, res) {
       if (!pkg) {
         return res.status(404).json({ success: false, message: "Package not found" });
       }
+
+      // Find original package entry to copy payment details
+      const sourcePkgEntry = source.packages.find(p => String(p.packageId) === String(packageId)) || {};
+      const { paymentStatus = "Unpaid", paidAmount = 0, paymentMethod = "" } = sourcePkgEntry;
+
       const total = Number(pkg.totalSessions) || 0;
 
       const billings = await Billing.find({
@@ -199,12 +221,21 @@ export default async function handler(req, res) {
           packageName: pkg.name,
           toPatientId: target._id,
           transferredSessions: remaining,
+          paymentStatus,
+          paidAmount,
+          paymentMethod,
           transferDate: new Date(),
         });
         await source.save({ session });
 
         target.packages = Array.isArray(target.packages) ? target.packages : [];
-        target.packages.push({ packageId, assignedDate: new Date() });
+        target.packages.push({ 
+          packageId, 
+          assignedDate: new Date(),
+          paymentStatus,
+          paidAmount,
+          paymentMethod,
+        });
         target.packageTransfers = target.packageTransfers || [];
         target.packageTransfers.push({
           type: "in",
@@ -212,6 +243,9 @@ export default async function handler(req, res) {
           packageName: pkg.name,
           fromPatientId: source._id,
           transferredSessions: remaining,
+          paymentStatus,
+          paidAmount,
+          paymentMethod,
           transferDate: new Date(),
         });
         await target.save({ session });

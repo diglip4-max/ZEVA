@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     return res.status(403).json({ success: false, message: clinicError || "Unable to determine clinic" });
   }
 
-  const { patientId, packageId } = req.body;
+  const { patientId, packageId, validityInMonths, startDate, endDate, totalPrice, paidAmount, paymentStatus, paymentMethod } = req.body;
   if (!patientId || !packageId) {
     return res.status(400).json({ success: false, message: "patientId and packageId are required" });
   }
@@ -45,17 +45,33 @@ export default async function handler(req, res) {
       return res.status(404).json({ success: false, message: "Patient not found or does not belong to this clinic" });
     }
 
+    const packageData = {
+      packageId,
+      assignedDate: new Date(),
+      validityInMonths: validityInMonths !== undefined ? parseInt(validityInMonths) : (pkg.validityInMonths || 0),
+      startDate: startDate ? new Date(startDate) : (pkg.startDate || new Date()),
+      endDate: endDate ? new Date(endDate) : (pkg.endDate || null),
+      totalPrice: totalPrice !== undefined ? parseFloat(totalPrice) : (pkg.totalPrice || 0),
+      paidAmount: paidAmount !== undefined ? parseFloat(paidAmount) : 0,
+      paymentStatus: paymentStatus || "Unpaid",
+      paymentMethod: paymentMethod || "",
+    };
+
     // Push package to patient's packages array
-    await PatientRegistration.findByIdAndUpdate(
+    const updatedPatient = await PatientRegistration.findByIdAndUpdate(
       patientId,
       {
-        $push: { packages: { packageId, assignedDate: new Date() } },
+        $push: { packages: packageData },
         $set: { package: "Yes" },
       },
       { new: true }
-    );
+    ).lean();
 
-    return res.status(200).json({ success: true, message: "Package assigned to patient successfully" });
+    return res.status(200).json({ 
+      success: true, 
+      message: "Package assigned to patient successfully",
+      package: packageData 
+    });
   } catch (error) {
     console.error("Error assigning package to patient:", error);
     return res.status(500).json({ success: false, message: "Failed to assign package to patient" });
