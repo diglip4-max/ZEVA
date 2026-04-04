@@ -48,7 +48,6 @@ const AddWorkflow: React.FC<AddWorkflowProps> = ({
         setName("");
         setDescription("");
         setEntity("Lead");
-        onClose();
         router.push(`/clinic/automation/${workflow._id}`);
       } else {
         setError(response.data.message || "An unknown error occurred.");

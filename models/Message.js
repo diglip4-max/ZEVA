@@ -179,6 +179,43 @@ const MessageSchema = new mongoose.Schema(
       default: [],
     },
 
+    // for whatsapp header and footer
+    headerText: { type: String },
+    footerText: { type: String },
+
+    replyButtons: [
+      // for whatsapp interactive message
+      {
+        type: {
+          type: String,
+          enum: ["reply"],
+          required: true,
+          default: "reply",
+        },
+        reply: {
+          id: { type: String, required: true },
+          title: { type: String, required: true },
+        },
+        _id: false,
+      },
+    ],
+
+    listSections: [
+      // for whatsapp interactive message
+      {
+        title: { type: String, required: true },
+        rows: [
+          {
+            id: { type: String, required: true },
+            title: { type: String, required: true },
+            description: { type: String },
+            _id: false, // Prevents auto-adding of _id for rows
+          },
+        ],
+        _id: false, // Prevents auto-adding of _id for sections
+      },
+    ],
+
     // for email gmail for tracking reply
     threadId: { type: String, default: "" },
     emailReceivedAt: { type: Date, default: null },

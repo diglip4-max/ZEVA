@@ -1,5 +1,17 @@
 import { Worker } from "bullmq";
+import "dotenv/config";
 import mongoose from "mongoose";
+
+// --- Error Handlers ---
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("❌ Unhandled Rejection at:", promise, "reason:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("❌ Uncaught Exception:", err);
+});
+// ----------------------
+
 import Lead from "../models/Lead.js";
 import Segment from "../models/Segment.js";
 import redis from "./redis.js";
@@ -36,8 +48,36 @@ import FormData from "form-data";
 import Provider from "../models/Provider.js";
 import PatientRegistration from "../models/PatientRegistration.js";
 import Appointment from "../models/Appointment.js";
-import Tag from "../models/Tag.js";
 import { generateAiResponse } from "./ai.js";
+import Users from "../models/Users.js";
+import "./queue.js";
+
+// --- Helper to add listeners to all workers ---
+const addWorkerListeners = (worker, queueName) => {
+  // ✅ Add this listener to see if worker receives jobs at all
+  worker.on("waiting", (jobId) => {
+    console.log(`⏳ Worker for ${queueName} sees waiting job: ${jobId}`);
+  });
+  worker.on("active", (job) => {
+    console.log(`🏃 Worker for ${queueName} is processing job ${job.id}`);
+  });
+  worker.on("completed", (job, returnValue) => {
+    console.log(`✅ Worker for ${queueName} finished job ${job.id}`);
+  });
+  worker.on("failed", (job, err) => {
+    console.error(
+      `❌ Worker for ${queueName} failed job ${job?.id}:`,
+      err.message,
+    );
+  });
+  worker.on("error", (err) => {
+    console.error(`❌ Worker for ${queueName} connection error:`, err);
+  });
+  worker.on("ready", () => {
+    console.log(`📡 Worker for ${queueName} is ready and listening`);
+  });
+};
+// ----------------------------------------------
 
 console.log("📌 Import Leads Worker Started...");
 dbConnect()
@@ -51,6 +91,7 @@ dbConnect()
 const importLeadsFromFileWorker = new Worker(
   "importLeadsFromFileQueue",
   async (job) => {
+    console.log(`Processing job ${job.id} in importLeadsFromFileQueue`);
     console.time(`Job-${job.id}`);
     console.log(`🚀 Processing Job ID: ${job.id}`);
 
@@ -179,6 +220,7 @@ const importLeadsFromFileWorker = new Worker(
     },
   },
 );
+addWorkerListeners(importLeadsFromFileWorker, "importLeadsFromFileQueue");
 
 // Helper to add leads to segment
 async function addLeadsToSegment(segmentId, leadIds) {
@@ -419,6 +461,7 @@ export const workflowWorker = new Worker(
     concurrency: 10,
   },
 );
+addWorkerListeners(workflowWorker, "workflowQueue");
 
 workflowWorker.on("completed", (job, returnValue) => {
   console.log(`✅ Workflow job ${job.id} completed successfully`);
@@ -547,6 +590,38 @@ export const sendWhatsappActionWorker = new Worker(
           });
           return;
         }
+        let assignedUsers = lead?.assignedTo || [];
+        // last index of assignedUsers
+        let lastAssignedUserData =
+          assignedUsers?.length > 0
+            ? assignedUsers[assignedUsers.length - 1]
+            : {};
+        let lastAssignedUser = await Users.findById(lastAssignedUserData?.user);
+        if (!lastAssignedUser) {
+          // Update Workflow History with failed
+          await WorkflowHistory.findByIdAndUpdate(historyId, {
+            status: "failed",
+            error: "User not found",
+          });
+          return;
+        }
+        let findAssignedUserLead = await Lead.findOne({
+          clinicId: workflow?.clinicId,
+          phone: lastAssignedUser?.user?.phone,
+        });
+        if (!findAssignedUserLead) {
+          // Update Workflow History with failed
+          findAssignedUserLead = new Lead({
+            clinicId: workflow?.clinicId,
+            name: lastAssignedUser?.user?.name,
+            phone: lastAssignedUser?.user?.phone,
+            email: lastAssignedUser?.user?.email,
+            source: "Other",
+            customSource: "Zeva Automation",
+          });
+          await findAssignedUserLead.save();
+        }
+        lead = findAssignedUserLead;
       } else {
         // TODO: For custom recipient or custom phone number
 
@@ -872,6 +947,10 @@ export const sendWhatsappActionWorker = new Worker(
         provider: provider._id,
         bodyParameters,
         headerParameters,
+        headerText,
+        footerText,
+        replyButtons,
+        listSections,
       });
       // assign this message as a recentMessage
       conversation.recentMessage = newMessage._id;
@@ -1058,6 +1137,7 @@ export const sendWhatsappActionWorker = new Worker(
     concurrency: 10,
   },
 );
+addWorkerListeners(sendWhatsappActionWorker, "sendWhatsappActionQueue");
 
 export const sendEmailActionWorker = new Worker(
   "sendEmailActionQueue",

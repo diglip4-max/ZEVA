@@ -35,7 +35,7 @@ const RestApiActionModal: React.FC<RestApiActionModalProps> = ({
   onUpdate,
   entity = "Lead",
 }) => {
-  const [apiMethod, setApiMethod] = useState<string>("POST");
+  const [apiMethod, setApiMethod] = useState<string>("GET");
   const [apiEndPointUrl, setApiEndPointUrl] = useState<string>("");
   const [apiPayloadType, setApiPayloadType] = useState<string>("JSON");
   const [apiAuthType, setApiAuthType] = useState<string>("NO_AUTH");
@@ -48,9 +48,11 @@ const RestApiActionModal: React.FC<RestApiActionModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"general" | "headers" | "params">(
-    "general",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "general" | "headers" | "params" | "test"
+  >("general");
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<any>(null);
 
   const fetchAction = useCallback(async () => {
     if (!actionId) return;
@@ -66,7 +68,7 @@ const RestApiActionModal: React.FC<RestApiActionModalProps> = ({
       );
       if (data.success) {
         const params = data.data.parameters || {};
-        setApiMethod(params.apiMethod || "POST");
+        setApiMethod(params.apiMethod || "GET");
         setApiEndPointUrl(params.apiEndPointUrl || "");
         setApiPayloadType(params.apiPayloadType || "JSON");
         setApiAuthType(params.apiAuthType || "NO_AUTH");
@@ -116,6 +118,59 @@ const RestApiActionModal: React.FC<RestApiActionModalProps> = ({
       setError("Failed to save changes.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleTestApi = async () => {
+    setIsTesting(true);
+    setTestResult(null);
+    setActiveTab("test");
+    try {
+      const token = getTokenByPath();
+      // pass actionId to test-api endpoint
+      const { data: savedActionData } = await axios.put(
+        `/api/workflows/actions/update/${actionId}`,
+        {
+          parameters: {
+            apiMethod,
+            apiEndPointUrl,
+            apiPayloadType,
+            apiAuthType,
+            apiHeaders,
+            apiParameters,
+          },
+        },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (savedActionData.success) {
+        onUpdate(savedActionData.data);
+      }
+      const { data } = await axios.post(
+        "/api/workflows/actions/test-api",
+        {
+          actionId,
+          apiMethod,
+          apiEndPointUrl,
+          apiPayloadType,
+          apiAuthType,
+          apiHeaders,
+          apiParameters,
+        },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      setTestResult(data);
+    } catch (err: any) {
+      console.error("Error testing API:", err);
+      setTestResult({
+        success: false,
+        data: {
+          status: 500,
+          statusText: "Internal Server Error",
+          body: err.message,
+        },
+      });
+    } finally {
+      setIsTesting(false);
     }
   };
 
@@ -216,6 +271,17 @@ const RestApiActionModal: React.FC<RestApiActionModalProps> = ({
             )}
           >
             Parameters
+          </button>
+          <button
+            onClick={() => setActiveTab("test")}
+            className={cn(
+              "px-4 py-3 text-xs font-bold uppercase tracking-widest transition-all border-b-2 cursor-pointer",
+              activeTab === "test"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-400 hover:text-gray-600",
+            )}
+          >
+            Test Result
           </button>
         </div>
 
@@ -408,24 +474,114 @@ const RestApiActionModal: React.FC<RestApiActionModalProps> = ({
                   )}
                 </div>
               )}
+
+              {activeTab === "test" && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-gray-700">
+                      API Test Result
+                    </h4>
+                    {testResult && (
+                      <span
+                        className={cn(
+                          "px-2 py-1 rounded text-[10px] font-bold uppercase",
+                          testResult.success
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700",
+                        )}
+                      >
+                        {testResult.data.status} {testResult.data.statusText}
+                      </span>
+                    )}
+                  </div>
+
+                  {!testResult && !isTesting && (
+                    <div className="p-8 border-2 border-dashed border-gray-100 rounded-2xl text-center">
+                      <p className="text-xs text-gray-400 font-medium italic">
+                        Click "Test API" to see the response
+                      </p>
+                    </div>
+                  )}
+
+                  {isTesting && (
+                    <div className="flex flex-col items-center justify-center h-40 gap-3 text-gray-400">
+                      <Loader2 className="w-8 h-8 animate-spin" />
+                      <p className="text-sm font-medium">Sending request...</p>
+                    </div>
+                  )}
+
+                  {testResult && !isTesting && (
+                    <div className="space-y-4">
+                      <div className="p-4 bg-gray-900 rounded-xl overflow-hidden">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                            Response Body
+                          </span>
+                          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                            {testResult.data.duration}ms
+                          </span>
+                        </div>
+                        <pre className="text-xs text-blue-400 font-mono overflow-x-auto max-h-60 whitespace-pre-wrap">
+                          {JSON.stringify(testResult.data.body, null, 2)}
+                        </pre>
+                      </div>
+
+                      <div className="space-y-2">
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">
+                          Response Headers
+                        </span>
+                        <div className="bg-gray-50 rounded-xl border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+                          {Object.entries(testResult.data.headers).map(
+                            ([key, value]: [string, any]) => (
+                              <div
+                                key={key}
+                                className="flex justify-between p-3 text-[10px]"
+                              >
+                                <span className="font-bold text-gray-500">
+                                  {key}
+                                </span>
+                                <span className="text-gray-700 truncate ml-4">
+                                  {String(value)}
+                                </span>
+                              </div>
+                            ),
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-100 bg-gray-50/50">
+        <div className="p-6 border-t border-gray-100 bg-gray-50/30">
           <div className="flex gap-3">
             <button
               onClick={onClose}
               className="flex-1 px-4 py-3 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-50 transition-all shadow-sm"
-              disabled={isSaving}
+              disabled={isSaving || isTesting}
             >
               Cancel
             </button>
             <button
+              onClick={handleTestApi}
+              disabled={isSaving || isTesting || !apiEndPointUrl}
+              className="flex-1 px-4 py-3 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 disabled:opacity-50 disabled:shadow-none"
+            >
+              {isTesting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Globe className="w-4 h-4" />
+              )}
+              Test API
+            </button>
+            <button
               onClick={handleSave}
-              disabled={isSaving || isLoading}
-              className="flex-1 px-4 py-3 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center justify-center gap-2"
+              disabled={isSaving || isLoading || isTesting}
+              className="flex-[1.5] px-4 py-3 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center justify-center gap-2"
             >
               {isSaving ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

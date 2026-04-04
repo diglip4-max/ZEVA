@@ -65,6 +65,7 @@ import SendWhatsappActionModal from "../_components/SendWhatsappActionModal";
 import IncomingMessageTriggerModal from "../_components/IncomingMessageTriggerModal";
 import BookAppointmentActionModal from "../_components/BookAppointmentActionModal";
 import AddTagActionModal from "../_components/AddTagActionModal";
+import toast from "react-hot-toast";
 
 // Utility for tailwind classes
 function cn(...inputs: ClassValue[]) {
@@ -231,7 +232,7 @@ const ConditionNode = ({ id, data, selected }: any) => (
   <NodeWrapper
     selected={selected}
     title={data.label || "Condition"}
-    icon={Filter}
+    icon={data.subType === "if_else" ? Split : Filter}
     color={data.color || "bg-purple-500"}
     description="Branching logic"
     onDelete={() => data.onDeleteNode(id)}
@@ -440,8 +441,6 @@ const WorkflowEditor = () => {
     title: "",
     message: "",
   });
-
-  console.log({ nodes, edges });
 
   const onDeleteNode = useCallback((nodeId: string) => {
     setDeleteModal({
@@ -682,15 +681,14 @@ const WorkflowEditor = () => {
           },
         );
         if (data.success) {
-          console.log("Workflow saved successfully");
-          alert("Workflow saved successfully!");
+          toast.success("Workflow saved successfully!");
         } else {
           console.error("Error saving workflow:", data.message);
-          alert("Failed to save workflow.");
+          toast.error("Failed to save workflow.");
         }
       } catch (err) {
         console.error("Error saving workflow:", err);
-        alert("Failed to save workflow.");
+        toast.error("Failed to save workflow.");
       }
     }
   }, [reactFlowInstance, workflowId]);
@@ -854,18 +852,9 @@ const WorkflowEditor = () => {
           payload = { type: subType, conditions: [] };
         }
 
-        console.log(`Creating ${nodeType}:`, payload);
-        console.log({
-          apiEndpoint,
-          payload,
-        });
-
         const { data } = await axios.post(apiEndpoint, payload, {
           headers: { Authorization: `Bearer ${token}` },
         });
-
-        console.log(`Created ${nodeType} with ID:`, dbRecordId);
-        console.log({ responseData: data });
 
         if (data.success) {
           dbRecordId = data.data._id;
@@ -1173,13 +1162,13 @@ const WorkflowEditor = () => {
                     icon: Zap,
                     color: "bg-yellow-500",
                   },
-                  {
-                    subType: "book_appointment",
-                    label: "Book Appointment",
-                    description: "Automatically book an appointment",
-                    icon: Calendar,
-                    color: "bg-indigo-500",
-                  },
+                  // {
+                  //   subType: "book_appointment",
+                  //   label: "Book Appointment",
+                  //   description: "Automatically book an appointment",
+                  //   icon: Calendar,
+                  //   color: "bg-indigo-500",
+                  // },
                   workflow?.entity === "Lead" && {
                     subType: "add_tag",
                     label: "Add Tag",
@@ -1364,7 +1353,6 @@ const WorkflowEditor = () => {
         actionId={delayModal.actionId}
         onUpdate={() => {
           fetchWorkflow();
-          console.log("Delay action updated");
         }}
       />
       {/* Rest API Action Modal */}
@@ -1374,7 +1362,6 @@ const WorkflowEditor = () => {
         actionId={restApiModal.actionId}
         onUpdate={() => {
           fetchWorkflow();
-          console.log("Rest API action updated");
         }}
         entity={workflow?.entity}
       />
@@ -1386,7 +1373,6 @@ const WorkflowEditor = () => {
         conditionId={filterModal.conditionId}
         onUpdate={() => {
           fetchWorkflow();
-          console.log("Filter condition updated");
         }}
         entity={workflow?.entity}
       />
@@ -1398,7 +1384,6 @@ const WorkflowEditor = () => {
         conditionId={ifelseModal.conditionId}
         onUpdate={() => {
           fetchWorkflow();
-          console.log("If/Else condition updated");
         }}
         entity={workflow?.entity}
       />
@@ -1410,7 +1395,6 @@ const WorkflowEditor = () => {
         triggerId={webhookModal.triggerId}
         onUpdate={() => {
           fetchWorkflow();
-          console.log("Webhook trigger updated");
         }}
       />
 
@@ -1423,7 +1407,6 @@ const WorkflowEditor = () => {
         triggerId={incomingMessageModal.triggerId}
         onUpdate={() => {
           fetchWorkflow();
-          console.log("Incoming message trigger updated");
         }}
       />
 
@@ -1434,7 +1417,6 @@ const WorkflowEditor = () => {
         actionId={assignOwnerModal.actionId}
         onUpdate={() => {
           fetchWorkflow();
-          console.log("Assign owner action updated");
         }}
       />
 
@@ -1445,7 +1427,6 @@ const WorkflowEditor = () => {
         actionId={addToSegmentModal.actionId}
         onUpdate={() => {
           fetchWorkflow();
-          console.log("Add to segment action updated");
         }}
       />
 
@@ -1456,7 +1437,6 @@ const WorkflowEditor = () => {
         actionId={aiComposerModal.actionId}
         onUpdate={() => {
           fetchWorkflow();
-          console.log("AI composer action updated");
         }}
         entity={workflow?.entity}
       />
@@ -1468,7 +1448,6 @@ const WorkflowEditor = () => {
         actionId={sendWhatsappModal.actionId}
         onUpdate={() => {
           fetchWorkflow();
-          console.log("Send WhatsApp action updated");
         }}
         entity={workflow?.entity}
       />
@@ -1480,7 +1459,6 @@ const WorkflowEditor = () => {
         actionId={bookAppointmentModal.actionId}
         onUpdate={() => {
           fetchWorkflow();
-          console.log("Book Appointment action updated");
         }}
         entity={workflow?.entity}
       />
@@ -1492,7 +1470,6 @@ const WorkflowEditor = () => {
         actionId={addTagModal.actionId}
         onUpdate={() => {
           fetchWorkflow();
-          console.log("Add Tag action updated");
         }}
       />
     </div>
