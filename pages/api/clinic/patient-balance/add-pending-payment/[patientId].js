@@ -79,8 +79,8 @@ export default async function handler(req, res) {
       }
     }
 
-    // Create billing record for advance payment
-    const invoiceNumber = `ADV-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    // Create billing record for pending payment
+    const invoiceNumber = `PAY-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const initialMultiplePayments =
       multiplePayments && multiplePayments.length > 0
@@ -90,23 +90,22 @@ export default async function handler(req, res) {
     const billing = new Billing({
       clinicId,
       patientId,
-      appointmentId: null, // Explicitly set to null to satisfy potentially cached schema requirements
+      appointmentId: null,
       invoiceNumber,
       invoicedBy: invoicedBy || clinicUser.name || "System",
-      service: "Service", // Using 'Service' as a general type
-      treatment: notes || "Advance Payment",
-      amount: 0, // In advance payments, billed amount for a service is 0
+      service: "Service",
+      treatment: notes || "Pending Balance Payment",
+      amount: Number(amount), // Set amount to payment so that effectiveDue = paid and advance becomes 0
       paid: Number(amount),
-      advance: Number(amount),
-      originalAmount: Number(amount),
-      pending: 0, // Explicitly set to 0 to satisfy potentially cached schema requirements
+      pendingUsed: Number(amount), // This reduces the historical pending balance
+      isAdvanceOnly: true, // Use this flag to hide from service invoices list
+      pending: 0, // Explicitly set to 0 to satisfy schema requirements
       paymentMethod: paymentMethod || initialMultiplePayments[0].paymentMethod,
       status: "Completed",
-      isAdvanceOnly: true,
       multiplePayments: initialMultiplePayments,
       paymentHistory: [
         {
-          amount: 0,
+          amount: Number(amount),
           paid: Number(amount),
           pending: 0,
           paymentMethod:
@@ -123,14 +122,14 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      message: "Advance payment added successfully",
+      message: "Pending payment recorded successfully",
       data: billing,
     });
   } catch (error) {
-    console.error("Error adding advance payment:", error);
+    console.error("Error adding pending payment:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || "Failed to add advance payment",
+      message: error.message || "Failed to add pending payment",
     });
   }
 }

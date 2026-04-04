@@ -1,6 +1,6 @@
 "use client";
 import React from 'react';
-import { Package, CheckCircle, Clock } from 'lucide-react';
+import { Package} from 'lucide-react';
 
 const UserPackagesGuide: React.FC = () => {
   return (

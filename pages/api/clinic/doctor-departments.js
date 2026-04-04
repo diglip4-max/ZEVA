@@ -31,8 +31,9 @@ export default async function handler(req, res) {
   const { doctorStaffId } = req.query;
 
   if (req.method === "GET") {
-    // ✅ Check permission for reading doctor departments (only for agent, doctorStaff roles)
-    // Clinic, doctor, and staff roles have full access by default, admin bypasses
+    // ✅ Bypass permission check for reading doctor departments for agent/doctorStaff roles
+    // This is required for Smart Recommendations in the Complaint Modal
+    /*
     if (!isAdmin && clinicId && ["agent", "doctorStaff"].includes(clinicAdmin.role)) {
       const { checkAgentPermission } = await import("../agent/permissions-helper");
       const result = await checkAgentPermission(
@@ -51,6 +52,7 @@ export default async function handler(req, res) {
         });
       }
     }
+    */
     if (!doctorStaffId) {
       return res.status(400).json({ success: false, message: "doctorStaffId is required" });
     }

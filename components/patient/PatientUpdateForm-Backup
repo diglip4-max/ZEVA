@@ -159,8 +159,6 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
   const [membershipUsage, setMembershipUsage] = useState(null);
   const [selectedPackageId, setSelectedPackageId] = useState("");
   const [packageUsage, setPackageUsage] = useState(null);
-  const [showAddMembership, setShowAddMembership] = useState(false);
-  const [showAddPackage, setShowAddPackage] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -314,170 +312,6 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
     };
     fetchLists();
   }, [authToken]);
-
-  // Handle adding membership from dropdown
-  const handleAddMembership = useCallback(() => {
-    if (!selectedMembershipId) return;
-    
-    const selected = memberships.find((m) => m._id === selectedMembershipId);
-    if (!selected) return;
-    
-    const start = new Date();
-    const end = new Date(start);
-    const months = Number(selected.durationMonths) || 1;
-    end.setMonth(end.getMonth() + months);
-    const startStr = formatDate(start);
-    const endStr = formatDate(end);
-    
-    setFormData((prev) => {
-      const list = Array.isArray(prev.memberships) ? prev.memberships : [];
-      // Check if this membership is already added
-      const exists = list.some((x) => x.membershipId === selectedMembershipId);
-      if (exists) {
-        showToast("This membership is already added", "error");
-        return prev;
-      }
-      const item = { 
-        membershipId: selectedMembershipId, 
-        startDate: startStr, 
-        endDate: endStr 
-      };
-      return {
-        ...prev,
-        memberships: [...list, item],
-      };
-    });
-    
-    setSelectedMembershipId("");
-    setShowAddMembership(false);
-    showToast("Membership added successfully", "success");
-  }, [selectedMembershipId, memberships, formatDate]);
-
-  // Handle removing membership
-  const handleRemoveMembership = useCallback((indexToRemove) => {
-    setFormData((prev) => {
-      const list = Array.isArray(prev.memberships) ? prev.memberships : [];
-      const newList = list.filter((_, idx) => idx !== indexToRemove);
-      
-      // If this was the last membership, also clear the main membership fields
-      if (newList.length === 0 && prev.membership === "Yes") {
-        return {
-          ...prev,
-          memberships: newList,
-          membershipId: "",
-          membershipStartDate: "",
-          membershipEndDate: "",
-          membership: "No",
-        };
-      }
-      
-      return {
-        ...prev,
-        memberships: newList,
-      };
-    });
-    // Clear the selected membership ID if it was removed
-    setSelectedMembershipId("");
-  }, []);
-
-  // Handle adding package from dropdown
-  const handleAddPackage = useCallback(() => {
-    if (!selectedPackageId) return;
-    
-    setFormData((prev) => {
-      const list = Array.isArray(prev.packages) ? prev.packages : [];
-      // Check if this package is already added
-      const exists = list.some((x) => x.packageId === selectedPackageId);
-      if (exists) {
-        showToast("This package is already added", "error");
-        return prev;
-      }
-      const item = { 
-        packageId: selectedPackageId, 
-        assignedDate: new Date().toISOString() 
-      };
-      return {
-        ...prev,
-        packages: [...list, item],
-      };
-    });
-    
-    setSelectedPackageId("");
-    setShowAddPackage(false);
-    showToast("Package added successfully", "success");
-  }, [selectedPackageId]);
-
-  // Handle removing package
-  const handleRemovePackage = useCallback((indexToRemove) => {
-    setFormData((prev) => {
-      const list = Array.isArray(prev.packages) ? prev.packages : [];
-      const newList = list.filter((_, idx) => idx !== indexToRemove);
-      
-      // If this was the last package, also clear the main package fields
-      if (newList.length === 0 && prev.package === "Yes") {
-        return {
-          ...prev,
-          packages: newList,
-          packageId: "",
-          package: "No",
-        };
-      }
-      
-      return {
-        ...prev,
-        packages: newList,
-      };
-    });
-    // Clear the selected package ID if it was removed
-    setSelectedPackageId("");
-  }, []);
-
-  // Fetch membership usage when membership is selected for transfer
-  useEffect(() => {
-    if (showTransfer && transferType === "membership" && selectedMembershipId && resolvedId && authToken) {
-      const fetchMembershipUsage = async () => {
-        try {
-          const qs = new URLSearchParams();
-          qs.set("membershipId", selectedMembershipId);
-          const res = await fetch(`/api/clinic/membership-usage/${resolvedId}?${qs.toString()}`, {
-            headers: { Authorization: `Bearer ${authToken}` },
-          });
-          const data = await res.json();
-          if (data.success) {
-            setMembershipUsage(data);
-          }
-        } catch (error) {
-          console.error('Error fetching membership usage:', error);
-        }
-      };
-      fetchMembershipUsage();
-    }
-  }, [showTransfer, transferType, selectedMembershipId, resolvedId, authToken]);
-
-  // Fetch package usage when package is selected for transfer
-  useEffect(() => {
-    if (showTransfer && transferType === "package" && selectedPackageId && resolvedId && authToken && packages.length > 0) {
-      const fetchPackageUsage = async () => {
-        try {
-          const pkg = packages.find(p => p._id === selectedPackageId);
-          if (!pkg) return;
-          const qs = new URLSearchParams();
-          qs.set("packageName", encodeURIComponent(pkg.name));
-          const res = await fetch(`/api/clinic/package-usage/${resolvedId}?${qs.toString()}`, {
-            headers: { Authorization: `Bearer ${authToken}` },
-          });
-          const data = await res.json();
-          if (data.success) {
-            const usage = (data.packageUsage || []).find(u => u.packageName === pkg.name);
-            setPackageUsage(usage || null);
-          }
-        } catch (error) {
-          console.error('Error fetching package usage:', error);
-        }
-      };
-      fetchPackageUsage();
-    }
-  }, [showTransfer, transferType, selectedPackageId, resolvedId, authToken, packages]);
 
   // Fetch Consent Forms
   useEffect(() => {
@@ -694,8 +528,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
           if (res.ok) {
             const data = await res.json();
             if (data.success) {
-              const filteredBillings = (data.billings || []).filter(b => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance");
-              setBillingHistory(filteredBillings);
+              setBillingHistory(data.billings || []);
             }
           }
         } catch (err) {
@@ -856,7 +689,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
 
   const handleFullUpdate = useCallback(async () => {
     if (!invoiceInfo) return;
-    const fieldErrors = [];
+    const fieldErrors = {};
     // API validation: firstName is required
     if (!formData.firstName?.trim()) fieldErrors.firstName = "First Name is required";
     // Database model validation: mobileNumber is also required
@@ -890,8 +723,8 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
       showToast(firstError, "error");
       return;
     }
-  
-  
+
+
     const invoiceId = invoiceInfo?._id;
     const payload = {
       updateType: "details",
@@ -919,11 +752,11 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
       memberships: Array.isArray(formData.memberships) ? formData.memberships : [],
       packages: Array.isArray(formData.packages) ? formData.packages : [],
     };
-  
+
     try {
       // Set flag to prevent useEffect side effects during update
       setIsProcessingUpdate(true);
-        
+      
       const res = await fetch(`/api/staff/get-patient-data/${invoiceId}`, {
         method: "PUT",
         headers: {
@@ -932,7 +765,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
         },
         body: JSON.stringify(payload),
       });
-  
+
       const result = await res.json();
       if (res.ok) {
         const updated = result.updatedInvoice;
@@ -944,32 +777,10 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
           ...updated,
           invoicedDate: updated.invoicedDate ? updated.invoicedDate.slice(0, 16) : "",
         });
-          
         // Reset flags after state updates are processed with longer timeout to prevent useEffects from running
         setTimeout(() => {
           setIsProcessingUpdate(false);
           setIsUpdatingFromServer(false);
-          // Refresh memberships and packages data from API after successful update
-          const refreshLists = async () => {
-            try {
-              const headers = { Authorization: `Bearer ${authToken}` };
-              const [mRes, pRes] = await Promise.all([
-                fetch("/api/clinic/memberships", { headers }),
-                fetch("/api/clinic/packages", { headers }),
-              ]);
-              const mData = await mRes.json();
-              const pData = await pRes.json();
-              if (mData.success && Array.isArray(mData.memberships)) {
-                setMemberships(mData.memberships);
-              }
-              if (pData.success && Array.isArray(pData.packages)) {
-                setPackages(pData.packages);
-              }
-            } catch (err) {
-              console.error("Error refreshing lists:", err);
-            }
-          };
-          refreshLists();
         }, 100);
         showToast(result.message || "Patient updated successfully", "success");
         if (onUpdated) onUpdated();
@@ -988,7 +799,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
       setIsProcessingUpdate(false);
       showToast("Network error. Try again later.", "error");
     }
-  }, [authToken, formData, invoiceInfo, onUpdated, onClose]);
+  }, [authToken, formData, invoiceInfo, onUpdated]);
 
   const handleSubmitTransfer = useCallback(async () => {
     if (!authToken || !resolvedId) return;
@@ -1310,7 +1121,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                       {/* Row 1: Referred By */}
                       <div className="w-full">
                         <label className="block text-[10px] mb-0.5 font-medium text-gray-700">
-                          Referred by
+                          Referred By
                         </label>
                         <select
                           name="referredBy"
@@ -1418,59 +1229,6 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                               </div>
                               
                               <div className="mt-2">
-                                {/* Add Membership Button and Dropdown */}
-                                {!showAddMembership && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowAddMembership(true)}
-                                    className="px-3 py-1.5 bg-indigo-600 text-white text-[10px] font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-1"
-                                  >
-                                    <span>+ Add Another Membership</span>
-                                  </button>
-                                )}
-                                
-                                {showAddMembership && (
-                                  <div className="border border-indigo-200 rounded-lg p-2 bg-indigo-50">
-                                    <div className="flex flex-wrap gap-2 items-end mb-2">
-                                      <div className="flex-1 min-w-[150px]">
-                                        <label className="block text-[9px] mb-0.5 font-medium text-gray-700">Select Membership to Add</label>
-                                        <select
-                                          value={selectedMembershipId}
-                                          onChange={(e) => setSelectedMembershipId(e.target.value)}
-                                          className="text-gray-900 w-full px-2 py-1.5 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 border-gray-300 hover:border-indigo-400"
-                                        >
-                                          <option value="">Select membership</option>
-                                          {memberships.filter(m => m.isActive !== false).map(m => (
-                                            <option key={m._id} value={m._id}>
-                                              {m.name} (₹{m.price}, {m.durationMonths} months)
-                                            </option>
-                                          ))}
-                                        </select>
-                                      </div>
-                                      <div className="flex gap-1">
-                                        <button
-                                          type="button"
-                                          onClick={handleAddMembership}
-                                          disabled={!selectedMembershipId}
-                                          className="px-3 py-1.5 bg-green-600 text-white text-[10px] font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                          Add
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setShowAddMembership(false);
-                                            setSelectedMembershipId("");
-                                          }}
-                                          className="px-3 py-1.5 bg-gray-300 text-gray-700 text-[10px] font-medium rounded-lg hover:bg-gray-400 transition-colors"
-                                        >
-                                          Cancel
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                                
                                 {(() => {
                                   if (!(formData.membership === "Yes" && formData.membershipId && formData.membershipStartDate && formData.membershipEndDate)) return null;
                                   const k = `${formData.membershipId}|${formData.membershipStartDate}|${formData.membershipEndDate}`;
@@ -1512,7 +1270,8 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                                                 type="button"
                                                 className="px-2 py-0.5 bg-red-50 text-red-700 rounded border border-red-200"
                                                 onClick={() => {
-                                                  handleRemoveMembership(idx);
+                                                  const list = (formData.memberships || []).filter((_, i) => i !== idx);
+                                                  setFormData((prev) => ({ ...prev, memberships: list }));
                                                 }}
                                               >
                                                 Remove
@@ -1610,59 +1369,6 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
 
                           {formData.package === "Yes" && (
                             <div className="mt-2">
-                              {/* Add Package Button and Dropdown */}
-                              {!showAddPackage && (
-                                <button
-                                  type="button"
-                                  onClick={() => setShowAddPackage(true)}
-                                  className="px-3 py-1.5 bg-purple-600 text-white text-[10px] font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-1"
-                                >
-                                  <span>+ Add Another Package</span>
-                                </button>
-                              )}
-                              
-                              {showAddPackage && (
-                                <div className="border border-purple-200 rounded-lg p-2 bg-purple-50">
-                                  <div className="flex flex-wrap gap-2 items-end mb-2">
-                                    <div className="flex-1 min-w-[150px]">
-                                      <label className="block text-[9px] mb-0.5 font-medium text-gray-700">Select Package to Add</label>
-                                      <select
-                                        value={selectedPackageId}
-                                        onChange={(e) => setSelectedPackageId(e.target.value)}
-                                        className="text-gray-900 w-full px-2 py-1.5 text-[10px] border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 border-gray-300 hover:border-purple-400"
-                                      >
-                                        <option value="">Select package</option>
-                                        {packages.map(p => (
-                                          <option key={p._id} value={p._id}>
-                                            {p.name} (₹{p.totalPrice}, {p.totalSessions} sessions)
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </div>
-                                    <div className="flex gap-1">
-                                      <button
-                                        type="button"
-                                        onClick={handleAddPackage}
-                                        disabled={!selectedPackageId}
-                                        className="px-3 py-1.5 bg-green-600 text-white text-[10px] font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                      >
-                                        Add
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setShowAddPackage(false);
-                                          setSelectedPackageId("");
-                                        }}
-                                        className="px-3 py-1.5 bg-gray-300 text-gray-700 text-[10px] font-medium rounded-lg hover:bg-gray-400 transition-colors"
-                                      >
-                                        Cancel
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                              
                               {(Array.isArray(formData.packages) ? formData.packages : []).length > 0 && (
                                 <div className="border border-gray-200 rounded p-2">
                                   <div className="text-[10px] font-semibold text-gray-900 mb-1">Added Packages</div>
@@ -1679,7 +1385,8 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                                               type="button"
                                               className="px-2 py-0.5 bg-red-50 text-red-700 rounded border border-red-200"
                                               onClick={() => {
-                                                handleRemovePackage(idx);
+                                                const list = (formData.packages || []).filter((_, i) => i !== idx);
+                                                setFormData((prev) => ({ ...prev, packages: list }));
                                               }}
                                             >
                                               Remove

@@ -1,117 +1,12 @@
 "use client";
 import React from 'react';
-import { Briefcase, CheckCircle } from 'lucide-react';
-
-interface SubItemProps {
-  label: string;
-  icon: string;
-  description: string;
-  fields: string[];
-  tips?: string[];
-}
-
-const subItemsData: Record<string, SubItemProps> = {
-  "manage-health-center": {
-    label: "Manage Health Center",
-    icon: "🏥",
-    description: "Complete guide to managing your health center profile, settings, and multi-branch operations.",
-    fields: [
-      "Clinic Name & Branding",
-      "Username/Slug for profile URL",
-      "Consultation Fee Configuration",
-      "Contact Information Management",
-      "Document Upload & Verification",
-      "Listing Visibility Toggles",
-      "Clinic Timing & Hours",
-      "Multiple Branches Management"
-    ],
-    tips: [
-      "Keep all clinic information up-to-date",
-      "Use high-quality images for better engagement",
-      "Verify contact details regularly",
-      "Toggle visibility settings based on your preferences"
-    ]
-  },
-  "create-offers": {
-    label: "Create Offers",
-    icon: "🎁",
-    description: "Create and manage promotional offers to attract new patients and retain existing ones.",
-    fields: [
-      "Offer Title & Description",
-      "Discount Percentage or Fixed Amount",
-      "Validity Period",
-      "Target Audience Selection",
-      "Terms & Conditions",
-      "Promotional Images",
-      "Usage Limits"
-    ],
-    tips: [
-      "Create time-limited offers for urgency",
-      "Use attractive visuals",
-      "Set clear terms and conditions"
-    ]
-  },
-  "user-package": {
-    label: "User Package",
-    icon: "📦",
-    description: "Design comprehensive healthcare packages for different patient needs.",
-    fields: [
-      "Package Name & Type",
-      "Included Services",
-      "Pricing Strategy",
-      "Validity Duration",
-      "Eligibility Criteria",
-      "Booking Restrictions"
-    ],
-    tips: [
-      "Bundle complementary services together",
-      "Offer competitive pricing",
-      "Clear package benefits communication"
-    ]
-  },
-  "service-setup": {
-    label: "Service Setup",
-    icon: "⚙️",
-    description: "Configure and organize your clinic's services catalog.",
-    fields: [
-      "Service Name & Category",
-      "Service Description",
-      "Duration & Pricing",
-      "Staff Assignment",
-      "Resource Requirements",
-      "Availability Settings"
-    ],
-    tips: [
-      "Organize services into logical categories",
-      "Set accurate durations for scheduling",
-      "Include detailed service descriptions"
-    ]
-  },
-  "setup-operation": {
-    label: "Setup & Operation",
-    icon: "🏢",
-    description: "Initial clinic setup including rooms, departments, and operational configuration.",
-    fields: [
-      "Room/Department Creation",
-      "Equipment Assignment",
-      "Staff Allocation",
-      "Operating Hours",
-      "Capacity Settings",
-      "Integration with Other Modules"
-    ],
-    tips: [
-      "Plan your layout before setup",
-      "Assign resources efficiently",
-      "Test all configurations before going live"
-    ]
-  }
-};
+import { Briefcase } from 'lucide-react';
 
 interface ManageHealthCenterGuideProps {
   selectedSubItem?: string | null;
 }
 
-const ManageHealthCenterGuide: React.FC<ManageHealthCenterGuideProps> = ({ selectedSubItem }) => {
+const ManageHealthCenterGuide: React.FC<ManageHealthCenterGuideProps> = () => {
   // Always show the full Manage Health Center content
   // selectedSubItem is used for future enhancements but main content stays the same
   

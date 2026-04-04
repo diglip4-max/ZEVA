@@ -49,6 +49,9 @@ export default async function handler(req, res) {
       items,
       beforeImage,
       afterImage,
+      isDoctorDiscountApplied,
+      doctorDiscountType,
+      doctorDiscountAmount,
     } = req.body;
 
     if (
@@ -151,6 +154,9 @@ export default async function handler(req, res) {
         items: items || [],
         beforeImage: beforeImage || null,
         afterImage: afterImage || null,
+        isDoctorDiscountApplied: isDoctorDiscountApplied || false,
+        doctorDiscountType: doctorDiscountType || null,
+        doctorDiscountAmount: doctorDiscountAmount || 0,
       });
 
       return res.status(200).json({
@@ -167,6 +173,9 @@ export default async function handler(req, res) {
           items: complaint.items || [],
           beforeImage: complaint.beforeImage,
           afterImage: complaint.afterImage,
+          isDoctorDiscountApplied: complaint.isDoctorDiscountApplied,
+          doctorDiscountType: complaint.doctorDiscountType,
+          doctorDiscountAmount: complaint.doctorDiscountAmount,
           createdAt: complaint.createdAt,
           updatedAt: complaint.updatedAt,
         },

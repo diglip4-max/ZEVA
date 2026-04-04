@@ -1,6 +1,6 @@
 "use client";
-import React, { useState } from "react";
-import { Users, Settings } from "lucide-react";
+import React, { useState } from 'react';
+import { Users, Settings } from 'lucide-react';
 
 const ClinicManagementGuide: React.FC = () => {
   const [activeSection] = useState("overview");

@@ -25,7 +25,9 @@ export default async function handler(req, res) {
   // ---------------- GET Agents/DoctorStaff ----------------
   if (req.method === 'GET') {
     // ✅ Check permissions for reading agents (admin bypasses all checks)
-    if (me.role !== 'admin') {
+    // If agentId is provided, we skip the broad "create_agent" permission check 
+    // and rely on specific scope checks below.
+    if (me.role !== 'admin' && !req.query.agentId) {
       // For clinic role: Check clinic permissions
       if (me.role === 'clinic') {
         const clinic = await Clinic.findOne({ owner: me._id });
@@ -195,14 +197,11 @@ export default async function handler(req, res) {
           }
         } else if (me.role === 'clinic') {
           const clinic = await Clinic.findOne({ owner: me._id });
-          if (clinic) {
-            const allowed =
-              (user.role === 'doctorStaff' && user.createdBy?.toString() === me._id.toString()) ||
-              (user.role === 'agent' && (user.clinicId?.toString() === clinic._id.toString() || user.createdBy?.toString() === me._id.toString()));
-            if (!allowed) {
-              return res.status(403).json({ success: false, message: 'Access denied for this user' });
-            }
-          } else if (user.createdBy?.toString() !== me._id.toString()) {
+          const isOwnProfile = user._id.toString() === me._id.toString();
+          const inSameClinic = clinic && user.clinicId?.toString() === clinic._id.toString();
+          const isCreator = user.createdBy?.toString() === me._id.toString();
+
+          if (!isOwnProfile && !inSameClinic && !isCreator) {
             return res.status(403).json({ success: false, message: 'Access denied for this user' });
           }
         } else if (me.role === 'doctor') {
@@ -213,14 +212,19 @@ export default async function handler(req, res) {
             return res.status(403).json({ success: false, message: 'Access denied for this user' });
           }
         } else if (me.role === 'agent') {
-          if (user.role !== 'agent' || !me.clinicId || user.clinicId?.toString() !== me.clinicId.toString()) {
+          // Allow fetching their own profile OR any agent/doctorStaff in their clinic
+          const isOwnProfile = user._id.toString() === me._id.toString();
+          const inSameClinic = me.clinicId && user.clinicId?.toString() === me.clinicId.toString();
+          
+          if (!isOwnProfile && !inSameClinic) {
             return res.status(403).json({ success: false, message: 'Access denied for this user' });
           }
         } else if (me.role === 'doctorStaff') {
-          const allowed =
-            (user.role === 'doctorStaff' && user.createdBy?.toString() === me._id.toString()) ||
-            (user.role === 'agent' && me.clinicId && user.clinicId?.toString() === me.clinicId.toString());
-          if (!allowed) {
+          // Allow fetching their own profile OR any agent/doctorStaff in their clinic
+          const isOwnProfile = user._id.toString() === me._id.toString();
+          const inSameClinic = me.clinicId && user.clinicId?.toString() === me.clinicId.toString();
+
+          if (!isOwnProfile && !inSameClinic) {
             return res.status(403).json({ success: false, message: 'Access denied for this user' });
           }
         }

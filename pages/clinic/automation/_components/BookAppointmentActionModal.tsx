@@ -467,6 +467,7 @@ const BookAppointmentActionModal: React.FC<BookAppointmentActionModalProps> = ({
                     onChange={setAppointmentDate}
                     placeholder="Map to date variable..."
                     entity={entity}
+                    nodeId=""
                   />
                 </div>
 
@@ -480,6 +481,7 @@ const BookAppointmentActionModal: React.FC<BookAppointmentActionModalProps> = ({
                     onChange={setAppointmentTime}
                     placeholder="Map to time variable..."
                     entity={entity}
+                    nodeId=""
                   />
                 </div>
               </div>
