@@ -56,15 +56,15 @@ const WorkflowGuide: NextPageWithLayout = () => {
   };
   
   // Images for appointment slideshow
-  const appointmentImages = ["/appoint.png", "/book.png", "/save.png"];
+  // const appointmentImages = ["/appoint.png", "/book.png", "/save.png"];
   
-  const nextAppointmentImage = () => {
-    setCurrentImageIndex((prevIndex) => (prevIndex + 1) % appointmentImages.length);
-  };
+  // const nextAppointmentImage = () => {
+  //   setCurrentImageIndex((prevIndex) => (prevIndex + 1) % appointmentImages.length);
+  // };
   
-  const prevAppointmentImage = () => {
-    setCurrentImageIndex((prevIndex) => (prevIndex - 1 + appointmentImages.length) % appointmentImages.length);
-  };
+  // const prevAppointmentImage = () => {
+  //   setCurrentImageIndex((prevIndex) => (prevIndex - 1 + appointmentImages.length) % appointmentImages.length);
+  // };
   
   // Images for job-posting slideshow
   const jobImages = ["/job.png", "/createjob.png"];
@@ -913,7 +913,6 @@ const WorkflowGuide: NextPageWithLayout = () => {
               {/* Modern Scheduler Component */}
               <div className="bg-white dark:bg-gray-50 rounded-xl shadow-sm border border-gray-200 dark:border-gray-300 overflow-hidden">
                 <ModernScheduler
-                  clinicId="workflow-guide"
                   initialDate={new Date().toISOString().split("T")[0]}
                   viewMode="both"
                   getAuthHeaders={getAuthHeaders}
@@ -991,7 +990,6 @@ const WorkflowGuide: NextPageWithLayout = () => {
                 {/* Modern Scheduler Component */}
                 <div className="bg-white dark:bg-gray-50 rounded-xl shadow-sm border border-gray-200 dark:border-gray-300 overflow-hidden">
                   <ModernScheduler
-                    clinicId="workflow-guide"
                     initialDate={new Date().toISOString().split("T")[0]}
                     viewMode="both"
                     getAuthHeaders={getAuthHeaders}

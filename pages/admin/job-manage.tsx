@@ -1416,9 +1416,10 @@ function AdminJobs() {
                 {selectedJob.description && (
                   <div>
                     <h4 className="text-sm font-semibold text-blue-900 mb-2">Job Description</h4>
-                    <div className="text-sm text-blue-700 bg-blue-50 p-4 rounded-lg leading-relaxed whitespace-pre-wrap">
-                      {selectedJob.description}
-                    </div>
+                    <div 
+                      className="text-sm text-blue-700 bg-blue-50 p-4 rounded-lg leading-relaxed prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: selectedJob.description }}
+                    />
                   </div>
                 )}
               </div>

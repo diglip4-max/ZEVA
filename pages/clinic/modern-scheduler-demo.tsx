@@ -107,7 +107,6 @@ const ModernSchedulerDemo: NextPageWithLayout = () => {
       {/* Modern Scheduler Component */}
       <div className="max-w-7xl mx-auto">
         <ModernScheduler
-          clinicId="demo-clinic"
           initialDate={new Date().toISOString().split("T")[0]}
           viewMode={viewMode}
           getAuthHeaders={getAuthHeaders}

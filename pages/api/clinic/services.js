@@ -39,12 +39,15 @@ export default async function handler(req, res) {
 
   if (req.method === "GET") {
     try {
-      const { hasPermission, error: permError } = await checkClinicPermission(clinicId, moduleKey, "read");
-      if (!hasPermission) {
-        return res.status(403).json({
-          success: false,
-          message: permError || "You do not have permission to view services",
-        });
+      // ✅ Special bypass for agent/doctorStaff to read services (required for Smart Recommendations)
+      if (user.role !== "admin" && !["agent", "doctorStaff"].includes(user.role)) {
+        const { hasPermission, error: permError } = await checkClinicPermission(clinicId, moduleKey, "read");
+        if (!hasPermission) {
+          return res.status(403).json({
+            success: false,
+            message: permError || "You do not have permission to view services",
+          });
+        }
       }
 
       const { departmentId } = req.query;

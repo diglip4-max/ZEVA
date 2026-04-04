@@ -1027,23 +1027,16 @@
                           <th className="px-1 py-1.5 text-left text-[8px] sm:text-[9px] font-semibold uppercase tracking-wider whitespace-nowrap w-[180px]">
                             Patient Details
                           </th>
-                          <th className="px-1 py-1.5 text-left text-[8px] sm:text-[9px] font-semibold uppercase tracking-wider whitespace-nowrap w-[140px]">
-                            Doctor Details
-                          </th>
+                          {getUserRole() !== "doctorStaff" && (
+                            <th className="px-1 py-1.5 text-left text-[8px] sm:text-[9px] font-semibold uppercase tracking-wider whitespace-nowrap w-[140px]">
+                              Doctor Details
+                            </th>
+                          )}
                           <th className="px-1 py-1.5 text-left text-[8px] sm:text-[9px] font-semibold uppercase tracking-wider whitespace-nowrap w-[120px]">
                             Treatments
                           </th>
                           <th className="px-1 py-1.5 text-left text-[8px] sm:text-[9px] font-semibold uppercase tracking-wider whitespace-nowrap w-[90px]">
                             Room
-                          </th>
-                          <th className="px-1 py-1.5 text-left text-[8px] sm:text-[9px] font-semibold uppercase tracking-wider whitespace-nowrap w-[70px]">
-                            Type
-                          </th>
-                          <th className="px-1 py-1.5 text-left text-[8px] sm:text-[9px] font-semibold uppercase tracking-wider whitespace-nowrap w-[70px]">
-                            Source
-                          </th>
-                          <th className="px-1 py-1.5 text-left text-[8px] sm:text-[9px] font-semibold uppercase tracking-wider whitespace-nowrap w-[90px]">
-                            Insurance
                           </th>
                           <th className="px-1 py-1.5 text-left text-[8px] sm:text-[9px] font-semibold uppercase tracking-wider whitespace-nowrap w-[100px]">
                             Remarks
@@ -1139,15 +1132,17 @@
                                 </div>
                               </div>
                             </td>
-                            <td className="px-1 py-1.5 text-[8px] sm:text-[9px]">
-                              <div className="space-y-0.5">
-                                <div className="flex items-center gap-0.5">
-                                  <div className="w-1 h-1 bg-gray-700 rounded-full"></div>
-                                  <span className="font-medium text-teal-900">{apt.doctorName}</span>
+                            {getUserRole() !== "doctorStaff" && (
+                              <td className="px-1 py-1.5 text-[8px] sm:text-[9px]">
+                                <div className="space-y-0.5">
+                                  <div className="flex items-center gap-0.5">
+                                    <div className="w-1 h-1 bg-gray-700 rounded-full"></div>
+                                    <span className="font-medium text-teal-900">{apt.doctorName}</span>
+                                  </div>
+                                  <div className="text-teal-700 text-[7px] sm:text-[8px] truncate">{apt.doctorEmail}</div>
                                 </div>
-                                <div className="text-teal-700 text-[7px] sm:text-[8px] truncate">{apt.doctorEmail}</div>
-                              </div>
-                            </td>
+                              </td>
+                            )}
                             <td className="px-1 py-1.5 text-[8px] sm:text-[9px] text-teal-900 max-w-[120px]">
                               <div className="truncate" title={apt.serviceNames?.join(", ") || apt.serviceName || "-"}>
                                 {apt.serviceNames && apt.serviceNames.length > 0 
@@ -1157,15 +1152,6 @@
                             </td>
                             <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px] text-teal-900 truncate max-w-[90px]">
                               {apt.roomName || "-"}
-                            </td>
-                            <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px] text-teal-900">
-                              <span className="capitalize">{apt.followType || "-"}</span>
-                            </td>
-                            <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px] text-teal-900">
-                              <span className="capitalize">{apt.referral || "Direct"}</span>
-                            </td>
-                            <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px] text-teal-900">
-                              <span>Cash [DHA]</span>
                             </td>
                             <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px] max-w-[100px] truncate text-teal-900">
                               {apt.notes || "No Remarks"}

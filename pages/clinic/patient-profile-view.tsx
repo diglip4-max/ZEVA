@@ -5,12 +5,14 @@ import {
   Calendar, User, DollarSign, FileText, AlertCircle, Activity,
   CreditCard, TrendingUp, Package, Phone,
   Mail, Clock, Shield, X, CheckCircle, XCircle,
+  ExternalLink,
   AlertTriangle, Info, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
 import AddPatientAdvancePaymentModal from '@/components/patient/AddPatientAdvancePaymentModal';
 import AddPatientPastAdvancePaymentModal from '@/components/patient/AddPatientPastAdvancePaymentModal';
+import PayPendingBalanceModal from '@/components/patient/PayPendingBalanceModal';
 
 const TOKEN_PRIORITY = [
   "clinicToken",
@@ -35,8 +37,8 @@ const getAuthHeaders = () => {
   return token ? { Authorization: `Bearer ${token}` } : null;
 };
 
-// Transfer Section Component - Copied from PatientUpdateForm
-const TransferSection = ({ patientId }: { patientId: string }) => {
+// Transfer Section Component - Updated to use parent patientData and trigger refresh
+const TransferSection = ({ patientId, patientData, onTransferComplete }: { patientId: string; patientData: any; onTransferComplete?: () => void }) => {
   const [showTransfer, setShowTransfer] = useState(false);
   const [transferType, setTransferType] = useState("");
   const [selectedMembershipId, setSelectedMembershipId] = useState("");
@@ -48,39 +50,25 @@ const TransferSection = ({ patientId }: { patientId: string }) => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [selectedTargetPatient, setSelectedTargetPatient] = useState<any>(null);
   const [transferSubmitting, setTransferSubmitting] = useState(false);
-  const [memberships, setMemberships] = useState<any[]>([]);
-  const [packages, setPackages] = useState<any[]>([]);
-  const [referrals, setReferrals] = useState<any[]>([]);
-  const [patientData, setPatientData] = useState<any>(null);
+  const [localMemberships, setLocalMemberships] = useState<any[]>([]);
+  const [localPackages, setLocalPackages] = useState<any[]>([]);
 
-  // Fetch patient data, memberships, packages, and referrals on mount
+  // Fetch memberships and packages on mount
   useEffect(() => {
     const fetchData = async () => {
       try {
         const headers = getAuthHeaders() || {};
         
-        // Fetch patient data
-        const patientRes = await axios.get(`/api/clinic/patient-registration?id=${patientId}`, { headers });
-        if (patientRes.data.success) {
-          setPatientData(patientRes.data.patient);
-        }
-
         // Fetch memberships
         const membershipsRes = await axios.get('/api/clinic/memberships', { headers });
         if (membershipsRes.data.success) {
-          setMemberships(membershipsRes.data.memberships || []);
+          setLocalMemberships(membershipsRes.data.memberships || []);
         }
 
         // Fetch packages
         const packagesRes = await axios.get('/api/clinic/packages', { headers });
         if (packagesRes.data.success) {
-          setPackages(packagesRes.data.packages || []);
-        }
-
-        // Fetch referrals
-        const referralsRes = await axios.get('/api/clinic/referrals', { headers });
-        if (referralsRes.data.success) {
-          setReferrals(referralsRes.data.referrals || []);
+          setLocalPackages(packagesRes.data.packages || []);
         }
       } catch (error) {
         console.error('Error fetching transfer data:', error);
@@ -97,11 +85,20 @@ const TransferSection = ({ patientId }: { patientId: string }) => {
         try {
           const headers = getAuthHeaders() || {};
           const res = await axios.get(`/api/clinic/membership-usage/${patientId}?membershipId=${selectedMembershipId}`, { headers });
+          console.log('Membership usage API response:', res.data);
+          
+          // Handle different response structures
           if (res.data.success) {
-            setMembershipUsage(res.data.usage || null);
+            const usageData = res.data.usage || res.data.data || res.data;
+            setMembershipUsage(usageData || null);
+          } else {
+            console.warn('API returned success=false:', res.data);
+            setMembershipUsage(null);
           }
-        } catch (error) {
-          console.error('Error fetching membership usage:', error);
+        } catch (error: any) {
+          console.error('Error fetching membership usage:', error.message);
+          console.error('Full error:', error);
+          setMembershipUsage(null);
         }
       };
       fetchMembershipUsage();
@@ -138,9 +135,12 @@ const TransferSection = ({ patientId }: { patientId: string }) => {
       setSearchLoading(true);
       try {
         const headers = getAuthHeaders() || {};
-        const res = await axios.get(`/api/clinic/patient-registration?search=${searchQuery}`, { headers });
-        if (res.data.success) {
+        // Use the correct search API endpoint with 'search' parameter
+        const res = await axios.get(`/api/clinic/search-patients?search=${encodeURIComponent(searchQuery)}`, { headers });
+        if (res.data.success || res.data.patients) {
           setSearchResults(res.data.patients || []);
+        } else if (Array.isArray(res.data)) {
+          setSearchResults(res.data);
         }
       } catch (error) {
         console.error('Error searching patients:', error);
@@ -161,25 +161,58 @@ const TransferSection = ({ patientId }: { patientId: string }) => {
     setTransferSubmitting(true);
     try {
       const headers = getAuthHeaders() || {};
-      const payload: any = {
-        fromPatientId: patientId,
-        toPatientId: selectedTargetPatient._id,
-      };
-
+      
       if (transferType === "membership") {
-        payload.membershipId = selectedMembershipId;
-        await axios.post('/api/clinic/transfer-benefits', payload, { headers });
+        // Check if there are remaining benefits to transfer (same as PatientUpdateForm)
+        if (!selectedMembershipId || !membershipUsage || !membershipUsage.remainingFreeConsultations || membershipUsage.remainingFreeConsultations <= 0) {
+          alert('No remaining membership benefits to transfer');
+          setTransferSubmitting(false);
+          return;
+        }
+        const res = await axios.post('/api/clinic/transfer-benefits', {
+          type: "membership",
+          sourcePatientId: patientId,
+          targetPatientId: selectedTargetPatient._id,
+          membershipId: selectedMembershipId,
+        }, { headers });
+        const data = res.data;
+        if (res.status === 200 || res.status === 201) {
+          alert(data.message || 'Membership transferred successfully!');
+          setShowTransfer(false);
+          setTransferType("");
+          setMembershipUsage(null);
+          setSelectedTargetPatient(null);
+          setSelectedMembershipId("");
+          if (onTransferComplete) onTransferComplete();
+        } else {
+          alert(data.message || 'Transfer failed');
+        }
       } else if (transferType === "package") {
-        payload.packageId = selectedPackageId;
-        await axios.post('/api/clinic/transfer-package', payload, { headers });
+        if (!selectedPackageId) {
+          alert('Select a package to transfer');
+          setTransferSubmitting(false);
+          return;
+        }
+        // Use the same endpoint as PatientUpdateForm
+        const res = await axios.post('/api/clinic/transfer-benefits', {
+          type: "package",
+          sourcePatientId: patientId,
+          targetPatientId: selectedTargetPatient._id,
+          packageId: selectedPackageId,
+        }, { headers });
+        const data = res.data;
+        if (res.status === 200 || res.status === 201) {
+          alert(data.message || 'Package transferred successfully!');
+          setShowTransfer(false);
+          setTransferType("");
+          setPackageUsage(null);
+          setSelectedTargetPatient(null);
+          setSelectedPackageId("");
+          if (onTransferComplete) onTransferComplete();
+        } else {
+          alert(data.message || 'Transfer failed');
+        }
       }
-
-      alert('Transfer completed successfully!');
-      setShowTransfer(false);
-      setTransferType("");
-      setSelectedTargetPatient(null);
-      setSelectedMembershipId("");
-      setSelectedPackageId("");
     } catch (error: any) {
       alert(error.response?.data?.message || 'Transfer failed');
     } finally {
@@ -260,7 +293,7 @@ const TransferSection = ({ patientId }: { patientId: string }) => {
                 >
                   <option value="">Select membership</option>
                   {(Array.isArray(patientData?.memberships) ? patientData.memberships : []).map((m: any, idx: number) => {
-                    const plan = memberships.find((x) => x._id === m.membershipId);
+                    const plan = localMemberships.find((x: any) => x._id === m.membershipId);
                     return (
                       <option key={`${m.membershipId}-${idx}`} value={m.membershipId}>
                         {plan?.name || m.membershipId} ({m.startDate?.slice(0,10)} → {m.endDate?.slice(0,10)})
@@ -270,7 +303,7 @@ const TransferSection = ({ patientId }: { patientId: string }) => {
                   {patientData?.membership === "Yes" && patientData.membershipId && !(Array.isArray(patientData?.memberships) ? patientData.memberships : []).some((m: any) => m.membershipId === patientData.membershipId) && (
                     <option value={patientData.membershipId}>
                       {(() => {
-                        const plan = memberships.find((x) => x._id === patientData.membershipId);
+                        const plan = localMemberships.find((x: any) => x._id === patientData.membershipId);
                         return plan?.name || patientData.membershipId;
                       })()} ({patientData.membershipStartDate?.slice(0,10)} → {patientData.membershipEndDate?.slice(0,10)})
                     </option>
@@ -312,7 +345,7 @@ const TransferSection = ({ patientId }: { patientId: string }) => {
                 >
                   <option value="">Select package</option>
                   {(Array.isArray(patientData?.packages) ? patientData.packages : []).map((p: any) => {
-                    const pkg = packages.find(x => x._id === p.packageId);
+                    const pkg = localPackages.find(x => x._id === p.packageId);
                     return pkg ? (
                       <option key={pkg._id} value={pkg._id}>
                         {pkg.name} (₹{pkg.totalPrice}, {pkg.totalSessions} sessions)
@@ -327,7 +360,7 @@ const TransferSection = ({ patientId }: { patientId: string }) => {
                     <div className="font-semibold text-gray-700">Total Sessions</div>
                     <div className="text-gray-900">
                       {(() => {
-                        const pkg = packages.find(p => p._id === selectedPackageId);
+                        const pkg = localPackages.find((p: any) => p._id === selectedPackageId);
                         return pkg ? pkg.totalSessions : 0;
                       })()}
                     </div>
@@ -342,7 +375,7 @@ const TransferSection = ({ patientId }: { patientId: string }) => {
                       {typeof packageUsage?.remainingSessions === "number"
                         ? packageUsage.remainingSessions
                         : Math.max(0, (() => {
-                            const pkg = packages.find(p => p._id === selectedPackageId);
+                            const pkg = localPackages.find((p: any) => p._id === selectedPackageId);
                             const totalSess = pkg ? pkg.totalSessions : 0;
                             return totalSess - (packageUsage?.totalSessions || 0);
                           })())}
@@ -352,7 +385,7 @@ const TransferSection = ({ patientId }: { patientId: string }) => {
                     <div className="font-semibold text-gray-700">Package</div>
                     <div className="text-gray-900">
                       {(() => {
-                        const pkg = packages.find(p => p._id === selectedPackageId);
+                        const pkg = localPackages.find((p: any) => p._id === selectedPackageId);
                         return pkg ? pkg.name : "-";
                       })()}
                     </div>
@@ -414,8 +447,15 @@ const TransferSection = ({ patientId }: { patientId: string }) => {
   );
 };
 
+const formatPmDate = (d: Date) => {
+  const y = d.getFullYear();
+  const mon = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${mon}-${day}`;
+};
+
 // Modern Patient Profile Dashboard Component
-const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; onClose: () => void }) => {
+const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { patientData: any; onClose: () => void; onPatientUpdated?: (updatedData: any) => void }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [showBeforeAfterModal, setShowBeforeAfterModal] = useState(false);
   const [appointments, setAppointments] = useState([]);
@@ -438,6 +478,10 @@ const PatientProfileDashboard = ({ patientData, onClose }: { patientData: any; o
   // Consent Form Status States
   const [consentStatuses, setConsentStatuses] = useState<any[]>([]);
   const [loadingConsentStatus, setLoadingConsentStatus] = useState(false);
+  const [consentForms, setConsentForms] = useState<any[]>([]);
+  const [selectedConsentId, setSelectedConsentId] = useState("");
+  const [sendingConsent, setSendingConsent] = useState(false);
+  const [consentSent, setConsentSent] = useState(false);
   
   // Package Link State
   const [sendingPackageLink, setSendingPackageLink] = useState(false);
@@ -484,7 +528,343 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   const [showAddPastAdvancePayment50PercentModal, setShowAddPastAdvancePayment50PercentModal] = useState(false);
   const [showAddPastAdvancePayment54PercentModal, setShowAddPastAdvancePayment54PercentModal] = useState(false);
   const [showAddPastAdvancePayment159FlatModal, setShowAddPastAdvancePayment159FlatModal] = useState(false);
+  const [showPayPendingModal, setShowPayPendingModal] = useState(false);
   const [treatmentFilter, setTreatmentFilter] = useState<'all' | 'ongoing' | 'completed'>('all');
+
+  // ---- Editable Membership & Package State ----
+  const [allAvailableMemberships, setAllAvailableMemberships] = useState<any[]>([]);
+  const [allAvailablePackages, setAllAvailablePackages] = useState<any[]>([]);
+  const [editFormData, setEditFormData] = useState<any>({
+    membership: patientData?.membership || 'No',
+    membershipId: patientData?.membershipId || '',
+    membershipStartDate: patientData?.membershipStartDate || '',
+    membershipEndDate: patientData?.membershipEndDate || '',
+    memberships: Array.isArray(patientData?.memberships) ? patientData.memberships : [],
+    package: patientData?.package || 'No',
+    packageId: patientData?.packageId || '',
+    packages: Array.isArray(patientData?.packages) ? patientData.packages : [],
+  });
+  const [pmSaving, setPmSaving] = useState(false);
+  const [pmToast, setPmToast] = useState<{ message: string; type: string } | null>(null);
+  const [showAddMembershipDropdown, setShowAddMembershipDropdown] = useState(false);
+  const [showAddPackageDropdown, setShowAddPackageDropdown] = useState(false);
+  const [selectedMembershipToAdd, setSelectedMembershipToAdd] = useState('');
+  const [addMembStartDate, setAddMembStartDate] = useState(formatPmDate(new Date()));
+  const [addMembEndDate, setAddMembEndDate] = useState('');
+  const [selectedPackageToAdd, setSelectedPackageToAdd] = useState('');
+  const [pmMembershipUsageMap, setPmMembershipUsageMap] = useState<any>({});
+  const [showSaveConfirmModal, setShowSaveConfirmModal] = useState(false);
+
+  // Fetch all available memberships and packages for dropdowns
+  useEffect(() => {
+    const fetchAvailable = async () => {
+      try {
+        const headers = getAuthHeaders() || {};
+        const [mRes, pRes] = await Promise.all([
+          axios.get('/api/clinic/memberships', { headers }),
+          axios.get('/api/clinic/packages', { headers }),
+        ]);
+        if (mRes.data.success) setAllAvailableMemberships(mRes.data.memberships || []);
+        if (pRes.data.success) setAllAvailablePackages(pRes.data.packages || []);
+      } catch (e) { console.error('Error fetching available memberships/packages:', e); }
+    };
+    fetchAvailable();
+  }, []);
+
+  // Sync editFormData when patientData._id changes (initial load)
+  useEffect(() => {
+    if (patientData) {
+      setEditFormData({
+        membership: 'No',
+        membershipId: patientData?.membershipId || '',
+        membershipStartDate: patientData?.membershipStartDate || '',
+        membershipEndDate: patientData?.membershipEndDate || '',
+        memberships: Array.isArray(patientData?.memberships) ? patientData.memberships : [],
+        package: 'No',
+        packageId: patientData?.packageId || '',
+        packages: Array.isArray(patientData?.packages) ? patientData.packages : [],
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patientData?._id]);
+
+  // Fetch membership usage map
+  useEffect(() => {
+    const headers = getAuthHeaders();
+    if (!headers || !patientData?._id) return;
+    const entries: any[] = [];
+    if (editFormData.membership === 'Yes' && editFormData.membershipId && editFormData.membershipStartDate && editFormData.membershipEndDate) {
+      entries.push({ membershipId: editFormData.membershipId, startDate: editFormData.membershipStartDate, endDate: editFormData.membershipEndDate });
+    }
+    if (Array.isArray(editFormData.memberships)) {
+      (editFormData.memberships as any[]).forEach((m: any) => {
+        if (m.membershipId && m.startDate && m.endDate) {
+          entries.push({ membershipId: m.membershipId, startDate: m.startDate, endDate: m.endDate });
+        }
+      });
+    }
+    if (entries.length === 0) { setPmMembershipUsageMap({}); return; }
+    let cancelled = false;
+    const loadAll = async () => {
+      const results: any = {};
+      await Promise.all(entries.map(async (e: any) => {
+        const key = `${e.membershipId}|${e.startDate}|${e.endDate}`;
+        try {
+          const qs = new URLSearchParams();
+          qs.set('membershipId', e.membershipId);
+          qs.set('startDate', e.startDate);
+          qs.set('endDate', e.endDate);
+          const res = await axios.get(`/api/clinic/membership-usage/${patientData._id}?${qs.toString()}`, { headers });
+          results[key] = res.data?.success ? res.data : null;
+        } catch { results[key] = null; }
+      }));
+      if (!cancelled) setPmMembershipUsageMap(results);
+    };
+    loadAll();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patientData?._id, editFormData.membership, editFormData.membershipId, editFormData.membershipStartDate, editFormData.membershipEndDate, JSON.stringify(editFormData.memberships)]);
+
+  const handlePmAddMembership = () => {
+    if (!selectedMembershipToAdd) return;
+    const selected = allAvailableMemberships.find((m: any) => m._id === selectedMembershipToAdd);
+    if (!selected) return;
+    const exists = (editFormData.memberships || []).some((x: any) => x.membershipId === selectedMembershipToAdd);
+    if (exists) {
+      setPmToast({ message: 'This membership is already added', type: 'error' });
+      setTimeout(() => setPmToast(null), 3000);
+      return;
+    }
+    
+    // Only add to the memberships array - do NOT set individual fields
+    setEditFormData((prev: any) => ({
+      ...prev,
+      memberships: [...(prev.memberships || []), { membershipId: selectedMembershipToAdd, startDate: addMembStartDate, endDate: addMembEndDate }],
+    }));
+    setSelectedMembershipToAdd('');
+    setAddMembStartDate(formatPmDate(new Date()));
+    setAddMembEndDate('');
+    setShowAddMembershipDropdown(false);
+    setPmToast({ message: 'Membership added', type: 'success' });
+    setTimeout(() => setPmToast(null), 3000);
+  };
+
+  const handlePmAddPackage = () => {
+    if (!selectedPackageToAdd) return;
+    const exists = (editFormData.packages || []).some((x: any) => x.packageId === selectedPackageToAdd);
+    if (exists) {
+      setPmToast({ message: 'This package is already added', type: 'error' });
+      setTimeout(() => setPmToast(null), 3000);
+      return;
+    }
+    
+    // Only add to the packages array - do NOT set individual fields
+    setEditFormData((prev: any) => ({
+      ...prev,
+      packages: [...(prev.packages || []), { packageId: selectedPackageToAdd, assignedDate: new Date().toISOString() }],
+    }));
+    setSelectedPackageToAdd('');
+    setShowAddPackageDropdown(false);
+    setPmToast({ message: 'Package added', type: 'success' });
+    setTimeout(() => setPmToast(null), 3000);
+  };
+
+  // Handle removing membership - with proper cleanup
+  const handlePmRemoveMembership = (indexToRemove: number) => {
+    setEditFormData((prev: any) => {
+      const list = Array.isArray(prev.memberships) ? prev.memberships : [];
+      const newList = list.filter((_: any, idx: number) => idx !== indexToRemove);
+      
+      // If this was the last membership, also clear the main membership fields
+      if (newList.length === 0 && prev.membership === "Yes") {
+        return {
+          ...prev,
+          memberships: newList,
+          membershipId: "",
+          membershipStartDate: "",
+          membershipEndDate: "",
+          membership: "No",
+        };
+      }
+      
+      return {
+        ...prev,
+        memberships: newList,
+      };
+    });
+  };
+
+  // Handle removing package - with proper cleanup
+  const handlePmRemovePackage = (indexToRemove: number) => {
+    setEditFormData((prev: any) => {
+      const list = Array.isArray(prev.packages) ? prev.packages : [];
+      const newList = list.filter((_: any, idx: number) => idx !== indexToRemove);
+      
+      // If this was the last package, also clear the main package fields
+      if (newList.length === 0 && prev.package === "Yes") {
+        return {
+          ...prev,
+          packages: newList,
+          packageId: "",
+          package: "No",
+        };
+      }
+      
+      return {
+        ...prev,
+        packages: newList,
+      };
+    });
+  };
+
+  const handlePmSave = async () => {
+    // Show confirmation modal first
+    setShowSaveConfirmModal(true);
+  };
+
+  const handlePmSaveConfirmed = async () => {
+    setShowSaveConfirmModal(false);
+    try {
+      setPmSaving(true);
+      const headers = getAuthHeaders() || {};
+        
+      // Determine if we should use array data or individual fields
+      const hasMembershipsArray = Array.isArray(editFormData.memberships) && editFormData.memberships.length > 0;
+      const hasPackagesArray = Array.isArray(editFormData.packages) && editFormData.packages.length > 0;
+        
+      // Auto-sync: If individual membershipId exists but memberships array is empty, create the array entry
+      let finalMemberships = Array.isArray(editFormData.memberships) ? editFormData.memberships : [];
+      if (!hasMembershipsArray && editFormData.membershipId && !finalMemberships.some((m: any) => m.membershipId === editFormData.membershipId)) {
+        finalMemberships = [{
+          membershipId: editFormData.membershipId,
+          startDate: editFormData.membershipStartDate || new Date().toISOString(),
+          endDate: editFormData.membershipEndDate || new Date(new Date().setMonth(new Date().getMonth() + 6)).toISOString(),
+        }];
+      }
+        
+      // Auto-sync: If individual packageId exists but packages array is empty, create the array entry
+      let finalPackages = Array.isArray(editFormData.packages) ? editFormData.packages : [];
+      if (!hasPackagesArray && editFormData.packageId && !finalPackages.some((p: any) => p.packageId === editFormData.packageId)) {
+        finalPackages = [{
+          packageId: editFormData.packageId,
+          assignedDate: new Date().toISOString(),
+        }];
+      }
+        
+      console.log('🔍 Current editFormData:', {
+        membership: editFormData.membership,
+        membershipId: editFormData.membershipId,
+        memberships: editFormData.memberships,
+        package: editFormData.package,
+        packageId: editFormData.packageId,
+        packages: editFormData.packages,
+      });
+        
+      console.log('🔄 After auto-sync:', {
+        finalMemberships,
+        finalPackages,
+      });
+        
+      const payload = {
+        updateType: 'details',
+        // Use array data if available, otherwise use individual fields
+        membership: finalMemberships.length > 0 ? 'Yes' : (editFormData.membership || 'No'),
+        membershipId: finalMemberships.length > 0 ? finalMemberships[0]?.membershipId : (editFormData.membershipId || ''),
+        membershipStartDate: finalMemberships.length > 0 ? finalMemberships[0]?.startDate : (editFormData.membershipStartDate || ''),
+        membershipEndDate: finalMemberships.length > 0 ? finalMemberships[0]?.endDate : (editFormData.membershipEndDate || ''),
+        memberships: finalMemberships.length > 0 ? finalMemberships : [],
+        package: finalPackages.length > 0 ? 'Yes' : (editFormData.package || 'No'),
+        packageId: finalPackages.length > 0 ? finalPackages[0]?.packageId : (editFormData.packageId || ''),
+        packages: finalPackages.length > 0 ? finalPackages : [],
+        firstName: patientData.firstName,
+        lastName: patientData.lastName,
+        mobileNumber: patientData.mobileNumber,
+        gender: patientData.gender,
+        email: patientData.email,
+        patientType: patientData.patientType,
+        referredBy: patientData.referredBy,
+        insurance: patientData.insurance,
+        insuranceType: patientData.insuranceType,
+        notes: patientData.notes,
+      };
+        
+      console.log('🟢 Saving payload:', JSON.stringify(payload, null, 2));
+        
+      // Make PUT request (same as PatientUpdateForm)
+      const res = await axios.put(`/api/staff/get-patient-data/${patientData._id}`, payload, { headers });
+      const result = res.data;
+        
+      console.log('📡 API Response:', result);
+        
+      if (res.status === 200 || res.status === 201) {
+        setPmToast({ message: result.message || 'Patient updated successfully!', type: 'success' });
+        setTimeout(() => setPmToast(null), 3000);
+          
+        // Fetch fresh patient data to ensure we have the latest saved data
+        let freshData: any = null;
+        try {
+          const patientRes = await axios.get(`/api/staff/get-patient-data/${patientData._id}`, { headers });
+          if (patientRes.data) {
+            freshData = patientRes.data;
+                    
+            console.log('✅ Fresh data from API:', {
+              membership: freshData.membership,
+              membershipId: freshData.membershipId,
+              memberships: freshData.memberships,
+              package: freshData.package,
+              packageId: freshData.packageId,
+              packages: freshData.packages,
+            });
+                    
+            // Update the main patient state via callback - this will trigger re-fetch of packages/memberships
+            if (onPatientUpdated) {
+              onPatientUpdated({
+                ...patientData,
+                membership: freshData?.membership || 'No',
+                membershipId: freshData?.membershipId || '',
+                membershipStartDate: freshData?.membershipStartDate || '',
+                membershipEndDate: freshData?.membershipEndDate || '',
+                memberships: Array.isArray(freshData?.memberships) ? freshData.memberships : [],
+                package: freshData?.package || 'No',
+                packageId: freshData?.packageId || '',
+                packages: Array.isArray(freshData?.packages) ? freshData.packages : [],
+              });
+            }
+                    
+            // Update editFormData with fresh saved data
+            setEditFormData({
+              membership: 'No',
+              membershipId: freshData?.membershipId || '',
+              membershipStartDate: freshData?.membershipStartDate || '',
+              membershipEndDate: freshData?.membershipEndDate || '',
+              memberships: Array.isArray(freshData?.memberships) ? freshData.memberships : [],
+              package: 'No',
+              packageId: freshData?.packageId || '',
+              packages: Array.isArray(freshData?.packages) ? freshData.packages : [],
+            });
+          }
+        } catch (fetchError) {
+          console.error('Error fetching fresh patient data:', fetchError);
+        }
+          
+        // Also refresh packages/memberships display for the lower section
+        // Pass fresh data to avoid stale closure issue
+        fetchPackagesAndMemberships({
+          memberships: Array.isArray(freshData?.memberships) ? freshData.memberships : (patientData?.memberships || []),
+          packages: Array.isArray(freshData?.packages) ? freshData.packages : (patientData?.packages || []),
+        });
+      } else {
+        setPmToast({ message: result.message || 'Failed to update patient details', type: 'error' });
+        setTimeout(() => setPmToast(null), 3000);
+      }
+    } catch (e: any) {
+      console.error('❌ Error saving patient data:', e);
+      setPmToast({ message: e?.response?.data?.message || 'Network error. Try again later.', type: 'error' });
+      setTimeout(() => setPmToast(null), 3000);
+    } finally {
+      setPmSaving(false);
+    }
+  };
 
   if (!patientData) return null;
 
@@ -574,7 +954,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     });
 
     // From billing — add payment entries
-    const billings = Array.isArray(billingHistory) ? billingHistory : [];
+    const billings = Array.isArray(billingHistory) 
+      ? billingHistory.filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") 
+      : [];
     billings.slice(0, 3).forEach((b: any) => {
       if (b.paid > 0) {
         const dateStr = b.invoicedDate || (b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
@@ -606,7 +988,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
     // Pending invoice alert
     const hasPendingInvoice = Array.isArray(billingHistory) && billingHistory.some(
-      (b: any) => (b.status || '').toLowerCase() === 'pending' || (b.pending > 0)
+      (b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance" && ((b.status || '').toLowerCase() === 'pending' || (b.pending > 0))
     );
     if (hasPendingInvoice) {
       list.push({ type: 'warning', icon: AlertTriangle, message: 'Pending invoice payment' });
@@ -730,8 +1112,14 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   }, [activeTab]);
 
   useEffect(() => {
+    setConsentSent(false);
+    setSelectedConsentId("");
+  }, [patientData?._id]);
+
+  useEffect(() => {
     if (activeTab === 'communication' && patientData?._id) {
       fetchConsentStatuses();
+      fetchConsentForms();
       fetchCreatedPackages();
       fetchProgressNotes();
       fetchPrescriptions();
@@ -802,7 +1190,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     }
   };
 
-  const fetchPackagesAndMemberships = async () => {
+  const fetchPackagesAndMemberships = async (freshPatientData?: { memberships?: any[]; packages?: any[] }) => {
     try {
       setLoadingPackages(true);
       const headers = getAuthHeaders();
@@ -818,8 +1206,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       const allPackages = pRes.data?.packages || [];
       
       // Get patient's assigned package IDs and membership IDs
-      let patientPackageIds = (patientData?.packages || []).map((p: any) => p.packageId);
-      let patientMembershipIds = (patientData?.memberships || []).map((m: any) => m.membershipId);
+      // Use freshPatientData if provided (avoids stale closure after save)
+      let patientPackageIds = (freshPatientData?.packages || patientData?.packages || []).map((p: any) => p.packageId);
+      let patientMembershipIds = (freshPatientData?.memberships || patientData?.memberships || []).map((m: any) => m.membershipId);
       
       // Fetch package usage data for this patient
       let packageUsageData = [];
@@ -836,14 +1225,14 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       
       // Fetch membership usage data for this patient
       let membershipUsageData: any = null;
-      let membershipTransferredOutData: any = null;
+      let membershipTransferredOutData: any[] = [];
       try {
         const membershipUsageRes = await axios.get(`/api/clinic/membership-usage/${patientData._id}`, { headers });
         if (membershipUsageRes.data.success && membershipUsageRes.data.hasMembership) {
           membershipUsageData = membershipUsageRes.data;
-        } else if (membershipUsageRes.data.success && membershipUsageRes.data.transferredOut) {
-          membershipTransferredOutData = membershipUsageRes.data;
         }
+        // Always capture all transferred-out memberships from API
+        membershipTransferredOutData = membershipUsageRes.data.transferredOutMemberships || [];
       } catch (err: any) {
         console.error('Error fetching membership usage:', err.message);
       }
@@ -985,7 +1374,38 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
               const fullPkg = publicPkgRes.data.existingPackages.find(
                 (p: any) => p._id === userPkg.packageId
               );
-              return fullPkg ? { ...fullPkg, assignedDate: userPkg.assignedDate } : userPkg;
+              
+              if (fullPkg) {
+                // Find usage data for this user package
+                const usage = packageUsageData.find((u: any) => u.packageName === fullPkg.packageName);
+                
+                let usedSessions = 0;
+                let treatmentsWithUsage = fullPkg.treatments || [];
+                
+                if (usage) {
+                  usedSessions = usage.totalSessions || 0;
+                  // Enrich treatments with usage details
+                  treatmentsWithUsage = (fullPkg.treatments || []).map((treatment: any) => {
+                    const treatmentUsage = usage.treatments?.find((t: any) => t.treatmentSlug === (treatment.treatmentSlug || treatment.slug));
+                    return {
+                      ...treatment,
+                      usedSessions: treatmentUsage?.totalUsedSessions || 0,
+                      maxSessions: treatmentUsage?.maxSessions || treatment.sessions || treatment.maxSessions || 0,
+                      usageDetails: treatmentUsage?.usageDetails || []
+                    };
+                  });
+                }
+                
+                return {
+                  ...fullPkg,
+                  usedSessions: usedSessions,
+                  remainingSessions: usage?.remainingSessions ?? (fullPkg.totalSessions - usedSessions),
+                  assignedDate: userPkg.assignedDate,
+                  treatments: treatmentsWithUsage
+                };
+              }
+              
+              return userPkg;
             });
             setUserPackages(fullUserPackages);
           }
@@ -998,7 +1418,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       setTransferredInPackages(transferredInPkgs);
       setTransferredOutPackages(packageTransferredOutData);
       setTransferredInMemberships(transferredInMembs);
-      setTransferredOutMemberships(membershipTransferredOutData ? [membershipTransferredOutData] : []);
+      setTransferredOutMemberships(membershipTransferredOutData);
     } catch (error: any) {
       console.error('Error fetching packages and memberships:', error.message);
       setPackages([]);
@@ -1034,7 +1454,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   const calculateFinancialSnapshot = (billings: any[]) => {
     let totalSpent = 0;
 
-    billings.forEach((billing: any) => {
+    (billings || []).forEach((billing: any) => {
+      // Exclude pure balance additions from total spent if they are just adding to advance balance
+      // but INCLUDE them if they are actual payments for pending bills
+      if ((billing.isAdvanceOnly || billing.treatment === "Advance Payment" || billing.treatment === "Historical Advance Balance") && billing.treatment !== "Pending Balance Payment") return;
       const paid = parseFloat(billing.paid) || 0;
       totalSpent += paid;
     });
@@ -1099,9 +1522,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       }
 
       // Calculate active packages from patientData.packages (one entry per assigned package)
-      // and pending sessions from package-usage API (sums remaining across all name-groups)
+      // and include approved userPackages as well
       const assignedPackages: any[] = patientData?.packages || [];
-      activePackages = assignedPackages.length;
+      const approvedUserPackages: any[] = (patientData?.userPackages || []).filter(
+        (pkg: any) => pkg.approvalStatus === 'approved'
+      );
+      activePackages = assignedPackages.length + approvedUserPackages.length;
       if (packageUsageRes.data.success) {
         const packageUsage: any[] = packageUsageRes.data.packageUsage || [];
         packageUsage.forEach((pkg: any) => {
@@ -1228,6 +1654,110 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     } finally {
       setLoadingConsentStatus(false);
     }
+  };
+
+  const fetchConsentForms = async () => {
+    try {
+      const headers = getAuthHeaders();
+      if (!headers) return;
+      const res = await axios.get('/api/clinic/consent', { headers });
+      if (res.data?.success) setConsentForms(res.data.consents || []);
+    } catch (err) {
+      console.error('Error fetching consent forms:', err);
+    }
+  };
+
+  const handleSendConsentMsgOnWhatsapp = async () => {
+    if (!selectedConsentId || !patientData) return;
+
+    try {
+      setSendingConsent(true);
+      const headers = getAuthHeaders();
+      if (!headers) {
+        alert('Authentication required');
+        return;
+      }
+
+      // Create patient data object for URL
+      const patientDataObj = {
+        firstName: patientData.firstName || "",
+        lastName: patientData.lastName || "",
+        mobileNumber: patientData.mobileNumber || "",
+        email: patientData.email || "",
+      };
+      
+      const encodedPatientData = encodeURIComponent(JSON.stringify(patientDataObj));
+      const consentUrl = `https://zeva360.com/consent-form/${selectedConsentId}?patient=${encodedPatientData}`;
+
+      const { data } = await axios.post(
+        "/api/messages/send-message",
+        {
+          patientId: patientData._id,
+          providerId: "6952256c4a46b2f1eb01be86",
+          channel: "whatsapp",
+          content: `Please review and sign the consent form by clicking the link below:\n\n ${consentUrl}\n\n Thank you.`,
+          mediaUrl: "",
+          mediaType: "",
+          source: "Zeva",
+          messageType: "conversational",
+          templateId: "69c38b4d26b8217e1ba78f8a",
+          headerParameters: [],
+          bodyParameters: [
+            {
+              type: "text",
+              text: consentUrl,
+            },
+          ],
+          attachments: [],
+        },
+        { headers }
+      );
+
+      if (data && data?.success) {
+        setConsentSent(true);
+        
+        // Log the sent consent form
+        try {
+          const selectedForm = consentForms.find((f) => f._id === selectedConsentId);
+          await axios.post(
+            "/api/clinic/consent-log",
+            {
+              consentFormId: selectedConsentId,
+              consentFormName: selectedForm?.formName || "",
+              patientId: patientData._id,
+              patientName: `${patientData.firstName} ${patientData.lastName}`.trim(),
+              sentVia: "whatsapp",
+            },
+            { headers }
+          );
+          
+          // Refresh consent statuses
+          setTimeout(() => {
+            fetchConsentStatuses();
+          }, 100);
+          alert('Consent form sent successfully!');
+        } catch (logError) {
+          console.error("Error logging consent form sent:", logError);
+        }
+      }
+    } catch (error: any) {
+      console.error("Error sending consent form:", error?.response?.data || error.message);
+      alert("Failed to send consent form");
+    } finally {
+      setSendingConsent(false);
+    }
+  };
+
+  const getConsentUrl = (consentFormId: string) => {
+    if (!patientData) return "";
+    const patientDataObj = {
+      firstName: patientData.firstName || "",
+      lastName: patientData.lastName || "",
+      mobileNumber: patientData.mobileNumber || "",
+      email: patientData.email || "",
+    };
+    const encodedPatientData = encodeURIComponent(JSON.stringify(patientDataObj));
+    return `https://zeva360.com/consent-form/${consentFormId}?patient=${encodedPatientData}`;
   };
 
   const sendPackageLink = async () => {
@@ -1705,98 +2235,394 @@ const fetchPrescriptions = async () => {
                 </div>
               </div>
             ) : activeTab === 'packages-memberships' ? (
-              /* Packages & Memberships Tab Content - Modern Combined Cards */
+              /* Packages & Memberships Tab Content - Fully Editable */
               <div className="space-y-4">
-                {/* Referred By Section - Copied from Patient Update Form */}
+                {/* Toast Notification */}
+                {pmToast && (
+                  <div className={`fixed top-4 right-4 z-[100] flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg ${
+                    pmToast.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' :
+                    pmToast.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
+                    'bg-blue-50 border-blue-200 text-blue-800'
+                  }`}>
+                    {pmToast.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                    <span className="text-[11px] font-medium">{pmToast.message}</span>
+                    <button onClick={() => setPmToast(null)} className="ml-2"><X className="w-3 h-3" /></button>
+                  </div>
+                )}
+
+                {/* Editable Membership & Package */}
                 <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-200 shadow-md">
                   <div className="flex flex-col gap-4">
-                    <div className="w-full">
-                      <label className="block text-[10px] mb-0.5 font-medium text-gray-700">
-                        Referred By
-                      </label>
-                      <div className={`text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg bg-gray-50`}>
-                        {patientData?.referredBy && patientData.referredBy !== "No" ? (
-                          <span className="font-medium text-gray-900">
-                            {patientData.referredBy}
-                          </span>
+                    {/* Membership and Package Side by Side */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                      {/* ── Membership Card ── */}
+                      <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                        <h3 className="text-[14px] font-bold text-indigo-700 mb-2 flex items-center gap-1">
+                          <User className="w-4 h-4 text-indigo-600" />
+                          Membership
+                        </h3>
+
+                        {/* Membership Yes/No */}
+                        <div className="flex flex-wrap gap-2 items-end mb-2">
+                          <div className="flex-1 min-w-[120px]">
+                            <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Membership</label>
+                            <select
+                              value={editFormData.membership || 'No'}
+                              onChange={(e) => setEditFormData((p: any) => ({ ...p, membership: e.target.value }))}
+                              className="text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 border-gray-300 hover:border-indigo-400 transition-all duration-200"
+                            >
+                              <option value="No">No</option>
+                              <option value="Yes">Yes</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Add Membership - only when membership is Yes */}
+                        {editFormData.membership === 'Yes' && (!showAddMembershipDropdown ? (
+                          <button
+                            type="button"
+                            onClick={() => setShowAddMembershipDropdown(true)}
+                            className="px-3 py-1.5 bg-indigo-600 text-white text-[10px] font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" /> Add Membership 
+                          </button>
                         ) : (
-                          <span className="text-gray-500 italic">
-                            Not specified
-                          </span>
-                        )}
+                          <div className="border border-indigo-200 rounded-lg p-2 bg-indigo-50 mb-2">
+                            <div className="flex flex-wrap gap-2 items-end">
+                              <div className="flex-1 min-w-[150px]">
+                                <label className="block text-[9px] mb-0.5 font-medium text-gray-700">Select Membership to Add</label>
+                                <select
+                                  value={selectedMembershipToAdd}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setSelectedMembershipToAdd(val);
+                                    if (val) {
+                                      const selected = allAvailableMemberships.find((m: any) => m._id === val);
+                                      if (selected) {
+                                        const start = new Date(addMembStartDate);
+                                        const end = new Date(start);
+                                        end.setMonth(end.getMonth() + (Number(selected.durationMonths) || 1));
+                                        setAddMembEndDate(formatPmDate(end));
+                                      }
+                                    } else {
+                                      setAddMembEndDate('');
+                                    }
+                                  }}
+                                  className="text-gray-900 w-full px-2 py-1.5 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 border-gray-300 hover:border-indigo-400"
+                                >
+                                  <option value="">Select membership</option>
+                                  {allAvailableMemberships.filter((m: any) => m.isActive !== false).map((m: any) => (
+                                    <option key={m._id} value={m._id}>{m.name} (₹{m.price}, {m.durationMonths} months)</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="flex-1 min-w-[120px]">
+                                <label className="block text-[9px] mb-0.5 font-medium text-gray-700">Start Date</label>
+                                <input
+                                  type="date"
+                                  value={addMembStartDate}
+                                  onChange={(e) => {
+                                    const startStr = e.target.value;
+                                    setAddMembStartDate(startStr);
+                                    if (selectedMembershipToAdd) {
+                                      const selected = allAvailableMemberships.find((m: any) => m._id === selectedMembershipToAdd);
+                                      if (selected) {
+                                        const start = new Date(startStr);
+                                        const end = new Date(start);
+                                        end.setMonth(end.getMonth() + (Number(selected.durationMonths) || 1));
+                                        setAddMembEndDate(formatPmDate(end));
+                                      }
+                                    }
+                                  }}
+                                  className="w-full px-2 py-1.5 text-[10px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-gray-900"
+                                />
+                              </div>
+                              <div className="flex-1 min-w-[120px]">
+                                <label className="block text-[9px] mb-0.5 font-medium text-gray-700">End Date</label>
+                                <input
+                                  type="date"
+                                  value={addMembEndDate}
+                                  onChange={(e) => setAddMembEndDate(e.target.value)}
+                                  className="w-full px-2 py-1.5 text-[10px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-gray-900"
+                                />
+                              </div>
+                              <div className="flex gap-1">
+                                <button type="button" onClick={handlePmAddMembership} disabled={!selectedMembershipToAdd} className="px-3 py-1.5 bg-green-600 text-white text-[10px] font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">Add</button>
+                                <button type="button" onClick={() => { setShowAddMembershipDropdown(false); setSelectedMembershipToAdd(''); }} className="px-3 py-1.5 bg-gray-300 text-gray-700 text-[10px] font-medium rounded-lg hover:bg-gray-400">Cancel</button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Added Memberships List — hide transferred-out memberships */}
+                        {(() => {
+                          const txOutMembershipIds = new Set(
+                            (patientData?.membershipTransfers || []).filter((t: any) => t.type === 'out').map((t: any) => String(t.membershipId))
+                          );
+                          const visibleMemberships = (editFormData.memberships || [])
+                            .map((m: any, originalIdx: number) => ({ m, originalIdx }))
+                            .filter(({ m }: any) => !txOutMembershipIds.has(String(m.membershipId)));
+                          if (visibleMemberships.length === 0) return null;
+                          return (
+                            <div className="border border-gray-200 rounded p-2 mt-2">
+                              <div className="text-[10px] font-semibold text-gray-900 mb-1">Added Memberships</div>
+                              <div className="space-y-1">
+                                {visibleMemberships.map(({ m, originalIdx }: any) => {
+                                  const plan = allAvailableMemberships.find((x: any) => x._id === m.membershipId);
+                                  const k = `${m.membershipId}|${m.startDate}|${m.endDate}`;
+                                  const usage = pmMembershipUsageMap[k];
+                                  return (
+                                    <div key={`${m.membershipId}-${originalIdx}`} className="p-2 rounded-lg border border-indigo-100 bg-indigo-50/30 hover:bg-indigo-50/50 transition-colors mb-2 last:mb-0">
+                                      <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-[11px] font-bold text-gray-900">{plan?.name || m.membershipId}</span>
+                                            {plan?.benefits?.priorityBooking && (
+                                              <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[8px] font-bold uppercase tracking-wider">Priority</span>
+                                            )}
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-2 text-[10px] text-gray-600 mb-1">
+                                            <div>
+                                              <span className="text-gray-500">Validity:</span>
+                                              <span className="ml-1 font-semibold text-gray-800">{m.startDate?.slice(0,10)} → {m.endDate?.slice(0,10)}</span>
+                                            </div>
+                                            <div>
+                                              <span className="text-gray-500">Price:</span>
+                                              <span className="ml-1 font-bold text-indigo-600">₹{plan?.price || 0}</span>
+                                            </div>
+                                          </div>
+                                          <div className="text-[9px] text-gray-500 bg-white/50 rounded px-1.5 py-1 border border-indigo-50">
+                                            Benefits: <span className="font-medium text-gray-700">{plan?.benefits?.freeConsultations || 0} consultations, {plan?.benefits?.discountPercentage || 0}% discount, {plan?.durationMonths || 0} months</span>
+                                          </div>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          className="ml-2 p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                          onClick={() => handlePmRemoveMembership(originalIdx)}
+                                          title="Remove Membership"
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                      
+                                      {usage && !usage.isExpired && (usage.totalFreeConsultations || 0) > 0 && (() => {
+                                        const total = usage.totalFreeConsultations || 0;
+                                        const used = usage.usedFreeConsultations || 0;
+                                        const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+                                        return (
+                                          <div className="mt-2 pt-2 border-t border-indigo-100">
+                                            <div className="flex items-center justify-between text-[9px] text-gray-700 mb-1">
+                                              <span className="font-medium">Free consultations used</span>
+                                              <span className="font-bold">{used} / {total}</span>
+                                            </div>
+                                            <div className="w-full h-1.5 rounded-full bg-gray-200 overflow-hidden">
+                                              <div 
+                                                className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500" 
+                                                style={{ width: `${pct}%` }} 
+                                              />
+                                            </div>
+                                          </div>
+                                        );
+                                      })()}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
+
+                      {/* ── Package Card ── */}
+                      <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                        <h3 className="text-[14px] font-bold text-purple-700 mb-2 flex items-center gap-1">
+                          <FileText className="w-4 h-4 text-purple-600" />
+                          Package
+                        </h3>
+
+                        {/* Package Yes/No */}
+                        <div className="flex flex-wrap gap-2 items-end mb-2">
+                          <div className="flex-1 min-w-[120px]">
+                            <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Package</label>
+                            <select
+                              value={editFormData.package || 'No'}
+                              onChange={(e) => setEditFormData((p: any) => ({ ...p, package: e.target.value }))}
+                              className="text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 border-gray-300 hover:border-purple-400 transition-all duration-200"
+                            >
+                              <option value="No">No</option>
+                              <option value="Yes">Yes</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Add Package - only when package is Yes */}
+                        {editFormData.package === 'Yes' && (!showAddPackageDropdown ? (
+                          <button
+                            type="button"
+                            onClick={() => setShowAddPackageDropdown(true)}
+                            className="px-3 py-1.5 bg-purple-600 text-white text-[10px] font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" /> Add Package
+                          </button>
+                        ) : (
+                          <div className="border border-purple-200 rounded-lg p-2 bg-purple-50 mb-2">
+                            <div className="flex flex-wrap gap-2 items-end">
+                              <div className="flex-1 min-w-[150px]">
+                                <label className="block text-[9px] mb-0.5 font-medium text-gray-700">Select Package to Add</label>
+                                <select
+                                  value={selectedPackageToAdd}
+                                  onChange={(e) => setSelectedPackageToAdd(e.target.value)}
+                                  className="text-gray-900 w-full px-2 py-1.5 text-[10px] border rounded-lg focus:ring-2 focus:ring-purple-500 border-gray-300 hover:border-purple-400"
+                                >
+                                  <option value="">Select package</option>
+                                  {allAvailablePackages.map((pkg: any) => (
+                                    <option key={pkg._id} value={pkg._id}>{pkg.name} (₹{pkg.totalPrice}, {pkg.totalSessions} sessions)</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="flex gap-1">
+                                <button type="button" onClick={handlePmAddPackage} disabled={!selectedPackageToAdd} className="px-3 py-1.5 bg-green-600 text-white text-[10px] font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">Add</button>
+                                <button type="button" onClick={() => { setShowAddPackageDropdown(false); setSelectedPackageToAdd(''); }} className="px-3 py-1.5 bg-gray-300 text-gray-700 text-[10px] font-medium rounded-lg hover:bg-gray-400">Cancel</button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Added Packages List — hide transferred-out packages */}
+                        {(() => {
+                          const txOutPackageIds = new Set(
+                            transferredOutPackages.map((p: any) => String(p.packageId))
+                          );
+                          const visiblePackages = (editFormData.packages || [])
+                            .map((p: any, originalIdx: number) => ({ p, originalIdx }))
+                            .filter(({ p }: any) => !txOutPackageIds.has(String(p.packageId)));
+                          if (visiblePackages.length === 0) return null;
+                          return (
+                            <div className="border border-gray-200 rounded p-2 mt-2">
+                              <div className="text-[10px] font-semibold text-gray-900 mb-1">Added Packages</div>
+                              <div className="space-y-1">
+                                {visiblePackages.map(({ p, originalIdx }: any) => {
+                                  const pkg = allAvailablePackages.find((x: any) => x._id === p.packageId);
+                                  return (
+                                    <div key={`${p.packageId}-${originalIdx}`} className="flex flex-col text-[10px] border-b border-gray-100 pb-1 last:border-b-0">
+                                      <div className="flex items-center justify-between">
+                                        <div className="text-gray-800 font-medium">{pkg?.name || p.packageId} • ₹{pkg?.totalPrice}</div>
+                                        <button
+                                          type="button"
+                                          className="px-2 py-0.5 bg-red-50 text-red-700 rounded border border-red-200 text-[9px]"
+                                          onClick={() => handlePmRemovePackage(originalIdx)}
+                                        >Remove</button>
+                                      </div>
+                                      <div className="text-gray-600 mt-0.5">{pkg?.totalSessions} sessions • ₹{pkg?.sessionPrice}/session</div>
+                                      <div className="text-gray-500 text-[9px] mt-0.5">Treatments: {pkg?.treatments?.length || 0} included</div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Save Confirmation Modal */}
+                    {showSaveConfirmModal && (
+                      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+                        <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-scaleIn">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
+                              <AlertCircle className="w-6 h-6 text-indigo-600" />
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-900">Confirm Save Changes</h3>
+                          </div>
+                          
+                          <div className="mb-6">
+                            <p className="text-sm text-gray-700 mb-2">
+                              Are you sure you want to save the following changes?
+                            </p>
+                            <div className="bg-gray-50 rounded-lg p-3 text-xs space-y-1">
+                              {editFormData.membership === 'Yes' && editFormData.memberships?.length > 0 && (
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">Memberships:</span>
+                                  <span className="font-medium text-gray-900">{editFormData.memberships.length} active</span>
+                                </div>
+                              )}
+                              {editFormData.package === 'Yes' && editFormData.packages?.length > 0 && (
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">Packages:</span>
+                                  <span className="font-medium text-gray-900">{editFormData.packages.length} active</span>
+                                </div>
+                              )}
+                              {editFormData.membership === 'No' && editFormData.package === 'No' && !editFormData.memberships?.length && !editFormData.packages?.length && (
+                                <div className="text-gray-600 italic">All memberships and packages will be removed</div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex gap-3 justify-end">
+                            <button
+                              type="button"
+                              onClick={() => setShowSaveConfirmModal(false)}
+                              disabled={pmSaving}
+                              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handlePmSaveConfirmed}
+                              disabled={pmSaving}
+                              className="px-5 py-2 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-md disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                              {pmSaving ? (
+                                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Saving...</>
+                              ) : (
+                                <><CheckCircle className="w-4 h-4" /> Yes, Save Changes</>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Save Button */}
+                    <div className="flex justify-end pt-2">
+                      <button
+                        type="button"
+                        onClick={handlePmSave}
+                        disabled={pmSaving}
+                        className="px-5 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[11px] font-semibold rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-md disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {pmSaving ? (
+                          <><div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> Saving...</>
+                        ) : (
+                          <><CheckCircle className="w-3.5 h-3.5" /> Save Changes</>
+                        )}
+                      </button>
                     </div>
                   </div>
                 </div>
 
-                {/* Transfer Section - Copied from Patient Update Form with Enable/Disable Functionality */}
-                <TransferSection patientId={patientData._id} />
+                {/* Transfer Section */}
+                <TransferSection patientId={patientData._id} patientData={patientData} onTransferComplete={() => { fetchPackagesAndMemberships(); }} />
 
-                {/* Packages Section */}
+                {/* Packages Section - Always show, empty state when no packages */}
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <Package className="w-5 h-5 text-teal-600" />
-                    Packages
-                  </h3>
-                  
-                  {loadingPackages ? (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
-                    </div>
-                  ) : (packages.length === 0 && userPackages.length === 0) ? (
-                    <div className="space-y-4">
-                      {/* Transferred Out Packages */}
-                      {transferredOutPackages && transferredOutPackages.length > 0 ? (
-                        transferredOutPackages.map((pkg: any, idx: number) => (
-                          <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
-                            <div className="flex items-start gap-3">
-                              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
-                                <Package className="w-5 h-5 text-amber-600" />
-                              </div>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <h3 className="text-base font-bold text-amber-900">
-                                    {pkg.packageName || 'Package'}
-                                  </h3>
-                                  <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[10px] font-bold">
-                                    Transferred Out
-                                  </span>
-                                </div>
-                                <p className="text-xs text-amber-700 mb-3">
-                                  This package was transferred to another patient.
-                                </p>
-                                <div className="grid grid-cols-2 gap-2">
-                                  {pkg.transferredToName && (
-                                    <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
-                                      <div className="text-[10px] text-gray-500 mb-0.5">Transferred To</div>
-                                      <div className="flex items-center gap-1.5">
-                                        <User className="w-3.5 h-3.5 text-amber-600" />
-                                        <span className="text-xs font-bold text-amber-900">
-                                          {pkg.transferredToName}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  )}
-                                  {pkg.transferredSessions > 0 && (
-                                    <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
-                                      <div className="text-[10px] text-gray-500 mb-0.5">Sessions Transferred</div>
-                                      <span className="text-xs font-bold text-amber-900">
-                                        {pkg.transferredSessions}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-                          <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                          <p className="text-gray-600 font-medium">No packages assigned to this patient</p>
-                        </div>
-                      )}
-                    </div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <Package className="w-5 h-5 text-teal-600" />
+                      Packages
+                    </h3>
+                    
+                    {loadingPackages ? (
+                      <div className="flex items-center justify-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+                      </div>
+                    ) : (packages.length === 0 && userPackages.length === 0) ? (
+                      <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
+                        <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                        <p className="text-gray-600 font-medium">No packages assigned to this patient</p>
+                      </div>
                   ) : (
                     <div className="space-y-4">
                       {[...packages, ...userPackages].map((pkg: any, index: number) => {
@@ -1807,7 +2633,7 @@ const fetchPrescriptions = async () => {
                       
                       // Session calculations - use actual data from API
                       const totalSessions = pkg.totalSessions || 0;
-                      const usedSessions = pkg.usedSessions || (totalSessions - (pkg.remainingSessions || 0));
+                      const usedSessions = typeof pkg.usedSessions === 'number' ? pkg.usedSessions : (totalSessions - (pkg.remainingSessions || 0));
                       const remainingSessions = typeof pkg.remainingSessions === 'number' ? pkg.remainingSessions : Math.max(0, totalSessions - usedSessions);
                       const progressPercent = totalSessions > 0 ? Math.min(100, Math.round((usedSessions / totalSessions) * 100)) : 0;
                       
@@ -2093,58 +2919,9 @@ const fetchPrescriptions = async () => {
                   </h3>
                               
                   {memberships.length === 0 ? (
-                    <div className="space-y-4">
-                      {/* Transferred Out Memberships */}
-                      {transferredOutMemberships && transferredOutMemberships.length > 0 ? (
-                        transferredOutMemberships.map((membership: any, idx: number) => (
-                          <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
-                            <div className="flex items-start gap-3">
-                              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
-                                <Shield className="w-5 h-5 text-amber-600" />
-                              </div>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <h3 className="text-base font-bold text-amber-900">
-                                    {membership.membershipName || 'Membership'}
-                                  </h3>
-                                  <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[10px] font-bold">
-                                    Transferred Out
-                                  </span>
-                                </div>
-                                <p className="text-xs text-amber-700 mb-3">
-                                  This membership was transferred to another patient.
-                                </p>
-                                <div className="grid grid-cols-2 gap-2">
-                                  {membership.transferredToName && (
-                                    <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
-                                      <div className="text-[10px] text-gray-500 mb-0.5">Transferred To</div>
-                                      <div className="flex items-center gap-1.5">
-                                        <User className="w-3.5 h-3.5 text-amber-600" />
-                                        <span className="text-xs font-bold text-amber-900">
-                                          {membership.transferredToName}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  )}
-                                  {membership.transferredFreeConsultations > 0 && (
-                                    <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
-                                      <div className="text-[10px] text-gray-500 mb-0.5">Consultations Transferred</div>
-                                      <span className="text-xs font-bold text-amber-900">
-                                        {membership.transferredFreeConsultations}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-                          <Shield className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                          <p className="text-gray-600 font-medium">No memberships assigned to this patient</p>
-                        </div>
-                      )}
+                    <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
+                      <Shield className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-600 font-medium">No memberships assigned to this patient</p>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -2547,6 +3324,61 @@ const fetchPrescriptions = async () => {
                   </div>
                 )}
 
+                {/* Transferred Out Memberships Section */}
+                {transferredOutMemberships && transferredOutMemberships.length > 0 && (
+                  <div className="mt-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-amber-600" />
+                      Transferred Out Memberships
+                    </h3>
+                    <div className="space-y-4">
+                      {transferredOutMemberships.map((membership: any, idx: number) => (
+                        <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                              <Shield className="w-5 h-5 text-amber-600" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-base font-bold text-amber-900">
+                                  {membership.membershipName || 'Membership'}
+                                </h3>
+                                <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[10px] font-bold">
+                                  Transferred Out
+                                </span>
+                              </div>
+                              <p className="text-xs text-amber-700 mb-3">
+                                This membership was transferred to another patient.
+                              </p>
+                              <div className="grid grid-cols-2 gap-2">
+                                {membership.transferredToName && (
+                                  <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred To</div>
+                                    <div className="flex items-center gap-1.5">
+                                      <User className="w-3.5 h-3.5 text-amber-600" />
+                                      <span className="text-xs font-bold text-amber-900">
+                                        {membership.transferredToName}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                                {membership.transferredFreeConsultations > 0 && (
+                                  <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Consultations Transferred</div>
+                                    <span className="text-xs font-bold text-amber-900">
+                                      {membership.transferredFreeConsultations}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Transferred In Memberships Section */}
                 {transferredInMemberships && transferredInMemberships.length > 0 && (
                   <div className="mt-6">
@@ -2620,239 +3452,324 @@ const fetchPrescriptions = async () => {
               </div>
             ) : activeTab === 'billing' ? (
               /* Billing Tab Content - Modern Two-Column Dashboard */
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {loadingBilling ? (
-                  <div className="col-span-1 lg:col-span-3 flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+              <div className="space-y-4">
+                {/* Billing Overview Stats - Top Row for Mobile */}
+                {!loadingBilling && billingHistory && (billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length > 0 && (
+                  <div className="grid grid-cols-2 lg:hidden gap-3">
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+                      <div className="text-[10px] text-blue-600 font-bold uppercase tracking-wider mb-1">Total Billed</div>
+                      <div className="text-lg font-bold text-blue-800">
+                        {formatAED((billingHistory || []).filter((b: any) => 
+                          (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") || 
+                          b.treatment === "Pending Balance Payment"
+                        ).reduce((acc: number, b: any) => acc + (Number(b.amount) || 0), 0))}
+                      </div>
+                    </div>
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                      <div className="text-[10px] text-red-600 font-bold uppercase tracking-wider mb-1">Outstanding</div>
+                      <div className="text-lg font-bold text-red-800">
+                        {formatAED(balance.pendingBalance)}
+                      </div>
+                    </div>
                   </div>
-                ) : !billingHistory || billingHistory.length === 0 ? (
-                  <div className="col-span-1 lg:col-span-3">
-                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                      {/* Top gradient banner */}
-                      <div className="h-2 bg-gradient-to-r from-teal-400 via-cyan-400 to-blue-400" />
-                      <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-                        {/* Icon circle */}
-                        <div className="relative mb-6">
-                          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-teal-50 to-cyan-100 border-2 border-teal-200 flex items-center justify-center shadow-inner">
-                            <DollarSign className="w-10 h-10 text-teal-400" />
+                )}
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {loadingBilling ? (
+                    <div className="col-span-1 lg:col-span-3 flex items-center justify-center py-12">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+                    </div>
+                  ) : !billingHistory || (billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length === 0 ? (
+                    <div className="col-span-1 lg:col-span-3">
+                      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                        {/* Top gradient banner */}
+                        <div className="h-2 bg-gradient-to-r from-teal-400 via-cyan-400 to-blue-400" />
+                        <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+                          {/* Icon circle */}
+                          <div className="relative mb-6">
+                            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-teal-50 to-cyan-100 border-2 border-teal-200 flex items-center justify-center shadow-inner">
+                              <DollarSign className="w-10 h-10 text-teal-400" />
+                            </div>
+                            <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-orange-100 border-2 border-white flex items-center justify-center">
+                              <FileText className="w-3.5 h-3.5 text-orange-500" />
+                            </div>
                           </div>
-                          <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-orange-100 border-2 border-white flex items-center justify-center">
-                            <FileText className="w-3.5 h-3.5 text-orange-500" />
+                          {/* Text */}
+                          <h3 className="text-xl font-bold text-gray-800 mb-2">No Billing Records Yet</h3>
+                          <p className="text-gray-500 text-sm max-w-xs mb-8">
+                            This patient doesn't have any billing history. Invoices will appear here once a session is billed.
+                          </p>
+                          {/* Info pills */}
+                          <div className="flex items-center gap-3 flex-wrap justify-center">
+                            <div className="flex items-center gap-2 px-4 py-2 bg-teal-50 border border-teal-200 rounded-full text-xs font-semibold text-teal-700">
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              Invoices
+                            </div>
+                            <div className="flex items-center gap-2 px-4 py-2 bg-purple-50 border border-purple-200 rounded-full text-xs font-semibold text-purple-700">
+                              <Package className="w-3.5 h-3.5" />
+                              Payments
+                            </div>
+                            <div className="flex items-center gap-2 px-4 py-2 bg-orange-50 border border-orange-200 rounded-full text-xs font-semibold text-orange-700">
+                              <Clock className="w-3.5 h-3.5" />
+                              Pending
+                            </div>
                           </div>
                         </div>
-                        {/* Text */}
-                        <h3 className="text-xl font-bold text-gray-800 mb-2">No Billing Records Yet</h3>
-                        <p className="text-gray-500 text-sm max-w-xs mb-8">
-                          This patient doesn't have any billing history. Invoices will appear here once a session is billed.
-                        </p>
-                        {/* Info pills */}
-                        <div className="flex items-center gap-3 flex-wrap justify-center">
-                          <div className="flex items-center gap-2 px-4 py-2 bg-teal-50 border border-teal-200 rounded-full text-xs font-semibold text-teal-700">
-                            <CheckCircle className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Left Column - Invoices Table (2 columns width) */}
+                      <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-100">
+                          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                            <FileText className="w-5 h-5 text-teal-600" />
                             Invoices
-                          </div>
-                          <div className="flex items-center gap-2 px-4 py-2 bg-purple-50 border border-purple-200 rounded-full text-xs font-semibold text-purple-700">
-                            <Package className="w-3.5 h-3.5" />
-                            Payments
-                          </div>
-                          <div className="flex items-center gap-2 px-4 py-2 bg-orange-50 border border-orange-200 rounded-full text-xs font-semibold text-orange-700">
-                            <Clock className="w-3.5 h-3.5" />
-                            Pending
-                          </div>
+                          </h3>
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {/* Left Column - Invoices Table (2 columns width) */}
-                    <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                      <div className="px-5 py-4 border-b border-gray-100">
-                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                          <FileText className="w-5 h-5 text-teal-600" />
-                          Invoices
-                        </h3>
-                      </div>
-                      
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-100">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Invoice</th>
-                              <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
-                              <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Treatment</th>
-                              <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
-                              <th className="px-5 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-100">
-                            {billingHistory.map((billing: any, index: number) => {
-                              // Determine invoice status
-                              let statusLabel = 'Pending';
-                              let statusColor = 'bg-red-100 text-red-700';
-                              
-                              if (billing.paid >= billing.amount && billing.amount > 0) {
-                                statusLabel = 'Paid';
-                                statusColor = 'bg-green-100 text-green-700';
-                              } else if (billing.paid > 0 && billing.pending > 0) {
-                                statusLabel = 'Partial';
-                                statusColor = 'bg-yellow-100 text-yellow-700';
-                              }
-
-                              return (
-                                <tr key={billing._id || index} className="hover:bg-gray-50 transition-colors">
-                                  <td className="px-5 py-4 whitespace-nowrap">
-                                    <div className="text-sm font-semibold text-gray-900">{billing.invoiceNumber || `INV-${String(index + 1).padStart(4, '0')}`}</div>
-                                    <div className="text-xs text-gray-500 mt-0.5">{billing.service || 'Treatment'}</div>
-                                  </td>
-                                  <td className="px-5 py-4 whitespace-nowrap">
-                                    <div className="text-sm text-gray-700">
-                                      {billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
-                                    </div>
-                                  </td>
-                                  <td className="px-5 py-4 whitespace-nowrap">
-                                    <div className="text-sm text-gray-700 max-w-xs truncate" title={billing.treatment}>
-                                      {billing.treatment || '-'}
-                                    </div>
-                                  </td>
-                                  <td className="px-5 py-4 whitespace-nowrap text-right">
-                                    <div className="text-sm font-bold text-gray-900">${billing.amount || 0}</div>
-                                    <div className="text-xs text-gray-500 mt-0.5">Qty: {billing.quantity || 0}</div>
-                                  </td>
-                                  <td className="px-5 py-4 whitespace-nowrap text-center">
-                                    <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${statusColor}`}>
-                                      {statusLabel}
-                                    </span>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    {/* Right Column - Payment History & Summary */}
-                    <div className="lg:col-span-1">
-                      {/* Payment History Card */}
-                      <div className="bg-white rounded-xl border border-gray-200 shadow-lg p-5">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                          <CreditCard className="w-5 h-5 text-green-600" />
-                          Payment History
-                        </h3>
                         
-                        <div className="space-y-0">
-                          {(() => {
-                            const allPayments = billingHistory.flatMap((billing: any) => 
-                              (billing.paymentHistory || []).map((payment: any, idx: number) => ({
-                                ...payment,
-                                invoiceNumber: billing.invoiceNumber,
-                                billingId: billing._id,
-                                originalIndex: idx
-                              }))
-                            );
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full divide-y divide-gray-100 hidden sm:table">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Invoice</th>
+                                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
+                                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Treatment</th>
+                                <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-100">
+                              {(billingHistory || [])
+                                .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
+                                .map((billing: any, index: number) => {
+                                // Determine invoice status
 
-                            if (allPayments.length === 0) {
-                              return (
-                                <div className="flex flex-col items-center justify-center py-8">
-                                  <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                                    <DollarSign className="w-8 h-8 text-gray-400" />
-                                  </div>
-                                  <p className="text-sm text-gray-500 font-medium">No payment history</p>
-                                  <p className="text-xs text-gray-400 mt-1">Payments will appear here</p>
-                                </div>
-                              );
-                            }
-
-                            return allPayments.map((payment: any, index: number) => (
-                              <div key={`${payment.billingId}-${payment.originalIndex}-${index}`}>
-                                <div className="flex items-start gap-3 py-3">
-                                  {/* Circular Green Icon */}
-                                  <div className="w-10 h-10 rounded-full bg-green-50 border border-green-200 flex items-center justify-center flex-shrink-0">
-                                    <DollarSign className="w-5 h-5 text-green-600" />
-                                  </div>
-                                  
-                                  {/* Payment Details */}
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-base font-bold text-gray-900">
-                                      AED {payment.amount || payment.paid || 0}
-                                    </div>
-                                    <div className="text-sm text-gray-600 mt-0.5">
-                                      {payment.paymentMethod ? (
-                                        <>
-                                          {payment.paymentMethod === 'Card' ? 'Card ending 4242' : 
-                                           payment.paymentMethod === 'Wallet' ? 'Wallet Balance' :
-                                           payment.paymentMethod}
-                                        </>
-                                      ) : 'Payment'}
-                                    </div>
-                                    {payment.invoiceNumber && (
-                                      <div className="text-xs text-gray-500 mt-1">
-                                        {payment.invoiceNumber}
+                                return (
+                                  <tr key={billing._id || index} className="hover:bg-gray-50 transition-colors">
+                                    <td className="px-5 py-4 whitespace-nowrap">
+                                      <div className="text-sm font-semibold text-gray-900">{billing.invoiceNumber || `INV-${String(index + 1).padStart(4, '0')}`}</div>
+                                      <div className="text-xs text-gray-500 mt-0.5">{billing.service || 'Treatment'}</div>
+                                    </td>
+                                    <td className="px-5 py-4 whitespace-nowrap">
+                                      <div className="text-sm text-gray-700">
+                                        {billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
                                       </div>
+                                    </td>
+                                    <td className="px-5 py-4 whitespace-nowrap">
+                                      <div className="text-sm text-gray-700 max-w-xs truncate" title={billing.treatment}>
+                                        {billing.package ? (
+                                          <div className="flex flex-col">
+                                            <div className="font-semibold text-indigo-700 flex items-center gap-1">
+                                              <Package className="w-3 h-3" />
+                                              {billing.package}
+                                            </div>
+                                            <div className="text-xs text-gray-500 mt-0.5">
+                                              {Array.isArray(billing.selectedPackageTreatments) && billing.selectedPackageTreatments.length > 0
+                                                ? billing.selectedPackageTreatments.map((t: any) => t.treatmentName).join(', ')
+                                                : billing.treatment || '-'}
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          billing.treatment || '-'
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="px-5 py-4 whitespace-nowrap text-right">
+                                      <div className="text-sm font-bold text-gray-900">{formatAED(billing.amount || 0)}</div>
+                                      <div className="flex flex-col items-end mt-1 space-y-0.5">
+                                        <div className="text-[10px] text-gray-500">Total: {formatAED(billing.originalAmount || billing.amount || 0)}</div>
+                                        <div className="text-[10px] text-gray-500">Paid: {formatAED(billing.paid || 0)}</div>
+                                        {(billing.discountPercent > 0 || billing.discountPercentage > 0) && (
+                                          <div className="text-[10px] text-teal-600 font-medium">
+                                            Disc: {(billing.discountPercent || billing.discountPercentage || 0).toFixed(1)}%
+                                          </div>
+                                        )}
+                                        <div className="text-[10px] text-gray-400">Qty: {billing.quantity || 0}</div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+
+                          {/* Mobile List View */}
+                          <div className="sm:hidden divide-y divide-gray-100">
+                            {(billingHistory || [])
+                              .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
+                              .map((billing: any, index: number) => (
+                                <div key={billing._id || index} className="p-4 hover:bg-gray-50">
+                                  <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                      <div className="text-sm font-bold text-gray-900">{billing.invoiceNumber || `INV-${String(index + 1).padStart(4, '0')}`}</div>
+                                      <div className="text-xs text-gray-500">{billing.service || 'Treatment'}</div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-sm font-bold text-gray-900">{formatAED(billing.amount || 0)}</div>
+                                      <div className="text-[10px] text-gray-500">{billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString() : 'N/A'}</div>
+                                    </div>
+                                  </div>
+                                  <div className="text-sm text-gray-700 mb-2">
+                                    {billing.package ? (
+                                      <div className="flex items-center gap-1 font-semibold text-indigo-700">
+                                        <Package className="w-3 h-3" />
+                                        {billing.package}
+                                      </div>
+                                    ) : (
+                                      billing.treatment || '-'
                                     )}
                                   </div>
-                                  
-                                  {/* Right-aligned Date */}
-                                  <div className="text-right flex-shrink-0">
-                                    <div className="text-sm text-gray-500">
-                                      {payment.updatedAt 
-                                        ? new Date(payment.updatedAt).toLocaleDateString('en-US', { 
-                                            month: 'short', 
-                                            day: 'numeric',
-                                            year: 'numeric'
-                                          }) 
-                                        : 'N/A'}
+                                  <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-gray-50">
+                                    <div className="text-[10px] text-gray-500">
+                                      <span className="block">Original: {formatAED(billing.originalAmount || billing.amount || 0)}</span>
+                                      <span className="block">Paid: {formatAED(billing.paid || 0)}</span>
+                                    </div>
+                                    <div className="text-[10px] text-right">
+                                      {(billing.discountPercent > 0 || billing.discountPercentage > 0) && (
+                                        <span className="block text-teal-600 font-medium">Disc: {(billing.discountPercent || billing.discountPercentage || 0).toFixed(1)}%</span>
+                                      )}
+                                      <span className="block text-gray-400">Qty: {billing.quantity || 0}</span>
                                     </div>
                                   </div>
                                 </div>
-                                
-                                {/* Thin Divider */}
-                                {index < allPayments.length - 1 && (
-                                  <div className="h-px bg-gray-100 ml-13"></div>
-                                )}
-                              </div>
-                            ));
-                          })()}
+                              ))}
+                          </div>
                         </div>
+                      </div>
 
-                        {/* Divider before Summary */}
-                        {billingHistory.length > 0 && (
-                          <div className="h-px bg-gray-200 my-4"></div>
-                        )}
+                      {/* Right Column - Payment History & Summary */}
+                      <div className="lg:col-span-1">
+                        {/* Payment History Card */}
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-lg p-5">
+                          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <CreditCard className="w-5 h-5 text-green-600" />
+                            Payment History
+                          </h3>
+                          
+                          <div className="space-y-0">
+                            {(() => {
+                              const allPayments = (billingHistory || [])
+                                .filter((b: any) => 
+                                  (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") || 
+                                  b.treatment === "Pending Balance Payment"
+                                )
+                                .flatMap((billing: any) => 
+                                (billing.paymentHistory || []).map((payment: any, idx: number) => ({
+                                  ...payment,
+                                  invoiceNumber: billing.invoiceNumber,
+                                  billingId: billing._id,
+                                  originalIndex: idx
+                                }))
+                              );
 
-                        {/* Summary Section */}
-                        {billingHistory.length > 0 && (
-                          <div className="pt-4 space-y-3">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                              {/* Total Billed */}
-                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-                                <div className="text-sm text-blue-600 mb-1">Total Billed</div>
-                                <div className="text-2xl font-bold text-blue-800">
-                                  {formatAED(billingHistory.reduce((acc: number, b: any) => acc + (Number(b.amount) || 0), 0))}
+                              if (allPayments.length === 0) {
+                                return (
+                                  <div className="flex flex-col items-center justify-center py-8">
+                                    <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                                      <DollarSign className="w-8 h-8 text-gray-400" />
+                                    </div>
+                                    <p className="text-sm text-gray-500 font-medium">No payment history</p>
+                                    <p className="text-xs text-gray-400 mt-1">Payments will appear here</p>
+                                  </div>
+                                );
+                              }
+
+                              return allPayments.map((payment: any, index: number) => (
+                                <div key={`${payment.billingId}-${payment.originalIndex}-${index}`}>
+                                  <div className="flex items-start gap-3 py-3">
+                                    {/* Circular Green Icon */}
+                                    <div className="w-10 h-10 rounded-full bg-green-50 border border-green-200 flex items-center justify-center flex-shrink-0">
+                                      <DollarSign className="w-5 h-5 text-green-600" />
+                                    </div>
+                                    
+                                    {/* Payment Details */}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-base font-bold text-gray-900">
+                                        AED {payment.amount || payment.paid || 0}
+                                      </div>
+                                      <div className="text-sm text-gray-600 mt-0.5">
+                                        {payment.paymentMethod ? (
+                                          <>
+                                            {payment.paymentMethod === 'Card' ? 'Card ending 4242' : 
+                                            payment.paymentMethod === 'Wallet' ? 'Wallet Balance' :
+                                            payment.paymentMethod}
+                                          </>
+                                        ) : 'Payment'}
+                                      </div>
+                                      {payment.invoiceNumber && (
+                                        <div className="text-xs text-gray-500 mt-1">
+                                          {payment.invoiceNumber}
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    {/* Right-aligned Date */}
+                                    <div className="text-right flex-shrink-0">
+                                      <div className="text-sm text-gray-500">
+                                        {payment.updatedAt 
+                                          ? new Date(payment.updatedAt).toLocaleDateString('en-US', { 
+                                              month: 'short', 
+                                              day: 'numeric',
+                                              year: 'numeric'
+                                            }) 
+                                          : 'N/A'}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Thin Divider */}
+                                  {index < allPayments.length - 1 && (
+                                    <div className="h-px bg-gray-100 ml-13"></div>
+                                  )}
                                 </div>
-                              </div>
-                              {/* Total Paid */}
-                              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                                <div className="text-sm text-green-600 mb-1">Total Paid</div>
-                                <div className="text-2xl font-bold text-green-800">
-                                  {formatAED(billingHistory.reduce((acc: number, b: any) => acc + (Number(b.paid) || 0), 0))}
+                              ));
+                            })()}
+                          </div>
+
+                          {/* Divider before Summary */}
+                          {(billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length > 0 && (
+                            <div className="h-px bg-gray-200 my-4"></div>
+                          )}
+
+                          {/* Summary Section */}
+                          {(billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length > 0 && (
+                            <div className="pt-4 space-y-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                {/* Total Billed */}
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                                  <div className="text-[10px] sm:text-xs text-blue-600 mb-1">Total Billed</div>
+                                  <div className="text-lg sm:text-xl md:text-2xl font-bold text-blue-800">
+                                    {formatAED((billingHistory || []).filter((b: any) => 
+                                      (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") || 
+                                      b.treatment === "Pending Balance Payment"
+                                    ).reduce((acc: number, b: any) => acc + (Number(b.amount) || 0), 0))}
+                                  </div>
                                 </div>
-                              </div>
-                              {/* Outstanding */}
-                              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-                                <div className="text-sm text-red-600 mb-1">Outstanding</div>
-                                <div className="text-2xl font-bold text-red-800">
-                                  {formatAED(balance.pendingBalance)}
+                                {/* Total Paid */}
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                                  <div className="text-[10px] sm:text-xs text-green-600 mb-1">Total Paid</div>
+                                  <div className="text-lg sm:text-xl md:text-2xl font-bold text-green-800">
+                                    {formatAED((billingHistory || []).filter((b: any) => 
+                                      (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") || 
+                                      b.treatment === "Pending Balance Payment"
+                                    ).reduce((acc: number, b: any) => acc + (Number(b.paid) || 0), 0))}
+                                  </div>
+                                </div>
+                                {/* Outstanding */}
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center sm:col-span-2 md:col-span-1">
+                                  <div className="text-[10px] sm:text-xs text-red-600 mb-1">Outstanding</div>
+                                  <div className="text-lg sm:text-xl md:text-2xl font-bold text-red-800">
+                                    {formatAED(balance.pendingBalance)}
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </>
-                )}
+                    </>
+                  )}
+                </div>
               </div>
             ) : activeTab === 'insurance' ? (
               /* Insurance Tab Content */
@@ -3065,7 +3982,7 @@ const fetchPrescriptions = async () => {
                 // Build treatment list from appointments, cross-ref with billing for status
                 const paidInvoiceAptIds = new Set(
                   (billingHistory || [])
-                    .filter((b: any) => b.paid >= b.amount && b.amount > 0)
+                    .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance" && b.paid >= b.amount && b.amount > 0)
                     .map((b: any) => b.appointmentId?._id || b.appointmentId)
                     .filter(Boolean)
                 );
@@ -3205,6 +4122,60 @@ const fetchPrescriptions = async () => {
                         </>
                       )}
                     </button>
+                  </div>
+                </div>
+
+                {/* Send Consent Form Section */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-4">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                        <ClipboardCheck className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-gray-900">Send Consent Form</h3>
+                        <p className="text-xs text-gray-500">Send a digital consent form to sign</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                      <select
+                        value={selectedConsentId}
+                        onChange={(e) => setSelectedConsentId(e.target.value)}
+                        disabled={sendingConsent || consentSent}
+                        className="flex-1 sm:w-64 px-3 py-2 text-xs border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                      >
+                        <option value="">Select Consent Form</option>
+                        {consentForms.map((form: any) => (
+                          <option key={form._id} value={form._id}>
+                            {form.formName}
+                          </option>
+                        ))}
+                      </select>
+                      
+                      <button
+                        onClick={handleSendConsentMsgOnWhatsapp}
+                        disabled={!selectedConsentId || sendingConsent || consentSent}
+                        className="px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                      >
+                        {sendingConsent ? (
+                          <>
+                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Sending...
+                          </>
+                        ) : consentSent ? (
+                          <>
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            Sent
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-3.5 h-3.5" />
+                            Send Form
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -3371,7 +4342,7 @@ const fetchPrescriptions = async () => {
                           </div>
                           <div>
                             <h3 className="text-sm font-bold text-gray-900">Consent Form Status</h3>
-                            <p className="text-[10px] text-gray-500">Signed and pending consent forms</p>
+                            <p className="text-[10px] text-gray-500">Signed and sent consent forms</p>
                           </div>
                           {consentStatuses.length > 0 && (
                             <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
@@ -3413,14 +4384,26 @@ const fetchPrescriptions = async () => {
                                     ? 'bg-green-100 text-green-700'
                                     : 'bg-yellow-100 text-yellow-700'
                                 }`}>
-                                  {consent.status === 'signed' ? 'Signed' : 'Pending'}
+                                  {consent.status === 'signed' ? 'Signed' : 'Sent'}
                                 </span>
                               </div>
-                              {consent.signedAt && (
-                                <p className="text-[10px] text-gray-500">
-                                  Signed: {new Date(consent.signedAt).toLocaleDateString('en-GB')}
-                                </p>
-                              )}
+                              <div className="flex items-center justify-between mt-2">
+                                {consent.signedAt && (
+                                  <p className="text-[10px] text-gray-500">
+                                    Signed: {new Date(consent.signedAt).toLocaleDateString('en-GB')}
+                                  </p>
+                                )}
+                                <button
+                                  onClick={() => {
+                                    const url = getConsentUrl(consent.consentFormId);
+                                    if (url) window.open(url, '_blank');
+                                  }}
+                                  className="ml-auto flex items-center gap-1.5 px-2 py-1 bg-white border border-green-200 text-green-700 rounded-md text-[10px] font-semibold hover:bg-green-50 transition-colors"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  Open Form
+                                </button>
+                              </div>
                             </div>
                           ))
                         )}
@@ -3475,16 +4458,42 @@ const fetchPrescriptions = async () => {
                                   {pkg.approvalStatus}
                                 </span>
                               </div>
-                              <div className="grid grid-cols-2 gap-2 text-[10px]">
+                              <div className="grid grid-cols-2 gap-2 text-[10px] mb-3">
                                 <div>
                                   <span className="text-gray-500">Sessions:</span>
                                   <span className="ml-1 font-semibold text-gray-900">{pkg.totalSessions}</span>
                                 </div>
                                 <div>
-                                  <span className="text-gray-500">Price:</span>
+                                  <span className="text-gray-500">Total Price:</span>
                                   <span className="ml-1 font-bold text-teal-600">د.إ{pkg.totalPrice?.toFixed(2)}</span>
                                 </div>
                               </div>
+
+                              {/* Treatment Breakdown */}
+                              {pkg.treatments && pkg.treatments.length > 0 && (
+                                <div className="mt-2 space-y-2 border-t border-teal-100 pt-2">
+                                  <div className="text-[10px] font-bold text-gray-700 uppercase tracking-wider mb-1">Treatments Selected:</div>
+                                  {pkg.treatments.map((t: any, tIdx: number) => (
+                                    <div key={tIdx} className="bg-white/50 rounded p-2 border border-teal-50">
+                                      <div className="flex justify-between items-start mb-1">
+                                        <span className="text-[11px] font-bold text-gray-900">{t.treatmentName}</span>
+                                        <span className="text-[10px] font-bold text-teal-700">{t.sessions} {t.sessions === 1 ? 'Session' : 'Sessions'}</span>
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-gray-500">Session Price:</span>
+                                          <span className="font-semibold text-gray-800">د.إ{t.sessionPrice?.toFixed(2)}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-gray-500">Allocated Price:</span>
+                                          <span className="font-bold text-teal-600">د.إ{t.allocatedPrice?.toFixed(2)}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
                               {pkg.approvalStatus === 'pending' && (
                                 <button
                                   onClick={async () => {
@@ -3544,21 +4553,6 @@ const fetchPrescriptions = async () => {
                           <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
                           <span className="text-xs font-bold text-emerald-700">Advance: {formatAED(balance.advanceBalance)}</span>
                         </div>
-                        {/* Past Advance 50% */}
-                        <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
-                          <DollarSign className="w-3.5 h-3.5 text-amber-600" />
-                          <span className="text-xs font-bold text-amber-700">Past Advance 50%: {formatAED(balance.pastAdvance50PercentBalance)}</span>
-                        </div>
-                        {/* Past Advance 54% */}
-                        <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200">
-                          <DollarSign className="w-3.5 h-3.5 text-blue-600" />
-                          <span className="text-xs font-bold text-blue-700">Past Advance 54%: {formatAED(balance.pastAdvance54PercentBalance)}</span>
-                        </div>
-                        {/* Past Advance 159 Flat */}
-                        <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-purple-50 border border-purple-200">
-                          <DollarSign className="w-3.5 h-3.5 text-purple-600" />
-                          <span className="text-xs font-bold text-purple-700">Past Advance 159 Flat: {formatAED(balance.pastAdvance159FlatBalance)}</span>
-                        </div>
                       </div>
                     )}
                   </div>
@@ -3577,27 +4571,6 @@ const fetchPrescriptions = async () => {
                     >
                       <Plus className="w-4 h-4" />
                       Add Advance Balance
-                    </button>
-                    <button
-                      onClick={() => setShowAddPastAdvancePayment50PercentModal(true)}
-                      className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:bg-amber-700 hover:shadow-lg active:scale-95"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add 50% Past Advance Balance
-                    </button>
-                    <button
-                      onClick={() => setShowAddPastAdvancePayment54PercentModal(true)}
-                      className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:bg-blue-700 hover:shadow-lg active:scale-95"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add 54% Past Advance Balance
-                    </button>
-                    <button
-                      onClick={() => setShowAddPastAdvancePayment159FlatModal(true)}
-                      className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:bg-purple-700 hover:shadow-lg active:scale-95"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add 159 Flat Past Advance Balance
                     </button>
                   </div>
                 </div>
@@ -3666,7 +4639,7 @@ const fetchPrescriptions = async () => {
                       </div>
                                           
                       {/* Pending Payment */}
-                      <div className="flex items-center p-2 bg-red-50 border border-red-100 rounded-md">
+                      <div className="flex items-center justify-between p-2 bg-red-50 border border-red-100 rounded-md">
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center">
                             <CreditCard className="w-3.5 h-3.5 text-red-600 flex-shrink-0" />
@@ -3676,6 +4649,15 @@ const fetchPrescriptions = async () => {
                             <div className="text-lg font-bold text-red-600">{formatAED(balance.pendingBalance)}</div>
                           </div>
                         </div>
+                        {balance.pendingBalance > 0 && (
+                          <button
+                            onClick={() => setShowPayPendingModal(true)}
+                            className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded shadow-sm transition-all active:scale-95 flex items-center gap-1"
+                          >
+                            <DollarSign className="w-3 h-3" />
+                            Pay
+                          </button>
+                        )}
                       </div>
                                           
                       {/* Advance Balance */}
@@ -3871,9 +4853,49 @@ const fetchPrescriptions = async () => {
           pastAdvanceType="159 Flat"
           primaryColor="purple"
         />
+        <PayPendingBalanceModal
+          isOpen={showPayPendingModal}
+          onClose={() => setShowPayPendingModal(false)}
+          patientId={patientData._id}
+          patientName={`${patientData.firstName} ${patientData.lastName}`}
+          pendingBalance={balance.pendingBalance}
+          onSuccess={async () => {
+            const updated = await fetchPatientBalance(patientData._id);
+            if (updated) {
+              setBalance(updated as typeof balance);
+              // Also refresh billing history to show the payment
+              fetchBillingHistory();
+            }
+          }}
+        />
     </div>
   );
 };
+
+// Add animation styles
+if (typeof document !== 'undefined') {
+  const styleId = 'patient-profile-animations';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      @keyframes scaleIn {
+        from {
+          transform: scale(0.9);
+          opacity: 0;
+        }
+        to {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+      .animate-scaleIn {
+        animation: scaleIn 0.2s ease-out;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+}
 
 // Main Page Component
 function PatientProfileView() {
@@ -3931,7 +4953,13 @@ function PatientProfileView() {
   }
 
   return (
-    <PatientProfileDashboard patientData={patient} onClose={handleClose} />
+    <PatientProfileDashboard 
+      patientData={patient} 
+      onClose={handleClose}
+      onPatientUpdated={(updatedData) => {
+        setPatient(updatedData);
+      }}
+    />
   );
 }
 

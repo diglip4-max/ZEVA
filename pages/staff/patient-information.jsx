@@ -277,7 +277,9 @@ const PackageUsageModal = ({ isOpen, onClose, patient, packageUsageData, loading
                                 </tr>
                               </thead>
                               <tbody>
-                                {pkg.billingHistory.map((billing, bIndex) => (
+                                {(pkg.billingHistory || [])
+                                  .filter((b) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
+                                  .map((billing, bIndex) => (
                                   <tr key={bIndex} className="border-b border-gray-100 last:border-0 hover:bg-white/50">
                                     <td className="py-1.5 px-1.5 font-medium text-gray-900">{billing.invoiceNumber}</td>
                                     <td className="py-1.5 px-1.5 text-gray-600">{new Date(billing.date).toLocaleDateString()}</td>
