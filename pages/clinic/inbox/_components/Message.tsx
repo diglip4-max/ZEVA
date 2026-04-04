@@ -372,6 +372,13 @@ const Message: React.FC<IProps> = ({
                 </div>
               )}
 
+              {/* WhatsApp Header */}
+              {message?.headerText && (
+                <div className="text-sm font-bold text-gray-900 mb-2">
+                  {message.headerText}
+                </div>
+              )}
+
               {/* Message Text */}
               <div
                 className="text-sm text-gray-800 leading-relaxed break-words"
@@ -381,6 +388,59 @@ const Message: React.FC<IProps> = ({
                   ),
                 }}
               />
+
+              {/* WhatsApp Footer */}
+              {message?.footerText && (
+                <div className="text-[11px] text-gray-400 mt-2 italic">
+                  {message.footerText}
+                </div>
+              )}
+
+              {/* WhatsApp Reply Buttons */}
+              {message?.replyButtons && message.replyButtons.length > 0 && (
+                <div className="mt-3 flex flex-col gap-2 border-t border-gray-100 pt-3">
+                  {message.replyButtons.map((btn, idx) => (
+                    <button
+                      key={idx}
+                      className="w-full py-2.5 px-4 bg-gray-50 hover:bg-gray-100 text-blue-600 text-sm font-medium rounded-xl border border-gray-200 transition-colors duration-200 shadow-sm text-center"
+                    >
+                      {btn.reply.title}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* WhatsApp List Sections */}
+              {message?.listSections && message.listSections.length > 0 && (
+                <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+                  {message.listSections.map((section, sIdx) => (
+                    <div key={sIdx} className="space-y-1">
+                      {section.title && (
+                        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 py-1">
+                          {section.title}
+                        </div>
+                      )}
+                      <div className="divide-y divide-gray-100">
+                        {section.rows.map((row, rIdx) => (
+                          <div
+                            key={rIdx}
+                            className="p-3 hover:bg-gray-50 transition-colors cursor-pointer group"
+                          >
+                            <div className="text-sm font-medium text-gray-800 group-hover:text-blue-600">
+                              {row.title}
+                            </div>
+                            {row.description && (
+                              <div className="text-xs text-gray-500 mt-0.5">
+                                {row.description}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Status and Info */}
               <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100">
@@ -624,6 +684,13 @@ const Message: React.FC<IProps> = ({
                 </div>
               )}
 
+              {/* WhatsApp Header */}
+              {message?.headerText && (
+                <div className="text-sm font-bold text-gray-900 mb-2">
+                  {message.headerText}
+                </div>
+              )}
+
               {/* Message Text */}
               <div
                 className="text-sm text-gray-800 leading-relaxed break-words"
@@ -633,6 +700,58 @@ const Message: React.FC<IProps> = ({
                   ),
                 }}
               />
+
+              {/* WhatsApp Footer */}
+              {message?.footerText && (
+                <div className="text-[11px] text-gray-400 mt-2 italic">
+                  {message.footerText}
+                </div>
+              )}
+
+              {/* WhatsApp Reply Buttons */}
+              {message?.replyButtons && message.replyButtons.length > 0 && (
+                <div className="mt-3 flex flex-col flex-wrap gap-2 border-t border-gray-100 pt-3">
+                  {message.replyButtons.map((btn, idx) => (
+                    <button
+                      key={idx}
+                      className="flex-1 flex items-center justify-center gap-2 min-w-[120px] py-2 px-3 bg-white hover:bg-white text-gray-600 text-xs font-semibold rounded-lg border border-gray-100 transition-colors duration-200 shadow-sm"
+                    >
+                      <Reply size={16} className="mr-1" />
+                      {btn.reply.title}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* WhatsApp List Sections */}
+              {message?.listSections && message.listSections.length > 0 && (
+                <div className="mt-3 space-y-3 border-t border-gray-100 pt-3">
+                  {message.listSections.map((section, sIdx) => (
+                    <div key={sIdx} className="space-y-2">
+                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                        {section.title}
+                      </div>
+                      <div className="space-y-1">
+                        {section.rows.map((row, rIdx) => (
+                          <div
+                            key={rIdx}
+                            className="p-2 bg-white rounded-lg border border-gray-100 hover:bg-white transition-colors cursor-pointer group"
+                          >
+                            <div className="text-xs font-bold text-gray-800">
+                              {row.title}
+                            </div>
+                            {row.description && (
+                              <div className="text-[10px] text-gray-500 line-clamp-1">
+                                {row.description}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Status and Info */}
               <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-200/50">

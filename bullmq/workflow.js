@@ -220,7 +220,7 @@ export const executeWorkflow = async (workflowId, payload) => {
     workflowId,
     ...payload,
   });
-  console.log(`Workflow job added: ${workflowJob.id}`);
+  console.log(`Workflow job added: ${JSON.stringify({ workflowJob })}`);
 };
 
 export async function processWorkflow(workflowData) {
@@ -378,6 +378,7 @@ export async function processWorkflow(workflowData) {
         startNodeId: nextNodeId, // resume from the target of the next edge
         ...rest, // pass original payload
       });
+      console.log({ restApiActionJob });
       break;
     }
 
@@ -959,10 +960,10 @@ const evaluateSingleCondition = ({ condition, ...rest }) => {
 
   switch (operator) {
     case "equal":
-      return field === value;
+      return field === value || parseFloat(field) === parseFloat(value);
 
     case "not_equal":
-      return field !== value;
+      return field !== value && parseFloat(field) !== parseFloat(value);
 
     case "contains":
       return field.includes(value);
@@ -995,10 +996,16 @@ const evaluateSingleCondition = ({ condition, ...rest }) => {
       return !field.endsWith(value);
 
     case "less_than":
-      return field < value;
+      return parseFloat(field) < parseFloat(value);
 
     case "greater_than":
-      return field > value;
+      return parseFloat(field) > parseFloat(value);
+
+    case "less_than_or_equal":
+      return parseFloat(field) <= parseFloat(value);
+
+    case "greater_than_or_equal":
+      return parseFloat(field) >= parseFloat(value);
 
     default:
       return false;
