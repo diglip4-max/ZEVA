@@ -64,7 +64,7 @@ export type MessageType = {
       user: any;
       lead: any;
       addedAt: string;
-    }
+    },
   ];
   emailReceivedAt?: string;
   replyToMessageId: string;
@@ -79,6 +79,25 @@ export type MessageType = {
   callDuration: number;
 
   whatsappCall: boolean;
+
+  // whatsapp interactive message
+  headerText?: string;
+  footerText?: string;
+  replyButtons?: {
+    type: "reply";
+    reply: {
+      id: string;
+      title: string;
+    };
+  }[];
+  listSections?: {
+    title: string;
+    rows: {
+      id: string;
+      title: string;
+      description?: string;
+    }[];
+  }[];
 
   // schedule
   schedule: {

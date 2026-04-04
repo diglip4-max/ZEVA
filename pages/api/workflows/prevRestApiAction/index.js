@@ -53,30 +53,48 @@ export default async function handler(req, res) {
         .json({ success: false, message: "Workflow not found" });
     }
     const workflowNodes = workflow.nodes || [];
-    const currentNode = workflowNodes.find((n) => n.data.id === nodeId);
-    if (!currentNode) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Node not found" });
-    }
-    const currentNodeIndex = workflowNodes.indexOf(currentNode);
-    if (currentNodeIndex === -1) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Node not found" });
-    }
-    console.log({ currentNode, currentNodeIndex });
+    const workflowEdges = workflow.edges || [];
 
-    // Find rest api node in workflow before current node
-    let prevRestApiNode;
-    for (let i = currentNodeIndex - 1; i >= 0; i--) {
-      const node = workflowNodes[i];
-      if (node.type === "action" && node.data.subType === "rest_api") {
-        prevRestApiNode = node;
-        break;
-      }
+    const startNode = workflowNodes.find((n) => n.data.id === nodeId);
+    if (!startNode) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Node not found" });
     }
-    console.log({ prevRestApiNode });
+
+    // Traverse backwards through edges to find the previous rest_api node
+    let prevRestApiNode = null;
+    const visited = new Set();
+    const queue = [startNode.id]; // Use ReactFlow internal ID for traversal
+
+    while (queue.length > 0) {
+      const currentId = queue.shift();
+      if (visited.has(currentId)) continue;
+      visited.add(currentId);
+
+      // Find edges where the current node is the target (incoming edges)
+      const incomingEdges = workflowEdges.filter((e) => e.target === currentId);
+
+      for (const edge of incomingEdges) {
+        const parentId = edge.source;
+        const parentNode = workflowNodes.find((n) => n.id === parentId);
+
+        if (parentNode) {
+          if (
+            parentNode.type === "action" &&
+            parentNode.data.subType === "rest_api"
+          ) {
+            prevRestApiNode = parentNode;
+            break;
+          }
+          queue.push(parentId);
+        }
+      }
+
+      if (prevRestApiNode) break;
+    }
+
+    console.log({ startNode, prevRestApiNode });
     if (!prevRestApiNode) {
       return res.status(200).json({
         success: false,
@@ -89,13 +107,11 @@ export default async function handler(req, res) {
       prevRestApiNode.data.id,
     );
     if (!prevRestApiAction) {
-      return res
-        .status(200)
-        .json({
-          success: false,
-          message: "Prev rest api action not found",
-          data: {},
-        });
+      return res.status(200).json({
+        success: false,
+        message: "Prev rest api action not found",
+        data: {},
+      });
     }
 
     if (req.method === "POST") {

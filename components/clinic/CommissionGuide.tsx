@@ -1,6 +1,6 @@
 "use client";
-import React, { useState } from 'react';
-import { DollarSign, Users, FileText, Eye, CheckCircle, TrendingUp, RefreshCw } from 'lucide-react';
+import React, { useState } from "react";
+import { DollarSign, Users, FileText } from "lucide-react";
 
 const CommissionGuide: React.FC = () => {
   const [activeSection, setActiveSection] = useState("overview");
@@ -15,23 +15,36 @@ const CommissionGuide: React.FC = () => {
               <DollarSign className="w-10 h-10 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white mb-2">Commission Tracker - Complete Guide</h1>
-              <p className="text-teal-100 text-sm">Comprehensive guide for managing referral and doctor/staff commissions</p>
+              <h1 className="text-3xl font-bold text-white mb-2">
+                Commission Tracker - Complete Guide
+              </h1>
+              <p className="text-teal-100 text-sm">
+                Comprehensive guide for managing referral and doctor/staff
+                commissions
+              </p>
             </div>
           </div>
-          
+
           <div className="grid md:grid-cols-3 gap-4 mt-6">
             <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
-              <p className="text-teal-100 text-xs mb-1">Track Commissions From</p>
-              <p className="text-white font-semibold">Referrals & Doctor/Staff</p>
+              <p className="text-teal-100 text-xs mb-1">
+                Track Commissions From
+              </p>
+              <p className="text-white font-semibold">
+                Referrals & Doctor/Staff
+              </p>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
               <p className="text-teal-100 text-xs mb-1">Commission Types</p>
-              <p className="text-white font-semibold">Percentage-Based Earnings</p>
+              <p className="text-white font-semibold">
+                Percentage-Based Earnings
+              </p>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
               <p className="text-teal-100 text-xs mb-1">Actions Available</p>
-              <p className="text-white font-semibold">View, Track, Approve, Manage</p>
+              <p className="text-white font-semibold">
+                View, Track, Approve, Manage
+              </p>
             </div>
           </div>
         </div>
@@ -44,11 +57,13 @@ const CommissionGuide: React.FC = () => {
           </h4>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
             {[
-              { id: "overview", label: " Overview (Introduction)", icon: FileText },
-              
-          
+              {
+                id: "overview",
+                label: " Overview (Introduction)",
+                icon: FileText,
+              },
+
               { id: "modal", label: " Detailed Modal View", icon: Users },
-          
             ].map((section) => (
               <button
                 key={section.id}
@@ -61,20 +76,39 @@ const CommissionGuide: React.FC = () => {
               >
                 <div className="flex items-center gap-2">
                   <section.icon className="w-5 h-5 text-teal-600" />
-                  <span className="text-sm font-medium text-gray-900">{section.label}</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {section.label}
+                  </span>
                 </div>
               </button>
             ))}
           </div>
-          
+
           <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800 font-semibold mb-2">🎯 Key Points:</p>
+            <p className="text-sm text-blue-800 font-semibold mb-2">
+              🎯 Key Points:
+            </p>
             <ul className="list-disc list-inside ml-4 space-y-1 text-xs text-blue-700">
-              <li><strong>Two Commission Sources:</strong> Referral (external referrers) and Doctor/Staff (internal staff commissions)</li>
-              <li><strong>Commission Tracking:</strong> Track percentage-based earnings for each person</li>
-              <li><strong>Approval System:</strong> Review and approve submitted commissions before payment</li>
-              <li><strong>Detailed History:</strong> View complete breakdown of all commission transactions per person</li>
-              <li><strong>Real-time Updates:</strong> Earned, Paid, and Pending amounts update automatically</li>
+              <li>
+                <strong>Two Commission Sources:</strong> Referral (external
+                referrers) and Doctor/Staff (internal staff commissions)
+              </li>
+              <li>
+                <strong>Commission Tracking:</strong> Track percentage-based
+                earnings for each person
+              </li>
+              <li>
+                <strong>Approval System:</strong> Review and approve submitted
+                commissions before payment
+              </li>
+              <li>
+                <strong>Detailed History:</strong> View complete breakdown of
+                all commission transactions per person
+              </li>
+              <li>
+                <strong>Real-time Updates:</strong> Earned, Paid, and Pending
+                amounts update automatically
+              </li>
             </ul>
           </div>
         </div>
@@ -89,20 +123,42 @@ const CommissionGuide: React.FC = () => {
               </h4>
               <div className="ml-10 space-y-4">
                 <p className="text-base text-teal-800 leading-relaxed">
-                  The Commission Tracker is a comprehensive financial management tool that helps clinics track, 
-                  manage, and approve commissions earned by referrers (external partners) and doctor/staff members 
-                  (internal team). This system ensures transparent commission tracking and timely payments.
+                  The Commission Tracker is a comprehensive financial management
+                  tool that helps clinics track, manage, and approve commissions
+                  earned by referrers (external partners) and doctor/staff
+                  members (internal team). This system ensures transparent
+                  commission tracking and timely payments.
                 </p>
-                
+
                 <div className="bg-white rounded-lg border border-teal-200 p-4">
-                  <h5 className="font-semibold text-teal-900 mb-3">💡 What You Can Do:</h5>
+                  <h5 className="font-semibold text-teal-900 mb-3">
+                    💡 What You Can Do:
+                  </h5>
                   <ul className="list-disc list-inside space-y-2 text-sm text-teal-700">
-                    <li><strong>View Referral History:</strong> Complete history of all patient referrals with detailed information</li>
-                    <li><strong>Check Doctor/Staff Details:</strong> Comprehensive data on treatments performed by each doctor</li>
-                    <li><strong>Click View Button:</strong> Opens complete modal showing all transactions and patient details</li>
-                    <li><strong>Track Commissions:</strong> Monitor earned, paid, and pending amounts in real-time</li>
-                    <li><strong>Approve Payments:</strong> Bulk approve submitted commissions for payment processing</li>
-                    <li><strong>Generate Reports:</strong> Access detailed breakdowns for accounting and auditing</li>
+                    <li>
+                      <strong>View Referral History:</strong> Complete history
+                      of all patient referrals with detailed information
+                    </li>
+                    <li>
+                      <strong>Check Doctor/Staff Details:</strong> Comprehensive
+                      data on treatments performed by each doctor
+                    </li>
+                    <li>
+                      <strong>Click View Button:</strong> Opens complete modal
+                      showing all transactions and patient details
+                    </li>
+                    <li>
+                      <strong>Track Commissions:</strong> Monitor earned, paid,
+                      and pending amounts in real-time
+                    </li>
+                    <li>
+                      <strong>Approve Payments:</strong> Bulk approve submitted
+                      commissions for payment processing
+                    </li>
+                    <li>
+                      <strong>Generate Reports:</strong> Access detailed
+                      breakdowns for accounting and auditing
+                    </li>
                   </ul>
                 </div>
               </div>
@@ -120,45 +176,93 @@ const CommissionGuide: React.FC = () => {
               </h4>
               <div className="ml-10 space-y-4">
                 <p className="text-base text-orange-800 leading-relaxed">
-                  When you click the <strong>"View"</strong> button, a comprehensive modal opens showing complete 
-                  referral history for external partners or detailed commission information for doctors and staff. 
-                  This provides full transparency into all commission activities.
+                  When you click the <strong>"View"</strong> button, a
+                  comprehensive modal opens showing complete referral history
+                  for external partners or detailed commission information for
+                  doctors and staff. This provides full transparency into all
+                  commission activities.
                 </p>
-                
+
                 <div className="bg-white rounded-lg border border-orange-200 p-4">
-                  <h5 className="font-semibold text-orange-900 mb-3">📋 What You Can See When Clicking View:</h5>
+                  <h5 className="font-semibold text-orange-900 mb-3">
+                    📋 What You Can See When Clicking View:
+                  </h5>
                   <div className="space-y-4">
                     <div className="bg-orange-50 rounded-lg p-4 border-l-4 border-orange-500">
-                      <h6 className="font-semibold text-orange-900 mb-2">For Referral Partners (External):</h6>
+                      <h6 className="font-semibold text-orange-900 mb-2">
+                        For Referral Partners (External):
+                      </h6>
                       <ul className="list-disc list-inside ml-5 space-y-2 text-sm text-orange-700">
-                        <li><strong>Complete Referral History:</strong> All patients referred with dates and treatments</li>
-                        <li><strong>Patient Details:</strong> Name, contact info, patient ID for each referral</li>
-                        <li><strong>Treatment Information:</strong> Specific services/procedures performed</li>
-                        <li><strong>Commission Breakdown:</strong> Individual earnings per referral</li>
-                        <li><strong>Payment Status:</strong> Submitted, approved, or paid status for each commission</li>
-                        <li><strong>Total Earnings Summary:</strong> Cumulative commission earned from all referrals</li>
+                        <li>
+                          <strong>Complete Referral History:</strong> All
+                          patients referred with dates and treatments
+                        </li>
+                        <li>
+                          <strong>Patient Details:</strong> Name, contact info,
+                          patient ID for each referral
+                        </li>
+                        <li>
+                          <strong>Treatment Information:</strong> Specific
+                          services/procedures performed
+                        </li>
+                        <li>
+                          <strong>Commission Breakdown:</strong> Individual
+                          earnings per referral
+                        </li>
+                        <li>
+                          <strong>Payment Status:</strong> Submitted, approved,
+                          or paid status for each commission
+                        </li>
+                        <li>
+                          <strong>Total Earnings Summary:</strong> Cumulative
+                          commission earned from all referrals
+                        </li>
                       </ul>
                     </div>
-                    
+
                     <div className="bg-purple-50 rounded-lg p-4 border-l-4 border-purple-500">
-                      <h6 className="font-semibold text-purple-900 mb-2">For Doctors/Staff (Internal):</h6>
+                      <h6 className="font-semibold text-purple-900 mb-2">
+                        For Doctors/Staff (Internal):
+                      </h6>
                       <ul className="list-disc list-inside ml-5 space-y-2 text-sm text-purple-700">
-                        <li><strong>Complete Treatment History:</strong> All procedures performed by the doctor</li>
-                        <li><strong>Patient List:</strong> Names and details of all patients treated</li>
-                        <li><strong>Service Details:</strong> Specific medical services provided</li>
-                        <li><strong>Commission Per Treatment:</strong> Earnings from each procedure</li>
-                        <li><strong>Performance Metrics:</strong> Total patients, total earnings, averages</li>
-                        <li><strong>Department Data:</strong> Treatments categorized by specialty</li>
+                        <li>
+                          <strong>Complete Treatment History:</strong> All
+                          procedures performed by the doctor
+                        </li>
+                        <li>
+                          <strong>Patient List:</strong> Names and details of
+                          all patients treated
+                        </li>
+                        <li>
+                          <strong>Service Details:</strong> Specific medical
+                          services provided
+                        </li>
+                        <li>
+                          <strong>Commission Per Treatment:</strong> Earnings
+                          from each procedure
+                        </li>
+                        <li>
+                          <strong>Performance Metrics:</strong> Total patients,
+                          total earnings, averages
+                        </li>
+                        <li>
+                          <strong>Department Data:</strong> Treatments
+                          categorized by specialty
+                        </li>
                       </ul>
                     </div>
                   </div>
                 </div>
 
                 <div className="bg-white rounded-lg border border-orange-200 p-4">
-                  <h5 className="font-semibold text-orange-900 mb-3">🔍 Detailed Information Displayed in Modal:</h5>
+                  <h5 className="font-semibold text-orange-900 mb-3">
+                    🔍 Detailed Information Displayed in Modal:
+                  </h5>
                   <div className="space-y-3">
                     <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
-                      <p className="font-semibold text-orange-900 mb-2 text-sm">Patient Information:</p>
+                      <p className="font-semibold text-orange-900 mb-2 text-sm">
+                        Patient Information:
+                      </p>
                       <ul className="list-disc list-inside ml-5 space-y-1 text-xs text-orange-700">
                         <li>Full name of patient who received treatment</li>
                         <li>Patient ID for system reference</li>
@@ -166,9 +270,11 @@ const CommissionGuide: React.FC = () => {
                         <li>Treatment date when service was performed</li>
                       </ul>
                     </div>
-                    
+
                     <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
-                      <p className="font-semibold text-orange-900 mb-2 text-sm">Treatment & Commission Details:</p>
+                      <p className="font-semibold text-orange-900 mb-2 text-sm">
+                        Treatment & Commission Details:
+                      </p>
                       <ul className="list-disc list-inside ml-5 space-y-1 text-xs text-orange-700">
                         <li>Treatment type - specific procedure or service</li>
                         <li>Treatment cost - total amount charged</li>
@@ -177,9 +283,11 @@ const CommissionGuide: React.FC = () => {
                         <li>Current status (Submitted → Approved → Paid)</li>
                       </ul>
                     </div>
-                    
+
                     <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
-                      <p className="font-semibold text-orange-900 mb-2 text-sm">Additional Information:</p>
+                      <p className="font-semibold text-orange-900 mb-2 text-sm">
+                        Additional Information:
+                      </p>
                       <ul className="list-disc list-inside ml-5 space-y-1 text-xs text-orange-700">
                         <li>Membership plans purchased by patient</li>
                         <li>Package usage and remaining sessions</li>
@@ -219,7 +327,7 @@ const CommissionGuide: React.FC = () => {
                         </tr>
                         <tr className="border-b border-orange-100">
                           <td className="py-2 px-2">Fatima Hassan</td>
-                         <td className="py-2 px-2">Referral</td>
+                          <td className="py-2 px-2">Referral</td>
                           <td className="py-2 px-2">AED 10,000</td>
                           <td className="py-2 px-2">AED 20,000</td>
                           <td className="py-2 px-2">20%</td>
@@ -228,7 +336,7 @@ const CommissionGuide: React.FC = () => {
                         </tr>
                         <tr>
                           <td className="py-2 px-2">Mohammed Ali</td>
-                         <td className="py-2 px-2">Referral</td>
+                          <td className="py-2 px-2">Referral</td>
                           <td className="py-2 px-2">AED 10,000</td>
                           <td className="py-2 px-2">AED 10,000</td>
                           <td className="py-2 px-2">10%</td>
@@ -238,33 +346,72 @@ const CommissionGuide: React.FC = () => {
                       </tbody>
                     </table>
                   </div>
-                  
                 </div>
 
                 <div className="bg-white rounded-lg border border-orange-200 p-4">
-                  <h5 className="font-semibold text-orange-900 mb-3">💡 Key Benefits:</h5>
+                  <h5 className="font-semibold text-orange-900 mb-3">
+                    💡 Key Benefits:
+                  </h5>
                   <ul className="list-disc list-inside space-y-2 text-sm text-orange-700">
-                    <li><strong>Complete Transparency:</strong> See every transaction with full details</li>
-                    <li><strong>Patient Verification:</strong> Confirm referred/treated patients exist</li>
-                    <li><strong>Accurate Calculations:</strong> Verify commission amounts are correct</li>
-                    <li><strong>Audit Trail:</strong> Complete historical record for compliance</li>
-                    <li><strong>Dispute Resolution:</strong> Answer questions with concrete data</li>
-                    <li><strong>Performance Analysis:</strong> Evaluate contribution of each person</li>
-                    <li><strong>Payment Reconciliation:</strong> Match commissions with bank transfers</li>
+                    <li>
+                      <strong>Complete Transparency:</strong> See every
+                      transaction with full details
+                    </li>
+                    <li>
+                      <strong>Patient Verification:</strong> Confirm
+                      referred/treated patients exist
+                    </li>
+                    <li>
+                      <strong>Accurate Calculations:</strong> Verify commission
+                      amounts are correct
+                    </li>
+                    <li>
+                      <strong>Audit Trail:</strong> Complete historical record
+                      for compliance
+                    </li>
+                    <li>
+                      <strong>Dispute Resolution:</strong> Answer questions with
+                      concrete data
+                    </li>
+                    <li>
+                      <strong>Performance Analysis:</strong> Evaluate
+                      contribution of each person
+                    </li>
+                    <li>
+                      <strong>Payment Reconciliation:</strong> Match commissions
+                      with bank transfers
+                    </li>
                   </ul>
                 </div>
 
                 {/* Screenshot Upload */}
                 <div className="mt-6 bg-white rounded-lg border-2 border-dashed border-orange-300 p-6">
                   <div className="flex items-center gap-3 mb-4">
-                    <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    <svg
+                      className="w-6 h-6 text-orange-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
                     </svg>
-                    <h5 className="font-semibold text-orange-900 text-base">Screenshot Upload Area</h5>
+                    <h5 className="font-semibold text-orange-900 text-base">
+                      Screenshot Upload Area
+                    </h5>
                   </div>
                   <div className="bg-orange-50 rounded-lg p-8 text-center border-2 border-dashed border-orange-200">
-                    <p className="text-orange-700 text-sm mb-2"><strong>Upload:</strong> /commission-modal-view.png</p>
-                    <p className="text-orange-600 text-xs">Drag & drop or click to upload screenshot of modal showing complete referral history with patient details</p>
+                    <p className="text-orange-700 text-sm mb-2">
+                      <strong>Upload:</strong> /commission-modal-view.png
+                    </p>
+                    <p className="text-orange-600 text-xs">
+                      Drag & drop or click to upload screenshot of modal showing
+                      complete referral history with patient details
+                    </p>
                   </div>
                 </div>
               </div>
@@ -275,25 +422,33 @@ const CommissionGuide: React.FC = () => {
         {/* Other sections placeholders for tabs, table, actions, workflow */}
         {activeSection === "tabs" && (
           <div className="bg-white rounded-lg p-8 text-center border-2 border-dashed border-teal-300">
-            <p className="text-teal-700 font-semibold">Source Tabs Section - Content coming soon</p>
+            <p className="text-teal-700 font-semibold">
+              Source Tabs Section - Content coming soon
+            </p>
           </div>
         )}
-      
+
         {activeSection === "table" && (
           <div className="bg-white rounded-lg p-8 text-center border-2 border-dashed border-teal-300">
-            <p className="text-teal-700 font-semibold">Table Columns Section - Content coming soon</p>
+            <p className="text-teal-700 font-semibold">
+              Table Columns Section - Content coming soon
+            </p>
           </div>
         )}
-      
+
         {activeSection === "actions" && (
           <div className="bg-white rounded-lg p-8 text-center border-2 border-dashed border-teal-300">
-            <p className="text-teal-700 font-semibold">Action Buttons Section - Content coming soon</p>
+            <p className="text-teal-700 font-semibold">
+              Action Buttons Section - Content coming soon
+            </p>
           </div>
         )}
-      
+
         {activeSection === "workflow" && (
           <div className="bg-white rounded-lg p-8 text-center border-2 border-dashed border-teal-300">
-            <p className="text-teal-700 font-semibold">Workflow Section - Content coming soon</p>
+            <p className="text-teal-700 font-semibold">
+              Workflow Section - Content coming soon
+            </p>
           </div>
         )}
       </div>

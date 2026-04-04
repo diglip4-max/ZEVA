@@ -141,7 +141,7 @@ const EditWorkflow: React.FC<EditWorkflowProps> = ({
                 Description
               </label>
               <span className="text-xs font-medium text-gray-400">
-                {form.description.length} / 50
+                {form.description.length} / 200
               </span>
             </div>
             <textarea
@@ -150,7 +150,7 @@ const EditWorkflow: React.FC<EditWorkflowProps> = ({
                 setForm({ ...form, description: e.target.value })
               }
               placeholder="What does this workflow do?"
-              maxLength={50}
+              maxLength={200}
               className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all h-28 resize-none text-gray-600 placeholder:text-gray-400"
             />
           </div>
