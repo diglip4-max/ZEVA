@@ -1,6 +1,6 @@
 "use client";
-import React from 'react';
-import { Gift} from 'lucide-react';
+import React from "react";
+import { Gift } from "lucide-react";
 
 const CreateOffersGuide: React.FC = () => {
   return (
