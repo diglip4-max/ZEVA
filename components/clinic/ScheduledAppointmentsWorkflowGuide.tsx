@@ -375,81 +375,9 @@ const ScheduledAppointmentsWorkflowGuide: React.FC = () => {
                 </h3>
                 
                 {/* First Row: Three Small Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  {/* Card 1: Billing Summary */}
-                  <div className="bg-white border-2 border-green-200 rounded-xl p-5 shadow-sm">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
-                        <DollarSign className="w-6 h-6 text-white" />
-                      </div>
-                      <h4 className="font-bold text-green-900">Billing Summary</h4>
-                    </div>
-                    <ul className="space-y-2 text-sm text-gray-700">
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                        <span>Total amount due and paid status</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                        <span>Real-time calculation of services</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                        <span>Pending balance tracking</span>
-                      </li>
-                    </ul>
-                  </div>
-
-                  {/* Card 2: Quick Actions */}
-                  <div className="bg-white border-2 border-blue-200 rounded-xl p-5 shadow-sm">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-                        <CreditCard className="w-6 h-6 text-white" />
-                      </div>
-                      <h4 className="font-bold text-blue-900">Quick Actions</h4>
-                    </div>
-                    <ul className="space-y-2 text-sm text-gray-700">
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                        <span>Add treatment packages instantly</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                        <span>Process multiple payment methods</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                        <span>Split payments (Cash + Card)</span>
-                      </li>
-                    </ul>
-                  </div>
-
-                  {/* Card 3: Payment History */}
-                  <div className="bg-white border-2 border-purple-200 rounded-xl p-5 shadow-sm">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
-                        <Receipt className="w-6 h-6 text-white" />
-                      </div>
-                      <h4 className="font-bold text-purple-900">Payment History</h4>
-                    </div>
-                    <ul className="space-y-2 text-sm text-gray-700">
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
-                        <span>Complete transaction logs</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
-                        <span>Communication tracking</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
-                        <span>Export and print receipts</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
+              
                 <h5 className="text-xl font-bold text-blue-800 mb-6 flex items-center gap-2">
-                  On the Scheduled Appointments page, when you click on the three-dot (⋮) actions menu, options like Appointment, Report, and Edit forms are available.
+                  On the Scheduled Appointments page, when you click on the three-dot (⋮) actions menu, options like Appointment, Report, Billing and Edit forms are available.
                 </h5>
                 {/* Three Full-Size Image Sections */}
                 <div className="space-y-4 mb-6">
@@ -542,6 +470,81 @@ const ScheduledAppointmentsWorkflowGuide: React.FC = () => {
               </div>
             </div>
 
+            {/* Billing Cards - Moved Above Smart Recommendations */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  {/* Card 1: Billing Summary */}
+                  <div className="bg-white border-2 mt-7 border-green-200 rounded-xl p-5 shadow-sm">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
+                        <DollarSign className="w-6 h-6 text-white" />
+                      </div>
+                      <h4 className="font-bold text-green-900">Billing Summary</h4>
+                    </div>
+                    <ul className="space-y-2 text-sm text-gray-700">
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <span>Total amount due and paid status</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <span>Real-time calculation of services</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <span>Pending balance tracking</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Card 2: Quick Actions */}
+                  <div className="bg-white border-2 border-blue-200 mt-7 rounded-xl p-5 shadow-sm">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                        <CreditCard className="w-6 h-6 text-white" />
+                      </div>
+                      <h4 className="font-bold text-blue-900">Quick Actions</h4>
+                    </div>
+                    <ul className="space-y-2 text-sm text-gray-700">
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <span>Add treatment packages instantly</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <span>Process multiple payment methods</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <span>Split payments (Cash + Card)</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Card 3: Payment History */}
+                  <div className="bg-white border-2 border-purple-200 mt-7 rounded-xl p-5 shadow-sm">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
+                        <Receipt className="w-6 h-6 text-white" />
+                      </div>
+                      <h4 className="font-bold text-purple-900">Payment History</h4>
+                    </div>
+                    <ul className="space-y-2 text-sm text-gray-700">
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                        <span>Complete transaction logs</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                        <span>Communication tracking</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                        <span>Export and print receipts</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
               {/* Billing Features Explanation */}
               <div className="grid md:grid-cols-2 gap-6">
                 {/* Smart Recommendations */}
@@ -587,7 +590,6 @@ const ScheduledAppointmentsWorkflowGuide: React.FC = () => {
                     </li>
                   </ul>
                 </div>
-
                 {/* Multi-Payment Support */}
                 <div className="p-5 rounded-xl border border-blue-100 bg-blue-50/30">
                   <h4 className="font-bold text-blue-900 mb-3 flex items-center gap-2">
@@ -633,11 +635,12 @@ const ScheduledAppointmentsWorkflowGuide: React.FC = () => {
                 </div>
               </div>
             </div>
-          
+            
           </div>
         </div>
       </div>
     </div>
+    
   );
 };
 

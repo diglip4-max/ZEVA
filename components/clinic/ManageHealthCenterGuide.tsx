@@ -47,17 +47,27 @@ const ManageHealthCenterGuide: React.FC<ManageHealthCenterGuideProps> = () => {
               <li><strong>Service Management:</strong> Define and organize your clinic's service portfolio</li>
             </ul>
             
-            {/* Image Upload Section */}
-            <div className="mt-6 bg-white rounded-lg border-2 border-dashed border-blue-300 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <h5 className="font-semibold text-blue-900 text-base">Screenshot Upload Area</h5>
-              </div>
-              <div className="bg-blue-50 rounded-lg p-8 text-center border-2 border-dashed border-blue-200">
-                <p className="text-blue-700 text-sm mb-2"><strong>Upload:</strong> /image.png</p>
-                <p className="text-blue-600 text-xs">Drag & drop or click to upload screenshot of General Info section</p>
+            {/* Image Section */}
+            <div className="w-full bg-blue-50 rounded-xl border border-blue-200 p-6 mb-8">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">
+                General Information
+              </h3>
+              <div className="bg-white rounded-lg border-2 border-blue-200 flex flex-col items-center justify-center relative overflow-hidden group shadow-sm" style={{ minHeight: '500px', maxHeight: '600px' }}>
+                <img 
+                  src="/manage.png" 
+                  alt="General Info Screen" 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.parentElement?.querySelector('.placeholder-general')?.classList.remove('hidden');
+                  }}
+                />
+                <div className="placeholder-general hidden absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 text-gray-500">
+                  <Briefcase className="w-16 h-16 mb-4 text-blue-300" />
+                  <p className="text-lg font-medium">General Information Interface</p>
+                  <p className="text-sm mt-2">Screenshot will appear here</p>
+                </div>
               </div>
             </div>
             
@@ -87,17 +97,27 @@ const ManageHealthCenterGuide: React.FC<ManageHealthCenterGuideProps> = () => {
               <li><strong>Landmark:</strong> Nearby landmark or point of interest for easier navigation</li>
             </ul>
             
-            {/* Image Upload Section */}
-            <div className="mt-6 bg-white rounded-lg border-2 border-dashed border-green-300 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <h5 className="font-semibold text-green-900 text-base">Screenshot Upload Area</h5>
-              </div>
-              <div className="bg-green-50 rounded-lg p-8 text-center border-2 border-dashed border-green-200">
-                <p className="text-green-700 text-sm mb-2"><strong>Upload:</strong> /contact-section.png</p>
-                <p className="text-green-600 text-xs">Drag & drop or click to upload screenshot of Contact section</p>
+            {/* Image Section */}
+            <div className="w-full bg-green-50 rounded-xl border border-green-200 p-6 mb-8">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">
+                Contact Information
+              </h3>
+              <div className="bg-white rounded-lg border-2 border-green-200 flex flex-col items-center justify-center relative overflow-hidden group shadow-sm" style={{ minHeight: '500px', maxHeight: '600px' }}>
+                <img 
+                  src="/contact.png" 
+                  alt="Contact Info Screen" 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.parentElement?.querySelector('.placeholder-contact')?.classList.remove('hidden');
+                  }}
+                />
+                <div className="placeholder-contact hidden absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-green-50 to-emerald-50 text-gray-500">
+                  <Briefcase className="w-16 h-16 mb-4 text-green-300" />
+                  <p className="text-lg font-medium">Contact Information Interface</p>
+                  <p className="text-sm mt-2">Screenshot will appear here</p>
+                </div>
               </div>
             </div>
             
@@ -126,17 +146,27 @@ const ManageHealthCenterGuide: React.FC<ManageHealthCenterGuideProps> = () => {
               <li><strong>Version Control:</strong> Maintain document history and update old versions</li>
             </ul>
             
-            {/* Image Upload Section */}
-            <div className="mt-6 bg-white rounded-lg border-2 border-dashed border-purple-300 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <h5 className="font-semibold text-purple-900 text-base">Screenshot Upload Area</h5>
-              </div>
-              <div className="bg-purple-50 rounded-lg p-8 text-center border-2 border-dashed border-purple-200">
-                <p className="text-purple-700 text-sm mb-2"><strong>Upload:</strong> /documents-section.png</p>
-                <p className="text-purple-600 text-xs">Drag & drop or click to upload screenshot of Documents section</p>
+            {/* Image Section */}
+            <div className="w-full bg-purple-50 rounded-xl border border-purple-200 p-6 mb-8">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">
+                Documents Management
+              </h3>
+              <div className="bg-white rounded-lg border-2 border-purple-200 flex flex-col items-center justify-center relative overflow-hidden group shadow-sm" style={{ minHeight: '500px', maxHeight: '600px' }}>
+                <img 
+                  src="/doc.png" 
+                  alt="Documents Screen" 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.parentElement?.querySelector('.placeholder-docs')?.classList.remove('hidden');
+                  }}
+                />
+                <div className="placeholder-docs hidden absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-purple-50 to-violet-50 text-gray-500">
+                  <Briefcase className="w-16 h-16 mb-4 text-purple-300" />
+                  <p className="text-lg font-medium">Documents Management Interface</p>
+                  <p className="text-sm mt-2">Screenshot will appear here</p>
+                </div>
               </div>
             </div>
             
@@ -182,17 +212,27 @@ const ManageHealthCenterGuide: React.FC<ManageHealthCenterGuideProps> = () => {
               <li><strong>Show Timings:</strong> Toggle ON to make operating hours visible to patients</li>
             </ul>
             
-            {/* Image Upload Section */}
-            <div className="mt-6 bg-white rounded-lg border-2 border-dashed border-orange-300 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <h5 className="font-semibold text-orange-900 text-base">Screenshot Upload Area</h5>
-              </div>
-              <div className="bg-orange-50 rounded-lg p-8 text-center border-2 border-dashed border-orange-200">
-                <p className="text-orange-700 text-sm mb-2"><strong>Upload:</strong> /listing-toggles.png</p>
-                <p className="text-orange-600 text-xs">Drag & drop or click to upload screenshot of Listing toggles</p>
+            {/* Image Section */}
+            <div className="w-full bg-orange-50 rounded-xl border border-orange-200 p-6 mb-8">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">
+                Listing & Visibility Settings
+              </h3>
+              <div className="bg-white rounded-lg border-2 border-orange-200 flex flex-col items-center justify-center relative overflow-hidden group shadow-sm" style={{ minHeight: '500px', maxHeight: '600px' }}>
+                <img 
+                  src="/listing.png" 
+                  alt="Listing Settings Screen" 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.parentElement?.querySelector('.placeholder-listing')?.classList.remove('hidden');
+                  }}
+                />
+                <div className="placeholder-listing hidden absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-orange-50 to-amber-50 text-gray-500">
+                  <Briefcase className="w-16 h-16 mb-4 text-orange-300" />
+                  <p className="text-lg font-medium">Listing & Visibility Interface</p>
+                  <p className="text-sm mt-2">Screenshot will appear here</p>
+                </div>
               </div>
             </div>
             
@@ -235,17 +275,27 @@ const ManageHealthCenterGuide: React.FC<ManageHealthCenterGuideProps> = () => {
               <li><strong>Holiday Schedule:</strong> Mark closed dates and special holiday hours</li>
             </ul>
             
-            {/* Image Upload Section */}
-            <div className="mt-6 bg-white rounded-lg border-2 border-dashed border-cyan-300 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <svg className="w-6 h-6 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <h5 className="font-semibold text-cyan-900 text-base">Screenshot Upload Area</h5>
-              </div>
-              <div className="bg-cyan-50 rounded-lg p-8 text-center border-2 border-dashed border-cyan-200">
-                <p className="text-cyan-700 text-sm mb-2"><strong>Upload:</strong> /clinic-timing.png</p>
-                <p className="text-cyan-600 text-xs">Drag & drop or click to upload screenshot of Clinic Timing section</p>
+            {/* Image Section */}
+            <div className="w-full bg-cyan-50 rounded-xl border border-cyan-200 p-6 mb-8">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">
+                Clinic Timing & Availability
+              </h3>
+              <div className="bg-white rounded-lg border-2 border-cyan-200 flex flex-col items-center justify-center relative overflow-hidden group shadow-sm" style={{ minHeight: '500px', maxHeight: '600px' }}>
+                <img 
+                  src="/time.png" 
+                  alt="Clinic Timing Screen" 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.parentElement?.querySelector('.placeholder-timing')?.classList.remove('hidden');
+                  }}
+                />
+                <div className="placeholder-timing hidden absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-cyan-50 to-sky-50 text-gray-500">
+                  <Briefcase className="w-16 h-16 mb-4 text-cyan-300" />
+                  <p className="text-lg font-medium">Clinic Timing Interface</p>
+                  <p className="text-sm mt-2">Screenshot will appear here</p>
+                </div>
               </div>
             </div>
             
@@ -290,17 +340,27 @@ const ManageHealthCenterGuide: React.FC<ManageHealthCenterGuideProps> = () => {
               <li><strong>Branch Activation:</strong> Toggle branches active/inactive based on operational status</li>
             </ul>
             
-            {/* Image Upload Section */}
-            <div className="mt-6 bg-white rounded-lg border-2 border-dashed border-rose-300 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <svg className="w-6 h-6 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <h5 className="font-semibold text-rose-900 text-base">Screenshot Upload Area</h5>
-              </div>
-              <div className="bg-rose-50 rounded-lg p-8 text-center border-2 border-dashed border-rose-200">
-                <p className="text-rose-700 text-sm mb-2"><strong>Upload:</strong> /branches-section.png</p>
-                <p className="text-rose-600 text-xs">Drag & drop or click to upload screenshot of Branches section</p>
+            {/* Image Section */}
+            <div className="w-full bg-rose-50 rounded-xl border border-rose-200 p-6 mb-8">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">
+                Branches & Locations
+              </h3>
+              <div className="bg-white rounded-lg border-2 border-rose-200 flex flex-col items-center justify-center relative overflow-hidden group shadow-sm" style={{ minHeight: '500px', maxHeight: '600px' }}>
+                <img 
+                  src="/branches.png" 
+                  alt="Branches Screen" 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.parentElement?.querySelector('.placeholder-branches')?.classList.remove('hidden');
+                  }}
+                />
+                <div className="placeholder-branches hidden absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-rose-50 to-pink-50 text-gray-500">
+                  <Briefcase className="w-16 h-16 mb-4 text-rose-300" />
+                  <p className="text-lg font-medium">Branches & Locations Interface</p>
+                  <p className="text-sm mt-2">Screenshot will appear here</p>
+                </div>
               </div>
             </div>
             

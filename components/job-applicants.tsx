@@ -1,4 +1,4 @@
-// components/ApplicationsDashboard.tsx
+// components/JobApplicants.tsx
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -393,7 +393,7 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
 
   return (
     <div className="min-h-screen bg-gray-50 p-1 sm:p-2">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-9xl mx-auto">
         {/* Header - Compact & Top */}
         <div className="mb-1 sm:mb-1.5">
           <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
