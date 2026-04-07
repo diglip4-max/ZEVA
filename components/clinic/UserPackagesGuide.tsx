@@ -35,19 +35,7 @@ const UserPackagesGuide: React.FC = () => {
               <li><strong>Real-time Counters:</strong> See pending and approved package counts at the top</li>
             </ul>
             
-            {/* Image Upload Section */}
-            <div className="mt-6 bg-white rounded-lg border-2 border-dashed border-teal-300 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <svg className="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <h5 className="font-semibold text-teal-900 text-base">Screenshot Upload Area</h5>
-              </div>
-              <div className="bg-teal-50 rounded-lg p-8 text-center border-2 border-dashed border-teal-200">
-                <p className="text-teal-700 text-sm mb-2"><strong>Upload:</strong> /user-packages-overview.png</p>
-                <p className="text-teal-600 text-xs">Drag & drop or click to upload screenshot of main packages page with both tabs</p>
-              </div>
-            </div>
+
             
             <div className="mt-4 p-4 bg-white rounded-lg border border-teal-200">
               <p className="text-sm text-teal-700"><strong>💡 Pro Tip:</strong> Regularly check the Pending Approval tab to ensure timely review of patient requests and maintain good patient engagement.</p>
@@ -87,17 +75,27 @@ const UserPackagesGuide: React.FC = () => {
               </ul>
             </div>
             
-            {/* Image Upload Section */}
-            <div className="mt-6 bg-white rounded-lg border-2 border-dashed border-yellow-300 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <h5 className="font-semibold text-yellow-900 text-base">Screenshot Upload Area</h5>
-              </div>
-              <div className="bg-yellow-50 rounded-lg p-8 text-center border-2 border-dashed border-yellow-200">
-                <p className="text-yellow-700 text-sm mb-2"><strong>Upload:</strong> /user-packages-pending.png</p>
-                <p className="text-yellow-600 text-xs">Drag & drop or click to upload screenshot of pending approval tab</p>
+            {/* Image Section - Pending Approval */}
+            <div className="w-full bg-yellow-50 rounded-xl border border-yellow-200 p-6 mb-8">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">
+                Pending Approval Packages Interface
+              </h3>
+              <div className="bg-white rounded-lg border-2 border-yellow-200 flex flex-col items-center justify-center relative overflow-hidden group shadow-sm" style={{ minHeight: '500px', maxHeight: '600px' }}>
+                <img 
+                  src="/pending.png" 
+                  alt="Pending Approval Packages" 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.parentElement?.querySelector('.placeholder-pending')?.classList.remove('hidden');
+                  }}
+                />
+                <div className="placeholder-pending hidden absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-yellow-50 to-amber-50 text-gray-500">
+                  <Package className="w-16 h-16 mb-4 text-yellow-300" />
+                  <p className="text-lg font-medium">Pending Approval Packages</p>
+                  <p className="text-sm mt-2">Screenshot will appear here</p>
+                </div>
               </div>
             </div>
           </div>
@@ -121,17 +119,27 @@ const UserPackagesGuide: React.FC = () => {
               <li><strong>Session Monitoring:</strong> Track used vs remaining sessions</li>
             </ul>
             
-            {/* Image Upload Section */}
-            <div className="mt-6 bg-white rounded-lg border-2 border-dashed border-green-300 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <h5 className="font-semibold text-green-900 text-base">Screenshot Upload Area</h5>
-              </div>
-              <div className="bg-green-50 rounded-lg p-8 text-center border-2 border-dashed border-green-200">
-                <p className="text-green-700 text-sm mb-2"><strong>Upload:</strong> /user-packages-approved.png</p>
-                <p className="text-green-600 text-xs">Drag & drop or click to upload screenshot of approved packages tab</p>
+            {/* Image Section - Approved Packages */}
+            <div className="w-full bg-green-50 rounded-xl border border-green-200 p-6 mb-8">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">
+                Approved Packages Interface
+              </h3>
+              <div className="bg-white rounded-lg border-2 border-green-200 flex flex-col items-center justify-center relative overflow-hidden group shadow-sm" style={{ minHeight: '500px', maxHeight: '600px' }}>
+                <img 
+                  src="/approve.png" 
+                  alt="Approved Packages" 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.parentElement?.querySelector('.placeholder-approved')?.classList.remove('hidden');
+                  }}
+                />
+                <div className="placeholder-approved hidden absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-green-50 to-emerald-50 text-gray-500">
+                  <Package className="w-16 h-16 mb-4 text-green-300" />
+                  <p className="text-lg font-medium">Approved Packages</p>
+                  <p className="text-sm mt-2">Screenshot will appear here</p>
+                </div>
               </div>
             </div>
           </div>
@@ -204,19 +212,7 @@ const UserPackagesGuide: React.FC = () => {
               </div>
             </div>
             
-            {/* Image Upload Section */}
-            <div className="mt-6 bg-white rounded-lg border-2 border-dashed border-purple-300 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <h5 className="font-semibold text-purple-900 text-base">Screenshot Upload Area</h5>
-              </div>
-              <div className="bg-purple-50 rounded-lg p-8 text-center border-2 border-dashed border-purple-200">
-                <p className="text-purple-700 text-sm mb-2"><strong>Upload:</strong> /user-packages-card-details.png</p>
-                <p className="text-purple-600 text-xs">Drag & drop or click to upload screenshot of package card breakdown</p>
-              </div>
-            </div>
+
           </div>
         </div>
 
@@ -303,19 +299,7 @@ const UserPackagesGuide: React.FC = () => {
               </div>
             </div>
             
-            {/* Image Upload Section */}
-            <div className="mt-6 bg-white rounded-lg border-2 border-dashed border-cyan-300 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <svg className="w-6 h-6 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <h5 className="font-semibold text-cyan-900 text-base">Screenshot Upload Area</h5>
-              </div>
-              <div className="bg-cyan-50 rounded-lg p-8 text-center border-2 border-dashed border-cyan-200">
-                <p className="text-cyan-700 text-sm mb-2"><strong>Upload:</strong> /user-packages-modal-details.png</p>
-                <p className="text-cyan-600 text-xs">Drag & drop or click to upload screenshot of full details modal</p>
-              </div>
-            </div>
+
           </div>
         </div>
 
@@ -338,84 +322,11 @@ const UserPackagesGuide: React.FC = () => {
               <li><strong>No Results Message:</strong> Helpful prompt to adjust search criteria</li>
             </ul>
             
-            {/* Image Upload Section */}
-            <div className="mt-6 bg-white rounded-lg border-2 border-dashed border-rose-300 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <svg className="w-6 h-6 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <h5 className="font-semibold text-rose-900 text-base">Screenshot Upload Area</h5>
-              </div>
-              <div className="bg-rose-50 rounded-lg p-8 text-center border-2 border-dashed border-rose-200">
-                <p className="text-rose-700 text-sm mb-2"><strong>Upload:</strong> /user-packages-search.png</p>
-                <p className="text-rose-600 text-xs">Drag & drop or click to upload screenshot of search functionality in action</p>
-              </div>
-            </div>
+
           </div>
         </div>
 
-        {/* Status Color Codes Reference Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
-          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-4">
-            <h4 className="font-bold text-white text-lg">Quick Reference: Status Color Codes</h4>
-          </div>
-          <div className="p-6">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Value</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Color</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Meaning</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                <tr>
-                  <td className="px-4 py-3 text-sm font-semibold text-gray-900">Package Status</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">Active</td>
-                  <td className="px-4 py-3 text-sm"><span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">Green</span></td>
-                  <td className="px-4 py-3 text-sm text-gray-700">Currently ongoing package</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 text-sm font-semibold text-gray-900">Package Status</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">Completed</td>
-                  <td className="px-4 py-3 text-sm"><span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">Blue</span></td>
-                  <td className="px-4 py-3 text-sm text-gray-700">All sessions finished</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 text-sm font-semibold text-gray-900">Package Status</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">Expired</td>
-                  <td className="px-4 py-3 text-sm"><span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">Red</span></td>
-                  <td className="px-4 py-3 text-sm text-gray-700">Past end date</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 text-sm font-semibold text-gray-900">Package Status</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">Cancelled</td>
-                  <td className="px-4 py-3 text-sm"><span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">Gray</span></td>
-                  <td className="px-4 py-3 text-sm text-gray-700">Package cancelled</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 text-sm font-semibold text-gray-900">Payment Status</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">Paid</td>
-                  <td className="px-4 py-3 text-sm"><span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">Green</span></td>
-                  <td className="px-4 py-3 text-sm text-gray-700">Full payment received</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 text-sm font-semibold text-gray-900">Payment Status</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">Pending</td>
-                  <td className="px-4 py-3 text-sm"><span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs">Yellow</span></td>
-                  <td className="px-4 py-3 text-sm text-gray-700">Payment awaiting</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 text-sm font-semibold text-gray-900">Payment Status</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">Partial</td>
-                  <td className="px-4 py-3 text-sm"><span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs">Orange</span></td>
-                  <td className="px-4 py-3 text-sm text-gray-700">Partially paid</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+      
 
         {/* Key Data Points Summary */}
         <div className="bg-gradient-to-r from-teal-50 to-blue-50 border-l-4 border-teal-500 p-8 rounded-lg">

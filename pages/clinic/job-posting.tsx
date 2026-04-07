@@ -357,7 +357,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
           }}
         />
       </Head>
-      <div className="min-h-screen bg-gray-50 p-1 sm:p-2">
+      <div className="min-h-screen bg-gray-50 p-1 sm:p-2 overflow-x-hidden">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -392,7 +392,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
         }}
       />
       {/* Compact Header */}
-      <div className="max-w-6xl mx-auto px-1 sm:px-2 mb-2">
+      <div className="max-w-9xl mx-auto px-1 sm:px-2 mb-2">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
@@ -416,7 +416,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
       </div>
 
       {/* Compact Tabs */}
-      <div className="max-w-6xl mx-auto">
+      <div className="w-full px-1 sm:px-2">
         <div className="bg-white rounded-lg border mt-1  border-gray-200 p-2 mb-1 inline-flex">
           <button
             onClick={() => setActiveTab('jobs')}
@@ -441,7 +441,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
         </div>
 
         {/* Compact Tab Content */}
-        <div className="mt-1">
+        <div className="mt-1 w-full">
           {activeTab === 'jobs' ? (
             !permissions.canRead ? (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8 text-center">

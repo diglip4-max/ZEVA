@@ -274,7 +274,7 @@ const GRNPage: NextPageWithLayout = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
       {/* Header Section */}
       <div className="mb-8">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-9xl mx-auto">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
@@ -346,7 +346,7 @@ const GRNPage: NextPageWithLayout = () => {
       />
 
       {/* Enhanced Stats Cards */}
-      <div className="max-w-7xl mx-auto mb-8">
+      <div className="max-w-9xl mx-auto mb-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Total GRNs Card */}
           <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
@@ -483,7 +483,7 @@ const GRNPage: NextPageWithLayout = () => {
       </div>
 
       {/* Enhanced Data Table Section */}
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-9xl mx-auto">
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
           {/* Table Header */}
           <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">

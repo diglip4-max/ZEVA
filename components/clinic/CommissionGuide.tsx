@@ -57,12 +57,7 @@ const CommissionGuide: React.FC = () => {
           </h4>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
             {[
-              {
-                id: "overview",
-                label: " Overview (Introduction)",
-                icon: FileText,
-              },
-
+              { id: "overview", label: " Overview (Introduction)", icon: FileText },
               { id: "modal", label: " Detailed Modal View", icon: Users },
             ].map((section) => (
               <button
@@ -117,10 +112,6 @@ const CommissionGuide: React.FC = () => {
         {activeSection === "overview" && (
           <div className="space-y-6">
             <div className="bg-gradient-to-r from-teal-50 to-emerald-50 border-l-4 border-teal-500 p-6 rounded-r-lg">
-              <h4 className="font-bold text-lg text-teal-900 mb-4 flex items-center gap-2">
-                <span className="flex items-center justify-center w-8 h-8 text-white rounded-full text-sm font-bold"></span>
-                Commission Tracker - Introduction
-              </h4>
               <div className="ml-10 space-y-4">
                 <p className="text-base text-teal-800 leading-relaxed">
                   The Commission Tracker is a comprehensive financial management
@@ -161,6 +152,30 @@ const CommissionGuide: React.FC = () => {
                     </li>
                   </ul>
                 </div>
+                
+                {/* Image Section - Overview */}
+                <div className="w-full bg-teal-50 rounded-xl border border-teal-200 p-6 mb-8">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4">
+                    Commission Tracker Overview
+                  </h3>
+                  <div className="bg-white rounded-lg border-2 border-teal-200 flex flex-col items-center justify-center relative overflow-hidden group shadow-sm" style={{ minHeight: '400px', maxHeight: '500px' }}>
+                    <img 
+                      src="/comm.png" 
+                      alt="Commission Tracker Overview" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        target.parentElement?.querySelector('.placeholder-overview')?.classList.remove('hidden');
+                      }}
+                    />
+                    <div className="placeholder-overview hidden absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-teal-50 to-emerald-50 text-gray-500">
+                      <DollarSign className="w-16 h-16 mb-4 text-teal-300" />
+                      <p className="text-lg font-medium">Commission Tracker Overview</p>
+                      <p className="text-sm mt-2">Screenshot will appear here</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -183,6 +198,30 @@ const CommissionGuide: React.FC = () => {
                   commission activities.
                 </p>
 
+                {/* Image Section - Detailed Modal View */}
+                <div className="w-full bg-orange-50 rounded-xl border border-orange-200 p-6 mb-8">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4">
+                    Detailed Modal View - Complete Referral History
+                  </h3>
+                  <div className="bg-white rounded-lg border-2 border-orange-200 flex flex-col items-center justify-center relative overflow-hidden group shadow-sm" style={{ minHeight: '500px', maxHeight: '600px' }}>
+                    <img 
+                      src="/doc1.png" 
+                      alt="Commission Modal View" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        target.parentElement?.querySelector('.placeholder-modal')?.classList.remove('hidden');
+                      }}
+                    />
+                    <div className="placeholder-modal hidden absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-orange-50 to-amber-50 text-gray-500">
+                      <Users className="w-16 h-16 mb-4 text-orange-300" />
+                      <p className="text-lg font-medium">Detailed Modal View</p>
+                      <p className="text-sm mt-2">Screenshot will appear here</p>
+                    </div>
+                  </div>
+                </div>
+                
                 <div className="bg-white rounded-lg border border-orange-200 p-4">
                   <h5 className="font-semibold text-orange-900 mb-3">
                     📋 What You Can See When Clicking View:
@@ -382,37 +421,6 @@ const CommissionGuide: React.FC = () => {
                       with bank transfers
                     </li>
                   </ul>
-                </div>
-
-                {/* Screenshot Upload */}
-                <div className="mt-6 bg-white rounded-lg border-2 border-dashed border-orange-300 p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <svg
-                      className="w-6 h-6 text-orange-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                      />
-                    </svg>
-                    <h5 className="font-semibold text-orange-900 text-base">
-                      Screenshot Upload Area
-                    </h5>
-                  </div>
-                  <div className="bg-orange-50 rounded-lg p-8 text-center border-2 border-dashed border-orange-200">
-                    <p className="text-orange-700 text-sm mb-2">
-                      <strong>Upload:</strong> /commission-modal-view.png
-                    </p>
-                    <p className="text-orange-600 text-xs">
-                      Drag & drop or click to upload screenshot of modal showing
-                      complete referral history with patient details
-                    </p>
-                  </div>
                 </div>
               </div>
             </div>

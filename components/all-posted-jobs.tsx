@@ -567,8 +567,8 @@ const JobManagement: React.FC<JobManagementProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-1 sm:p-2">
-      <div className="max-w-6xl mx-auto">
+    <div className="bg-gray-50 p-1 sm:p-2">
+      <div className="w-full">
         
         {/* Header - Compact */}
         <div className="mb-4 sm:mb-4">

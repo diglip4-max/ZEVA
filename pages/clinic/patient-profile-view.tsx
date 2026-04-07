@@ -13,6 +13,7 @@ import withClinicAuth from '../../components/withClinicAuth';
 import AddPatientAdvancePaymentModal from '@/components/patient/AddPatientAdvancePaymentModal';
 import AddPatientPastAdvancePaymentModal from '@/components/patient/AddPatientPastAdvancePaymentModal';
 import PayPendingBalanceModal from '@/components/patient/PayPendingBalanceModal';
+import { getCurrencySymbol } from '@/lib/currencyHelper';
 
 const TOKEN_PRIORITY = [
   "clinicToken",
@@ -362,7 +363,7 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                     const pkg = localPackages.find(x => x._id === p.packageId);
                     return pkg ? (
                       <option key={pkg._id} value={pkg._id}>
-                        {pkg.name} (د.إ{pkg.totalPrice}, {pkg.totalSessions} sessions)
+                        {pkg.name} ({getCurrencySymbol(currency)}{pkg.totalPrice}, {pkg.totalSessions} sessions)
                       </option>
                     ) : null;
                   })}
@@ -472,6 +473,7 @@ const formatPmDate = (d: Date) => {
 const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { patientData: any; onClose: () => void; onPatientUpdated?: (updatedData: any) => void }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [showBeforeAfterModal, setShowBeforeAfterModal] = useState(false);
+  const [currency, setCurrency] = useState('INR');
   const [appointments, setAppointments] = useState([]);
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
   const [appointmentFilter, setAppointmentFilter] = useState('all');
@@ -593,6 +595,23 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       } catch (e) { console.error('Error fetching available memberships/packages:', e); }
     };
     fetchAvailable();
+  }, []);
+
+  // Fetch clinic currency preference
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const headers = getAuthHeaders();
+        if (!headers) return;
+        const res = await axios.get('/api/clinics/myallClinic', { headers });
+        if (res.data.success && res.data.clinic?.currency) {
+          setCurrency(res.data.clinic.currency);
+        }
+      } catch (e) { 
+        console.error('Error fetching clinic currency:', e); 
+      }
+    };
+    fetchClinicCurrency();
   }, []);
 
   // Sync editFormData when patientData._id changes (initial load)
@@ -1023,7 +1042,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     billings.slice(0, 3).forEach((b: any) => {
       if (b.paid > 0) {
         const dateStr = b.invoicedDate || (b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
-        items.push({ icon: DollarSign, title: 'Payment Received', subtitle: `د.إ${b.paid.toLocaleString()} — ${b.invoiceNumber || ''}`, date: dateStr, color: 'bg-green-500' });
+        items.push({ icon: DollarSign, title: 'Payment Received', subtitle: `${getCurrencySymbol(currency)}${b.paid.toLocaleString()} — ${b.invoiceNumber || ''}`, date: dateStr, color: 'bg-green-500' });
       }
     });
 
@@ -1038,7 +1057,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     // Outstanding payment alert
     const outstanding = patientData?.outstanding || 0;
     if (outstanding > 0) {
-      list.push({ type: 'danger', icon: AlertCircle, message: `Outstanding payment of د.إ${Number(outstanding).toLocaleString()}` });
+      list.push({ type: 'danger', icon: AlertCircle, message: `Outstanding payment of ${getCurrencySymbol(currency)}${Number(outstanding).toLocaleString()}` });
     }
 
     // Rescheduled appointment alert
@@ -2007,7 +2026,7 @@ const fetchPrescriptions = async () => {
 
   const formatAED = (v: number) => {
     if (typeof v !== 'number' || Number.isNaN(v)) return '—';
-    try { return `د.إ${v.toLocaleString()}`; } catch { return `د.إ${v}`; }
+    try { return `${getCurrencySymbol(currency)}${v.toLocaleString()}`; } catch { return `${getCurrencySymbol(currency)}${v}`; }
   };
 
   const filterAppointments = (appointmentsList: any[], filter: string) => {
@@ -2400,7 +2419,7 @@ const fetchPrescriptions = async () => {
                                 >
                                   <option value="">Select membership</option>
                                   {allAvailableMemberships.filter((m: any) => m.isActive !== false).map((m: any) => (
-                                    <option key={m._id} value={m._id}>{m.name} (د.إ{m.price}, {m.durationMonths} months)</option>
+                                    <option key={m._id} value={m._id}>{m.name} ({getCurrencySymbol(currency)}{m.price}, {m.durationMonths} months)</option>
                                   ))}
                                 </select>
                               </div>
@@ -2483,7 +2502,7 @@ const fetchPrescriptions = async () => {
                                             </div>
                                             <div>
                                               <span className="text-gray-500">Price:</span>
-                                              <span className="ml-1 font-bold text-indigo-600">د.إ{plan?.price || 0}</span>
+                                              <span className="ml-1 font-bold text-indigo-600">{getCurrencySymbol(currency)}{plan?.price || 0}</span>
                                             </div>
                                           </div>
                                           <div className={`text-[9px] ${isExpired ? 'text-red-600 bg-red-50/50 border-red-100' : 'text-gray-500 bg-white/50 border-indigo-50'} rounded px-1.5 py-1 border`}>
@@ -2571,7 +2590,7 @@ const fetchPrescriptions = async () => {
                                 >
                                   <option value="">Select package</option>
                                   {allAvailablePackages.map((pkg: any) => (
-                                    <option key={pkg._id} value={pkg._id}>{pkg.name} (د.إ{pkg.totalPrice}, {pkg.totalSessions} sessions)</option>
+                                    <option key={pkg._id} value={pkg._id}>{pkg.name} ({getCurrencySymbol(currency)}{pkg.totalPrice}, {pkg.totalSessions} sessions)</option>
                                   ))}
                                 </select>
                               </div>
@@ -2614,9 +2633,9 @@ const fetchPrescriptions = async () => {
                                       )}
                                       <div className="flex items-center justify-between">
                                         <div className={`font-bold ${isExpired ? 'text-red-900 line-through' : 'text-gray-800'} flex items-center gap-1.5`}>
-                                          {pkg?.name || p.packageId} • د.إ{pkg?.totalPrice}
+                                          {pkg?.name || p.packageId} • {getCurrencySymbol(currency)}{pkg?.totalPrice}
                                           {paymentStatus === 'Full' && <span className="px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[7px] font-black uppercase">Full Paid</span>}
-                                          {paymentStatus === 'Partial' && <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[7px] font-black uppercase">Partial (د.إ{p.paidAmount})</span>}
+                                          {paymentStatus === 'Partial' && <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[7px] font-black uppercase">Partial ({getCurrencySymbol(currency)}{p.paidAmount})</span>}
                                         </div>
                                         <button
                                           type="button"
@@ -2695,7 +2714,7 @@ const fetchPrescriptions = async () => {
                                 </div>
                                 <div>
                                     <div className="text-[9px] font-bold text-amber-600 uppercase tracking-wider">Total Package Price</div>
-                                    <div className="text-base font-bold text-amber-900">د.إ{pkgTotalAmount.toLocaleString()}</div>
+                                    <div className="text-base font-bold text-amber-900">{getCurrencySymbol(currency)}{pkgTotalAmount.toLocaleString()}</div>
                                   </div>
                               </div>
                             </div>
@@ -2708,7 +2727,7 @@ const fetchPrescriptions = async () => {
                               >
                                 <CheckCircle className={`w-5 h-5 ${pkgPaymentType === 'Full' ? 'text-purple-600' : 'text-gray-300'}`} />
                                 <span className="font-bold text-[11px]">Full Payment</span>
-                                <span className="text-[9px] opacity-70">Pay 100% (د.إ{pkgTotalAmount})</span>
+                                <span className="text-[9px] opacity-70">Pay 100% ({getCurrencySymbol(currency)}{pkgTotalAmount})</span>
                               </button>
                               <button
                                 type="button"
@@ -2717,14 +2736,14 @@ const fetchPrescriptions = async () => {
                               >
                                 <Activity className={`w-5 h-5 ${pkgPaymentType === 'Partial' ? 'text-amber-600' : 'text-gray-300'}`} />
                                 <span className="font-bold text-[11px]">Partial Payment</span>
-                                <span className="text-[9px] opacity-70">Pay 50% (د.إ{pkgTotalAmount / 2})</span>
+                                <span className="text-[9px] opacity-70">Pay 50% ({getCurrencySymbol(currency)}{pkgTotalAmount / 2})</span>
                               </button>
                             </div>
 
                             <div className="space-y-1.5">
                               <label className="text-[10px] font-bold text-gray-600 uppercase tracking-wider px-1">Amount to Pay</label>
                               <div className="relative">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">د.إ</span>
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">{getCurrencySymbol(currency)}</span>
                                 <input
                                   type="number"
                                   value={pkgPaidAmount}
@@ -2912,7 +2931,7 @@ const fetchPrescriptions = async () => {
                       
                       // Price calculation
                       const price = pkg.price || pkg.totalPrice || 0;
-                      const formattedPrice = typeof price === 'number' ? `د.إ${price.toFixed(2)}` : `د.إ${price || 0}`;
+                      const formattedPrice = typeof price === 'number' ? `${getCurrencySymbol(currency)}${price.toFixed(2)}` : `${getCurrencySymbol(currency)}${price || 0}`;
 
                       return (
                         <div key={pkg._id || packageId || index} className={`bg-white rounded-xl border ${isExpired ? 'border-red-200 shadow-sm' : 'border-gray-200 shadow-lg'} overflow-hidden hover:shadow-xl transition-all duration-300 relative`}>
@@ -5051,7 +5070,7 @@ const fetchPrescriptions = async () => {
                           </div>
                           <div>
                             <div className="text-xs text-gray-600 font-medium">Total Spent</div>
-                            <div className="text-lg font-bold text-gray-900">د.إ{financialData.totalSpent.toLocaleString()}</div>
+                            <div className="text-lg font-bold text-gray-900">{getCurrencySymbol(currency)}{financialData.totalSpent.toLocaleString()}</div>
                           </div>
                         </div>
                       </div>

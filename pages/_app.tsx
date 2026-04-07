@@ -11,6 +11,7 @@ import SEO from "../next-seo.config";
 import "../styles/globals.css";
 import { SearchProvider } from "../context/SearchContext";
 import { AuthProvider } from "../context/AuthContext";
+import { CurrencyProvider } from "../context/CurrencyContext";
 import { LoadScript } from "@react-google-maps/api";
 import Loader from "../components/Loader";
 import html2canvas from "html2canvas";
@@ -595,6 +596,7 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
 
       <AuthProvider>
         <SearchProvider>
+          <CurrencyProvider>
           <Head>
             <meta
               name="viewport"
@@ -609,6 +611,7 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
           >
             {getLayout(<Component {...pageProps} />)}
           </LoadScript>
+          </CurrencyProvider>
         </SearchProvider>
       </AuthProvider>
     </>

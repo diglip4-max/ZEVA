@@ -85,7 +85,7 @@ export default async function handler(req, res) {
         {
           $group: {
             _id: "$referralId",
-            totalCommissionAmount: { $sum: "$commissionAmount" },
+            totalCommissionAmount: { $sum: { $cond: [{ $gt: ["$finalCommissionAmount", 0] }, "$finalCommissionAmount", "$commissionAmount"] } },
             totalAmountPaid: { $sum: "$amountPaid" },
             count: { $sum: 1 },
             lastCommissionPercent: { $last: "$commissionPercent" },
@@ -106,7 +106,7 @@ export default async function handler(req, res) {
         {
           $group: {
             _id: "$staffId",
-            totalCommissionAmount: { $sum: "$commissionAmount" },
+            totalCommissionAmount: { $sum: { $cond: [{ $gt: ["$finalCommissionAmount", 0] }, "$finalCommissionAmount", "$commissionAmount"] } },
             totalAmountPaid: { $sum: "$amountPaid" },
             count: { $sum: 1 },
             lastCommissionPercent: { $last: "$commissionPercent" },
@@ -126,7 +126,7 @@ export default async function handler(req, res) {
         {
           $group: {
             _id: "$staffId",
-            totalCommissionAmount: { $sum: "$commissionAmount" },
+            totalCommissionAmount: { $sum: { $cond: [{ $gt: ["$finalCommissionAmount", 0] }, "$finalCommissionAmount", "$commissionAmount"] } },
             totalAmountPaid: { $sum: "$amountPaid" },
             count: { $sum: 1 },
             lastCommissionPercent: { $last: "$commissionPercent" },

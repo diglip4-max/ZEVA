@@ -10,6 +10,8 @@ import { getUserRole } from "@/lib/helper";
 import { getAuthHeaders } from "@/lib/helper";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 import { GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api";
+import { supportedCurrencies, getCurrencySymbol } from "@/lib/currencyHelper";
+import { useCurrency } from "@/context/CurrencyContext";
 
 // Types
 interface Clinic {
@@ -79,6 +81,7 @@ interface Treatment {
 // };
 
 function ClinicManagementDashboard(): ReactElement {
+  const { setCurrency: setGlobalCurrency } = useCurrency();
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(true);
@@ -222,6 +225,7 @@ function ClinicManagementDashboard(): ReactElement {
   const [branchModal, setBranchModal] = useState<{ open: boolean; mode: 'add' | 'edit'; targetId?: string; name: string; address: string; phone: string; email: string }>({ open: false, mode: 'add', name: '', address: '', phone: '', email: '' });
   const [offers, setOffers] = useState<Array<{ _id?: string; title: string; type: "percentage" | "fixed" | "free Consult"; value: number; currency?: string; startsAt: string; endsAt: string; enabled?: boolean; treatments?: Array<{ name: string }> }>>([]);
   const [offersLoading] = useState(false);
+  const [clinicCurrency, setClinicCurrency] = useState<string>("INR");
 
   // Fetch clinics
   useEffect(() => {
@@ -332,6 +336,11 @@ function ClinicManagementDashboard(): ReactElement {
       email: (prev.email || (c as any).email || "").trim(),
       website: (prev.website || (c as any).website || "").trim(),
     }));
+    // Load saved currency preference from the DB
+    if ((c as any).currency) {
+      setClinicCurrency((c as any).currency);
+      setGlobalCurrency((c as any).currency);
+    }
     if (!stateSnapshot) {
       setStateSnapshot({
         editForm: { ...c },
@@ -759,6 +768,7 @@ function ClinicManagementDashboard(): ReactElement {
         if (editForm.pricing) form.append("pricing", editForm.pricing.trim());
         form.append("timings", JSON.stringify(buildTimingsPayload()));
         form.append("listingVisibility", JSON.stringify(listingVisibility));
+        form.append("currency", clinicCurrency);
         if (editForm.servicesName)
           form.append("servicesName", JSON.stringify(editForm.servicesName));
         if (editForm.treatments)
@@ -842,6 +852,7 @@ function ClinicManagementDashboard(): ReactElement {
           ...(editForm.pricing && { pricing: editForm.pricing.trim() }),
           timings: buildTimingsPayload(),
           listingVisibility,
+          currency: clinicCurrency,
           ...(editForm.servicesName && { servicesName: editForm.servicesName }),
           ...(editForm.treatments && { treatments: editForm.treatments }),
           existingPhotos,
@@ -899,6 +910,8 @@ function ClinicManagementDashboard(): ReactElement {
         }
       }
       toast.success("Clinic updated successfully");
+      // Sync currency to global context after successful save
+      setGlobalCurrency(clinicCurrency);
       console.log('✅ Update successful, refreshing data...');
       const refreshResponse = await axios.get("/api/clinics/myallClinic", {
         headers: authHeaders,
@@ -1188,9 +1201,9 @@ function ClinicManagementDashboard(): ReactElement {
                         </div>
                       </div>
                         <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Consultation Fee (AED)</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Consultation Fee ({getCurrencySymbol(clinicCurrency)})</label>
                         <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium text-sm">AED</span>
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium text-sm">{getCurrencySymbol(clinicCurrency)}</span>
                           <input
                             type="number"
                             min="0"
@@ -1221,6 +1234,21 @@ function ClinicManagementDashboard(): ReactElement {
                           placeholder="Premium healthcare services in Dubai"
                           rows={3}
                         />
+                      </div>
+
+                      {/* Currency Preference */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                        <select
+                          value={clinicCurrency}
+                          onChange={(e) => setClinicCurrency(e.target.value)}
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                        >
+                          {supportedCurrencies.map((c) => (
+                            <option key={c.code} value={c.code}>{c.label}</option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-gray-400 mt-1">All monetary values across the platform will display in this currency.</p>
                       </div>
                     
                     </div>
@@ -1349,7 +1377,7 @@ function ClinicManagementDashboard(): ReactElement {
                               >
                                 {sub.name}
                                 {typeof sub.price === "number" && sub.price > 0 && (
-                                  <span className="text-teal-800 font-bold">د.إ{sub.price}</span>
+                                  <span className="text-teal-800 font-bold">{getCurrencySymbol(clinicCurrency)}{sub.price}</span>
                                 )}
                                 <button
                                   onClick={() => handleRemoveSubTreatment(selectedTreatmentIndex as number, sIdx)}
@@ -1463,7 +1491,7 @@ function ClinicManagementDashboard(): ReactElement {
                                 <div key={i} className="flex items-center justify-between gap-2 py-1.5">
                                   <div className="flex-1 flex items-center gap-2">
                                     <div className="text-xs text-teal-800 flex-1">
-                                      {sc.name} {typeof sc.price === "number" && sc.price > 0 ? <span className="font-semibold text-teal-900">د.إ{sc.price}</span> : null}
+                                      {sc.name} {typeof sc.price === "number" && sc.price > 0 ? <span className="font-semibold text-teal-900">{getCurrencySymbol(clinicCurrency)}{sc.price}</span> : null}
                                     </div>
                                     <input
                                       type="number"
@@ -1571,7 +1599,7 @@ function ClinicManagementDashboard(): ReactElement {
                                   >
                                     <span className="font-medium">{subTreatment.name}</span>
                                     {typeof subTreatment.price === "number" && subTreatment.price > 0 && (
-                                      <span className="text-teal-800 font-bold">د.إ{subTreatment.price}</span>
+                                      <span className="text-teal-800 font-bold">{getCurrencySymbol(clinicCurrency)}{subTreatment.price}</span>
                                     )}
                                     <label className="flex items-center gap-1 ml-1">
                                       <input
@@ -1638,7 +1666,7 @@ function ClinicManagementDashboard(): ReactElement {
                                             >
                                               <div className="flex-1 flex items-center gap-2">
                                                 <div className="text-sm text-teal-800 flex-1">
-                                                  {sc.name} {typeof sc.price === "number" && sc.price > 0 ? <span className="font-semibold text-teal-900">د.إ{sc.price}</span> : null}
+                                                  {sc.name} {typeof sc.price === "number" && sc.price > 0 ? <span className="font-semibold text-teal-900">{getCurrencySymbol(clinicCurrency)}{sc.price}</span> : null}
                                                 </div>
                                                 <input
                                                   type="number"
@@ -2293,7 +2321,7 @@ function ClinicManagementDashboard(): ReactElement {
                                                   </span>
                                                   {sub.price > 0 && (
                                                     <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ml-1 ${subOn ? 'bg-teal-50 text-teal-600 border border-teal-100' : 'bg-gray-100 text-gray-400'}`}>
-                                                      AED {sub.price}
+                                                      {getCurrencySymbol(clinicCurrency)} {sub.price}
                                                     </span>
                                                   )}
                                                 </div>
@@ -3503,7 +3531,7 @@ function ClinicManagementDashboard(): ReactElement {
                                               >
                                                 <span>{subTreatment.name}</span>
                                                 {typeof subTreatment.price === "number" && subTreatment.price > 0 && (
-                                                  <span className="text-teal-800 font-bold">د.إ{subTreatment.price}</span>
+                                                  <span className="text-teal-800 font-bold">{getCurrencySymbol(clinicCurrency)}{subTreatment.price}</span>
                                                 )}
                                                 {permissions.canUpdate && (
                                                   <label className="flex items-center gap-1">
