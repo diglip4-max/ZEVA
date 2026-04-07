@@ -13,7 +13,11 @@ import {
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import axios from "axios";
-import { getTokenByPath } from "@/lib/helper";
+import {
+  getMediaTypeFromFile,
+  getTokenByPath,
+  handleUpload,
+} from "@/lib/helper";
 import { clsx, type ClassValue } from "clsx";
 import useProvider from "@/hooks/useProvider";
 import { Template } from "@/types/templates";
@@ -53,6 +57,7 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
     Record<string, string>
   >({});
   const [mediaUrl, setMediaUrl] = useState<string>("");
+  const [mediaType, setMediaType] = useState<string>("");
   const [recipient, setRecipient] = useState<string>("{{lead.phone}}");
   const [customRecipient, setCustomRecipient] = useState<string>("");
   const [whatsappMsgType, setWhatsappMsgType] =
@@ -80,8 +85,6 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
   const selectedProvider = whatsappProviders.find(
     (p) => p._id === selectedProviderId,
   );
-
-  console.log({ attachedFile });
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -231,6 +234,7 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
         setHeaderVariableMappings(params.headerVariableMappings || {});
         setButtonVariableMappings(params.buttonVariableMappings || {});
         setMediaUrl(params.mediaUrl || "");
+        setMediaType(params.mediaType || "");
         setMessage(params.content || "");
         setRecipient(
           params.recipient !== "{{lead.phone}}" &&
@@ -274,6 +278,19 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
     setError(null);
     try {
       const token = getTokenByPath();
+
+      let mediaFileUrl = mediaUrl;
+      let mediaFileType = mediaType;
+
+      if (attachedFile) {
+        const resData = await handleUpload(attachedFile);
+        if (resData && resData?.success) {
+          mediaFileUrl = resData?.url;
+          mediaFileType = getMediaTypeFromFile(attachedFile);
+          setMediaUrl(resData?.url);
+          setMediaType(mediaFileType);
+        }
+      }
       const { data } = await axios.put(
         `/api/workflows/actions/update/${actionId}`,
         {
@@ -291,7 +308,8 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
             variableMappings,
             headerVariableMappings,
             buttonVariableMappings,
-            mediaUrl,
+            mediaUrl: mediaFileUrl,
+            mediaType: mediaFileType,
             headerText,
             footerText,
             replyButtons,
@@ -378,6 +396,23 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
             </div>
           ) : (
             <>
+              {/* Meta 24-hour Window Alert */}
+              <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl flex gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-blue-900">
+                    Meta 24-Hour Policy
+                  </p>
+                  <p className="text-xs text-blue-700 leading-relaxed font-medium">
+                    Non-template messages (Reply Buttons, List Messages, etc.)
+                    can only be sent to users who have messaged you within the
+                    last <strong>24 hours</strong>. Only{" "}
+                    <strong>Template Messages</strong> can be sent outside this
+                    window.
+                  </p>
+                </div>
+              </div>
+
               {/* Provider Selection */}
               <div className="space-y-3 relative" ref={providerDropdownRef}>
                 <label className="text-sm font-bold text-gray-900 flex items-center gap-2">
@@ -843,7 +878,7 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
                 </div>
               )}
 
-              {selectedTemplate && (
+              {selectedTemplate && whatsappMsgType === "template-message" && (
                 <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-300">
                   {/* Template Preview Card */}
                   <div className="p-5 bg-gray-50 rounded-2xl border border-gray-100 space-y-3">

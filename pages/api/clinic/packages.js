@@ -79,6 +79,9 @@ export default async function handler(req, res) {
             totalSessions,
             sessionPrice,
             treatments: pkg.treatments || [],
+            validityInMonths: pkg.validityInMonths || 0,
+            startDate: pkg.startDate,
+            endDate: pkg.endDate,
             createdAt: pkg.createdAt,
             updatedAt: pkg.updatedAt,
           };
@@ -108,7 +111,7 @@ export default async function handler(req, res) {
         });
       }
 
-      const { name, totalPrice: bodyTotalPrice, price: legacyPrice, treatments } = req.body;
+      const { name, totalPrice: bodyTotalPrice, price: legacyPrice, treatments, validityInMonths, startDate, endDate } = req.body;
 
       if (!name || !name.trim()) {
         return res.status(400).json({ success: false, message: "Package name is required" });
@@ -184,6 +187,9 @@ export default async function handler(req, res) {
         totalSessions,
         sessionPrice,
         treatments: normalizedTreatments,
+        validityInMonths: parseInt(validityInMonths) || 0,
+        startDate: startDate ? new Date(startDate) : undefined,
+        endDate: endDate ? new Date(endDate) : undefined,
         createdBy: user._id,
       });
 
@@ -197,6 +203,9 @@ export default async function handler(req, res) {
           totalPrice: newPackage.totalPrice,
           totalSessions: newPackage.totalSessions,
           sessionPrice: newPackage.totalSessions > 0 ? Number((newPackage.totalPrice / newPackage.totalSessions).toFixed(2)) : newPackage.totalPrice,
+          validityInMonths: newPackage.validityInMonths,
+          startDate: newPackage.startDate,
+          endDate: newPackage.endDate,
           treatments: newPackage.treatments || [],
           createdAt: newPackage.createdAt,
           updatedAt: newPackage.updatedAt,
@@ -241,7 +250,7 @@ export default async function handler(req, res) {
         });
       }
 
-      const { packageId, name, totalPrice, treatments } = req.body;
+      const { packageId, name, totalPrice, treatments, validityInMonths, startDate, endDate, isActive } = req.body;
 
       if (!packageId || !name || !name.trim()) {
         return res.status(400).json({
@@ -316,6 +325,19 @@ export default async function handler(req, res) {
         }
       }
 
+      if (validityInMonths !== undefined) {
+        pkg.validityInMonths = parseInt(validityInMonths) || 0;
+      }
+      if (startDate !== undefined) {
+        pkg.startDate = startDate ? new Date(startDate) : undefined;
+      }
+      if (endDate !== undefined) {
+        pkg.endDate = endDate ? new Date(endDate) : undefined;
+      }
+      if (isActive !== undefined) {
+        pkg.isActive = isActive;
+      }
+
       pkg.name = normalizedName;
       await pkg.save();
 
@@ -329,6 +351,9 @@ export default async function handler(req, res) {
           totalPrice: pkg.totalPrice,
           totalSessions: pkg.totalSessions,
           sessionPrice: pkg.totalSessions > 0 ? Number((pkg.totalPrice / pkg.totalSessions).toFixed(2)) : pkg.totalPrice,
+          validityInMonths: pkg.validityInMonths,
+          startDate: pkg.startDate,
+          endDate: pkg.endDate,
           treatments: pkg.treatments || [],
           createdAt: pkg.createdAt,
           updatedAt: pkg.updatedAt,

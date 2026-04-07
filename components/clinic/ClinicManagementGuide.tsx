@@ -15,15 +15,22 @@ const ClinicManagementGuide: React.FC = () => {
               <Users className="w-10 h-10 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white mb-2">Clinic Management - Complete Guide</h1>
-              <p className="text-blue-100 text-sm">Comprehensive guide for managing clinic staff, doctors, agents, and user administration</p>
+              <h1 className="text-3xl font-bold text-white mb-2">
+                Clinic Management - Complete Guide
+              </h1>
+              <p className="text-blue-100 text-sm">
+                Comprehensive guide for managing clinic staff, doctors, agents,
+                and user administration
+              </p>
             </div>
           </div>
-          
+
           <div className="grid md:grid-cols-4 gap-4 mt-6">
             <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
               <p className="text-blue-100 text-xs mb-1">User Management</p>
-              <p className="text-white font-semibold">View, Create, Edit, Delete</p>
+              <p className="text-white font-semibold">
+                View, Create, Edit, Delete
+              </p>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
               <p className="text-blue-100 text-xs mb-1">Access Control</p>
@@ -72,7 +79,9 @@ const ClinicManagementGuide: React.FC = () => {
           </div>
           
           <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800 font-semibold mb-2">🎯 Key Points:</p>
+            <p className="text-sm text-blue-800 font-semibold mb-2">
+              🎯 Key Points:
+            </p>
             <ul className="list-disc list-inside ml-4 space-y-1 text-xs text-blue-700">
               <li><strong>Team Statistics:</strong> View Total Team, Approved, Pending, and Declined counts at a glance</li>
               <li><strong>Create Users:</strong> Add new agents or doctors with complete profile setup</li>

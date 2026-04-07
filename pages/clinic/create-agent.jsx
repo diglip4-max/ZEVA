@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
+import { getCurrencySymbol } from '@/lib/currencyHelper';
 import {
   Users,
   CheckCircle,
@@ -117,6 +118,7 @@ const ManageAgentsPage = () => {
   const [totalRevenue, setTotalRevenue] = useState(null);
   const [totalCommission, setTotalCommission] = useState(null);
   const [commissionPercent, setCommissionPercent] = useState(null);
+  const [currency, setCurrency] = useState('INR');
 
   // Get the appropriate token based on what's available (clinic > doctor > admin)
   // This ensures we use the correct token for the logged-in user
@@ -149,6 +151,23 @@ const ManageAgentsPage = () => {
     }
     return null;
   };
+
+  // Fetch permissions - same pattern as myallClinic.tsx and create-offer.jsx
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const headers = getAuthHeaders();
+        if (!headers) return;
+        const res = await axios.get('/api/clinics/myallClinic', { headers });
+        if (res.data.success && res.data.clinic?.currency) {
+          setCurrency(res.data.clinic.currency);
+        }
+      } catch (e) { 
+        console.error('Error fetching clinic currency:', e); 
+      }
+    };
+    fetchClinicCurrency();
+  }, []);
 
   // Fetch permissions - same pattern as myallClinic.tsx and create-offer.jsx
   useEffect(() => {
@@ -2334,7 +2353,7 @@ const ManageAgentsPage = () => {
                         </div>
                         <div>
                           <div className="text-3xl font-bold leading-tight">
-                            {totalRevenue !== null ? `$${Number(totalRevenue || 0).toLocaleString()}` : '—'}
+                            {totalRevenue !== null ? `${getCurrencySymbol(currency)}${Number(totalRevenue || 0).toLocaleString()}` : '—'}
                           </div>
                           <div className="text-xs opacity-90 mt-1">Revenue Generated</div>
                         </div>
@@ -2347,7 +2366,7 @@ const ManageAgentsPage = () => {
                         </div>
                         <div>
                           <div className="text-3xl font-bold leading-tight">
-                            {totalCommission != null ? `$${Number(totalCommission || 0).toLocaleString()}` : '—'}
+                            {totalCommission != null ? `${getCurrencySymbol(currency)}${Number(totalCommission || 0).toLocaleString()}` : '—'}
                           </div>
                           <div className="text-xs opacity-90 mt-1">Commission Earned</div>
                         </div>

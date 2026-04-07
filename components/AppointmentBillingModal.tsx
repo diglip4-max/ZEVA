@@ -1,18 +1,22 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 import {
-  X,
   ChevronDown,
   Loader2,
   AlertCircle,
   CheckCircle,
   XCircle,
   Package,
+  X,
   ChevronUp,
   Send,
   FileText,
   TrendingUp,
+  Clock,
+ 
+  
 } from "lucide-react";
 
 interface Appointment {
@@ -61,6 +65,8 @@ interface Package {
   remainingSessions?: number;
   patientPackageId?: string;
   patientPackageSubId?: string;
+  paidAmount?: number;
+  paymentStatus?: string;
   treatments: Array<{
     treatmentName: string;
     treatmentSlug: string;
@@ -94,6 +100,7 @@ interface PackageTreatmentSession {
   }>; // Detailed usage history
   isSelected: boolean;
   sessionPrice: number;
+  isAlreadyBilledForThisAppointment?: boolean;
   usesFreeConsultation?: boolean;
   usesMembershipDiscount?: boolean;
 }
@@ -135,6 +142,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [packageSearchQuery, setPackageSearchQuery] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [totalPrice, setTotalPrice] = useState(0);
+  const [currency, setCurrency] = useState('INR');
   const [billingHistory, setBillingHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [packageUsageData, setPackageUsageData] = useState<any>(null);
@@ -305,6 +313,23 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     const seq = String(Math.floor(Math.random() * 1000)).padStart(3, "0");
     const invoiceNum = `INV-${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}-${seq}`;
     setFormData((prev) => ({ ...prev, invoiceNumber: invoiceNum }));
+  }, []);
+
+  // Fetch clinic currency preference
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const headers = getAuthHeaders();
+        if (!headers.Authorization) return;
+        const res = await axios.get('/api/clinics/myallClinic', { headers });
+        if (res.data.success && res.data.clinic?.currency) {
+          setCurrency(res.data.clinic.currency);
+        }
+      } catch (e) { 
+        console.error('Error fetching clinic currency:', e); 
+      }
+    };
+    fetchClinicCurrency();
   }, []);
 
   // Fetch treatments and packages
@@ -845,13 +870,21 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   useEffect(() => {
     if (isOpen && appointment && treatments.length > 0 && selectedTreatments.length === 0) {
       // Check if this appointment has already been billed
-      const alreadyBilled = billingHistory.some(
+      const billedItemsForAppointment = billingHistory.filter(
         (b) => String(b.appointmentId) === String(appointment._id) ||
                String(b.appointmentId?._id) === String(appointment._id)
       );
-
-      if (alreadyBilled) {
-        console.log("Appointment already billed, skipping auto-fill of treatments");
+     
+      const alreadyBilledTreatmentNames = billedItemsForAppointment.flatMap(b => b.treatment ? b.treatment.split(", ").map((t: string) => t.trim()) : []);
+      // const alreadyBilledPackageTreatmentNames = billedItemsForAppointment.flatMap(b => b.selectedPackageTreatments || []).map((pt: any) => pt.treatmentName);
+     
+      // Time check (within 24 hours)
+      const appointmentDate = appointment.startDate ? new Date(appointment.startDate) : null;
+      const now = new Date();
+      const isWithinTimeLimit = appointmentDate ? (now.getTime() - appointmentDate.getTime()) <= 24 * 60 * 60 * 1000 : false;
+     
+      if (billedItemsForAppointment.length > 0 && !isWithinTimeLimit) {
+        console.log("Appointment already billed and past time limit, skipping auto-fill");
         return;
       }
 
@@ -860,6 +893,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       // Handle multiple services (serviceNames / serviceIds)
       if (appointment.serviceNames && appointment.serviceNames.length > 0) {
         appointment.serviceNames.forEach((name, index) => {
+          // Skip if this treatment has already been billed for this appointment
+          if (alreadyBilledTreatmentNames.includes(name)) return;
+
           const serviceIdItem = appointment.serviceIds?.[index];
           const slug = typeof serviceIdItem === 'string' ? serviceIdItem : serviceIdItem?._id;
           if (name && slug) {
@@ -877,16 +913,18 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       }
       // Fallback to single service (serviceName / serviceId)
       else if (appointment.serviceName && appointment.serviceId) {
-   
-        const slug = typeof appointment.serviceId === 'string' ? appointment.serviceId : (appointment.serviceId as { _id: string })._id;
-        const matchingTreatment = treatments.find(t => t.slug === slug || t.name === appointment.serviceName);
-        initialTreatments.push({
-          treatmentName: appointment.serviceName,
-          treatmentSlug: slug,
-          price: matchingTreatment?.price || 0,
-          quantity: 1,
-          totalPrice: matchingTreatment?.price || 0,
-        });
+        // Skip if this treatment has already been billed for this appointment
+        if (!alreadyBilledTreatmentNames.includes(appointment.serviceName)) {
+          const slug = typeof appointment.serviceId === 'string' ? appointment.serviceId : (appointment.serviceId as { _id: string })._id;
+          const matchingTreatment = treatments.find(t => t.slug === slug || t.name === appointment.serviceName);
+          initialTreatments.push({
+            treatmentName: appointment.serviceName,
+            treatmentSlug: slug,
+            price: matchingTreatment?.price || 0,
+            quantity: 1,
+            totalPrice: matchingTreatment?.price || 0,
+          });
+        }
       }
 
       if (initialTreatments.length > 0) {
@@ -906,7 +944,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           `/api/staff/get-patient-data/${appointment.patientId}`,
           { headers },
         );
-        const patientReferral = res?.data?.referredBy || "";
+        const patientData = res?.data || null;
+        setPatientDetails(patientData);
+        const patientReferral = patientData?.referredBy || "";
         if (patientReferral && typeof patientReferral === "string") {
           setFormData((prev) => ({
             ...prev,
@@ -1108,24 +1148,74 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     if (selectedService === "Treatment") {
       baseTotal = selectedTreatments.reduce((sum, t) => sum + t.totalPrice, 0);
     } else if (selectedPackage) {
-      // Calculate total based on each treatment's sessionPrice × usedSessions
-      const computedTotal = packageTreatmentSessions
-        .filter((t) => t.isSelected)
-        .reduce((sum, t) => sum + t.sessionPrice * (t.usedSessions || 0), 0);
+      // Package Payment Handling (New Requirement)
+      const paidAmount = selectedPackage.paidAmount || 0;
+      const paymentStatus = selectedPackage.paymentStatus || "Unpaid";
+      
+      // Calculate how much has already been consumed from the paidAmount
+      // by looking at activePackageUsage.billingHistory
+      let consumedPrepaidAmount = 0;
+      if (packageUsageData?.billingHistory) {
+        // Find usage history for this specific package assignment
+        // If there are multiple assignments of the same package, we should ideally
+        // track by sub-document ID, but for now we'll assume the latest assignment's history
+        packageUsageData.billingHistory.forEach((bill: any) => {
+          // Calculate cost of sessions in this bill
+          // bill.selectedPackageTreatments has { treatmentName, treatmentSlug, sessions }
+          if (bill.selectedPackageTreatments) {
+            bill.selectedPackageTreatments.forEach((bt: any) => {
+              const trDef = selectedPackage.treatments.find(t => t.treatmentSlug === bt.treatmentSlug);
+              if (trDef) {
+                consumedPrepaidAmount += (trDef.sessionPrice || 0) * (bt.sessions || 0);
+              }
+            });
+          }
+        });
+      }
 
+      let availablePrepaidAmount = Math.max(0, paidAmount - consumedPrepaidAmount);
+      
+      // Calculate total based on each treatment's sessionPrice × usedSessions
+      let computedTotal = 0;
+      
+      // We process selected treatments to see how many sessions are free
+      packageTreatmentSessions.forEach((t) => {
+        if (!t.isSelected || (t.usedSessions || 0) === 0) {
+          return;
+        }
+        
+        let sessionCost = t.sessionPrice * (t.usedSessions || 0);
+        let billableForThisTreatment = 0;
+
+        if (paymentStatus === "Full") {
+          billableForThisTreatment = 0;
+        } else if (availablePrepaidAmount >= sessionCost) {
+          billableForThisTreatment = 0;
+          availablePrepaidAmount -= sessionCost;
+        } else if (availablePrepaidAmount > 0) {
+          billableForThisTreatment = sessionCost - availablePrepaidAmount;
+          availablePrepaidAmount = 0;
+        } else {
+          billableForThisTreatment = sessionCost;
+        }
+
+        computedTotal += billableForThisTreatment;
+      });
+
+      // Update packageTreatmentSessions state if needed to show "Free Session" tag
+      // Use a ref or a separate effect to avoid infinite loops
+      // For now, let's just use the computedTotal for baseTotal
+      
       // Round to 2 decimal places
       let finalTotal = Number(computedTotal.toFixed(2));
 
-      // Check if all treatments are selected with their max sessions
+      // Check if all treatments are selected with their max sessions (Legacy logic)
       const allTreatmentsSelected = packageTreatmentSessions.every(
         (t) => t.isSelected && t.usedSessions === t.maxSessions,
       );
 
-      // If all treatments are selected with max sessions and there's a small difference
-      // between computed total and package totalPrice, use the package totalPrice
-      if (allTreatmentsSelected && selectedPackage.totalPrice) {
+      if (allTreatmentsSelected && selectedPackage.totalPrice && paymentStatus === "Unpaid") {
         const difference = Math.abs(finalTotal - selectedPackage.totalPrice);
-        // If difference is small (<= ₹2), use the package's totalPrice
         if (difference > 0 && difference <= 2) {
           finalTotal = selectedPackage.totalPrice;
         }
@@ -1531,9 +1621,20 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }));
   };
 
-  // Handle package selection
   const handlePackageSelect = async (pkg: Package) => {
-    setSelectedPackage(pkg);
+    // Check if this package is assigned to the patient and get its payment info
+    const assignedPkg = (patientDetails?.packages || []).find((p: any) => String(p.packageId) === String(pkg._id));
+    
+    // Check main fields as well if array doesn't have it
+    const mainPackageId = patientDetails?.packageId;
+    const isMainPackage = String(mainPackageId) === String(pkg._id);
+    
+    const pkgWithPaymentInfo = {
+      ...pkg,
+      paidAmount: assignedPkg?.paidAmount || (isMainPackage ? patientDetails?.packagePaidAmount : 0) || 0,
+      paymentStatus: assignedPkg?.paymentStatus || (isMainPackage ? patientDetails?.packagePaymentStatus : "Unpaid") || "Unpaid",
+    };
+    setSelectedPackage(pkgWithPaymentInfo);
     setLoadingPackageUsage(true);
 
     // Fetch package usage for this patient and package
@@ -1563,6 +1664,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
 
     // Initialize package treatment sessions with usage data
+    const billedItemsForAppointment = appointment ? billingHistory.filter(
+      (b) => String(b.appointmentId) === String(appointment._id) ||
+             String(b.appointmentId?._id) === String(appointment._id)
+    ) : [];
+    const alreadyBilledPackageTreatmentNames = billedItemsForAppointment.flatMap(b => b.selectedPackageTreatments || []).map((pt: any) => pt.treatmentName);
+
     const sessions: PackageTreatmentSession[] = pkg.treatments.map((t) => {
       // Find if this treatment has been used before
       let previouslyUsed = 0;
@@ -1582,8 +1689,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         }
       }
 
+      const tName = t.treatmentName;
+      const isAlreadyBilledForThisAppointment = alreadyBilledPackageTreatmentNames.includes(tName);
+
       return {
-        treatmentName: t.treatmentName,
+        treatmentName: tName,
         treatmentSlug: t.treatmentSlug,
         maxSessions: t.sessions,
         usedSessions: 0,
@@ -1591,6 +1701,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         usageDetails: usageDetails,
         isSelected: false,
         sessionPrice: t.sessionPrice || 0,
+        isAlreadyBilledForThisAppointment // Add this flag
       };
     });
 
@@ -2218,7 +2329,30 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
   if (!isOpen || !appointment) return null;
 
+  const billedItems = (billingHistory || []).filter(
+    (b) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance" && (String(b.appointmentId) === String(appointment?._id) ||
+           String(b.appointmentId?._id) === String(appointment?._id))
+  );
+
+  const billedTreatmentNames = billedItems.flatMap(b => b.treatment ? b.treatment.split(", ").map((t: string) => t.trim()) : []);
+  const billedPackageTreatments = billedItems.flatMap(b => b.selectedPackageTreatments || []);
+  const billedPackageTreatmentNames = billedPackageTreatments.map((pt: any) => pt.treatmentName);
+
+  const isAlreadyBilled = billedItems.length > 0;
+
+  // Check if it's within 24 hours of the appointment date
+  const appointmentDate = appointment?.startDate ? new Date(appointment.startDate) : null;
+  const now = new Date();
+  const isWithinTimeLimit = appointmentDate ? (now.getTime() - appointmentDate.getTime()) <= 24 * 60 * 60 * 1000 : false;
+
+  const canRebill = isAlreadyBilled && isWithinTimeLimit;
+
   const filteredTreatments = treatments.filter((t) => {
+    // Filter out treatments already billed for this appointment within the time limit
+    if (isAlreadyBilled && billedTreatmentNames.includes(t.name)) {
+      return false;
+    }
+
     if (!treatmentSearchQuery.trim()) {
       return t.type === "sub";
     }
@@ -2251,6 +2385,15 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   ];
 
   const filteredAllPackages = allPackagesForDropdown.filter((pkg) => {
+    // If already billed for this appointment, hide the package if all its treatments are already billed
+    if (isAlreadyBilled) {
+      const hasUnbilledTreatments = pkg.treatments.some((t: any) => {
+        const tName = t.treatmentName || t.name;
+        return !billedPackageTreatmentNames.includes(tName);
+      });
+      if (!hasUnbilledTreatments) return false;
+    }
+
     if (!packageSearchQuery.trim()) return false;
     const query = packageSearchQuery.toLowerCase();
     return pkg.name.toLowerCase().includes(query);
@@ -2260,11 +2403,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const last3Billings = (billingHistory || [])
     .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
     .slice(0, 3);
-
-  const isAlreadyBilled = (billingHistory || []).some(
-    (b) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance" && (String(b.appointmentId) === String(appointment?._id) ||
-           String(b.appointmentId?._id) === String(appointment?._id))
-  );
 
   // Use API values for pending and advance balance display at top
   const apiPendingBalance = balances.pendingBalance || 0;
@@ -2415,11 +2553,15 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
               )}
 
               {isAlreadyBilled && (
-                <div className="bg-amber-50 border-l-2 border-amber-500 rounded p-2 flex items-start gap-2 text-amber-700 shadow-sm animate-in slide-in-from-top-2 fade-in" role="alert">
+                <div className={`${canRebill ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-amber-50 border-amber-500 text-amber-700'} border-l-2 rounded p-2 flex items-start gap-2 shadow-sm animate-in slide-in-from-top-2 fade-in`} role="alert">
                   <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 animate-pulse" />
                   <div className="flex-1">
-                    <p className="text-xs font-bold">Appointment Already Billed</p>
-                    <p className="text-[10px]">A billing record already exists for this appointment. Please verify before creating another one.</p>
+                    <p className="text-xs font-bold">{canRebill ? "Additional Billing Available" : "Appointment Already Billed"}</p>
+                    <p className="text-[10px]">
+                      {canRebill 
+                        ? "A billing record exists for this appointment. You can add more treatments or packages.."
+                        : "A billing record already exists for this appointment. Please verify before creating another one."}
+                    </p>
                   </div>
                 </div>
               )}
@@ -2629,15 +2771,15 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                       <button type="button" onClick={() => handleQuantityChange(treatment.treatmentSlug, Math.max(1, treatment.quantity - 1))} className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-700 text-xs font-bold">−</button>
                                       <span className="text-xs font-semibold text-gray-900 w-5 text-center">{treatment.quantity}</span>
                                       <button type="button" onClick={() => handleQuantityChange(treatment.treatmentSlug, treatment.quantity + 1)} className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-700 text-xs font-bold">+</button>
-                                      <span className="text-[10px] text-gray-500 ml-1">@ AED {treatment.price.toFixed(2)} each</span>
-                                      <span className="text-xs font-bold text-gray-900 ml-2">AED {treatment.totalPrice.toFixed(2)}</span>
+                                      <span className="text-[10px] text-gray-500 ml-1">@ {getCurrencySymbol(currency)} {treatment.price.toFixed(2)} each</span>
+                                      <span className="text-xs font-bold text-gray-900 ml-2">{getCurrencySymbol(currency)} {treatment.totalPrice.toFixed(2)}</span>
                                     </div>
                                   </div>
                                 </div>
                               );
                             })}
                             <div className="text-xs text-gray-500 mt-1 text-center bg-gray-100 px-2 py-1 rounded-lg">
-                              Qty: {selectedTreatments.reduce((s, t) => s + t.quantity, 0)} | Total: AED {selectedTreatments.reduce((s, t) => s + t.totalPrice, 0).toFixed(2)}
+                              Qty: {selectedTreatments.reduce((s, t) => s + t.quantity, 0)} | Total: {getCurrencySymbol(currency)} {selectedTreatments.reduce((s, t) => s + t.totalPrice, 0).toFixed(2)}
                             </div>
                           </div>
                         )}
@@ -2654,7 +2796,15 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             onClick={() => setPackageDropdownOpen(!packageDropdownOpen)}
                             className="w-full flex items-center justify-between px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-xs text-gray-700 hover:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-500"
                           >
-                            <span className="text-gray-500">{selectedPackage ? selectedPackage.name : "Search packages..."}</span>
+                            <span className="text-gray-500 flex items-center gap-2">
+                              {selectedPackage ? selectedPackage.name : "Search packages..."}
+                              {selectedPackage?.paymentStatus === "Full" && (
+                                <span className="px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[8px] font-bold uppercase">Full Paid</span>
+                              )}
+                              {selectedPackage?.paymentStatus === "Partial" && (
+                                <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[8px] font-bold uppercase">Partial Paid ({getCurrencySymbol(currency)}{selectedPackage.paidAmount})</span>
+                              )}
+                            </span>
                             <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${packageDropdownOpen ? "rotate-180" : ""}`} />
                           </button>
                           {packageDropdownOpen && (
@@ -2679,7 +2829,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                       >
                                         <div className="font-medium">{pkg.name}</div>
                                         <div className="text-[10px] text-gray-500 mt-0.5">
-                                          Total: AED {Number(pkg.totalPrice).toFixed(2)} | {pkg.totalSessions} sessions
+                                          Total: {getCurrencySymbol(currency)} {Number(pkg.totalPrice).toFixed(2)} | {pkg.totalSessions} sessions
                                         </div>
                                       </button>
                                     ))}
@@ -2707,53 +2857,103 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                   </div>
                                 )}
                                 <div className="space-y-2">
-                                  {packageTreatmentSessions.map((treatment) => {
-                                    const remainingSessions = treatment.maxSessions - treatment.previouslyUsedSessions;
-                                    const isFullyUsed = remainingSessions <= 0;
-                                    return (
-                                      <div key={treatment.treatmentSlug}
-                                        className={`bg-white border rounded-xl p-3 shadow-sm transition-all duration-200 ${
-                                          isFullyUsed ? "border-red-200" : treatment.isSelected ? "border-teal-300" : "border-gray-200"
-                                        }`}
-                                      >
-                                        <div className="flex items-start justify-between gap-2">
-                                          <div className="flex items-start gap-2 flex-1">
-                                            {/* Toggle */}
-                                            <button
-                                              type="button"
-                                              disabled={isFullyUsed}
-                                              onClick={() => handlePackageTreatmentToggle(treatment.treatmentSlug)}
-                                              className={`relative mt-0.5 w-8 h-5 rounded-full transition-colors flex-shrink-0 ${
-                                                isFullyUsed ? "bg-gray-200 cursor-not-allowed" : treatment.isSelected ? "bg-teal-500" : "bg-gray-200"
-                                              }`}
-                                            >
-                                              <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${
-                                                treatment.isSelected && !isFullyUsed ? "right-0.5" : "left-0.5"
-                                              }`} />
-                                            </button>
-                                            <div>
-                                              <div className={`text-xs font-semibold ${
-                                                isFullyUsed ? "text-red-600" : treatment.isSelected ? "text-gray-900" : "text-gray-700"
-                                              }`}>{treatment.treatmentName}</div>
-                                              <div className="text-[10px] text-teal-600 font-medium">AED {treatment.sessionPrice.toFixed(2)}/session</div>
-                                              {(treatment.usesFreeConsultation || treatment.usesMembershipDiscount) && (
-                                                <div className="flex items-center gap-1 mt-0.5">
-                                                  {treatment.usesFreeConsultation && (
-                                                    <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-semibold">Free Session</span>
-                                                  )}
-                                                  {treatment.usesMembershipDiscount && (
-                                                    <span className="text-[9px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-semibold">{membershipUsage?.discountPercentage || 10}% Off</span>
-                                                  )}
-                                                </div>
-                                              )}
-                                              {treatment.previouslyUsedSessions > 0 ? (
-                                                <div className={`text-[10px] mt-0.5 font-medium flex items-center gap-1 ${
-                                                  isFullyUsed ? "text-red-600" : "text-amber-600"
-                                                }`}>
-                                                  {isFullyUsed ? (
-                                                    <><XCircle className="w-3 h-3" /> All sessions used</>
-                                                  ) : (
-                                                    <><AlertCircle className="w-3 h-3" /> {treatment.previouslyUsedSessions}/{treatment.maxSessions} used · {remainingSessions} left</>
+                                  {(() => {
+                                    // Calculate prepaid status for UI
+                                    const paidAmount = selectedPackage?.paidAmount || 0;
+                                    const paymentStatus = selectedPackage?.paymentStatus || "Unpaid";
+                                    let consumedPrepaidAmount = 0;
+                                    if (packageUsageData?.billingHistory) {
+                                      packageUsageData.billingHistory.forEach((bill: any) => {
+                                        if (bill.selectedPackageTreatments) {
+                                          bill.selectedPackageTreatments.forEach((bt: any) => {
+                                            const trDef = selectedPackage.treatments.find(t => t.treatmentSlug === bt.treatmentSlug);
+                                            if (trDef) {
+                                              consumedPrepaidAmount += (trDef.sessionPrice || 0) * (bt.sessions || 0);
+                                            }
+                                          });
+                                        }
+                                      });
+                                    }
+                                    let availablePrepaid = Math.max(0, paidAmount - consumedPrepaidAmount);
+
+                                    return packageTreatmentSessions.map((treatment) => {
+                                      const remainingSessions = treatment.maxSessions - treatment.previouslyUsedSessions;
+                                      const isFullyUsed = remainingSessions <= 0;
+                                      const isBilledToday = treatment.isAlreadyBilledForThisAppointment;
+                                      
+                                      // Determine if this specific treatment session is prepaid
+                                      let isPrepaid = false;
+                                      if (treatment.isSelected && treatment.usedSessions > 0) {
+                                        if (paymentStatus === "Full") {
+                                          isPrepaid = true;
+                                        } else {
+                                          const cost = treatment.sessionPrice * treatment.usedSessions;
+                                          if (availablePrepaid >= cost) {
+                                            isPrepaid = true;
+                                            availablePrepaid -= cost;
+                                          } else if (availablePrepaid > 0) {
+                                            // Partially prepaid - we can show a special tag or just count it as free-ish
+                                            isPrepaid = true;
+                                            availablePrepaid = 0;
+                                          }
+                                        }
+                                      }
+
+                                      return (
+                                        <div key={treatment.treatmentSlug}
+                                          className={`bg-white border rounded-xl p-3 shadow-sm transition-all duration-200 ${
+                                            isFullyUsed || isBilledToday ? "border-red-200 opacity-80" : treatment.isSelected ? "border-teal-300" : "border-gray-200"
+                                          }`}
+                                        >
+                                          <div className="flex items-start justify-between gap-2">
+                                            <div className="flex items-start gap-2 flex-1">
+                                              {/* Toggle */}
+                                              <button
+                                                type="button"
+                                                disabled={isFullyUsed || isBilledToday}
+                                                onClick={() => handlePackageTreatmentToggle(treatment.treatmentSlug)}
+                                                className={`relative mt-0.5 w-8 h-5 rounded-full transition-colors flex-shrink-0 ${
+                                                  isFullyUsed || isBilledToday ? "bg-gray-200 cursor-not-allowed" : treatment.isSelected ? "bg-teal-500" : "bg-gray-200"
+                                                }`}
+                                              >
+                                                <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${
+                                                  treatment.isSelected && !isFullyUsed && !isBilledToday ? "right-0.5" : "left-0.5"
+                                                }`} />
+                                              </button>
+                                              <div>
+                                                <div className={`text-xs font-semibold ${
+                                                  isFullyUsed || isBilledToday ? "text-red-600" : treatment.isSelected ? "text-gray-900" : "text-gray-700"
+                                                }`}>{treatment.treatmentName}</div>
+                                                <div className="text-[10px] text-teal-600 font-medium">AED {treatment.sessionPrice.toFixed(2)}/session</div>
+                                                
+                                                {isBilledToday && (
+                                                  <div className="flex items-center gap-1 mt-0.5">
+                                                    <span className="text-[9px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-semibold flex items-center gap-1">
+                                                      <AlertCircle className="w-2.5 h-2.5" /> Already Billed for this Appointment
+                                                    </span>
+                                                  </div>
+                                                )}
+
+                                                {(isPrepaid || treatment.usesMembershipDiscount) && !isBilledToday && (
+                                                  <div className="flex items-center gap-1 mt-0.5">
+                                                    {isPrepaid && (
+                                                      <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-semibold">
+                                                        {selectedPackage?.paymentStatus === "Full" ? "Prepaid (Full)" : "Prepaid (Partial)"}
+                                                      </span>
+                                                    )}
+                                                    {treatment.usesMembershipDiscount && (
+                                                      <span className="text-[9px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-semibold">{membershipUsage?.discountPercentage || 10}% Off</span>
+                                                    )}
+                                                  </div>
+                                                )}
+                                                {treatment.previouslyUsedSessions > 0 ? (
+                                                  <div className={`text-[10px] mt-0.5 font-medium flex items-center gap-1 ${
+                                                    isFullyUsed ? "text-red-600" : "text-amber-600"
+                                                  }`}>
+                                                    {isFullyUsed ? (
+                                                      <><XCircle className="w-3 h-3" /> All sessions used</>
+                                                    ) : (
+                                                      <><AlertCircle className="w-3 h-3" /> {treatment.previouslyUsedSessions}/{treatment.maxSessions} used · {remainingSessions} left</>
                                                   )}
                                                 </div>
                                               ) : (
@@ -2766,13 +2966,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                           {/* Session input */}
                                           <div className="flex items-center gap-2 flex-shrink-0">
                                             <button type="button"
-                                              disabled={!treatment.isSelected || isFullyUsed}
+                                              disabled={!treatment.isSelected || isFullyUsed || isBilledToday}
                                               onClick={() => handlePackageSessionChange(treatment.treatmentSlug, Math.max(1, treatment.usedSessions - 1))}
                                               className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-xs font-bold disabled:opacity-40"
                                             >−</button>
                                             <span className="text-xs font-bold w-5 text-center">{treatment.isSelected ? treatment.usedSessions : 0}</span>
                                             <button type="button"
-                                              disabled={!treatment.isSelected || isFullyUsed}
+                                              disabled={!treatment.isSelected || isFullyUsed || isBilledToday}
                                               onClick={() => handlePackageSessionChange(treatment.treatmentSlug, Math.min(remainingSessions, treatment.usedSessions + 1))}
                                               className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-xs font-bold disabled:opacity-40"
                                             >+</button>
@@ -2786,7 +2986,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                         )}
                                       </div>
                                     );
-                                  })}
+                                  })})()}
                                 </div>
                                 {errors.packageTreatments && (
                                   <div className="mt-1 text-xs text-red-600">{errors.packageTreatments}</div>
@@ -2795,7 +2995,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                   <div className="flex gap-4 text-xs">
                                     <span className="text-gray-600">Selected: <span className="font-bold text-teal-600">{packageTreatmentSessions.filter(t => t.isSelected).length}/{packageTreatmentSessions.length}</span></span>
                                     <span className="text-gray-600">Sessions: <span className="font-bold text-emerald-600">{packageTreatmentSessions.filter(t => t.isSelected).reduce((s, t) => s + t.usedSessions, 0)}</span></span>
-                                    <span className="text-gray-600">Total: <span className="font-bold text-teal-600">AED {totalPrice.toFixed(2)}</span></span>
+                                    <span className="text-gray-600">Total: <span className="font-bold text-teal-600">{getCurrencySymbol(currency)} {totalPrice.toFixed(2)}</span></span>
                                   </div>
                                 </div>
                               </>
@@ -2811,15 +3011,15 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         <div className="grid grid-cols-3 gap-2 text-xs">
                           <div className="text-center">
                             <div className="text-gray-500 text-[10px]">Original</div>
-                            <div className="font-semibold line-through text-gray-500">AED {parseFloat(formData.originalAmount || "0").toFixed(2)}</div>
+                            <div className="font-semibold line-through text-gray-500">{getCurrencySymbol(currency)} {parseFloat(formData.originalAmount || "0").toFixed(2)}</div>
                           </div>
                           <div className="text-center">
                             <div className="text-blue-500 text-[10px]">Discount ({membershipUsage.discountPercentage}%)</div>
-                            <div className="font-semibold text-blue-600">−AED {((parseFloat(formData.originalAmount || "0") * membershipUsage.discountPercentage) / 100).toFixed(2)}</div>
+                            <div className="font-semibold text-blue-600">−{getCurrencySymbol(currency)} {((parseFloat(formData.originalAmount || "0") * membershipUsage.discountPercentage) / 100).toFixed(2)}</div>
                           </div>
                           <div className="text-center">
                             <div className="text-emerald-500 text-[10px]">Final</div>
-                            <div className="font-bold text-emerald-600">AED {totalPrice.toFixed(2)}</div>
+                            <div className="font-bold text-emerald-600">{getCurrencySymbol(currency)} {totalPrice.toFixed(2)}</div>
                           </div>
                         </div>
                       </div>
@@ -3131,7 +3331,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       {parseFloat(formData.originalAmount || "0") > 0 && (
                         <div className="flex items-center justify-between text-[11px]">
                           <span className="text-gray-600">Original Amount</span>
-                          <span className="font-semibold text-gray-900">AED {parseFloat(formData.originalAmount || "0").toFixed(2)}</span>
+                          <span className="font-semibold text-gray-900">{getCurrencySymbol(currency)} {parseFloat(formData.originalAmount || "0").toFixed(2)}</span>
                         </div>
                       )}
 
@@ -3142,7 +3342,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             Doctor Discount ({doctorDiscount.discountType === "percentage" ? `${doctorDiscount.discountAmount}%` : "Fixed"})
                           </span>
                           <span className="font-semibold text-red-500">
-                            −AED {(() => {
+                            −{getCurrencySymbol(currency)} {(() => {
                               const originalAmt = parseFloat(formData.originalAmount || formData.amount || "0");
                               if (doctorDiscount.discountType === "percentage") {
                                 return ((originalAmt * doctorDiscount.discountAmount) / 100).toFixed(2);
@@ -3160,7 +3360,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             Membership Discount ({membershipUsage.discountPercentage}%)
                           </span>
                           <span className="font-semibold text-blue-600">
-                            −AED {((parseFloat(formData.originalAmount || "0") * membershipUsage.discountPercentage) / 100).toFixed(2)}
+                            −{getCurrencySymbol(currency)} {((parseFloat(formData.originalAmount || "0") * membershipUsage.discountPercentage) / 100).toFixed(2)}
                           </span>
                         </div>
                       )}
@@ -3171,14 +3371,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       {/* Total Amount (after discounts) */}
                       <div className="flex items-center justify-between text-[11px]">
                         <span className="text-gray-700 font-medium">Total Amount</span>
-                        <span className="font-bold text-gray-900">AED {parseFloat(formData.amount || "0").toFixed(2)}</span>
+                        <span className="font-bold text-gray-900">{getCurrencySymbol(currency)} {parseFloat(formData.amount || "0").toFixed(2)}</span>
                       </div>
 
                       {/* Previous Pending Rolled In */}
                       {parseFloat(formData.pendingUsed || "0") > 0 && (
                         <div className="flex items-center justify-between text-[11px]">
                           <span className="text-gray-600">Previous Pending Rolled In</span>
-                          <span className="font-semibold text-amber-600">+AED {parseFloat(formData.pendingUsed || "0").toFixed(2)}</span>
+                          <span className="font-semibold text-amber-600">+{getCurrencySymbol(currency)} {parseFloat(formData.pendingUsed || "0").toFixed(2)}</span>
                         </div>
                       )}
 
@@ -3186,7 +3386,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       {parseFloat(formData.advanceUsed || "0") > 0 && (
                         <div className="flex items-center justify-between text-[11px]">
                           <span className="text-gray-600">Advance Balance Used</span>
-                          <span className="font-semibold text-purple-600">−AED {parseFloat(formData.advanceUsed || "0").toFixed(2)}</span>
+                          <span className="font-semibold text-purple-600">−{getCurrencySymbol(currency)} {parseFloat(formData.advanceUsed || "0").toFixed(2)}</span>
                         </div>
                       )}
 
@@ -3194,7 +3394,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       {parseFloat(formData.pastAdvanceUsed || "0") > 0 && (
                         <div className="flex items-center justify-between text-[11px]">
                           <span className="text-gray-600">Past Advance Used</span>
-                          <span className="font-semibold text-purple-600">−AED {parseFloat(formData.pastAdvanceUsed || "0").toFixed(2)}</span>
+                          <span className="font-semibold text-purple-600">−{getCurrencySymbol(currency)} {parseFloat(formData.pastAdvanceUsed || "0").toFixed(2)}</span>
                         </div>
                       )}
 
@@ -3246,10 +3446,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                     >
                       Cancel
                     </button>
-                    <button type="submit" disabled={loading || isAlreadyBilled}
+                    <button type="submit" disabled={loading || (isAlreadyBilled && !canRebill)}
                       className="px-4 py-2 text-xs font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {loading ? "Creating..." : isAlreadyBilled ? "Already Billed" : "Create Billing"}
+                      {loading ? "Creating..." : (isAlreadyBilled && !canRebill) ? "Already Billed" : isAlreadyBilled ? "Create Additional Billing" : "Create Billing"}
                     </button>
                   </div>
                 </div>
@@ -3407,23 +3607,51 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                               billingHistory: []
                             };
 
+                            const isExpired = pkg.endDate && new Date(pkg.endDate) < new Date();
+                            const paymentStatus = pkg.paymentStatus || 'Unpaid';
+                            const paidAmount = pkg.paidAmount || 0;
+
                             return (
-                              <div key={`${pkg.packageId || pkg._id}-${pkgIndex}`} className="border border-teal-200 rounded-xl overflow-hidden bg-gradient-to-br from-teal-50 to-cyan-50">
+                              <div key={`${pkg.packageId || pkg._id}-${pkgIndex}`} className={`border ${isExpired ? 'border-red-200 bg-red-50/30' : 'border-teal-200 bg-gradient-to-br from-teal-50 to-cyan-50'} rounded-xl overflow-hidden relative`}>
+                                {isExpired && (
+                                  <div className="absolute top-0 right-0 px-2 py-0.5 bg-red-600 text-white text-[7px] font-black uppercase tracking-tighter z-10 rounded-bl-lg shadow-sm">
+                                    Expired
+                                  </div>
+                                )}
                                 <button type="button"
                                   onClick={() => togglePackageExpansion(packageName)}
-                                  className="w-full px-3 py-2 flex items-center justify-between hover:bg-teal-100/50 transition-colors"
+                                  className={`w-full px-3 py-2 flex items-center justify-between hover:bg-teal-100/50 transition-colors ${isExpired ? 'opacity-75' : ''}`}
                                 >
                                   <div className="flex items-center gap-2">
-                                    <div className="w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center">
+                                    <div className={`w-5 h-5 rounded-full ${isExpired ? 'bg-red-500' : 'bg-teal-500'} flex items-center justify-center`}>
                                       <span className="text-[8px] font-bold text-white">#{pkgIndex + 1}</span>
                                     </div>
                                     <div className="text-left">
-                                      <div className="text-[10px] font-semibold text-gray-900">{packageName}</div>
-                                      <div className="text-[9px] text-gray-500">{displayData.treatments?.length || 0} treatments · {displayData.totalSessions || 0} sessions</div>
+                                      <div className={`text-[10px] font-bold ${isExpired ? 'text-red-900 line-through' : 'text-gray-900'} flex items-center gap-1.5`}>
+                                        {packageName}
+                                        {!isExpired && paymentStatus === 'Full' && (
+                                          <span className="px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[7px] font-black uppercase tracking-tighter shadow-sm">Full Paid</span>
+                                        )}
+                                        {!isExpired && paymentStatus === 'Partial' && (
+                                          <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[7px] font-black uppercase tracking-tighter shadow-sm">Partial (₹{paidAmount})</span>
+                                        )}
+                                      </div>
+                                      <div className="text-[8px] text-gray-500 flex items-center gap-2">
+                                        <span>{displayData.treatments?.length || 0} treatments · {displayData.totalSessions || 0} sessions</span>
+                                        {(pkg.startDate || pkg.endDate) && (
+                                          <>
+                                            <span className="text-gray-300">|</span>
+                                            <span className={`flex items-center gap-0.5 ${isExpired ? 'text-red-600 font-bold' : ''}`}>
+                                              <Clock className="w-2 h-2" />
+                                              {pkg.startDate ? new Date(pkg.startDate).toLocaleDateString() : '–'} → {pkg.endDate ? new Date(pkg.endDate).toLocaleDateString() : '–'}
+                                            </span>
+                                          </>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                   <div className="flex items-center gap-1.5">
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-teal-100 text-teal-700 font-medium">{displayData.billingHistory?.length || 0} bills</span>
+                                    <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-medium ${isExpired ? 'bg-red-100 text-red-700' : 'bg-teal-100 text-teal-700'}`}>{displayData.billingHistory?.length || 0} bills</span>
                                     {isExpanded ? <ChevronUp className="w-3 h-3 text-gray-500" /> : <ChevronDown className="w-3 h-3 text-gray-500" />}
                                   </div>
                                 </button>

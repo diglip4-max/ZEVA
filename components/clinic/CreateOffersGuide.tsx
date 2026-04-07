@@ -1,6 +1,6 @@
 "use client";
-import React from 'react';
-import { Gift} from 'lucide-react';
+import React from "react";
+import { Gift } from "lucide-react";
 
 const CreateOffersGuide: React.FC = () => {
   return (
@@ -9,7 +9,7 @@ const CreateOffersGuide: React.FC = () => {
         <Gift className="w-10 h-10 text-teal-600" />
         <h2 className="text-3xl font-bold text-gray-900">Create Offers</h2>
       </div>
-      
+
       <div className="prose max-w-none">
         {/* Offers Overview Section */}
         <div className="bg-gradient-to-r from-teal-50 to-cyan-50 border-l-4 border-teal-500 p-8 mb-10 rounded-r-lg">
@@ -111,7 +111,7 @@ const CreateOffersGuide: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="mt-4 p-4 bg-white rounded-lg border border-blue-200">
               <p className="text-sm text-blue-700"><strong>💡 Pro Tips:</strong></p>
               <ul className="text-sm text-blue-700 mt-2 space-y-1">

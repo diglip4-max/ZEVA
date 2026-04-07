@@ -128,6 +128,7 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   "clinic-add-service": () => import("../staff/add-service"),
   "clinic-patient-registration": () => import("../clinic/patient-registration"),
   "clinic-patient-information": () => import("../clinic/patient-information"),
+  "clinic-patient-profile-view": () => import("../clinic/patient-profile-view"),
   "clinic-eodNotes": () => import("../staff/eodNotes"),
   "clinic-AddPettyCashForm": () => import("../staff/AddPettyCashForm"),
   "clinic-add-vendor": () => import("../staff/add-vendor"),
@@ -185,19 +186,19 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   "create-offer": () => import("../agent/lead-create-offer"),
 
   // Inbox
-  'clinic-inbox': () => import('../clinic/inbox'),
-'clinic-all-templates': () => import('../clinic/all-templates'),
-'clinic-providers': () => import('../clinic/providers'),
-'clinic-referal': () => import('../clinic/referal'),
-'clinic-commission': () => import('../clinic/commission'),
-'clinic-policy_compliance': () => import('../clinic/policy_compliance'),
-'clinic-services_setup': () => import('../clinic/services_setup'),
+  "clinic-inbox": () => import("../clinic/inbox"),
+  "clinic-all-templates": () => import("../clinic/all-templates"),
+  "clinic-providers": () => import("../clinic/providers"),
+  "clinic-referal": () => import("../clinic/referal"),
+  "clinic-commission": () => import("../clinic/commission"),
+  "clinic-policy_compliance": () => import("../clinic/policy_compliance"),
+  "clinic-services_setup": () => import("../clinic/services_setup"),
 
+  // Automation
+  "clinic-automation": () => import("../clinic/automation"),
 
- 
- 
-  'clinic-consent': () => import('../clinic/consent'),
-  'clinic-userpackages': () => import('../clinic/userpackages'),
+  "clinic-consent": () => import("../clinic/consent"),
+  "clinic-userpackages": () => import("../clinic/userpackages"),
   // stocks routes
   "clinic-stocks-uom": () => import("../clinic/stocks/uom"),
   "clinic-stocks-locations": () => import("../clinic/stocks/locations"),
@@ -221,10 +222,7 @@ const routeMap: { [key: string]: () => Promise<any> } = {
     import("../clinic/stocks/stock-transfer/transfer-stock"),
   "clinic-stocks-allocated-stock-items": () =>
     import("../clinic/stocks/allocated-stock-items"),
- "clinic-pettycash": () =>
-    import("../clinic/pettycash"),
-
-
+  "clinic-pettycash": () => import("../clinic/pettycash"),
 };
 
 const StaffDynamicPage = () => {

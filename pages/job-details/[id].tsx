@@ -279,9 +279,16 @@ const JobDetail: React.FC = () => {
   )}`;
 
   const shouldShowExpand = (job.description?.length || 0) > 400;
+  
+  // Helper to strip HTML tags for preview
+  const stripHtml = (html: string) => {
+    if (!html) return '';
+    return html.replace(/<[^>]*>?/gm, '');
+  };
+
   const truncatedDescription = shouldShowExpand && !isDescExpanded
-    ? job.description?.slice(0, 400) + '...'
-    : job.description;
+    ? stripHtml(job.description || '').slice(0, 400) + '...'
+    : job.description || '';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 pb-20 lg:pb-8">
@@ -417,9 +424,10 @@ const JobDetail: React.FC = () => {
                   <div ref={descriptionRef} className="scroll-mt-4">
                     <h2 className="text-lg font-bold text-gray-900 mb-3">Job Description</h2>
                     <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
-                      <p className="text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">
-                        {truncatedDescription}
-                      </p>
+                      <div 
+                        className="text-gray-700 leading-relaxed text-sm prose prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{ __html: isDescExpanded ? (job.description || '') : truncatedDescription }}
+                      />
                       {shouldShowExpand && (
                         <button
                           onClick={toggleDescription}

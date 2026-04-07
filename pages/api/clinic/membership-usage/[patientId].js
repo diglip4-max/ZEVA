@@ -102,6 +102,9 @@ export default async function handler(req, res) {
         transferredToName: recipientNameMap[String(t.toPatientId)] || null,
         transferredFreeConsultations: t.transferredFreeConsultations || 0,
         discountPercentageTransferred: t.discountPercentageTransferred || 0,
+        paymentStatus: t.paymentStatus || "Unpaid",
+        paidAmount: t.paidAmount || 0,
+        paymentMethod: t.paymentMethod || "",
         transferDate: t.transferDate || null,
       }));
     }
@@ -110,6 +113,9 @@ export default async function handler(req, res) {
     let activeMembershipId = null;
     let transferredAllowance = null;
     let sourcePatientId = null; // Track the source patient for transferred memberships
+    let activePaymentStatus = "Unpaid";
+    let activePaidAmount = 0;
+    let activePaymentMethod = "";
     
     // Prefer explicit selection from query
     if (queryMembershipId) {
@@ -120,6 +126,16 @@ export default async function handler(req, res) {
       if (lastInForSelected) {
         transferredAllowance = lastInForSelected.transferredFreeConsultations || null;
         sourcePatientId = lastInForSelected.fromPatientId;
+        activePaymentStatus = lastInForSelected.paymentStatus || "Unpaid";
+        activePaidAmount = lastInForSelected.paidAmount || 0;
+        activePaymentMethod = lastInForSelected.paymentMethod || "";
+      } else {
+        const mEntry = (patient.memberships || []).find(m => String(m.membershipId) === String(queryMembershipId));
+        if (mEntry) {
+          activePaymentStatus = mEntry.paymentStatus || "Unpaid";
+          activePaidAmount = mEntry.paidAmount || 0;
+          activePaymentMethod = mEntry.paymentMethod || "";
+        }
       }
     } else if (patient.membership === 'Yes' && patient.membershipId) {
       activeMembershipId = patient.membershipId;
@@ -131,6 +147,16 @@ export default async function handler(req, res) {
         if (inTransfer) {
           transferredAllowance = inTransfer.transferredFreeConsultations || null;
           sourcePatientId = inTransfer.fromPatientId;
+          activePaymentStatus = inTransfer.paymentStatus || "Unpaid";
+          activePaidAmount = inTransfer.paidAmount || 0;
+          activePaymentMethod = inTransfer.paymentMethod || "";
+        } else {
+          const mEntry = (patient.memberships || []).find(m => String(m.membershipId) === String(patient.membershipId));
+          if (mEntry) {
+            activePaymentStatus = mEntry.paymentStatus || "Unpaid";
+            activePaidAmount = mEntry.paidAmount || 0;
+            activePaymentMethod = mEntry.paymentMethod || "";
+          }
         }
       }
     } else if (Array.isArray(patient.membershipTransfers)) {
@@ -139,6 +165,9 @@ export default async function handler(req, res) {
         activeMembershipId = lastIn.membershipId;
         transferredAllowance = lastIn.transferredFreeConsultations || 0;
         sourcePatientId = lastIn.fromPatientId;
+        activePaymentStatus = lastIn.paymentStatus || "Unpaid";
+        activePaidAmount = lastIn.paidAmount || 0;
+        activePaymentMethod = lastIn.paymentMethod || "";
       }
     }
     if (!activeMembershipId) {
@@ -377,6 +406,9 @@ export default async function handler(req, res) {
       transferredFrom: sourcePatientId,
       transferredFromName: transferredFromName,
       transferredFreeConsultations: typeof transferredAllowance === 'number' ? transferredAllowance : null,
+      paymentStatus: activePaymentStatus,
+      paidAmount: activePaidAmount,
+      paymentMethod: activePaymentMethod,
       message: remainingFreeConsultations > 0 
         ? `${remainingFreeConsultations} free consultation(s) remaining`
         : "All free consultations have been used",

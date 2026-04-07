@@ -35,6 +35,8 @@ const operators = [
   { label: "Does not end with", value: "not_ends_with" },
   { label: "Less than", value: "less_than" },
   { label: "Greater than", value: "greater_than" },
+  { label: "Less than or equal", value: "less_than_or_equal" },
+  { label: "Greater than or equal", value: "greater_than_or_equal" },
 ];
 
 const FilterConditionModal: React.FC<FilterConditionModalProps> = ({

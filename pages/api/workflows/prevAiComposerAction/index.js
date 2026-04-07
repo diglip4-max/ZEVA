@@ -53,30 +53,48 @@ export default async function handler(req, res) {
         .json({ success: false, message: "Workflow not found" });
     }
     const workflowNodes = workflow.nodes || [];
-    const currentNode = workflowNodes.find((n) => n.data.id === nodeId);
-    if (!currentNode) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Node not found" });
-    }
-    const currentNodeIndex = workflowNodes.indexOf(currentNode);
-    if (currentNodeIndex === -1) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Node not found" });
-    }
-    console.log({ currentNode, currentNodeIndex, workflowNodes });
+    const workflowEdges = workflow.edges || [];
 
-    // Find api ai composer node in workflow before current node
-    let prevAiComposerNode;
-    for (let i = currentNodeIndex - 1; i >= 0; i--) {
-      const node = workflowNodes[i];
-      if (node.type === "action" && node.data.subType === "ai_composer") {
-        prevAiComposerNode = node;
-        break;
-      }
+    const startNode = workflowNodes.find((n) => n.data.id === nodeId);
+    if (!startNode) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Node not found" });
     }
-    console.log({ prevAiComposerNode });
+
+    // Traverse backwards through edges to find the previous ai_composer node
+    let prevAiComposerNode = null;
+    const visited = new Set();
+    const queue = [startNode.id]; // Use ReactFlow internal ID for traversal
+
+    while (queue.length > 0) {
+      const currentId = queue.shift();
+      if (visited.has(currentId)) continue;
+      visited.add(currentId);
+
+      // Find edges where the current node is the target (incoming edges)
+      const incomingEdges = workflowEdges.filter((e) => e.target === currentId);
+
+      for (const edge of incomingEdges) {
+        const parentId = edge.source;
+        const parentNode = workflowNodes.find((n) => n.id === parentId);
+
+        if (parentNode) {
+          if (
+            parentNode.type === "action" &&
+            parentNode.data.subType === "ai_composer"
+          ) {
+            prevAiComposerNode = parentNode;
+            break;
+          }
+          queue.push(parentId);
+        }
+      }
+
+      if (prevAiComposerNode) break;
+    }
+
+    console.log({ startNode, prevAiComposerNode });
     if (!prevAiComposerNode) {
       return res.status(200).json({
         success: false,

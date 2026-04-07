@@ -8,6 +8,7 @@ import {
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
 import type { NextPageWithLayout } from '../_app';
+import { getCurrencySymbol } from '@/lib/currencyHelper';
 
 const TOKEN_PRIORITY = [
   "clinicToken",
@@ -91,10 +92,28 @@ const UserPackagesPage: NextPageWithLayout = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<UserPackage | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [currency, setCurrency] = useState('INR');
 
   useEffect(() => {
     fetchPackages();
   }, [activeTab, searchQuery]);
+
+  // Fetch clinic currency preference
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders || typeof authHeaders !== 'object' || Object.keys(authHeaders).length === 0) return;
+        const res = await axios.get('/api/clinics/myallClinic', { headers: authHeaders });
+        if (res.data.success && res.data.clinic?.currency) {
+          setCurrency(res.data.clinic.currency);
+        }
+      } catch (e) { 
+        console.error('Error fetching clinic currency:', e); 
+      }
+    };
+    fetchClinicCurrency();
+  }, []);
 
   const fetchPackages = async () => {
     try {
@@ -331,7 +350,7 @@ const UserPackagesPage: NextPageWithLayout = () => {
                             <span>Total Price</span>
                           </div>
                           <p className="text-xl font-bold text-gray-900">
-                            ₹{pkg.totalPrice.toLocaleString()}
+                            {getCurrencySymbol(currency)}{pkg.totalPrice.toLocaleString()}
                           </p>
                         </div>
                         <div className="bg-gray-50 p-3 rounded-lg">
@@ -386,7 +405,7 @@ const UserPackagesPage: NextPageWithLayout = () => {
                                   </span>
                                 </div>
                                 <div className="text-xs text-gray-500">
-                                  ₹{treatment.allocatedPrice.toLocaleString()}
+                                  {getCurrencySymbol(currency)}{treatment.allocatedPrice.toLocaleString()}
                                 </div>
                               </div>
                             ))}
@@ -474,7 +493,7 @@ const UserPackagesPage: NextPageWithLayout = () => {
                     <DollarSign className="w-5 h-5" />
                     <span className="text-sm font-medium">Total Price</span>
                   </div>
-                  <p className="text-2xl font-bold text-blue-900">₹{selectedPackage.totalPrice.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-blue-900">{getCurrencySymbol(currency)}{selectedPackage.totalPrice.toLocaleString()}</p>
                 </div>
                 <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg">
                   <div className="flex items-center gap-2 text-green-700 mb-2">
@@ -526,7 +545,7 @@ const UserPackagesPage: NextPageWithLayout = () => {
                             <p className="text-sm text-gray-500">Treatment Slug: {treatment.treatmentSlug}</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-lg font-bold text-gray-900">₹{treatment.allocatedPrice.toLocaleString()}</p>
+                            <p className="text-lg font-bold text-gray-900">{getCurrencySymbol(currency)}{treatment.allocatedPrice.toLocaleString()}</p>
                             <p className="text-sm text-gray-500">{treatment.usedSessions}/{treatment.sessions} sessions used</p>
                           </div>
                         </div>
@@ -559,7 +578,7 @@ const UserPackagesPage: NextPageWithLayout = () => {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Session Price</p>
-                    <p className="font-medium text-gray-900">₹{selectedPackage.sessionPrice.toLocaleString()}</p>
+                    <p className="font-medium text-gray-900">{getCurrencySymbol(currency)}{selectedPackage.sessionPrice.toLocaleString()}</p>
                   </div>
                 </div>
               </div>

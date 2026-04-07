@@ -81,6 +81,18 @@ export default async function handler(req, res) {
     const transferredOutPackageIds = transfersOut.map(t => String(t.packageId));
     const transferredOutPackageNames = transfersOut.map(t => t.packageName).filter(Boolean);
     
+    // Build a map of packageId -> payment info for normal packages
+    const patientPackageMap = {};
+    if (Array.isArray(patient?.packages)) {
+      patient.packages.forEach(p => {
+        patientPackageMap[String(p.packageId)] = {
+          paymentStatus: p.paymentStatus || "Unpaid",
+          paidAmount: p.paidAmount || 0,
+          paymentMethod: p.paymentMethod || "",
+        };
+      });
+    }
+
     // Build a map of packageName -> source patient info for transfers
     const transferSourceMap = {};
     transfersIn.forEach(t => {
@@ -89,7 +101,10 @@ export default async function handler(req, res) {
         fromPatientId: t.fromPatientId,
         transferredSessions: t.transferredSessions || 0,
         packageId: t.packageId,
-        packageName: t.packageName
+        packageName: t.packageName,
+        paymentStatus: t.paymentStatus || "Unpaid",
+        paidAmount: t.paidAmount || 0,
+        paymentMethod: t.paymentMethod || "",
       };
     });
 
@@ -172,6 +187,31 @@ export default async function handler(req, res) {
     // Aggregate usage by package and treatment
     const packageUsage = {};
 
+    // Initialize packageUsage with all transferred-in packages to ensure they show up even without billings
+    transfersIn.forEach(t => {
+      const pkgName = t.packageName;
+      if (!pkgName) return;
+      
+      const fromPatientName = sourceNameMap[String(t.fromPatientId)] || null;
+      
+      packageUsage[pkgName] = {
+        packageName: pkgName,
+        treatments: [],
+        totalSessions: 0,
+        billingHistory: [],
+        isTransferred: true,
+        transferredFrom: t.fromPatientId,
+        transferredFromName: fromPatientName,
+        transferredPackageName: pkgName,
+        transferredSessions: t.transferredSessions || 0,
+        paymentStatus: t.paymentStatus || "Unpaid",
+        paidAmount: t.paidAmount || 0,
+        paymentMethod: t.paymentMethod || "",
+        totalAllowedSessions: t.transferredSessions || 0,
+        remainingSessions: t.transferredSessions || 0
+      };
+    });
+
     billings.forEach((billing) => {
       const pkgName = billing.package;
       if (!pkgName) return;
@@ -184,7 +224,10 @@ export default async function handler(req, res) {
       // Check if this billing is from a transfer source patient
       const isFromSourcePatient = String(billing.patientId) !== String(patientId);
       const transferInfo = transferSourceMap[pkgName];
-      const isTransferredPackage = transferInfo && String(transferInfo.fromPatientId) === String(billing.patientId);
+      
+      // Also check if it's a normal package assigned to this patient
+      const packageIdForName = packageDefinitions.find(pd => pd.name === pkgName)?._id;
+      const normalPackageInfo = packageIdForName ? patientPackageMap[String(packageIdForName)] : null;
 
       if (!packageUsage[pkgName]) {
         packageUsage[pkgName] = {
@@ -197,6 +240,9 @@ export default async function handler(req, res) {
           transferredFromName: transferInfo && transferInfo.fromPatientId ? (sourceNameMap[String(transferInfo.fromPatientId)] || null) : null,
           transferredPackageName: transferInfo ? transferInfo.packageName || null : null,
           transferredSessions: transferInfo ? transferInfo.transferredSessions : 0,
+          paymentStatus: transferInfo ? transferInfo.paymentStatus : (normalPackageInfo ? normalPackageInfo.paymentStatus : "Unpaid"),
+          paidAmount: transferInfo ? transferInfo.paidAmount : (normalPackageInfo ? normalPackageInfo.paidAmount : 0),
+          paymentMethod: transferInfo ? transferInfo.paymentMethod : (normalPackageInfo ? normalPackageInfo.paymentMethod : ""),
         };
       }
 

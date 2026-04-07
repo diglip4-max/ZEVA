@@ -1827,7 +1827,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                                     if (routeContextVar === 'clinic') {
                                       router.push(`/clinic/patient-profile-view?id=${patient._id}`);
                                     } else {
-                                      router.push(`/clinic/patient-profile-view?id=${patient._id}`);
+                                      router.push(`/staff/clinic-patient-profile-view?id=${patient._id}`);
                                     }
                                   }}
                                   className="p-1.5 text-gray-700 hover:bg-gray-100 rounded transition-colors"

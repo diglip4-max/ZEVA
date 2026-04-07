@@ -76,7 +76,7 @@ const AutomationPage: NextPageWithLayout = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [itemsPerPage] = useState(9);
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
 
   const fetchWorkflows = useCallback(async () => {
     setLoading(true);
@@ -366,8 +366,8 @@ const AutomationPage: NextPageWithLayout = () => {
                                 }
                                 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors cursor-pointer"
                               >
-                                {workflow.name?.length > 20
-                                  ? `${workflow.name?.substring(0, 20)}...`
+                                {workflow.name?.length > 17
+                                  ? `${workflow.name?.substring(0, 17)}...`
                                   : workflow.name}
                               </h3>
                               <p className="text-sm text-gray-500">
@@ -588,6 +588,7 @@ const AutomationPage: NextPageWithLayout = () => {
                                 >
                                   <Settings className="w-4 h-4" />
                                 </button>
+
                                 <button
                                   onClick={() => handleDeleteWorkflow(workflow)}
                                   className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-lg transition-all"
