@@ -2114,47 +2114,47 @@ function ServicesSetupPage() {
                     <div>
                       <label className="block text-xs font-semibold text-teal-700 mb-1.5">Total Package Price</label>
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 font-bold text-base">$</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 font-bold text-base"></span>
                         <input
                           type="number"
                           min="0"
                           step="0.01"
                           value={pkgPrice}
                           onChange={(e) => setPkgPrice(e.target.value)}
-                          placeholder="0.00"
+                          placeholder=""
                           className="w-full pl-8 pr-3 py-2.5 text-sm border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 shadow-sm transition-all"
                         />
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                       <div>
-                        <label className="block text-xs font-semibold text-teal-700 mb-1.5">Validity (Months)</label>
+                        <label className="block text-[10px] sm:text-xs font-semibold text-teal-700 mb-1 sm:mb-1.5">Validity (Months)</label>
                         <input
                           type="number"
                           min="0"
                           value={pkgValidityInMonths}
                           onChange={(e) => setPkgValidityInMonths(e.target.value)}
                           placeholder="e.g. 12"
-                          className="w-full px-3 py-2.5 text-sm border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 shadow-sm transition-all"
+                          className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 shadow-sm transition-all placeholder:text-[10px] sm:placeholder:text-sm"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-teal-700 mb-1.5">Start Date</label>
+                        <label className="block text-[10px] sm:text-xs font-semibold text-teal-700 mb-1 sm:mb-1.5">Start Date</label>
                         <input
                           type="date"
                           value={pkgStartDate}
                           onChange={(e) => setPkgStartDate(e.target.value)}
-                          className="w-full px-3 py-2.5 text-sm border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 shadow-sm transition-all"
+                          className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 shadow-sm transition-all"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-teal-700 mb-1.5">End Date</label>
+                        <label className="block text-[10px] sm:text-xs font-semibold text-teal-700 mb-1 sm:mb-1.5">End Date</label>
                         <input
                           type="date"
                           value={pkgEndDate}
                           readOnly
-                          className="w-full px-3 py-2.5 text-sm border border-teal-200 rounded-lg bg-teal-50 border-teal-200 text-teal-700 cursor-not-allowed shadow-sm transition-all"
+                          className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm border border-teal-200 rounded-lg bg-teal-50 border-teal-200 text-teal-700 cursor-not-allowed shadow-sm transition-all"
                         />
                       </div>
                     </div>
@@ -2651,9 +2651,9 @@ function ServicesSetupPage() {
               </div>
 
               {/* Validity & Dates */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-teal-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-semibold text-teal-700 mb-1.5 sm:mb-2">
                     Validity (Months)
                   </label>
                   <input
@@ -2662,29 +2662,29 @@ function ServicesSetupPage() {
                     value={pkgEditingValidityInMonths}
                     onChange={(e) => setPkgEditingValidityInMonths(e.target.value)}
                     placeholder="e.g. 12"
-                    className="w-full border border-teal-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white hover:border-teal-300 transition-all shadow-sm dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
+                    className="w-full border border-teal-200 rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white hover:border-teal-300 transition-all shadow-sm dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 placeholder:text-xs sm:placeholder:text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-teal-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-semibold text-teal-700 mb-1.5 sm:mb-2">
                     Start Date
                   </label>
                   <input
                     type="date"
                     value={pkgEditingStartDate}
                     onChange={(e) => setPkgEditingStartDate(e.target.value)}
-                    className="w-full border border-teal-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white hover:border-teal-300 transition-all shadow-sm dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
+                    className="w-full border border-teal-200 rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white hover:border-teal-300 transition-all shadow-sm dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-teal-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-semibold text-teal-700 mb-1.5 sm:mb-2">
                     End Date
                   </label>
                   <input
                     type="date"
                     value={pkgEditingEndDate}
                     readOnly
-                    className="w-full border border-teal-200 rounded-xl px-4 py-3 text-sm bg-teal-50 border-teal-200 text-teal-700 cursor-not-allowed shadow-sm transition-all"
+                    className="w-full border border-teal-200 rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm bg-teal-50 border-teal-200 text-teal-700 cursor-not-allowed shadow-sm transition-all"
                   />
                 </div>
               </div>

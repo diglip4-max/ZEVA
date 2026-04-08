@@ -1104,56 +1104,57 @@ function ClinicManagementDashboard(): ReactElement {
           },
         }}
       />
-      <div className="p-3 sm:p-4 lg:p-5 space-y-3 lg:space-y-4">
+      <div className="p-2 sm:p-3 md:p-4 lg:p-5 space-y-2 sm:space-y-3 lg:space-y-4">
         {/* Header - Enhanced */}
-        <div className="bg-white rounded-xl p-4 sm:p-5 shadow-lg relative">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3 ">
-              <div className="space-y-1 ">
-                <div className="flex items-center gap-2 ">
-                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Manage Health Center</h1>
+        <div className="bg-white rounded-xl p-3 sm:p-4 md:p-5 shadow-lg relative">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 ">
+              <div className="space-y-0.5 sm:space-y-1 ">
+                <div className="flex items-center gap-1.5 sm:gap-2 ">
+                  <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">Manage Health Center</h1>
                   {isDirty ? (
-                    <span className="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-amber-100 text-amber-700 rounded-full border border-amber-200">
+                    <span className="inline-flex items-center px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-semibold bg-amber-100 text-amber-700 rounded-full border border-amber-200">
                       Unsaved Changes
                     </span>
                   ) : (
-                    <span className="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full border border-green-200">
+                    <span className="inline-flex items-center px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-semibold bg-green-100 text-green-700 rounded-full border border-green-200">
                       Saved
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-gray-600">Configure your clinic settings and preferences</p>
+                <p className="text-xs sm:text-sm text-gray-600">Configure your clinic settings and preferences</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 sm:absolute sm:top-4 sm:right-5">
+            <div className="flex items-center gap-1.5 sm:gap-2 sm:absolute sm:top-3 sm:right-4 md:top-4 md:right-5">
               <button
                 onClick={handleCancel}
-                className={btnSecondary}
+                className={`${btnSecondary} text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2`}
               >
-                <X className="w-4 h-4 mr-1.5" />
-                Cancel
+                <X className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+                <span className="hidden sm:inline">Cancel</span>
               </button>
               <button
                 onClick={handleUpdate}
                 disabled={updating}
-                className={`${btnPrimary} disabled:opacity-50 disabled:cursor-not-allowed`}
+                className={`${btnPrimary} disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2`}
               >
-                <Save className="w-4 h-4 mr-1.5" />
-                Save Changes
+                <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+                <span className="hidden sm:inline">Save Changes</span>
+                <span className="sm:hidden">Save</span>
               </button>
             </div>
           </div>
         </div>
 
         {/* Tabs - Positioned below header */}
-        <div className="px-3 py-4 max-w-7xl">
-          <div className="flex items-center gap-2 h-10 rounded-full bg-white/80 border border-gray-200 shadow-sm px-2 overflow-x-auto whitespace-nowrap">
+        <div className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4 max-w-7xl">
+          <div className="flex items-center gap-1.5 sm:gap-2 h-9 sm:h-10 rounded-full bg-white/80 border border-gray-200 shadow-sm px-1.5 sm:px-2 overflow-x-auto whitespace-nowrap scrollbar-thin">
             {(['General Info','Contact','Documents','Listing','Clinic Timing','Branches'] as const).map(tab => (
               <button
                 key={tab}
                 type="button"
                 onClick={() => setActiveTab(tab)}
-                className={`h-7 px-3 rounded-full text-sm font-medium transition-all ${
+                className={`h-6 sm:h-7 px-2 sm:px-3 rounded-full text-[11px] sm:text-sm font-medium transition-all flex-shrink-0 ${
                   activeTab === tab
                     ? 'bg-teal-600 text-white shadow-sm'
                     : 'bg-transparent text-gray-800 hover:bg-gray-100'
@@ -1166,42 +1167,42 @@ function ClinicManagementDashboard(): ReactElement {
         </div>
 
         {isEditing ? (
-          <div className="px-3">
+          <div className="px-2 sm:px-3">
               {/* Content below tabs */}
 
               {/* General Info */}
-              <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 ${activeTab === 'General Info' ? '' : 'hidden'}`}>
+              <div className={`grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6 xl:gap-8 ${activeTab === 'General Info' ? '' : 'hidden'}`}>
                 {/* Left Column - Basic Info (full width on large screens) */}
-                <div className="lg:col-span-3 space-y-6">
-                  <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm w-full">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4">Basic Information</h3>
-                    <div className="space-y-4">
+                <div className="lg:col-span-3 space-y-4 sm:space-y-5 lg:space-y-6">
+                  <div className="bg-white rounded-xl p-4 sm:p-5 md:p-6 border border-gray-200 shadow-sm w-full">
+                    <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-3 sm:mb-4">Basic Information</h3>
+                    <div className="space-y-3 sm:space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Clinic Name</label>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Clinic Name</label>
                         <input
                           type="text"
                           value={editForm.name || ""}
                           onChange={(e) => handleInputChange("name", e.target.value)}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                           placeholder="Enter clinic name"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Username / Slug</label>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Username / Slug</label>
                         <input
                           type="text"
                           value={generalInfo.slug || editForm.slug || ""}
                           onChange={(e) => setGeneralInfo(prev => ({ ...prev, slug: e.target.value }))}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                           placeholder="zeva-health"
                         />
-                        <div className="mt-1 text-sm">
+                        <div className="mt-1 text-xs sm:text-sm">
                           <span className="text-gray-600">Preview: </span>
-                          <span className="text-teal-600">zeva.com/{(generalInfo.slug || editForm.slug || '').trim() || 'slug'}</span>
+                          <span className="text-teal-600 break-all">zeva.com/{(generalInfo.slug || editForm.slug || '').trim() || 'slug'}</span>
                         </div>
                       </div>
                         <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Consultation Fee ({getCurrencySymbol(clinicCurrency)})</label>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Consultation Fee ({getCurrencySymbol(clinicCurrency)})</label>
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium text-sm">{getCurrencySymbol(clinicCurrency)}</span>
                           <input
@@ -1209,28 +1210,28 @@ function ClinicManagementDashboard(): ReactElement {
                             min="0"
                             value={editForm.pricing || ''}
                             onChange={(e) => setEditForm((prev: any) => ({ ...prev, pricing: e.target.value }))}
-                            className="w-full pl-14 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                            className="w-full pl-10 sm:pl-14 pr-3 sm:pr-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                             placeholder="e.g. 200"
                           />
                         </div>
-                        <p className="text-xs text-gray-400 mt-1">This is the starting consultation fee shown on the public listing.</p>
+                        <p className="text-[10px] sm:text-xs text-gray-400 mt-1">This is the starting consultation fee shown on the public listing.</p>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Tagline</label>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Tagline</label>
                         <input
                           type="text"
                           value={generalInfo.tagline}
                           onChange={(e) => setGeneralInfo(prev => ({ ...prev, tagline: e.target.value }))}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                           placeholder="Your Health, Our Priority"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Description</label>
                         <textarea
                           value={generalInfo.description}
                           onChange={(e) => setGeneralInfo(prev => ({ ...prev, description: e.target.value }))}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                           placeholder="Premium healthcare services in Dubai"
                           rows={3}
                         />
@@ -1238,17 +1239,17 @@ function ClinicManagementDashboard(): ReactElement {
 
                       {/* Currency Preference */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Currency</label>
                         <select
                           value={clinicCurrency}
                           onChange={(e) => setClinicCurrency(e.target.value)}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
                         >
                           {supportedCurrencies.map((c) => (
                             <option key={c.code} value={c.code}>{c.label}</option>
                           ))}
                         </select>
-                        <p className="text-xs text-gray-400 mt-1">All monetary values across the platform will display in this currency.</p>
+                        <p className="text-[10px] sm:text-xs text-gray-400 mt-1">All monetary values across the platform will display in this currency.</p>
                       </div>
                     
                     </div>
@@ -1400,7 +1401,7 @@ function ClinicManagementDashboard(): ReactElement {
                               type="text"
                               value={newSubTreatment}
                               onChange={(e) => setNewSubTreatment(e.target.value)}
-                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white text-sm"
+                              className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white text-xs sm:text-sm"
                               placeholder="Sub-treatment name"
                               onKeyPress={(e) => {
                                 if (e.key === "Enter") {
@@ -1408,12 +1409,12 @@ function ClinicManagementDashboard(): ReactElement {
                                 }
                               }}
                             />
-                            <div className="flex gap-2">
+                            <div className="flex gap-1.5 sm:gap-2">
                               <input
                                 type="number"
                                 value={newSubTreatmentPrice}
                                 onChange={(e) => setNewSubTreatmentPrice(e.target.value)}
-                                className="flex-1 sm:w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white text-sm"
+                                className="w-20 sm:w-24 px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white text-xs sm:text-sm"
                                 placeholder="Price"
                                 onKeyPress={(e) => {
                                   if (e.key === "Enter") {
@@ -1423,21 +1424,15 @@ function ClinicManagementDashboard(): ReactElement {
                               />
                               <button
                                 onClick={handleAddSubTreatment}
-                                className={`px-3 py-2 text-white rounded-lg transition-colors text-sm flex-shrink-0 flex items-center gap-1 ${
+                                className={`px-2 sm:px-3 py-1.5 sm:py-2 text-white rounded-lg transition-colors text-xs sm:text-sm flex-shrink-0 flex items-center justify-center gap-1 min-w-[40px] sm:min-w-auto ${
                                   customAdded ? "bg-teal-600" : "bg-teal-600 hover:bg-teal-700"
                                 }`}
                                 disabled={!newSubTreatment.trim() || customAdded}
                               >
                                 {customAdded ? (
-                                  <>
-                                    <Check className="w-3 h-3" />
-                                    Saved
-                                  </>
+                                  <Check className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
                                 ) : (
-                                  <>
-                                    <Plus className="w-3 h-3" />
-                                    Add
-                                  </>
+                                  <Plus className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
                                 )}
                               </button>
                             </div>
@@ -1545,20 +1540,20 @@ function ClinicManagementDashboard(): ReactElement {
                       )}
                     </div>
                     <div className="space-y-3">
-                      <div className="flex gap-2">
+                      <div className="flex gap-1.5 sm:gap-2">
                         <input
                           type="text"
                           value={newTreatment}
                           onChange={(e) => setNewTreatment(e.target.value)}
-                          className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white transition-all"
+                          className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white transition-all"
                           placeholder="Add treatment"
                           onKeyPress={(e) => e.key === "Enter" && handleAddTreatment()}
                         />
                         <button
                           onClick={handleAddTreatment}
-                          className="px-4 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors shadow-sm hover:shadow-md"
+                          className="px-3 sm:px-4 py-2 sm:py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors shadow-sm hover:shadow-md flex items-center justify-center flex-shrink-0 min-w-[44px] sm:min-w-auto"
                         >
-                          <Plus className="w-4 h-4" />
+                          <Plus className="w-4 h-4 sm:w-4 sm:h-4" />
                         </button>
                       </div>
                       <div className="space-y-3">
@@ -1567,12 +1562,12 @@ function ClinicManagementDashboard(): ReactElement {
                             key={index}
                             className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
                           >
-                            <div className="flex items-center justify-between mb-3 gap-3">
-                              <div className="flex items-center gap-3">
-                                <span className="px-3 py-1.5 bg-teal-800 text-white rounded-full text-sm font-semibold">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2 sm:gap-3">
+                              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                                <span className="px-2 sm:px-3 py-1 sm:py-1.5 bg-teal-800 text-white rounded-full text-xs sm:text-sm font-semibold break-words max-w-[200px] sm:max-w-none">
                                   {treatment.mainTreatment}
                                 </span>
-                                <label className="flex items-center gap-1 text-xs text-teal-700">
+                                <label className="flex items-center gap-1 text-[10px] sm:text-xs text-teal-700">
                                   <input
                                     type="checkbox"
                                     checked={treatment.enabled !== false}
@@ -1584,37 +1579,37 @@ function ClinicManagementDashboard(): ReactElement {
                               <div className="flex items-center gap-2">
                                 <button
                                   onClick={() => handleRemoveTreatment(index)}
-                                  className="text-red-500 hover:text-red-700 transition-colors p-1"
+                                  className="text-red-500 hover:text-red-700 transition-colors p-1.5 sm:p-1"
                                 >
-                                  <X className="w-4 h-4" />
+                                  <X className="w-4 h-4 sm:w-4 sm:h-4" />
                                 </button>
                               </div>
                             </div>
                             {treatment.subTreatments && treatment.subTreatments.length > 0 && (
-                              <div className="flex flex-wrap gap-2 mb-3">
+                              <div className="flex flex-wrap gap-1 sm:gap-1.5 md:gap-2 mb-3">
                                 {treatment.subTreatments.map((subTreatment: any, subIndex: number) => (
                                   <div
                                     key={subIndex}
-                                    className="inline-flex items-center gap-2 px-2.5 py-1 bg-gray-100 text-teal-700 rounded-full text-xs border border-gray-200"
+                                    className="inline-flex items-center gap-1 sm:gap-1.5 md:gap-2 px-1.5 sm:px-2 md:px-2.5 py-0.5 sm:py-1 md:py-1 bg-gray-100 text-teal-700 rounded-full text-[10px] sm:text-[11px] md:text-xs border border-gray-200 break-all"
                                   >
-                                    <span className="font-medium">{subTreatment.name}</span>
+                                    <span className="font-medium break-words">{subTreatment.name}</span>
                                     {typeof subTreatment.price === "number" && subTreatment.price > 0 && (
-                                      <span className="text-teal-800 font-bold">{getCurrencySymbol(clinicCurrency)}{subTreatment.price}</span>
+                                      <span className="text-teal-800 font-bold whitespace-nowrap">{getCurrencySymbol(clinicCurrency)}{subTreatment.price}</span>
                                     )}
-                                    <label className="flex items-center gap-1 ml-1">
+                                    <label className="flex items-center gap-0.5 sm:gap-1 ml-0.5 sm:ml-1">
                                       <input
                                         type="checkbox"
                                         checked={subTreatment.enabled !== false}
                                         onChange={(e) => toggleSubTreatment(index, subIndex, e.target.checked)}
                                         disabled={treatment.enabled === false}
                                       />
-                                      Show
+                                      <span className="hidden sm:inline">Show</span>
                                     </label>
                                     <button
                                       onClick={() => handleRemoveSubTreatment(index, subIndex)}
-                                      className="text-red-500 hover:text-red-700"
+                                      className="text-red-500 hover:text-red-700 p-0.5"
                                     >
-                                      <X className="w-3 h-3" />
+                                      <X className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                                     </button>
                                   </div>
                                 ))}
@@ -1725,7 +1720,7 @@ function ClinicManagementDashboard(): ReactElement {
                                 </div>
                                 
                                 {/* Or add custom sub-treatment */}
-                                <div className="flex gap-2 flex-1">
+                                <div className="flex gap-1.5 sm:gap-2 flex-1 flex-wrap">
                                   <input
                                     type="text"
                                     value={selectedTreatmentIndex === index ? newSubTreatment : ""}
@@ -1733,7 +1728,7 @@ function ClinicManagementDashboard(): ReactElement {
                                       setSelectedTreatmentIndex(index);
                                       setNewSubTreatment(e.target.value);
                                     }}
-                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white text-sm"
+                                    className="flex-1 min-w-[120px] px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white text-xs sm:text-sm"
                                     placeholder="Or add custom..."
                                     onKeyPress={(e) => {
                                       if (e.key === "Enter") {
@@ -1749,7 +1744,7 @@ function ClinicManagementDashboard(): ReactElement {
                                       setSelectedTreatmentIndex(index);
                                       setNewSubTreatmentPrice(e.target.value);
                                     }}
-                                    className="flex-1 sm:w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white text-sm"
+                                    className="w-20 sm:w-24 px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white text-xs sm:text-sm"
                                     placeholder="Price"
                                     onKeyPress={(e) => {
                                       if (e.key === "Enter") {
@@ -1763,10 +1758,10 @@ function ClinicManagementDashboard(): ReactElement {
                                       setSelectedTreatmentIndex(index);
                                       handleAddSubTreatment();
                                     }}
-                                    className="px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm flex-shrink-0"
+                                    className="px-2 sm:px-3 py-1.5 sm:py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-xs sm:text-sm flex-shrink-0 flex items-center justify-center min-w-[40px] sm:min-w-auto"
                                     disabled={selectedTreatmentIndex !== index || !newSubTreatment.trim()}
                                   >
-                                    <Plus className="w-3 h-3" />
+                                    <Plus className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
                                   </button>
                                 </div>
                               </div>
@@ -1827,10 +1822,10 @@ function ClinicManagementDashboard(): ReactElement {
                   <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
                     <h3 className="text-lg font-bold text-teal-900 mb-3">Location</h3>
                     <div className="space-y-3">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                    <div className="flex gap-2">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Address</label>
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <input 
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" 
+                        className="flex-1 px-2.5 sm:px-3 py-2 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" 
                         value={editForm.address || ''}
                         onChange={(e) => setEditForm({...editForm, address: e.target.value})}
                         placeholder="Enter clinic address"
@@ -1838,7 +1833,7 @@ function ClinicManagementDashboard(): ReactElement {
                       <button
                         type="button"
                         onClick={locateOnMap}
-                        className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-sm font-medium"
+                        className="px-3 sm:px-4 py-1.5 sm:py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-xs sm:text-sm font-medium whitespace-nowrap self-end sm:self-auto"
                       >
                         Locate on Map
                       </button>
@@ -1868,13 +1863,13 @@ function ClinicManagementDashboard(): ReactElement {
               {activeTab === 'Documents' && (
                 <div className="space-y-6">
                   {/* Header with Upload Button */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
                     <div>
-                      <h2 className="text-2xl font-bold text-gray-900">Business Documents</h2>
-                      <p className="text-sm text-gray-500 mt-1">Manage your clinic's official documents and certifications</p>
+                      <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Business Documents</h2>
+                      <p className="text-xs sm:text-sm text-gray-500 mt-1">Manage your clinic's official documents and certifications</p>
                     </div>
-                    <label className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all cursor-pointer shadow-sm">
-                      <Upload className="w-4 h-4" />
+                    <label className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all cursor-pointer shadow-sm text-xs sm:text-sm">
+                      <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       <span className="font-medium">Upload New</span>
                       <input
                         type="file"
@@ -2143,32 +2138,32 @@ function ClinicManagementDashboard(): ReactElement {
                       {/* Show Services Row */}
                       <div className={`rounded-xl border transition-all duration-200 overflow-hidden ${listingVisibility.showServices ? 'border-teal-200 bg-teal-50/30' : 'border-gray-200 bg-white'}`}>
                         {/* Main toggle row */}
-                        <div className="flex items-center justify-between px-4 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${listingVisibility.showServices ? 'bg-teal-100' : 'bg-gray-100'}`}>
-                              <svg className={`w-4.5 h-4.5 ${listingVisibility.showServices ? 'text-teal-600' : 'text-gray-400'}`} style={{width:'18px',height:'18px'}} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 px-3 sm:px-4 py-3 sm:py-4">
+                          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                            <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${listingVisibility.showServices ? 'bg-teal-100' : 'bg-gray-100'}`}>
+                              <svg className={`${listingVisibility.showServices ? 'text-teal-600' : 'text-gray-400'}`} style={{width:'16px',height:'16px'}} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                               </svg>
                             </div>
-                            <div>
-                              <p className="text-sm font-semibold text-gray-900">Show Services</p>
-                              <p className="text-xs text-gray-500 mt-0.5">Display your clinic's services &amp; treatments publicly</p>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs sm:text-sm font-semibold text-gray-900">Show Services</p>
+                              <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 truncate">Display your clinic's services &amp; treatments publicly</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3 flex-shrink-0">
+                          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 self-end sm:self-auto">
                             {/* Expand/collapse button — only when treatments exist */}
                             {editForm.treatments && (editForm.treatments as any[]).length > 0 && (
                               <button
                                 type="button"
                                 onClick={() => setShowTreatmentPanel(p => !p)}
-                                className="flex items-center gap-1.5 text-xs font-medium text-teal-600 hover:text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-2.5 py-1.5 rounded-lg transition-colors"
+                                className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-medium text-teal-600 hover:text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg transition-colors"
                               >
-                                <svg style={{width:'13px',height:'13px'}} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg style={{width:'11px',height:'11px'}} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                                 </svg>
-                                <span>Treatments</span>
+                                <span className="hidden sm:inline">Treatments</span>
                                 <svg
-                                  style={{width:'12px',height:'12px',transition:'transform 0.2s',transform: showTreatmentPanel ? 'rotate(180deg)' : 'rotate(0deg)'}}
+                                  style={{width:'10px',height:'10px',transition:'transform 0.2s',transform: showTreatmentPanel ? 'rotate(180deg)' : 'rotate(0deg)'}}
                                   fill="none" viewBox="0 0 24 24" stroke="currentColor"
                                 >
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -2185,7 +2180,7 @@ function ClinicManagementDashboard(): ReactElement {
                                   toast.success(`Services will be ${!listingVisibility.showServices ? 'shown' : 'hidden'} on marketplace`);
                                 }}
                               />
-                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                              <div className="w-9 h-5 sm:w-11 sm:h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 sm:after:h-5 sm:after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
                             </label>
                           </div>
                         </div>
@@ -2471,17 +2466,17 @@ function ClinicManagementDashboard(): ReactElement {
               {activeTab === 'Branches' && (
                 <div className="w-full">
                   {/* Header */}
-                  <div className="flex items-center justify-between mb-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
                     <div>
-                      <h2 className="text-2xl font-bold text-gray-900">Branch Management</h2>
-                      <p className="text-sm text-gray-500 mt-1">Manage your clinic locations and branches</p>
+                      <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Branch Management</h2>
+                      <p className="text-xs sm:text-sm text-gray-500 mt-1">Manage your clinic locations and branches</p>
                     </div>
                     <button 
                       onClick={() => setBranchModal({ open: true, mode: 'add', name: '', address: '', phone: '', email: '' })}
-                      className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-sm font-medium shadow-sm flex items-center gap-2"
+                      className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-xs sm:text-sm font-medium shadow-sm flex items-center gap-1.5 sm:gap-2 whitespace-nowrap"
                     >
-                      <Plus className="w-4 h-4" />
-                      Add New Branch
+                      <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      <span>Add New Branch</span>
                     </button>
                   </div>
 
@@ -2590,16 +2585,16 @@ function ClinicManagementDashboard(): ReactElement {
                   </div>
 
                   {/* Add Another Branch */}
-                  <div className="border-2 mt-9 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-teal-400 hover:bg-teal-50/30 transition-all">
+                  <div className="border-2 mt-6 sm:mt-9 border-dashed border-gray-300 rounded-xl p-4 sm:p-8 text-center hover:border-teal-400 hover:bg-teal-50/30 transition-all">
                     <div className="max-w-md mx-auto">
-                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Plus className="w-8 h-8 text-gray-400" />
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                        <Plus className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
                       </div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Add Another Branch</h3>
-                      <p className="text-sm text-gray-500 mb-4">Expand your clinic network by adding a new location</p>
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1.5 sm:mb-2">Add Another Branch</h3>
+                      <p className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">Expand your clinic network by adding a new location</p>
                       <button 
                         onClick={() => setBranchModal({ open: true, mode: 'add', name: '', address: '', phone: '', email: '' })}
-                        className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-sm font-medium"
+                        className="px-4 sm:px-6 py-1.5 sm:py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-xs sm:text-sm font-medium whitespace-nowrap"
                       >
                         Create New Branch
                       </button>
@@ -2654,9 +2649,9 @@ function ClinicManagementDashboard(): ReactElement {
                     {/* Timing Cards - All Days in Same Container */}
                     <div className="divide-y divide-gray-100">
                       {timing.map((t, idx) => (
-                        <div key={t.day} className={`p-5 transition-all ${t.open ? 'bg-blue-50/50' : 'bg-white'}`}>
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-3">
+                        <div key={t.day} className={`p-3 sm:p-5 transition-all ${t.open ? 'bg-blue-50/50' : 'bg-white'}`}>
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 mb-3">
+                            <div className="flex items-center gap-2 sm:gap-3">
                               <label className="relative inline-flex items-center cursor-pointer">
                                 <input 
                                   type="checkbox" 
@@ -2670,19 +2665,19 @@ function ClinicManagementDashboard(): ReactElement {
                                     });
                                   }}
                                 />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                                <div className="w-9 h-5 sm:w-11 sm:h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 sm:peer-focus:ring-4 peer-focus:ring-teal-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 sm:after:h-5 sm:after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
                               </label>
-                              <span className="text-base font-semibold text-gray-900 w-24">{t.day}</span>
+                              <span className="text-sm sm:text-base font-semibold text-gray-900 w-20 sm:w-24">{t.day}</span>
                             </div>
                             {!t.open && (
-                              <span className="text-sm text-gray-500 font-medium px-3 py-1 bg-gray-100 rounded-full">Closed</span>
+                              <span className="text-xs sm:text-sm text-gray-500 font-medium px-2 sm:px-3 py-1 bg-gray-100 rounded-full self-start sm:self-auto">Closed</span>
                             )}
                           </div>
                           
                           {t.open && (
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 ml-14 animate-fadeIn">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 ml-0 sm:ml-14 animate-fadeIn">
                               <div>
-                                <label className="block text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1">
+                                <label className="block text-[10px] sm:text-xs font-medium text-gray-600 mb-1 sm:mb-1.5 flex items-center gap-1">
                                  
                                   Opening Time
                                 </label>
@@ -2696,11 +2691,11 @@ function ClinicManagementDashboard(): ReactElement {
                                       return copy;
                                     });
                                   }}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm bg-white"
+                                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-xs sm:text-sm bg-white"
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1">
+                                <label className="block text-[10px] sm:text-xs font-medium text-gray-600 mb-1 sm:mb-1.5 flex items-center gap-1">
                                  
                                   Closing Time
                                 </label>
@@ -2714,11 +2709,11 @@ function ClinicManagementDashboard(): ReactElement {
                                       return copy;
                                     });
                                   }}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm bg-white"
+                                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-xs sm:text-sm bg-white"
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1">
+                                <label className="block text-[10px] sm:text-xs font-medium text-gray-600 mb-1 sm:mb-1.5 flex items-center gap-1">
                                  
                                   Break Start
                                 </label>
@@ -2732,12 +2727,12 @@ function ClinicManagementDashboard(): ReactElement {
                                       return copy;
                                     });
                                   }}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm bg-white placeholder-gray-400"
+                                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-xs sm:text-sm bg-white placeholder-gray-400"
                                   placeholder="Optional"
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1">
+                                <label className="block text-[10px] sm:text-xs font-medium text-gray-600 mb-1 sm:mb-1.5 flex items-center gap-1">
                                  
                                   Break End
                                 </label>
@@ -2751,7 +2746,7 @@ function ClinicManagementDashboard(): ReactElement {
                                       return copy;
                                     });
                                   }}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm bg-white placeholder-gray-400"
+                                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-xs sm:text-sm bg-white placeholder-gray-400"
                                   placeholder="Optional"
                                 />
                               </div>
@@ -3304,36 +3299,36 @@ function ClinicManagementDashboard(): ReactElement {
 
                 // Show clinic cards with enhanced design
                 return (
-                  <div className="space-y-4 sm:space-y-5">
+                  <div className="space-y-3 sm:space-y-4 md:space-y-5">
                     {clinics.map((clinic) => (
                       <div
                         key={clinic._id}
                         className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all overflow-hidden"
                       >
-                        <div className="p-5 sm:p-6">
-                          <div className="flex flex-col md:flex-row md:items-start gap-4 lg:gap-6">
+                        <div className="p-3 sm:p-4 md:p-5 lg:p-6">
+                          <div className="flex flex-col md:flex-row md:items-start gap-3 sm:gap-4 lg:gap-6">
                             {/* Left Column - Basic Info */}
-                            <div className="md:w-2/3 space-y-4">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Building2 className="w-5 h-5 text-teal-600 flex-shrink-0" />
-                                    <h3 className="text-lg sm:text-xl font-bold text-teal-900">
+                            <div className="md:w-2/3 space-y-3 sm:space-y-4">
+                              <div className="flex items-start justify-between gap-2 sm:gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+                                    <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-teal-600 flex-shrink-0" />
+                                    <h3 className="text-base sm:text-lg md:text-xl font-bold text-teal-900 break-words">
                                       {clinic.name}
                                     </h3>
                                   </div>
-                                  <div className="space-y-2 text-sm text-teal-700">
-                                    <div className="flex items-start gap-2">
-                                      <MapPin className="w-4 h-4 text-teal-500 mt-0.5 flex-shrink-0" />
-                                      <span className="break-words">{clinic.address}</span>
+                                  <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-teal-700">
+                                    <div className="flex items-start gap-1.5 sm:gap-2">
+                                      <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-teal-500 mt-0.5 flex-shrink-0" />
+                                      <span className="break-words text-xs sm:text-sm">{clinic.address}</span>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                      <DollarSign className="w-4 h-4 text-teal-500 flex-shrink-0" />
-                                      <span>{clinic.pricing}</span>
+                                    <div className="flex items-center gap-1.5 sm:gap-2">
+                                      <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-teal-500 flex-shrink-0" />
+                                      <span className="text-xs sm:text-sm">{clinic.pricing}</span>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                      <Clock className="w-4 h-4 text-teal-500 flex-shrink-0" />
-                                      <span>
+                                    <div className="flex items-start gap-1.5 sm:gap-2">
+                                      <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-teal-500 flex-shrink-0" />
+                                      <span className="text-xs sm:text-sm break-words">
                                         {Array.isArray(clinic.timings)
                                           ? (() => {
                                               const open = (clinic.timings as any[]).filter((t: any) => t.isOpen);
@@ -3456,14 +3451,14 @@ function ClinicManagementDashboard(): ReactElement {
                               {/* Treatments */}
                               {clinic.treatments && clinic.treatments.length > 0 && (
                                 <div>
-                                  <h4 className="text-sm font-semibold text-teal-800 mb-2">
+                                  <h4 className="text-xs sm:text-sm font-semibold text-teal-800 mb-2">
                                     Treatments
                                   </h4>
-                                  <div className={`space-y-2 ${clinic.treatments.length > 4 ? 'max-h-[28rem] sm:max-h-[36rem] overflow-y-auto pr-2 pb-1' : ''}`}>
+                                  <div className={`space-y-1.5 sm:space-y-2 ${clinic.treatments.length > 4 ? 'max-h-[20rem] sm:max-h-[28rem] md:max-h-[36rem] overflow-y-auto pr-1 sm:pr-2 pb-1' : ''}`}>
                                     {clinic.treatments.map((treatment, tIndex) => (
-                                      <div key={tIndex} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                                        <div className="flex items-center justify-between gap-2 mb-2">
-                                          <span className="px-2 py-1 bg-teal-800 text-white rounded-full text-xs font-semibold">
+                                      <div key={tIndex} className="bg-gray-50 rounded-lg p-2 sm:p-3 border border-gray-200">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 mb-2">
+                                          <span className="px-2 py-0.5 sm:py-1 bg-teal-800 text-white rounded-full text-[10px] sm:text-xs font-semibold break-words">
                                             {treatment.mainTreatment}
                                           </span>
                                           {permissions.canUpdate && (
@@ -3523,15 +3518,15 @@ function ClinicManagementDashboard(): ReactElement {
                                           )}
                                         </div>
                                         {treatment.subTreatments && treatment.subTreatments.length > 0 && (
-                                          <div className="flex flex-wrap gap-1.5">
+                                          <div className="flex flex-wrap gap-1 sm:gap-1.5">
                                             {treatment.subTreatments.map((subTreatment, sIndex) => (
                                               <div
                                                 key={sIndex}
-                                                className="inline-flex items-center gap-2 px-2 py-1 bg-white text-teal-700 rounded-full text-xs border border-gray-200"
+                                                className="inline-flex items-center gap-1 sm:gap-2 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-white text-teal-700 rounded-full text-[10px] sm:text-xs border border-gray-200 break-all"
                                               >
-                                                <span>{subTreatment.name}</span>
+                                                <span className="break-words">{subTreatment.name}</span>
                                                 {typeof subTreatment.price === "number" && subTreatment.price > 0 && (
-                                                  <span className="text-teal-800 font-bold">{getCurrencySymbol(clinicCurrency)}{subTreatment.price}</span>
+                                                  <span className="text-teal-800 font-bold whitespace-nowrap">{getCurrencySymbol(clinicCurrency)}{subTreatment.price}</span>
                                                 )}
                                                 {permissions.canUpdate && (
                                                   <label className="flex items-center gap-1">

@@ -4970,7 +4970,7 @@ const fetchPrescriptions = async () => {
                   <div className="h-1 bg-gradient-to-r from-teal-400 to-cyan-400" />
                   <div className="p-5">
                     <h3 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <DollarSign className="w-5 h-5 text-teal-600" />
+                     
                       Balance Summary
                     </h3>
                     {balanceLoading ? (
@@ -4982,12 +4982,12 @@ const fetchPrescriptions = async () => {
                       <div className="flex flex-wrap gap-3">
                         {/* Pending */}
                         <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
-                          <DollarSign className="w-3.5 h-3.5 text-amber-600" />
+                        
                           <span className="text-xs font-bold text-amber-700">Pending: {formatAED(balance.pendingBalance)}</span>
                         </div>
                         {/* Advance */}
                         <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200">
-                          <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                         
                           <span className="text-xs font-bold text-emerald-700">Advance: {formatAED(balance.advanceBalance)}</span>
                         </div>
                       </div>
