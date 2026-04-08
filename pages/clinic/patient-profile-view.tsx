@@ -6,7 +6,8 @@ import {
   CreditCard, TrendingUp, Package, Phone,
   Mail, Clock, Shield, X, CheckCircle, XCircle,
   ExternalLink,
-  AlertTriangle, Info, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck
+  AlertTriangle, Info, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck,
+  ChevronDown, Search, Loader2, Check
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -547,6 +548,191 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   const [showPayPendingModal, setShowPayPendingModal] = useState(false);
   const [treatmentFilter, setTreatmentFilter] = useState<'all' | 'ongoing' | 'completed'>('all');
 
+  // Create Package state
+  const [showCreatePackage, setShowCreatePackage] = useState(false);
+  const [createdPackage, setCreatedPackage] = useState<any>(null);
+  const [pkgModalName, setPkgModalName] = useState("");
+  const [pkgModalPrice, setPkgModalPrice] = useState("");
+  const [pkgModalValidityInMonths, setPkgModalValidityInMonths] = useState("");
+  const [pkgModalStartDate, setPkgModalStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [pkgModalEndDate, setPkgModalEndDate] = useState("");
+  const [pkgTreatments, setPkgTreatments] = useState<Array<{ name: string; slug: string; type?: string; mainTreatment?: string | null }>>([]);
+  const [pkgSelectedTreatments, setPkgSelectedTreatments] = useState<Array<{ treatmentName: string; treatmentSlug: string; sessions: number; allocatedPrice: number }>>([]);
+  const [pkgTreatmentDropdownOpen, setPkgTreatmentDropdownOpen] = useState(false);
+  const [pkgTreatmentSearch, setPkgTreatmentSearch] = useState("");
+  const [pkgSubmitting, setPkgSubmitting] = useState(false);
+  const [pkgError, setPkgError] = useState("");
+  const [pkgSuccess, setPkgSuccess] = useState("");
+  const [addingPackageToPatient, setAddingPackageToPatient] = useState(false);
+  const [allServices, setAllServices] = useState<any[]>([]);
+  const [loadingServices, setLoadingServices] = useState(false);
+
+  // Auto-calculate end date for package creation
+  useEffect(() => {
+    if (pkgModalStartDate && pkgModalValidityInMonths && !isNaN(parseInt(pkgModalValidityInMonths))) {
+      const start = new Date(pkgModalStartDate);
+      const months = parseInt(pkgModalValidityInMonths);
+      const end = new Date(start);
+      end.setMonth(start.getMonth() + months);
+      setPkgModalEndDate(end.toISOString().split('T')[0]);
+    } else {
+      setPkgModalEndDate("");
+    }
+  }, [pkgModalStartDate, pkgModalValidityInMonths]);
+
+  // Fetch all clinic services
+  const fetchAllServices = async () => {
+    setLoadingServices(true);
+    try {
+      const headers = getAuthHeaders();
+      if (!headers) return;
+      const res = await axios.get("/api/clinic/services", { headers });
+      if (res.data?.success) {
+        setAllServices(res.data.services || []);
+      }
+    } catch {
+      // silently ignore
+    } finally {
+      setLoadingServices(false);
+    }
+  };
+
+  // Fetch services for package creation
+  const fetchPkgTreatments = async () => {
+    try {
+      const headers = getAuthHeaders();
+      if (!headers) return;
+      const res = await axios.get("/api/clinic/services", { headers });
+      if (res.data?.success) {
+        const flat: Array<{ name: string; slug: string; type?: string; mainTreatment?: string | null }> = [];
+        (res.data.services || []).forEach((svc: any) => {
+          flat.push({ name: svc.name, slug: svc.serviceSlug || svc._id, type: "service", mainTreatment: null });
+        });
+        setPkgTreatments(flat);
+      }
+    } catch { /* ignore */ }
+  };
+
+  // Create package and optionally add to patient
+  const handleCreatePackageModal = async (addToPatient: boolean) => {
+    setPkgError("");
+    setPkgSuccess("");
+    if (!pkgModalName.trim()) { setPkgError("Please enter a package name"); return; }
+    if (!pkgModalPrice || parseFloat(pkgModalPrice) < 0) { setPkgError("Please enter a valid price"); return; }
+    if (pkgSelectedTreatments.length === 0) { setPkgError("Please select at least one treatment"); return; }
+    const totalAllocated = pkgSelectedTreatments.reduce((sum, t) => sum + (parseFloat(String(t.allocatedPrice)) || 0), 0);
+    const packagePrice = parseFloat(pkgModalPrice);
+    if (Math.abs(totalAllocated - packagePrice) > 0.01) {
+      setPkgError(`Total allocated prices (${totalAllocated.toFixed(2)}) must equal the package price (${packagePrice.toFixed(2)})`);
+      return;
+    }
+    setPkgSubmitting(true);
+    try {
+      const headers = getAuthHeaders();
+      if (!headers) return;
+      const res = await axios.post("/api/clinic/packages", {
+        name: pkgModalName.trim(),
+        totalPrice: packagePrice,
+        validityInMonths: parseInt(pkgModalValidityInMonths) || 0,
+        startDate: pkgModalStartDate,
+        endDate: pkgModalEndDate,
+        treatments: pkgSelectedTreatments,
+      }, { headers });
+      if (res.data?.success) {
+        const newPkgId = res.data.package?._id || res.data.packageId || null;
+        const createdPkgData = res.data.package || null;
+        if (addToPatient && newPkgId && patientData?._id) {
+          setAddingPackageToPatient(true);
+          try {
+            await axios.post("/api/clinic/assign-package-to-patient", {
+              patientId: patientData._id,
+              packageId: newPkgId,
+              validityInMonths: parseInt(pkgModalValidityInMonths) || 0,
+              startDate: pkgModalStartDate,
+              endDate: pkgModalEndDate,
+            }, { headers });
+            setPkgSuccess("Package created and added to patient profile!");
+            setCreatedPackage(createdPkgData);
+
+            // Refresh patient data and available packages
+            const [patientRes, pRes] = await Promise.all([
+              axios.get(`/api/staff/get-patient-data/${patientData._id}`, { headers }),
+              axios.get('/api/clinic/packages', { headers })
+            ]);
+
+            if (pRes.data.success) setAllAvailablePackages(pRes.data.packages || []);
+
+            if (patientRes.data) {
+              const freshData = patientRes.data;
+
+              // Update the main patient state via callback
+              if (onPatientUpdated) {
+                onPatientUpdated({
+                  ...patientData,
+                  membership: freshData?.membership || 'No',
+                  membershipId: freshData?.membershipId || '',
+                  membershipStartDate: freshData?.membershipStartDate || '',
+                  membershipEndDate: freshData?.membershipEndDate || '',
+                  memberships: Array.isArray(freshData?.memberships) ? freshData.memberships : [],
+                  package: freshData?.package || 'No',
+                  packageId: freshData?.packageId || '',
+                  packages: Array.isArray(freshData?.packages) ? freshData.packages : [],
+                });
+              }
+
+              // Update editFormData with fresh saved data
+              setEditFormData({
+                membership: freshData?.membership || 'No',
+                membershipId: freshData?.membershipId || '',
+                membershipStartDate: freshData?.membershipStartDate || '',
+                membershipEndDate: freshData?.membershipEndDate || '',
+                memberships: Array.isArray(freshData?.memberships) ? freshData.memberships : [],
+                package: freshData?.package || 'No',
+                packageId: freshData?.packageId || '',
+                packages: Array.isArray(freshData?.packages) ? freshData.packages : [],
+              });
+
+              // Refresh packages/memberships display for the lower section
+               fetchPackagesAndMemberships({
+                 memberships: Array.isArray(freshData?.memberships) ? freshData.memberships : (patientData?.memberships || []),
+                 packages: Array.isArray(freshData?.packages) ? freshData.packages : (patientData?.packages || []),
+               });
+
+               // Refresh overview stats
+               fetchOverviewData();
+             }
+          } catch (err) {
+            console.error('Error refreshing data after package creation:', err);
+            setPkgSuccess("Package created. (Could not refresh patient profile)");
+            setCreatedPackage(createdPkgData);
+          } finally {
+            setAddingPackageToPatient(false);
+          }
+        } else {
+          setPkgSuccess("Package created successfully!");
+          setCreatedPackage(createdPkgData);
+          // Refresh available packages list
+          const pRes = await axios.get('/api/clinic/packages', { headers });
+          if (pRes.data.success) setAllAvailablePackages(pRes.data.packages || []);
+        }
+        // Reset form
+        setPkgModalName(""); 
+        setPkgModalPrice(""); 
+        setPkgModalValidityInMonths("");
+        setPkgModalStartDate(new Date().toISOString().split('T')[0]);
+        setPkgModalEndDate("");
+        setPkgSelectedTreatments([]); 
+        setPkgTreatmentSearch("");
+      } else {
+        setPkgError(res.data?.message || "Failed to create package");
+      }
+    } catch (err: any) {
+      setPkgError(err.response?.data?.message || "Failed to create package");
+    } finally {
+      setPkgSubmitting(false);
+    }
+  };
+
   // ---- Editable Membership & Package State ----
   const [allAvailableMemberships, setAllAvailableMemberships] = useState<any[]>([]);
   const [allAvailablePackages, setAllAvailablePackages] = useState<any[]>([]);
@@ -718,6 +904,16 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   const finalizePmAddPackage = (paidAmount: number, paymentStatus: "Unpaid" | "Partial" | "Full", paymentMethod: string) => {
     if (!pkgPendingToAssign) return;
     
+    // Dynamically calculate start and end dates based on current date
+    const now = new Date();
+    const startDate = formatPmDate(now);
+    const endDateObj = new Date(now);
+    const validity = Number(pkgPendingToAssign.validityInMonths) || 0;
+    if (validity > 0) {
+      endDateObj.setMonth(endDateObj.getMonth() + validity);
+    }
+    const endDate = validity > 0 ? formatPmDate(endDateObj) : null;
+    
     setEditFormData((prev: any) => ({
       ...prev,
       packages: [
@@ -725,9 +921,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         { 
           packageId: pkgPendingToAssign._id, 
           assignedDate: new Date().toISOString(),
-          validityInMonths: pkgPendingToAssign.validityInMonths || 0,
-          startDate: pkgPendingToAssign.startDate || new Date().toISOString(),
-          endDate: pkgPendingToAssign.endDate || null,
+          validityInMonths: validity,
+          startDate: startDate,
+          endDate: endDate,
           totalPrice: pkgPendingToAssign.totalPrice || 0,
           paidAmount: paidAmount,
           paymentStatus: paymentStatus,
@@ -2428,20 +2624,8 @@ const fetchPrescriptions = async () => {
                                 <input
                                   type="date"
                                   value={addMembStartDate}
-                                  onChange={(e) => {
-                                    const startStr = e.target.value;
-                                    setAddMembStartDate(startStr);
-                                    if (selectedMembershipToAdd) {
-                                      const selected = allAvailableMemberships.find((m: any) => m._id === selectedMembershipToAdd);
-                                      if (selected) {
-                                        const start = new Date(startStr);
-                                        const end = new Date(start);
-                                        end.setMonth(end.getMonth() + (Number(selected.durationMonths) || 1));
-                                        setAddMembEndDate(formatPmDate(end));
-                                      }
-                                    }
-                                  }}
-                                  className="w-full px-2 py-1.5 text-[10px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-gray-900"
+                                  readOnly
+                                  className="w-full px-2 py-1.5 text-[10px] border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
                                 />
                               </div>
                               <div className="flex-1 min-w-[120px]">
@@ -2449,8 +2633,8 @@ const fetchPrescriptions = async () => {
                                 <input
                                   type="date"
                                   value={addMembEndDate}
-                                  onChange={(e) => setAddMembEndDate(e.target.value)}
-                                  className="w-full px-2 py-1.5 text-[10px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-gray-900"
+                                  readOnly
+                                  className="w-full px-2 py-1.5 text-[10px] border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
                                 />
                               </div>
                               <div className="flex gap-1">
@@ -2571,13 +2755,28 @@ const fetchPrescriptions = async () => {
 
                         {/* Add Package - only when package is Yes */}
                         {editFormData.package === 'Yes' && (!showAddPackageDropdown ? (
-                          <button
-                            type="button"
-                            onClick={() => setShowAddPackageDropdown(true)}
-                            className="px-3 py-1.5 bg-purple-600 text-white text-[10px] font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-1"
-                          >
-                            <Plus className="w-3 h-3" /> Add Package
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setShowAddPackageDropdown(true)}
+                              className="px-3 py-1.5 bg-purple-600 text-white text-[10px] font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-1"
+                            >
+                              <Plus className="w-3 h-3" /> Add Package
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowCreatePackage(true);
+                                setPkgError("");
+                                setPkgSuccess("");
+                                if (allServices.length === 0) fetchAllServices(); // Load clinic services
+                                if (pkgTreatments.length === 0) fetchPkgTreatments();
+                              }}
+                              className="px-3 py-1.5 border border-purple-300 bg-white text-purple-700 text-[10px] font-medium rounded-lg hover:bg-purple-50 transition-colors flex items-center gap-1"
+                            >
+                              <Package className="w-3 h-3" /> Create Package
+                            </button>
+                          </div>
                         ) : (
                           <div className="border border-purple-200 rounded-lg p-2 bg-purple-50 mb-2">
                             <div className="flex flex-wrap gap-2 items-end">
@@ -2601,6 +2800,290 @@ const fetchPrescriptions = async () => {
                             </div>
                           </div>
                         ))}
+
+                        {/* Create Package Panel - Enhanced Inline Form */}
+                        {showCreatePackage && (
+                          <div className="mt-4 px-4 py-3 border-t border-purple-100 bg-gradient-to-br from-violet-50/50 to-purple-50/50 rounded-lg">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
+                                  <Package className="w-3.5 h-3.5 text-violet-600" />
+                                </div>
+                                <span className="text-xs font-bold text-violet-800">Create New Package</span>
+                              </div>
+                              <button type="button" onClick={() => { setShowCreatePackage(false); setPkgError(""); setPkgSuccess(""); setPkgModalName(""); setPkgModalPrice(""); setPkgModalValidityInMonths(""); setPkgModalStartDate(new Date().toISOString().split('T')[0]); setPkgModalEndDate(""); setPkgSelectedTreatments([]); }} className="text-gray-400 hover:text-gray-600 transition-colors">
+                                <X size={14} />
+                              </button>
+                            </div>
+
+                            {/* Package Name */}
+                            <div className="mb-2.5">
+                              <label className="block text-[10px] font-semibold text-violet-700 mb-1">Package Name <span className="text-red-500">*</span></label>
+                              <input
+                                type="text"
+                                value={pkgModalName}
+                                onChange={(e) => setPkgModalName(e.target.value)}
+                                placeholder="e.g., Premium Skin Care Package"
+                                className="w-full px-3 py-1.5 text-xs border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 shadow-sm"
+                              />
+                            </div>
+
+                            {/* Package Price */}
+                            <div className="mb-2.5">
+                              <label className="block text-[10px] font-semibold text-violet-700 mb-1">Total Package Price <span className="text-red-500">*</span></label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={pkgModalPrice}
+                                  onChange={(e) => setPkgModalPrice(e.target.value)}
+                                  placeholder="0.00"
+                                  className="w-full pl-10 pr-4 py-1.5 text-xs font-semibold border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 shadow-sm"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Validity & Dates */}
+                            <div className="grid grid-cols-3 gap-2 mb-2.5">
+                              <div>
+                                <label className="block text-[10px] font-semibold text-violet-700 mb-1">Validity (Months)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={pkgModalValidityInMonths}
+                                  onChange={(e) => setPkgModalValidityInMonths(e.target.value)}
+                                  placeholder="e.g. 12"
+                                  className="w-full px-3 py-1.5 text-xs border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 shadow-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-semibold text-violet-700 mb-1">Start Date</label>
+                                <input
+                                  type="date"
+                                  value={pkgModalStartDate}
+                                  readOnly
+                                  className="w-full px-2 py-1.5 text-[10px] border border-violet-200 rounded-lg bg-violet-50 text-violet-700 cursor-not-allowed shadow-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-semibold text-violet-700 mb-1">End Date</label>
+                                <input
+                                  type="date"
+                                  value={pkgModalEndDate}
+                                  readOnly
+                                  className="w-full px-2 py-1.5 text-[10px] border border-violet-200 rounded-lg bg-violet-50 text-violet-700 cursor-not-allowed shadow-sm"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Treatment Selector */}
+                            <div className="mb-2.5">
+                              <label className="block text-[10px] font-semibold text-violet-700 mb-1">Select Treatments / Services <span className="text-red-500">*</span></label>
+                              <div className="relative">
+                                <div
+                                  className="w-full px-3 py-1.5 text-xs border border-violet-200 rounded-lg bg-white cursor-pointer flex items-center justify-between hover:border-violet-300 transition-colors shadow-sm"
+                                  onClick={() => {
+                                    setPkgTreatmentDropdownOpen(!pkgTreatmentDropdownOpen);
+                                    if (!pkgTreatmentDropdownOpen && allServices.length === 0) fetchAllServices();
+                                  }}
+                                >
+                                  <span className={pkgSelectedTreatments.length > 0 ? "text-gray-800 font-medium" : "text-gray-400"}>
+                                    {pkgSelectedTreatments.length > 0
+                                      ? `${pkgSelectedTreatments.length} treatment${pkgSelectedTreatments.length > 1 ? 's' : ''} selected`
+                                      : "Select treatments..."
+                                    }
+                                  </span>
+                                  <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${pkgTreatmentDropdownOpen ? "rotate-180" : ""}`} />
+                                </div>
+
+                                {pkgTreatmentDropdownOpen && (
+                                  <div className="absolute z-20 w-full mt-1 bg-white border border-violet-200 rounded-lg shadow-lg max-h-48 overflow-hidden flex flex-col">
+                                    <div className="p-2 border-b border-violet-100 sticky top-0 bg-white">
+                                      <div className="relative">
+                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+                                        <input
+                                          type="text"
+                                          value={pkgTreatmentSearch}
+                                          onChange={(e) => setPkgTreatmentSearch(e.target.value)}
+                                          placeholder="Search..."
+                                          autoFocus
+                                          className="w-full pl-7 pr-2 py-1.5 text-[10px] border border-violet-200 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-400"
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className="overflow-y-auto max-h-40">
+                                      {loadingServices ? (
+                                        <div className="flex items-center justify-center p-3">
+                                          <Loader2 className="w-4 h-4 text-violet-600 animate-spin" />
+                                          <span className="ml-2 text-[10px] text-gray-500">Loading...</span>
+                                        </div>
+                                      ) : allServices.filter((s) => s.name.toLowerCase().includes(pkgTreatmentSearch.toLowerCase())).length === 0 ? (
+                                        <div className="p-3 text-center text-[10px] text-gray-400">No treatments found</div>
+                                      ) : (
+                                        <ul className="py-1">
+                                          {allServices
+                                            .filter((svc) => svc.name.toLowerCase().includes(pkgTreatmentSearch.toLowerCase()))
+                                            .map((svc) => {
+                                              const isSelected = pkgSelectedTreatments.some((t) => t.treatmentSlug === svc._id);
+                                              return (
+                                                <li key={svc._id}>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      if (isSelected) {
+                                                        setPkgSelectedTreatments((prev) => prev.filter((t) => t.treatmentSlug !== svc._id));
+                                                      } else {
+                                                        setPkgSelectedTreatments((prev) => [
+                                                          ...prev,
+                                                          {
+                                                            treatmentName: svc.name,
+                                                            treatmentSlug: svc._id,
+                                                            sessions: 1,
+                                                            allocatedPrice: svc.clinicPrice != null ? svc.clinicPrice : svc.price,
+                                                          },
+                                                        ]);
+                                                      }
+                                                    }}
+                                                    className={`w-full flex items-center justify-between px-3 py-1.5 hover:bg-violet-50 transition-colors ${
+                                                      isSelected ? "bg-violet-50" : ""
+                                                    }`}
+                                                  >
+                                                    <div className="flex items-center gap-2">
+                                                      <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
+                                                        isSelected ? "bg-violet-600 border-violet-600" : "border-gray-300"
+                                                      }`}>
+                                                        {isSelected && <Check size={8} className="text-white" />}
+                                                      </div>
+                                                      <div className="text-left">
+                                                        <p className="text-[10px] font-medium text-gray-800">{svc.name}</p>
+                                                        <p className="text-[8px] text-gray-500">
+                                                          {getCurrencySymbol(currency)} {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
+                                                        </p>
+                                                      </div>
+                                                    </div>
+                                                  </button>
+                                                </li>
+                                              );
+                                            })}
+                                        </ul>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Selected Treatments List */}
+                              {pkgSelectedTreatments.length > 0 && (
+                                <div className="mt-2 space-y-1.5">
+                                  <p className="text-[10px] font-semibold text-violet-700">Selected Treatments</p>
+                                  {pkgSelectedTreatments.map((sel) => {
+                                    const sessPrice = sel.sessions > 0 ? (sel.allocatedPrice || 0) / sel.sessions : 0;
+                                    return (
+                                      <div key={sel.treatmentSlug} className="bg-white border border-violet-200 rounded-lg p-2 shadow-sm">
+                                        <div className="flex items-center justify-between mb-1.5">
+                                          <span className="text-[10px] font-semibold text-violet-700">{sel.treatmentName}</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => setPkgSelectedTreatments((prev) => prev.filter((t) => t.treatmentSlug !== sel.treatmentSlug))}
+                                            className="text-red-400 hover:text-red-600 transition-colors"
+                                          >
+                                            <X size={12} />
+                                          </button>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-1.5">
+                                          <div>
+                                            <label className="block text-[8px] text-violet-600 font-medium mb-0.5">Price</label>
+                                            <input
+                                              type="number" min="0" step="0.01"
+                                              value={sel.allocatedPrice || ""}
+                                              onChange={(e) => setPkgSelectedTreatments((prev) => prev.map((t) => t.treatmentSlug === sel.treatmentSlug ? { ...t, allocatedPrice: parseFloat(e.target.value) || 0 } : t))}
+                                              className="w-full px-2 py-1 text-[9px] border border-violet-200 rounded-md focus:outline-none"
+                                              placeholder="0.00"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-[8px] text-violet-600 font-medium mb-0.5">Sessions</label>
+                                            <input
+                                              type="number" min="1"
+                                              value={sel.sessions}
+                                              onChange={(e) => setPkgSelectedTreatments((prev) => prev.map((t) => t.treatmentSlug === sel.treatmentSlug ? { ...t, sessions: parseInt(e.target.value) || 1 } : t))}
+                                              className="w-full px-2 py-1 text-[9px] border border-violet-200 rounded-md text-center focus:outline-none"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-[8px] text-violet-600 font-medium mb-0.5">/Session</label>
+                                            <div className="px-1 py-1 text-[9px] font-bold text-center bg-violet-100 rounded-md text-violet-700 border border-violet-200">
+                                              {getCurrencySymbol(currency)}{sessPrice.toFixed(2)}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+
+                                  {/* Price Validation Summary */}
+                                  <div className="grid grid-cols-3 gap-1 bg-violet-100 rounded-lg px-2 py-1.5">
+                                    <div className="text-center">
+                                      <p className="text-[8px] text-violet-600 font-medium">Pkg Price</p>
+                                      <p className="text-[9px] font-bold text-violet-800">{getCurrencySymbol(currency)}{parseFloat(pkgModalPrice) || 0}</p>
+                                    </div>
+                                    <div className="text-center">
+                                      <p className="text-[8px] text-violet-600 font-medium">Allocated</p>
+                                      <p className="text-[9px] font-bold text-violet-800">{getCurrencySymbol(currency)}{pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0).toFixed(2)}</p>
+                                    </div>
+                                    <div className="text-center">
+                                      <p className="text-[8px] text-violet-600 font-medium">Remaining</p>
+                                      <p className={`text-[9px] font-bold ${
+                                        Math.abs((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)) < 0.01
+                                          ? "text-teal-600" : "text-amber-600"
+                                      }`}>
+                                        {getCurrencySymbol(currency)}{((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)).toFixed(2)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Error/Success Messages */}
+                            {pkgError && (
+                              <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded-lg flex items-start gap-1.5">
+                                <AlertCircle className="w-3.5 h-3.5 text-red-600 flex-shrink-0" />
+                                <p className="text-[10px] text-red-700">{pkgError}</p>
+                              </div>
+                            )}
+                            {pkgSuccess && (
+                              <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded-lg flex items-center gap-1.5">
+                                <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                                <p className="text-[10px] text-green-700 font-medium">{pkgSuccess}</p>
+                              </div>
+                            )}
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleCreatePackageModal(false)}
+                                disabled={pkgSubmitting || addingPackageToPatient}
+                                className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-[10px] font-semibold text-violet-700 bg-white border border-violet-500 rounded-lg hover:bg-violet-50 disabled:opacity-50"
+                              >
+                                <Package size={12} />
+                                {pkgSubmitting ? "Creating..." : "Create Package"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleCreatePackageModal(true)}
+                                disabled={pkgSubmitting || addingPackageToPatient}
+                                className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-[10px] font-semibold text-white bg-violet-600 rounded-lg hover:bg-violet-700 disabled:opacity-50"
+                              >
+                                <Plus size={12} />
+                                {addingPackageToPatient ? "Adding..." : "Create & Add to Patient"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Added Packages List — hide transferred-out packages */}
                         {(() => {
@@ -2666,11 +3149,49 @@ const fetchPrescriptions = async () => {
                                           </div>
                                           <div>
                                             <p className="text-[8px] text-gray-500 font-medium">Start Date</p>
-                                            <p className={`text-[9px] font-bold ${isExpired ? 'text-red-800' : 'text-gray-800'}`}>{startDate ? new Date(startDate).toLocaleDateString() : '-'}</p>
+                                            <input
+                                              type="date"
+                                              value={startDate ? (startDate.includes('T') ? startDate.split('T')[0] : startDate) : ''}
+                                              onChange={(e) => {
+                                                const newDate = e.target.value;
+                                                setEditFormData((prev: any) => {
+                                                  const newPackages = [...(prev.packages || [])];
+                                                  if (newPackages[originalIdx]) {
+                                                    const pkgToUpdate = { ...newPackages[originalIdx], startDate: newDate };
+                                                    
+                                                    // Auto-calculate end date based on validity
+                                                    const currentValidity = Number(pkgToUpdate.validityInMonths) || Number(pkg?.validityInMonths) || 0;
+                                                    if (currentValidity > 0 && newDate) {
+                                                      const d = new Date(newDate);
+                                                      d.setMonth(d.getMonth() + currentValidity);
+                                                      pkgToUpdate.endDate = formatPmDate(d);
+                                                    }
+                                                    
+                                                    newPackages[originalIdx] = pkgToUpdate;
+                                                  }
+                                                  return { ...prev, packages: newPackages };
+                                                });
+                                              }}
+                                              className={`w-full bg-transparent text-[9px] font-bold border-b border-dashed border-gray-300 focus:border-purple-500 focus:outline-none ${isExpired ? 'text-red-800' : 'text-gray-800'}`}
+                                            />
                                           </div>
                                           <div>
                                             <p className="text-[8px] text-gray-500 font-medium">End Date</p>
-                                            <p className={`text-[9px] font-bold ${isExpired ? 'text-red-800' : 'text-gray-800'}`}>{endDate ? new Date(endDate).toLocaleDateString() : '-'}</p>
+                                            <input
+                                              type="date"
+                                              value={endDate ? (endDate.includes('T') ? endDate.split('T')[0] : endDate) : ''}
+                                              onChange={(e) => {
+                                                const newDate = e.target.value;
+                                                setEditFormData((prev: any) => {
+                                                  const newPackages = [...(prev.packages || [])];
+                                                  if (newPackages[originalIdx]) {
+                                                    newPackages[originalIdx] = { ...newPackages[originalIdx], endDate: newDate };
+                                                  }
+                                                  return { ...prev, packages: newPackages };
+                                                });
+                                              }}
+                                              className={`w-full bg-transparent text-[9px] font-bold border-b border-dashed border-gray-300 focus:border-purple-500 focus:outline-none ${isExpired ? 'text-red-800' : 'text-gray-800'}`}
+                                            />
                                           </div>
                                         </div>
                                       )}
