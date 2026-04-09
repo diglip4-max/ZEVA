@@ -4635,7 +4635,7 @@ const fetchPrescriptions = async () => {
                                     {/* Payment Details */}
                                     <div className="flex-1 min-w-0">
                                       <div className="text-base font-bold text-gray-900">
-                                        AED {payment.amount || payment.paid || 0}
+                                        {getCurrencySymbol(payment.currency)} {payment.amount || payment.paid || 0}
                                       </div>
                                       <div className="text-sm text-gray-600 mt-0.5">
                                         {payment.paymentMethod ? (
