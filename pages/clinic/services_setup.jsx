@@ -2559,7 +2559,7 @@ function ServicesSetupPage() {
                               <div key={idx} className="flex justify-between items-center bg-teal-50 border border-teal-200 rounded p-1.5">
                                 <span className="text-xs font-medium text-teal-700 truncate flex-1 mr-1">{treatment.treatmentName || treatment.name}</span>
                                 <div className="text-[9px] bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded">
-                                  {treatment.sessions || 1} x ${((treatment.allocatedPrice || 0) / (treatment.sessions || 1)).toFixed(2)}
+                                  {treatment.sessions || 1} x {getCurrencySymbol(currency)}{((treatment.allocatedPrice || 0) / (treatment.sessions || 1)).toFixed(2)}
                                 </div>
                               </div>
                             ))}

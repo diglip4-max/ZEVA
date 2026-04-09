@@ -364,7 +364,7 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                     const pkg = localPackages.find(x => x._id === p.packageId);
                     return pkg ? (
                       <option key={pkg._id} value={pkg._id}>
-                        {pkg.name} ({getCurrencySymbol(currency)}{pkg.totalPrice}, {pkg.totalSessions} sessions)
+                        {pkg.name} ({getCurrencySymbol(pkg.currency)}{pkg.totalPrice}, {pkg.totalSessions} sessions)
                       </option>
                     ) : null;
                   })}
@@ -1188,13 +1188,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       color: 'text-purple-600',
       bgColor: 'bg-purple-100'
     },
-    {
-      label: 'Pending Sessions',
-      value: loadingStats ? '...' : statsData.pendingSessions,
-      icon: Clock,
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-100'
-    },
+    
     {
       label: 'Insurance Claims Pending',
       value: loadingStats ? '...' : statsData.insuranceClaimsPending,
@@ -2360,8 +2354,8 @@ const fetchPrescriptions = async () => {
                 onClick={() => setActiveTab('advance')}
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-lg hover:from-teal-600 hover:to-cyan-700 transition-all shadow-md font-medium text-xs whitespace-nowrap"
               >
-                <DollarSign className="w-3.5 h-3.5" />
-                Add Payment
+                {/* <DollarSign className="w-3.5 h-3.5" /> */}
+                {getCurrencySymbol(patientData.currency)} Add Payment
               </button>
             </div>
           </div>
@@ -3495,7 +3489,7 @@ const fetchPrescriptions = async () => {
                                     {pkg.paymentStatus === 'Partial' && (
                                       <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
                                         <Activity className="w-2.5 h-2.5" />
-                                        Partial (د.إ{pkg.paidAmount})
+                                        Partial ({getCurrencySymbol(currency)}{pkg.paidAmount})
                                       </span>
                                     )}
                                     {pkg.paymentMethod && (
@@ -3506,7 +3500,7 @@ const fetchPrescriptions = async () => {
                                     )}
 
                                     {pkg.sessionPrice > 0 && !isExpired && (
-                                      <span className="text-gray-500 font-medium">({`د.إ${pkg.sessionPrice.toFixed(2)}/session`})</span>
+                                      <span className="text-gray-500 font-medium">({getCurrencySymbol(currency)}{pkg.sessionPrice.toFixed(2)}/session)</span>
                                     )}
                                     {assignedDate && (
                                       <div className={`flex items-center gap-1.5 ${isExpired ? 'text-red-500' : 'text-gray-600'}`}>
@@ -3671,7 +3665,7 @@ const fetchPrescriptions = async () => {
                                         </div>
                                         <div className="flex items-center justify-between text-[9px] text-gray-600">
                                           <span>Remaining: {remaining} sessions</span>
-                                          {treatment.sessionPrice > 0 && <span>د.إ{treatment.sessionPrice.toFixed(2)} / session</span>}
+                                          {treatment.sessionPrice > 0 && <span>{getCurrencySymbol(currency)}{treatment.sessionPrice.toFixed(2)} / session</span>}
                                           <span>{percent}% complete</span>
                                         </div>
                                         
@@ -3709,14 +3703,14 @@ const fetchPrescriptions = async () => {
                                                       </td>
                                                       <td className="py-2.5 px-2.5 text-right">
                                                         {detail.amount !== undefined && detail.amount !== null ? (
-                                                          <span className="font-semibold text-gray-800">د.إ{Number(detail.amount).toLocaleString()}</span>
+                                                          <span className="font-semibold text-gray-800">{getCurrencySymbol(currency)}{Number(detail.amount).toLocaleString()}</span>
                                                         ) : (
                                                           <span className="text-gray-400">-</span>
                                                         )}
                                                       </td>
                                                       <td className="py-2.5 px-2.5 text-right">
                                                         {detail.paid !== undefined && detail.paid !== null ? (
-                                                          <span className="font-bold text-green-600">د.إ{Number(detail.paid).toLocaleString()}</span>
+                                                          <span className="font-bold text-green-600">{getCurrencySymbol(currency)}{Number(detail.paid).toLocaleString()}</span>
                                                         ) : (
                                                           <span className="text-gray-400">-</span>
                                                         )}
@@ -3922,7 +3916,7 @@ const fetchPrescriptions = async () => {
                                   
                                   <div>
                                     <div className="text-[10px] text-gray-600 mb-0.5">Price</div>
-                                    <div className={`text-xs font-bold ${isExpired ? 'text-red-700' : 'text-purple-700'}`}>د.إ{plan?.price?.toLocaleString() || 0}</div>
+                                    <div className={`text-xs font-bold ${isExpired ? 'text-red-700' : 'text-purple-700'}`}>{getCurrencySymbol(currency)}{plan?.price?.toLocaleString() || 0}</div>
                                   </div>
                                   
                                   <div>
@@ -4149,7 +4143,7 @@ const fetchPrescriptions = async () => {
                                 {pkg.paymentStatus === 'Partial' && (
                                   <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
                                     <Activity className="w-2.5 h-2.5" />
-                                    Partial (د.إ{pkg.paidAmount})
+                                    Partial ({getCurrencySymbol(currency)}{pkg.paidAmount})
                                   </span>
                                 )}
                                 {pkg.paymentMethod && (
@@ -4350,7 +4344,7 @@ const fetchPrescriptions = async () => {
                                 {membership.paymentStatus === 'Partial' && (
                                   <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
                                     <Activity className="w-2.5 h-2.5" />
-                                    Partial (د.إ{membership.paidAmount})
+                                    Partial ({getCurrencySymbol(currency)}{membership.paidAmount})
                                   </span>
                                 )}
                                 {membership.paymentMethod && (
@@ -4601,7 +4595,7 @@ const fetchPrescriptions = async () => {
                         <div className="bg-white rounded-xl border border-gray-200 shadow-lg p-5">
                           <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                             <CreditCard className="w-5 h-5 text-green-600" />
-                            Payment History
+                            Payment History 
                           </h3>
                           
                           <div className="space-y-0">
@@ -4624,7 +4618,7 @@ const fetchPrescriptions = async () => {
                                 return (
                                   <div className="flex flex-col items-center justify-center py-8">
                                     <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                                      <DollarSign className="w-8 h-8 text-gray-400" />
+                                      {/* <DollarSign className="w-8 h-8 text-gray-400" /> */}
                                     </div>
                                     <p className="text-sm text-gray-500 font-medium">No payment history</p>
                                     <p className="text-xs text-gray-400 mt-1">Payments will appear here</p>
@@ -4636,9 +4630,7 @@ const fetchPrescriptions = async () => {
                                 <div key={`${payment.billingId}-${payment.originalIndex}-${index}`}>
                                   <div className="flex items-start gap-3 py-3">
                                     {/* Circular Green Icon */}
-                                    <div className="w-10 h-10 rounded-full bg-green-50 border border-green-200 flex items-center justify-center flex-shrink-0">
-                                      <DollarSign className="w-5 h-5 text-green-600" />
-                                    </div>
+                                   
                                     
                                     {/* Payment Details */}
                                     <div className="flex-1 min-w-0">
@@ -4769,7 +4761,7 @@ const fetchPrescriptions = async () => {
                             </td>
                             <td className="px-6 py-5 whitespace-nowrap">
                               <span className="text-base font-bold text-green-700">
-                                {patientData?.advanceGivenAmount != null ? `د.إ${Number(patientData.advanceGivenAmount).toLocaleString()}` : '-'}
+                                {patientData?.advanceGivenAmount != null ? `${getCurrencySymbol(patientData.currency)}${Number(patientData.advanceGivenAmount).toLocaleString()}` : '-'}
                               </span>
                             </td>
                             <td className="px-6 py-5 whitespace-nowrap">
@@ -4780,7 +4772,7 @@ const fetchPrescriptions = async () => {
                             </td>
                             <td className="px-6 py-5 whitespace-nowrap">
                               <span className="text-base font-bold text-orange-700">
-                                {patientData?.needToPay != null ? `د.إ${Number(patientData.needToPay).toLocaleString()}` : '-'}
+                                {patientData?.needToPay != null ? `${getCurrencySymbol(patientData.currency)}${Number(patientData.needToPay).toLocaleString()}` : '-'}
                               </span>
                             </td>
                           </tr>
@@ -5423,7 +5415,7 @@ const fetchPrescriptions = async () => {
                                 </div>
                                 <div>
                                   <span className="text-gray-500">Total Price:</span>
-                                  <span className="ml-1 font-bold text-teal-600">د.إ{pkg.totalPrice?.toFixed(2)}</span>
+                                  <span className="ml-1 font-bold text-teal-600">{getCurrencySymbol(pkg.currency)}{pkg.totalPrice?.toFixed(2)}</span>
                                 </div>
                               </div>
 
@@ -5440,11 +5432,11 @@ const fetchPrescriptions = async () => {
                                       <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
                                         <div className="flex items-center gap-1">
                                           <span className="text-gray-500">Session Price:</span>
-                                          <span className="font-semibold text-gray-800">د.إ{t.sessionPrice?.toFixed(2)}</span>
+                                          <span className="font-semibold text-gray-800">{getCurrencySymbol(t.currency)}{t.sessionPrice?.toFixed(2)}</span>
                                         </div>
                                         <div className="flex items-center gap-1">
                                           <span className="text-gray-500">Allocated Price:</span>
-                                          <span className="font-bold text-teal-600">د.إ{t.allocatedPrice?.toFixed(2)}</span>
+                                          <span className="font-bold text-teal-600">{getCurrencySymbol(t.currency)}{t.allocatedPrice?.toFixed(2)}</span>
                                         </div>
                                       </div>
                                     </div>
@@ -5556,7 +5548,7 @@ const fetchPrescriptions = async () => {
                           )}
                                               
                           {/* Icon - Smaller */}
-                          <div className={`relative w-5 h-5 rounded-full ${item.color} flex items-center justify-center flex-shrink-0 shadow-sm z-10`}>
+                          <div className={`relative w-5 h-5 rounded-full {getCurrencySymbol(item.currency)}${item.color} flex items-center justify-center flex-shrink-0 shadow-sm z-10`}>
                             <item.icon className="w-2.5 h-2.5 text-white flex-shrink-0" />
                           </div>
                                               
@@ -5578,7 +5570,7 @@ const fetchPrescriptions = async () => {
                   {/* Financial Snapshot - Compact Row Layout */}
                   <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
                     <h3 className="text-sm font-semibold text-gray-900 mb-2.5 flex items-center gap-2">
-                      <DollarSign className="w-4 h-4 text-green-600 flex-shrink-0" />
+                      {/* <DollarSign className="w-4 h-4 text-green-600 flex-shrink-0" /> */}
                       Financial Snapshot
                     </h3>
                                         
@@ -5612,7 +5604,7 @@ const fetchPrescriptions = async () => {
                             onClick={() => setShowPayPendingModal(true)}
                             className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded shadow-sm transition-all active:scale-95 flex items-center gap-1"
                           >
-                            <DollarSign className="w-3 h-3" />
+                           
                             Pay
                           </button>
                         )}

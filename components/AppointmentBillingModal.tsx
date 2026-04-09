@@ -1834,8 +1834,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             t.treatmentName,
             "Treatment",
             t.quantity.toString(),
-            `AED ${t.price.toFixed(2)}`,
-            `AED ${t.totalPrice.toFixed(2)}`,
+            `${getCurrencySymbol(currency)} ${t.price.toFixed(2)}`,
+            `${getCurrencySymbol(currency)} ${t.totalPrice.toFixed(2)}`,
           ]);
         });
       } else if (selectedService === "Package") {
@@ -1846,8 +1846,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           selectedPackage?.name || "-",
           "Package",
           "1",
-          `AED ${selectedPackage?.totalPrice.toFixed(2) || "0.00"}`,
-          `AED ${selectedPackage?.totalPrice.toFixed(2) || "0.00"}`,
+          `${getCurrencySymbol(currency)} ${selectedPackage?.totalPrice.toFixed(2) || "0.00"}`,
+          `${getCurrencySymbol(currency)} ${selectedPackage?.totalPrice.toFixed(2) || "0.00"}`,
         ]);
         selectedPackageTreatments.forEach((t) => {
           tableRows.push([
@@ -1892,7 +1892,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
         const paymentRows = effectivePayments.map((p: any) => [
           p.paymentMethod,
-          `AED ${parseFloat(p.amount || "0").toFixed(2)}`
+          `${getCurrencySymbol(currency)} ${parseFloat(p.amount || "0").toFixed(2)}`
         ]);
 
         autoTable(doc, {
@@ -1919,7 +1919,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       doc.setFontSize(9);
       doc.text("Total Amount:", pageWidth - 70, finalY + 6);
       doc.text(
-        `AED ${parseFloat(formData.amount || "0").toFixed(2)}`,
+        `${getCurrencySymbol(currency)} ${parseFloat(formData.amount || "0").toFixed(2)}`,
         pageWidth - 14,
         finalY + 6,
         { align: "right" },
@@ -1928,7 +1928,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       doc.text("Paid Amount:", pageWidth - 70, finalY + 11);
       doc.setTextColor(5, 150, 105); // emerald-600
       doc.text(
-        `AED ${parseFloat(formData.paid || "0").toFixed(2)}`,
+        `${getCurrencySymbol(currency)} ${parseFloat(formData.paid || "0").toFixed(2)}`,
         pageWidth - 14,
         finalY + 11,
         { align: "right" },
@@ -1938,7 +1938,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       doc.setFont("helvetica", "bold");
       doc.text("Outstanding:", pageWidth - 70, finalY + 16);
       doc.text(
-        `AED ${parseFloat(formData.pending || "0").toFixed(2)}`,
+        `${getCurrencySymbol(currency)} ${parseFloat(formData.pending || "0").toFixed(2)}`,
         pageWidth - 14,
         finalY + 16,
         { align: "right" },
@@ -2512,13 +2512,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                 <div className="text-right">
                   <div className="text-[9px] text-gray-400 uppercase tracking-wider">Pending</div>
                   <div className={`text-sm font-bold ${apiPendingBalance > 0 ? "text-red-600" : "text-gray-400"}`}>
-                    AED {apiPendingBalance.toFixed(2)}
+                    {getCurrencySymbol(currency)} {apiPendingBalance.toFixed(2)}
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="text-[9px] text-gray-400 uppercase tracking-wider">Advance</div>
                   <div className={`text-sm font-bold ${apiAdvanceBalance > 0 ? "text-emerald-600" : "text-gray-400"}`}>
-                    AED {apiAdvanceBalance.toFixed(2)}
+                    {getCurrencySymbol(currency)} {apiAdvanceBalance.toFixed(2)}
                   </div>
                 </div>
                 <div className="text-right">
@@ -2802,7 +2802,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                 <span className="px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[8px] font-bold uppercase">Full Paid</span>
                               )}
                               {selectedPackage?.paymentStatus === "Partial" && (
-                                <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[8px] font-bold uppercase">Partial Paid ({getCurrencySymbol(currency)}{selectedPackage.paidAmount})</span>
+                                <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[8px] font-bold uppercase">Partial Paid (${selectedPackage.paidAmount})</span>
                               )}
                             </span>
                             <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${packageDropdownOpen ? "rotate-180" : ""}`} />
@@ -2924,7 +2924,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                                 <div className={`text-xs font-semibold ${
                                                   isFullyUsed || isBilledToday ? "text-red-600" : treatment.isSelected ? "text-gray-900" : "text-gray-700"
                                                 }`}>{treatment.treatmentName}</div>
-                                                <div className="text-[10px] text-teal-600 font-medium">AED {treatment.sessionPrice.toFixed(2)}/session</div>
+                                                <div className="text-[10px] text-teal-600 font-medium">{getCurrencySymbol(currency)} {treatment.sessionPrice.toFixed(2)}/session</div>
                                                 
                                                 {isBilledToday && (
                                                   <div className="flex items-center gap-1 mt-0.5">
@@ -3011,15 +3011,15 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         <div className="grid grid-cols-3 gap-2 text-xs">
                           <div className="text-center">
                             <div className="text-gray-500 text-[10px]">Original</div>
-                            <div className="font-semibold line-through text-gray-500">{getCurrencySymbol(currency)} {parseFloat(formData.originalAmount || "0").toFixed(2)}</div>
+                            <div className="font-semibold line-through text-gray-500">$ {parseFloat(formData.originalAmount || "0").toFixed(2)}</div>
                           </div>
                           <div className="text-center">
                             <div className="text-blue-500 text-[10px]">Discount ({membershipUsage.discountPercentage}%)</div>
-                            <div className="font-semibold text-blue-600">−{getCurrencySymbol(currency)} {((parseFloat(formData.originalAmount || "0") * membershipUsage.discountPercentage) / 100).toFixed(2)}</div>
+                            <div className="font-semibold text-blue-600">−$ {((parseFloat(formData.originalAmount || "0") * membershipUsage.discountPercentage) / 100).toFixed(2)}</div>
                           </div>
                           <div className="text-center">
                             <div className="text-emerald-500 text-[10px]">Final</div>
-                            <div className="font-bold text-emerald-600">{getCurrencySymbol(currency)} {totalPrice.toFixed(2)}</div>
+                            <div className="font-bold text-emerald-600">$ {totalPrice.toFixed(2)}</div>
                           </div>
                         </div>
                       </div>
@@ -3129,7 +3129,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         />
                         {(isDoctorDiscountApplied || isAgentDiscountApplied) && (
                           <div className="text-[9px] text-red-500 mt-0.5 font-medium italic">
-                            Discounted from AED {parseFloat(formData.originalAmount || "0").toFixed(2)}
+                            Discounted from {getCurrencySymbol(currency)} {parseFloat(formData.originalAmount || "0").toFixed(2)}
                           </div>
                         )}
                       </div>
@@ -3143,7 +3143,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           required readOnly={useMultiplePayments}
                         />
                         <div className="text-[9px] text-gray-500 mt-0.5">
-                          Net due: AED {Math.max(0, (parseFloat(formData.amount) || 0) - (applyAdvance ? Math.min(balances.advanceBalance, parseFloat(formData.amount) || 0) : 0) - (applyPastAdvance50Percent ? Math.min(balances.pastAdvance50PercentBalance, parseFloat(formData.amount) || 0) : 0) - (applyPastAdvance54Percent ? Math.min(balances.pastAdvance54PercentBalance, parseFloat(formData.amount) || 0) : 0) - (applyPastAdvance159Flat ? Math.min(balances.pastAdvance159FlatBalance, parseFloat(formData.amount) || 0) : 0)).toFixed(2)}
+                          Net due: {getCurrencySymbol(currency)} {Math.max(0, (parseFloat(formData.amount) || 0) - (applyAdvance ? Math.min(balances.advanceBalance, parseFloat(formData.amount) || 0) : 0) - (applyPastAdvance50Percent ? Math.min(balances.pastAdvance50PercentBalance, parseFloat(formData.amount) || 0) : 0) - (applyPastAdvance54Percent ? Math.min(balances.pastAdvance54PercentBalance, parseFloat(formData.amount) || 0) : 0) - (applyPastAdvance159Flat ? Math.min(balances.pastAdvance159FlatBalance, parseFloat(formData.amount) || 0) : 0)).toFixed(2)}
                           {isDoctorDiscountApplied && (
                             <span className="text-orange-600 font-bold ml-1">(Doctor Disc. Applied)</span>
                           )}
@@ -3205,7 +3205,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             <span className="text-[10px] font-medium text-gray-700 group-hover:text-gray-900">Use advance balance now</span>
                           </div>
                           <span className="text-[10px] font-bold text-teal-700 bg-teal-100 px-2 py-0.5 rounded-full">
-                            AED {balances.advanceBalance.toFixed(2)}
+                            {getCurrencySymbol(currency)} {balances.advanceBalance.toFixed(2)}
                           </span>
                         </label>
 
@@ -3222,7 +3222,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                               <span className="text-[10px] font-medium text-gray-700 group-hover:text-gray-900">Use 159 Flat past advance now</span>
                             </div>
                             <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">
-                              AED {balances.pastAdvance159FlatBalance.toFixed(2)}
+                              {getCurrencySymbol(currency)} {balances.pastAdvance159FlatBalance.toFixed(2)}
                             </span>
                           </label>
                         )}
@@ -3233,7 +3233,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             <div className="flex items-center justify-between text-[10px]">
                               <span className="font-semibold text-gray-700">Total Applied:</span>
                               <span className="font-bold text-teal-700">
-                                AED {(
+                                {getCurrencySymbol(currency)} {(
                                   (applyAdvance ? Math.min(balances.advanceBalance, parseFloat(formData.amount) || 0) : 0) +
                                   (applyPastAdvance50Percent ? Math.min(balances.pastAdvance50PercentBalance, parseFloat(formData.amount) || 0) : 0) +
                                   (applyPastAdvance54Percent ? Math.min(balances.pastAdvance54PercentBalance, parseFloat(formData.amount) || 0) : 0) +
@@ -3260,7 +3260,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-bold text-gray-700 uppercase">Split Payments</span>
                           <span className="text-[10px] font-semibold text-blue-700">
-                            Total: AED {multiplePayments.reduce((s, mp) => s + (parseFloat(mp.amount) || 0), 0).toFixed(2)}
+                            Total: {getCurrencySymbol(currency)} {multiplePayments.reduce((s, mp) => s + (parseFloat(mp.amount) || 0), 0).toFixed(2)}
                           </span>
                         </div>
                         {multiplePayments.map((mp, idx) => (
@@ -3404,7 +3404,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       {/* Paid Amount */}
                       <div className="flex items-center justify-between text-[11px]">
                         <span className="text-gray-700 font-medium">Paid Amount</span>
-                        <span className="font-bold text-emerald-600">AED {parseFloat(formData.paid || "0").toFixed(2)}</span>
+                        <span className="font-bold text-emerald-600">{getCurrencySymbol(currency)} {parseFloat(formData.paid || "0").toFixed(2)}</span>
                       </div>
 
                       {/* Split Payment Breakdown */}
@@ -3414,7 +3414,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             parseFloat(payment.amount || "0") > 0 && (
                               <div key={idx} className="flex items-center justify-between text-[10px] text-gray-500 font-medium">
                                 <span>{payment.paymentMethod === 'BT' ? 'Bank Transfer (BT)' : payment.paymentMethod}</span>
-                                <span>AED {parseFloat(payment.amount || "0").toFixed(2)}</span>
+                                <span>{getCurrencySymbol(currency)} {parseFloat(payment.amount || "0").toFixed(2)}</span>
                               </div>
                             )
                           ))}
@@ -3425,7 +3425,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       {parseFloat(formData.pending || "0") > 0 && (
                         <div className="flex items-center justify-between text-[11px]">
                           <span className="text-gray-600">Pending Amount</span>
-                          <span className="font-semibold text-amber-600">AED {parseFloat(formData.pending || "0").toFixed(2)}</span>
+                          <span className="font-semibold text-amber-600">{getCurrencySymbol(currency)} {parseFloat(formData.pending || "0").toFixed(2)}</span>
                         </div>
                       )}
 
@@ -3433,7 +3433,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       {parseFloat(formData.advance || "0") > 0 && (
                         <div className="flex items-center justify-between text-[11px]">
                           <span className="text-gray-600">Advance Given</span>
-                          <span className="font-semibold text-purple-600">AED {parseFloat(formData.advance || "0").toFixed(2)}</span>
+                          <span className="font-semibold text-purple-600">{getCurrencySymbol(currency)} {parseFloat(formData.advance || "0").toFixed(2)}</span>
                         </div>
                       )}
                     </div>
@@ -3736,7 +3736,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                 </svg>
                               </div>
                               <div>
-                                <div className="text-xs font-semibold text-gray-900">AED {billing.paid?.toFixed(2) || "0.00"}</div>
+                                <div className="text-xs font-semibold text-gray-900">{getCurrencySymbol(currency)} {billing.paid?.toFixed(2) || "0.00"}</div>
                                 <div className="text-[10px] text-gray-500">
                                   {billing.paymentMethod || (billing.multiplePayments?.length > 0 ? billing.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ") : "–")}
                                   {billing.invoicedDate && (
@@ -3896,7 +3896,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                       </div>
                                       <div className="flex items-center gap-1.5">
                                         <span className="text-[9px] text-blue-600 font-medium whitespace-nowrap">
-                                          {svc.clinicPrice != null ? `AED ${svc.clinicPrice}` : `AED ${svc.price}`}
+                                          {svc.clinicPrice != null ? `${getCurrencySymbol(currency)} ${svc.clinicPrice}` : `${getCurrencySymbol(currency)} ${svc.price}`}
                                         </span>
                                         {!isAdded && (
                                           <button

@@ -2531,7 +2531,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         <div className="flex items-center gap-2">
                                           <label className="text-xs text-gray-600 font-medium">Price:</label>
                                           <div className="relative">
-                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">AED</span>
+                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
                                             <input
                                               type="number"
                                               min="0"
@@ -2558,7 +2558,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                     <div className="flex items-center gap-2">
                                       <div className="text-right">
                                         <p className="text-sm font-bold text-gray-900">
-                                          AED {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
+                                          {getCurrencySymbol(currency)} {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
                                         </p>
                                       </div>
                                       <button
@@ -3565,7 +3565,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             <div className="mb-3">
                               <label className="block text-xs font-semibold text-violet-700 mb-1.5">Total Package Price <span className="text-red-500">*</span></label>
                               <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">AED</span>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
                                 <input type="number" min="0" step="0.01" value={pkgModalPrice} onChange={(e) => setPkgModalPrice(e.target.value)} placeholder="0.00" className="w-full pl-12 pr-4 py-2 text-sm font-semibold border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm" />
                               </div>
                             </div>
@@ -3754,7 +3754,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         <div className="flex items-center gap-2">
                                           <label className="text-xs text-gray-600 font-medium">Price:</label>
                                           <div className="relative">
-                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">AED</span>
+                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
                                             <input type="number" min="0" step="0.01" value={(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
                                               onChange={(e) => { const newPrice = parseFloat(e.target.value) || 0; setSelectedServices((prev) => prev.map((s) => s._id === svc._id ? { ...s, clinicPrice: newPrice, price: newPrice } : s)); }}
                                               className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white hover:border-gray-400 transition-all"
@@ -4210,7 +4210,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                     {dept.services.map((svc) => (
                                       <div key={svc._id} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
                                         <span className="text-xs font-medium text-gray-700">{svc.name}</span>
-                                        <span className="text-[10px] text-blue-600">{svc.clinicPrice != null ? `${getCurrencySymbol(currency)} ${svc.clinicPrice}` : `${getCurrencySymbol(currency)} ${svc.price}`}</span>
+                                        <span className="text-[10px] text-blue-600">{svc.clinicPrice != null ? `$ ${svc.clinicPrice}` : `$ ${svc.price}`}</span>
                                         <button type="button" disabled={addingRecService[`${details?.patientId}_${svc._id}`] || addedRecServices[`${details?.patientId}_${svc._id}`]}
                                           onClick={async () => {
                                             if (!details?.appointmentId || !details?.patientId) return;
@@ -4474,7 +4474,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             <div className="mb-3">
                               <label className="block text-xs font-semibold text-violet-700 mb-1.5">Total Package Price <span className="text-red-500">*</span></label>
                               <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">AED</span>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
                                 <input type="number" min="0" step="0.01" value={pkgModalPrice} onChange={(e) => setPkgModalPrice(e.target.value)} placeholder="0.00" className="w-full pl-12 pr-4 py-2 text-sm font-semibold border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm" />
                               </div>
                             </div>
@@ -4663,7 +4663,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         <div className="flex items-center gap-2">
                                           <label className="text-xs text-gray-600 font-medium">Price:</label>
                                           <div className="relative">
-                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">AED</span>
+                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
                                             <input type="number" min="0" step="0.01" value={(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
                                               onChange={(e) => { const newPrice = parseFloat(e.target.value) || 0; setSelectedServices((prev) => prev.map((s) => s._id === svc._id ? { ...s, clinicPrice: newPrice, price: newPrice } : s)); }}
                                               className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white hover:border-gray-400 transition-all"
@@ -4832,12 +4832,12 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-xs text-gray-500">Total Billed</span>
-                          <span className="text-xs font-semibold text-gray-700">AED {patientStats.totalBilled.toLocaleString()}</span>
+                          <span className="text-xs font-semibold text-gray-700">{getCurrencySymbol(currency)} {patientStats.totalBilled.toLocaleString()}</span>
                         </div>
                         {patientStats.totalPending > 0 && (
                           <div className="flex items-center justify-between">
                             <span className="text-xs text-gray-500">Outstanding</span>
-                            <span className="text-xs font-semibold text-red-500">AED {patientBalance.pendingBalance.toLocaleString()}</span>
+                            <span className="text-xs font-semibold text-red-500">{getCurrencySymbol(currency)} {patientBalance.pendingBalance.toLocaleString()}</span>
                           </div>
                         )}
                         <div className="flex items-center justify-between border-t border-gray-100 pt-2">
@@ -4846,7 +4846,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-xs text-gray-500">This Session</span>
-                          <span className="text-xs font-semibold text-blue-600">AED {totalBill.toFixed(2)}</span>
+                          <span className="text-xs font-semibold text-blue-600">{getCurrencySymbol(currency)} {totalBill.toFixed(2)}</span>
                         </div>
                         {patientStats.recentBillings.length > 0 && (
                           <div className="mt-2 pt-2 border-t border-gray-100">
@@ -4854,7 +4854,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             {patientStats.recentBillings.map((b, i) => (
                               <div key={i} className="flex items-center justify-between py-0.5 text-xs">
                                 <span className="text-gray-600 truncate flex-1 mr-2">{b.label}</span>
-                                <span className="text-gray-800 font-medium whitespace-nowrap">AED {(b.paid||0).toLocaleString()}</span>
+                                <span className="text-gray-800 font-medium whitespace-nowrap">{getCurrencySymbol(currency)} {(b.paid||0).toLocaleString()}</span>
                               </div>
                             ))}
                           </div>
@@ -4865,7 +4865,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             {smartDepartments.flatMap((d) => d.services).slice(0, 2).map((svc) => (
                               <div key={svc._id} className="flex items-center justify-between py-1 text-xs">
                                 <span className="text-gray-600 truncate flex-1 mr-2">{svc.name}</span>
-                                <span className="text-blue-600 font-medium whitespace-nowrap">+AED {svc.clinicPrice != null ? svc.clinicPrice : svc.price}</span>
+                                <span className="text-blue-600 font-medium whitespace-nowrap">+{getCurrencySymbol(currency)} {svc.clinicPrice != null ? svc.clinicPrice : svc.price}</span>
                               </div>
                             ))}
                           </div>
@@ -4875,7 +4875,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       <>
                         <div className="flex items-center justify-between">
                           <span className="text-xs text-gray-500">This Session Bill</span>
-                          <span className="text-base font-bold text-gray-900">AED {totalBill.toFixed(2)}</span>
+                          <span className="text-base font-bold text-gray-900">{getCurrencySymbol(currency)}
+                             {totalBill.toFixed(2)}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-xs text-gray-500">Services Added</span>
@@ -4947,7 +4948,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 <span className="text-xs text-gray-700 truncate flex-1">{svc.name}</span>
                               </div>
                               <span className="text-xs font-bold text-blue-600 ml-2 flex-shrink-0">
-                                AED {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
+                                {getCurrencySymbol(currency)} {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
                               </span>
                             </div>
                           ))}
