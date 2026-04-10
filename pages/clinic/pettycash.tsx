@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
 import type { NextPageWithLayout } from "../_app";
@@ -125,6 +126,7 @@ function PettyCashPage() {
   const [pagination, setPagination] = useState<Pagination>({ total: 0, page: 1, limit: 50, totalPages: 1 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [currency, setCurrency] = useState('INR');
 
   // Manual petty cash entries
   const [manualEntries, setManualEntries] = useState<ManualEntry[]>([]);
@@ -150,6 +152,12 @@ function PettyCashPage() {
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
   const [page, setPage] = useState(1);
+
+  // Dynamic currency formatting function
+  const fmt = (n: number) => {
+    const currencySymbol = getCurrencySymbol(currency);
+    return `${currencySymbol}${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
 
   // ── Fetch patient billing cash records ────────────────────────────────────
   const fetchData = useCallback(async (pg = 1) => {
@@ -195,6 +203,23 @@ function PettyCashPage() {
     } catch {}
     finally { setManualLoading(false); }
   }, [startDate, endDate]);
+
+  // Fetch clinic currency preference
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const headers = authHeaders();
+        if (!headers.Authorization) return;
+        const res = await axios.get('/api/clinics/myallClinic', { headers });
+        if (res.data.success && res.data.clinic?.currency) {
+          setCurrency(res.data.clinic.currency);
+        }
+      } catch (e) { 
+        console.error('Error fetching clinic currency:', e); 
+      }
+    };
+    fetchClinicCurrency();
+  }, []);
 
   useEffect(() => {
     fetchData(page);

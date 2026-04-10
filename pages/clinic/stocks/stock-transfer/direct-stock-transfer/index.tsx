@@ -233,7 +233,7 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
       />
 
       {/* Stats */}
-      <div className="max-w-7xl mx-auto mb-8 px-4 py-8">
+      <div className="max-w-9xl mx-auto mb-8 px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
             <div className="flex items-center">
@@ -326,7 +326,7 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
       </div>
 
       {/* Table */}
-      <div className="max-w-7xl mx-auto px-4 mb-8">
+      <div className="max-w-9xl mx-auto px-4 mb-8">
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <h2 className="text-xl font-semibold text-gray-900">Transfers</h2>

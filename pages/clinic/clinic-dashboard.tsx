@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { getCurrencySymbol } from '@/lib/currencyHelper';
 import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, User, Crown, Stethoscope, Building2, Package, Gift, DoorOpen, UserPlus, GripVertical, Eye, EyeOff, Save, RotateCcw, Edit2, X, Undo2, Redo2, ChevronLeft, ChevronRight, LayoutDashboard, Home, Tag, Percent, ShoppingCart, Receipt, DollarSign, Wallet, Shield, UserCheck, UserCog, UserCircle, Award, Download, RefreshCw, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, LineChart, Line, Tooltip, PieChart, Pie, Cell, Legend, AreaChart, Area } from 'recharts';
 import Stats from '../../components/Stats';
@@ -224,6 +225,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     offerStatusBreakdown: {},
   });
   const [loading, setLoading] = useState<boolean>(true);
+  const [currency, setCurrency] = useState('INR');
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [clinicUser, setClinicUser] = useState<ClinicUser | null>(null);
   const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([]);
@@ -381,7 +383,25 @@ const ClinicDashboard: NextPageWithLayout = () => {
     
     return matches;
   }, [searchQuery]);
- 
+
+  // Fetch clinic currency preference
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken') || localStorage.getItem('agentToken') || sessionStorage.getItem('agentToken');
+        if (!token) return;
+        const headers = { Authorization: `Bearer ${token}` };
+        const res = await axios.get('/api/clinics/myallClinic', { headers });
+        if (res.data.success && res.data.clinic?.currency) {
+          setCurrency(res.data.clinic.currency);
+        }
+      } catch (e) { 
+        console.error('Error fetching clinic currency:', e); 
+      }
+    };
+    fetchClinicCurrency();
+  }, []);
+
   // Close calendar when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -4481,7 +4501,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                           <span className="text-sm text-gray-700">{typeof service.sessions === 'number' ? service.sessions : 0}</span>
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap text-right">
-                                          <span className="text-sm font-semibold text-teal-600">₹{(typeof service.revenue === 'number' ? service.revenue : 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                          <span className="text-sm font-semibold text-teal-600">{getCurrencySymbol(currency)}{(typeof service.revenue === 'number' ? service.revenue : 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                         </td>
                                       </tr>
                                     ))
@@ -4890,7 +4910,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                               <span className="text-sm text-gray-700">{typeof service.sessions === 'number' ? service.sessions : 0}</span>
                                             </td>
                                             <td className="px-4 py-3 whitespace-nowrap text-right">
-                                              <span className="text-sm font-semibold text-teal-600">₹{(typeof service.revenue === 'number' ? service.revenue : 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                              <span className="text-sm font-semibold text-teal-600">{getCurrencySymbol(currency)}{(typeof service.revenue === 'number' ? service.revenue : 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                             </td>
                                           </tr>
                                         ))
@@ -5283,7 +5303,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                               <span className="text-sm font-semibold text-teal-600 block">{patient.billingCount}</span>
                                             </td>
                                             <td className="px-4 py-3 whitespace-nowrap text-right">
-                                              <span className="text-sm font-semibold text-gray-900">₹{patient.totalRevenue?.toLocaleString()}</span>
+                                              <span className="text-sm font-semibold text-teal-600">{getCurrencySymbol(currency)}{patient.totalRevenue?.toLocaleString()}</span>
                                             </td>
                                             <td className="px-4 py-3 whitespace-nowrap">
                                               <span className="text-sm text-gray-600">{new Date(patient.lastBillingDate).toLocaleDateString()}</span>
@@ -5523,10 +5543,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                               <span className="text-sm text-gray-700">{service.bookings}</span>
                                             </td>
                                             <td className="px-3 py-2 whitespace-nowrap text-right">
-                                              <span className="text-sm text-gray-700">₹{service.avgPrice?.toLocaleString()}</span>
+                                              <span className="text-sm text-gray-700">{getCurrencySymbol(currency)}{service.avgPrice?.toLocaleString()}</span>
                                             </td>
                                             <td className="px-3 py-2 whitespace-nowrap text-right">
-                                              <span className="text-sm font-semibold text-teal-600">₹{service.revenue?.toLocaleString()}</span>
+                                              <span className="text-sm font-semibold text-teal-600">{getCurrencySymbol(currency)}{service.revenue?.toLocaleString()}</span>
                                             </td>
                                           </tr>
                                         ))}
@@ -6119,8 +6139,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                               {row.commissionType.replace(/_/g, ' ')}
                                             </span>
                                           </td>
-                                          <td className="py-3 px-4 text-gray-900 font-medium">₹{row.totalAmountPaid.toLocaleString()}</td>
-                                          <td className="py-3 px-4 text-teal-700 font-bold">₹{row.totalCommissionAmount.toLocaleString()}</td>
+                                          <td className="py-3 px-4 text-gray-900 font-medium">{getCurrencySymbol(currency)}{row.totalAmountPaid.toLocaleString()}</td>
+                                          <td className="py-3 px-4 text-teal-700 font-bold">{getCurrencySymbol(currency)}{row.totalCommissionAmount.toLocaleString()}</td>
                                         </tr>
                                       ))}
                                     </tbody>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   X,
   Wallet,
@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 import { clsx, type ClassValue } from "clsx";
 
 function cn(...inputs: ClassValue[]) {
@@ -72,6 +73,28 @@ const AddPatientAdvancePaymentModal: React.FC<
   const [notes, setNotes] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [clinicCurrency, setClinicCurrency] = useState<string>("INR");
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchClinicCurrency();
+    }
+  }, [isOpen]);
+
+  const fetchClinicCurrency = async () => {
+    try {
+      const token = getTokenByPath();
+      if (!token) return;
+      const res = await axios.get('/api/clinics/myallClinic', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success && res.data.clinic?.currency) {
+        setClinicCurrency(res.data.clinic.currency);
+      }
+    } catch (e) {
+      console.error('Error fetching clinic currency:', e);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -138,8 +161,8 @@ const AddPatientAdvancePaymentModal: React.FC<
         {/* Header with gradient */}
         <div className="bg-gradient-to-r from-emerald-600 to-teal-700 px-5 sm:px-8 py-4 sm:py-6 flex items-center justify-between sticky top-0 z-10">
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="p-1.5 sm:p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-              <Wallet className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            <div className="p-1.5 sm:p-2 bg-white/20 rounded-xl backdrop-blur-sm flex items-center justify-center min-w-[32px] sm:min-w-[40px]">
+              <span className="text-white font-bold text-sm sm:text-base">{getCurrencySymbol(clinicCurrency)}</span>
             </div>
             <div>
               <h3 className="text-lg sm:text-xl font-bold text-white">
@@ -162,12 +185,12 @@ const AddPatientAdvancePaymentModal: React.FC<
           {/* Amount Input */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-700">
-              <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" />
+              {/* <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" /> */}
               Amount to Add
             </label>
             <div className="relative group">
               <div className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-emerald-500 transition-colors">
-                <span className="text-base sm:text-lg font-bold">AED</span>
+                <span className="text-base sm:text-lg font-bold">{getCurrencySymbol(clinicCurrency)}</span>
               </div>
               <input
                 type="number"
@@ -186,12 +209,12 @@ const AddPatientAdvancePaymentModal: React.FC<
           {/* Payment Method */}
           <div className="space-y-3">
             <label className="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-700">
-              <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500" />
+              {/* <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500" /> */}
               Payment Method
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
               {paymentMethods.map((method) => {
-                const Icon = method.icon;
+                // const Icon = method.icon;
                 const isSelected = paymentMethod === method.value;
                 return (
                   <button
@@ -205,12 +228,12 @@ const AddPatientAdvancePaymentModal: React.FC<
                         : "border-gray-100 hover:border-gray-200 bg-white",
                     )}
                   >
-                    <Icon
+                    {/* <Icon
                       className={cn(
                         "w-4 h-4 sm:w-5 sm:h-5",
                         isSelected ? method.color : "text-gray-400",
                       )}
-                    />
+                    /> */}
                     <span
                       className={cn(
                         "text-[10px] font-bold uppercase tracking-wider",
@@ -228,7 +251,7 @@ const AddPatientAdvancePaymentModal: React.FC<
           {/* Notes */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-700">
-              <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-500" />
+             
               Notes (Optional)
             </label>
             <textarea

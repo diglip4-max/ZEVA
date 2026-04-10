@@ -91,6 +91,8 @@ const ClinicSchema = new mongoose.Schema(
       customStartTime: { type: String, default: "" },
       customEndTime: { type: String, default: "" },
     },
+    // Currency preference for the clinic
+    currency: { type: String, default: "INR" },
   },
   { timestamps: true }
 );

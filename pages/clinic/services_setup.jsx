@@ -5,6 +5,7 @@ import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
 import { Toaster, toast } from "react-hot-toast";
 import { Loader2, Edit2, Trash2, CheckCircle, AlertCircle, Package, ChevronDown, X, Calendar, Search, User, Users, Plus, Save, Stethoscope, Percent, Clock, Star, Wrench } from "lucide-react";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 const MODULE_KEY = "Clinic_services_setup";
 const TOKEN_PRIORITY = ["clinicToken", "agentToken", "doctorToken", "userToken", "staffToken", "adminToken"];
@@ -52,6 +53,7 @@ function ServicesSetupPage() {
   const [activeTab, setActiveTab] = useState("services");
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currency, setCurrency] = useState('INR');
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: "info", text: "" });
 
@@ -148,6 +150,23 @@ function ServicesSetupPage() {
       setPkgEditingEndDate("");
     }
   }, [pkgEditingStartDate, pkgEditingValidityInMonths]);
+
+  // Fetch clinic currency preference
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) return;
+        const res = await axios.get('/api/clinics/myallClinic', { headers: authHeaders });
+        if (res.data.success && res.data.clinic?.currency) {
+          setCurrency(res.data.clinic.currency);
+        }
+      } catch (e) { 
+        console.error('Error fetching clinic currency:', e); 
+      }
+    };
+    fetchClinicCurrency();
+  }, []);
 
   const loadServices = async () => {
     const headers = getAuthHeaders();
@@ -1096,9 +1115,9 @@ function ServicesSetupPage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-teal-700 mb-1.5">Price (AED)</label>
+                        <label className="block text-xs font-medium text-teal-700 mb-1.5">Price ({getCurrencySymbol(currency)})</label>
                         <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-sm">د.إ</span>
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-sm">{getCurrencySymbol(currency)}</span>
                           <input
                             type="number"
                             min="0"
@@ -1125,9 +1144,9 @@ function ServicesSetupPage() {
                       </div>
                       <div className="flex gap-2 items-end">
                         <div className="flex-1">
-                          <label className="block text-xs font-medium text-teal-700 mb-1.5">Clinic Price (AED)</label>
+                          <label className="block text-xs font-medium text-teal-700 mb-1.5">Clinic Price ({getCurrencySymbol(currency)})</label>
                           <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-sm">د.إ</span>
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-sm">{getCurrencySymbol(currency)}</span>
                             <input
                               type="number"
                               min="0"
@@ -1277,7 +1296,7 @@ function ServicesSetupPage() {
                               </div>
                             </div>
                             <div className="text-right">
-                              <div className="text-lg font-semibold text-teal-700 tracking-tight" style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>د.إ{Number(s.price || 0).toFixed(2)}</div>
+                              <div className="text-lg font-semibold text-teal-700 tracking-tight" style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>{getCurrencySymbol(currency)}{Number(s.price || 0).toFixed(2)}</div>
                               <div className="text-[10px] text-gray-600">{s.durationMinutes} min</div>
                             </div>
                           </div>
@@ -1293,7 +1312,7 @@ function ServicesSetupPage() {
                                 </div>
                                 <span className="text-[10px] text-gray-600 font-medium">Price</span>
                               </div>
-                              <span className="text-xs font-medium text-gray-900">د.إ{Number(s.price || 0).toFixed(2)}</span>
+                              <span className="text-xs font-medium text-gray-900">{getCurrencySymbol(currency)}{Number(s.price || 0).toFixed(2)}</span>
                             </div>
                             
                             {s.clinicPrice !== undefined && s.clinicPrice !== null && (
@@ -1304,7 +1323,7 @@ function ServicesSetupPage() {
                                   </div>
                                   <span className="text-[10px] text-gray-600 font-medium">Clinic Price</span>
                                 </div>
-                                <span className="text-xs font-medium text-gray-900">د.إ{Number(s.clinicPrice || 0).toFixed(2)}</span>
+                                <span className="text-xs font-medium text-gray-900">{getCurrencySymbol(currency)}{Number(s.clinicPrice || 0).toFixed(2)}</span>
                               </div>
                             )}
                             
@@ -1391,10 +1410,10 @@ function ServicesSetupPage() {
                                   
                                   <div>
                                     <label className="block text-[10px] font-medium text-teal-700 mb-1">
-                                      Price (AED)
+                                      Price ({getCurrencySymbol(currency)})
                                     </label>
                                     <div className="relative">
-                                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-xs">د.إ</span>
+                                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-xs">{getCurrencySymbol(currency)}</span>
                                       <input
                                         type="number"
                                         min="0"
@@ -1439,10 +1458,10 @@ function ServicesSetupPage() {
                                   
                                   <div>
                                     <label className="block text-[10px] font-medium text-teal-700 mb-1">
-                                      Clinic Price (AED)
+                                      Clinic Price ({getCurrencySymbol(currency)})
                                     </label>
                                     <div className="relative">
-                                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-xs">د.إ</span>
+                                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-xs">{getCurrencySymbol(currency)}</span>
                                       <input
                                         type="number"
                                         min="0"
@@ -1542,10 +1561,10 @@ function ServicesSetupPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-teal-700 mb-1.5">
-                      Price (AED)
+                      Price ({getCurrencySymbol(currency)})
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-sm">د.إ</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-sm">{getCurrencySymbol(currency)}</span>
                       <input
                         type="number"
                         min="0"
@@ -1831,7 +1850,7 @@ function ServicesSetupPage() {
                               </div>
                             </div>
                             <div className="text-right">
-                              <div className="text-lg font-semibold text-teal-700 tracking-tight" style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>د.إ{Number(m.price || 0).toFixed(2)}</div>
+                              <div className="text-lg font-semibold text-teal-700 tracking-tight" style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>{getCurrencySymbol(currency)}{Number(m.price || 0).toFixed(2)}</div>
                               <div className="text-[10px] text-gray-600">{m.durationMonths} months</div>
                             </div>
                           </div>
@@ -2095,47 +2114,47 @@ function ServicesSetupPage() {
                     <div>
                       <label className="block text-xs font-semibold text-teal-700 mb-1.5">Total Package Price</label>
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 font-bold text-base">$</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 font-bold text-base"></span>
                         <input
                           type="number"
                           min="0"
                           step="0.01"
                           value={pkgPrice}
                           onChange={(e) => setPkgPrice(e.target.value)}
-                          placeholder="0.00"
+                          placeholder=""
                           className="w-full pl-8 pr-3 py-2.5 text-sm border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 shadow-sm transition-all"
                         />
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                       <div>
-                        <label className="block text-xs font-semibold text-teal-700 mb-1.5">Validity (Months)</label>
+                        <label className="block text-[10px] sm:text-xs font-semibold text-teal-700 mb-1 sm:mb-1.5">Validity (Months)</label>
                         <input
                           type="number"
                           min="0"
                           value={pkgValidityInMonths}
                           onChange={(e) => setPkgValidityInMonths(e.target.value)}
                           placeholder="e.g. 12"
-                          className="w-full px-3 py-2.5 text-sm border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 shadow-sm transition-all"
+                          className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 shadow-sm transition-all placeholder:text-[10px] sm:placeholder:text-sm"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-teal-700 mb-1.5">Start Date</label>
+                        <label className="block text-[10px] sm:text-xs font-semibold text-teal-700 mb-1 sm:mb-1.5">Start Date</label>
                         <input
                           type="date"
                           value={pkgStartDate}
                           onChange={(e) => setPkgStartDate(e.target.value)}
-                          className="w-full px-3 py-2.5 text-sm border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 shadow-sm transition-all"
+                          className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 shadow-sm transition-all"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-teal-700 mb-1.5">End Date</label>
+                        <label className="block text-[10px] sm:text-xs font-semibold text-teal-700 mb-1 sm:mb-1.5">End Date</label>
                         <input
                           type="date"
                           value={pkgEndDate}
                           readOnly
-                          className="w-full px-3 py-2.5 text-sm border border-teal-200 rounded-lg bg-teal-50 border-teal-200 text-teal-700 cursor-not-allowed shadow-sm transition-all"
+                          className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm border border-teal-200 rounded-lg bg-teal-50 border-teal-200 text-teal-700 cursor-not-allowed shadow-sm transition-all"
                         />
                       </div>
                     </div>
@@ -2492,7 +2511,7 @@ function ServicesSetupPage() {
                         <div className="grid grid-cols-3 gap-1.5">
                           <div className="bg-teal-50 rounded p-2 border border-teal-200">
                             <p className="text-[10px] text-teal-600 font-medium">Total</p>
-                            <p className="text-xs font-bold text-teal-700">${parseFloat(pkg.totalPrice).toFixed(2)}</p>
+                            <p className="text-xs font-bold text-teal-700">{getCurrencySymbol(currency)}{parseFloat(pkg.totalPrice).toFixed(2)}</p>
                           </div>
                           <div className="bg-teal-50 rounded p-2 border border-teal-200">
                             <p className="text-[10px] text-teal-600 font-medium">Sessions</p>
@@ -2501,7 +2520,7 @@ function ServicesSetupPage() {
                           <div className="bg-teal-50 rounded p-2 border border-teal-200">
                             <p className="text-[10px] text-teal-600 font-medium">Avg/Session</p>
                             <p className="text-xs font-bold text-teal-700">
-                              ${pkg.sessionPrice ? parseFloat(pkg.sessionPrice).toFixed(2) : (pkg.totalPrice / (pkg.totalSessions || pkg.treatments.reduce((sum, t) => sum + (t.sessions || 0), 0))).toFixed(2)}
+                              {getCurrencySymbol(currency)}{pkg.sessionPrice ? parseFloat(pkg.sessionPrice).toFixed(2) : (pkg.totalPrice / (pkg.totalSessions || pkg.treatments.reduce((sum, t) => sum + (t.sessions || 0), 0))).toFixed(2)}
                             </p>
                           </div>
                         </div>
@@ -2540,7 +2559,7 @@ function ServicesSetupPage() {
                               <div key={idx} className="flex justify-between items-center bg-teal-50 border border-teal-200 rounded p-1.5">
                                 <span className="text-xs font-medium text-teal-700 truncate flex-1 mr-1">{treatment.treatmentName || treatment.name}</span>
                                 <div className="text-[9px] bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded">
-                                  {treatment.sessions || 1} x ${((treatment.allocatedPrice || 0) / (treatment.sessions || 1)).toFixed(2)}
+                                  {treatment.sessions || 1} x {getCurrencySymbol(currency)}{((treatment.allocatedPrice || 0) / (treatment.sessions || 1)).toFixed(2)}
                                 </div>
                               </div>
                             ))}
@@ -2632,9 +2651,9 @@ function ServicesSetupPage() {
               </div>
 
               {/* Validity & Dates */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-teal-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-semibold text-teal-700 mb-1.5 sm:mb-2">
                     Validity (Months)
                   </label>
                   <input
@@ -2643,29 +2662,29 @@ function ServicesSetupPage() {
                     value={pkgEditingValidityInMonths}
                     onChange={(e) => setPkgEditingValidityInMonths(e.target.value)}
                     placeholder="e.g. 12"
-                    className="w-full border border-teal-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white hover:border-teal-300 transition-all shadow-sm dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
+                    className="w-full border border-teal-200 rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white hover:border-teal-300 transition-all shadow-sm dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 placeholder:text-xs sm:placeholder:text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-teal-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-semibold text-teal-700 mb-1.5 sm:mb-2">
                     Start Date
                   </label>
                   <input
                     type="date"
                     value={pkgEditingStartDate}
                     onChange={(e) => setPkgEditingStartDate(e.target.value)}
-                    className="w-full border border-teal-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white hover:border-teal-300 transition-all shadow-sm dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
+                    className="w-full border border-teal-200 rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white hover:border-teal-300 transition-all shadow-sm dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-teal-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-semibold text-teal-700 mb-1.5 sm:mb-2">
                     End Date
                   </label>
                   <input
                     type="date"
                     value={pkgEditingEndDate}
                     readOnly
-                    className="w-full border border-teal-200 rounded-xl px-4 py-3 text-sm bg-teal-50 border-teal-200 text-teal-700 cursor-not-allowed shadow-sm transition-all"
+                    className="w-full border border-teal-200 rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm bg-teal-50 border-teal-200 text-teal-700 cursor-not-allowed shadow-sm transition-all"
                   />
                 </div>
               </div>

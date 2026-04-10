@@ -78,17 +78,27 @@ const ServicesGuide: React.FC = () => {
                   <li><strong>Search & Filter:</strong> Find services by name or department</li>
                 </ul>
                 
-                {/* Screenshot Upload Area */}
-                <div className="mt-6 bg-white rounded-lg border-2 border-dashed border-teal-300 p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <svg className="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <h5 className="font-semibold text-teal-900 text-base">Screenshot Upload Area</h5>
-                  </div>
-                  <div className="bg-teal-50 rounded-lg p-8 text-center border-2 border-dashed border-teal-200">
-                    <p className="text-teal-700 text-sm mb-2"><strong>Upload:</strong> /services-tab-overview.png</p>
-                    <p className="text-teal-600 text-xs">Drag & drop or click to upload screenshot of Services tab showing creation form and service catalog</p>
+                {/* Image Section */}
+                <div className="w-full bg-teal-50 rounded-xl border border-teal-200 p-6 mb-8">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4">
+                    Services Tab Overview
+                  </h3>
+                  <div className="bg-white rounded-lg border-2 border-teal-200 flex flex-col items-center justify-center relative overflow-hidden group shadow-sm" style={{ minHeight: '500px', maxHeight: '600px' }}>
+                    <img 
+                      src="/services.png" 
+                      alt="Services Tab Overview" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        target.parentElement?.querySelector('.placeholder-services-overview')?.classList.remove('hidden');
+                      }}
+                    />
+                    <div className="placeholder-services-overview hidden absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-teal-50 to-cyan-50 text-gray-500">
+                      <Wrench className="w-16 h-16 mb-4 text-teal-300" />
+                      <p className="text-lg font-medium">Services Tab Overview</p>
+                      <p className="text-sm mt-2">Screenshot will appear here</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -141,19 +151,7 @@ const ServicesGuide: React.FC = () => {
                   </ul>
                 </div>
 
-                {/* Screenshot Upload */}
-                <div className="mt-6 bg-white rounded-lg border-2 border-dashed border-blue-300 p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <h5 className="font-semibold text-blue-900 text-base">Screenshot Upload Area</h5>
-                  </div>
-                  <div className="bg-blue-50 rounded-lg p-8 text-center border-2 border-dashed border-blue-200">
-                    <p className="text-blue-700 text-sm mb-2"><strong>Upload:</strong> /create-service-form.png</p>
-                    <p className="text-blue-600 text-xs">Drag & drop or click to upload screenshot of Create New Service form</p>
-                  </div>
-                </div>
+
               </div>
             </div>
 
@@ -199,19 +197,7 @@ const ServicesGuide: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Screenshot Upload */}
-                <div className="mt-6 bg-white rounded-lg border-2 border-dashed border-purple-300 p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <h5 className="font-semibold text-purple-900 text-base">Screenshot Upload Area</h5>
-                  </div>
-                  <div className="bg-purple-50 rounded-lg p-8 text-center border-2 border-dashed border-purple-200">
-                    <p className="text-purple-700 text-sm mb-2"><strong>Upload:</strong> /service-catalog-cards.png</p>
-                    <p className="text-purple-600 text-xs">Drag & drop or click to upload screenshot of Service Catalog with cards</p>
-                  </div>
-                </div>
+
               </div>
             </div>
 
@@ -258,19 +244,7 @@ const ServicesGuide: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Screenshot Upload */}
-                <div className="mt-6 bg-white rounded-lg border-2 border-dashed border-orange-300 p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <h5 className="font-semibold text-orange-900 text-base">Screenshot Upload Area</h5>
-                  </div>
-                  <div className="bg-orange-50 rounded-lg p-8 text-center border-2 border-dashed border-orange-200">
-                    <p className="text-orange-700 text-sm mb-2"><strong>Upload:</strong> /edit-service-modal.png</p>
-                    <p className="text-orange-600 text-xs">Drag & drop or click to upload screenshot of edit service interface</p>
-                  </div>
-                </div>
+
               </div>
             </div>
 
@@ -321,19 +295,31 @@ const ServicesGuide: React.FC = () => {
                   </ul>
                 </div>
 
-                {/* Screenshot Upload */}
-                <div className="mt-6 bg-white rounded-lg border-2 border-dashed border-teal-300 p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <svg className="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <h5 className="font-semibold text-teal-900 text-base">Screenshot Upload Area</h5>
-                  </div>
-                  <div className="bg-teal-50 rounded-lg p-8 text-center border-2 border-dashed border-teal-200">
-                    <p className="text-teal-700 text-sm mb-2"><strong>Upload:</strong> /memberships-tab.png</p>
-                    <p className="text-teal-600 text-xs">Drag & drop or click to upload screenshot of Memberships tab</p>
+                {/* Image Section */}
+                <div className="w-full bg-teal-50 rounded-xl border border-teal-200 p-6 mt-8">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4">
+                    Memberships Tab Interface
+                  </h3>
+                  <div className="bg-white rounded-lg border-2 border-teal-200 flex flex-col items-center justify-center relative overflow-hidden group shadow-sm" style={{ minHeight: '500px', maxHeight: '600px' }}>
+                    <img 
+                      src="/mem.png" 
+                      alt="Memberships Tab" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        target.parentElement?.querySelector('.placeholder-memberships')?.classList.remove('hidden');
+                      }}
+                    />
+                    <div className="placeholder-memberships hidden absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-teal-50 to-blue-50 text-gray-500">
+                      <Wrench className="w-16 h-16 mb-4 text-teal-300" />
+                      <p className="text-lg font-medium">Memberships Tab Interface</p>
+                      <p className="text-sm mt-2">Screenshot will appear here</p>
+                    </div>
                   </div>
                 </div>
+
+
               </div>
             </div>
           </div>
@@ -364,19 +350,31 @@ const ServicesGuide: React.FC = () => {
                   </ul>
                 </div>
 
-                {/* Screenshot Upload */}
-                <div className="mt-6 bg-white rounded-lg border-2 border-dashed border-teal-300 p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <svg className="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <h5 className="font-semibold text-teal-900 text-base">Screenshot Upload Area</h5>
-                  </div>
-                  <div className="bg-teal-50 rounded-lg p-8 text-center border-2 border-dashed border-teal-200">
-                    <p className="text-teal-700 text-sm mb-2"><strong>Upload:</strong> /packages-tab.png</p>
-                    <p className="text-teal-600 text-xs">Drag & drop or click to upload screenshot of Packages tab</p>
+                {/* Image Section */}
+                <div className="w-full bg-teal-50 rounded-xl border border-teal-200 p-6 mt-8">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4">
+                    Packages Tab Interface
+                  </h3>
+                  <div className="bg-white rounded-lg border-2 border-teal-200 flex flex-col items-center justify-center relative overflow-hidden group shadow-sm" style={{ minHeight: '500px', maxHeight: '600px' }}>
+                    <img 
+                      src="/pac.png" 
+                      alt="Packages Tab" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        target.parentElement?.querySelector('.placeholder-packages')?.classList.remove('hidden');
+                      }}
+                    />
+                    <div className="placeholder-packages hidden absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-teal-50 to-indigo-50 text-gray-500">
+                      <Package className="w-16 h-16 mb-4 text-teal-300" />
+                      <p className="text-lg font-medium">Packages Tab Interface</p>
+                      <p className="text-sm mt-2">Screenshot will appear here</p>
+                    </div>
                   </div>
                 </div>
+
+
               </div>
             </div>
           </div>

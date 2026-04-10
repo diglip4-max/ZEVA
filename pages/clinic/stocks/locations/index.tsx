@@ -222,7 +222,7 @@ const StockLocationPage: NextPageWithLayout = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
       {/* Header Section */}
       <div className="mb-8">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-9xl mx-auto">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
@@ -267,7 +267,7 @@ const StockLocationPage: NextPageWithLayout = () => {
       </div>
 
       {/* Stats Overview */}
-      <div className="max-w-7xl mx-auto mb-8">
+      <div className="max-w-9xl mx-auto mb-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
             <div className="p-6">
@@ -284,7 +284,7 @@ const StockLocationPage: NextPageWithLayout = () => {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth="2"
-                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                        d="M19 21V5a2 2 0 00-2-2H9a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 9h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
                       ></path>
                     </svg>
                   </div>
@@ -354,7 +354,7 @@ const StockLocationPage: NextPageWithLayout = () => {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth="2"
-                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.669 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
                       ></path>
                     </svg>
                   </div>
@@ -377,7 +377,7 @@ const StockLocationPage: NextPageWithLayout = () => {
       </div>
 
       {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-9xl mx-auto">
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
           {/* Table Header */}
           <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">

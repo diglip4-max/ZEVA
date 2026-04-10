@@ -113,6 +113,62 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: 'Invalid treatment format' });
     }
 
+    // 🧠 Handle timings format
+    let finalTimings = [];
+    const VALID_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    
+    if (typeof timings === 'string') {
+      // If it's a simple string like "8AM-9PM", we try to use it as the timing for all days
+      // Or we can just use defaults if it's too complex to parse here
+      // For now, let's create a default structure using the string if possible
+      
+      // Basic parsing of "8AM-9PM" or similar
+      let openingTime = '09:00 AM';
+      let closingTime = '06:00 PM';
+      
+      if (timings.includes('-')) {
+        const parts = timings.split('-').map(p => p.trim());
+        if (parts.length === 2) {
+          // Very simple normalization: "8AM" -> "08:00 AM", "9PM" -> "09:00 PM"
+          const normalize = (t) => {
+            let time = t.toUpperCase();
+            if (!time.includes(':')) {
+              const match = time.match(/(\d+)\s*(AM|PM)/);
+              if (match) {
+                const hour = match[1].padStart(2, '0');
+                const period = match[2];
+                return `${hour}:00 ${period}`;
+              }
+            }
+            return t;
+          };
+          openingTime = normalize(parts[0]);
+          closingTime = normalize(parts[1]);
+        }
+      }
+
+      finalTimings = VALID_DAYS.map(day => ({
+        day,
+        isOpen: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].includes(day), // Most are open Mon-Sat
+        openingTime,
+        closingTime,
+        breakStart: '01:00 PM',
+        breakEnd: '02:00 PM',
+      }));
+    } else if (Array.isArray(timings)) {
+      finalTimings = timings;
+    } else {
+      // Use defaults if nothing provided or invalid format
+      finalTimings = VALID_DAYS.map(day => ({
+        day,
+        isOpen: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].includes(day),
+        openingTime: '09:00 AM',
+        closingTime: '06:00 PM',
+        breakStart: '01:00 PM',
+        breakEnd: '02:00 PM',
+      }));
+    }
+
     // ✅ Optional validation: check if mainTreatment exists in DB
     for (let t of parsedTreatments) {
       let found = await Treatment.findOne({ name: t.mainTreatment });
@@ -190,7 +246,7 @@ export default async function handler(req, res) {
       address,
       treatments: parsedTreatments,
       pricing,
-      timings,
+      timings: finalTimings,
       photos: clinicPhotoPath ? [clinicPhotoPath] : [],
       licenseDocumentUrl: licensePath || null,
       location: {

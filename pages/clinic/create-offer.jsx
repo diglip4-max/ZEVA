@@ -16,6 +16,7 @@ import { Toaster, toast } from "react-hot-toast";
 import CreateOfferModal from "../../components/CreateOfferModal";
 import ClinicLayout from "../../components/ClinicLayout";
 import withClinicAuth from "../../components/withClinicAuth";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 const TOKEN_PRIORITY = [
   "clinicToken",
@@ -65,6 +66,7 @@ const getUserRole = () => {
 function OffersPage() {
   const router = useRouter();
   const [offers, setOffers] = useState([]);
+  const [currency, setCurrency] = useState('INR');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingOfferId, setEditingOfferId] = useState(null);
   const [editingOfferData, setEditingOfferData] = useState(null);
@@ -375,6 +377,23 @@ function OffersPage() {
     }
   }, [permissionsLoaded, finalCanRead]);
 
+  // Fetch clinic currency preference
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) return;
+        const res = await axios.get('/api/clinics/myallClinic', { headers: authHeaders });
+        if (res.data.success && res.data.clinic?.currency) {
+          setCurrency(res.data.clinic.currency);
+        }
+      } catch (e) { 
+        console.error('Error fetching clinic currency:', e); 
+      }
+    };
+    fetchClinicCurrency();
+  }, []);
+
   const openEditModal = async (offerId) => {
     const storedToken = getStoredToken();
     if (!storedToken) {
@@ -579,7 +598,7 @@ function OffersPage() {
         }}
       />
     <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
-      <div className="max-w-7xl mx-auto space-y-3">
+      <div className="max-w-9xl mx-auto space-y-3">
         {!permissionsLoaded ? (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
             <p className="text-xs sm:text-sm text-teal-700 font-medium">Loading permissions...</p>
@@ -601,7 +620,7 @@ function OffersPage() {
           </div>
         ) : !finalCanRead && finalCanCreate ? (
           <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
-            <div className="max-w-7xl mx-auto space-y-3">
+            <div className="max-w-9xl mx-auto space-y-3">
               {/* Compact Header Section */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
@@ -730,7 +749,7 @@ function OffersPage() {
               <div className="bg-white rounded-lg shadow-sm border-l-4 border-purple-600 p-2.5 sm:p-3">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-6 h-6 bg-purple-600 rounded-lg flex items-center justify-center">
-                    <span className="text-[8px] font-bold text-white">د.إ</span>
+                    <span className="text-[8px] font-bold text-white">{getCurrencySymbol(currency)}</span>
                   </div>
                   <p className="text-[10px] font-semibold text-teal-600 uppercase">Fixed</p>
                 </div>
@@ -750,11 +769,11 @@ function OffersPage() {
               <div className="bg-white rounded-lg shadow-sm border-l-4 border-indigo-600 p-2.5 sm:p-3">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-6 h-6 bg-indigo-600 rounded-lg flex items-center justify-center">
-                    <span className="text-[8px] font-bold text-white">د.إ</span>
+                    <span className="text-[8px] font-bold text-white">{getCurrencySymbol(currency)}</span>
                   </div>
                   <p className="text-[10px] font-semibold text-teal-600 uppercase">Avg Value</p>
                 </div>
-                <p className="text-base sm:text-lg font-bold text-indigo-600">د.إ{Math.round(averageDiscount)}</p>
+                <p className="text-base sm:text-lg font-bold text-indigo-600">{getCurrencySymbol(currency)}{Math.round(averageDiscount)}</p>
               </div>
             </div>
 
@@ -850,7 +869,7 @@ function OffersPage() {
                               </td>
                               <td className="px-2 py-2">
                                 <span className="text-xs sm:text-sm font-bold text-teal-900">
-                                  {offer.type === "percentage" ? `${offer.value}%` : `د.إ${offer.value}`}
+                                  {offer.type === "percentage" ? `${offer.value}%` : `${getCurrencySymbol(currency)}${offer.value}`}
                                 </span>
                               </td>
                               <td className="px-2 py-2">

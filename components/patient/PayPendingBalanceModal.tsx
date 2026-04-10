@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 import { clsx, type ClassValue } from "clsx";
 
 function cn(...inputs: ClassValue[]) {
@@ -80,13 +81,30 @@ const PayPendingBalanceModal: React.FC<PayPendingBalanceModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [payType, setPayType] = useState<"partial" | "full" | null>(null);
+  const [clinicCurrency, setClinicCurrency] = useState<string>("INR");
 
   useEffect(() => {
     if (isOpen) {
       setAmount("");
       setPayType(null);
+      fetchClinicCurrency();
     }
   }, [isOpen]);
+
+  const fetchClinicCurrency = async () => {
+    try {
+      const token = getTokenByPath();
+      if (!token) return;
+      const res = await axios.get('/api/clinics/myallClinic', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success && res.data.clinic?.currency) {
+        setClinicCurrency(res.data.clinic.currency);
+      }
+    } catch (e) {
+      console.error('Error fetching clinic currency:', e);
+    }
+  };
 
   const handlePayTypeSelect = (type: "partial" | "full") => {
     setPayType(type);
@@ -155,7 +173,7 @@ const PayPendingBalanceModal: React.FC<PayPendingBalanceModalProps> = ({
     onClose();
   };
 
-  const formatAED = (v: number) => `د.إ${v.toLocaleString()}`;
+  const formatCurrency = (v: number) => `${getCurrencySymbol(clinicCurrency)}${v.toLocaleString()}`;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
@@ -167,8 +185,8 @@ const PayPendingBalanceModal: React.FC<PayPendingBalanceModalProps> = ({
       <div className="relative bg-white rounded-2xl sm:rounded-3xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto transform transition-all animate-in fade-in zoom-in duration-300">
         <div className="bg-gradient-to-r from-teal-600 to-cyan-700 px-5 sm:px-8 py-4 sm:py-6 flex items-center justify-between sticky top-0 z-10">
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="p-1.5 sm:p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-              <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            <div className="p-1.5 sm:p-2 bg-white/20 rounded-xl backdrop-blur-sm flex items-center justify-center min-w-[32px] sm:min-w-[40px]">
+              <span className="text-white font-bold text-sm sm:text-base">{getCurrencySymbol(clinicCurrency)}</span>
             </div>
             <div>
               <h3 className="text-lg sm:text-xl font-bold text-white">
@@ -190,15 +208,15 @@ const PayPendingBalanceModal: React.FC<PayPendingBalanceModalProps> = ({
         <form onSubmit={handleSubmit} className="p-5 sm:p-8 space-y-5 sm:space-y-6">
           <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
-                <AlertCircle className="w-5 h-5 text-amber-600" />
+              <div className="flex items-center justify-center">
+                {/* <AlertCircle className="w-5 h-5 text-amber-600" /> */}
               </div>
               <div>
                 <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">
                   Total Pending
                 </div>
                 <div className="text-lg font-bold text-amber-900">
-                  {formatAED(pendingBalance)}
+                  {formatCurrency(pendingBalance)}
                 </div>
               </div>
             </div>
@@ -232,12 +250,12 @@ const PayPendingBalanceModal: React.FC<PayPendingBalanceModalProps> = ({
 
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-700">
-              <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" />
+              {/* <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" /> */}
               Amount to Pay
             </label>
             <div className="relative group">
               <div className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-emerald-500 transition-colors">
-                <span className="text-base sm:text-lg font-bold">AED</span>
+                <span className="text-base sm:text-lg font-bold">{getCurrencySymbol(clinicCurrency)}</span>
               </div>
               <input
                 type="number"
@@ -258,12 +276,12 @@ const PayPendingBalanceModal: React.FC<PayPendingBalanceModalProps> = ({
 
           <div className="space-y-3">
             <label className="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-700">
-              <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500" />
+              {/* <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500" /> */}
               Payment Method
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
               {paymentMethods.map((method) => {
-                const Icon = method.icon;
+                // const Icon = method.icon;
                 const isSelected = paymentMethod === method.value;
                 return (
                   <button
@@ -277,12 +295,12 @@ const PayPendingBalanceModal: React.FC<PayPendingBalanceModalProps> = ({
                         : "border-gray-100 hover:border-gray-200 bg-white",
                     )}
                   >
-                    <Icon
+                    {/* <Icon
                       className={cn(
                         "w-4 h-4 sm:w-5 sm:h-5",
                         isSelected ? method.color : "text-gray-400",
                       )}
-                    />
+                    /> */}
                     <span
                       className={cn(
                         "text-[10px] font-bold uppercase tracking-wider",
@@ -299,7 +317,7 @@ const PayPendingBalanceModal: React.FC<PayPendingBalanceModalProps> = ({
 
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-700">
-              <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-500" />
+              {/* <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-500" /> */}
               Notes (Optional)
             </label>
             <textarea

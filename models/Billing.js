@@ -223,6 +223,11 @@ const billingSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Pending balance payment screenshots/proof images
+    pendingBalanceImage: {
+      type: [String],
+      default: [],
+    },
   },
   { timestamps: true },
 );

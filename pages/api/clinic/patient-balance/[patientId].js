@@ -61,10 +61,25 @@ export default async function handler(req, res) {
     // We track advance and pending separately (not net)
     const billings = await Billing.find(match)
       .select(
-        "pending advance advanceUsed pendingUsed pastAdvance pastAdvanceUsed pastAdvanceType createdAt",
+        "pending advance advanceUsed pendingUsed pastAdvance pastAdvanceUsed pastAdvanceType pendingBalanceImage createdAt",
       )
       .sort({ createdAt: -1 }) // Sort by newest first
       .lean();
+
+    // Debug logging
+    console.log(`[Patient Balance] Found ${billings.length} billing records for patient ${patientId}`);
+    const recordsWithImages = billings.filter(b => b.pendingBalanceImage && b.pendingBalanceImage.length > 0);
+    console.log(`[Patient Balance] Records with images: ${recordsWithImages.length}`);
+    if (recordsWithImages.length > 0) {
+      console.log(`[Patient Balance] Sample images from first record:`, JSON.stringify(recordsWithImages[0].pendingBalanceImage));
+    }
+    
+    // Log all billing records to see their structure
+    if (billings.length > 0) {
+      console.log(`[Patient Balance] First billing record keys:`, Object.keys(billings[0]));
+      console.log(`[Patient Balance] First record pendingBalanceImage field:`, billings[0].pendingBalanceImage);
+      console.log(`[Patient Balance] Has pendingBalanceImage property:`, 'pendingBalanceImage' in billings[0]);
+    }
 
     let totalPending = 0;
     let totalPendingUsed = 0;
@@ -80,6 +95,9 @@ export default async function handler(req, res) {
     let total54PercentOfferPastAdvanceUsed = 0;
     let total159FlatPastAdvanceGenerated = 0;
     let total159FlatPastAdvanceUsed = 0;
+
+    // Collect all pending balance images
+    const allPendingBalanceImages = [];
 
     for (const b of billings) {
       totalPending += Number(b.pending || 0);
@@ -102,6 +120,11 @@ export default async function handler(req, res) {
       if (b.pastAdvanceType === "159 Flat") {
         total159FlatPastAdvanceGenerated += Number(b.pastAdvance || 0);
         total159FlatPastAdvanceUsed += Number(b.pastAdvanceUsed || 0);
+      }
+
+      // Collect pending balance images
+      if (b.pendingBalanceImage && Array.isArray(b.pendingBalanceImage)) {
+        allPendingBalanceImages.push(...b.pendingBalanceImage);
       }
     }
 
@@ -157,6 +180,7 @@ export default async function handler(req, res) {
         pastAdvance50PercentBalance,
         pastAdvance54PercentBalance,
         pastAdvance159FlatBalance,
+        pendingBalanceImages: allPendingBalanceImages,
       },
       count: billings.length,
     });

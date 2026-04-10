@@ -1447,6 +1447,7 @@
         />
 
         <AppointmentComplaintModal
+          key={complaintAppointment?._id || 'no-appointment'}
           isOpen={complaintModalOpen}
           appointment={complaintAppointment}
           onClose={() => {
@@ -1454,6 +1455,9 @@
             setComplaintAppointment(null);
           }}
           getAuthHeaders={getAuthHeaders}
+          onSuccess={() => {
+            fetchAppointments();
+          }}
         />
 
         <AppointmentBillingModal

@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
+import { getCurrencySymbol } from '@/lib/currencyHelper';
 import {
   Users,
   CheckCircle,
@@ -117,6 +118,7 @@ const ManageAgentsPage = () => {
   const [totalRevenue, setTotalRevenue] = useState(null);
   const [totalCommission, setTotalCommission] = useState(null);
   const [commissionPercent, setCommissionPercent] = useState(null);
+  const [currency, setCurrency] = useState('INR');
 
   // Get the appropriate token based on what's available (clinic > doctor > admin)
   // This ensures we use the correct token for the logged-in user
@@ -149,6 +151,23 @@ const ManageAgentsPage = () => {
     }
     return null;
   };
+
+  // Fetch permissions - same pattern as myallClinic.tsx and create-offer.jsx
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const headers = getAuthHeaders();
+        if (!headers) return;
+        const res = await axios.get('/api/clinics/myallClinic', { headers });
+        if (res.data.success && res.data.clinic?.currency) {
+          setCurrency(res.data.clinic.currency);
+        }
+      } catch (e) { 
+        console.error('Error fetching clinic currency:', e); 
+      }
+    };
+    fetchClinicCurrency();
+  }, []);
 
   // Fetch permissions - same pattern as myallClinic.tsx and create-offer.jsx
   useEffect(() => {
@@ -629,9 +648,9 @@ const ManageAgentsPage = () => {
                   headers: authHeaders,
                   params: { source: 'staff' }
                 });
-                const items = commRes.data?.results || commRes.data || [];
-                // Support both {results: []} and [] shapes
-                const list = Array.isArray(items) ? items : (Array.isArray(items.results) ? items.results : []);
+                const commData = commRes.data || {};
+                // Support response shapes: {items: []}, {results: []}, or []
+                const list = Array.isArray(commData.items) ? commData.items : (Array.isArray(commData.results) ? commData.results : (Array.isArray(commData) ? commData : []));
                 const me = list.find((row) => String(row.personId || row._id) === String(agent._id));
                 setTotalCommission(typeof me?.totalEarned === 'number' ? me.totalEarned : 0);
                 setCommissionPercent(
@@ -672,12 +691,28 @@ const ManageAgentsPage = () => {
             });
             if (revRes.data?.success) {
               setTotalRevenue(revRes.data.totalRevenue ?? 0);
-              setTotalCommission(0);
-              setCommissionPercent(viewProfile?.commissionPercentage != null ? Number(viewProfile.commissionPercentage) : null);
             } else {
               setTotalRevenue(0);
+            }
+            // Fetch commission earned for this agent from commissions summary
+            try {
+              const commRes = await axios.get("/api/clinic/commissions/summary", {
+                headers: authHeaders,
+                params: { source: 'staff' }
+              });
+              const commData = commRes.data || {};
+              // Support response shapes: {items: []}, {results: []}, or []
+              const list = Array.isArray(commData.items) ? commData.items : (Array.isArray(commData.results) ? commData.results : (Array.isArray(commData) ? commData : []));
+              const me = list.find((row) => String(row.personId || row._id) === String(agent._id));
+              setTotalCommission(typeof me?.totalEarned === 'number' ? me.totalEarned : 0);
+              setCommissionPercent(
+                me && typeof me.percent !== 'undefined'
+                  ? Number(me.percent)
+                  : (p?.commissionPercentage != null ? Number(p.commissionPercentage) : null)
+              );
+            } catch {
               setTotalCommission(0);
-              setCommissionPercent(viewProfile?.commissionPercentage != null ? Number(viewProfile.commissionPercentage) : null);
+              setCommissionPercent(p?.commissionPercentage != null ? Number(p.commissionPercentage) : null);
             }
           }
         } catch {
@@ -2313,12 +2348,12 @@ const ManageAgentsPage = () => {
                     )}
                     <div className="bg-gradient-to-br from-emerald-500 to-green-600 text-white rounded-2xl p-5 shadow-sm border border-white/10">
                       <div className="flex items-center gap-4">
-                        <div className="bg-white/20 rounded-xl p-3">
-                          <DollarSign className="w-5 h-5" />
-                        </div>
+                        {/* <div className="bg-white/20 rounded-xl p-3"> */}
+                          {/* <DollarSign className="w-5 h-5" /> */}
+                        {/* </div> */}
                         <div>
                           <div className="text-3xl font-bold leading-tight">
-                            {totalRevenue !== null ? `$${Number(totalRevenue || 0).toLocaleString()}` : '—'}
+                            {totalRevenue !== null ? `${getCurrencySymbol(currency)}${Number(totalRevenue || 0).toLocaleString()}` : '—'}
                           </div>
                           <div className="text-xs opacity-90 mt-1">Revenue Generated</div>
                         </div>
@@ -2326,17 +2361,12 @@ const ManageAgentsPage = () => {
                     </div>
                     <div className="bg-gradient-to-br from-sky-300 to-blue-400 text-white rounded-2xl p-5 shadow-sm border border-white/10">
                       <div className="flex items-center gap-4">
-                        <div className="bg-white/30 rounded-xl p-3">
-                          <Percent className="w-5 h-5" />
-                        </div>
+                        
                         <div>
                           <div className="text-3xl font-bold leading-tight">
-                            {totalCommission != null ? `$${Number(totalCommission || 0).toLocaleString()}` : '—'}
+                            {totalCommission != null ? `${getCurrencySymbol(currency)}${Number(totalCommission || 0).toLocaleString()}` : '—'}
                           </div>
                           <div className="text-xs opacity-90 mt-1">Commission Earned</div>
-                          <div className="text-[11px] opacity-90 mt-1">
-                            {commissionPercent != null ? `Profile: ${Number(commissionPercent)}%` : 'Profile: —'}
-                          </div>
                         </div>
                       </div>
                     </div>

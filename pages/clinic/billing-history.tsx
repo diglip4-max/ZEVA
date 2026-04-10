@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
 import { ArrowLeft, FileText, Loader2, Check } from 'lucide-react';
+import { getCurrencySymbol } from '@/lib/currencyHelper';
 
 const TOKEN_PRIORITY = [
   'clinicToken',
@@ -34,6 +35,7 @@ const BillingHistoryPage = () => {
   const [patientData, setPatientData] = useState<any>(null);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [clinicCurrency, setClinicCurrency] = useState('INR');
 
   useEffect(() => {
     if (appointmentId || patientId) {
@@ -43,6 +45,23 @@ const BillingHistoryPage = () => {
       }
     }
   }, [appointmentId, patientId]);
+
+  // Fetch clinic currency preference
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const headers = getAuthHeaders();
+        if (!headers || typeof headers !== 'object' || Object.keys(headers).length === 0) return;
+        const res = await axios.get('/api/clinics/myallClinic', { headers });
+        if (res.data.success && res.data.clinic?.currency) {
+          setClinicCurrency(res.data.clinic.currency);
+        }
+      } catch (e) {
+        console.error('Error fetching clinic currency:', e);
+      }
+    };
+    fetchClinicCurrency();
+  }, []);
 
   const fetchPatientDetails = async () => {
     try {
@@ -179,18 +198,18 @@ const BillingHistoryPage = () => {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
       doc.text('Total Billed:', pageWidth - 70, finalY + 6);
-      doc.text(`AED ${formatCurrency(totalAmount)}`, pageWidth - 14, finalY + 6, { align: 'right' });
+      doc.text(`${getCurrencySymbol(clinicCurrency)} ${formatCurrency(totalAmount)}`, pageWidth - 14, finalY + 6, { align: 'right' });
       
       doc.text('Total Paid:', pageWidth - 70, finalY + 11);
       doc.setTextColor(5, 150, 105); // emerald-600
-      doc.text(`AED ${formatCurrency(totalPaid)}`, pageWidth - 14, finalY + 11, { align: 'right' });
+      doc.text(`${getCurrencySymbol(clinicCurrency)} ${formatCurrency(totalPaid)}`, pageWidth - 14, finalY + 11, { align: 'right' });
       
       // Removed Total Outstanding (Pending) from summary as per user request
       /*
       doc.setTextColor(220, 38, 38); // red-600
       doc.setFont('helvetica', 'bold');
       doc.text('Total Outstanding:', pageWidth - 70, finalY + 16);
-      doc.text(`AED ${formatCurrency(totalPending)}`, pageWidth - 14, finalY + 16, { align: 'right' });
+      doc.text(`${getCurrencySymbol(clinicCurrency)} ${formatCurrency(totalPending)}`, pageWidth - 14, finalY + 16, { align: 'right' });
       */
 
       // Footer
@@ -427,7 +446,7 @@ const BillingHistoryPage = () => {
                               )}
                               {discountAmount > 0 && (
                                 <div className="text-[10px] font-medium text-gray-500">
-                                  Saved AED {formatCurrency(discountAmount)}
+                                  Saved {getCurrencySymbol(clinicCurrency)} {formatCurrency(discountAmount)}
                                 </div>
                               )}
                               {(isDoctorDiscount || isAgentDiscount) && (
