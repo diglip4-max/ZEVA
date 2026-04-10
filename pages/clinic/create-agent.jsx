@@ -2348,9 +2348,9 @@ const ManageAgentsPage = () => {
                     )}
                     <div className="bg-gradient-to-br from-emerald-500 to-green-600 text-white rounded-2xl p-5 shadow-sm border border-white/10">
                       <div className="flex items-center gap-4">
-                        <div className="bg-white/20 rounded-xl p-3">
-                          <DollarSign className="w-5 h-5" />
-                        </div>
+                        {/* <div className="bg-white/20 rounded-xl p-3"> */}
+                          {/* <DollarSign className="w-5 h-5" /> */}
+                        {/* </div> */}
                         <div>
                           <div className="text-3xl font-bold leading-tight">
                             {totalRevenue !== null ? `${getCurrencySymbol(currency)}${Number(totalRevenue || 0).toLocaleString()}` : '—'}
@@ -2361,9 +2361,7 @@ const ManageAgentsPage = () => {
                     </div>
                     <div className="bg-gradient-to-br from-sky-300 to-blue-400 text-white rounded-2xl p-5 shadow-sm border border-white/10">
                       <div className="flex items-center gap-4">
-                        <div className="bg-white/30 rounded-xl p-3">
-                          <Percent className="w-5 h-5" />
-                        </div>
+                        
                         <div>
                           <div className="text-3xl font-bold leading-tight">
                             {totalCommission != null ? `${getCurrencySymbol(currency)}${Number(totalCommission || 0).toLocaleString()}` : '—'}
