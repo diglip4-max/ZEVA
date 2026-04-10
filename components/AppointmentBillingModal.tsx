@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import axios from "axios";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
 import {
@@ -105,6 +105,10 @@ interface PackageTreatmentSession {
   usesMembershipDiscount?: boolean;
 }
 
+interface BilledTreatmentInfo {
+  name: string;
+}
+
 interface AppointmentBillingModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -145,6 +149,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [currency, setCurrency] = useState('INR');
   const [billingHistory, setBillingHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [billingHistoryFetched, setBillingHistoryFetched] = useState(false);
   const [packageUsageData, setPackageUsageData] = useState<any>(null);
   const [loadingPackageUsage, setLoadingPackageUsage] = useState(false);
   const [membershipUsage, setMembershipUsage] = useState<any>(null);
@@ -295,6 +300,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
   const treatmentDropdownRef = useRef<HTMLDivElement>(null);
   const packageDropdownRef = useRef<HTMLDivElement>(null);
+  const initializedAppointmentId = useRef<string | null>(null);
 
   // Helper function to check if membership was transferred out
   const isMembershipTransferredOut = useCallback(() => {
@@ -314,6 +320,94 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     const invoiceNum = `INV-${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}-${seq}`;
     setFormData((prev) => ({ ...prev, invoiceNumber: invoiceNum }));
   }, []);
+
+  // Reset state when opening or switching appointments
+  useEffect(() => {
+    if (isOpen && appointment?._id) {
+      // Reset all patient-specific state
+      setPatientDetails(null);
+      setSelectedService("Treatment");
+      setSelectedTreatments([]);
+      setSelectedPackage(null);
+      setPackageTreatmentSessions([]);
+      setErrors({});
+      setTotalPrice(0);
+      setBillingHistory([]);
+      setBillingHistoryFetched(false);
+      setPackageUsageData(null);
+      setMembershipUsage(null);
+      setActivePackageUsage([]);
+      setExpandedPackages({});
+      setDoctorDiscount(null);
+      setIsDoctorDiscountApplied(false);
+      setDoctorAppliedDiscount(false);
+      setDoctorComplaintDiscount(null);
+      setAgentDiscount(null);
+      setIsAgentDiscountApplied(false);
+      setBalances({
+        advanceBalance: 0,
+        pendingBalance: 0,
+        pastAdvanceBalance: 0,
+        pastAdvance50PercentBalance: 0,
+        pastAdvance54PercentBalance: 0,
+        pastAdvance159FlatBalance: 0,
+      });
+      setApplyAdvance(false);
+      setApplyPastAdvance159Flat(false);
+      setUseMultiplePayments(false);
+      setMultiplePayments([
+        { paymentMethod: "Cash", amount: "" },
+        { paymentMethod: "Card", amount: "" },
+      ]);
+      setVisitCount(null);
+      setConsentStatuses([]);
+      initializedAppointmentId.current = null;
+      
+      // Initialize basic form data from appointment
+      const nameParts = (appointment.patientName || "").split(" ");
+      setFormData({
+        invoiceNumber: "",
+        invoicedDate: new Date().toISOString().split("T")[0],
+        firstName: nameParts[0] || "",
+        lastName: nameParts.slice(1).join(" ") || "",
+        email: appointment.patientEmail || "",
+        mobileNumber: appointment.patientNumber || "",
+        gender: appointment.gender || "",
+        doctor: appointment.doctorName || "",
+        service: "Treatment",
+        treatment: "",
+        package: "",
+        patientType: "Old",
+        referredBy: appointment.referral || "",
+        amount: "",
+        discountedAmount: "",
+        paid: "",
+        pending: "0.00",
+        advance: "0.00",
+        pastAdvance: "0.00",
+        paymentMethod: "Cash",
+        insurance: "No",
+        advanceGivenAmount: "",
+        coPayPercent: "",
+        advanceClaimStatus: "Pending",
+        insuranceType: "Paid",
+        membership: "No",
+        membershipStartDate: "",
+        membershipEndDate: "",
+        notes: "",
+        emrNumber: appointment.emrNumber || "",
+        originalAmount: "",
+        advanceUsed: "0.00",
+        pastAdvanceUsed: "0.00",
+        pastAdvanceUsed50Percent: "0.00",
+        pastAdvanceUsed54Percent: "0.00",
+        pastAdvanceUsed159Flat: "0.00",
+        pendingUsed: "0.00",
+      });
+
+      generateInvoiceNumber();
+    }
+  }, [isOpen, appointment?._id, generateInvoiceNumber]);
 
   // Fetch clinic currency preference
   useEffect(() => {
@@ -504,8 +598,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     };
 
     fetchData();
-    generateInvoiceNumber();
-  }, [isOpen, getAuthHeaders, generateInvoiceNumber]);
+  }, [isOpen, getAuthHeaders, appointment?.patientId, appointment?.doctorId]);
 
   // Fetch patient details (memberships/packages)
   useEffect(() => {
@@ -524,6 +617,42 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     };
     fetchPatient();
   }, [isOpen, appointment?.patientId, getAuthHeaders]);
+
+  const billedTreatmentInfos = useMemo<BilledTreatmentInfo[]>(() => {
+    if (!appointment?._id || !Array.isArray(billingHistory)) return [];
+    const list: BilledTreatmentInfo[] = [];
+    billingHistory.forEach((b: any) => {
+      const apptMatch =
+        String(b.appointmentId) === String(appointment._id) ||
+        String(b.appointmentId?._id) === String(appointment._id);
+      if (!apptMatch) return;
+      if (b.treatment) {
+        const names = String(b.treatment)
+          .split(",")
+          .map((t: string) => t.trim())
+          .filter(Boolean);
+        names.forEach((n: string) =>
+          list.push({ name: n.toLowerCase() })
+        );
+      }
+      if (Array.isArray(b.selectedPackageTreatments)) {
+        b.selectedPackageTreatments.forEach((pt: any) => {
+          const n = (pt?.treatmentName || "").toString().trim();
+          if (n) list.push({ name: n.toLowerCase() });
+        });
+      }
+    });
+    return list;
+  }, [billingHistory, appointment?._id]);
+
+  const isTreatmentBilledRecently = useCallback(
+    (treatmentName: string) => {
+      const norm = (treatmentName || "").trim().toLowerCase();
+      // Check if this treatment has ever been billed for this appointment (not just last 24h)
+      return billedTreatmentInfos.some((bt) => bt.name === norm);
+    },
+    [billedTreatmentInfos]
+  );
 
   // Fetch patient balances (advance/pending)
   useEffect(() => {
@@ -765,10 +894,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         if (response.data.success) {
             const filteredBillings = (response.data.billings || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance");
             setBillingHistory(filteredBillings);
+            setBillingHistoryFetched(true);
           }
       } catch (error) {
         console.error("Error fetching billing history:", error);
         setBillingHistory([]);
+        setBillingHistoryFetched(true); // Allow initialization even on error
       } finally {
         setLoadingHistory(false);
       }
@@ -845,93 +976,57 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     fetchVisitCount();
   }, [isOpen, appointment?.patientId, getAuthHeaders]);
 
-  // Initialize form data from appointment
+  // Initialize selected treatments from appointment when both are available.
+  // Re-runs when billingHistory loads so already-billed treatments are excluded.
   useEffect(() => {
-    if (appointment && isOpen) {
-      const nameParts = appointment.patientName.split(" ");
-      setIsDoctorDiscountApplied(false);
-      setDoctorDiscount(null);
-      setFormData((prev) => ({
-        ...prev,
-        firstName: nameParts[0] || "",
-        lastName: nameParts.slice(1).join(" ") || "",
-        email: appointment.patientEmail || "",
-        mobileNumber: appointment.patientNumber || "",
-        gender: appointment.gender || "",
-        doctor: appointment.doctorName || "",
-        emrNumber: appointment.emrNumber || "",
-        referredBy: appointment.referral || "",
-        patientType: "Old",
-      }));
-    }
-  }, [appointment, isOpen]);
+    if (!isOpen || !appointment || treatments.length === 0) return;
+    // Only auto-initialize if the user hasn't already selected treatments manually
+    // (i.e., still in the default empty state for this appointment open)
+    if (initializedAppointmentId.current === appointment._id) return;
 
-  // Initialize selected treatments from appointment when both are available
-  useEffect(() => {
-    if (isOpen && appointment && treatments.length > 0 && selectedTreatments.length === 0) {
-      // Check if this appointment has already been billed
-      const billedItemsForAppointment = billingHistory.filter(
-        (b) => String(b.appointmentId) === String(appointment._id) ||
-               String(b.appointmentId?._id) === String(appointment._id)
-      );
-     
-      const alreadyBilledTreatmentNames = billedItemsForAppointment.flatMap(b => b.treatment ? b.treatment.split(", ").map((t: string) => t.trim()) : []);
-      // const alreadyBilledPackageTreatmentNames = billedItemsForAppointment.flatMap(b => b.selectedPackageTreatments || []).map((pt: any) => pt.treatmentName);
-     
-      // Time check (within 24 hours)
-      const appointmentDate = appointment.startDate ? new Date(appointment.startDate) : null;
-      const now = new Date();
-      const isWithinTimeLimit = appointmentDate ? (now.getTime() - appointmentDate.getTime()) <= 24 * 60 * 60 * 1000 : false;
-     
-      if (billedItemsForAppointment.length > 0 && !isWithinTimeLimit) {
-        console.log("Appointment already billed and past time limit, skipping auto-fill");
-        return;
-      }
+    const initialTreatments: SelectedTreatment[] = [];
 
-      const initialTreatments: SelectedTreatment[] = [];
-     
-      // Handle multiple services (serviceNames / serviceIds)
-      if (appointment.serviceNames && appointment.serviceNames.length > 0) {
-        appointment.serviceNames.forEach((name, index) => {
-          // Skip if this treatment has already been billed for this appointment
-          if (alreadyBilledTreatmentNames.includes(name)) return;
-
-          const serviceIdItem = appointment.serviceIds?.[index];
-          const slug = typeof serviceIdItem === 'string' ? serviceIdItem : serviceIdItem?._id;
-          if (name && slug) {
-            // Find matching treatment in the loaded treatments list to get the correct price
-            const matchingTreatment = treatments.find(t => t.slug === slug || t.name === name);
-            initialTreatments.push({
-              treatmentName: name,
-              treatmentSlug: slug,
-              price: matchingTreatment?.price || 0,
-              quantity: 1,
-              totalPrice: matchingTreatment?.price || 0,
-            });
-          }
-        });
-      }
-      // Fallback to single service (serviceName / serviceId)
-      else if (appointment.serviceName && appointment.serviceId) {
+    // Handle multiple services (serviceNames / serviceIds)
+    if (appointment.serviceNames && appointment.serviceNames.length > 0) {
+      appointment.serviceNames.forEach((name, index) => {
         // Skip if this treatment has already been billed for this appointment
-        if (!alreadyBilledTreatmentNames.includes(appointment.serviceName)) {
-          const slug = typeof appointment.serviceId === 'string' ? appointment.serviceId : (appointment.serviceId as { _id: string })._id;
-          const matchingTreatment = treatments.find(t => t.slug === slug || t.name === appointment.serviceName);
+        if (isTreatmentBilledRecently(name)) return;
+
+        const serviceIdItem = appointment.serviceIds?.[index];
+        const slug = typeof serviceIdItem === 'string' ? serviceIdItem : serviceIdItem?._id;
+        if (name && slug) {
+          const matchingTreatment = treatments.find(t => t.slug === slug || t.name === name);
           initialTreatments.push({
-            treatmentName: appointment.serviceName,
+            treatmentName: name,
             treatmentSlug: slug,
             price: matchingTreatment?.price || 0,
             quantity: 1,
             totalPrice: matchingTreatment?.price || 0,
           });
         }
-      }
-
-      if (initialTreatments.length > 0) {
-        setSelectedTreatments(initialTreatments);
+      });
+    }
+    // Fallback to single service (serviceName / serviceId)
+    else if (appointment.serviceName && appointment.serviceId) {
+      if (!isTreatmentBilledRecently(appointment.serviceName)) {
+        const slug = typeof appointment.serviceId === 'string' ? appointment.serviceId : (appointment.serviceId as { _id: string })._id;
+        const matchingTreatment = treatments.find(t => t.slug === slug || t.name === appointment.serviceName);
+        initialTreatments.push({
+          treatmentName: appointment.serviceName,
+          treatmentSlug: slug,
+          price: matchingTreatment?.price || 0,
+          quantity: 1,
+          totalPrice: matchingTreatment?.price || 0,
+        });
       }
     }
-  }, [isOpen, appointment, treatments, billingHistory]);
+
+    // Only mark as initialized and set treatments once billing history has loaded
+    if (billingHistoryFetched) {
+      setSelectedTreatments(initialTreatments);
+      initializedAppointmentId.current = appointment._id;
+    }
+  }, [isOpen, appointment, treatments, billingHistory, billingHistoryFetched, isTreatmentBilledRecently]);
 
   // Fetch and override referredBy with patient's referral name when available
   useEffect(() => {
@@ -1055,7 +1150,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
          
           const doctorEffectiveDisc = hasAppliedFromComplaint
             ? { type: appliedComplaint.doctorDiscountType, amount: appliedComplaint.doctorDiscountAmount || 0 }
-            : (doctorDiscount ? { type: doctorDiscount.discountType, amount: doctorDiscount.discountAmount } : null);
+            : null;
 
           const agentEffectiveDisc = agentDiscount
             ? { type: agentDiscount.discountType, amount: agentDiscount.discountAmount }
@@ -1343,8 +1438,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
 
     // Apply doctor discount if applicable
-    if (isDoctorDiscountApplied && finalTotal > 0) {
-      const activeDoctorDiscount = doctorAppliedDiscount ? doctorComplaintDiscount : doctorDiscount;
+    if (isDoctorDiscountApplied && finalTotal > 0 && doctorAppliedDiscount) {
+      const activeDoctorDiscount = doctorComplaintDiscount;
       if (activeDoctorDiscount) {
         if (activeDoctorDiscount.discountType === "percentage") {
           const discountVal = (finalTotal * activeDoctorDiscount.discountAmount) / 100;
@@ -1354,9 +1449,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         }
       }
     }
-
-    // Apply agent discount if applicable
-    if (isAgentDiscountApplied && agentDiscount && finalTotal > 0) {
+    // Apply agent discount if applicable (only if doctor discount not applied)
+    else if (isAgentDiscountApplied && agentDiscount && finalTotal > 0) {
       if (agentDiscount.discountType === "percentage") {
         const discountVal = (finalTotal * agentDiscount.discountAmount) / 100;
         finalTotal = Math.max(0, finalTotal - discountVal);
@@ -1690,7 +1784,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       }
 
       const tName = t.treatmentName;
-      const isAlreadyBilledForThisAppointment = alreadyBilledPackageTreatmentNames.includes(tName);
+      const isAlreadyBilledForThisAppointment = isTreatmentBilledRecently(tName);
 
       return {
         treatmentName: tName,
@@ -2127,14 +2221,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
       // Calculate doctor discount applied
       let doctorDiscountApplied = 0;
-      if (isDoctorDiscountApplied && doctorDiscount) {
+      if (isDoctorDiscountApplied && doctorAppliedDiscount && doctorComplaintDiscount) {
         const amountAfterMembership =
           baseAmount - (membershipDiscountApplied || 0);
-        if (doctorDiscount.discountType === "percentage") {
+        if (doctorComplaintDiscount.discountType === "percentage") {
           doctorDiscountApplied =
-            (amountAfterMembership * doctorDiscount.discountAmount) / 100;
-        } else if (doctorDiscount.discountType === "fixed_amount") {
-          doctorDiscountApplied = doctorDiscount.discountAmount;
+            (amountAfterMembership * doctorComplaintDiscount.discountAmount) / 100;
+        } else if (doctorComplaintDiscount.discountType === "fixed_amount") {
+          doctorDiscountApplied = doctorComplaintDiscount.discountAmount;
         }
       }
 
@@ -2191,8 +2285,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         membershipDiscountApplied,
         doctorDiscountApplied,
         isDoctorDiscountApplied,
-        doctorDiscountType: isDoctorDiscountApplied ? (doctorAppliedDiscount ? doctorComplaintDiscount?.discountType : doctorDiscount?.discountType) : null,
-        doctorDiscountAmount: isDoctorDiscountApplied ? (doctorAppliedDiscount ? doctorComplaintDiscount?.discountAmount : doctorDiscount?.discountAmount) : 0,
+        doctorDiscountType: isDoctorDiscountApplied ? (doctorAppliedDiscount ? doctorComplaintDiscount?.discountType : null) : null,
+        doctorDiscountAmount: isDoctorDiscountApplied ? (doctorAppliedDiscount ? doctorComplaintDiscount?.discountAmount : 0) : 0,
         isAgentDiscountApplied,
         agentDiscountType: isAgentDiscountApplied ? agentDiscount?.discountType : null,
         agentDiscountAmount: isAgentDiscountApplied ? agentDiscount?.discountAmount : 0,
@@ -2340,16 +2434,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
   const isAlreadyBilled = billedItems.length > 0;
 
-  // Check if it's within 24 hours of the appointment date
-  const appointmentDate = appointment?.startDate ? new Date(appointment.startDate) : null;
-  const now = new Date();
-  const isWithinTimeLimit = appointmentDate ? (now.getTime() - appointmentDate.getTime()) <= 24 * 60 * 60 * 1000 : false;
-
-  const canRebill = isAlreadyBilled && isWithinTimeLimit;
+  const canRebill = isAlreadyBilled;
 
   const filteredTreatments = treatments.filter((t) => {
-    // Filter out treatments already billed for this appointment within the time limit
-    if (isAlreadyBilled && billedTreatmentNames.includes(t.name)) {
+    if (isTreatmentBilledRecently(t.name)) {
       return false;
     }
 
@@ -2385,14 +2473,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   ];
 
   const filteredAllPackages = allPackagesForDropdown.filter((pkg) => {
-    // If already billed for this appointment, hide the package if all its treatments are already billed
-    if (isAlreadyBilled) {
-      const hasUnbilledTreatments = pkg.treatments.some((t: any) => {
-        const tName = t.treatmentName || t.name;
-        return !billedPackageTreatmentNames.includes(tName);
-      });
-      if (!hasUnbilledTreatments) return false;
-    }
+    const hasUnbilledTreatments = pkg.treatments?.some((t: any) => {
+      const tName = t.treatmentName || t.name;
+      return tName && !isTreatmentBilledRecently(tName);
+    });
+    if (!hasUnbilledTreatments) return false;
 
     if (!packageSearchQuery.trim()) return false;
     const query = packageSearchQuery.toLowerCase();
@@ -3006,24 +3091,44 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                     )}
 
                     {/* Membership discount breakdown in service area */}
-                    {membershipUsage?.hasMembership && !membershipUsage?.isExpired && membershipUsage?.remainingFreeConsultations === 0 && membershipUsage?.discountPercentage > 0 && parseFloat(formData.originalAmount || "0") > 0 && (
-                      <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
-                        <div className="grid grid-cols-3 gap-2 text-xs">
-                          <div className="text-center">
-                            <div className="text-gray-500 text-[10px]">Original</div>
-                            <div className="font-semibold line-through text-gray-500">$ {parseFloat(formData.originalAmount || "0").toFixed(2)}</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-blue-500 text-[10px]">Discount ({membershipUsage.discountPercentage}%)</div>
-                            <div className="font-semibold text-blue-600">−$ {((parseFloat(formData.originalAmount || "0") * membershipUsage.discountPercentage) / 100).toFixed(2)}</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-emerald-500 text-[10px]">Final</div>
-                            <div className="font-bold text-emerald-600">$ {totalPrice.toFixed(2)}</div>
+                    {(() => {
+                      const showSummary = ((membershipUsage?.hasMembership && !membershipUsage?.isExpired && membershipUsage?.remainingFreeConsultations === 0 && membershipUsage?.discountPercentage > 0) || isDoctorDiscountApplied || isAgentDiscountApplied) && parseFloat(formData.originalAmount || "0") > 0;
+                      if (!showSummary) return null;
+
+                      const activeDiscounts = [];
+                      if (membershipUsage?.hasMembership && !membershipUsage?.isExpired && membershipUsage?.remainingFreeConsultations === 0 && membershipUsage?.discountPercentage > 0) {
+                        activeDiscounts.push(`Memb (${membershipUsage.discountPercentage}%)`);
+                      }
+                      if (isDoctorDiscountApplied && doctorComplaintDiscount) {
+                        activeDiscounts.push(`Dr (${doctorComplaintDiscount.discountAmount}${doctorComplaintDiscount.discountType === "percentage" ? "%" : " Fixed"})`);
+                      } else if (isAgentDiscountApplied && agentDiscount) {
+                        activeDiscounts.push(`Agent (${agentDiscount.discountAmount}${agentDiscount.discountType === "percentage" ? "%" : " Fixed"})`);
+                      }
+
+                      const discountDesc = activeDiscounts.join(" + ");
+
+                      return (
+                        <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="grid grid-cols-3 gap-2 text-xs">
+                            <div className="text-center">
+                              <div className="text-gray-500 text-[10px]">Original</div>
+                              <div className="font-semibold line-through text-gray-500">{getCurrencySymbol(currency)} {parseFloat(formData.originalAmount || "0").toFixed(2)}</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-blue-500 text-[10px] leading-tight">
+                                Discount
+                                {discountDesc && <div className="text-[8px] font-medium opacity-80">{discountDesc}</div>}
+                              </div>
+                              <div className="font-semibold text-blue-600">−{getCurrencySymbol(currency)} {(parseFloat(formData.originalAmount || "0") - totalPrice).toFixed(2)}</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-emerald-500 text-[10px]">Final</div>
+                              <div className="font-bold text-emerald-600">{getCurrencySymbol(currency)} {totalPrice.toFixed(2)}</div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                     {membershipUsage?.hasMembership && !membershipUsage?.isExpired && membershipUsage?.remainingFreeConsultations > 0 && totalPrice === 0 && (
                       <div className="mt-3 p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-700">
                         ✓ Free consultation applied — no charge for this session.
@@ -3038,7 +3143,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                     {/* Discount Controls */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                       {/* Doctor Discount Section (From Profile or Complaint) */}
-                      {(doctorAppliedDiscount || doctorDiscount) && (
+                      {doctorAppliedDiscount && (
                         <div className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
                           isDoctorDiscountApplied ? "bg-orange-50 border-orange-200 shadow-sm" : "bg-gray-50 border-gray-100"
                         }`}>
@@ -3050,11 +3155,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                               <span className={`text-[10px] font-bold ${isDoctorDiscountApplied ? "text-orange-700" : "text-gray-500"}`}>DOCTOR DISCOUNT</span>
                               <div className="flex items-center gap-2">
                                 <span className="text-[10px] text-gray-600 font-medium">
-                                  {doctorAppliedDiscount ? doctorComplaintDiscount?.discountAmount : doctorDiscount?.discountAmount}
-                                  {doctorAppliedDiscount ? (doctorComplaintDiscount?.discountType === "percentage" ? "%" : " Fixed") : (doctorDiscount?.discountType === "percentage" ? "%" : " Fixed")}
-                                  {doctorAppliedDiscount ? " (Applied)" : " (Available)"}
+                                  {doctorAppliedDiscount ? doctorComplaintDiscount?.discountAmount : 0}
+                                  {doctorAppliedDiscount ? (doctorComplaintDiscount?.discountType === "percentage" ? "%" : " Fixed") : ""}
+                                  {doctorAppliedDiscount ? " (Applied)" : ""}
                                 </span>
-                                {agentDiscount && ((doctorAppliedDiscount ? doctorComplaintDiscount?.discountAmount : doctorDiscount?.discountAmount) || 0) > agentDiscount.discountAmount && (
+                                {agentDiscount && ((doctorAppliedDiscount ? doctorComplaintDiscount?.discountAmount : 0) || 0) > agentDiscount.discountAmount && (
                                   <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">
                                     Best Value!
                                   </span>
@@ -3093,7 +3198,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                 <span className="text-[10px] text-gray-600 font-medium">
                                   {agentDiscount.discountAmount}{agentDiscount.discountType === "percentage" ? "%" : " Fixed"} available
                                 </span>
-                                {((doctorAppliedDiscount && doctorComplaintDiscount) || doctorDiscount) && agentDiscount.discountAmount > ((doctorAppliedDiscount ? doctorComplaintDiscount?.discountAmount : doctorDiscount?.discountAmount) || 0) && (
+                                {(doctorAppliedDiscount && doctorComplaintDiscount) && agentDiscount.discountAmount > (doctorComplaintDiscount?.discountAmount || 0) && (
                                   <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold animate-pulse">
                                     Best Value!
                                   </span>
@@ -3127,6 +3232,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         <input type="number" step="0.01" value={formData.amount || "0.00"} readOnly
                           className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg bg-gray-100 text-gray-900 font-bold"
                         />
+                        {parseFloat(formData.pendingUsed || "0") > 0 && (
+                          <div className="text-[9px] text-amber-600 mt-0.5 font-bold uppercase tracking-wider">
+                            + Pending Amount Added
+                          </div>
+                        )}
                         {(isDoctorDiscountApplied || isAgentDiscountApplied) && (
                           <div className="text-[9px] text-red-500 mt-0.5 font-medium italic">
                             Discounted from {getCurrencySymbol(currency)} {parseFloat(formData.originalAmount || "0").toFixed(2)}
@@ -3370,7 +3480,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
                       {/* Total Amount (after discounts) */}
                       <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-gray-700 font-medium">Total Amount</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-700 font-medium">Total Amount</span>
+                          {parseFloat(formData.pendingUsed || "0") > 0 && (
+                            <span className="px-1.5 py-0.5 text-[8px] font-bold bg-amber-100 text-amber-700 rounded border border-amber-200 uppercase">
+                              + Pending Amount Added
+                            </span>
+                          )}
+                        </div>
                         <span className="font-bold text-gray-900">{getCurrencySymbol(currency)} {parseFloat(formData.amount || "0").toFixed(2)}</span>
                       </div>
 
@@ -3446,10 +3563,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                     >
                       Cancel
                     </button>
-                    <button type="submit" disabled={loading || (isAlreadyBilled && !canRebill)}
+                    <button type="submit" disabled={loading}
                       className="px-4 py-2 text-xs font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {loading ? "Creating..." : (isAlreadyBilled && !canRebill) ? "Already Billed" : isAlreadyBilled ? "Create Additional Billing" : "Create Billing"}
+                      {loading ? "Creating..." : isAlreadyBilled ? "Create Additional Billing" : "Create Billing"}
                     </button>
                   </div>
                 </div>
@@ -3487,15 +3604,20 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             const membershipPlan = memberships.find((mem: any) => mem._id === m.membershipId);
                             const displayName = membershipPlan?.name || m.membershipName || m.membershipId;
                             const ml = monthsUntil(m.endDate);
+                            const isExpired = m.endDate && new Date(m.endDate) < new Date();
                             return (
-                              <div key={`${m.membershipId}-${idx}`} className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                              <div key={`${m.membershipId}-${idx}`} className={`rounded-lg border px-3 py-2 ${isExpired ? "border-red-200 bg-red-50" : "border-emerald-200 bg-emerald-50"}`}>
                                 <div className="flex items-center justify-between">
-                                  <div className="text-xs font-semibold text-emerald-800">{displayName}</div>
-                                  {typeof ml === "number" && ml >= 0 && (
-                                    <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full">{ml}m left</span>
+                                  <div className={`text-xs font-semibold ${isExpired ? "text-red-800" : "text-emerald-800"}`}>{displayName}</div>
+                                  {isExpired ? (
+                                    <span className="text-[9px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full font-bold uppercase tracking-tighter">Expired</span>
+                                  ) : (
+                                    typeof ml === "number" && ml >= 0 && (
+                                      <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full">{ml}m left</span>
+                                    )
                                   )}
                                 </div>
-                                <div className="text-[9px] text-emerald-600 mt-0.5">
+                                <div className={`text-[9px] mt-0.5 ${isExpired ? "text-red-600 font-medium italic" : "text-emerald-600"}`}>
                                   {m.startDate ? new Date(m.startDate).toLocaleDateString() : "–"} → {m.endDate ? new Date(m.endDate).toLocaleDateString() : "–"}
                                 </div>
                               </div>
@@ -3506,30 +3628,41 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         )}
 
                         {/* Active membership usage details */}
-                        {membershipUsage && membershipUsage.hasMembership && !membershipUsage.isExpired && !isMembershipTransferredOut() && (
-                          <div className="pt-2 mt-1 border-t border-gray-100 space-y-1.5">
-                            <div className="text-[10px] font-bold text-gray-700">{membershipUsage.membershipName}</div>
-                            <div className="flex items-center justify-between text-[10px]">
-                              <span className="text-gray-600">Free Consultations</span>
-                              <span className={`font-semibold ${membershipUsage.remainingFreeConsultations > 0 ? "text-emerald-600" : "text-amber-600"}`}>
-                                {membershipUsage.remainingFreeConsultations || 0} remaining
-                              </span>
+                        {membershipUsage && membershipUsage.hasMembership && !isMembershipTransferredOut() && (
+                          <div className={`pt-2 mt-1 border-t border-gray-100 space-y-1.5 ${membershipUsage.isExpired ? "opacity-75" : ""}`}>
+                            <div className="flex items-center justify-between">
+                              <div className={`text-[10px] font-bold ${membershipUsage.isExpired ? "text-red-700" : "text-gray-700"}`}>{membershipUsage.membershipName}</div>
+                              {membershipUsage.isExpired && (
+                                <span className="text-[8px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full font-bold uppercase tracking-tighter shadow-sm">Expired</span>
+                              )}
                             </div>
-                            {membershipUsage.totalFreeConsultations > 0 && (
-                              <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full ${
-                                    membershipUsage.remainingFreeConsultations > 0 ? "bg-emerald-400" : "bg-amber-400"
-                                  }`}
-                                  style={{ width: `${Math.min(((membershipUsage.usedFreeConsultations || 0) / membershipUsage.totalFreeConsultations) * 100, 100)}%` }}
-                                />
-                              </div>
-                            )}
-                            {membershipUsage.discountPercentage > 0 && (
-                              <div className="flex items-center justify-between text-[10px]">
-                                <span className="text-gray-600">Discount</span>
-                                <span className="font-semibold text-blue-600">{membershipUsage.discountPercentage}%</span>
-                              </div>
+                            {!membershipUsage.isExpired ? (
+                              <>
+                                <div className="flex items-center justify-between text-[10px]">
+                                  <span className="text-gray-600">Free Consultations</span>
+                                  <span className={`font-semibold ${membershipUsage.remainingFreeConsultations > 0 ? "text-emerald-600" : "text-amber-600"}`}>
+                                    {membershipUsage.remainingFreeConsultations || 0} remaining
+                                  </span>
+                                </div>
+                                {membershipUsage.totalFreeConsultations > 0 && (
+                                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full ${
+                                        membershipUsage.remainingFreeConsultations > 0 ? "bg-emerald-400" : "bg-amber-400"
+                                      }`}
+                                      style={{ width: `${Math.min(((membershipUsage.usedFreeConsultations || 0) / membershipUsage.totalFreeConsultations) * 100, 100)}%` }}
+                                    />
+                                  </div>
+                                )}
+                                {membershipUsage.discountPercentage > 0 && (
+                                  <div className="flex items-center justify-between text-[10px]">
+                                    <span className="text-gray-600">Discount</span>
+                                    <span className="font-semibold text-blue-600">{membershipUsage.discountPercentage}%</span>
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <div className="text-[9px] text-red-600 italic font-medium">This membership is no longer active.</div>
                             )}
                           </div>
                         )}
@@ -3612,9 +3745,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             const paidAmount = pkg.paidAmount || 0;
 
                             return (
-                              <div key={`${pkg.packageId || pkg._id}-${pkgIndex}`} className={`border ${isExpired ? 'border-red-200 bg-red-50/30' : 'border-teal-200 bg-gradient-to-br from-teal-50 to-cyan-50'} rounded-xl overflow-hidden relative`}>
+                              <div key={`${pkg.packageId || pkg._id}-${pkgIndex}`} className={`border ${isExpired ? 'border-red-200 bg-red-50' : 'border-teal-200 bg-gradient-to-br from-teal-50 to-cyan-50'} rounded-xl overflow-hidden relative shadow-sm`}>
                                 {isExpired && (
-                                  <div className="absolute top-0 right-0 px-2 py-0.5 bg-red-600 text-white text-[7px] font-black uppercase tracking-tighter z-10 rounded-bl-lg shadow-sm">
+                                  <div className="absolute top-0 right-0 px-2 py-1 bg-red-600 text-white text-[8px] font-black uppercase tracking-tighter z-10 rounded-bl-lg shadow-sm">
                                     Expired
                                   </div>
                                 )}
