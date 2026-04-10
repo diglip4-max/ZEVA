@@ -649,7 +649,7 @@ export const sendWhatsappActionWorker = new Worker(
             );
             recipient = replaceVariableInString(
               recipient,
-              "message",
+              "incoming_message",
               messagePayload,
             );
           }
@@ -1326,7 +1326,7 @@ export const restApiActionWorker = new Worker(
       if (actionData.messageId) {
         apiHeadersData = replaceVariableInObject(
           apiHeadersData,
-          "message",
+          "incoming_message",
           messagePayload,
         );
       }
@@ -1396,7 +1396,7 @@ export const restApiActionWorker = new Worker(
           if (actionData.messageId) {
             apiParametersJSONData = replaceVariableInObject(
               apiParametersJSONData,
-              "message",
+              "incoming_message",
               messagePayload,
             );
           }
@@ -1443,7 +1443,7 @@ export const restApiActionWorker = new Worker(
             );
             newValue = replaceVariableInString(
               newValue,
-              "message",
+              "incoming_message",
               messagePayload,
             );
 

@@ -79,7 +79,7 @@ const getRedisClient = () => {
 };
 
 const redis = getRedisClient();
-console.log("Redis client initialized", { redis });
+console.log("Redis client initialized");
 
 export const redisClient = redis;
 export default redis;

@@ -30,6 +30,15 @@ const Message: React.FC<IProps> = ({
   onSelectMessage,
   onMessageUpdate,
 }) => {
+  const linkify = (text: string) => {
+    if (!text) return "";
+    const urlRegex = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
+    const html = text.replace(urlRegex, (match) => {
+      const href = match.startsWith("http") ? match : `http://${match}`;
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline hover:text-blue-700">${match}</a>`;
+      });
+    return html.replace(/\n/g, "<br />");
+  };
   const token =
     typeof window !== "undefined" ? localStorage.getItem("clinicToken") : null;
 
@@ -383,9 +392,9 @@ const Message: React.FC<IProps> = ({
               <div
                 className="text-sm text-gray-800 leading-relaxed break-words"
                 dangerouslySetInnerHTML={{
-                  __html: DOMPurify.sanitize(
-                    message?.content?.replace(/\n/g, "<br />") || "",
-                  ),
+                  __html: DOMPurify.sanitize(linkify(message?.content || ""), {
+                    ADD_ATTR: ["target", "rel", "class"],
+                  }),
                 }}
               />
 
@@ -695,9 +704,9 @@ const Message: React.FC<IProps> = ({
               <div
                 className="text-sm text-gray-800 leading-relaxed break-words"
                 dangerouslySetInnerHTML={{
-                  __html: DOMPurify.sanitize(
-                    message?.content?.replace(/\n/g, "<br />") || "",
-                  ),
+                  __html: DOMPurify.sanitize(linkify(message?.content || ""), {
+                    ADD_ATTR: ["target", "rel", "class"],
+                  }),
                 }}
               />
 

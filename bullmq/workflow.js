@@ -927,8 +927,8 @@ const evaluateSingleCondition = ({ condition, ...rest }) => {
   value = replaceVariableInString(value, "patient", patientPayload);
 
   // Replace with message payload
-  field = replaceVariableInString(field, "message", messagePayload);
-  value = replaceVariableInString(value, "message", messagePayload);
+  field = replaceVariableInString(field, "incoming_message", messagePayload);
+  value = replaceVariableInString(value, "incoming_message", messagePayload);
 
   // Replace with appointment payload
   field = replaceVariableInString(field, "appointment", appointmentPayload);
@@ -938,7 +938,11 @@ const evaluateSingleCondition = ({ condition, ...rest }) => {
   field = replaceVariableInString(field, "system", systemPayload);
   value = replaceVariableInString(value, "system", systemPayload);
 
-  console.log({ field, operator, value });
+  console.log({
+    field,
+    operator,
+    value,
+  });
 
   //   Evaluate the condition based on the field, operator, and value
   //   This is a placeholder for actual evaluation logic
@@ -966,10 +970,16 @@ const evaluateSingleCondition = ({ condition, ...rest }) => {
       return field !== value && parseFloat(field) !== parseFloat(value);
 
     case "contains":
-      return field.includes(value);
+      return (
+        field.includes(value) ||
+        field?.toLowerCase().includes(value?.toLowerCase())
+      );
 
     case "not_contains":
-      return !field.includes(value);
+      return (
+        !field.includes(value) &&
+        !field?.toLowerCase().includes(value?.toLowerCase())
+      );
 
     case "exists":
       return field !== undefined && field !== null;
@@ -1351,7 +1361,7 @@ export const getMessageDetails = async (messageId) => {
       _id: message._id,
       clinicId: message.clinicId,
       leadId: message.leadId,
-      message: message.message,
+      message: message.content,
       type: message.messageType,
       channel: message.channel,
       direction: message.direction,
@@ -1360,7 +1370,7 @@ export const getMessageDetails = async (messageId) => {
       content: message.content,
       mediaUrl: message.mediaUrl,
       mediaType: message.mediaType,
-      status: message.status,
+      status: "incoming",
       source: message.source,
       error_code: message.errorCode,
       error_message: message.errorMessage,
