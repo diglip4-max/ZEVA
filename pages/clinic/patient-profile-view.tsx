@@ -7,7 +7,7 @@ import {
   Mail, Clock, Shield, X, CheckCircle, XCircle,
   ExternalLink,
   AlertTriangle, Info, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck,
-  ChevronDown, Search, Loader2, Check
+  ChevronDown, Search, Loader2, Check, Upload, Camera, Image as ImageIcon, Eye
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -68,6 +68,7 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
   const [transferSubmitting, setTransferSubmitting] = useState(false);
   const [localMemberships, setLocalMemberships] = useState<any[]>([]);
   const [localPackages, setLocalPackages] = useState<any[]>([]);
+  const [publicPackages, setPublicPackages] = useState<any[]>([]);
 
   // Fetch memberships and packages on mount
   useEffect(() => {
@@ -85,6 +86,20 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
         const packagesRes = await axios.get('/api/clinic/packages', { headers });
         if (packagesRes.data.success) {
           setLocalPackages(packagesRes.data.packages || []);
+        }
+
+        // Fetch public packages
+        if (patientData?._id) {
+          const publicPackagesRes = await axios.get('/api/clinic/public-package', { 
+            headers,
+            params: {
+              patientId: patientData._id,
+              clinicId: patientData.clinicId,
+            }
+          });
+          if (publicPackagesRes.data.success) {
+            setPublicPackages(publicPackagesRes.data.existingPackages || []);
+          }
         }
       } catch (error) {
         console.error('Error fetching transfer data:', error);
@@ -129,8 +144,15 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
           const headers = getAuthHeaders() || {};
           const res = await axios.get(`/api/clinic/package-usage/${patientId}`, { headers });
           if (res.data.success) {
-            const usage = res.data.packageUsage?.find((p: any) => p.packageId === selectedPackageId);
-            setPackageUsage(usage || null);
+            // Find the selected package from localPackages or publicPackages to get its name
+            const selectedPkg = localPackages.find((p: any) => p._id === selectedPackageId) || publicPackages.find((p: any) => p._id === selectedPackageId);
+            if (selectedPkg) {
+              // Match by packageName like the Packages section does
+              const usage = res.data.packageUsage?.find((p: any) => p.packageName === selectedPkg.name);
+              setPackageUsage(usage || null);
+            } else {
+              setPackageUsage(null);
+            }
           }
         } catch (error) {
           console.error('Error fetching package usage:', error);
@@ -138,7 +160,7 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
       };
       fetchPackageUsage();
     }
-  }, [transferType, selectedPackageId, patientId]);
+  }, [transferType, selectedPackageId, patientId, localPackages, publicPackages]);
 
   // Search for target patients
   useEffect(() => {
@@ -180,7 +202,12 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
       
       if (transferType === "membership") {
         // Check if there are remaining benefits to transfer (same as PatientUpdateForm)
-        if (!selectedMembershipId || !membershipUsage || !membershipUsage.remainingFreeConsultations || membershipUsage.remainingFreeConsultations <= 0) {
+        // Calculate remaining consultations from total and used
+        const totalConsultations = membershipUsage?.totalFreeConsultations || 0;
+        const usedConsultations = membershipUsage?.usedFreeConsultations || 0;
+        const remainingConsultations = Math.max(0, totalConsultations - usedConsultations);
+        
+        if (!selectedMembershipId || !membershipUsage || remainingConsultations <= 0) {
           alert('No remaining membership benefits to transfer');
           setTransferSubmitting(false);
           return;
@@ -247,12 +274,14 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
             onChange={(e) => {
               setShowTransfer(e.target.checked);
               if (!e.target.checked) {
+                // Only clear transfer-specific state, keep search data
                 setTransferType("");
                 setMembershipUsage(null);
                 setPackageUsage(null);
                 setSelectedTargetPatient(null);
                 setSelectedPackageId("");
                 setSelectedMembershipId("");
+                // Keep searchQuery and searchResults to preserve user's search
               }
             }}
           />
@@ -326,26 +355,33 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                   )}
                 </select>
               </div>
-              {membershipUsage ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="text-[11px]">
-                    <div className="font-semibold text-gray-700">Total Free Consultations</div>
-                    <div className="text-gray-900">{membershipUsage.totalFreeConsultations || 0}</div>
+              {membershipUsage ? (() => {
+                // Always calculate remaining from total and used to ensure consistency
+                const totalConsultations = membershipUsage.totalFreeConsultations || 0;
+                const usedConsultations = membershipUsage.usedFreeConsultations || 0;
+                const remainingConsultations = Math.max(0, totalConsultations - usedConsultations);
+                
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="text-[11px]">
+                      <div className="font-semibold text-gray-700">Total Free Consultations</div>
+                      <div className="text-gray-900">{totalConsultations}</div>
+                    </div>
+                    <div className="text-[11px]">
+                      <div className="font-semibold text-gray-700">Used Free Consultations</div>
+                      <div className="text-gray-900">{usedConsultations}</div>
+                    </div>
+                    <div className="text-[11px]">
+                      <div className="font-semibold text-gray-700">Remaining</div>
+                      <div className="text-gray-900">{remainingConsultations}</div>
+                    </div>
+                    <div className="text-[11px]">
+                      <div className="font-semibold text-gray-700">Discount %</div>
+                      <div className="text-gray-900">{membershipUsage.discountPercentage || 0}</div>
+                    </div>
                   </div>
-                  <div className="text-[11px]">
-                    <div className="font-semibold text-gray-700">Used Free Consultations</div>
-                    <div className="text-gray-900">{membershipUsage.usedFreeConsultations || 0}</div>
-                  </div>
-                  <div className="text-[11px]">
-                    <div className="font-semibold text-gray-700">Remaining</div>
-                    <div className="text-gray-900">{membershipUsage.remainingFreeConsultations || 0}</div>
-                  </div>
-                  <div className="text-[11px]">
-                    <div className="font-semibold text-gray-700">Discount %</div>
-                    <div className="text-gray-900">{membershipUsage.discountPercentage || 0}</div>
-                  </div>
-                </div>
-              ) : (
+                );
+              })() : (
                 <div className="text-[11px] text-gray-600">Loading membership usage...</div>
               )}
             </div>
@@ -360,54 +396,51 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                   className="text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 border-gray-300 hover:border-indigo-400"
                 >
                   <option value="">Select package</option>
+                  {/* Patient's existing packages */}
                   {(Array.isArray(patientData?.packages) ? patientData.packages : []).map((p: any) => {
                     const pkg = localPackages.find(x => x._id === p.packageId);
                     return pkg ? (
                       <option key={pkg._id} value={pkg._id}>
-                        {pkg.name} ({getCurrencySymbol(pkg.currency)}{pkg.totalPrice}, {pkg.totalSessions} sessions)
+                        {pkg.name} - Patient Package
                       </option>
                     ) : null;
                   })}
+                  {/* Public packages */}
+                  {publicPackages.map((pkg: any) => (
+                    <option key={pkg._id} value={pkg._id}>
+                      {pkg.packageName || pkg.name} - Public Package
+                    </option>
+                  ))}
                 </select>
               </div>
-              {selectedPackageId && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="text-[11px]">
-                    <div className="font-semibold text-gray-700">Total Sessions</div>
-                    <div className="text-gray-900">
-                      {(() => {
-                        const pkg = localPackages.find((p: any) => p._id === selectedPackageId);
-                        return pkg ? pkg.totalSessions : 0;
-                      })()}
+              {selectedPackageId && (() => {
+                const pkg = localPackages.find((p: any) => p._id === selectedPackageId) || publicPackages.find((p: any) => p._id === selectedPackageId);
+                const totalSess = pkg ? pkg.totalSessions : 0;
+                const usedSess = packageUsage?.totalSessions || 0;
+                // Always calculate remaining from total and used to ensure consistency
+                const remainingSess = Math.max(0, totalSess - usedSess);
+                
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="text-[11px]">
+                      <div className="font-semibold text-gray-700">Total Sessions</div>
+                      <div className="text-gray-900">{totalSess}</div>
+                    </div>
+                    <div className="text-[11px]">
+                      <div className="font-semibold text-gray-700">Used Sessions</div>
+                      <div className="text-gray-900">{usedSess}</div>
+                    </div>
+                    <div className="text-[11px]">
+                      <div className="font-semibold text-gray-700">Remaining</div>
+                      <div className="text-gray-900">{remainingSess}</div>
+                    </div>
+                    <div className="text-[11px]">
+                      <div className="font-semibold text-gray-700">Package</div>
+                      <div className="text-gray-900">{pkg ? pkg.name : "-"}</div>
                     </div>
                   </div>
-                  <div className="text-[11px]">
-                    <div className="font-semibold text-gray-700">Used Sessions</div>
-                    <div className="text-gray-900">{packageUsage?.totalSessions || 0}</div>
-                  </div>
-                  <div className="text-[11px]">
-                    <div className="font-semibold text-gray-700">Remaining</div>
-                    <div className="text-gray-900">
-                      {typeof packageUsage?.remainingSessions === "number"
-                        ? packageUsage.remainingSessions
-                        : Math.max(0, (() => {
-                            const pkg = localPackages.find((p: any) => p._id === selectedPackageId);
-                            const totalSess = pkg ? pkg.totalSessions : 0;
-                            return totalSess - (packageUsage?.totalSessions || 0);
-                          })())}
-                    </div>
-                  </div>
-                  <div className="text-[11px]">
-                    <div className="font-semibold text-gray-700">Package</div>
-                    <div className="text-gray-900">
-                      {(() => {
-                        const pkg = localPackages.find((p: any) => p._id === selectedPackageId);
-                        return pkg ? pkg.name : "-";
-                      })()}
-                    </div>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
           )}
           <div className="rounded-lg border border-emerald-200 bg-white p-3 space-y-2">
@@ -416,7 +449,15 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  e.preventDefault();
+                  setSearchQuery(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                  }
+                }}
                 placeholder="Type name, mobile, or EMR"
                 className="w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 border-gray-300 hover:border-indigo-400"
               />
@@ -444,7 +485,11 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
             )}
             <div className="flex justify-end">
               <button
-                onClick={handleSubmitTransfer}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleSubmitTransfer();
+                }}
                 disabled={
                   transferSubmitting ||
                   !selectedTargetPatient ||
@@ -489,6 +534,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { p
   const [loadingPackages, setLoadingPackages] = useState(false);
   const [billingHistory, setBillingHistory] = useState<any>(null);
   const [loadingBilling, setLoadingBilling] = useState(false);
+  const [allAppointmentsData, setAllAppointmentsData] = useState<any[]>([]);
+  const [loadingTreatmentAppointments, setLoadingTreatmentAppointments] = useState(false);
   const [mediaDocuments, setMediaDocuments] = useState<any[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
   
@@ -539,8 +586,17 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     pastAdvance50PercentBalance: Number(patientData?.initialBalance?.pastAdvance50PercentBalance || 0),
     pastAdvance54PercentBalance: Number(patientData?.initialBalance?.pastAdvance54PercentBalance || 0),
     pastAdvance159FlatBalance: Number(patientData?.initialBalance?.pastAdvance159FlatBalance || 0),
+    pendingBalanceImages: [] as string[],
   });
   const [balanceLoading, setBalanceLoading] = useState(false);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [showUploadImageModal, setShowUploadImageModal] = useState(false);
+  const [showImageViewer, setShowImageViewer] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [mediaSubTab, setMediaSubTab] = useState<'before-after' | 'payment-proofs'>('before-after');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showAddAdvancePaymentModal, setShowAddAdvancePaymentModal] = useState(false);
   const [showAddPastAdvancePayment50PercentModal, setShowAddPastAdvancePayment50PercentModal] = useState(false);
   const [showAddPastAdvancePayment54PercentModal, setShowAddPastAdvancePayment54PercentModal] = useState(false);
@@ -1366,8 +1422,8 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'treatments' && patientData?._id) {
-      fetchAppointments();
       fetchBillingHistory();
+      fetchTreatmentsFromAppointments();
     }
   }, [activeTab]);
 
@@ -1740,11 +1796,44 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       }
     } catch (error: any) {
       console.error('Error fetching billing history:', error.message);
-      setBillingHistory(null);
+      setBillingHistory([]);
+      return [];
     } finally {
       setLoadingBilling(false);
     }
     return [];
+  };
+
+  // Fetch appointments data for Treatment section
+  const fetchTreatmentsFromAppointments = async () => {
+    if (!patientData?._id) return;
+    
+    setLoadingTreatmentAppointments(true);
+    try {
+      const headers = getAuthHeaders();
+      if (!headers) return;
+
+      const today = new Date().toISOString().split('T')[0];
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+      const response = await axios.get(
+        `/api/clinic/all-appointments?page=1&limit=1000&fromDate=${oneYearAgo.toISOString().split('T')[0]}&toDate=${today}`,
+        { headers }
+      );
+      
+      if (response.data.success) {
+        const patientAppointments = response.data.appointments?.filter(
+          (apt: any) => apt.patientId === patientData._id
+        ) || [];
+        setAllAppointmentsData(patientAppointments);
+      }
+    } catch (error: any) {
+      console.error('Error fetching appointments for treatments:', error.message);
+      setAllAppointmentsData([]);
+    } finally {
+      setLoadingTreatmentAppointments(false);
+    }
   };
 
   const calculateFinancialSnapshot = (billings: any[]) => {
@@ -2123,78 +2212,83 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     }
   };
 
-
-// Fetch created packages from UserPackage model
-const fetchCreatedPackages = async () => {
-  setLoadingCreatedPackages(true);
-  try {
-    const headers = getAuthHeaders();
-    if (!headers) return;
-
-    const response = await axios.get('/api/clinic/public-package', {
-      headers,
-      params: { 
-        patientId: patientData._id,
-        clinicId: patientData.clinicId,
-      },
-    });
-
-    if (response.data.success) {
-      setCreatedPackages(response.data.existingPackages || []);
+  // Fetch created packages from UserPackage model
+  const fetchCreatedPackages = async () => {
+    if (!patientData?._id) {
+      console.warn("Patient ID not available, skipping fetchCreatedPackages");
+      return;
     }
-  } catch (error: any) {
-    console.error("Error fetching created packages:", error);
-    setCreatedPackages([]);
-  } finally {
-    setLoadingCreatedPackages(false);
-  }
-};
 
-// Fetch progress notes
-const fetchProgressNotes = async () => {
-  setLoadingProgressNotes(true);
-  try {
-    const headers = getAuthHeaders();
-    if (!headers) return;
+    setLoadingCreatedPackages(true);
+    try {
+      const headers = getAuthHeaders();
+      if (!headers) return;
 
-    const response = await axios.get('/api/clinic/progress-notes', {
-      headers,
-      params: { patientId: patientData._id },
-    });
+      const response = await axios.get('/api/clinic/public-package', {
+        headers,
+        params: { 
+          patientId: patientData._id,
+          clinicId: patientData.clinicId || undefined,
+        },
+      });
 
-    if (response.data.success) {
-      setProgressNotes(response.data.notes || []);
+      if (response.data.success) {
+        setCreatedPackages(response.data.existingPackages || []);
+      }
+    } catch (error: any) {
+      console.error("Error fetching created packages:", error);
+      setCreatedPackages([]);
+    } finally {
+      setLoadingCreatedPackages(false);
     }
-  } catch (error: any) {
-    console.error("Error fetching progress notes:", error);
-    setProgressNotes([]);
-  } finally {
-    setLoadingProgressNotes(false);
-  }
-};
+  };
 
-// Fetch prescriptions
-const fetchPrescriptions = async () => {
-  setLoadingPrescriptions(true);
-  try {
-    const headers = getAuthHeaders();
-    if (!headers) return;
+  // Fetch progress notes
+  const fetchProgressNotes = async () => {
+    setLoadingProgressNotes(true);
+    try {
+      const headers = getAuthHeaders();
+      if (!headers) return;
 
-    const response = await axios.get('/api/clinic/prescriptions', {
-      headers,
-      params: { patientId: patientData._id },
-    });
+      const response = await axios.get('/api/clinic/progress-notes', {
+        headers,
+        params: { patientId: patientData._id },
+      });
 
-    if (response.data.success) {
-      setPrescriptions(response.data.prescriptions || []);
+      if (response.data.success) {
+        setProgressNotes(response.data.notes || []);
+      }
+    } catch (error: any) {
+      console.error("Error fetching progress notes:", error);
+      setProgressNotes([]);
+    } finally {
+      setLoadingProgressNotes(false);
     }
-  } catch (error: any) {
-    console.error("Error fetching prescriptions:", error);
-    setPrescriptions([]);
-  } finally {
-    setLoadingPrescriptions(false);
-  }
-};
+  };
+
+  // Fetch prescriptions
+  const fetchPrescriptions = async () => {
+    setLoadingPrescriptions(true);
+    try {
+      const headers = getAuthHeaders();
+      if (!headers) return;
+
+      const response = await axios.get('/api/clinic/prescriptions', {
+        headers,
+        params: { patientId: patientData._id },
+      });
+
+      if (response.data.success) {
+        setPrescriptions(response.data.prescriptions || []);
+      }
+    } catch (error: any) {
+      console.error("Error fetching prescriptions:", error);
+      setPrescriptions([]);
+    } finally {
+      setLoadingPrescriptions(false);
+    }
+  };
+
   const fetchPatientBalance = async (patientId: string) => {
     const headers = getAuthHeaders();
     if (!headers) return;
@@ -2208,9 +2302,89 @@ const fetchPrescriptions = async () => {
         pastAdvance50PercentBalance: Number(data.pastAdvance50PercentBalance || 0),
         pastAdvance54PercentBalance: Number(data.pastAdvance54PercentBalance || 0),
         pastAdvance159FlatBalance: Number(data.pastAdvance159FlatBalance || 0),
+        pendingBalanceImages: Array.isArray(data.pendingBalanceImages) ? data.pendingBalanceImages : [],
       };
     } catch {
-      return { pendingBalance: 0, advanceBalance: 0, pastAdvanceBalance: 0, pastAdvance50PercentBalance: 0, pastAdvance54PercentBalance: 0, pastAdvance159FlatBalance: 0 };
+      return { 
+        pendingBalance: 0, 
+        advanceBalance: 0, 
+        pastAdvanceBalance: 0, 
+        pastAdvance50PercentBalance: 0, 
+        pastAdvance54PercentBalance: 0, 
+        pastAdvance159FlatBalance: 0,
+        pendingBalanceImages: [],
+      };
+    }
+  };
+
+  const handleUploadBalance = async () => {
+    if (!patientData?._id) return;
+    
+    setUploadLoading(true);
+    setUploadError(null);
+    
+    try {
+      const updatedBalance = await fetchPatientBalance(patientData._id);
+      if (updatedBalance) {
+        setBalance(updatedBalance as typeof balance);
+        setFinancialData((prev: any) => ({
+          ...prev,
+          advanceBalance: updatedBalance.advanceBalance || 0,
+          pendingPayment: updatedBalance.pendingBalance || prev.pendingPayment,
+        }));
+      }
+    } catch (error: any) {
+      console.error('Error uploading balance data:', error);
+      setUploadError(error?.response?.data?.message || 'Failed to fetch balance data. Please try again.');
+    } finally {
+      setUploadLoading(false);
+    }
+  };
+
+  const handleImageUpload = async (file: File) => {
+    if (!patientData?._id) return;
+
+    try {
+      // Step 1: Upload image to /api/upload
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const authHeaders = getAuthHeaders();
+      if (!authHeaders) throw new Error('Not authenticated');
+      
+      const uploadResponse = await axios.post('/api/upload', formData, {
+        headers: {
+          ...authHeaders,
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (!uploadResponse.data?.success || !uploadResponse.data?.url) {
+        throw new Error('Image upload failed');
+      }
+
+      const imageUrl = uploadResponse.data.url;
+
+      // Step 2: Save image URL to patient balance
+      const saveResponse = await axios.post(
+        `/api/clinic/patient-balance/${patientData._id}/upload-image`,
+        { imageUrl },
+        { headers: authHeaders }
+      );
+
+      if (saveResponse.data?.success) {
+        // Refresh balance data to show the new image
+        const updatedBalance = await fetchPatientBalance(patientData._id);
+        if (updatedBalance) {
+          setBalance(updatedBalance as typeof balance);
+        }
+        return true;
+      } else {
+        throw new Error(saveResponse.data?.message || 'Failed to save image');
+      }
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      throw error;
     }
   };
 
@@ -4471,8 +4645,8 @@ const fetchPrescriptions = async () => {
                     </div>
                   ) : (
                     <>
-                      {/* Left Column - Invoices Table (2 columns width) */}
-                      <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                      {/* Invoices Table - Full Width */}
+                      <div className="lg:col-span-3 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                         <div className="px-5 py-4 border-b border-gray-100">
                           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                             <FileText className="w-5 h-5 text-teal-600" />
@@ -4487,6 +4661,7 @@ const fetchPrescriptions = async () => {
                                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Invoice</th>
                                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
                                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Treatment</th>
+                                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Payment Method</th>
                                 <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
                               </tr>
                             </thead>
@@ -4494,8 +4669,9 @@ const fetchPrescriptions = async () => {
                               {(billingHistory || [])
                                 .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
                                 .map((billing: any, index: number) => {
-                                // Determine invoice status
-
+                                // Determine payment method
+                                const paymentMethod = billing.paymentMethod || (billing.multiplePayments?.length > 0 ? billing.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ") : "–");
+                                
                                 return (
                                   <tr key={billing._id || index} className="hover:bg-gray-50 transition-colors">
                                     <td className="px-5 py-4 whitespace-nowrap">
@@ -4524,13 +4700,19 @@ const fetchPrescriptions = async () => {
                                         ) : (
                                           billing.treatment || '-'
                                         )}
-                                      </div>
+                                     </div>
+                                    </td>
+                                    <td className="px-5 py-4 whitespace-nowrap">
+                                      <div className="text-sm text-gray-700">{paymentMethod}</div>
                                     </td>
                                     <td className="px-5 py-4 whitespace-nowrap text-right">
-                                      <div className="text-sm font-bold text-gray-900">{formatAED(billing.amount || 0)}</div>
+                                       <div className="text-sm font-bold text-gray-900">Paid: {formatAED(billing.paid || 0)}</div>
+                                        {/* <div className="text-[10px] text-gray-500">Total: {formatAED(billing.originalAmount || billing.amount || 0)}</div> */}
+                                      <div className="text-[10px] text-gray-900">Total: {formatAED(billing.amount || 0)}</div>
+                                       
                                       <div className="flex flex-col items-end mt-1 space-y-0.5">
-                                        <div className="text-[10px] text-gray-500">Total: {formatAED(billing.originalAmount || billing.amount || 0)}</div>
-                                        <div className="text-[10px] text-gray-500">Paid: {formatAED(billing.paid || 0)}</div>
+                                        {/* <div className="text-[10px] text-gray-500">Total: {formatAED(billing.originalAmount || billing.amount || 0)}</div> */}
+                                       
                                         {(billing.discountPercent > 0 || billing.discountPercentage > 0) && (
                                           <div className="text-[10px] text-teal-600 font-medium">
                                             Disc: {(billing.discountPercent || billing.discountPercentage || 0).toFixed(1)}%
@@ -4549,173 +4731,85 @@ const fetchPrescriptions = async () => {
                           <div className="sm:hidden divide-y divide-gray-100">
                             {(billingHistory || [])
                               .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
-                              .map((billing: any, index: number) => (
-                                <div key={billing._id || index} className="p-4 hover:bg-gray-50">
-                                  <div className="flex justify-between items-start mb-2">
-                                    <div>
-                                      <div className="text-sm font-bold text-gray-900">{billing.invoiceNumber || `INV-${String(index + 1).padStart(4, '0')}`}</div>
-                                      <div className="text-xs text-gray-500">{billing.service || 'Treatment'}</div>
-                                    </div>
-                                    <div className="text-right">
-                                      <div className="text-sm font-bold text-gray-900">{formatAED(billing.amount || 0)}</div>
-                                      <div className="text-[10px] text-gray-500">{billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString() : 'N/A'}</div>
-                                    </div>
-                                  </div>
-                                  <div className="text-sm text-gray-700 mb-2">
-                                    {billing.package ? (
-                                      <div className="flex items-center gap-1 font-semibold text-indigo-700">
-                                        <Package className="w-3 h-3" />
-                                        {billing.package}
-                                      </div>
-                                    ) : (
-                                      billing.treatment || '-'
-                                    )}
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-gray-50">
-                                    <div className="text-[10px] text-gray-500">
-                                      <span className="block">Original: {formatAED(billing.originalAmount || billing.amount || 0)}</span>
-                                      <span className="block">Paid: {formatAED(billing.paid || 0)}</span>
-                                    </div>
-                                    <div className="text-[10px] text-right">
-                                      {(billing.discountPercent > 0 || billing.discountPercentage > 0) && (
-                                        <span className="block text-teal-600 font-medium">Disc: {(billing.discountPercent || billing.discountPercentage || 0).toFixed(1)}%</span>
-                                      )}
-                                      <span className="block text-gray-400">Qty: {billing.quantity || 0}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Right Column - Payment History & Summary */}
-                      <div className="lg:col-span-1">
-                        {/* Payment History Card */}
-                        <div className="bg-white rounded-xl border border-gray-200 shadow-lg p-5">
-                          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                            <CreditCard className="w-5 h-5 text-green-600" />
-                            Payment History 
-                          </h3>
-                          
-                          <div className="space-y-0">
-                            {(() => {
-                              const allPayments = (billingHistory || [])
-                                .filter((b: any) => 
-                                  (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") || 
-                                  b.treatment === "Pending Balance Payment"
-                                )
-                                .flatMap((billing: any) => 
-                                (billing.paymentHistory || []).map((payment: any, idx: number) => ({
-                                  ...payment,
-                                  invoiceNumber: billing.invoiceNumber,
-                                  billingId: billing._id,
-                                  originalIndex: idx
-                                }))
-                              );
-
-                              if (allPayments.length === 0) {
+                              .map((billing: any, index: number) => {
+                                const paymentMethod = billing.paymentMethod || (billing.multiplePayments?.length > 0 ? billing.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ") : "–");
                                 return (
-                                  <div className="flex flex-col items-center justify-center py-8">
-                                    <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                                      {/* <DollarSign className="w-8 h-8 text-gray-400" /> */}
+                                  <div key={billing._id || index} className="p-4 hover:bg-gray-50">
+                                    <div className="flex justify-between items-start mb-2">
+                                      <div>
+                                        <div className="text-sm font-bold text-gray-900">{billing.invoiceNumber || `INV-${String(index + 1).padStart(4, '0')}`}</div>
+                                        <div className="text-xs text-gray-500">{billing.service || 'Treatment'}</div>
+                                      </div>
+                                      <div className="text-right">
+                                        <div className="text-sm font-bold text-gray-900">{formatAED(billing.amount || 0)}</div>
+                                        <div className="text-[10px] text-gray-500">{billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString() : 'N/A'}</div>
+                                      </div>
                                     </div>
-                                    <p className="text-sm text-gray-500 font-medium">No payment history</p>
-                                    <p className="text-xs text-gray-400 mt-1">Payments will appear here</p>
+                                    <div className="text-sm text-gray-700 mb-2">
+                                      {billing.package ? (
+                                        <div className="flex items-center gap-1 font-semibold text-indigo-700">
+                                          <Package className="w-3 h-3" />
+                                          {billing.package}
+                                        </div>
+                                      ) : (
+                                        billing.treatment || '-'
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-gray-600 mb-2">
+                                      <span className="font-medium">Payment: </span>{paymentMethod}
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-gray-50">
+                                      <div className="text-[10px] text-gray-500">
+                                        <span className="block">Original: {formatAED(billing.originalAmount || billing.amount || 0)}</span>
+                                        <span className="block">Paid: {formatAED(billing.paid || 0)}</span>
+                                      </div>
+                                      <div className="text-[10px] text-right">
+                                        {(billing.discountPercent > 0 || billing.discountPercentage > 0) && (
+                                          <span className="block text-teal-600 font-medium">Disc: {(billing.discountPercent || billing.discountPercentage || 0).toFixed(1)}%</span>
+                                        )}
+                                        <span className="block text-gray-400">Qty: {billing.quantity || 0}</span>
+                                      </div>
+                                    </div>
                                   </div>
                                 );
-                              }
-
-                              return allPayments.map((payment: any, index: number) => (
-                                <div key={`${payment.billingId}-${payment.originalIndex}-${index}`}>
-                                  <div className="flex items-start gap-3 py-3">
-                                    {/* Circular Green Icon */}
-                                   
-                                    
-                                    {/* Payment Details */}
-                                    <div className="flex-1 min-w-0">
-                                      <div className="text-base font-bold text-gray-900">
-                                        {getCurrencySymbol(payment.currency)} {payment.amount || payment.paid || 0}
-                                      </div>
-                                      <div className="text-sm text-gray-600 mt-0.5">
-                                        {payment.paymentMethod ? (
-                                          <>
-                                            {payment.paymentMethod === 'Card' ? 'Card ending 4242' : 
-                                            payment.paymentMethod === 'Wallet' ? 'Wallet Balance' :
-                                            payment.paymentMethod}
-                                          </>
-                                        ) : 'Payment'}
-                                      </div>
-                                      {payment.invoiceNumber && (
-                                        <div className="text-xs text-gray-500 mt-1">
-                                          {payment.invoiceNumber}
-                                        </div>
-                                      )}
-                                    </div>
-                                    
-                                    {/* Right-aligned Date */}
-                                    <div className="text-right flex-shrink-0">
-                                      <div className="text-sm text-gray-500">
-                                        {payment.updatedAt 
-                                          ? new Date(payment.updatedAt).toLocaleDateString('en-US', { 
-                                              month: 'short', 
-                                              day: 'numeric',
-                                              year: 'numeric'
-                                            }) 
-                                          : 'N/A'}
-                                      </div>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Thin Divider */}
-                                  {index < allPayments.length - 1 && (
-                                    <div className="h-px bg-gray-100 ml-13"></div>
-                                  )}
-                                </div>
-                              ));
-                            })()}
+                              })}
                           </div>
+                        </div>
 
-                          {/* Divider before Summary */}
-                          {(billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length > 0 && (
-                            <div className="h-px bg-gray-200 my-4"></div>
-                          )}
-
-                          {/* Summary Section */}
-                          {(billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length > 0 && (
-                            <div className="pt-4 space-y-3">
-                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                                {/* Total Billed */}
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-                                  <div className="text-[10px] sm:text-xs text-blue-600 mb-1">Total Billed</div>
-                                  <div className="text-lg sm:text-xl md:text-2xl font-bold text-blue-800">
-                                    {formatAED((billingHistory || []).filter((b: any) => 
-                                      (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") || 
-                                      b.treatment === "Pending Balance Payment"
-                                    ).reduce((acc: number, b: any) => acc + (Number(b.amount) || 0), 0))}
-                                  </div>
+                        {/* Summary Section - Total Billed, Total Paid, Outstanding */}
+                        {(billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length > 0 && (
+                          <div className="px-5 py-4 border-t border-gray-200 bg-gray-50">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              {/* Total Billed */}
+                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                                <div className="text-[10px] sm:text-xs text-blue-600 mb-1">Total Billed</div>
+                                <div className="text-lg sm:text-xl md:text-2xl font-bold text-blue-800">
+                                  {formatAED((billingHistory || []).filter((b: any) => 
+                                    (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") || 
+                                    b.treatment === "Pending Balance Payment"
+                                  ).reduce((acc: number, b: any) => acc + (Number(b.amount) || 0), 0))}
                                 </div>
-                                {/* Total Paid */}
-                                <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-                                  <div className="text-[10px] sm:text-xs text-green-600 mb-1">Total Paid</div>
-                                  <div className="text-lg sm:text-xl md:text-2xl font-bold text-green-800">
-                                    {formatAED((billingHistory || []).filter((b: any) => 
-                                      (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") || 
-                                      b.treatment === "Pending Balance Payment"
-                                    ).reduce((acc: number, b: any) => acc + (Number(b.paid) || 0), 0))}
-                                  </div>
+                              </div>
+                              {/* Total Paid */}
+                              <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                                <div className="text-[10px] sm:text-xs text-green-600 mb-1">Total Paid</div>
+                                <div className="text-lg sm:text-xl md:text-2xl font-bold text-green-800">
+                                  {formatAED((billingHistory || []).filter((b: any) => 
+                                    (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") || 
+                                    b.treatment === "Pending Balance Payment"
+                                  ).reduce((acc: number, b: any) => acc + (Number(b.paid) || 0), 0))}
                                 </div>
-                                {/* Outstanding */}
-                                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center sm:col-span-2 md:col-span-1">
-                                  <div className="text-[10px] sm:text-xs text-red-600 mb-1">Outstanding</div>
-                                  <div className="text-lg sm:text-xl md:text-2xl font-bold text-red-800">
-                                    {formatAED(balance.pendingBalance)}
-                                  </div>
+                              </div>
+                              {/* Outstanding */}
+                              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
+                                <div className="text-[10px] sm:text-xs text-red-600 mb-1">Outstanding</div>
+                                <div className="text-lg sm:text-xl md:text-2xl font-bold text-red-800">
+                                  {formatAED(balance.pendingBalance)}
                                 </div>
                               </div>
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
                     </>
                   )}
@@ -4792,178 +4886,380 @@ const fetchPrescriptions = async () => {
 
               </div>
             ) : activeTab === 'media' ? (
-              /* Media & Documents - Before/After Images */
+              /* Media & Documents - Two Sub-tabs */
               <div className="space-y-4">
-                {loadingMedia ? (
-                  <div className="flex items-center justify-center py-16">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
-                  </div>
-                ) : mediaDocuments.length === 0 ? (
-                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div className="h-1.5 bg-gradient-to-r from-teal-400 to-cyan-400" />
-                    <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-teal-50 to-cyan-100 border-2 border-teal-200 flex items-center justify-center mb-4">
-                        <FileImage className="w-9 h-9 text-teal-400" />
-                      </div>
-                      <h3 className="text-lg font-bold text-gray-800 mb-2">No Before/After Images</h3>
-                      <p className="text-gray-500 text-sm max-w-xs">
-                        Before and after images will appear here once added via the appointment complaint form.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-5">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FileImage className="w-5 h-5 text-teal-600" />
-                      <h3 className="text-base font-bold text-gray-900">Before & After Images</h3>
-                      <span className="ml-auto px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">
-                        {mediaDocuments.length} Record{mediaDocuments.length !== 1 ? 's' : ''}
-                      </span>
-                    </div>
+                {/* Sub-tab Navigation */}
+                <div className="flex items-center gap-2 border-b border-gray-200 pb-3">
+                  <button
+                    onClick={() => setMediaSubTab('before-after')}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                      mediaSubTab === 'before-after'
+                        ? 'bg-teal-600 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <FileImage className="w-4 h-4" />
+                      Before & After Images
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMediaSubTab('payment-proofs');
+                      // Refresh balance data to get latest images
+                      if (patientData?._id) {
+                        fetchPatientBalance(patientData._id).then((data) => {
+                          if (data) setBalance(data as typeof balance);
+                        });
+                      }
+                    }}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                      mediaSubTab === 'payment-proofs'
+                        ? 'bg-purple-600 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Camera className="w-4 h-4" />
+                      Payment Proofs
+                    </span>
+                    
+                  </button>
+                </div>
 
-                    {mediaDocuments.map((item: any, index: number) => (
-                      <div key={item._id || index} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                        {/* Card Header */}
-                        <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center">
-                            <Activity className="w-4 h-4 text-teal-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-semibold text-gray-900 truncate">
-                              {item.complaints || 'Complaint Record'}
+                {/* Before & After Images Tab */}
+                {mediaSubTab === 'before-after' && (
+                  loadingMedia ? (
+                    <div className="flex items-center justify-center py-16">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+                    </div>
+                  ) : mediaDocuments.length === 0 ? (
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                      <div className="h-1.5 bg-gradient-to-r from-teal-400 to-cyan-400" />
+                      <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+                        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-teal-50 to-cyan-100 border-2 border-teal-200 flex items-center justify-center mb-4">
+                          <FileImage className="w-9 h-9 text-teal-400" />
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-800 mb-2">No Before/After Images</h3>
+                        <p className="text-gray-500 text-sm max-w-xs">
+                          Before and after images will appear here once added via the appointment complaint form.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-5">
+                      <div className="flex items-center gap-2 mb-2">
+                        <FileImage className="w-5 h-5 text-teal-600" />
+                        <h3 className="text-base font-bold text-gray-900">Before & After Images</h3>
+                        <span className="ml-auto px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">
+                          {mediaDocuments.length} Record{mediaDocuments.length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+
+                      {mediaDocuments.map((item: any, index: number) => (
+                        <div key={item._id || index} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                          {/* Card Header */}
+                          <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center">
+                              <Activity className="w-4 h-4 text-teal-600" />
                             </div>
-                            <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
-                              {item.doctorName && (
-                                <span className="flex items-center gap-1">
-                                  <User className="w-3 h-3" />
-                                  {item.doctorName}
-                                </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-semibold text-gray-900 truncate">
+                                {item.complaints || 'Complaint Record'}
+                              </div>
+                              <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
+                                {item.doctorName && (
+                                  <span className="flex items-center gap-1">
+                                    <User className="w-3 h-3" />
+                                    {item.doctorName}
+                                  </span>
+                                )}
+                                {item.appointmentDate && (
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" />
+                                    {new Date(item.appointmentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Before / After Grid */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+                            {/* Before */}
+                            <div className="p-4">
+                              <div className="flex items-center gap-2 mb-3">
+                                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">BEFORE</span>
+                              </div>
+                              {item.beforeImage ? (
+                                <div className="relative rounded-xl overflow-hidden bg-gray-100 aspect-video group">
+                                  <img
+                                    src={item.beforeImage}
+                                    alt="Before"
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                    onError={(e: any) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                                  />
+                                  <div className="hidden absolute inset-0 items-center justify-center bg-gray-100 text-gray-400 text-xs">
+                                    Image not available
+                                  </div>
+                                  <a
+                                    href={item.beforeImage}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2.5 py-1 rounded-full hover:bg-opacity-80 transition-all"
+                                  >
+                                    View Full
+                                  </a>
+                                </div>
+                              ) : (
+                                <div className="aspect-video rounded-xl bg-gray-50 border-2 border-dashed border-gray-200 flex items-center justify-center">
+                                  <div className="text-center">
+                                    <FileImage className="w-8 h-8 text-gray-300 mx-auto mb-1" />
+                                    <span className="text-xs text-gray-400">No before image</span>
+                                  </div>
+                                </div>
                               )}
-                              {item.appointmentDate && (
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="w-3 h-3" />
-                                  {new Date(item.appointmentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                </span>
+                            </div>
+
+                            {/* After */}
+                            <div className="p-4">
+                              <div className="flex items-center gap-2 mb-3">
+                                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">AFTER</span>
+                              </div>
+                              {item.afterImage ? (
+                                <div className="relative rounded-xl overflow-hidden bg-gray-100 aspect-video group">
+                                  <img
+                                    src={item.afterImage}
+                                    alt="After"
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                    onError={(e: any) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                                  />
+                                  <div className="hidden absolute inset-0 items-center justify-center bg-gray-100 text-gray-400 text-xs">
+                                    Image not available
+                                  </div>
+                                  <a
+                                    href={item.afterImage}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2.5 py-1 rounded-full hover:bg-opacity-80 transition-all"
+                                  >
+                                    View Full
+                                  </a>
+                                </div>
+                              ) : (
+                                <div className="aspect-video rounded-xl bg-gray-50 border-2 border-dashed border-gray-200 flex items-center justify-center">
+                                  <div className="text-center">
+                                    <FileImage className="w-8 h-8 text-gray-300 mx-auto mb-1" />
+                                    <span className="text-xs text-gray-400">No after image</span>
+                                  </div>
+                                </div>
                               )}
                             </div>
                           </div>
                         </div>
+                      ))}
+                    </div>
+                  )
+                )}
 
-                        {/* Before / After Grid */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
-                          {/* Before */}
-                          <div className="p-4">
-                            <div className="flex items-center gap-2 mb-3">
-                              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">BEFORE</span>
-                            </div>
-                            {item.beforeImage ? (
-                              <div className="relative rounded-xl overflow-hidden bg-gray-100 aspect-video group">
-                                <img
-                                  src={item.beforeImage}
-                                  alt="Before"
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                  onError={(e: any) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
-                                />
-                                <div className="hidden absolute inset-0 items-center justify-center bg-gray-100 text-gray-400 text-xs">
-                                  Image not available
-                                </div>
-                                <a
-                                  href={item.beforeImage}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2.5 py-1 rounded-full hover:bg-opacity-80 transition-all"
-                                >
-                                  View Full
-                                </a>
-                              </div>
-                            ) : (
-                              <div className="aspect-video rounded-xl bg-gray-50 border-2 border-dashed border-gray-200 flex items-center justify-center">
-                                <div className="text-center">
-                                  <FileImage className="w-8 h-8 text-gray-300 mx-auto mb-1" />
-                                  <span className="text-xs text-gray-400">No before image</span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* After */}
-                          <div className="p-4">
-                            <div className="flex items-center gap-2 mb-3">
-                              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">AFTER</span>
-                            </div>
-                            {item.afterImage ? (
-                              <div className="relative rounded-xl overflow-hidden bg-gray-100 aspect-video group">
-                                <img
-                                  src={item.afterImage}
-                                  alt="After"
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                  onError={(e: any) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
-                                />
-                                <div className="hidden absolute inset-0 items-center justify-center bg-gray-100 text-gray-400 text-xs">
-                                  Image not available
-                                </div>
-                                <a
-                                  href={item.afterImage}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2.5 py-1 rounded-full hover:bg-opacity-80 transition-all"
-                                >
-                                  View Full
-                                </a>
-                              </div>
-                            ) : (
-                              <div className="aspect-video rounded-xl bg-gray-50 border-2 border-dashed border-gray-200 flex items-center justify-center">
-                                <div className="text-center">
-                                  <FileImage className="w-8 h-8 text-gray-300 mx-auto mb-1" />
-                                  <span className="text-xs text-gray-400">No after image</span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
+                {/* Payment Proofs Tab */}
+                {mediaSubTab === 'payment-proofs' && (
+                  !balance.pendingBalanceImages || balance.pendingBalanceImages.length === 0 ? (
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                      <div className="h-1.5 bg-gradient-to-r from-purple-400 to-indigo-400" />
+                      <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+                        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-50 to-indigo-100 border-2 border-purple-200 flex items-center justify-center mb-4">
+                          <Camera className="w-9 h-9 text-purple-400" />
                         </div>
+                        <h3 className="text-lg font-bold text-gray-800 mb-2">No Payment Proofs</h3>
+                        <p className="text-gray-500 text-sm max-w-xs mb-4">
+                          Payment proof images will appear here once uploaded from the Financial Snapshot section.
+                        </p>
+                        <button
+                          onClick={() => {
+                            // Switch to overview tab and scroll to financial snapshot
+                            setActiveTab('overview');
+                            setTimeout(() => {
+                              const uploadBtn = document.querySelector('button[title="Upload payment proof"]');
+                              if (uploadBtn) uploadBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }, 100);
+                          }}
+                          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-all shadow-md"
+                        >
+                          Upload Payment Proof
+                        </button>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Camera className="w-5 h-5 text-purple-600" />
+                        <h3 className="text-base font-bold text-gray-900">Payment Proof Images</h3>
+                        <span className="ml-auto px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
+                          {balance.pendingBalanceImages.length} Image{balance.pendingBalanceImages.length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+
+                      {/* Image Grid */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        {balance.pendingBalanceImages.map((imgUrl: string, index: number) => (
+                          <div
+                            key={index}
+                            onClick={() => {
+                              setSelectedImageIndex(index);
+                              setShowImageViewer(true);
+                            }}
+                            className="relative group cursor-pointer rounded-xl overflow-hidden border-2 border-gray-200 hover:border-purple-500 transition-all shadow-sm hover:shadow-md bg-gray-50 aspect-square"
+                          >
+                            <img
+                              src={imgUrl}
+                              alt={`Payment proof ${index + 1}`}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-3">
+                              <div className="flex items-center gap-2">
+                                <Eye className="w-5 h-5 text-white" />
+                                <span className="text-white text-xs font-semibold">View</span>
+                              </div>
+                            </div>
+                            <div className="absolute top-2 right-2 bg-black/50 text-white text-[10px] px-2 py-1 rounded-full">
+                              #{index + 1}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
                 )}
               </div>
             ) : activeTab === 'treatments' ? (
-              /* Treatments Tab — derived from appointments + billing */
+              /* Treatments Tab — Ongoing/All from appointments, Completed from billing */
               (() => {
-                // Build treatment list from appointments, cross-ref with billing for status
-                const paidInvoiceAptIds = new Set(
-                  (billingHistory || [])
-                    .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance" && b.paid >= b.amount && b.amount > 0)
-                    .map((b: any) => b.appointmentId?._id || b.appointmentId)
-                    .filter(Boolean)
-                );
+                // Debug: Log data sources
+                console.log('Billing History:', billingHistory);
+                console.log('Appointments Data:', allAppointmentsData);
+                
+                // Build treatment items from appointments (for Ongoing and All sections)
+                const appointmentTreatments = (allAppointmentsData || [])
+                  .map((apt: any) => {
+                    const status = (apt.status || apt.appointmentStatus || '').toLowerCase();
+                    const isCompleted = status === 'completed' || status === 'discharge';
+                    
+                    // Get treatment name
+                    const treatmentName = apt.treatmentName || apt.serviceName || 'Appointment';
+                    
+                    // Get doctor name
+                    const doctorName = apt.doctorName || '';
+                    
+                    // Get date
+                    const date = apt.appointmentDate 
+                      ? new Date(apt.appointmentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                      : (apt.createdAt 
+                        ? new Date(apt.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                        : 'N/A');
+                    
+                    // Get time
+                    const time = apt.fromTime || '';
+                    
+                    return {
+                      source: 'appointment',
+                      data: apt,
+                      treatmentName,
+                      doctorName,
+                      date: time ? `${date} at ${time}` : date,
+                      treatmentStatus: isCompleted ? 'completed' : 'ongoing',
+                      amount: apt.amount || apt.totalAmount || 0,
+                      paid: apt.paidAmount || 0,
+                      isFullyPaid: isCompleted
+                    };
+                  });
 
-                const treatmentItems = (appointments || []).map((apt: any) => {
-                  const isPaid = paidInvoiceAptIds.has(apt._id);
-                  const treatmentStatus = isPaid ? 'completed' : 'ongoing';
-                  const treatmentName =
-                    (Array.isArray(apt.serviceNames) && apt.serviceNames.length > 0
-                      ? apt.serviceNames.join(', ')
-                      : null) ||
-                    apt.serviceName ||
-                    apt.treatmentName ||
-                    apt.treatment ||
-                    '-';
-                  const doctorName =
-                    apt.doctorName ||
-                    apt.doctorId?.name ||
-                    apt.doctor ||
-                    'Doctor';
-                  const date =
-                    apt.registeredDate ||
-                    (apt.startDate ? new Date(apt.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null) ||
-                    (apt.createdAt ? new Date(apt.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A');
+                // Build treatment items from billing history (for Completed section)
+                const billingTreatments = (billingHistory || [])
+                  .filter((b: any) => {
+                    // Filter out advance payments and balance adjustments
+                    const isAdvance = b.isAdvanceOnly || 
+                                     b.treatment === "Advance Payment" || 
+                                     b.treatment === "Historical Advance Balance";
+                    
+                    // Include if it has a treatment name OR a package name
+                    const hasTreatment = b.treatment && b.treatment.trim() !== '';
+                    const hasPackage = b.package && b.package.trim() !== '';
+                    
+                    return !isAdvance && (hasTreatment || hasPackage);
+                  })
+                  .map((billing: any) => {
+                    const amount = parseFloat(billing.amount) || 0;
+                    const paid = parseFloat(billing.paid || billing.paidAmount || 0) || 0;
+                    const isFullyPaid = amount > 0 && paid >= amount;
+                    const treatmentStatus = isFullyPaid ? 'completed' : 'ongoing';
+                    
+                    // Get treatment/package name from billing record
+                    const treatmentName = (billing.treatment && billing.treatment.trim() !== '' ? billing.treatment : billing.package) || '-';
+                    
+                    // Get doctor name if available
+                    const doctorName = billing.doctorName || 
+                                      (billing.doctorId && typeof billing.doctorId === 'object' ? billing.doctorId.name : null) ||
+                                      '';
+                    
+                    // Get date from billing record
+                    const date = billing.createdAt 
+                      ? new Date(billing.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                      : 'N/A';
 
-                  return { apt, treatmentName, doctorName, date, treatmentStatus };
-                });
+                    return {
+                      source: 'billing',
+                      data: billing,
+                      treatmentName,
+                      doctorName,
+                      date,
+                      treatmentStatus,
+                      amount,
+                      paid,
+                      isFullyPaid
+                    };
+                  });
 
-                const filtered = treatmentItems.filter((t: any) =>
-                  treatmentFilter === 'all' ? true : t.treatmentStatus === treatmentFilter
-                );
+                console.log('Appointment treatments:', appointmentTreatments);
+                console.log('Billing treatments:', billingTreatments);
+                console.log('Treatment filter:', treatmentFilter);
+
+                // Filter based on treatmentFilter
+                let filtered: any[] = [];
+                
+                if (treatmentFilter === 'completed') {
+                  // Completed section: Use billing history (fully paid treatments with ZERO pending amount)
+                  filtered = billingTreatments.filter((t: any) => {
+                    const pendingAmount = t.amount - t.paid;
+                    // Only show treatments where:
+                    // 1. Status is completed
+                    // 2. Paid amount is greater than or equal to total amount
+                    // 3. Pending amount is exactly 0 (no remaining balance)
+                    return t.treatmentStatus === 'completed' && 
+                           t.paid >= t.amount && 
+                           pendingAmount <= 0;
+                  });
+                } else if (treatmentFilter === 'ongoing') {
+                  // Ongoing section: Use appointments (non-completed status)
+                  filtered = appointmentTreatments.filter((t: any) => t.treatmentStatus === 'ongoing');
+                } else {
+                  // All section: Combine BOTH appointments (ongoing + completed) AND billing (completed)
+                  // Merge both data sources to show everything
+                  filtered = [...appointmentTreatments, ...billingTreatments];
+                  
+                  // Remove duplicates by checking if treatment names match
+                  const seen = new Set();
+                  filtered = filtered.filter((item: any) => {
+                    const key = `${item.treatmentName}-${item.date}-${item.source}`;
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                  });
+                }
+
+                console.log('Filtered treatments:', filtered);
+
+                const isLoading = loadingBilling || loadingTreatmentAppointments;
 
                 return (
                   <div className="space-y-4">
@@ -4985,7 +5281,7 @@ const fetchPrescriptions = async () => {
                     </div>
 
                     {/* Loading state */}
-                    {loadingAppointments ? (
+                    {isLoading ? (
                       <div className="flex items-center justify-center py-16">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
                       </div>
@@ -4996,28 +5292,35 @@ const fetchPrescriptions = async () => {
                         </div>
                         <p className="text-sm font-medium text-gray-500">No treatments found</p>
                         <p className="text-xs text-gray-400 mt-1">
-                          {treatmentFilter === 'all' ? 'No appointments booked yet' : `No ${treatmentFilter} treatments`}
+                          {treatmentFilter === 'all' ? 'No treatments or billing records yet' : 
+                           treatmentFilter === 'completed' ? 'No completed billing records' : 
+                           'No ongoing treatments'}
                         </p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {filtered.map((item: any, index: number) => {
                           const isCompleted = item.treatmentStatus === 'completed';
+                          const pendingAmount = item.amount - item.paid;
+                          const isFromBilling = item.source === 'billing';
+                          
                           return (
                             <div
-                              key={item.apt._id || index}
+                              key={item.data._id || index}
                               className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:shadow-md transition-shadow"
                             >
                               {/* Header */}
                               <div className="flex items-start justify-between mb-3">
-                                <div>
+                                <div className="flex-1">
                                   <h4 className="text-base font-bold text-gray-900">{item.treatmentName}</h4>
-                                  <p className="text-sm text-gray-500 mt-0.5">{item.doctorName}</p>
+                                  {item.doctorName && (
+                                    <p className="text-sm text-gray-500 mt-0.5">{item.doctorName}</p>
+                                  )}
                                 </div>
                                 <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
                                   isCompleted
                                     ? 'bg-green-50 text-green-700 border border-green-200'
-                                    : 'bg-blue-50 text-blue-700 border border-blue-200'
+                                    : 'bg-amber-50 text-amber-700 border border-amber-200'
                                 }`}>
                                   {isCompleted ? (
                                     <CheckCircle className="w-3.5 h-3.5" />
@@ -5028,10 +5331,32 @@ const fetchPrescriptions = async () => {
                                 </span>
                               </div>
 
+                              {/* Payment Info - Only show for billing source */}
+                              {isFromBilling && (
+                                <div className="space-y-2 mb-3">
+                                  {/* <div className="flex items-center justify-between text-sm">
+                                    <span className="text-gray-500">Total Amount:</span>
+                                    <span className="font-semibold text-gray-900">{formatAED(item.amount)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-gray-500">Paid:</span>
+                                    <span className="font-semibold text-green-600">{formatAED(item.paid)}</span>
+                                  </div>
+                                  {!isCompleted && pendingAmount > 0 && (
+                                    <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-100">
+                                      <span className="text-gray-500">Pending:</span>
+                                      <span className="font-semibold text-red-600">{formatAED(pendingAmount)}</span>
+                                    </div> */}
+                                
+                                
+                                 
+                                </div>
+                              )}
+
                               {/* Date */}
-                              <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                                <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-                                <span>Started: {item.date}</span>
+                              <div className="flex items-center gap-1.5 text-xs text-gray-500 pt-2 border-t border-gray-100">
+                                {/* <Calendar className="w-3.5 h-3.5 flex-shrink-0" /> */}
+                                {/* <span>{isFromBilling ? 'Billed' : ''}: {item.date}</span> */}
                               </div>
                             </div>
                           );
@@ -5600,13 +5925,28 @@ const fetchPrescriptions = async () => {
                           </div>
                         </div>
                         {balance.pendingBalance > 0 && (
-                          <button
-                            onClick={() => setShowPayPendingModal(true)}
-                            className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded shadow-sm transition-all active:scale-95 flex items-center gap-1"
-                          >
-                           
-                            Pay
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => setShowUploadImageModal(true)}
+                              className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-bold rounded shadow-sm transition-all active:scale-95 flex items-center gap-1"
+                              title="Upload payment proof"
+                            >
+                              <Camera className="w-3 h-3" />
+                              Upload
+                            </button>
+                            
+                            <button
+                              onClick={() => setShowPayPendingModal(true)}
+                              className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded shadow-sm transition-all active:scale-95 flex items-center gap-1"
+                            >
+                              Pay
+                            </button>
+                          </div>
+                        )}
+                        {uploadError && (
+                          <div className="mt-1 text-[10px] text-red-600 font-medium">
+                            {uploadError}
+                          </div>
                         )}
                       </div>
                                           
@@ -5626,7 +5966,7 @@ const fetchPrescriptions = async () => {
                   </div>
               
                   {/* Alerts - Compact Card Style */}
-                  <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
+                  {/* <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
                     <h3 className="text-sm font-semibold text-gray-900 mb-2.5 flex items-center gap-2">
                       <AlertCircle className="w-4 h-4 text-yellow-600 flex-shrink-0" />
                       Alerts
@@ -5659,7 +5999,7 @@ const fetchPrescriptions = async () => {
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </div> */}
               
                   {/* Patient Behavior - Compact with Right-Aligned Values */}
                   <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
@@ -5818,6 +6158,218 @@ const fetchPrescriptions = async () => {
             }
           }}
         />
+
+        {/* Upload Image Modal */}
+        {showUploadImageModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-md" onClick={() => setShowUploadImageModal(false)} />
+            <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+              <div className="bg-gradient-to-r from-purple-600 to-indigo-700 px-6 py-4 flex items-center justify-between sticky top-0 z-10 rounded-t-2xl">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                    <Camera className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Upload Payment Proof</h3>
+                    <p className="text-purple-100 text-xs font-medium opacity-80">Upload screenshot of payment</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowUploadImageModal(false)} className="p-2 hover:bg-white/10 rounded-xl text-white/80 hover:text-white transition-all">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6">
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Select Image
+                  </label>
+                  
+                  {/* Image Preview or Upload Box */}
+                  {previewUrl ? (
+                    <div className="relative rounded-xl overflow-hidden border-2 border-purple-300 bg-gray-50">
+                      <img
+                        src={previewUrl}
+                        alt="Preview"
+                        className="w-full h-64 object-contain"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                      <div className="absolute bottom-0 left-0 right-0 p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                            <span className="text-white text-xs font-medium">
+                              {selectedFile?.name}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedFile(null);
+                              setPreviewUrl(null);
+                              document.getElementById('payment-image-input')?.click();
+                            }}
+                            className="px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white text-xs font-semibold rounded-lg transition-all"
+                          >
+                            Change
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div 
+                      className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-purple-500 transition-colors cursor-pointer"
+                      onClick={() => document.getElementById('payment-image-input')?.click()}
+                    >
+                      <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                      <p className="text-sm text-gray-600 font-medium">Click to upload or drag and drop</p>
+                      <p className="text-xs text-gray-500 mt-1">PNG, JPG up to 5MB</p>
+                    </div>
+                  )}
+                  
+                  <input
+                    id="payment-image-input"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+
+                      // Validate file size (5MB)
+                      if (file.size > 5 * 1024 * 1024) {
+                        setUploadError('File size should be less than 5MB');
+                        return;
+                      }
+
+                      // Validate file type
+                      if (!file.type.startsWith('image/')) {
+                        setUploadError('Please select a valid image file');
+                        return;
+                      }
+
+                      // Set preview
+                      setSelectedFile(file);
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setPreviewUrl(reader.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                      setUploadError(null);
+                    }}
+                  />
+                </div>
+
+                {uploadError && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                    <p className="text-xs text-red-600 font-medium">{uploadError}</p>
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowUploadImageModal(false);
+                      setSelectedFile(null);
+                      setPreviewUrl(null);
+                      setUploadError(null);
+                    }}
+                    className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all text-sm"
+                  >
+                    Cancel
+                  </button>
+                  {previewUrl && (
+                    <button
+                      onClick={async () => {
+                        if (!selectedFile) return;
+                        
+                        setUploadLoading(true);
+                        setUploadError(null);
+
+                        try {
+                          await handleImageUpload(selectedFile);
+                          setShowUploadImageModal(false);
+                          setSelectedFile(null);
+                          setPreviewUrl(null);
+                          setUploadError(null);
+                          // Switch to Media tab and Payment Proofs sub-tab to show the uploaded image
+                          setActiveTab('media');
+                          setMediaSubTab('payment-proofs');
+                        } catch (error: any) {
+                          setUploadError(error?.message || 'Failed to upload image');
+                        } finally {
+                          setUploadLoading(false);
+                        }
+                      }}
+                      disabled={uploadLoading}
+                      className="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:from-purple-400 disabled:to-indigo-400 text-white rounded-xl font-semibold transition-all text-sm shadow-md disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {uploadLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Camera className="w-4 h-4" />
+                          Upload
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Image Viewer Modal */}
+        {showImageViewer && balance.pendingBalanceImages && balance.pendingBalanceImages.length > 0 && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-gray-900/90 backdrop-blur-md">
+            <button
+              onClick={() => setShowImageViewer(false)}
+              className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all z-10"
+            >
+              <X className="w-6 h-6" />
+            </button>
+
+            {/* Previous button */}
+            {selectedImageIndex > 0 && (
+              <button
+                onClick={() => setSelectedImageIndex(selectedImageIndex - 1)}
+                className="absolute left-4 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all"
+              >
+                <ChevronDown className="w-6 h-6 rotate-90" />
+              </button>
+            )}
+
+            {/* Next button */}
+            {selectedImageIndex < balance.pendingBalanceImages.length - 1 && (
+              <button
+                onClick={() => setSelectedImageIndex(selectedImageIndex + 1)}
+                className="absolute right-4 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all"
+              >
+                <ChevronDown className="w-6 h-6 -rotate-90" />
+              </button>
+            )}
+
+            {/* Image */}
+            <div className="max-w-5xl max-h-[90vh]">
+              <img
+                src={balance.pendingBalanceImages[selectedImageIndex]}
+                alt={`Payment proof ${selectedImageIndex + 1}`}
+                className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+              />
+              <div className="text-center mt-4">
+                <p className="text-white text-sm font-medium">
+                  Image {selectedImageIndex + 1} of {balance.pendingBalanceImages.length}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 };
