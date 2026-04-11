@@ -126,6 +126,8 @@ export default async function handler(req, res) {
           _id: null,
           totalRecords: { $sum: 1 },
           uniqueBranches: { $addToSet: "$branch" },
+          uniqueSuppliers: { $addToSet: "$supplier" },
+          totalItems: { $sum: { $size: { $ifNull: ["$items", []] } } },
           byStatus: { $push: "$status" },
         },
       },
@@ -133,6 +135,8 @@ export default async function handler(req, res) {
         $project: {
           totalRecords: 1,
           uniqueBranchesCount: { $size: "$uniqueBranches" },
+          uniqueSuppliersCount: { $size: "$uniqueSuppliers" },
+          totalItems: 1,
           statusCounts: {
             Returned: {
               $size: {
@@ -179,6 +183,8 @@ export default async function handler(req, res) {
         statistics: stats[0] || {
           totalRecords: 0,
           uniqueBranchesCount: 0,
+          uniqueSuppliersCount: 0,
+          totalItems: 0,
           statusCounts: { Returned: 0, Deleted: 0 },
         },
         filters: {

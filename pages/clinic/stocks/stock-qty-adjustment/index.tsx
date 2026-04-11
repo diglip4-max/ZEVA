@@ -4,6 +4,7 @@ import { NextPageWithLayout } from "@/pages/_app";
 import React, { ReactElement, useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 import {
   PlusIcon,
   PencilIcon,
@@ -22,6 +23,7 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [clinicCurrency, setClinicCurrency] = useState<string>("INR");
   const [pagination, setPagination] = useState({
     totalResults: 0,
     totalPages: 1,
@@ -52,6 +54,24 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
     toDate: "",
     status: "",
   });
+
+  // Fetch clinic currency
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const token = getTokenByPath();
+        const res = await axios.get("/api/clinics/myallClinic", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.data?.success && res.data.clinic?.currency) {
+          setClinicCurrency(res.data.clinic.currency);
+        }
+      } catch (err) {
+        console.error("Error fetching clinic currency:", err);
+      }
+    };
+    fetchClinicCurrency();
+  }, []);
 
   const fetchRecords = useCallback(
     debounce(async (page = 1, search = "", filters: any = {}) => {
@@ -551,7 +571,7 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          AED{" "}
+                          {getCurrencySymbol(clinicCurrency)}{" "}
                           {record.items
                             ?.reduce(
                               (sum: number, item: any) =>
@@ -806,7 +826,7 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
                                       />
                                     </svg>
                                     <span>
-                                      AED{" "}
+                                      {getCurrencySymbol(clinicCurrency)}{" "}
                                       {record.items
                                         ?.reduce(
                                           (sum: number, item: any) =>
@@ -893,11 +913,11 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
                                                 : "-"}
                                             </td>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                                              AED{" "}
+                                              {getCurrencySymbol(clinicCurrency)}{" "}
                                               {(item.costPrice || 0).toFixed(2)}
                                             </td>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
-                                              AED{" "}
+                                              {getCurrencySymbol(clinicCurrency)}{" "}
                                               {(item.totalPrice || 0).toFixed(
                                                 2,
                                               )}
@@ -915,7 +935,7 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
                                           Adjustment Total:
                                         </td>
                                         <td className="px-4 py-3 text-sm font-bold text-gray-900">
-                                          AED{" "}
+                                          {getCurrencySymbol(clinicCurrency)}{" "}
                                           {record.items
                                             ?.reduce(
                                               (sum: number, item: any) =>
