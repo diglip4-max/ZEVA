@@ -3857,7 +3857,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                                     <th className="text-left py-2 px-2.5 font-semibold text-gray-700 rounded-tl-lg">Invoice</th>
                                                     <th className="text-left py-2 px-2.5 font-semibold text-gray-700">Date</th>
                                                     <th className="text-center py-2 px-2.5 font-semibold text-gray-700">Sessions</th>
-                                                    <th className="text-right py-2 px-2.5 font-semibold text-gray-700">Amount</th>
+                                                    <th className="text-left py-2 px-2.5 font-semibold text-gray-700">Method</th>
+                                                    <th className="text-center py-2 px-2.5 font-semibold text-gray-700">Discount</th>
+                                                    <th className="text-right py-2 px-2.5 font-semibold text-gray-700">Original Amount</th>
+                                                    <th className="text-right py-2 px-2.5 font-semibold text-gray-700">Total</th>
                                                     <th className="text-right py-2 px-2.5 font-semibold text-gray-700 rounded-tr-lg">Paid</th>
                                                   </tr>
                                                 </thead>
@@ -3874,6 +3877,61 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                                         <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-teal-100 text-teal-700 font-bold text-[10px] shadow-sm">
                                                           {detail.sessions} Session{detail.sessions !== 1 ? 's' : ''}
                                                         </span>
+                                                      </td>
+                                                      <td className="py-2.5 px-2.5 text-left">
+                                                        <span className="text-[10px] text-gray-700 font-medium">
+                                                          {detail.multiplePayments && detail.multiplePayments.length > 0 
+                                                            ? detail.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ")
+                                                            : (detail.paymentMethod || "–")}
+                                                        </span>
+                                                      </td>
+                                                      <td className="py-2.5 px-2.5 text-center">
+                                                        {(() => {
+                                                          const isDoctorDiscount = detail.isDoctorDiscountApplied;
+                                                          const isAgentDiscount = detail.isAgentDiscountApplied;
+                                                          const membershipDiscountAmount = detail.membershipDiscountApplied || 0;
+                                                          const isMembershipDiscount = membershipDiscountAmount > 0;
+                                                          
+                                                          const originalAmount = detail.originalAmount || 0;
+                                                          const finalAmount = detail.amount || 0;
+                                                          const totalDiscountAmount = originalAmount > finalAmount ? (originalAmount - finalAmount) : 0;
+                                                          const totalPercent = totalDiscountAmount > 0 && originalAmount > 0 ? (totalDiscountAmount / originalAmount * 100) : 0;
+                                                          const membershipPercent = isMembershipDiscount && originalAmount > 0 ? (membershipDiscountAmount / originalAmount * 100) : 0;
+
+                                                          if (!isDoctorDiscount && !isAgentDiscount && !isMembershipDiscount && totalPercent <= 0) {
+                                                            return <div className="text-xs text-gray-400">—</div>;
+                                                          }
+
+                                                          return (
+                                                            <div className="flex flex-col items-center gap-1">
+                                                              {totalPercent > 0 && (
+                                                                <div className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-200 shadow-sm">
+                                                                  {Number(totalPercent).toFixed(1)}% OFF
+                                                                </div>
+                                                              )}
+                                                              <div className="flex flex-wrap justify-center gap-1 mt-0.5">
+                                                                {isMembershipDiscount && (
+                                                                  <div className="text-[7px] uppercase tracking-wider text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded font-bold border border-emerald-100">
+                                                                    Memb {membershipPercent > 0 ? `(${membershipPercent.toFixed(0)}%)` : 'Disc.'}
+                                                                  </div>
+                                                                )}
+                                                                {isDoctorDiscount && (
+                                                                  <div className="text-[7px] uppercase tracking-wider text-orange-600 bg-orange-50 px-1 py-0.5 rounded font-bold border border-orange-100">
+                                                                    Dr Disc.
+                                                                  </div>
+                                                                )}
+                                                                {isAgentDiscount && (
+                                                                  <div className="text-[7px] uppercase tracking-wider text-blue-600 bg-blue-50 px-1 py-0.5 rounded font-bold border border-blue-100">
+                                                                    Ag Disc.
+                                                                  </div>
+                                                                )}
+                                                              </div>
+                                                            </div>
+                                                          );
+                                                        })()}
+                                                      </td>
+                                                      <td className="py-2.5 px-2.5 text-right">
+                                                        <span className="font-medium text-gray-600">{getCurrencySymbol(currency)}{(detail.originalAmount || detail.amount || 0).toLocaleString()}</span>
                                                       </td>
                                                       <td className="py-2.5 px-2.5 text-right">
                                                         {detail.amount !== undefined && detail.amount !== null ? (
@@ -4662,7 +4720,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
                                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Treatment</th>
                                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Payment Method</th>
-                                <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
+                                <th className="px-5 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Discount</th>
+                                <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Original Amount</th>
+                                <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Total</th>
                               </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-100">
@@ -4670,7 +4730,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                 .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
                                 .map((billing: any, index: number) => {
                                 // Determine payment method
-                                const paymentMethod = billing.paymentMethod || (billing.multiplePayments?.length > 0 ? billing.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ") : "–");
+                                const paymentMethods = billing.multiplePayments && billing.multiplePayments.length > 0 
+                                  ? billing.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ")
+                                  : (billing.paymentMethod || "–");
                                 
                                 return (
                                   <tr key={billing._id || index} className="hover:bg-gray-50 transition-colors">
@@ -4703,7 +4765,57 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                      </div>
                                     </td>
                                     <td className="px-5 py-4 whitespace-nowrap">
-                                      <div className="text-sm text-gray-700">{paymentMethod}</div>
+                                      <div className="text-sm text-gray-700">{paymentMethods}</div>
+                                    </td>
+                                    <td className="px-5 py-4 whitespace-nowrap text-center">
+                                      {(() => {
+                                        const isDoctorDiscount = billing.isDoctorDiscountApplied;
+                                        const isAgentDiscount = billing.isAgentDiscountApplied;
+                                        const membershipDiscountAmount = billing.membershipDiscountApplied || 0;
+                                        const isMembershipDiscount = membershipDiscountAmount > 0;
+                                        
+                                        const originalAmount = billing.originalAmount || 0;
+                                        const finalAmount = billing.amount || 0;
+                                        const totalDiscountAmount = originalAmount > finalAmount ? (originalAmount - finalAmount) : 0;
+                                        const totalPercent = totalDiscountAmount > 0 && originalAmount > 0 ? (totalDiscountAmount / originalAmount * 100) : 0;
+                                        const membershipPercent = isMembershipDiscount && originalAmount > 0 ? (membershipDiscountAmount / originalAmount * 100) : 0;
+
+                                        if (!isDoctorDiscount && !isAgentDiscount && !isMembershipDiscount && totalPercent <= 0) {
+                                          return <div className="text-xs text-gray-400">—</div>;
+                                        }
+
+                                        return (
+                                          <div className="flex flex-col items-center gap-1">
+                                            {totalPercent > 0 && (
+                                              <div className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 shadow-sm">
+                                                {Number(totalPercent).toFixed(1)}% OFF
+                                              </div>
+                                            )}
+                                            <div className="flex flex-wrap justify-center gap-1 mt-0.5">
+                                              {isMembershipDiscount && (
+                                                <div className="text-[8px] uppercase tracking-wider text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-bold border border-emerald-100">
+                                                  Memb {membershipPercent > 0 ? `(${membershipPercent.toFixed(0)}%)` : 'Disc.'}
+                                                </div>
+                                              )}
+                                              {isDoctorDiscount && (
+                                                <div className="text-[8px] uppercase tracking-wider text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded font-bold border border-orange-100">
+                                                  Doctor Disc.
+                                                </div>
+                                              )}
+                                              {isAgentDiscount && (
+                                                <div className="text-[8px] uppercase tracking-wider text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold border border-blue-100">
+                                                  Agent Disc.
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        );
+                                      })()}
+                                    </td>
+                                    <td className="px-5 py-4 whitespace-nowrap text-right">
+                                      <div className="text-sm font-medium text-gray-600">
+                                        {formatAED(billing.originalAmount || billing.amount || 0)}
+                                      </div>
                                     </td>
                                     <td className="px-5 py-4 whitespace-nowrap text-right">
                                        <div className="text-sm font-bold text-gray-900">Paid: {formatAED(billing.paid || 0)}</div>
@@ -4711,13 +4823,6 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                       <div className="text-[10px] text-gray-900">Total: {formatAED(billing.amount || 0)}</div>
                                        
                                       <div className="flex flex-col items-end mt-1 space-y-0.5">
-                                        {/* <div className="text-[10px] text-gray-500">Total: {formatAED(billing.originalAmount || billing.amount || 0)}</div> */}
-                                       
-                                        {(billing.discountPercent > 0 || billing.discountPercentage > 0) && (
-                                          <div className="text-[10px] text-teal-600 font-medium">
-                                            Disc: {(billing.discountPercent || billing.discountPercentage || 0).toFixed(1)}%
-                                          </div>
-                                        )}
                                         <div className="text-[10px] text-gray-400">Qty: {billing.quantity || 0}</div>
                                       </div>
                                     </td>
@@ -4732,44 +4837,56 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                             {(billingHistory || [])
                               .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
                               .map((billing: any, index: number) => {
-                                const paymentMethod = billing.paymentMethod || (billing.multiplePayments?.length > 0 ? billing.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ") : "–");
+                                const paymentMethods = billing.multiplePayments && billing.multiplePayments.length > 0 
+                                  ? billing.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ")
+                                  : (billing.paymentMethod || "–");
                                 return (
                                   <div key={billing._id || index} className="p-4 hover:bg-gray-50">
-                                    <div className="flex justify-between items-start mb-2">
-                                      <div>
-                                        <div className="text-sm font-bold text-gray-900">{billing.invoiceNumber || `INV-${String(index + 1).padStart(4, '0')}`}</div>
-                                        <div className="text-xs text-gray-500">{billing.service || 'Treatment'}</div>
-                                      </div>
-                                      <div className="text-right">
-                                        <div className="text-sm font-bold text-gray-900">{formatAED(billing.amount || 0)}</div>
-                                        <div className="text-[10px] text-gray-500">{billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString() : 'N/A'}</div>
-                                      </div>
-                                    </div>
-                                    <div className="text-sm text-gray-700 mb-2">
-                                      {billing.package ? (
-                                        <div className="flex items-center gap-1 font-semibold text-indigo-700">
-                                          <Package className="w-3 h-3" />
-                                          {billing.package}
-                                        </div>
-                                      ) : (
-                                        billing.treatment || '-'
-                                      )}
-                                    </div>
-                                    <div className="text-xs text-gray-600 mb-2">
-                                      <span className="font-medium">Payment: </span>{paymentMethod}
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-gray-50">
-                                      <div className="text-[10px] text-gray-500">
-                                        <span className="block">Original: {formatAED(billing.originalAmount || billing.amount || 0)}</span>
-                                        <span className="block">Paid: {formatAED(billing.paid || 0)}</span>
-                                      </div>
-                                      <div className="text-[10px] text-right">
-                                        {(billing.discountPercent > 0 || billing.discountPercentage > 0) && (
-                                          <span className="block text-teal-600 font-medium">Disc: {(billing.discountPercent || billing.discountPercentage || 0).toFixed(1)}%</span>
-                                        )}
-                                        <span className="block text-gray-400">Qty: {billing.quantity || 0}</span>
-                                      </div>
-                                    </div>
+                                    {(() => {
+                                      const originalAmt = billing.originalAmount || billing.amount || 0;
+                                      const totalDisc = originalAmt > billing.amount ? (originalAmt - billing.amount) : 0;
+                                      const totalPct = originalAmt > 0 ? (totalDisc / originalAmt * 100) : 0;
+                                      
+                                      return (
+                                        <>
+                                          <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                              <div className="text-sm font-bold text-gray-900">{billing.invoiceNumber || `INV-${String(index + 1).padStart(4, '0')}`}</div>
+                                              <div className="text-xs text-gray-500">{billing.service || 'Treatment'}</div>
+                                            </div>
+                                            <div className="text-right">
+                                              <div className="text-sm font-bold text-gray-900">{formatAED(billing.amount || 0)}</div>
+                                              <div className="text-[10px] text-gray-500">{billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString() : 'N/A'}</div>
+                                            </div>
+                                          </div>
+                                          <div className="text-sm text-gray-700 mb-2">
+                                            {billing.package ? (
+                                              <div className="flex items-center gap-1 font-semibold text-indigo-700">
+                                                <Package className="w-3 h-3" />
+                                                {billing.package}
+                                              </div>
+                                            ) : (
+                                              billing.treatment || '-'
+                                            )}
+                                          </div>
+                                          <div className="text-xs text-gray-600 mb-2">
+                                            <span className="font-medium">Payment: </span>{paymentMethods}
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-gray-50">
+                                            <div className="text-[10px] text-gray-500">
+                                              <span className="block">Original: {formatAED(originalAmt)}</span>
+                                              <span className="block font-medium text-emerald-600">Paid: {formatAED(billing.paid || 0)}</span>
+                                            </div>
+                                            <div className="text-[10px] text-right">
+                                              {totalPct > 0 && (
+                                                <span className="block text-amber-600 font-bold">{totalPct.toFixed(1)}% OFF</span>
+                                              )}
+                                              <span className="block text-gray-400">Qty: {billing.quantity || 0}</span>
+                                            </div>
+                                          </div>
+                                        </>
+                                      );
+                                    })()}
                                   </div>
                                 );
                               })}

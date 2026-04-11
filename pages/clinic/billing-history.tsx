@@ -138,13 +138,14 @@ const BillingHistoryPage = () => {
         const originalAmount = item.originalAmount || 0;
         const finalAmount = item.amount || 0;
         const discountAmount = originalAmount > finalAmount ? (originalAmount - finalAmount) : 0;
-        const percent = item.discountPercent || (originalAmount > 0 ? (discountAmount / originalAmount * 100) : 0);
+        const totalPercent = originalAmount > 0 ? (discountAmount / originalAmount * 100) : 0;
         
         return [
           formatDate(item.invoicedDate),
           item.invoiceNumber || '—',
           item.treatment || item.package || '—',
-          percent > 0 ? `${percent.toFixed(1)}%` : '—',
+          totalPercent > 0 ? `${totalPercent.toFixed(1)}%` : '—',
+          formatCurrency(item.originalAmount || item.amount || 0),
           formatCurrency(item.amount),
           formatCurrency(item.paid),
           formatCurrency(item.pending || 0),
@@ -162,7 +163,7 @@ const BillingHistoryPage = () => {
 
       autoTable(doc, {
         startY: 65,
-        head: [['Date', 'Invoice ID', 'Treatment/Package', 'Disc.', 'Total', 'Paid', 'Pending', 'Adv.', 'Adv.Used', 'PastAdv.', 'P.Adv.Used', 'Qty', 'Sess.', 'Method']],
+        head: [['Date', 'Invoice ID', 'Treatment/Package', 'Disc.', 'Orig. Amt', 'Total', 'Paid', 'Pending', 'Adv.', 'Adv.Used', 'PastAdv.', 'P.Adv.Used', 'Qty', 'Sess.', 'Method']],
         body: tableRows,
         theme: 'striped',
         headStyles: { 
@@ -172,6 +173,7 @@ const BillingHistoryPage = () => {
         },
         bodyStyles: { fontSize: 7 },
         columnStyles: {
+          3: { halign: 'center' },
           4: { halign: 'right' },
           5: { halign: 'right' },
           6: { halign: 'right' },
@@ -179,8 +181,9 @@ const BillingHistoryPage = () => {
           8: { halign: 'right' },
           9: { halign: 'right' },
           10: { halign: 'right' },
-          11: { halign: 'center' },
-          12: { halign: 'center' }
+          11: { halign: 'right' },
+          12: { halign: 'center' },
+          13: { halign: 'center' }
         },
         margin: { top: 65, left: 10, right: 10 }
       });
@@ -333,6 +336,7 @@ const BillingHistoryPage = () => {
                   <th className="px-4 py-3 text-left font-semibold">Invoice ID</th>
                   <th className="px-4 py-3 text-left font-semibold">Treatment/Package</th>
                   <th className="px-4 py-3 text-center font-semibold">Discount</th>
+                  <th className="px-4 py-3 text-right font-semibold">Original Amount</th>
                   <th className="px-4 py-3 text-right font-semibold">Total</th>
                   <th className="px-4 py-3 text-right font-semibold">Paid</th>
                   <th className="px-4 py-3 text-right font-semibold text-red-300">Pending</th>
@@ -348,7 +352,7 @@ const BillingHistoryPage = () => {
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan={12} className="px-4 py-12">
+                    <td colSpan={14} className="px-4 py-12">
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin text-teal-600" />
                         <span className="text-sm text-gray-500">Loading billing history...</span>
@@ -357,7 +361,7 @@ const BillingHistoryPage = () => {
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan={12} className="px-4 py-12">
+                    <td colSpan={14} className="px-4 py-12">
                       <div className="text-center">
                         <div className="text-sm text-red-600 font-medium mb-2">{error}</div>
                         <button
@@ -371,7 +375,7 @@ const BillingHistoryPage = () => {
                   </tr>
                 ) : billingHistory.length === 0 ? (
                   <tr>
-                    <td colSpan={12} className="px-4 py-12">
+                    <td colSpan={14} className="px-4 py-12">
                       <div className="text-center text-sm text-gray-500">
                         No billing history found for this appointment
                       </div>
@@ -426,37 +430,56 @@ const BillingHistoryPage = () => {
                         {(() => {
                           const isDoctorDiscount = billing.isDoctorDiscountApplied;
                           const isAgentDiscount = billing.isAgentDiscountApplied;
-                          // const discountType = isDoctorDiscount ? billing.doctorDiscountType : (isAgentDiscount ? billing.agentDiscountType : null);
-                          // const discountValue = isDoctorDiscount ? billing.doctorDiscountAmount : (isAgentDiscount ? billing.agentDiscountAmount : 0);
+                          const membershipDiscountAmount = billing.membershipDiscountApplied || 0;
+                          const isMembershipDiscount = membershipDiscountAmount > 0;
+                          
                           const originalAmount = billing.originalAmount || 0;
                           const finalAmount = billing.amount || 0;
-                          const discountAmount = originalAmount > finalAmount ? (originalAmount - finalAmount) : 0;
-                          const percent = billing.discountPercent || (originalAmount > 0 ? (discountAmount / originalAmount * 100) : 0);
+                          const totalDiscountAmount = originalAmount > finalAmount ? (originalAmount - finalAmount) : 0;
+                          const totalPercent = totalDiscountAmount > 0 && originalAmount > 0 ? (totalDiscountAmount / originalAmount * 100) : 0;
+                          const membershipPercent = isMembershipDiscount && originalAmount > 0 ? (membershipDiscountAmount / originalAmount * 100) : 0;
 
-                          if (!isDoctorDiscount && !isAgentDiscount && percent <= 0) {
+                          if (!isDoctorDiscount && !isAgentDiscount && !isMembershipDiscount && totalPercent <= 0) {
                             return <div className="text-xs text-gray-400">—</div>;
                           }
 
                           return (
                             <div className="flex flex-col items-center gap-1">
-                              {percent > 0 && (
+                              {totalPercent > 0 && (
                                 <div className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 shadow-sm">
-                                  {Number(percent).toFixed(1)}% OFF
+                                  {Number(totalPercent).toFixed(1)}% OFF
                                 </div>
                               )}
-                              {discountAmount > 0 && (
+                              {totalDiscountAmount > 0 && (
                                 <div className="text-[10px] font-medium text-gray-500">
-                                  Saved {getCurrencySymbol(clinicCurrency)} {formatCurrency(discountAmount)}
+                                  Saved {getCurrencySymbol(clinicCurrency)} {formatCurrency(totalDiscountAmount)}
                                 </div>
                               )}
-                              {(isDoctorDiscount || isAgentDiscount) && (
-                                <div className="text-[8px] uppercase tracking-wider text-gray-400 font-bold">
-                                  {isDoctorDiscount ? 'Doctor Disc.' : 'Agent Disc.'}
-                                </div>
-                              )}
+                              <div className="flex flex-wrap justify-center gap-1 mt-0.5">
+                                {isMembershipDiscount && (
+                                  <div className="text-[8px] uppercase tracking-wider text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-bold border border-emerald-100">
+                                    Memb {membershipPercent > 0 ? `(${membershipPercent.toFixed(0)}%)` : 'Disc.'}
+                                  </div>
+                                )}
+                                {isDoctorDiscount && (
+                                  <div className="text-[8px] uppercase tracking-wider text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded font-bold border border-orange-100">
+                                    Doctor Disc.
+                                  </div>
+                                )}
+                                {isAgentDiscount && (
+                                  <div className="text-[8px] uppercase tracking-wider text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold border border-blue-100">
+                                    Agent Disc.
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           );
                         })()}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="text-xs font-semibold text-gray-900">
+                          {formatCurrency(billing.originalAmount || billing.amount || 0)}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="text-xs font-semibold text-gray-900">
@@ -533,6 +556,9 @@ const BillingHistoryPage = () => {
                     <td className="px-4 py-3 text-gray-900">Totals</td>
                     <td className="px-4 py-3"></td>
                     <td className="px-4 py-3"></td>
+                    <td className="px-4 py-3 text-right text-gray-900">
+                      {formatCurrency(billingHistory.reduce((sum, b) => sum + (Number(b.originalAmount || b.amount) || 0), 0))}
+                    </td>
                     <td className="px-4 py-3 text-right text-gray-900">
                       {formatCurrency(billingHistory.reduce((sum, b) => sum + (Number(b.amount) || 0), 0))}
                     </td>
