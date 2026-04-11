@@ -185,6 +185,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     discountAmount: number;
   } | null>(null);
   const [isAgentDiscountApplied, setIsAgentDiscountApplied] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   // Helper function to get user info from token
   const getUserInfo = (): { role: string | null; id: string | null } => {
@@ -302,6 +303,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const packageDropdownRef = useRef<HTMLDivElement>(null);
   const initializedAppointmentId = useRef<string | null>(null);
 
+  useEffect(() => {
+    if (isOpen) {
+      const { role } = getUserInfo();
+      setUserRole(role);
+    }
+  }, [isOpen]);
+
   // Helper function to check if membership was transferred out
   const isMembershipTransferredOut = useCallback(() => {
     if (!membershipUsage?.membershipId || !patientDetails?.membershipTransfers)
@@ -316,8 +324,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   // Generate invoice number
   const generateInvoiceNumber = useCallback(() => {
     const date = new Date();
-    const seq = String(Math.floor(Math.random() * 1000)).padStart(3, "0");
-    const invoiceNum = `INV-${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}-${seq}`;
+    // Use Date.now() for guaranteed uniqueness (milliseconds since epoch)
+    const timestamp = Date.now().toString().slice(-6); // Last 6 digits for readability
+    const invoiceNum = `INV-${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}-${timestamp}`;
     setFormData((prev) => ({ ...prev, invoiceNumber: invoiceNum }));
   }, []);
 
@@ -977,21 +986,32 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   }, [isOpen, appointment?.patientId, getAuthHeaders]);
 
   // Initialize selected treatments from appointment when both are available.
-  // Re-runs when billingHistory loads so already-billed treatments are excluded.
+  // If any billing already exists for this appointment, don't pre-select anything
+  // to prevent accidental billing of remaining treatments.
   useEffect(() => {
     if (!isOpen || !appointment || treatments.length === 0) return;
     // Only auto-initialize if the user hasn't already selected treatments manually
-    // (i.e., still in the default empty state for this appointment open)
     if (initializedAppointmentId.current === appointment._id) return;
 
+    // If billing history has loaded, check if ANY billing exists for this appointment
+    if (billingHistoryFetched) {
+      const hasAnyBillingForAppointment = billedTreatmentInfos.length > 0;
+
+      if (hasAnyBillingForAppointment) {
+        // Don't pre-select any treatments - user must manually select what to bill
+        console.log('[BillingModal] Billing already exists for this appointment. Not pre-selecting treatments.');
+        setSelectedTreatments([]);
+        initializedAppointmentId.current = appointment._id;
+        return;
+      }
+    }
+
+    // Only pre-select treatments if NO billing exists yet for this appointment
     const initialTreatments: SelectedTreatment[] = [];
 
     // Handle multiple services (serviceNames / serviceIds)
     if (appointment.serviceNames && appointment.serviceNames.length > 0) {
       appointment.serviceNames.forEach((name, index) => {
-        // Skip if this treatment has already been billed for this appointment
-        if (isTreatmentBilledRecently(name)) return;
-
         const serviceIdItem = appointment.serviceIds?.[index];
         const slug = typeof serviceIdItem === 'string' ? serviceIdItem : serviceIdItem?._id;
         if (name && slug) {
@@ -1008,25 +1028,24 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
     // Fallback to single service (serviceName / serviceId)
     else if (appointment.serviceName && appointment.serviceId) {
-      if (!isTreatmentBilledRecently(appointment.serviceName)) {
-        const slug = typeof appointment.serviceId === 'string' ? appointment.serviceId : (appointment.serviceId as { _id: string })._id;
-        const matchingTreatment = treatments.find(t => t.slug === slug || t.name === appointment.serviceName);
-        initialTreatments.push({
-          treatmentName: appointment.serviceName,
-          treatmentSlug: slug,
-          price: matchingTreatment?.price || 0,
-          quantity: 1,
-          totalPrice: matchingTreatment?.price || 0,
-        });
-      }
+      const slug = typeof appointment.serviceId === 'string' ? appointment.serviceId : (appointment.serviceId as { _id: string })._id;
+      const matchingTreatment = treatments.find(t => t.slug === slug || t.name === appointment.serviceName);
+      initialTreatments.push({
+        treatmentName: appointment.serviceName,
+        treatmentSlug: slug,
+        price: matchingTreatment?.price || 0,
+        quantity: 1,
+        totalPrice: matchingTreatment?.price || 0,
+      });
     }
 
-    // Only mark as initialized and set treatments once billing history has loaded
+    // Only initialize if billing history has loaded
     if (billingHistoryFetched) {
+      console.log('[BillingModal] First billing for this appointment. Pre-selecting:', initialTreatments.map(t => t.treatmentName));
       setSelectedTreatments(initialTreatments);
       initializedAppointmentId.current = appointment._id;
     }
-  }, [isOpen, appointment, treatments, billingHistory, billingHistoryFetched, isTreatmentBilledRecently]);
+  }, [isOpen, appointment, treatments, billingHistory, billingHistoryFetched, billedTreatmentInfos]);
 
   // Fetch and override referredBy with patient's referral name when available
   useEffect(() => {
@@ -1131,9 +1150,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           { headers },
         );
         if (res.data.success && Array.isArray(res.data.complaints)) {
-          // Find if any complaint has isDoctorDiscountApplied set to true
+          // Find if any complaint has isDoctorDiscountApplied set truthy
           const appliedComplaint = res.data.complaints.find(
-            (c: any) => c.isDoctorDiscountApplied === true,
+            (c: any) => Boolean(c?.isDoctorDiscountApplied),
           );
           const hasAppliedFromComplaint = !!appliedComplaint;
           setDoctorAppliedDiscount(hasAppliedFromComplaint);
@@ -1141,7 +1160,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           if (hasAppliedFromComplaint) {
             setDoctorComplaintDiscount({
               discountType: appliedComplaint.doctorDiscountType,
-              discountAmount: appliedComplaint.doctorDiscountAmount || 0,
+              discountAmount: parseFloat(appliedComplaint.doctorDiscountAmount) || 0,
             });
           }
 
@@ -1149,7 +1168,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           // We have: doctorDiscount (profile), agentDiscount (profile), doctorComplaintDiscount (complaint)
          
           const doctorEffectiveDisc = hasAppliedFromComplaint
-            ? { type: appliedComplaint.doctorDiscountType, amount: appliedComplaint.doctorDiscountAmount || 0 }
+            ? { type: appliedComplaint.doctorDiscountType, amount: parseFloat(appliedComplaint.doctorDiscountAmount) || 0 }
             : null;
 
           const agentEffectiveDisc = agentDiscount
@@ -3155,11 +3174,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                               <span className={`text-[10px] font-bold ${isDoctorDiscountApplied ? "text-orange-700" : "text-gray-500"}`}>DOCTOR DISCOUNT</span>
                               <div className="flex items-center gap-2">
                                 <span className="text-[10px] text-gray-600 font-medium">
-                                  {doctorAppliedDiscount ? doctorComplaintDiscount?.discountAmount : 0}
-                                  {doctorAppliedDiscount ? (doctorComplaintDiscount?.discountType === "percentage" ? "%" : " Fixed") : ""}
-                                  {doctorAppliedDiscount ? " (Applied)" : ""}
+                                  {doctorComplaintDiscount?.discountAmount || 0}
+                                  {doctorComplaintDiscount ? (doctorComplaintDiscount?.discountType === "percentage" ? "%" : " Fixed") : ""}
+                                  {isDoctorDiscountApplied ? " (Applied)" : ""}
                                 </span>
-                                {agentDiscount && ((doctorAppliedDiscount ? doctorComplaintDiscount?.discountAmount : 0) || 0) > agentDiscount.discountAmount && (
+                                {agentDiscount && ((doctorComplaintDiscount?.discountAmount || 0)) > agentDiscount.discountAmount && (
                                   <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">
                                     Best Value!
                                   </span>
@@ -3184,7 +3203,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         </div>
                       )}
 
-                      {agentDiscount && (
+                      {agentDiscount && ((userRole === "agent") || !doctorAppliedDiscount) && (
                         <div className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
                           isAgentDiscountApplied ? "bg-blue-50 border-blue-200 shadow-sm" : "bg-gray-50 border-gray-100"
                         }`}>
@@ -3446,22 +3465,25 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       )}
 
                       {/* Doctor Discount (if applied) */}
-                      {isDoctorDiscountApplied && doctorDiscount && (
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-gray-600">
-                            Doctor Discount ({doctorDiscount.discountType === "percentage" ? `${doctorDiscount.discountAmount}%` : "Fixed"})
-                          </span>
-                          <span className="font-semibold text-red-500">
-                            −{getCurrencySymbol(currency)} {(() => {
-                              const originalAmt = parseFloat(formData.originalAmount || formData.amount || "0");
-                              if (doctorDiscount.discountType === "percentage") {
-                                return ((originalAmt * doctorDiscount.discountAmount) / 100).toFixed(2);
-                              }
-                              return doctorDiscount.discountAmount.toFixed(2);
-                            })()}
-                          </span>
-                        </div>
-                      )}
+                      {isDoctorDiscountApplied && (doctorComplaintDiscount || doctorDiscount) && (() => {
+                        const activeDoctor = doctorComplaintDiscount || doctorDiscount;
+                        return (
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-gray-600">
+                              Doctor Discount ({activeDoctor?.discountType === "percentage" ? `${activeDoctor?.discountAmount}%` : "Fixed"})
+                            </span>
+                            <span className="font-semibold text-red-500">
+                              −{getCurrencySymbol(currency)} {(() => {
+                                const originalAmt = parseFloat(formData.originalAmount || formData.amount || "0");
+                                if (activeDoctor?.discountType === "percentage") {
+                                  return ((originalAmt * (activeDoctor?.discountAmount || 0)) / 100).toFixed(2);
+                                }
+                                return (activeDoctor?.discountAmount || 0).toFixed(2);
+                              })()}
+                            </span>
+                          </div>
+                        );
+                      })()}
 
                       {/* Membership Discount (if applied) */}
                       {membershipUsage && membershipUsage.hasMembership && !membershipUsage.isExpired && membershipUsage.discountPercentage > 0 && (

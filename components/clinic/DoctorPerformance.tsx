@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
 import { DollarSign, Award, AlertCircle, Users, Star } from 'lucide-react';
 import axios from 'axios';
+import { getCurrencySymbol } from '@/lib/currencyHelper';
 
 interface DoctorData {
   doctorId: string;
@@ -39,6 +40,29 @@ const DoctorPerformance: React.FC<DoctorPerformanceProps> = ({
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardData[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [currency, setCurrency] = useState<string>('INR');
+
+  // Fetch clinic currency preference
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken') || localStorage.getItem('agentToken') || sessionStorage.getItem('agentToken');
+        if (!token) return;
+        
+        const res = await axios.get('/api/clinics/myallClinic', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        if (res.data.success && res.data.clinic?.currency) {
+          setCurrency(res.data.clinic.currency);
+        }
+      } catch (e) {
+        console.error('Error fetching clinic currency:', e);
+      }
+    };
+    
+    fetchClinicCurrency();
+  }, []);
 
   // Fetch doctor performance data
   const fetchData = async () => {
@@ -128,9 +152,9 @@ const DoctorPerformance: React.FC<DoctorPerformanceProps> = ({
               <p className="text-sm text-orange-600">Pending: <span className="font-bold">{data.pendingAppointments}</span></p>
             </>
           )}
-          {payload[0].name === 'Revenue (₹)' && (
+          {payload[0].name === 'Revenue' && (
             <>
-              <p className="text-sm text-green-600">Revenue: <span className="font-bold">₹{data.estimatedRevenue?.toLocaleString()}</span></p>
+              <p className="text-sm text-green-600">Revenue: <span className="font-bold">{getCurrencySymbol(currency)}{data.estimatedRevenue?.toLocaleString()}</span></p>
               <p className="text-sm text-blue-600">Appointments: <span className="font-bold">{data.appointmentCount}</span></p>
             </>
           )}
@@ -258,8 +282,7 @@ const DoctorPerformance: React.FC<DoctorPerformanceProps> = ({
                     {/* Revenue Column */}
                     <td className="py-4 px-6">
                       <div className="flex items-center justify-end space-x-2">
-                        <DollarSign className="w-4 h-4 text-green-600" />
-                        <span className="text-sm font-bold text-green-600">₹{doctor.estimatedRevenue?.toLocaleString()}</span>
+                        <span className="text-sm font-bold text-green-600">{getCurrencySymbol(currency)}{doctor.estimatedRevenue?.toLocaleString()}</span>
                       </div>
                     </td>
                     
@@ -363,14 +386,14 @@ const DoctorPerformance: React.FC<DoctorPerformanceProps> = ({
                   />
                   <YAxis 
                     tick={{ fontSize: 12, fill: '#6b7280' }}
-                    tickFormatter={(value) => `₹${(value/1000).toFixed(0)}K`}
+                    tickFormatter={(value) => `${getCurrencySymbol(currency)}${(value/1000).toFixed(0)}K`}
                   />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
                   <Bar
                     type="monotone"
                     dataKey="estimatedRevenue"
-                    name="Revenue (₹)"
+                    name="Revenue"
                     fill="#10B981"
                     radius={[6, 6, 0, 0]}
                   >
