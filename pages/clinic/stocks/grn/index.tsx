@@ -4,6 +4,7 @@ import { NextPageWithLayout } from "@/pages/_app";
 import React, { ReactElement, useState, useCallback, useEffect } from "react";
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 import {
   PlusIcon,
   PencilIcon,
@@ -28,6 +29,7 @@ const GRNPage: NextPageWithLayout = () => {
   const [grnToDelete, setGrnToDelete] = useState<PurchaseRecord | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [grnToEdit, setGrnToEdit] = useState<PurchaseRecord | null>(null);
+  const [clinicCurrency, setClinicCurrency] = useState<string>("INR");
   const [pagination, setPagination] = useState({
     totalResults: 0,
     totalPages: 1,
@@ -56,6 +58,24 @@ const GRNPage: NextPageWithLayout = () => {
     toDate: new Date().toISOString().split("T")[0],
     status: "",
   });
+
+  // Fetch clinic currency
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const token = getTokenByPath();
+        const res = await axios.get("/api/clinics/myallClinic", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.data?.success && res.data.clinic?.currency) {
+          setClinicCurrency(res.data.clinic.currency);
+        }
+      } catch (err) {
+        console.error("Error fetching clinic currency:", err);
+      }
+    };
+    fetchClinicCurrency();
+  }, []);
 
   // Fetch GRN records with proper error handling
   const fetchGRNRecords = useCallback(
@@ -694,19 +714,19 @@ const GRNPage: NextPageWithLayout = () => {
                               "N/A"}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            AED {totalAmount.toFixed(2)}
+                            {getCurrencySymbol(clinicCurrency)} {totalAmount.toFixed(2)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">
-                            AED {discountAmount.toFixed(2)}
+                            {getCurrencySymbol(clinicCurrency)} {discountAmount.toFixed(2)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">
-                            AED {netAmount.toFixed(2)}
+                            {getCurrencySymbol(clinicCurrency)} {netAmount.toFixed(2)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
-                            AED {vatAmount.toFixed(2)}
+                            {getCurrencySymbol(clinicCurrency)} {vatAmount.toFixed(2)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
-                            AED {netPlusVat.toFixed(2)}
+                            {getCurrencySymbol(clinicCurrency)} {netPlusVat.toFixed(2)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
@@ -937,7 +957,7 @@ const GRNPage: NextPageWithLayout = () => {
                                         />
                                       </svg>
                                       <span>
-                                        AED {totalAmount.toFixed(2)} total
+                                        {getCurrencySymbol(clinicCurrency)} {totalAmount.toFixed(2)} total
                                       </span>
                                     </div>
                                   </div>
@@ -1033,7 +1053,7 @@ const GRNPage: NextPageWithLayout = () => {
                                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                                                 <div className="flex items-center">
                                                   <span className="text-green-600 mr-1">
-                                                    AED
+                                                    {getCurrencySymbol(clinicCurrency)}
                                                   </span>
                                                   {(
                                                     item.unitPrice || 0
@@ -1043,7 +1063,7 @@ const GRNPage: NextPageWithLayout = () => {
                                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
                                                 <div className="flex items-center">
                                                   <span className="text-green-600 mr-1">
-                                                    AED
+                                                    {getCurrencySymbol(clinicCurrency)}
                                                   </span>
                                                   {(
                                                     item.totalPrice || 0
@@ -1059,7 +1079,7 @@ const GRNPage: NextPageWithLayout = () => {
                                                       ? "%"
                                                       : item.discountType ===
                                                           "Amount"
-                                                        ? " AED"
+                                                        ? ` ${getCurrencySymbol(clinicCurrency)}`
                                                         : ""}
                                                   </span>
                                                   {(item.discount || 0) > 0 &&
@@ -1073,7 +1093,7 @@ const GRNPage: NextPageWithLayout = () => {
                                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                                                 <div className="flex items-center">
                                                   <span className="text-blue-600 mr-1">
-                                                    AED
+                                                    {getCurrencySymbol(clinicCurrency)}
                                                   </span>
                                                   {(
                                                     item.netPrice ||
@@ -1090,7 +1110,7 @@ const GRNPage: NextPageWithLayout = () => {
                                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                                                 <div className="flex items-center">
                                                   <span className="text-orange-600 mr-1">
-                                                    AED
+                                                    {getCurrencySymbol(clinicCurrency)}
                                                   </span>
                                                   {(
                                                     item.vatAmount || 0
@@ -1100,7 +1120,7 @@ const GRNPage: NextPageWithLayout = () => {
                                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
                                                 <div className="flex items-center">
                                                   <span className="text-purple-600 mr-1">
-                                                    AED
+                                                    {getCurrencySymbol(clinicCurrency)}
                                                   </span>
                                                   {(
                                                     item.netPlusVat ||
@@ -1139,7 +1159,7 @@ const GRNPage: NextPageWithLayout = () => {
                                           <td className="px-4 py-3 text-sm font-bold text-gray-900">
                                             <div className="flex items-center">
                                               <span className="text-green-600 mr-1">
-                                                AED
+                                                {getCurrencySymbol(clinicCurrency)}
                                               </span>
                                               {totalAmount.toFixed(2)}
                                             </div>
@@ -1152,7 +1172,7 @@ const GRNPage: NextPageWithLayout = () => {
                                           <td className="px-4 py-3 text-sm font-medium text-gray-900">
                                             <div className="flex items-center">
                                               <span className="text-blue-600 mr-1">
-                                                AED
+                                                {getCurrencySymbol(clinicCurrency)}
                                               </span>
                                               {discountAmount.toFixed(2)}
                                             </div>
@@ -1165,7 +1185,7 @@ const GRNPage: NextPageWithLayout = () => {
                                           <td className="px-4 py-3 text-sm font-medium text-gray-900">
                                             <div className="flex items-center">
                                               <span className="text-orange-600 mr-1">
-                                                AED
+                                                {getCurrencySymbol(clinicCurrency)}
                                               </span>
                                               {vatAmount.toFixed(2)}
                                             </div>
@@ -1173,7 +1193,7 @@ const GRNPage: NextPageWithLayout = () => {
                                           <td className="px-4 py-3 text-sm font-bold text-gray-900">
                                             <div className="flex items-center">
                                               <span className="text-purple-600 mr-1">
-                                                AED
+                                                {getCurrencySymbol(clinicCurrency)}
                                               </span>
                                               {netPlusVat.toFixed(2)}
                                             </div>

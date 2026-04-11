@@ -4,6 +4,7 @@ import { NextPageWithLayout } from "@/pages/_app";
 import React, { ReactElement, useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 import {
   PlusIcon,
   PencilIcon,
@@ -22,6 +23,7 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [clinicCurrency, setClinicCurrency] = useState<string>("INR");
   const [pagination, setPagination] = useState({
     totalResults: 0,
     totalPages: 1,
@@ -57,6 +59,24 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
     toDate: "",
     status: "",
   });
+
+  // Fetch clinic currency
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const token = getTokenByPath();
+        const res = await axios.get("/api/clinics/myallClinic", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.data?.success && res.data.clinic?.currency) {
+          setClinicCurrency(res.data.clinic.currency);
+        }
+      } catch (err) {
+        console.error("Error fetching clinic currency:", err);
+      }
+    };
+    fetchClinicCurrency();
+  }, []);
 
   const fetchRecords = useCallback(
     debounce(async (page = 1, search = "", filters: any = {}) => {
@@ -515,7 +535,7 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                             "N/A"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          AED{" "}
+                          {getCurrencySymbol(clinicCurrency)}{" "}
                           {(r.totalAmount || r.total || 0).toFixed
                             ? (r.totalAmount || r.total || 0).toFixed(2)
                             : r.totalAmount || r.total || 0}
@@ -753,7 +773,7 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                                       />
                                     </svg>
                                     <span>
-                                      AED{" "}
+                                      {getCurrencySymbol(clinicCurrency)}{" "}
                                       {(
                                         r.purchasedOrder?.items ||
                                         r.items ||
@@ -872,7 +892,7 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                                             <div className="flex items-center">
                                               <span className="text-green-600 mr-1">
-                                                AED
+                                                {getCurrencySymbol(clinicCurrency)}
                                               </span>
                                               {(
                                                 item.unitPrice ||
@@ -892,7 +912,7 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
                                             <div className="flex items-center">
                                               <span className="text-green-600 mr-1">
-                                                AED
+                                                {getCurrencySymbol(clinicCurrency)}
                                               </span>
                                               {(
                                                 item.totalPrice ||
@@ -928,7 +948,7 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                                             <div className="flex items-center">
                                               <span className="text-blue-600 mr-1">
-                                                AED
+                                                {getCurrencySymbol(clinicCurrency)}
                                               </span>
                                               {(
                                                 item.netPrice ||
@@ -953,7 +973,7 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                                             <div className="flex items-center">
                                               <span className="text-orange-600 mr-1">
-                                                AED
+                                                {getCurrencySymbol(clinicCurrency)}
                                               </span>
                                               {(item.vatAmount || 0).toFixed
                                                 ? (item.vatAmount || 0).toFixed(
@@ -965,7 +985,7 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
                                             <div className="flex items-center">
                                               <span className="text-purple-600 mr-1">
-                                                AED
+                                                {getCurrencySymbol(clinicCurrency)}
                                               </span>
                                               {(
                                                 item.netPlusVat ||
@@ -1015,7 +1035,7 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                                         <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
                                           <div className="flex items-center justify-end">
                                             <span className="text-green-600 mr-1">
-                                              AED
+                                              {getCurrencySymbol(clinicCurrency)}
                                             </span>
                                             {(
                                               r.purchasedOrder?.items ||
@@ -1041,7 +1061,7 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                                         <td className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
                                           <div className="flex items-center justify-end">
                                             <span className="text-blue-600 mr-1">
-                                              AED
+                                              {getCurrencySymbol(clinicCurrency)}
                                             </span>
                                             {(
                                               r.purchasedOrder?.items ||
@@ -1065,7 +1085,7 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                                         <td className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
                                           <div className="flex items-center justify-end">
                                             <span className="text-orange-600 mr-1">
-                                              AED
+                                              {getCurrencySymbol(clinicCurrency)}
                                             </span>
                                             {(
                                               r.purchasedOrder?.items ||
@@ -1083,7 +1103,7 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                                         <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
                                           <div className="flex items-center justify-end">
                                             <span className="text-purple-600 mr-1">
-                                              AED
+                                              {getCurrencySymbol(clinicCurrency)}
                                             </span>
                                             {(
                                               r.purchasedOrder?.items ||
