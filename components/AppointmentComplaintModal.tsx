@@ -1812,11 +1812,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-2 py-4">
-        <div className="bg-gray-50 w-full max-w-[1500px] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[96vh]">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-3 md:p-4">
+        <div className="bg-gray-50 w-full max-w-[1500px] rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[98vh] sm:max-h-[96vh]">
 
           {/* ── TOP HEADER BAR ── */}
-          <div className="bg-white border-b border-gray-200 px-5 py-3 flex-shrink-0">
+          <div className="bg-white border-b border-gray-200 px-3 sm:px-4 md:px-5 py-2 sm:py-3 flex-shrink-0">
             {loading ? (
               <div className="flex items-center justify-between">
                 <div className="text-sm text-gray-400">Loading patient details...</div>
@@ -1825,15 +1825,15 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
             ) : details ? (
               <div className="flex flex-col gap-2">
                 {/* Patient info + stat boxes + date/time + action buttons */}
-                <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 flex-wrap">
                   {/* Left: avatar + name + gender/phone */}
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="w-11 h-11 rounded-xl bg-teal-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 w-full sm:w-auto">
+                    <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-teal-500 flex items-center justify-center flex-shrink-0 shadow-sm">
                       <User className="w-6 h-6 text-white" />
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-base font-bold text-gray-900">{details.patientName}</span>
+                        <span className="text-sm sm:text-base font-bold text-gray-900 truncate">{details.patientName}</span>
                         <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-2 py-0.5 font-medium">
                           ID: {details.emrNumber || details.patientId.slice(-8)}
                         </span>
@@ -1858,15 +1858,15 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                   </div>
 
                   {/* Centre: Total Spend + Visits stat boxes */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <div className="flex flex-col items-center px-4 py-1.5 rounded-xl border border-teal-200 bg-teal-50/40 min-w-[100px]">
-                      <span className="text-[10px] text-teal-600 font-medium">Total Spend</span>
+                  <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto justify-center sm:justify-start">
+                    <div className="flex flex-col items-center px-3 sm:px-4 py-1 sm:py-1.5 rounded-lg sm:rounded-xl border border-teal-200 bg-teal-50/40 min-w-[80px] sm:min-w-[100px]">
+                      <span className="text-[9px] sm:text-[10px] text-teal-600 font-medium">Total Spend</span>
                       <span className="text-base font-bold text-teal-700 leading-tight">
                         {loadingPatientStats ? "…" : patientStats != null ? `${getCurrencySymbol(currency)} ${patientStats.totalSpend.toLocaleString()}` : "—"}
                       </span>
                     </div>
-                    <div className="flex flex-col items-center px-4 py-1.5 rounded-xl border border-teal-200 bg-teal-50/40 min-w-[64px]">
-                      <span className="text-[10px] text-teal-600 font-medium">Visits</span>
+                    <div className="flex flex-col items-center px-3 sm:px-4 py-1 sm:py-1.5 rounded-lg sm:rounded-xl border border-teal-200 bg-teal-50/40 min-w-[56px] sm:min-w-[64px]">
+                      <span className="text-[9px] sm:text-[10px] text-teal-600 font-medium">Visits</span>
                       <span className="text-base font-bold text-teal-700 leading-tight">
                         {loadingPatientStats ? "…" : patientStats != null ? patientStats.totalVisits : "—"}
                       </span>
@@ -1874,16 +1874,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                   </div>
 
                   {/* Right: date + time + status + action buttons */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-500 bg-gray-50">
-                      <Calendar size={11} /> {formatDate(details.startDate)}
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 flex-shrink-0 w-full sm:w-auto justify-center sm:justify-end">
+                    <div className="flex items-center gap-1 sm:gap-1.5 border border-gray-200 rounded-md sm:rounded-lg px-2 py-1 sm:px-2.5 sm:py-1.5 text-[10px] sm:text-xs text-gray-500 bg-gray-50">
+                      <Calendar size={10} className="sm:w-[11px] sm:h-[11px]" /> {formatDate(details.startDate)}
                     </div>
                     {details.fromTime && (
-                      <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-500 bg-gray-50">
-                        <Clock size={11} /> {details.fromTime}{details.toTime ? ` – ${details.toTime}` : ""}
+                      <div className="flex items-center gap-1 sm:gap-1.5 border border-gray-200 rounded-md sm:rounded-lg px-2 py-1 sm:px-2.5 sm:py-1.5 text-[10px] sm:text-xs text-gray-500 bg-gray-50">
+                        <Clock size={10} className="sm:w-[11px] sm:h-[11px]" /> {details.fromTime}{details.toTime ? ` – ${details.toTime}` : ""}
                       </div>
                     )}
-                    <span className={`text-xs rounded-full px-2.5 py-1 font-semibold ${
+                    <span className={`text-[10px] sm:text-xs rounded-full px-2 sm:px-2.5 py-0.5 sm:py-1 font-semibold ${
                       details.status === "Arrived" ? "bg-green-100 text-green-700 border border-green-200" :
                       details.status === "booked" ? "bg-blue-100 text-blue-700 border border-blue-200" :
                       details.status === "Completed" ? "bg-gray-100 text-gray-700 border border-gray-200" :
@@ -1891,26 +1891,26 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                     }`}>{details.status || "in-progress"}</span>
 
                     {/* Send Consent */}
-                    <div className="flex items-center gap-1">
-                      <select value={selectedConsentId} onChange={(e) => { setSelectedConsentId(e.target.value); setConsentSent(false); setConsentStatus(null); }} className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-300 max-w-[130px]">
+                    <div className="flex flex-wrap items-center gap-1 w-full sm:w-auto">
+                      <select value={selectedConsentId} onChange={(e) => { setSelectedConsentId(e.target.value); setConsentSent(false); setConsentStatus(null); }} className="border border-gray-200 rounded-md sm:rounded-lg px-2 py-1 sm:py-1.5 text-[10px] sm:text-xs bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-300 w-full sm:max-w-[130px]">
                         <option value="">Select Consent</option>
                         {consentForms.map((cf) => (<option key={cf._id} value={cf._id}>{cf.formName}</option>))}
                       </select>
                       <button type="button" disabled={!selectedConsentId || sendingConsent || sendMsgLoading || consentSent}
                         onClick={handleSendConsentMsgOnWhatsapp}
-                        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${consentSent ? "bg-green-100 text-green-700 border border-green-200" : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40"}`}>
-                        {consentSent ? <><Check size={11} /> Sent</> : sendingConsent ? <><RefreshCw size={11} className="animate-spin" /> Sending...</> : <><Send size={11} /> Send Consent</>}
+                        className={`flex items-center justify-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-semibold transition-all ${consentSent ? "bg-green-100 text-green-700 border border-green-200" : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40"}`}>
+                        {consentSent ? <><Check size={10} className="sm:w-[11px] sm:h-[11px]" /> Sent</> : sendingConsent ? <><RefreshCw size={10} className="sm:w-[11px] sm:h-[11px] animate-spin" /> Sending...</> : <><Send size={10} className="sm:w-[11px] sm:h-[11px]" /> Send Consent</>}
                       </button>
                     </div>
 
                     {/* History — scrolls to existing Previous Complaints section */}
                     <button type="button"
                       onClick={() => { if (activeTab !== "complaint") setActiveTab("complaint"); setTimeout(() => { previousComplaintsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); }}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">
-                      <Clock size={11} /> History {previousComplaints.length > 0 && `(${previousComplaints.length})`}
+                      className="flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg border border-gray-200 text-[10px] sm:text-xs font-medium text-gray-600 hover:bg-gray-50 whitespace-nowrap">
+                      <Clock size={10} className="sm:w-[11px] sm:h-[11px]" /> History {previousComplaints.length > 0 && `(${previousComplaints.length})`}
                     </button>
-                    <button onClick={onClose} className="ml-1 text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
-                      <X className="w-5 h-5" />
+                    <button onClick={onClose} className="ml-1 text-gray-400 hover:text-gray-600 p-1 sm:p-1.5 rounded-lg hover:bg-gray-100 flex-shrink-0">
+                      <X className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                   </div>
                 </div>
@@ -1977,7 +1977,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       {consentStatus && consentStatus.status !== "signed" && (
                         <div>
                           <p className="text-xs font-medium text-gray-600 mb-2">Send consent via:</p>
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <button
                               type="button"
                               disabled={sendingVia === "WhatsApp"}
@@ -2072,10 +2072,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           </div>
 
           {/* ── MAIN BODY: two-column ── */}
-          <div className="flex flex-1 min-h-0 overflow-hidden">
+          <div className="flex flex-1 min-h-0 overflow-hidden flex-col lg:flex-row">
 
             {/* ── LEFT MAIN PANEL ── */}
-            <div className="flex-1 min-w-0 overflow-y-auto scrollbar-hide px-4 py-4 space-y-4">
+            <div className="flex-1 min-w-0 overflow-y-auto scrollbar-hide px-3 sm:px-4 py-3 sm:py-4 space-y-3 sm:space-y-4">
 
               {error && (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -2092,7 +2092,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
               {!loading && (
                 <>
                   {/* Tab Navigation */}
-                  <div className="flex items-center gap-1 bg-white rounded-xl border border-gray-200 p-1 shadow-sm">
+                  <div className="flex items-center gap-1 bg-white rounded-lg sm:rounded-xl border border-gray-200 p-0.5 sm:p-1 shadow-sm">
                     {(
                       [
                         { key: "complaint", label: "Complaints", icon: <NotebookPen className="w-3.5 h-3.5" /> },
@@ -2103,7 +2103,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       <button
                         key={tab.key}
                         onClick={() => setActiveTab(tab.key)}
-                        className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all flex-1 justify-center ${
+                        className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-semibold transition-all flex-1 justify-center ${
                           activeTab === tab.key
                             ? "bg-blue-600 text-white shadow-sm"
                             : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
@@ -2119,32 +2119,32 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                   {activeTab === "complaint" && (
                     <div className="space-y-4">
                       {/* Chief Complaints */}
-                      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                      <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-100 bg-gray-50/60">
                           <div className="flex items-center gap-2">
-                            <NotebookPen className="w-4 h-4 text-blue-600" />
-                            <span className="text-sm font-semibold text-gray-800">Chief Complaints</span>
+                            <NotebookPen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />
+                            <span className="text-xs sm:text-sm font-semibold text-gray-800">Chief Complaints</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-400">{complaints.length}/2000</span>
+                            <span className="text-[10px] sm:text-xs text-gray-400">{complaints.length}/2000</span>
                            
                           </div>
                         </div>
-                        <div className="p-4">
+                        <div className="p-3 sm:p-4">
                           <textarea
                             value={complaints}
                             onChange={(e) => setComplaints(e.target.value)}
                             maxLength={2000}
                             rows={5}
-                            className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none placeholder-gray-400"
+                            className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none placeholder-gray-400"
                             placeholder="Document chief complaints, presenting symptoms, and patient history..."
                           />
                           {/* Image Upload */}
-                          <div className="grid grid-cols-2 gap-3 mt-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                             <div>
                               <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Before Image</p>
                               <div className="relative flex items-center gap-2">
-                                <div className="w-32 h-32 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
+                                <div className="w-full sm:w-32 h-32 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                                   {beforeImage && (
                                     <button
                                       onClick={() => setBeforeImage("")}
@@ -2157,11 +2157,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   {beforeImage ? (
                                     <img src={beforeImage} alt="Before" className="w-full h-full object-cover" />
                                   ) : (
-                                    <Upload className="w-8 h-8 text-gray-300" />
+                                    <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-gray-300" />
                                   )}
                                   {uploadingBefore && (
                                     <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                                      <RefreshCw className="w-6 h-6 text-white animate-spin" />
+                                      <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-spin" />
                                     </div>
                                   )}
                                   <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer"
@@ -2180,7 +2180,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             <div>
                               <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">After Image</p>
                               <div className="relative flex items-center gap-2">
-                                <div className="w-32 h-32 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
+                                <div className="w-full sm:w-32 h-32 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                                   {afterImage && (
                                     <button
                                       onClick={() => setAfterImage("")}
@@ -2193,11 +2193,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   {afterImage ? (
                                     <img src={afterImage} alt="After" className="w-full h-full object-cover" />
                                   ) : (
-                                    <Upload className="w-8 h-8 text-gray-300" />
+                                    <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-gray-300" />
                                   )}
                                   {uploadingAfter && (
                                     <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                                      <RefreshCw className="w-6 h-6 text-white animate-spin" />
+                                      <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-spin" />
                                     </div>
                                   )}
                                   <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer"
@@ -3959,7 +3959,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                             <span className="text-xs font-semibold text-violet-700">{sel.treatmentName}</span>
                                             <button type="button" onClick={() => setPkgSelectedTreatments((prev) => prev.filter((t) => t.treatmentSlug !== sel.treatmentSlug))} className="text-red-400 hover:text-red-600 transition-colors"><XIcon size={13} /></button>
                                           </div>
-                                          <div className="grid grid-cols-3 gap-2">
+                                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                             <div>
                                               <label className="block text-[9px] text-violet-600 font-medium mb-0.5">Price</label>
                                               <input type="number" min="0" step="0.01" value={sel.allocatedPrice || ""} onChange={(e) => setPkgSelectedTreatments((prev) => prev.map((t) => t.treatmentSlug === sel.treatmentSlug ? { ...t, allocatedPrice: parseFloat(e.target.value) || 0 } : t))} className="w-full px-2 py-1.5 text-xs border border-violet-200 rounded-md focus:outline-none focus:ring-1 focus:ring-violet-400" placeholder="0.00" />
@@ -3976,7 +3976,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         </div>
                                       );
                                     })}
-                                    <div className="grid grid-cols-3 gap-1.5 bg-violet-100 rounded-lg px-3 py-2.5">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 bg-violet-100 rounded-lg px-3 py-2.5">
                                       <div className="text-center">
                                         <p className="text-[9px] text-violet-600 font-medium mb-0.5">Pkg Price</p>
                                         <p className="text-xs font-bold text-violet-800">₹{parseFloat(pkgModalPrice) || 0}</p>
@@ -4665,7 +4665,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-5">
                         <div className="flex items-center gap-2 mb-4"><Calendar className="w-4 h-4 text-blue-600" /><h3 className="text-sm font-semibold text-gray-800">Next Session Booking</h3></div>
 
-                        <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                           <div>
                             <label className="block text-xs text-gray-400 mb-1">Date</label>
                             <input type="date" value={nextSessionDate} min={new Date().toISOString().slice(0, 10)} onChange={(e) => { setNextSessionDate(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
@@ -4938,7 +4938,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                             <span className="text-xs font-semibold text-violet-700">{sel.treatmentName}</span>
                                             <button type="button" onClick={() => setPkgSelectedTreatments((prev) => prev.filter((t) => t.treatmentSlug !== sel.treatmentSlug))} className="text-red-400 hover:text-red-600 transition-colors"><XIcon size={13} /></button>
                                           </div>
-                                          <div className="grid grid-cols-3 gap-2">
+                                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                             <div>
                                               <label className="block text-[9px] text-violet-600 font-medium mb-0.5">Price</label>
                                               <input type="number" min="0" step="0.01" value={sel.allocatedPrice || ""} onChange={(e) => setPkgSelectedTreatments((prev) => prev.map((t) => t.treatmentSlug === sel.treatmentSlug ? { ...t, allocatedPrice: parseFloat(e.target.value) || 0 } : t))} className="w-full px-2 py-1.5 text-xs border border-violet-200 rounded-md focus:outline-none focus:ring-1 focus:ring-violet-400" placeholder="0.00" />
@@ -4955,7 +4955,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         </div>
                                       );
                                     })}
-                                    <div className="grid grid-cols-3 gap-1.5 bg-violet-100 rounded-lg px-3 py-2.5">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 bg-violet-100 rounded-lg px-3 py-2.5">
                                       <div className="text-center">
                                         <p className="text-[9px] text-violet-600 font-medium mb-0.5">Pkg Price</p>
                                         <p className="text-xs font-bold text-violet-800">₹{parseFloat(pkgModalPrice) || 0}</p>
@@ -5061,11 +5061,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       </div>
 
                       {/* Clinical Checklist */}
-                      <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
-                        <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                          <Eye className="w-4 h-4 text-blue-600" /> Clinical Checklist
+                      <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 shadow-sm px-3 sm:px-4 py-3">
+                        <h3 className="text-xs sm:text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                          <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" /> Clinical Checklist
                         </h3>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {CHECKLIST_ITEMS.map((item) => (
                             <label key={item} className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${checklist[item] ? "border-green-300 bg-green-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
                               <input type="checkbox" checked={checklist[item]} onChange={() => setChecklist((prev) => ({ ...prev, [item]: !prev[item] }))} className="w-3.5 h-3.5 rounded accent-green-500 cursor-pointer" />
@@ -5141,23 +5141,23 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
                       {/* Stock Used (All Sessions) */}
                       {previousComplaints.some((c) => Array.isArray(c.items) && c.items.length > 0) && (
-                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
-                          <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2"><Package className="w-4 h-4 text-gray-500" /> Stock Used (All Sessions)</h3>
-                          <div className="rounded-lg border border-gray-100 overflow-hidden">
-                            <table className="w-full text-xs">
+                        <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 shadow-sm px-3 sm:px-4 py-3">
+                          <h3 className="text-xs sm:text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2"><Package className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500" /> Stock Used (All Sessions)</h3>
+                          <div className="rounded-lg border border-gray-100 overflow-x-auto">
+                            <table className="w-full text-[10px] sm:text-xs min-w-[400px]">
                               <thead className="bg-gray-50"><tr>
-                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">Item</th>
-                                <th className="px-3 py-2 text-right font-semibold text-gray-500 uppercase tracking-wider">Qty</th>
-                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">UOM</th>
+                                <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                                <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">Item</th>
+                                <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-right font-semibold text-gray-500 uppercase tracking-wider">Qty</th>
+                                <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">UOM</th>
                               </tr></thead>
                               <tbody className="divide-y divide-gray-100 bg-white">
                                 {previousComplaints.filter((c) => Array.isArray(c.items) && c.items.length > 0).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).flatMap((c) => (c.items as NonNullable<typeof c.items>).map((item, idx) => ({ date: c.createdAt, item, key: `rx-${c._id}-${idx}` }))).map(({ date, item, key }) => (
                                   <tr key={key} className="hover:bg-gray-50">
-                                    <td className="px-3 py-2 text-gray-500">{new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
-                                    <td className="px-3 py-2 font-medium text-gray-800">{item.name}</td>
-                                    <td className="px-3 py-2 text-right font-semibold text-gray-700">{item.quantity}</td>
-                                    <td className="px-3 py-2 text-gray-500">{item.uom || "-"}</td>
+                                    <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-gray-500 whitespace-nowrap">{new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
+                                    <td className="px-2 sm:px-3 py-1.5 sm:py-2 font-medium text-gray-800">{item.name}</td>
+                                    <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-right font-semibold text-gray-700">{item.quantity}</td>
+                                    <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-gray-500">{item.uom || "-"}</td>
                                   </tr>
                                 ))}
                               </tbody>
@@ -5172,8 +5172,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
             </div>
 
             {/* ── RIGHT SIDEBAR ── */}
-            <div className="w-72 flex-shrink-0 border-l border-gray-200 overflow-y-auto scrollbar-hide bg-white">
-              <div className="p-4 space-y-3">
+            <div className="w-full lg:w-72 flex-shrink-0 border-l border-gray-200 overflow-y-auto scrollbar-hide bg-white lg:border-t-0 border-t max-h-[40vh] lg:max-h-none">
+              <div className="p-3 sm:p-4 space-y-3">
 
                 {/* Revenue Insights */}
                 <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
@@ -5500,11 +5500,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           </div>
 
           {/* ── FOOTER ── */}
-          <div className="flex items-center justify-between border-t border-gray-200 px-5 py-3 bg-white flex-shrink-0">
+          <div className="flex items-center justify-between border-t border-gray-200 px-3 sm:px-4 md:px-5 py-2 sm:py-3 bg-white flex-shrink-0 gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+              className="rounded-lg border border-gray-200 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors flex-1 sm:flex-none"
             >
               Close
             </button>
@@ -5513,7 +5513,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                 type="button"
                 onClick={handleSaveComplaints}
                 disabled={saving || loading}
-                className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60 transition-colors"
+                className="rounded-lg bg-blue-600 px-4 sm:px-6 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60 transition-colors flex-1 sm:flex-none"
               >
                 {saving ? "Saving..." : "Save Complaints"}
               </button>
