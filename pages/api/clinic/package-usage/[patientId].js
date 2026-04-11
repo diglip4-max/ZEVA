@@ -168,7 +168,7 @@ export default async function handler(req, res) {
     // Fetch all package billing records for this patient and source patients
     const billings = await Billing.find(query)
       .sort({ createdAt: -1 }) // Most recent first
-      .select("package selectedPackageTreatments sessions createdAt invoiceNumber amount paid pending patientId")
+      .select("package selectedPackageTreatments sessions createdAt invoiceNumber amount paid pending patientId originalAmount isDoctorDiscountApplied isAgentDiscountApplied membershipDiscountApplied discountPercent paymentMethod multiplePayments")
       .lean();
 
     // Fetch package definitions to get max sessions for each treatment
@@ -254,6 +254,13 @@ export default async function handler(req, res) {
         amount: billing.amount || 0,
         paid: billing.paid || 0,
         pending: billing.pending || 0,
+        originalAmount: billing.originalAmount || billing.amount || 0,
+        isDoctorDiscountApplied: billing.isDoctorDiscountApplied || false,
+        isAgentDiscountApplied: billing.isAgentDiscountApplied || false,
+        membershipDiscountApplied: billing.membershipDiscountApplied || 0,
+        discountPercent: billing.discountPercent || 0,
+        paymentMethod: billing.paymentMethod || "",
+        multiplePayments: billing.multiplePayments || [],
         treatments: billing.selectedPackageTreatments || [],
         isFromSourcePatient: isFromSourcePatient,
         sourcePatientId: isFromSourcePatient ? billing.patientId : null,
@@ -288,6 +295,13 @@ export default async function handler(req, res) {
             date: billing.createdAt,
             amount: billing.amount || 0,
             paid: billing.paid || 0,
+            originalAmount: billing.originalAmount || billing.amount || 0,
+            isDoctorDiscountApplied: billing.isDoctorDiscountApplied || false,
+            isAgentDiscountApplied: billing.isAgentDiscountApplied || false,
+            membershipDiscountApplied: billing.membershipDiscountApplied || 0,
+            discountPercent: billing.discountPercent || 0,
+            paymentMethod: billing.paymentMethod || "",
+            multiplePayments: billing.multiplePayments || [],
             isFromSourcePatient: isFromSourcePatient,
             sourcePatientId: isFromSourcePatient ? billing.patientId : null,
           });
