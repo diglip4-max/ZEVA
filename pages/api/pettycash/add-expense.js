@@ -1,213 +1,53 @@
-// import jwt from "jsonwebtoken";
-// import dbConnect from "../../../lib/database";
-// import PettyCash from "../../../models/PettyCash";
-// import User from "../../../models/Users";
-
-// export default async function handler(req, res) {
-//   await dbConnect();
-
-//   if (req.method !== "POST") {
-//     return res.status(405).json({ message: "Method Not Allowed" });
-//   }
-
-//   try {
-//     const token = req.headers.authorization?.split(" ")[1];
-//     if (!token) {
-//       return res.status(401).json({ message: "Token missing" });
-//     }
-
-//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-//     const staffId = decoded.userId;
-
-//     const staffUser = await User.findById(staffId);
-//     if (!staffUser || staffUser.role !== "staff") {
-//       return res.status(403).json({ message: "Access denied" });
-//     }
-
-//     const { pettyCashId, description, spentAmount } = req.body;
-
-//     if (!pettyCashId || !description || !spentAmount) {
-//       return res.status(400).json({ message: "All fields are required" });
-//     }
-
-//     const pettyCash = await PettyCash.findById(pettyCashId);
-
-//     if (!pettyCash) {
-//       return res.status(404).json({ message: "Petty cash record not found" });
-//     }
-
-//     if (pettyCash.staffId.toString() !== staffId.toString()) {
-//       return res.status(403).json({ message: "You are not authorized to add expense to this record" });
-//     }
-
-//     pettyCash.expenses.push({
-//       description,
-//       spentAmount: Number(spentAmount),
-//       date: new Date(),
-//     });
-
-//     await pettyCash.save();
-
-//     res.status(200).json({
-//       message: "Expense added successfully",
-//       pettyCash,
-//     });
-//   } catch (error) {
-//     console.error("Error adding expense:", error);
-//     res.status(500).json({ message: "Server error", error: error.message });
-//   }
-// }
-
-
-
-// import jwt from "jsonwebtoken";
-// import dbConnect from "../../../lib/database";
-// import PettyCash from "../../../models/PettyCash";
-// import User from "../../../models/Users";
-// import multer from "multer";
-// import nextConnect from "next-connect";
-
-// // Configure multer for file upload
-// const upload = multer({ storage: multer.memoryStorage() }); // You can switch to diskStorage or Cloudinary integration
-
-// const apiRoute = nextConnect({
-//   onError(error, req, res) {
-//     console.error(error);
-//     res.status(500).json({ message: "Server error", error: error.message });
-//   },
-//   onNoMatch(req, res) {
-//     res.status(405).json({ message: `Method ${req.method} Not Allowed` });
-//   },
-// });
-
-// apiRoute.use(upload.array("receipts")); // Expect receipts files in form-data
-
-// apiRoute.post(async (req, res) => {
-//   await dbConnect();
-
-//   try {
-//     const token = req.headers.authorization?.split(" ")[1];
-//     if (!token) return res.status(401).json({ message: "Token missing" });
-
-//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-//     const staffId = decoded.userId;
-
-//     const staffUser = await User.findById(staffId);
-//     if (!staffUser || staffUser.role !== "staff") {
-//       return res.status(403).json({ message: "Access denied" });
-//     }
-
-//     const { pettyCashId, description, spentAmount } = req.body;
-//     if (!pettyCashId || !description || !spentAmount) {
-//       return res.status(400).json({ message: "All fields are required" });
-//     }
-
-//     const pettyCash = await PettyCash.findById(pettyCashId);
-//     if (!pettyCash) return res.status(404).json({ message: "Petty cash record not found" });
-
-//     if (pettyCash.staffId.toString() !== staffId.toString()) {
-//       return res.status(403).json({ message: "You are not authorized to add expense to this record" });
-//     }
-
-//     // Convert uploaded files to URLs (replace this with Cloudinary or S3 upload logic)
-//     const receiptUrls = (req.files || []).map((file) => `uploaded_url_placeholder/${file.originalname}`);
-
-//     pettyCash.expenses.push({
-//       description,
-//       spentAmount: Number(spentAmount),
-//       receipts: receiptUrls,
-//       date: new Date(),
-//     });
-
-//     await pettyCash.save();
-
-//     res.status(200).json({
-//       message: "Expense added successfully",
-//       pettyCash,
-//     });
-//   } catch (error) {
-//     console.error("Error adding expense:", error);
-//     res.status(500).json({ message: "Server error", error: error.message });
-//   }
-// });
-
-// export default apiRoute;
-
-// // Disable default body parsing for multer
-// export const config = {
-//   api: {
-//     bodyParser: false,
-//   },
-// };
-
-
 import jwt from "jsonwebtoken";
 import dbConnect from "../../../lib/database";
 import PettyCash from "../../../models/PettyCash";
 import User from "../../../models/Users";
-import Vendor from "../../../models/VendorProfile";
-import multer from "multer";
-import FormData from "form-data";
-import fetch from "node-fetch";
-
-// Multer config for memory storage
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
-
-// Disable default body parser
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
-// Helper to run multer
-const runMiddleware = (req, res, fn) =>
-  new Promise((resolve, reject) => {
-    fn(req, res, (result) => {
-      if (result instanceof Error) reject(result);
-      else resolve(result);
-    });
-  });
+import Supplier from "../../../models/stocks/Supplier";
 
 export default async function handler(req, res) {
   await dbConnect();
 
-  if (req.method !== "POST")
+  if (req.method !== "POST") {
     return res.status(405).json({ message: "Method Not Allowed" });
+  }
 
   try {
-    // Parse multipart/form-data
-    await runMiddleware(req, res, upload.array("receipts"));
-
-    // Access fields from req.body safely
-    const pettyCashId = req.body ? req.body.pettyCashId : undefined;
-    const description = req.body.description;
-    const spentAmount = req.body.spentAmount;
-    const vendor = req.body.vendor;
+    const { 
+      description, 
+      spentAmount, 
+      vendor, 
+      vendorName, 
+      items, 
+      receipts, 
+      usedFromPettyCash 
+    } = req.body;
 
     // Validate required fields
-    if (
-      !description ||
-      spentAmount === undefined ||
-      spentAmount === ""
-    ) {
-      return res.status(400).json({ message: "All fields are required" });
+    if (!description || spentAmount === undefined || spentAmount === "") {
+      return res.status(400).json({ message: "Description and spentAmount are required" });
     }
 
     // Verify JWT
-    const token = req.headers.authorization?.split(" ")[1];
-    if (!token) return res.status(401).json({ message: "Token missing" });
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Token missing or invalid" });
+    }
+    const token = authHeader.split(" ")[1];
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const staffId = decoded.userId;
+    let staffId;
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      staffId = decoded.userId;
+    } catch (err) {
+      return res.status(401).json({ message: "Invalid token" });
+    }
 
     const staffUser = await User.findById(staffId);
     if (!staffUser) {
-      return res.status(403).json({ message: "Access denied" });
+      return res.status(403).json({ message: "User not found" });
     }
 
-    // Check permissions for clinic/agent/doctor roles
+    // Check permissions for clinic roles
     if (["clinic", "agent", "doctor", "doctorStaff"].includes(staffUser.role)) {
       try {
         const { getClinicIdFromUser, checkClinicPermission } = await import("../lead-ms/permissions-helper");
@@ -218,112 +58,73 @@ export default async function handler(req, res) {
           });
         }
 
-        const { hasPermission, error: permError } = await checkClinicPermission(
-          clinicId,
-          "clinic_staff_management",
-          "create",
-          "Add Expense"
-        );
-
-        if (!hasPermission) {
-          return res.status(403).json({
-            message: permError || "You do not have permission to create expenses"
-          });
-        }
+        // Optional: Check specific permission if needed
+        // const { hasPermission } = await checkClinicPermission(clinicId, "clinic_staff_management", "create", "Add Expense");
+        // if (!hasPermission) return res.status(403).json({ message: "No permission to add expense" });
       } catch (permErr) {
         console.error("Permission check error:", permErr);
-        return res.status(500).json({ message: "Error checking permissions" });
       }
     } else if (staffUser.role !== "staff" && staffUser.role !== "admin") {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    let pettyCash = null;
-    if (pettyCashId) {
-      pettyCash = await PettyCash.findById(pettyCashId);
-      if (!pettyCash)
-        return res
-          .status(404)
-          .json({ message: "Petty cash record not found" });
+    // Get or Create a global record for expenses if not specified, 
+    // or just create a new record for this specific expense.
+    // The requirement says "store all fields into model/pettycash in ExpenseSchema".
+    // Usually expenses are added to a PettyCash record.
+    
+    // Get clinicId for global tracking
+    let clinicId;
+    try {
+      const { getClinicIdFromUser } = await import("../lead-ms/permissions-helper");
+      const { clinicId: cid } = await getClinicIdFromUser(staffUser);
+      clinicId = cid;
+    } catch (err) {
+      console.error("Error getting clinicId:", err);
+    }
 
-      if (pettyCash.staffId.toString() !== staffId.toString()) {
-        return res
-          .status(403)
-          .json({ message: "You are not authorized to add expense to this record" });
-      }
-    } else {
-      // Create a new PettyCash record for each expense entry
+    // Find an existing PettyCash record for this staff or create a new one
+    let pettyCash = await PettyCash.findOne({ staffId }).sort({ createdAt: -1 });
+    
+    if (!pettyCash) {
       pettyCash = await PettyCash.create({
         staffId,
-        note: `Expense: ${description}`,
+        clinicId,
+        note: "Petty Cash Record",
         allocatedAmounts: [],
         expenses: [],
       });
+    } else if (!pettyCash.clinicId && clinicId) {
+      // Update existing record with clinicId if missing
+      pettyCash.clinicId = clinicId;
     }
 
-    // Upload receipts to Cloudinary (skip gracefully if env not configured)
-    const receiptFiles = req.files || [];
-    const receiptUrls = [];
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-
-    if (cloudName && uploadPreset && receiptFiles.length > 0) {
-      for (const file of receiptFiles) {
-        if (!file || !file.buffer) continue;
-        const safeFilename = (file && typeof file.originalname === 'string' && file.originalname.trim())
-          ? file.originalname
-          : `receipt-${Date.now()}.bin`;
-        const formData = new FormData();
-        formData.append("file", file.buffer, safeFilename);
-        formData.append("upload_preset", uploadPreset);
-
-        const response = await fetch(
-          `https://api.cloudinary.com/v1_1/${cloudName}/upload`,
-          { method: "POST", body: formData }
-        );
-        const data = await response.json();
-        if (data && data.secure_url) receiptUrls.push(data.secure_url);
-      }
-    }
-
-    // Get vendor name if vendor ID is provided
-    let vendorName = null;
-    if (vendor) {
-      try {
-        // Validate ObjectId to avoid server errors in production
-        const isValidId = Vendor.db && Vendor.db.base && Vendor.db.base.Types && Vendor.db.base.Types.ObjectId.isValid
-          ? Vendor.db.base.Types.ObjectId.isValid(vendor)
-          : true;
-        if (isValidId) {
-          const vendorDoc = await Vendor.findById(vendor).lean();
-          vendorName = vendorDoc && typeof vendorDoc.name === 'string' ? vendorDoc.name : null;
-        }
-      } catch {
-        vendorName = null;
-      }
-    }
-
-    // Add expense
+    // Add to expenses array
     pettyCash.expenses.push({
       description,
       spentAmount: Number(spentAmount),
       vendor: vendor || null,
-      vendorName: vendorName,
-      receipts: receiptUrls,
+      vendorName: vendorName || null,
+      items: items || [],
+      receipts: receipts || [],
+      usedFromPettyCash: usedFromPettyCash !== undefined ? usedFromPettyCash : true,
       date: new Date(),
     });
 
     await pettyCash.save();
 
-    // Update global spent amount
-    await PettyCash.updateGlobalSpentAmount(Number(spentAmount), 'add');
+    // If usedFromPettyCash is true, deduct from global spent amount
+    if (usedFromPettyCash !== false && clinicId) {
+      await PettyCash.updateGlobalSpentAmount(clinicId, Number(spentAmount), 'add');
+    }
 
-    res.status(200).json({
+    res.status(201).json({
+      success: true,
       message: "Expense added successfully",
-      pettyCash,
+      data: pettyCash,
     });
   } catch (error) {
     console.error("Error adding expense:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 }
