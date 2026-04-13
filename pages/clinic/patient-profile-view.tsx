@@ -606,6 +606,24 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   const [showAddPastAdvancePayment159FlatModal, setShowAddPastAdvancePayment159FlatModal] = useState(false);
   const [showPayPendingModal, setShowPayPendingModal] = useState(false);
   const [treatmentFilter, setTreatmentFilter] = useState<'all' | 'ongoing' | 'completed' | 'pending'>('all');
+  
+  // Track invoice numbers that have been paid but billing history hasn't updated yet
+  // Persisted in sessionStorage to survive page refreshes
+  const [manuallyPaidInvoices, setManuallyPaidInvoices] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = sessionStorage.getItem(`manuallyPaidInvoices_${patientData._id}`);
+        if (stored) {
+          const parsed = new Set<string>(JSON.parse(stored));
+          console.log('📦 Loaded manuallyPaidInvoices from sessionStorage:', parsed.size, 'invoices');
+          return parsed;
+        }
+      } catch (e) {
+        console.error('Error loading manually paid invoices:', e);
+      }
+    }
+    return new Set<string>();
+  });
 
   // Create Package state
   const [showCreatePackage, setShowCreatePackage] = useState(false);
@@ -638,6 +656,21 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       setPkgModalEndDate("");
     }
   }, [pkgModalStartDate, pkgModalValidityInMonths]);
+
+  // Persist manually paid invoices to sessionStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined' && patientData._id) {
+      try {
+        sessionStorage.setItem(
+          `manuallyPaidInvoices_${patientData._id}`, 
+          JSON.stringify(Array.from(manuallyPaidInvoices))
+        );
+        console.log('💾 Saved manuallyPaidInvoices to sessionStorage:', manuallyPaidInvoices.size, 'invoices');
+      } catch (e) {
+        console.error('Error saving manually paid invoices:', e);
+      }
+    }
+  }, [manuallyPaidInvoices, patientData._id]);
 
   // Fetch all clinic services
   const fetchAllServices = async () => {
@@ -2217,6 +2250,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
   // Fetch created packages from UserPackage model
   const fetchCreatedPackages = async () => {
+    // Don't run if patient data not available yet or missing required fields
     if (!patientData?._id) {
       console.warn("Patient ID not available, skipping fetchCreatedPackages");
       return;
@@ -2225,14 +2259,36 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     setLoadingCreatedPackages(true);
     try {
       const headers = getAuthHeaders();
-      if (!headers) return;
+      if (!headers) {
+        setLoadingCreatedPackages(false);
+        return;
+      }
+
+      // Build params - need at least one valid ID
+      const params: any = {};
+      
+      // Only add patientId if it's a valid string
+      if (patientData._id && typeof patientData._id === 'string' && patientData._id.length > 0) {
+        params.patientId = patientData._id;
+      }
+      
+      // Only add clinicId if it's a valid string
+      if (patientData.clinicId && typeof patientData.clinicId === 'string' && patientData.clinicId.length > 0) {
+        params.clinicId = patientData.clinicId;
+      }
+
+      // Ensure we have at least one valid parameter
+      if (Object.keys(params).length === 0) {
+        console.warn("No valid IDs available for fetchCreatedPackages");
+        setLoadingCreatedPackages(false);
+        return;
+      }
+
+      console.log('Fetching packages with params:', params);
 
       const response = await axios.get('/api/clinic/public-package', {
         headers,
-        params: { 
-          patientId: patientData._id,
-          clinicId: patientData.clinicId || undefined,
-        },
+        params,
       });
 
       if (response.data.success) {
@@ -2240,7 +2296,8 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       }
     } catch (error: any) {
       console.error("Error fetching created packages:", error);
-      setCreatedPackages([]);
+      // Don't set createdPackages to empty array - keep existing data
+      // setCreatedPackages([]);
     } finally {
       setLoadingCreatedPackages(false);
     }
@@ -5321,10 +5378,36 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   .map((billing: any) => {
                     const amount = parseFloat(billing.amount) || 0;
                     const paid = parseFloat(billing.paid || billing.paidAmount || 0) || 0;
+                    const pending = parseFloat(billing.pending || 0) || 0;
+                    const pendingUsed = parseFloat(billing.pendingUsed || 0) || 0;
+                    
+                    // Get invoice number early (needed for manuallyPaidInvoices check)
+                    const invoiceNumber = billing.invoiceNumber || billing.invoiceNo || billing._id?.slice(-8).toUpperCase() || '';
+                    
                     const pendingAmount = amount - paid;
-                    const isFullyPaid = amount > 0 && paid >= amount;
+                    
+                    // Calculate total amount (original + pending if any)
+                    const totalAmount = amount;
+                    
+                    // Check if pending was cleared separately (pendingUsed > 0 means pending was paid separately)
+                    const pendingClearedSeparately = pendingUsed > 0;
+                    
+                    // Check if fully paid:
+                    // Case 1: Original Amount = Paid (no pending ever existed)
+                    // Case 2: Original Amount + Pending = Paid (pending was added to this invoice)
+                    // Case 3: Pending was cleared separately (pendingUsed > 0)
+                    // Case 4: Invoice was manually paid and stored in sessionStorage (API hasn't updated yet)
+                    const isFullyPaid = paid >= totalAmount || 
+                                       pendingClearedSeparately || 
+                                       manuallyPaidInvoices.has(invoiceNumber);
+                    
+                    // Debug logging
+                    if (manuallyPaidInvoices.has(invoiceNumber)) {
+                      console.log('✅ Invoice', invoiceNumber, 'marked as completed via manuallyPaidInvoices');
+                    }
+                    
                     // Status based on actual payment status
-                    const treatmentStatus = pendingAmount > 0 ? 'pending' : 'completed';
+                    const treatmentStatus = isFullyPaid ? 'completed' : 'pending';
                     
                     // Get treatment/package name from billing record
                     const treatmentName = (billing.treatment && billing.treatment.trim() !== '' ? billing.treatment : 
@@ -5339,9 +5422,6 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     const date = billing.createdAt 
                       ? new Date(billing.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                       : 'N/A';
-                    
-                    // Get invoice number if available
-                    const invoiceNumber = billing.invoiceNumber || billing.invoiceNo || billing._id?.slice(-8).toUpperCase() || '';
 
                     return {
                       source: 'billing',
@@ -6321,12 +6401,47 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           patientId={patientData._id}
           patientName={`${patientData.firstName} ${patientData.lastName}`}
           pendingBalance={balance.pendingBalance}
-          onSuccess={async () => {
+          onSuccess={async (paymentData: any) => {
+            // Store the previous pending balance before update
+            const prevBalance = balance.pendingBalance;
+            
             const updated = await fetchPatientBalance(patientData._id);
             if (updated) {
+              const newPendingBalance = Number(updated.pendingBalance || 0);
               setBalance(updated as typeof balance);
-              // Also refresh billing history to show the payment
-              fetchBillingHistory();
+              
+              // If pending balance decreased, it means payment was successful
+              if (newPendingBalance < prevBalance) {
+                // CRITICAL: Refresh billing history FIRST to get the latest data
+                const refreshedBillings = await fetchBillingHistory();
+                
+                // Use the refreshed billing history (or fallback to current state)
+                const billingsToCheck = refreshedBillings || billingHistory || [];
+                
+                // Get all invoice numbers from billing history that have pending amount
+                const pendingInvoices = billingsToCheck
+                  .filter((b: any) => {
+                    const amount = parseFloat(b.amount) || 0;
+                    const paid = parseFloat(b.paid || b.paidAmount || 0) || 0;
+                    const isAdvance = b.isAdvanceOnly || 
+                                     b.treatment === "Advance Payment" || 
+                                     b.treatment === "Historical Advance Balance";
+                    return !isAdvance && (amount - paid) > 0;
+                  })
+                  .map((b: any) => b.invoiceNumber || b.invoiceNo || b._id?.slice(-8).toUpperCase() || '');
+                
+                // Add these invoices to manually paid set
+                if (pendingInvoices.length > 0) {
+                  setManuallyPaidInvoices(prev => {
+                    const updated = new Set(prev);
+                    pendingInvoices.forEach((inv: string) => updated.add(inv));
+                    return updated;
+                  });
+                }
+              } else {
+                // Even if balance didn't change, still refresh billing history
+                await fetchBillingHistory();
+              }
             }
           }}
         />
