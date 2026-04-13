@@ -1781,7 +1781,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       (b) => String(b.appointmentId) === String(appointment._id) ||
              String(b.appointmentId?._id) === String(appointment._id)
     ) : [];
-    const alreadyBilledPackageTreatmentNames = billedItemsForAppointment.flatMap(b => b.selectedPackageTreatments || []).map((pt: any) => pt.treatmentName);
 
     const sessions: PackageTreatmentSession[] = pkg.treatments.map((t) => {
       // Find if this treatment has been used before
