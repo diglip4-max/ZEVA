@@ -22,9 +22,12 @@ import {
   ListOrdered,
   Receipt,
   CheckCircle,
+  Trash2,
+  Image as ImageIcon,
 } from "lucide-react";
+import AddSupplierModal from "./stocks/suppliers/_components/AddSupplierModal";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Types
 interface MultiPayment { paymentMethod: string; amount: number; }
 interface PackageTreatment { treatmentName: string; sessions: number; }
 interface MembershipInfo { name: string; price: number; }
@@ -58,12 +61,17 @@ interface ManualEntry {
   amount: number;
   note: string;
   createdAt: string;
+  isExpense?: boolean;
+  vendorName?: string;
+  items?: { itemName: string; amount: number }[];
+  images?: string[];
+  usedFromPettyCash?: boolean;
 }
 
 interface Summary { totalCashIn: number; totalRecords: number; }
 interface Pagination { total: number; page: number; limit: number; totalPages: number; }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Helpers
 const TOKEN_KEYS = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
 const getToken = () => {
   if (typeof window === "undefined") return null;
@@ -84,7 +92,7 @@ const fmtDate = (d: string) =>
 const fmtDateTime = (d: string) =>
   new Date(d).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
-// ─── Drawer component ─────────────────────────────────────────────────────────
+// Drawer component
 function Drawer({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
   // Prevent body scroll when open
   useEffect(() => {
@@ -118,7 +126,7 @@ function Drawer({ open, onClose, title, children }: { open: boolean; onClose: ()
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// Page
 function PettyCashPage() {
   // Patient billing records
   const [records, setRecords] = useState<CashRecord[]>([]);
@@ -130,12 +138,17 @@ function PettyCashPage() {
 
   // Manual petty cash entries
   const [manualEntries, setManualEntries] = useState<ManualEntry[]>([]);
+  const [expenseEntries, setExpenseEntries] = useState<any[]>([]);
   const [manualTotal, setManualTotal] = useState(0);
+  const [expenseTotal, setExpenseTotal] = useState(0);
   const [manualLoading, setManualLoading] = useState(false);
+  const [globalSpent, setGlobalSpent] = useState(0);
+  const [globalTotal, setGlobalTotal] = useState(0);
 
   // Drawers
   const [addDrawerOpen, setAddDrawerOpen] = useState(false);
   const [manualDrawerOpen, setManualDrawerOpen] = useState(false);
+  const [allExpenseDrawerOpen, setAllExpenseDrawerOpen] = useState(false);
   const [patientDrawerOpen, setPatientDrawerOpen] = useState(false);
 
   // Add form
@@ -145,6 +158,137 @@ function PettyCashPage() {
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState("");
   const [addSuccess, setAddSuccess] = useState(false);
+
+  // Expense form
+  const [expenseDrawerOpen, setExpenseDrawerOpen] = useState(false);
+  const [expenseVendor, setExpenseVendor] = useState("");
+  const [expenseItems, setExpenseItems] = useState([{ itemName: "", amount: "" }]);
+  const [expenseImages, setExpenseImages] = useState<string[]>([]);
+  const [usePettyCash, setUsePettyCash] = useState(true);
+  const [expenseLoading, setExpenseLoading] = useState(false);
+  const [expenseError, setExpenseError] = useState("");
+  const [expenseSuccess, setExpenseSuccess] = useState(false);
+
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
+  const [token, setToken] = useState("");
+
+  useEffect(() => {
+    setToken(getToken() || "");
+  }, []);
+
+  // Fetch suppliers
+  const fetchSuppliers = useCallback(async () => {
+    try {
+      const res = await axios.get("/api/stocks/suppliers", {
+        headers: authHeaders(),
+        params: { limit: 1000 }
+      });
+      if (res.data.success) {
+        setSuppliers(res.data.data.suppliers || []);
+      }
+    } catch (e) {
+      console.error("Failed to fetch suppliers:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (expenseDrawerOpen) fetchSuppliers();
+  }, [expenseDrawerOpen, fetchSuppliers]);
+
+  // Image upload
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const uploadedUrls: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const formData = new FormData();
+      formData.append("file", files[i]);
+
+      try {
+        const res = await axios.post("/api/upload", formData, {
+          headers: { ...authHeaders(), "Content-Type": "multipart/form-data" },
+        });
+        if (res.data.success && res.data.url) {
+          uploadedUrls.push(res.data.url);
+        }
+      } catch (e: any) {
+        console.error(`Image upload failed for file ${files[i].name}:`, e);
+        setExpenseError(e?.response?.data?.message || "Failed to upload one or more images");
+      }
+    }
+
+    if (uploadedUrls.length > 0) {
+      setExpenseImages((prev) => [...prev, ...uploadedUrls]);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setExpenseImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const addExpenseItem = () => {
+    setExpenseItems([...expenseItems, { itemName: "", amount: "" }]);
+  };
+
+  const removeExpenseItem = (index: number) => {
+    if (expenseItems.length > 1) {
+      setExpenseItems(expenseItems.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateExpenseItem = (index: number, field: string, value: string) => {
+    const newItems = [...expenseItems];
+    (newItems[index] as any)[field] = value;
+    setExpenseItems(newItems);
+  };
+
+  const totalExpenseAmount = expenseItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+
+  // ── Add expense entry ─────────────────────────────────────────────────────
+  const handleAddExpense = async () => {
+    setExpenseError("");
+    if (!expenseVendor) { setExpenseError("Vendor is required"); return; }
+    if (expenseItems.some(item => !item.itemName.trim() || !parseFloat(item.amount))) {
+      setExpenseError("All items must have a name and a valid amount");
+      return;
+    }
+    
+    setExpenseLoading(true);
+    try {
+      const vendorName = suppliers.find(s => s._id === expenseVendor)?.name || "";
+      const payload = {
+        description: `Expense: ${vendorName}`,
+        spentAmount: totalExpenseAmount,
+        vendor: expenseVendor,
+        vendorName,
+        items: expenseItems.map(i => ({ itemName: i.itemName, amount: parseFloat(i.amount) })),
+        receipts: expenseImages,
+        usedFromPettyCash: usePettyCash
+      };
+
+      await axios.post("/api/pettycash/add-expense", payload, {
+        headers: { ...authHeaders(), "Content-Type": "application/json" }
+      });
+
+      setExpenseSuccess(true);
+      setExpenseVendor(""); setExpenseItems([{ itemName: "", amount: "" }]); setExpenseImages([]); setUsePettyCash(true);
+      
+      // Refresh both lists
+      fetchManual();
+      fetchData(page);
+      
+      setTimeout(() => {
+        setExpenseSuccess(false);
+        setExpenseDrawerOpen(false);
+      }, 2000);
+    } catch (e: any) {
+      setExpenseError(e?.response?.data?.message || "Failed to add expense");
+    } finally {
+      setExpenseLoading(false);
+    }
+  };
 
   // Filters
   const today = new Date().toISOString().split("T")[0];
@@ -199,6 +343,12 @@ function PettyCashPage() {
       if (res.data.success) {
         setManualEntries(res.data.data);
         setManualTotal(res.data.totalAmount || 0);
+        setExpenseTotal(res.data.expenseTotal || 0);
+        if (res.data.pettyCashGlobal) {
+          setGlobalSpent(res.data.pettyCashGlobal.globalSpentAmount || 0);
+          setGlobalTotal(res.data.pettyCashGlobal.globalTotalAmount || 0);
+          setExpenseEntries(res.data.pettyCashGlobal.expenses || []);
+        }
       }
     } catch {}
     finally { setManualLoading(false); }
@@ -260,8 +410,8 @@ function PettyCashPage() {
     }
   };
 
-  // Combined total (patient cash + manual)
-  const combinedTotal = summary.totalCashIn + manualTotal;
+  // Combined total (patient cash + manual total - expense total)
+  const combinedTotal = summary.totalCashIn + manualTotal - expenseTotal;
 
   // ── Service info ──────────────────────────────────────────────────────────
   const renderServiceInfo = (record: CashRecord) => {
@@ -315,11 +465,10 @@ function PettyCashPage() {
     return <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium border bg-green-50 text-green-700 border-green-200">Cash: {fmt(record.cashAmount)}</span>;
   };
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  // Render
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
-
-      {/* ── Header ── */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-green-100 rounded-lg">
@@ -330,20 +479,30 @@ function PettyCashPage() {
             <p className="text-xs text-gray-500 dark:text-gray-400">Cash payments received from patients + manual entries</p>
           </div>
         </div>
-        {/* Add Petty Cash button */}
-        <button
-          onClick={() => setAddDrawerOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg shadow transition-colors"
-        >
-          <Plus size={15} />
-          Add Petty Cash
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Add Expense button */}
+          <button
+            onClick={() => setExpenseDrawerOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg shadow transition-colors"
+          >
+            <Plus size={15} />
+            Add Expense
+          </button>
+          {/* Add Petty Cash button */}
+          <button
+            onClick={() => setAddDrawerOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg shadow transition-colors"
+          >
+            <Plus size={15} />
+            Add Petty Cash
+          </button>
+        </div>
       </div>
 
-      {/* ── Summary cards ── */}
+      {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         {/* Combined Total */}
-        <div className="col-span-2 md:col-span-1 bg-gradient-to-br from-green-600 to-green-700 rounded-xl p-4 flex items-center gap-3 shadow-sm text-white">
+        <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-xl p-4 flex items-center gap-3 shadow-sm text-white">
           <div className="p-2 bg-white/20 rounded-lg flex-shrink-0">
             <DollarSign size={18} />
           </div>
@@ -352,6 +511,7 @@ function PettyCashPage() {
             <p className="text-lg font-bold">{fmt(combinedTotal)}</p>
           </div>
         </div>
+
         {/* Patient Cash */}
         <div
           className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex items-center gap-3 shadow-sm cursor-pointer hover:border-blue-400 transition-colors"
@@ -363,9 +523,10 @@ function PettyCashPage() {
           <div>
             <p className="text-xs text-gray-500 dark:text-gray-400">Patient Cash</p>
             <p className="text-lg font-bold text-blue-700">{fmt(summary.totalCashIn)}</p>
-            <p className="text-[10px] text-gray-400">{summary.totalRecords} records · tap to view</p>
+            <p className="text-[10px] text-gray-400">{summary.totalRecords} records</p>
           </div>
         </div>
+
         {/* Manual Entries */}
         <div
           className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex items-center gap-3 shadow-sm cursor-pointer hover:border-purple-400 transition-colors"
@@ -375,20 +536,24 @@ function PettyCashPage() {
             <ListOrdered className="text-purple-700" size={18} />
           </div>
           <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Manual Entries</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Manual Entry</p>
             <p className="text-lg font-bold text-purple-700">{fmt(manualTotal)}</p>
-            <p className="text-[10px] text-gray-400">{manualEntries.length} entries · tap to view</p>
+            <p className="text-[10px] text-gray-400">{manualEntries.filter(e => !e.isExpense).length} entries</p>
           </div>
         </div>
-        {/* Date Range */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex items-center gap-3 shadow-sm">
-          <div className="p-2 bg-orange-100 rounded-lg flex-shrink-0">
-            <Calendar className="text-orange-600" size={18} />
+
+        {/* Expenses */}
+        <div
+          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex items-center gap-3 shadow-sm cursor-pointer hover:border-red-400 transition-colors"
+          onClick={() => setAllExpenseDrawerOpen(true)}
+        >
+          <div className="p-2 bg-red-100 rounded-lg flex-shrink-0">
+            <RefreshCw className="text-red-600" size={18} />
           </div>
           <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Date Range</p>
-            <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">{startDate ? fmtDate(startDate) : "—"}</p>
-            <p className="text-xs text-gray-500">→ {endDate ? fmtDate(endDate) : "—"}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Expenses</p>
+            <p className="text-lg font-bold text-red-600">{fmt(expenseTotal)}</p>
+            <p className="text-[10px] text-gray-400">Total added expenses</p>
           </div>
         </div>
       </div>
@@ -505,9 +670,7 @@ function PettyCashPage() {
         )}
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════
-          DRAWER 1: Add Petty Cash
-      ══════════════════════════════════════════════════════════════ */}
+      {/* DRAWER 1: Add Petty Cash */}
       <Drawer open={addDrawerOpen} onClose={() => { setAddDrawerOpen(false); setAddError(""); setAddSuccess(false); }} title="Add Petty Cash">
         <div className="flex flex-col gap-5">
           {addSuccess && (
@@ -580,10 +743,8 @@ function PettyCashPage() {
         </div>
       </Drawer>
 
-      {/* ══════════════════════════════════════════════════════════════
-          DRAWER 2: Manual Petty Cash Entries (Slider)
-      ══════════════════════════════════════════════════════════════ */}
-      <Drawer open={manualDrawerOpen} onClose={() => setManualDrawerOpen(false)} title="Manual Petty Cash Entries">
+      {/* DRAWER 2: Manual Petty Cash Entries */}
+      <Drawer open={manualDrawerOpen} onClose={() => setManualDrawerOpen(false)} title="Manual Entries">
         <div className="flex flex-col gap-4">
           {/* Total */}
           <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 flex items-center justify-between">
@@ -612,22 +773,36 @@ function PettyCashPage() {
           ) : (
             <div className="flex flex-col gap-3">
               {manualEntries.map((entry, idx) => (
-                <div key={entry._id} className="flex items-start justify-between bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm">
-                  <div className="flex items-start gap-3">
-                    <div className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 text-xs font-bold text-purple-700">
-                      {idx + 1}
+                <div key={entry._id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm">
+                  {/* Name + Amount */}
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0">
+                        <Plus size={13} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{entry.name}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{entry.name}</p>
-                      {entry.note && <p className="text-xs text-gray-500 mt-0.5">{entry.note}</p>}
-                      <p className="text-[10px] text-gray-400 mt-1">{fmtDateTime(entry.createdAt)}</p>
-                    </div>
+                    <span className="text-sm font-bold text-purple-700 whitespace-nowrap ml-3">
+                      {fmt(entry.amount)}
+                    </span>
                   </div>
-                  <span className="text-sm font-bold text-purple-700 whitespace-nowrap ml-3">{fmt(entry.amount)}</span>
+
+                  {/* Description / Note */}
+                  <div className="ml-9">
+                    {entry.note && <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 leading-relaxed">{entry.note}</p>}
+                    
+                    {/* Date */}
+                    <p className="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
+                      <Calendar size={10} />
+                      {fmtDateTime(entry.createdAt)}
+                    </p>
+                  </div>
                 </div>
               ))}
               {/* Summary */}
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 flex justify-between items-center border border-gray-200 dark:border-gray-700">
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 flex justify-between items-center border border-gray-200 dark:border-gray-700 mt-2">
                 <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{manualEntries.length} entries</span>
                 <span className="text-base font-bold text-purple-700">{fmt(manualTotal)}</span>
               </div>
@@ -636,9 +811,122 @@ function PettyCashPage() {
         </div>
       </Drawer>
 
-      {/* ══════════════════════════════════════════════════════════════
-          DRAWER 3: Patient Cash Payments (Slider)
-      ══════════════════════════════════════════════════════════════ */}
+      {/* DRAWER 5: All Expenses List */}
+      <Drawer open={allExpenseDrawerOpen} onClose={() => setAllExpenseDrawerOpen(false)} title="All Expenses">
+        <div className="flex flex-col gap-4">
+          {/* Total */}
+          <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-red-600 font-medium">Total Expenses</p>
+              <p className="text-2xl font-bold text-red-600">{fmt(expenseTotal)}</p>
+            </div>
+            <div className="p-3 bg-red-100 rounded-xl">
+              <RefreshCw className="text-red-600" size={22} />
+            </div>
+          </div>
+
+          <div className="flex justify-center">
+            <button
+              onClick={() => { setAllExpenseDrawerOpen(false); setExpenseDrawerOpen(true); }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg shadow transition-colors w-full justify-center"
+            >
+              <Plus size={15} />
+              Add Expense
+            </button>
+          </div>
+
+          {manualLoading ? (
+            <div className="flex items-center justify-center py-10 gap-2 text-gray-400">
+              <RefreshCw size={18} className="animate-spin" /><span className="text-sm">Loading...</span>
+            </div>
+          ) : expenseEntries.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+              <RefreshCw size={36} className="mb-2 opacity-40" />
+              <p className="text-sm">No expenses yet</p>
+              <button
+                onClick={() => { setAllExpenseDrawerOpen(false); setExpenseDrawerOpen(true); }}
+                className="mt-3 text-xs text-blue-600 underline font-medium"
+              >Add one now</button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {expenseEntries.map((entry, idx) => (
+                <div key={entry._id || idx} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm">
+                  {/* Name + Amount */}
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-red-100 text-red-700 flex items-center justify-center flex-shrink-0">
+                        <RefreshCw size={13} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{entry.description || "Expense"}</p>
+                        {entry.vendorName && (
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <span className="text-[10px] text-gray-400">Vendor:</span>
+                            <span className="text-[10px] text-blue-600 font-bold">{entry.vendorName}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-sm font-bold text-red-600 whitespace-nowrap ml-3">
+                      {fmt(entry.spentAmount)}
+                    </span>
+                  </div>
+
+                  {/* Items & Images */}
+                  <div className="ml-9">
+                    {entry.items && entry.items.length > 0 && (
+                      <div className="mt-1 flex flex-col gap-1 mb-2 bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg border border-gray-100 dark:border-gray-800">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Items Breakdown</p>
+                        {entry.items.map((item: any, i: number) => (
+                          <div key={i} className="flex justify-between items-center text-[11px]">
+                            <span className="text-gray-600 dark:text-gray-300">• {item.itemName}</span>
+                            <span className="font-semibold text-gray-700 dark:text-gray-200">{fmt(item.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {entry.receipts && entry.receipts.length > 0 && (
+                      <div className="mt-2 flex flex-col gap-1.5 mb-2">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Receipts</p>
+                        <div className="flex gap-2 overflow-x-auto pb-1">
+                          {entry.receipts.map((img: string, i: number) => (
+                            <a key={i} href={img} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 group relative">
+                              <img src={img} alt="receipt" className="w-14 h-14 rounded-lg object-cover border border-gray-200 dark:border-gray-600 hover:opacity-80 transition-opacity" />
+                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/10 rounded-lg">
+                                <ImageIcon size={14} className="text-white drop-shadow" />
+                              </div>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Date */}
+                    <div className="pt-2 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                      <p className="text-[10px] text-gray-400 flex items-center gap-1">
+                        <Calendar size={10} />
+                        {fmtDateTime(entry.date || entry.createdAt)}
+                      </p>
+                      {entry.usedFromPettyCash && (
+                        <span className="text-[9px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-tighter">Petty Cash</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {/* Summary */}
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 flex justify-between items-center border border-gray-200 dark:border-gray-700 mt-2">
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{expenseEntries.length} expenses</span>
+                <span className="text-base font-bold text-red-600">{fmt(expenseTotal)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </Drawer>
+
+      {/* DRAWER 3: Patient Cash Payments */}
       <Drawer open={patientDrawerOpen} onClose={() => setPatientDrawerOpen(false)} title="Patient Cash Payments">
         <div className="flex flex-col gap-4">
           {/* Total */}
@@ -727,11 +1015,156 @@ function PettyCashPage() {
         </div>
       </Drawer>
 
+      {/* DRAWER 4: Add Expense */}
+      <Drawer open={expenseDrawerOpen} onClose={() => { setExpenseDrawerOpen(false); setExpenseError(""); setExpenseSuccess(false); }} title="Add Expense">
+        <div className="flex flex-col gap-5">
+          {expenseSuccess && (
+            <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded-lg p-3 text-sm">
+              <CheckCircle size={16} />
+              Expense added successfully!
+            </div>
+          )}
+          {expenseError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">{expenseError}</div>
+          )}
+
+          {/* Vendor Selection */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Select Vendor <span className="text-red-500">*</span>
+              </label>
+              <button
+                onClick={() => setIsAddSupplierOpen(true)}
+                className="text-xs text-blue-600 hover:underline font-medium"
+              >
+                + Add New Vendor
+              </button>
+            </div>
+            <select
+              value={expenseVendor}
+              onChange={(e) => setExpenseVendor(e.target.value)}
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            >
+              <option value="">Select a vendor</option>
+              {suppliers.map((s) => (
+                <option key={s._id} value={s._id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Items */}
+          <div className="flex flex-col gap-3">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Items</label>
+            {expenseItems.map((item, idx) => (
+              <div key={idx} className="flex gap-2 items-start">
+                <div className="flex-1 flex flex-col gap-1">
+                  <input
+                    type="text"
+                    placeholder="Item name"
+                    value={item.itemName}
+                    onChange={(e) => updateExpenseItem(idx, "itemName", e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+                <div className="w-24 flex flex-col gap-1">
+                  <input
+                    type="number"
+                    placeholder="0.00"
+                    value={item.amount}
+                    onChange={(e) => updateExpenseItem(idx, "amount", e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400 text-right"
+                  />
+                </div>
+                {expenseItems.length > 1 && (
+                  <button
+                    onClick={() => removeExpenseItem(idx)}
+                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              onClick={addExpenseItem}
+              className="text-xs text-blue-600 hover:underline font-medium flex items-center gap-1 mt-1"
+            >
+              <Plus size={12} /> Add more items
+            </button>
+          </div>
+
+          {/* Image Upload */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Upload Receipts/Images</label>
+            <div className="flex flex-wrap gap-2">
+              {expenseImages.map((url, idx) => (
+                <div key={idx} className="relative w-16 h-16 rounded-lg border border-gray-200 overflow-hidden group">
+                  <img src={url} alt="receipt" className="w-full h-full object-cover" />
+                  <button
+                    onClick={() => removeImage(idx)}
+                    className="absolute top-0 right-0 p-0.5 bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+              <label className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 transition-colors">
+                <ImageIcon size={20} className="text-gray-400" />
+                <span className="text-[10px] text-gray-400">Add</span>
+                <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageUpload} />
+              </label>
+            </div>
+          </div>
+
+          {/* Used from Petty Cash Checkbox */}
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="usedFromPettyCash"
+              checked={usePettyCash}
+              onChange={(e) => setUsePettyCash(e.target.checked)}
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="usedFromPettyCash" className="text-sm text-gray-700 dark:text-gray-300">
+              Used from Petty Cash (Deduct from Total)
+            </label>
+          </div>
+
+          {/* Total Preview */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 flex justify-between items-center">
+            <span className="text-sm font-medium text-blue-700">Total Expense:</span>
+            <span className="text-lg font-bold text-blue-700">{fmt(totalExpenseAmount)}</span>
+          </div>
+
+          <button
+            onClick={handleAddExpense}
+            disabled={expenseLoading}
+            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+          >
+            {expenseLoading ? <RefreshCw size={15} className="animate-spin" /> : <Plus size={15} />}
+            {expenseLoading ? "Adding..." : "Add Expense"}
+          </button>
+        </div>
+      </Drawer>
+
+      {/* Add Supplier Modal */}
+      <AddSupplierModal
+        token={token}
+        isOpen={isAddSupplierOpen}
+        onClose={() => setIsAddSupplierOpen(false)}
+        onSuccess={(newSupplier) => {
+          setSuppliers((prev) => [...prev, newSupplier]);
+          setExpenseVendor(newSupplier._id);
+          setIsAddSupplierOpen(false);
+        }}
+      />
+
     </div>
   );
 }
 
-// ─── Layout & Auth ────────────────────────────────────────────────────────────
+// Layout & Auth
 PettyCashPage.getLayout = function PageLayout(page: React.ReactElement) {
   return (
     <ClinicLayout hideSidebar={false} hideHeader={false}>
