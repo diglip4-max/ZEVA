@@ -36,6 +36,7 @@ const BillingHistoryPage = () => {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clinicCurrency, setClinicCurrency] = useState('INR');
+  const [searchInvoice, setSearchInvoice] = useState('');
 
   useEffect(() => {
     if (appointmentId || patientId) {
@@ -309,6 +310,24 @@ const BillingHistoryPage = () => {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {/* Search Invoice Number */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search Invoice No..."
+                value={searchInvoice}
+                onChange={(e) => setSearchInvoice(e.target.value)}
+                className="w-64 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              />
+              {searchInvoice && (
+                <button
+                  onClick={() => setSearchInvoice('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  ×
+                </button>
+              )}
+            </div>
             <button
               onClick={generateInvoicePDF}
               disabled={isGeneratingPDF || billingHistory.length === 0}
@@ -382,7 +401,15 @@ const BillingHistoryPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  billingHistory.map((billing, index) => (
+                  (() => {
+                    // Filter billing history based on search
+                    const filteredBilling = searchInvoice
+                      ? billingHistory.filter(b => 
+                          (b.invoiceNumber || '').toLowerCase().includes(searchInvoice.toLowerCase())
+                        )
+                      : billingHistory;
+                    
+                    return filteredBilling.map((billing, index) => (
                     <tr 
                       key={billing._id || index} 
                       className="hover:bg-gray-50 transition-colors"
@@ -455,20 +482,20 @@ const BillingHistoryPage = () => {
                                   Saved {getCurrencySymbol(clinicCurrency)} {formatCurrency(totalDiscountAmount)}
                                 </div>
                               )}
-                              <div className="flex flex-wrap justify-center gap-1 mt-0.5">
+                              <div className="flex flex-col items-center gap-1 mt-0.5">
                                 {isMembershipDiscount && (
-                                  <div className="text-[8px] uppercase tracking-wider text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-bold border border-emerald-100">
+                                  <div className="text-[8px] uppercase tracking-wider text-emerald-600 px-1.5 py-0.5 rounded font-bold">
                                     Memb {membershipPercent > 0 ? `(${membershipPercent.toFixed(0)}%)` : 'Disc.'}
+                                  </div>
+                                )}
+                                {isAgentDiscount && (
+                                  <div className="text-[8px] uppercase tracking-wider text-blue-600 px-1.5 py-0.5 rounded font-bold">
+                                    Agent Disc.
                                   </div>
                                 )}
                                 {isDoctorDiscount && (
                                   <div className="text-[8px] uppercase tracking-wider text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded font-bold border border-orange-100">
                                     Doctor Disc.
-                                  </div>
-                                )}
-                                {isAgentDiscount && (
-                                  <div className="text-[8px] uppercase tracking-wider text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold border border-blue-100">
-                                    Agent Disc.
                                   </div>
                                 )}
                               </div>
@@ -547,7 +574,8 @@ const BillingHistoryPage = () => {
                         </div>
                       </td>
                     </tr>
-                  ))
+                  ));
+                  })()
                 )}
               </tbody>
               {!loading && !error && billingHistory.length > 0 && (

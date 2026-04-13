@@ -602,7 +602,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   const [showAddPastAdvancePayment54PercentModal, setShowAddPastAdvancePayment54PercentModal] = useState(false);
   const [showAddPastAdvancePayment159FlatModal, setShowAddPastAdvancePayment159FlatModal] = useState(false);
   const [showPayPendingModal, setShowPayPendingModal] = useState(false);
-  const [treatmentFilter, setTreatmentFilter] = useState<'all' | 'ongoing' | 'completed'>('all');
+  const [treatmentFilter, setTreatmentFilter] = useState<'all' | 'ongoing' | 'completed' | 'pending'>('all');
 
   // Create Package state
   const [showCreatePackage, setShowCreatePackage] = useState(false);
@@ -2529,7 +2529,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-lg hover:from-teal-600 hover:to-cyan-700 transition-all shadow-md font-medium text-xs whitespace-nowrap"
               >
                 {/* <DollarSign className="w-3.5 h-3.5" /> */}
-                {getCurrencySymbol(patientData.currency)} Add Payment
+                {getCurrencySymbol(currency)} Add Payment 
               </button>
             </div>
           </div>
@@ -5258,12 +5258,20 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                 
                 // Build treatment items from appointments (for Ongoing and All sections)
                 const appointmentTreatments = (allAppointmentsData || [])
+                  .filter((apt: any) => {
+                    // Filter out appointments without valid treatment names
+                    const treatmentName = apt.treatmentName || apt.serviceName || '';
+                    const hasValidTreatmentName = treatmentName && 
+                                                  treatmentName.trim() !== '' && 
+                                                  treatmentName.toLowerCase() !== 'appointment';
+                    return hasValidTreatmentName;
+                  })
                   .map((apt: any) => {
                     const status = (apt.status || apt.appointmentStatus || '').toLowerCase();
                     const isCompleted = status === 'completed' || status === 'discharge';
                     
                     // Get treatment name
-                    const treatmentName = apt.treatmentName || apt.serviceName || 'Appointment';
+                    const treatmentName = apt.treatmentName || apt.serviceName || '';
                     
                     // Get doctor name
                     const doctorName = apt.doctorName || '';
@@ -5278,6 +5286,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     // Get time
                     const time = apt.fromTime || '';
                     
+                    // Get invoice number if available
+                    const invoiceNumber = apt.invoiceNumber || apt.invoiceNo || apt._id?.slice(-8).toUpperCase() || '';
+                    
                     return {
                       source: 'appointment',
                       data: apt,
@@ -5287,11 +5298,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                       treatmentStatus: isCompleted ? 'completed' : 'ongoing',
                       amount: apt.amount || apt.totalAmount || 0,
                       paid: apt.paidAmount || 0,
-                      isFullyPaid: isCompleted
+                      isFullyPaid: isCompleted,
+                      invoiceNumber
                     };
                   });
 
-                // Build treatment items from billing history (for Completed section)
+                // Build treatment items from billing history (for Completed and Pending sections)
                 const billingTreatments = (billingHistory || [])
                   .filter((b: any) => {
                     // Filter out advance payments and balance adjustments
@@ -5299,20 +5311,21 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                      b.treatment === "Advance Payment" || 
                                      b.treatment === "Historical Advance Balance";
                     
-                    // Include if it has a treatment name OR a package name
-                    const hasTreatment = b.treatment && b.treatment.trim() !== '';
-                    const hasPackage = b.package && b.package.trim() !== '';
-                    
-                    return !isAdvance && (hasTreatment || hasPackage);
+                    // Include all billing records except advance payments
+                    // Show even if treatment/package name is empty (will display as '-')
+                    return !isAdvance;
                   })
                   .map((billing: any) => {
                     const amount = parseFloat(billing.amount) || 0;
                     const paid = parseFloat(billing.paid || billing.paidAmount || 0) || 0;
+                    const pendingAmount = amount - paid;
                     const isFullyPaid = amount > 0 && paid >= amount;
-                    const treatmentStatus = isFullyPaid ? 'completed' : 'ongoing';
+                    // Status based on actual payment status
+                    const treatmentStatus = pendingAmount > 0 ? 'pending' : 'completed';
                     
                     // Get treatment/package name from billing record
-                    const treatmentName = (billing.treatment && billing.treatment.trim() !== '' ? billing.treatment : billing.package) || '-';
+                    const treatmentName = (billing.treatment && billing.treatment.trim() !== '' ? billing.treatment : 
+                                          (billing.package && billing.package.trim() !== '' ? billing.package : '-'));
                     
                     // Get doctor name if available
                     const doctorName = billing.doctorName || 
@@ -5323,6 +5336,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     const date = billing.createdAt 
                       ? new Date(billing.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                       : 'N/A';
+                    
+                    // Get invoice number if available
+                    const invoiceNumber = billing.invoiceNumber || billing.invoiceNo || billing._id?.slice(-8).toUpperCase() || '';
 
                     return {
                       source: 'billing',
@@ -5333,7 +5349,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                       treatmentStatus,
                       amount,
                       paid,
-                      isFullyPaid
+                      pendingAmount,
+                      isFullyPaid,
+                      invoiceNumber
                     };
                   });
 
@@ -5347,27 +5365,50 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                 if (treatmentFilter === 'completed') {
                   // Completed section: Use billing history (fully paid treatments with ZERO pending amount)
                   filtered = billingTreatments.filter((t: any) => {
-                    const pendingAmount = t.amount - t.paid;
-                    // Only show treatments where:
-                    // 1. Status is completed
-                    // 2. Paid amount is greater than or equal to total amount
-                    // 3. Pending amount is exactly 0 (no remaining balance)
-                    return t.treatmentStatus === 'completed' && 
-                           t.paid >= t.amount && 
-                           pendingAmount <= 0;
+                    // Only show treatments where status is completed (fully paid)
+                    return t.treatmentStatus === 'completed';
+                  });
+                } else if (treatmentFilter === 'pending') {
+                  // Pending section: Show billing treatments with pending status badge
+                  filtered = billingTreatments.filter((t: any) => {
+                    return t.treatmentStatus === 'pending';
                   });
                 } else if (treatmentFilter === 'ongoing') {
-                  // Ongoing section: Use appointments (non-completed status)
-                  filtered = appointmentTreatments.filter((t: any) => t.treatmentStatus === 'ongoing');
+                  // Ongoing section: Use appointments (non-completed status) - FILTER OUT empty treatment names
+                  filtered = appointmentTreatments.filter((t: any) => {
+                    // Filter out appointments without treatment names (like generic "Appointment" entries)
+                    const hasValidTreatmentName = t.treatmentName && 
+                                                  t.treatmentName.trim() !== '' && 
+                                                  t.treatmentName.toLowerCase() !== 'appointment';
+                    return t.treatmentStatus === 'ongoing' && hasValidTreatmentName;
+                  });
                 } else {
-                  // All section: Combine BOTH appointments (ongoing + completed) AND billing (completed)
-                  // Merge both data sources to show everything
-                  filtered = [...appointmentTreatments, ...billingTreatments];
+                  // All section: Combine ONLY filtered data from Ongoing, Pending, and Completed sections
+                  // Get completed treatments (billing with completed status)
+                  const completedTreatments = billingTreatments.filter((t: any) => {
+                    return t.treatmentStatus === 'completed';
+                  });
                   
-                  // Remove duplicates by checking if treatment names match
+                  // Get pending treatments (billing with pending status)
+                  const pendingTreatments = billingTreatments.filter((t: any) => {
+                    return t.treatmentStatus === 'pending';
+                  });
+                  
+                  // Get ongoing treatments (appointments with valid treatment names)
+                  const ongoingTreatments = appointmentTreatments.filter((t: any) => {
+                    const hasValidTreatmentName = t.treatmentName && 
+                                                  t.treatmentName.trim() !== '' && 
+                                                  t.treatmentName.toLowerCase() !== 'appointment';
+                    return t.treatmentStatus === 'ongoing' && hasValidTreatmentName;
+                  });
+                  
+                  // Combine ONLY valid records from all three sections
+                  filtered = [...completedTreatments, ...pendingTreatments, ...ongoingTreatments];
+                  
+                  // Remove duplicates by checking if treatment names and IDs match
                   const seen = new Set();
                   filtered = filtered.filter((item: any) => {
-                    const key = `${item.treatmentName}-${item.date}-${item.source}`;
+                    const key = `${item.data._id || item.treatmentName}-${item.date}-${item.source}`;
                     if (seen.has(key)) return false;
                     seen.add(key);
                     return true;
@@ -5382,7 +5423,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   <div className="space-y-4">
                     {/* Filter Chips */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      {(['all', 'ongoing', 'completed'] as const).map((f) => (
+                      {(['all', 'ongoing', 'pending', 'completed'] as const).map((f) => (
                         <button
                           key={f}
                           onClick={() => setTreatmentFilter(f)}
@@ -5409,8 +5450,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         </div>
                         <p className="text-sm font-medium text-gray-500">No treatments found</p>
                         <p className="text-xs text-gray-400 mt-1">
-                          {treatmentFilter === 'all' ? 'No treatments or billing records yet' : 
-                           treatmentFilter === 'completed' ? 'No completed billing records' : 
+                          {treatmentFilter === 'all' ? 'No treatments or billing records yet' :
+                           treatmentFilter === 'completed' ? 'No completed billing records' :
+                           treatmentFilter === 'pending' ? 'No pending treatments' :
                            'No ongoing treatments'}
                         </p>
                       </div>
@@ -5418,8 +5460,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {filtered.map((item: any, index: number) => {
                           const isCompleted = item.treatmentStatus === 'completed';
-                          const pendingAmount = item.amount - item.paid;
+                          const isPending = item.treatmentStatus === 'pending';
+                          const pendingAmount = item.pendingAmount || (item.amount - item.paid);
                           const isFromBilling = item.source === 'billing';
+                          const hasPendingAmount = pendingAmount > 0;
                           
                           return (
                             <div
@@ -5433,48 +5477,56 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   {item.doctorName && (
                                     <p className="text-sm text-gray-500 mt-0.5">{item.doctorName}</p>
                                   )}
+                                  {/* Invoice Number - Show for all items with invoice number */}
+                                  {item.invoiceNumber && (
+                                    <p className="text-xs text-gray-400 mt-1">Invoice Number : {item.invoiceNumber}</p>
+                                  )}
                                 </div>
                                 <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                                  isCompleted
+                                  isPending
+                                    ? 'bg-red-50 text-red-700 border border-red-200'
+                                    : isCompleted
                                     ? 'bg-green-50 text-green-700 border border-green-200'
                                     : 'bg-amber-50 text-amber-700 border border-amber-200'
                                 }`}>
-                                  {isCompleted ? (
+                                  {isPending ? (
+                                    <AlertCircle className="w-3.5 h-3.5" />
+                                  ) : isCompleted ? (
                                     <CheckCircle className="w-3.5 h-3.5" />
                                   ) : (
                                     <Clock className="w-3.5 h-3.5" />
                                   )}
-                                  {isCompleted ? 'Completed' : 'Ongoing'}
+                                  {isPending ? 'Pending' : isCompleted ? 'Completed' : 'Ongoing'}
                                 </span>
                               </div>
 
-                              {/* Payment Info - Only show for billing source */}
-                              {isFromBilling && (
+                              {/* Payment Info - Only show for Ongoing filter if amount > 0 */}
+                              {treatmentFilter === 'ongoing' && item.amount > 0 && (
                                 <div className="space-y-2 mb-3">
-                                  {/* <div className="flex items-center justify-between text-sm">
+                                  <div className="flex items-center justify-between text-sm">
                                     <span className="text-gray-500">Total Amount:</span>
-                                    <span className="font-semibold text-gray-900">{formatAED(item.amount)}</span>
+                                    <span className="font-semibold text-gray-900">{getCurrencySymbol(currency)} {item.amount.toFixed(2)}</span>
                                   </div>
                                   <div className="flex items-center justify-between text-sm">
                                     <span className="text-gray-500">Paid:</span>
-                                    <span className="font-semibold text-green-600">{formatAED(item.paid)}</span>
+                                    <span className="font-semibold text-green-600">{getCurrencySymbol(currency)} {item.paid.toFixed(2)}</span>
                                   </div>
-                                  {!isCompleted && pendingAmount > 0 && (
+                                  {hasPendingAmount && (
                                     <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-100">
                                       <span className="text-gray-500">Pending:</span>
-                                      <span className="font-semibold text-red-600">{formatAED(pendingAmount)}</span>
-                                    </div> */}
-                                
-                                
-                                 
+                                      <span className="font-bold text-red-600">{getCurrencySymbol(currency)} {pendingAmount.toFixed(2)}</span>
+                                    </div>
+                                  )}
                                 </div>
                               )}
 
-                              {/* Date */}
-                              <div className="flex items-center gap-1.5 text-xs text-gray-500 pt-2 border-t border-gray-100">
-                                {/* <Calendar className="w-3.5 h-3.5 flex-shrink-0" /> */}
-                                {/* <span>{isFromBilling ? 'Billed' : ''}: {item.date}</span> */}
-                              </div>
+                              {/* Date - Only show for Ongoing filter if amount > 0 */}
+                              {treatmentFilter === 'ongoing' && item.amount > 0 && (
+                                <div className="flex items-center gap-1.5 text-xs text-gray-500 pt-2 border-t border-gray-100">
+                                  <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+                                  <span>{isFromBilling ? 'Billed' : 'Date'}: {item.date}</span>
+                                </div>
+                              )}
                             </div>
                           );
                         })}

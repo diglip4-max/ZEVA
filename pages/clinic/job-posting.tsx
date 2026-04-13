@@ -12,6 +12,7 @@ import { PlusCircle } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import { useAgentPermissions } from "../../hooks/useAgentPermissions";
 import Loader from '../../components/Loader';
+import { getCurrencySymbol } from '@/lib/currencyHelper';
 
 type TabType = 'jobs' | 'applicants';
 type RouteContext = "clinic" | "agent";
@@ -62,6 +63,29 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
   const [activeTab, setActiveTab] = useState<TabType>('jobs');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [clinicCurrency, setClinicCurrency] = useState<string>('INR');
+
+  // Fetch clinic currency
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const token = getToken();
+        if (!token) return;
+        
+        const res = await axios.get('/api/clinics/myallClinic', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        if (res.data.success && res.data.clinic?.currency) {
+          setClinicCurrency(res.data.clinic.currency);
+        }
+      } catch (err) {
+        console.error('Error fetching clinic currency:', err);
+      }
+    };
+    
+    fetchClinicCurrency();
+  }, []);
 
   // ✅ Use useAgentPermissions hook for agent routes
   const agentPermissionsResult: any = useAgentPermissions(isAgentRoute ? "job_posting" : null);
@@ -491,6 +515,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
                 }}
                 key={refreshKey}
                 permissions={permissions}
+                currency={clinicCurrency}
               />
             )
           ) : (

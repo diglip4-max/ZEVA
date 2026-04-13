@@ -4,6 +4,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { Eye, Edit, Trash2, Power, PowerOff, X, Building2, MapPin, Clock, Briefcase, GraduationCap, Users, DollarSign, Calendar, FileText} from 'lucide-react';
 import JobPostingForm, { JobFormData } from './JobPostingForm';
+import { getCurrencySymbol } from '@/lib/currencyHelper';
 
 // Type definitions
 interface JobConfig {
@@ -59,16 +60,19 @@ interface JobManagementProps {
     canUpdate?: boolean;
     canDelete?: boolean;
   };
+  currency?: string;
 }
 
 type StatusFilterType = 'all' | 'active' | 'inactive' | 'pending' | 'approved' | 'declined';
 type SortByType = 'newest' | 'oldest' | 'title' | 'status';
 
-// Simple salary formatter - display as-is from API
-const formatSalary = (salary: string): string => {
+// Simple salary formatter - display with currency symbol
+const formatSalary = (salary: string, currency: string = 'INR'): string => {
   if (!salary) return 'N/A';
-  // If salary already contains AED, return as-is, otherwise add AED prefix
-  return salary.toLowerCase().includes('aed') ? salary : `AED ${salary}`;
+  const symbol = getCurrencySymbol(currency);
+  // If salary already contains a currency symbol, return as-is
+  if (/[₹$€£د.إS﷼C¥A]/.test(salary)) return salary;
+  return `${symbol} ${salary}`;
 };
 
 // Status configuration
@@ -131,7 +135,8 @@ const JobManagement: React.FC<JobManagementProps> = ({
     canRead: true,
     canUpdate: true,
     canDelete: true,
-  }
+  },
+  currency = 'INR'
 }) => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -944,7 +949,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
                             )}
                             {job.salary && (
                               <span className="flex items-center gap-0.5 font-semibold text-green-600">
-                                {formatSalary(job.salary)}
+                                {formatSalary(job.salary, currency)}
                               </span>
                             )}
                           </div>
@@ -1181,7 +1186,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
                   {previewJob.salary && (
                     <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[9px] font-semibold border border-emerald-200">
                       <DollarSign className="w-2.5 h-2.5" />
-                      {formatSalary(previewJob.salary)}
+                      {formatSalary(previewJob.salary, currency)}
                     </span>
                   )}
                 </div>
