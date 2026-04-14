@@ -83,9 +83,6 @@ const getToken = () => {
 };
 const authHeaders = () => { const t = getToken(); return t ? { Authorization: `Bearer ${t}` } : {}; };
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat("en-AE", { style: "currency", currency: "AED", minimumFractionDigits: 2 }).format(n);
-
 const fmtDate = (d: string) =>
   new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
@@ -142,8 +139,6 @@ function PettyCashPage() {
   const [manualTotal, setManualTotal] = useState(0);
   const [expenseTotal, setExpenseTotal] = useState(0);
   const [manualLoading, setManualLoading] = useState(false);
-  const [globalSpent, setGlobalSpent] = useState(0);
-  const [globalTotal, setGlobalTotal] = useState(0);
 
   // Drawers
   const [addDrawerOpen, setAddDrawerOpen] = useState(false);
@@ -345,8 +340,6 @@ function PettyCashPage() {
         setManualTotal(res.data.totalAmount || 0);
         setExpenseTotal(res.data.expenseTotal || 0);
         if (res.data.pettyCashGlobal) {
-          setGlobalSpent(res.data.pettyCashGlobal.globalSpentAmount || 0);
-          setGlobalTotal(res.data.pettyCashGlobal.globalTotalAmount || 0);
           setExpenseEntries(res.data.pettyCashGlobal.expenses || []);
         }
       }
@@ -772,7 +765,7 @@ function PettyCashPage() {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {manualEntries.map((entry, idx) => (
+              {manualEntries.map((entry) => (
                 <div key={entry._id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm">
                   {/* Name + Amount */}
                   <div className="flex items-start justify-between mb-2">

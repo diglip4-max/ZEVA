@@ -23,7 +23,6 @@ import CreateLeadGuide from "../../components/clinic/CreateLeadGuide";
 import ReviewsGuide from "../../components/clinic/ReviewsGuide";
 import TemplatesGuide from "../../components/clinic/TemplatesGuide";
 import InboxGuide from "../../components/clinic/InboxGuide";
-import { ModernScheduler } from "../../components/clinic/ModernScheduler";
 import PettyCashWorkflowGuide from '../../components/clinic/PettyCashWorkflowGuide';
 import ReportsAnalyticsWorkflowGuide from '../../components/clinic/ReportsAnalyticsWorkflowGuide';
 import SecurityPrivacyWorkflowGuide from '../../components/clinic/SecurityPrivacyWorkflowGuide';
@@ -57,7 +56,7 @@ import {
   ArrowRight,
   BookOpen,
   ChevronDown,
-  Filter,
+
   Settings,
 } from "lucide-react";
 
@@ -68,20 +67,6 @@ const WorkflowGuide: NextPageWithLayout = () => {
   
   // State for image slideshow in different sections
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  
-  // Helper function to get auth headers
-  const getAuthHeaders = (): Record<string, string> => {
-    if (typeof window === "undefined") return {};
-    const token = 
-      localStorage.getItem("clinicToken") || 
-      sessionStorage.getItem("clinicToken") ||
-      localStorage.getItem("agentToken") ||
-      sessionStorage.getItem("agentToken");
-    if (!token) return {};
-    return {
-      Authorization: `Bearer ${token}`,
-    };
-  };
   
   // Images for appointment slideshow
   // const appointmentImages = ["/appoint.png", "/book.png", "/save.png"];
@@ -94,28 +79,6 @@ const WorkflowGuide: NextPageWithLayout = () => {
   //   setCurrentImageIndex((prevIndex) => (prevIndex - 1 + appointmentImages.length) % appointmentImages.length);
   // };
   
-  // Images for job-posting slideshow
-  const jobImages = ["/job.png", "/createjob.png"];
-  
-  const nextJobImage = () => {
-    setCurrentImageIndex((prevIndex) => (prevIndex + 1) % jobImages.length);
-  };
-  
-  const prevJobImage = () => {
-    setCurrentImageIndex((prevIndex) => (prevIndex - 1 + jobImages.length) % jobImages.length);
-  };
-  
-  // Images for patient-registration slideshow
-  const patientImages = ["/regpat.png", "/patient.png"];
-  
-  const nextPatientImage = () => {
-    setCurrentImageIndex((prevIndex) => (prevIndex + 1) % patientImages.length);
-  };
-  
-  const prevPatientImage = () => {
-    setCurrentImageIndex((prevIndex) => (prevIndex - 1 + patientImages.length) % patientImages.length);
-  };
-
   const workflowSections = [
     {
       id: "overview",
@@ -1291,15 +1254,7 @@ const WorkflowGuide: NextPageWithLayout = () => {
           return <PatientRegistrationWorkflowGuide />;
         }
         if (selectedSubItem === "patient-information") {
-          return (
-            <ClinicManagementGuide
-              title="Patient Information"
-              description="This guide explains how to manage patient information."
-              imageSrc={patientImages[currentImageIndex]}
-              nextImage={nextPatientImage}
-              prevImage={prevPatientImage}
-            />
-          );
+          return <ClinicManagementGuide />;
         }
         if (selectedSubItem === "complaints") {
           return <ComplaintWorkflowGuide />;
