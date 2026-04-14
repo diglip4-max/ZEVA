@@ -3256,11 +3256,20 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         <label className="block text-[10px] font-semibold text-gray-600 mb-1">Paid <span className="text-red-500">*</span></label>
                         <input type="number" step="0.01" value={formData.paid}
                           onChange={(e) => setFormData((prev) => ({ ...prev, paid: e.target.value }))}
+                          onFocus={(e) => e.target.select()}
                           className={`w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-lg text-gray-900 focus:ring-1 focus:ring-teal-500 outline-none ${
                             useMultiplePayments ? "bg-gray-100" : "bg-white"
                           }`}
                           required readOnly={useMultiplePayments}
+                          style={{ MozAppearance: 'textfield' }}
                         />
+                        <style dangerouslySetInnerHTML={{__html: `
+                          input[type='number']::-webkit-inner-spin-button,
+                          input[type='number']::-webkit-outer-spin-button {
+                            -webkit-appearance: none !important;
+                            margin: 0 !important;
+                          }
+                        `}} />
                         <div className="text-[9px] text-gray-500 mt-0.5">
                           Net due: {getCurrencySymbol(currency)} {Math.max(0, (parseFloat(formData.amount) || 0) - (applyAdvance ? Math.min(balances.advanceBalance, parseFloat(formData.amount) || 0) : 0) - (applyPastAdvance50Percent ? Math.min(balances.pastAdvance50PercentBalance, parseFloat(formData.amount) || 0) : 0) - (applyPastAdvance54Percent ? Math.min(balances.pastAdvance54PercentBalance, parseFloat(formData.amount) || 0) : 0) - (applyPastAdvance159Flat ? Math.min(balances.pastAdvance159FlatBalance, parseFloat(formData.amount) || 0) : 0)).toFixed(2)}
                           {isDoctorDiscountApplied && (
@@ -3275,6 +3284,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         <label className="block text-[10px] font-semibold text-gray-600 mb-1">Pending</label>
                         <input type="number" step="0.01" value={formData.pending || "0.00"}
                           onChange={(e) => setFormData((prev) => ({ ...prev, pending: e.target.value }))}
+                          onFocus={(e) => e.target.select()}
                           className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-1 focus:ring-teal-500 outline-none"
                         />
                       </div>
@@ -3282,6 +3292,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         <label className="block text-[10px] font-semibold text-gray-600 mb-1">Advance</label>
                         <input type="number" step="0.01" value={formData.advance}
                           onChange={(e) => setFormData((prev) => ({ ...prev, advance: e.target.value }))}
+                          onFocus={(e) => e.target.select()}
                           className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-1 focus:ring-teal-500 outline-none"
                         />
                       </div>
