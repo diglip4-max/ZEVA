@@ -3,7 +3,6 @@ import { getUserFromReq } from "../lead-ms/auth";
 import PatientRegistration from "../../../models/PatientRegistration";
 import MembershipPlan from "../../../models/MembershipPlan";
 import Package from "../../../models/Package";
-import UserPackage from "../../../models/UserPackage";
 import Billing from "../../../models/Billing";
 import mongoose from "mongoose";
 
@@ -181,112 +180,26 @@ export default async function handler(req, res) {
       if (!packageId) {
         return res.status(400).json({ success: false, message: "packageId is required" });
       }
-      const hasNormalPackage = Array.isArray(source.packages) && source.packages.some(p => String(p.packageId) === String(packageId));
-
-      if (hasNormalPackage) {
-        const pkg = await Package.findById(packageId);
-        if (!pkg) {
-          return res.status(404).json({ success: false, message: "Package not found" });
-        }
-
-        const sourcePkgEntry = source.packages.find(p => String(p.packageId) === String(packageId)) || {};
-        const { paymentStatus = "Unpaid", paidAmount = 0, paymentMethod = "" } = sourcePkgEntry;
-
-        const total = Number(pkg.totalSessions) || 0;
-
-        const billings = await Billing.find({
-          patientId: sourcePatientId,
-          service: "Package",
-          package: pkg.name,
-        }).select("sessions");
-        let used = 0;
-        billings.forEach(b => { used += (b.sessions || 0); });
-        const remaining = Math.max(0, total - used);
-        if (remaining <= 0) {
-          return res.status(400).json({ success: false, message: "No remaining package sessions to transfer" });
-        }
-
-        const session = await mongoose.startSession();
-        session.startTransaction();
-        try {
-          source.packages = (Array.isArray(source.packages) ? source.packages.filter(p => String(p.packageId) !== String(packageId)) : []);
-          source.hasTransferredOut = true;
-          source.packageTransfers = source.packageTransfers || [];
-          source.packageTransfers.push({
-            type: "out",
-            packageId,
-            packageName: pkg.name,
-            toPatientId: target._id,
-            transferredSessions: remaining,
-            paymentStatus,
-            paidAmount,
-            paymentMethod,
-            transferDate: new Date(),
-          });
-          await source.save({ session });
-
-          target.packages = Array.isArray(target.packages) ? target.packages : [];
-          target.packages.push({
-            packageId,
-            assignedDate: new Date(),
-            paymentStatus,
-            paidAmount,
-            paymentMethod,
-          });
-          target.packageTransfers = target.packageTransfers || [];
-          target.packageTransfers.push({
-            type: "in",
-            packageId,
-            packageName: pkg.name,
-            fromPatientId: source._id,
-            transferredSessions: remaining,
-            paymentStatus,
-            paidAmount,
-            paymentMethod,
-            transferDate: new Date(),
-          });
-          await target.save({ session });
-
-          await session.commitTransaction();
-        } catch (e) {
-          await session.abortTransaction();
-          throw e;
-        } finally {
-          session.endSession();
-        }
-
-        return res.status(200).json({
-          success: true,
-          message: `Transferred ${remaining} package session(s)`,
-          data: { type, remainingTransferred: remaining }
-        });
-      }
-
-      const sourceUserPkgSubdoc = Array.isArray(source.userPackages)
-        ? source.userPackages.find(up => String(up.packageId) === String(packageId) || String(up._id) === String(packageId))
-        : null;
-
-      const userPackageDocId = sourceUserPkgSubdoc?.packageId ? String(sourceUserPkgSubdoc.packageId) : String(packageId);
-      const userPackageSubId = sourceUserPkgSubdoc?._id ? String(sourceUserPkgSubdoc._id) : null;
-
-      const userPkg = await UserPackage.findById(userPackageDocId);
-      if (!userPkg || String(userPkg.patientId) !== String(sourcePatientId)) {
+      const hasPackage = Array.isArray(source.packages) && source.packages.some(p => String(p.packageId) === String(packageId));
+      if (!hasPackage) {
         return res.status(400).json({ success: false, message: "Source patient does not have selected package" });
       }
-      if (userPkg.approvalStatus && userPkg.approvalStatus !== "approved") {
-        return res.status(400).json({ success: false, message: "Selected package is not approved" });
+
+      const pkg = await Package.findById(packageId);
+      if (!pkg) {
+        return res.status(404).json({ success: false, message: "Package not found" });
       }
 
-      const total = Number(userPkg.totalSessions) || 0;
-      const billingQueryOr = [{ patientPackageId: userPkg._id }, { patientPackageSubId: userPkg._id }];
-      if (userPackageSubId) {
-        billingQueryOr.push({ patientPackageId: userPackageSubId }, { patientPackageSubId: userPackageSubId });
-      }
+      // Find original package entry to copy payment details
+      const sourcePkgEntry = source.packages.find(p => String(p.packageId) === String(packageId)) || {};
+      const { paymentStatus = "Unpaid", paidAmount = 0, paymentMethod = "" } = sourcePkgEntry;
+
+      const total = Number(pkg.totalSessions) || 0;
 
       const billings = await Billing.find({
-        clinicId: userPkg.clinicId,
+        patientId: sourcePatientId,
         service: "Package",
-        $or: billingQueryOr,
+        package: pkg.name,
       }).select("sessions");
       let used = 0;
       billings.forEach(b => { used += (b.sessions || 0); });
@@ -295,27 +208,17 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, message: "No remaining package sessions to transfer" });
       }
 
-      const paymentStatus = userPkg.paymentStatus === "paid" ? "Full" : (userPkg.paymentStatus === "partial" ? "Partial" : "Unpaid");
-      const paidAmount = userPkg.paymentStatus === "paid" ? Number(userPkg.totalPrice) || 0 : 0;
-      const paymentMethod = "";
-
       const session = await mongoose.startSession();
       session.startTransaction();
       try {
-        source.userPackages = (Array.isArray(source.userPackages)
-          ? source.userPackages.filter(up => {
-              if (String(up.packageId) === String(userPkg._id)) return false;
-              if (String(up._id) === String(userPkg._id)) return false;
-              if (userPackageSubId && String(up._id) === String(userPackageSubId)) return false;
-              return true;
-            })
-          : []);
+        // Remove the package from source patient (they transferred it out)
+        source.packages = (Array.isArray(source.packages) ? source.packages.filter(p => String(p.packageId) !== String(packageId)) : []);
         source.hasTransferredOut = true;
         source.packageTransfers = source.packageTransfers || [];
         source.packageTransfers.push({
           type: "out",
-          packageId: userPkg._id,
-          packageName: userPkg.packageName,
+          packageId,
+          packageName: pkg.name,
           toPatientId: target._id,
           transferredSessions: remaining,
           paymentStatus,
@@ -325,21 +228,19 @@ export default async function handler(req, res) {
         });
         await source.save({ session });
 
-        target.userPackages = Array.isArray(target.userPackages) ? target.userPackages : [];
-        target.userPackages.push({
-          packageId: userPkg._id,
-          packageName: userPkg.packageName,
-          totalSessions: userPkg.totalSessions,
-          remainingSessions: remaining,
-          totalPrice: userPkg.totalPrice,
+        target.packages = Array.isArray(target.packages) ? target.packages : [];
+        target.packages.push({ 
+          packageId, 
           assignedDate: new Date(),
-          approvalStatus: userPkg.approvalStatus || "approved",
+          paymentStatus,
+          paidAmount,
+          paymentMethod,
         });
         target.packageTransfers = target.packageTransfers || [];
         target.packageTransfers.push({
           type: "in",
-          packageId: userPkg._id,
-          packageName: userPkg.packageName,
+          packageId,
+          packageName: pkg.name,
           fromPatientId: source._id,
           transferredSessions: remaining,
           paymentStatus,
@@ -348,9 +249,6 @@ export default async function handler(req, res) {
           transferDate: new Date(),
         });
         await target.save({ session });
-
-        userPkg.patientId = target._id;
-        await userPkg.save({ session });
 
         await session.commitTransaction();
       } catch (e) {

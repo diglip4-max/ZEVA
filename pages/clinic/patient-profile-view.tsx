@@ -145,13 +145,10 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
           const res = await axios.get(`/api/clinic/package-usage/${patientId}`, { headers });
           if (res.data.success) {
             // Find the selected package from localPackages or publicPackages to get its name
-            const selectedPkg =
-              localPackages.find((p: any) => p._id === selectedPackageId) ||
-              publicPackages.find((p: any) => p._id === selectedPackageId);
+            const selectedPkg = localPackages.find((p: any) => p._id === selectedPackageId) || publicPackages.find((p: any) => p._id === selectedPackageId);
             if (selectedPkg) {
               // Match by packageName like the Packages section does
-              const selectedName = selectedPkg.name || selectedPkg.packageName;
-              const usage = res.data.packageUsage?.find((p: any) => p.packageName === selectedName);
+              const usage = res.data.packageUsage?.find((p: any) => p.packageName === selectedPkg.name);
               setPackageUsage(usage || null);
             } else {
               setPackageUsage(null);
@@ -409,7 +406,7 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                     ) : null;
                   })}
                   {/* Public packages */}
-                  {publicPackages.filter((pkg: any) => pkg?.approvalStatus === "approved").map((pkg: any) => (
+                  {publicPackages.map((pkg: any) => (
                     <option key={pkg._id} value={pkg._id}>
                       {pkg.packageName || pkg.name} - Public Package
                     </option>
@@ -439,7 +436,7 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                     </div>
                     <div className="text-[11px]">
                       <div className="font-semibold text-gray-700">Package</div>
-                      <div className="text-gray-900">{pkg ? (pkg.name || pkg.packageName) : "-"}</div>
+                      <div className="text-gray-900">{pkg ? pkg.name : "-"}</div>
                     </div>
                   </div>
                 );
