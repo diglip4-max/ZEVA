@@ -228,6 +228,49 @@ const billingSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    offerApplied: {
+  type: Boolean,
+  default: false
+},
+
+offerId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Offer"
+},
+
+offerName: String,
+
+offerType: {
+  type: String,
+  enum: ["instant_discount", "cashback", "bundle"]
+},
+
+offerDiscountAmount: {
+  type: Number,
+  default: 0
+},
+
+cashbackEarned: {
+  type: Number,
+  default: 0
+},
+
+bundleSessionsAdded: {
+  type: Number,
+  default: 0
+},
+
+offerOverrideUsed: {
+  type: Boolean,
+  default: false
+},
+
+offerOverrideReason: String,
+
+offerAppliedBy: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "User"
+}
   },
   { timestamps: true },
 );
