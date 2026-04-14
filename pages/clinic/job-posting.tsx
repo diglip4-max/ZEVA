@@ -12,7 +12,7 @@ import { PlusCircle } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import { useAgentPermissions } from "../../hooks/useAgentPermissions";
 import Loader from '../../components/Loader';
-import { getCurrencySymbol } from '@/lib/currencyHelper';
+
 
 type TabType = 'jobs' | 'applicants';
 type RouteContext = "clinic" | "agent";

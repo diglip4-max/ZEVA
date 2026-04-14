@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
-import { DollarSign, Award, AlertCircle, Users, Star } from 'lucide-react';
+import { Award, AlertCircle, Users, Star } from 'lucide-react';
 import axios from 'axios';
 import { getCurrencySymbol } from '@/lib/currencyHelper';
 

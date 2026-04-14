@@ -1,6 +1,6 @@
 "use client";
 import React from 'react';
-import { UserPlus, Filter, Edit, Eye, Trash2, Layout, Info, CheckCircle, FileText, CreditCard, Calendar, Package, Shield, Image as ImageIcon, MessageSquare, Settings, AlertCircle } from 'lucide-react';
+import { UserPlus, Filter, Edit, Eye, Trash2, Info, CheckCircle, FileText, CreditCard, Calendar, Package, Shield, Image as ImageIcon, MessageSquare, Settings, AlertCircle } from 'lucide-react';
 
 const PatientRegistrationWorkflowGuide: React.FC = () => {
   return (

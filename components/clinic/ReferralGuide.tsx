@@ -30,9 +30,7 @@ const ReferralGuide: React.FC = () => {
             Quick Navigation
           </h4>
           <div className="grid md:grid-cols-1 gap-3">
-            {[
-             
-            ].map((section) => (
+            {([] as {id: string; label: string; icon: any}[]).map((section) => (
               <button
                 key={section.id}
                 onClick={() => setActiveSection(section.id)}

@@ -2369,18 +2369,19 @@ const ClinicDashboard: NextPageWithLayout = () => {
     });
   };
 
-  const togglePackageOfferVisibility = (cardId: string) => {
-    setPackageOfferCards((prev) => {
-      const updated = prev.map(card =>
-        card.id === cardId ? { ...card, visible: !card.visible } : card
-      );
-      // Save to localStorage
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(PACKAGE_OFFER_STORAGE_KEY, JSON.stringify(updated));
-      }
-      return updated;
-    });
-  };
+  // Commented out as unused - packages-offers widget is disabled
+  // const togglePackageOfferVisibility = (cardId: string) => {
+  //   setPackageOfferCards((prev) => {
+  //     const updated = prev.map(card =>
+  //       card.id === cardId ? { ...card, visible: !card.visible } : card
+  //     );
+  //     // Save to localStorage
+  //     if (typeof window !== 'undefined') {
+  //       localStorage.setItem(PACKAGE_OFFER_STORAGE_KEY, JSON.stringify(updated));
+  //     }
+  //     return updated;
+  //   });
+  // };
 
   // Helper: Convert package card to stat card format (preserves ID for drag tracking)
   const packageToStatCard = (pkg: PackageOfferCard, gridType: 'primary' | 'secondary', order: number): StatCard => {
@@ -3645,65 +3646,65 @@ const ClinicDashboard: NextPageWithLayout = () => {
     );
   };
 
-  // Sortable Package/Offer Card Component
-  const SortablePackageOffer: React.FC<{
-    card: PackageOfferCard;
-    children: React.ReactNode;
-  }> = ({ card, children }) => {
-    const {
-      attributes,
-      listeners,
-      setNodeRef,
-      transform,
-      transition,
-      isDragging,
-    } = useSortable({ id: card.id });
-
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-      opacity: isDragging ? 0.5 : 1,
-    };
-
-    if (!card.visible && !isEditMode) {
-      return null;
-    }
-
-    return (
-      <div
-        ref={setNodeRef}
-        style={style}
-        className={`relative ${isDragging ? 'z-50' : ''} ${!card.visible ? 'opacity-50' : ''}`}
-      >
-        {isEditMode && (
-          <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
-            <button
-              onClick={() => togglePackageOfferVisibility(card.id)}
-              className="p-1 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-              title={card.visible ? 'Hide card' : 'Show card'}
-            >
-              {card.visible ? (
-                <Eye className="w-3 h-3 text-gray-600" />
-              ) : (
-                <EyeOff className="w-3 h-3 text-gray-400" />
-              )}
-            </button>
-            <div
-              {...attributes}
-              {...listeners}
-              className="p-1.5 bg-indigo-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:bg-indigo-600 transition-colors"
-              title="Drag to move card"
-            >
-              <GripVertical className="w-3.5 h-3.5 text-white" />
-            </div>
-          </div>
-        )}
-        <div className={isEditMode ? 'pl-14' : ''}>
-          {children}
-        </div>
-      </div>
-    );
-  };
+  // Sortable Package/Offer Card Component (commented out as unused - packages-offers widget is disabled)
+  // const SortablePackageOffer: React.FC<{
+  //   card: PackageOfferCard;
+  //   children: React.ReactNode;
+  // }> = ({ card, children }) => {
+  //   const {
+  //     attributes,
+  //     listeners,
+  //     setNodeRef,
+  //     transform,
+  //     transition,
+  //     isDragging,
+  //   } = useSortable({ id: card.id });
+  //
+  //   const style = {
+  //     transform: CSS.Transform.toString(transform),
+  //     transition,
+  //     opacity: isDragging ? 0.5 : 1,
+  //   };
+  //
+  //   if (!card.visible && !isEditMode) {
+  //     return null;
+  //   }
+  //
+  //   return (
+  //     <div
+  //       ref={setNodeRef}
+  //       style={style}
+  //       className={`relative ${isDragging ? 'z-50' : ''} ${!card.visible ? 'opacity-50' : ''}`}
+  //     >
+  //       {isEditMode && (
+  //         <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
+  //           <button
+  //             onClick={() => togglePackageOfferVisibility(card.id)}
+  //             className="p-1 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+  //             title={card.visible ? 'Hide card' : 'Show card'}
+  //           >
+  //             {card.visible ? (
+  //               <Eye className="w-3 h-3 text-gray-600" />
+  //             ) : (
+  //               <EyeOff className="w-3 h-3 text-gray-400" />
+  //             )}
+  //           </button>
+  //           <div
+  //             {...attributes}
+  //             {...listeners}
+  //             className="p-1.5 bg-indigo-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:bg-indigo-600 transition-colors"
+  //             title="Drag to move card"
+  //           >
+  //             <GripVertical className="w-3.5 h-3.5 text-white" />
+  //           </div>
+  //         </div>
+  //       )}
+  //       <div className={isEditMode ? 'pl-14' : ''}>
+  //         {children}
+  //       </div>
+  //     </div>
+  //   );
+  // };
 
   // Sortable Chart Component (commented out as unused)
   // const SortableChart: React.FC<{

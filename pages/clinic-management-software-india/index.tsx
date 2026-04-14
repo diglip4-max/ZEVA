@@ -1302,7 +1302,7 @@ function FloatingWhatsApp() {
 
 /* ─────────────────────────────── EXIT INTENT POPUP ─────────────────────────────── */
 function ExitIntentPopup() {
-  const [isVisible, setIsVisible] = useState(false);
+  const [_isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     // Show popup immediately on page load for demo

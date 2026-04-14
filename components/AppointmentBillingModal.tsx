@@ -1777,11 +1777,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
 
     // Initialize package treatment sessions with usage data
-    const billedItemsForAppointment = appointment ? billingHistory.filter(
-      (b) => String(b.appointmentId) === String(appointment._id) ||
-             String(b.appointmentId?._id) === String(appointment._id)
-    ) : [];
-
     const sessions: PackageTreatmentSession[] = pkg.treatments.map((t) => {
       // Find if this treatment has been used before
       let previouslyUsed = 0;
@@ -2445,10 +2440,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     (b) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance" && (String(b.appointmentId) === String(appointment?._id) ||
            String(b.appointmentId?._id) === String(appointment?._id))
   );
-
-  const billedTreatmentNames = billedItems.flatMap(b => b.treatment ? b.treatment.split(", ").map((t: string) => t.trim()) : []);
-  const billedPackageTreatments = billedItems.flatMap(b => b.selectedPackageTreatments || []);
-  const billedPackageTreatmentNames = billedPackageTreatments.map((pt: any) => pt.treatmentName);
 
   const isAlreadyBilled = billedItems.length > 0;
 

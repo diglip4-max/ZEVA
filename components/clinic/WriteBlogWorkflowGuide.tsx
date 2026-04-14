@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { FileText, CheckCircle, ImageIcon, Video, Link as LinkIcon, Hash, Eye, Save } from "lucide-react";
+import { FileText, CheckCircle, ImageIcon, Link as  Hash, Eye, Save } from "lucide-react";
 
 const WriteBlogWorkflowGuide = () => {
   return (

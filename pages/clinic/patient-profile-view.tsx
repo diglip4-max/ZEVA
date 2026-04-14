@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
 import {
@@ -7,7 +7,7 @@ import {
   Mail, Clock, Shield, X, CheckCircle, XCircle,
   ExternalLink,
   AlertTriangle, Info, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck,
-  ChevronDown, Search, Loader2, Check, Upload, Camera, Image as ImageIcon, Eye
+  ChevronDown, Search, Loader2, Check,  Camera, Image as ImageIcon, Eye
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -624,7 +624,6 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
   // Create Package state
   const [showCreatePackage, setShowCreatePackage] = useState(false);
-  const [createdPackage, setCreatedPackage] = useState<any>(null);
   const [pkgModalName, setPkgModalName] = useState("");
   const [pkgModalPrice, setPkgModalPrice] = useState("");
   const [pkgModalValidityInMonths, setPkgModalValidityInMonths] = useState("");
@@ -741,7 +740,6 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
               endDate: pkgModalEndDate,
             }, { headers });
             setPkgSuccess("Package created and added to patient profile!");
-            setCreatedPackage(createdPkgData);
 
             // Refresh patient data and available packages
             const [patientRes, pRes] = await Promise.all([
@@ -793,13 +791,11 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           } catch (err) {
             console.error('Error refreshing data after package creation:', err);
             setPkgSuccess("Package created. (Could not refresh patient profile)");
-            setCreatedPackage(createdPkgData);
           } finally {
             setAddingPackageToPatient(false);
           }
         } else {
           setPkgSuccess("Package created successfully!");
-          setCreatedPackage(createdPkgData);
           // Refresh available packages list
           const pRes = await axios.get('/api/clinic/packages', { headers });
           if (pRes.data.success) setAllAvailablePackages(pRes.data.packages || []);
@@ -1953,12 +1949,42 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         });
       }
 
-      // Completed invoices from billing history
+      // Completed invoices from billing history - Use same logic as treatment section
       if (billingRes) {
         const billings: any[] = billingRes;
-        completedInvoices = billings.filter(
-          (b: any) => (b.status || '').toLowerCase() === 'paid' || (b.paid >= b.amount && b.amount > 0)
-        ).length;
+        
+        // Filter out advance payments first
+        const treatmentBillings = billings.filter((b: any) => {
+          const isAdvance = b.isAdvanceOnly || 
+                           b.treatment === "Advance Payment" || 
+                           b.treatment === "Historical Advance Balance";
+          return !isAdvance;
+        });
+        
+        // Apply the same completed/pending logic as treatment section
+        completedInvoices = treatmentBillings.filter((billing: any) => {
+          const amount = parseFloat(billing.amount) || 0;
+          const paid = parseFloat(billing.paid || billing.paidAmount || 0) || 0;
+          const pending = parseFloat(billing.pending || 0) || 0;
+          const pendingUsed = parseFloat(billing.pendingUsed || 0) || 0;
+          const billingDate = billing.createdAt ? new Date(billing.createdAt).getTime() : 0;
+          
+          // Check if this invoice's pending was cleared by a newer invoice
+          const hasNewerInvoiceWithPendingUsed = treatmentBillings.some((otherBilling: any) => {
+            const otherDate = otherBilling.createdAt ? new Date(otherBilling.createdAt).getTime() : 0;
+            const otherPendingUsed = parseFloat(otherBilling.pendingUsed || 0) || 0;
+            return otherDate > billingDate && otherPendingUsed > 0;
+          });
+          
+          const hasPendingAmount = pending > 0;
+          const pendingClearedSeparately = pendingUsed > 0;
+          
+          // Same logic as treatment section
+          const isFullyPaid = (!hasPendingAmount && (paid >= amount || pendingClearedSeparately)) ||
+                             (hasPendingAmount && hasNewerInvoiceWithPendingUsed);
+          
+          return isFullyPaid;
+        }).length;
       }
 
       // Insurance
@@ -5374,34 +5400,61 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   })
                   .map((billing: any) => {
                     const amount = parseFloat(billing.amount) || 0;
+                    const originalAmount = parseFloat(billing.originalAmount) || amount;
                     const paid = parseFloat(billing.paid || billing.paidAmount || 0) || 0;
                     const pending = parseFloat(billing.pending || 0) || 0;
                     const pendingUsed = parseFloat(billing.pendingUsed || 0) || 0;
                     
                     // Get invoice number early (needed for manuallyPaidInvoices check)
                     const invoiceNumber = billing.invoiceNumber || billing.invoiceNo || billing._id?.slice(-8).toUpperCase() || '';
+                    const billingDate = billing.createdAt ? new Date(billing.createdAt).getTime() : 0;
                     
-                    const pendingAmount = amount - paid;
+                    // Calculate pending amount based on original amount
+                    const pendingAmount = originalAmount - paid;
                     
-                    // Calculate total amount (original + pending if any)
-                    const totalAmount = amount;
+                    // Check if this invoice's pending was cleared by a newer invoice
+                    // Look for any newer invoice that has pendingUsed > 0
+                    const hasNewerInvoiceWithPendingUsed = (billingHistory || []).some((otherBilling: any) => {
+                      const otherDate = otherBilling.createdAt ? new Date(otherBilling.createdAt).getTime() : 0;
+                      const otherPendingUsed = parseFloat(otherBilling.pendingUsed || 0) || 0;
+                      // Check if this is a newer invoice (created after current billing) with pendingUsed > 0
+                      return otherDate > billingDate && otherPendingUsed > 0;
+                    });
                     
-                    // Check if pending was cleared separately (pendingUsed > 0 means pending was paid separately)
+                    // Check if pending was cleared separately (pendingUsed > 0 means THIS invoice cleared previous pending)
                     const pendingClearedSeparately = pendingUsed > 0;
                     
                     // Check if fully paid:
-                    // Case 1: Original Amount = Paid (no pending ever existed)
-                    // Case 2: Original Amount + Pending = Paid (pending was added to this invoice)
-                    // Case 3: Pending was cleared separately (pendingUsed > 0)
-                    // Case 4: Invoice was manually paid and stored in sessionStorage (API hasn't updated yet)
-                    const isFullyPaid = paid >= totalAmount || 
-                                       pendingClearedSeparately || 
+                    // PRIMARY CHECK: Use the pending field from backend
+                    // - If pending > 0 AND no newer invoice cleared it → NOT fully paid (show in pending section)
+                    // - If pending > 0 BUT newer invoice cleared it (hasNewerInvoiceWithPendingUsed) → completed
+                    // - If pending = 0 AND (paid >= amount OR pendingClearedSeparately) → fully paid
+                    // - Special case: manuallyPaidInvoices for invoices paid but billing not updated yet
+                    const hasPendingAmount = pending > 0;
+                    const isFullyPaid = (!hasPendingAmount && (paid >= amount || pendingClearedSeparately)) ||
+                                       (hasPendingAmount && hasNewerInvoiceWithPendingUsed) || // Pending was cleared by newer invoice
                                        manuallyPaidInvoices.has(invoiceNumber);
                     
-                    // Debug logging
-                    if (manuallyPaidInvoices.has(invoiceNumber)) {
-                      console.log('✅ Invoice', invoiceNumber, 'marked as completed via manuallyPaidInvoices');
-                    }
+                    // Debug logging for invoice status calculation
+                    console.log('📊 Invoice Status Calculation:', {
+                      invoiceNumber,
+                      treatment: billing.treatment || billing.package || 'N/A',
+                      originalAmount,
+                      amount,
+                      paid,
+                      pending,
+                      pendingUsed,
+                      billingDate: new Date(billingDate).toLocaleString(),
+                      hasNewerInvoiceWithPendingUsed,
+                      hasPendingAmount,
+                      pendingClearedSeparately,
+                      isFullyPaid,
+                      reason: manuallyPaidInvoices.has(invoiceNumber) ? 'manuallyPaidInvoices' :
+                              (hasPendingAmount && hasNewerInvoiceWithPendingUsed) ? 'PENDING_CLEARED_BY_NEWER_INVOICE' :
+                              hasPendingAmount ? 'HAS_PENDING_FROM_BACKEND' :
+                              pendingClearedSeparately ? 'pendingClearedSeparately' :
+                              paid >= amount ? 'paid_equals_or_exceeds_amount' : 'NOT_FULLY_PAID'
+                    });
                     
                     // Status based on actual payment status
                     const treatmentStatus = isFullyPaid ? 'completed' : 'pending';

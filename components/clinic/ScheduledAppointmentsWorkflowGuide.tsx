@@ -1,6 +1,6 @@
 "use client";
 import React from 'react';
-import { MoreVertical, FileText, Activity, Stethoscope, Info, CheckCircle, Image as ImageIcon, Pill, Layout, MousePointer2, List, Package, Send, CalendarCheck, Lightbulb, MessageSquare, DollarSign, CreditCard, Receipt, Brain, Wallet, Filter, ClipboardList, History, BookOpen } from 'lucide-react';
+import { MoreVertical, FileText, Activity, Stethoscope, Info, CheckCircle, Image as ImageIcon, Pill, Layout,  List, Package, Send, CalendarCheck, Lightbulb, MessageSquare, DollarSign, CreditCard, Receipt, Brain, Wallet, Filter,  History, BookOpen } from 'lucide-react';
 
 const ScheduledAppointmentsWorkflowGuide: React.FC = () => {
   return (
