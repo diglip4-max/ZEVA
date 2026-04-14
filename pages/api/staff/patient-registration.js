@@ -213,7 +213,7 @@ export default async function handler(req, res) {
         emrNumber: emrNumber || "",
         firstName,
         lastName: lastName || "",
-        gender: gender || "Other", // Default to "Other" if not provided (same as clinic API)
+        gender: gender || undefined, // Leave undefined if not provided
         email: email || "",
         mobileNumber,
         referredBy: referredBy || "",

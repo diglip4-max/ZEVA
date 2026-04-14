@@ -113,7 +113,7 @@ export default async function handler(req, res) {
     } = req.body;
 
     const normalizedGender =
-      gender && String(gender).trim() ? String(gender).trim() : "Other";
+      gender && String(gender).trim() ? String(gender).trim() : undefined;
 
     // Validation aligned to PatientRegistration model
     if (!firstName || !mobileNumber) {

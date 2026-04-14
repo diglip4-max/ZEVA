@@ -391,9 +391,9 @@ export default async function handler(req, res) {
           const firstName = patientNameParts[0] || mapped.patientName;
           const lastName = patientNameParts.slice(1).join(" ") || "";
 
-          // Validate gender
-          const gender = mapped.patientGender || "Male";
-          if (!["Male", "Female", "Other"].includes(gender)) {
+          // Validate gender - leave undefined if not provided
+          const gender = mapped.patientGender || undefined;
+          if (gender && !["Male", "Female", "Other"].includes(gender)) {
             results.failed++;
             results.errors.push(`Row ${i + 1}: Invalid gender. Must be Male, Female, or Other.`);
             continue;
