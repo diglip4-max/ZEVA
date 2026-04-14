@@ -6,7 +6,7 @@ import {
   CreditCard, TrendingUp, Package, Phone,
   Mail, Clock, Shield, X, CheckCircle, XCircle,
   ExternalLink,
-  AlertTriangle, Info, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck,
+  AlertTriangle, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck,
   ChevronDown, Search, Loader2, Check,  Camera, Image as ImageIcon, Eye
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
@@ -728,7 +728,6 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       }, { headers });
       if (res.data?.success) {
         const newPkgId = res.data.package?._id || res.data.packageId || null;
-        const createdPkgData = res.data.package || null;
         if (addToPatient && newPkgId && patientData?._id) {
           setAddingPackageToPatient(true);
           try {
@@ -1326,7 +1325,8 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   })();
 
   // Alerts — computed from real data
-  const alerts = (() => {
+  // Commented out because the UI using this is also commented out
+  /* const alerts = (() => {
     const list: { type: string; icon: any; message: string }[] = [];
 
     // Outstanding payment alert
@@ -1375,7 +1375,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     }
 
     return list;
-  })();
+  })(); */
 
   // Patient Behavior — using statsData (from Total Visits card) for accuracy
   const behaviorMetrics = (() => {
@@ -2400,7 +2400,8 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     }
   };
 
-  const handleUploadBalance = async () => {
+  // Commented out - not currently used in the UI
+  /* const handleUploadBalance = async () => {
     if (!patientData?._id) return;
     
     setUploadLoading(true);
@@ -2422,7 +2423,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     } finally {
       setUploadLoading(false);
     }
-  };
+  }; */
 
   const handleImageUpload = async (file: File) => {
     if (!patientData?._id) return;
@@ -6451,7 +6452,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           patientId={patientData._id}
           patientName={`${patientData.firstName} ${patientData.lastName}`}
           pendingBalance={balance.pendingBalance}
-          onSuccess={async (paymentData: any) => {
+          onSuccess={async (_paymentData: any) => {
             // Store the previous pending balance before update
             const prevBalance = balance.pendingBalance;
             
