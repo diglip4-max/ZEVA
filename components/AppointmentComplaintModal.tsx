@@ -5508,16 +5508,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
             >
               Close
             </button>
-            {activeTab === "complaint" && (
-              <button
-                type="button"
-                onClick={handleSaveComplaints}
-                disabled={saving || loading}
-                className="rounded-lg bg-blue-600 px-4 sm:px-6 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60 transition-colors flex-1 sm:flex-none"
-              >
-                {saving ? "Saving..." : "Save Complaints"}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleSaveComplaints}
+              disabled={saving || loading}
+              className="rounded-lg bg-blue-600 px-4 sm:px-6 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60 transition-colors flex-1 sm:flex-none"
+            >
+              {saving ? "Saving..." : "Save Complaints"}
+            </button>
           </div>
 
           {isEditModalOpen && editingComplaint && (
