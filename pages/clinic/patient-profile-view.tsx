@@ -68,7 +68,8 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
   const [transferSubmitting, setTransferSubmitting] = useState(false);
   const [localMemberships, setLocalMemberships] = useState<any[]>([]);
   const [localPackages, setLocalPackages] = useState<any[]>([]);
-  const [publicPackages, setPublicPackages] = useState<any[]>([]);
+  // COMMENTED OUT: Public packages no longer used - only patient packages are fetched
+  // const [publicPackages, setPublicPackages] = useState<any[]>([]);
 
   // Fetch memberships and packages on mount
   useEffect(() => {
@@ -144,8 +145,8 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
           const headers = getAuthHeaders() || {};
           const res = await axios.get(`/api/clinic/package-usage/${patientId}`, { headers });
           if (res.data.success) {
-            // Find the selected package from localPackages or publicPackages to get its name
-            const selectedPkg = localPackages.find((p: any) => p._id === selectedPackageId) || publicPackages.find((p: any) => p._id === selectedPackageId);
+            // Find the selected package from localPackages to get its name
+            const selectedPkg = localPackages.find((p: any) => p._id === selectedPackageId);
             if (selectedPkg) {
               // Match by packageName like the Packages section does
               const usage = res.data.packageUsage?.find((p: any) => p.packageName === selectedPkg.name);
@@ -160,7 +161,7 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
       };
       fetchPackageUsage();
     }
-  }, [transferType, selectedPackageId, patientId, localPackages, publicPackages]);
+  }, [transferType, selectedPackageId, patientId, localPackages]);
 
   // Search for target patients
   useEffect(() => {
