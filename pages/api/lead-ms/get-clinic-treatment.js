@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     }
 
     // Only clinic, agent, or doctor can access
-    if (!requireRole(user, ["clinic", "agent", "doctor"])) {
+    if (!requireRole(user, ["clinic", "agent", "doctor", "admin", "doctorStaff"])) {
       return res
         .status(403)
         .json({ success: false, message: "Access denied" });
@@ -32,11 +32,11 @@ export default async function handler(req, res) {
     let clinic;
     if (user.role === "clinic") {
       clinic = await Clinic.findOne({ owner: user._id }).lean();
-    } else if (user.role === "agent") {
+    } else if (user.role === "agent" || user.role === "doctorStaff") {
       if (!user.clinicId) {
         return res
           .status(400)
-          .json({ success: false, message: "Agent is not assigned to any clinic" });
+          .json({ success: false, message: "Agent/Staff is not assigned to any clinic" });
       }
       clinic = await Clinic.findById(user.clinicId).lean();
     } else if (user.role === "doctor") {
@@ -46,6 +46,15 @@ export default async function handler(req, res) {
           .json({ success: false, message: "Doctor is not linked to any clinic" });
       }
       clinic = await Clinic.findById(user.clinicId).lean();
+    } else if (user.role === "admin") {
+      // If admin, we can't find a clinic by user._id. 
+      // We might need a clinicId from query, but for now let's just allow it
+      // Actually, if it's admin, we might need a default clinic or just return empty for now
+      // Let's check if clinicId is passed in query for admin
+      const { clinicId: queryClinicId } = req.query;
+      if (queryClinicId) {
+        clinic = await Clinic.findById(queryClinicId).lean();
+      }
     }
 
     if (!clinic) {

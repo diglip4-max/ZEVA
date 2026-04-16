@@ -53,15 +53,7 @@ const OfferSchema = new Schema(
   ============================= */
   applyOnAllServices: { type: Boolean, default: true },
 
-  treatments: [{ type: Schema.Types.ObjectId, ref: "Treatment" }],
-
-  subTreatments: [
-    {
-      treatmentId: { type: Schema.Types.ObjectId, ref: "Treatment" },
-      slug: String,
-      name: String
-    }
-  ],
+  serviceIds: [{ type: Schema.Types.ObjectId, ref: "Service" }],
 
   doctorIds: [{ type: Schema.Types.ObjectId, ref: "User" }],
   departmentIds: [{ type: Schema.Types.ObjectId, ref: "Department" }],
@@ -72,6 +64,12 @@ const OfferSchema = new Schema(
   minimumBillAmount: { type: Number, default: 0 },
 
   allowStacking: { type: Boolean, default: false },
+
+  // NEW FLAG
+  allowCombiningWithOtherOffers: {
+    type: Boolean,
+    default: false
+  },
 
   allowReceptionistDiscount: {
     type: Boolean,
@@ -111,12 +109,13 @@ const OfferSchema = new Schema(
 
   freeQty: { type: Number, default: 0 },
 
-  bundleServiceId: {
-    type: Schema.Types.ObjectId,
-    ref: "Treatment"
-  },
-
-  bundleExpiryDays: { type: Number, default: 0 },
+  /* =============================
+     SMART TOGGLES
+  ============================= */
+  autoApplyBestOffer: { type: Boolean, default: true },
+  allowManualOverride: { type: Boolean, default: false },
+  requireApprovalForOverride: { type: Boolean, default: true },
+  blockIfProfitMarginBelowX: { type: Boolean, default: true },
 
   /* =============================
      AUDIT
@@ -128,5 +127,9 @@ const OfferSchema = new Schema(
 { timestamps: true }
 );
 
-export default mongoose.models.Offer ||
-mongoose.model("Offer", OfferSchema);
+// Force re-registration of the model to avoid schema conflicts with duplicate files
+if (mongoose.models.Offer) {
+  delete mongoose.models.Offer;
+}
+
+export default mongoose.model("Offer", OfferSchema);

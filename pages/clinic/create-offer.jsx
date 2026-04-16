@@ -853,7 +853,10 @@ function OffersPage() {
                             <tr key={offer._id} className="hover:bg-teal-50 transition-colors">
                               <td className="px-2 py-2">
                                 <div className="flex items-center gap-2">
-                                  <div className="w-6 h-6 bg-teal-800 rounded-lg flex items-center justify-center flex-shrink-0">
+                                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                    offer.offerType === "instant_discount" ? "bg-green-600" :
+                                    offer.offerType === "bundle" ? "bg-amber-500" : "bg-blue-600"
+                                  }`}>
                                     <Package className="h-3 w-3 text-white" />
                                   </div>
                                   <div className="min-w-0">
@@ -863,13 +866,22 @@ function OffersPage() {
                                 </div>
                               </td>
                               <td className="px-2 py-2">
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-teal-100 text-teal-800 capitalize">
-                                  {offer.type}
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium capitalize ${
+                                  offer.offerType === "instant_discount" ? "bg-green-100 text-green-800" :
+                                  offer.offerType === "bundle" ? "bg-amber-100 text-amber-800" : "bg-blue-100 text-blue-800"
+                                }`}>
+                                  {offer.offerType?.replace("_", " ") || "—"}
                                 </span>
                               </td>
                               <td className="px-2 py-2">
                                 <span className="text-xs sm:text-sm font-bold text-teal-900">
-                                  {offer.type === "percentage" ? `${offer.value}%` : `${getCurrencySymbol(currency)}${offer.value}`}
+                                  {offer.offerType === "instant_discount" ? (
+                                    offer.discountMode === "percentage" ? `${offer.discountValue}% OFF` : `${getCurrencySymbol(currency)}${offer.discountValue} OFF`
+                                  ) : offer.offerType === "bundle" ? (
+                                    `Buy ${offer.buyQty} Get ${offer.freeQty}`
+                                  ) : (
+                                    `${getCurrencySymbol(currency)}${offer.cashbackAmount} Cashback`
+                                  )}
                                 </span>
                               </td>
                               <td className="px-2 py-2">

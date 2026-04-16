@@ -7,7 +7,7 @@ interface Props {
   token: string;
   mode?: "create" | "update";
   offer?: any;
-  actorRole?: "clinic" | "doctor" | "agent" | "admin";
+  actorRole?: "clinic" | "doctor" | "agent" | "admin" | "doctorStaff";
 }
 
 export default function CreateOfferModal({
@@ -28,28 +28,62 @@ export default function CreateOfferModal({
   const getInitialForm = () => ({
     title: "",
     description: "",
-    type: "percentage",
-    value: 0,
-    currency: "INR",
+    offerType: "instant_discount" as "instant_discount" | "bundle" | "cashback",
     code: "",
     slug: "",
     startsAt: "",
     endsAt: "",
     timezone: "Asia/Kolkata",
+    status: "draft" as "draft" | "active" | "paused" | "expired" | "archived",
+    enabled: true,
     maxUses: null as number | null,
     usesCount: 0,
     perUserLimit: 1,
-    channels: [] as string[],
-    utm: { source: actorRole, medium: "email", campaign: "" },
-    conditions: {} as Record<string, any>,
-    status: "draft",
-    treatments: [] as string[],
+    
+    // Applicability Control
+    applyOnType: "all_services" as "all_services" | "selected_services" | "selected_departments" | "selected_doctors",
+    applyOnAllServices: true,
+    serviceIds: [] as string[],
+    departmentIds: [] as string[],
+    doctorIds: [] as string[],
+    
+    // Stacking & Control Rules
+    allowCombiningWithOtherOffers: false,
+    allowReceptionistDiscount: false,
+    maxBenefitCap: 30,
+    minimumBillAmount: 0,
+    marginThresholdPercent: 0,
+    sameDayReuseBlocked: true,
+    partialPaymentAllowed: false,
+    
+    // Smart Toggles
+    autoApplyBestOffer: true,
+    allowManualOverride: false,
+    requireApprovalForOverride: true,
+    blockIfProfitMarginBelowX: true,
+    
+    // Type 1: Instant Discount
+    discountMode: "percentage" as "percentage" | "flat",
+    discountValue: 0,
+    
+    // Type 2: Bundle
+    buyQty: 0,
+    freeQty: 0,
+    
+    // Type 3: Cashback
+    cashbackAmount: 0,
+    cashbackExpiryDays: 0,
   });
   const [form, setForm] = useState(getInitialForm);
 
   const [clinicId, setClinicId] = useState<string | null>(null);
-  const [treatments, setTreatments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  // Data for selections
+  const [allServices, setAllServices] = useState<any[]>([]);
+  const [allDepartments, setAllDepartments] = useState<any[]>([]);
+  const [allDoctors, setAllDoctors] = useState<any[]>([]);
+
   const [permissions, setPermissions] = useState<{
     canCreate: boolean;
     canUpdate: boolean;
@@ -115,7 +149,9 @@ export default function CreateOfferModal({
     const authToken = resolvedToken;
     if (!authToken) {
       setClinicId(null);
-      setTreatments([]);
+      setAllServices([]);
+      setAllDepartments([]);
+      setAllDoctors([]);
       setPermissions({
         canCreate: false,
         canUpdate: false,
@@ -125,14 +161,29 @@ export default function CreateOfferModal({
       return;
     }
 
-    const fetchClinicData = async () => {
+    const fetchAllData = async () => {
       try {
-        // Fetch clinic data and permissions in parallel
-        const [clinicRes, permissionsRes] = await Promise.all([
+        // Fetch everything in parallel
+        const [
+          clinicRes,
+          permissionsRes,
+          servicesRes,
+          departmentsRes,
+          doctorsRes
+        ] = await Promise.all([
           fetch("/api/lead-ms/get-clinic-treatment", {
             headers: { Authorization: `Bearer ${authToken}` },
           }),
           fetch("/api/clinic/permissions", {
+            headers: { Authorization: `Bearer ${authToken}` },
+          }),
+          fetch("/api/clinic/services", {
+            headers: { Authorization: `Bearer ${authToken}` },
+          }),
+          fetch("/api/clinic/departments?module", {
+            headers: { Authorization: `Bearer ${authToken}` },
+          }),
+          fetch("/api/lead-ms/get-agents?role=doctorStaff", {
             headers: { Authorization: `Bearer ${authToken}` },
           }),
         ]);
@@ -140,7 +191,21 @@ export default function CreateOfferModal({
         const clinicData = await clinicRes.json();
         if (clinicData.success) {
           setClinicId(clinicData.clinicId);
-          setTreatments(clinicData.treatments || []);
+        }
+
+        const servicesData = await servicesRes.json();
+        if (servicesData.success) {
+          setAllServices(servicesData.services || servicesData.data || []);
+        }
+
+        const departmentsData = await departmentsRes.json();
+        if (departmentsData.success) {
+          setAllDepartments(departmentsData.departments || departmentsData.data || []);
+        }
+
+        const doctorsData = await doctorsRes.json();
+        if (doctorsData.success) {
+          setAllDoctors(doctorsData.agents || doctorsData.data || []);
         }
 
         // Process permissions
@@ -165,7 +230,6 @@ export default function CreateOfferModal({
               canRead: actions.all === true || actions.read === true,
             });
           } else {
-            // If no permissions found, default to no access
             setPermissions({
               canCreate: false,
               canUpdate: false,
@@ -173,29 +237,13 @@ export default function CreateOfferModal({
               canRead: false,
             });
           }
-        } else {
-          // If permissions API fails, default to no access for safety
-          console.warn("Could not fetch permissions, defaulting to no access");
-          setPermissions({
-            canCreate: false,
-            canUpdate: false,
-            canDelete: false,
-            canRead: false,
-          });
         }
       } catch (err) {
-        console.error("Error fetching clinic data", err);
-        // On error, default to no access for safety
-        setPermissions({
-          canCreate: false,
-          canUpdate: false,
-          canDelete: false,
-          canRead: false,
-        });
+        console.error("Error fetching data", err);
       }
     };
 
-    fetchClinicData();
+    fetchAllData();
   }, [isOpen, resolvedToken]);
 
   useEffect(() => {
@@ -208,40 +256,56 @@ export default function CreateOfferModal({
       return;
     }
 
-    // Fast path: use the already-fetched offer from the parent to avoid an extra network call
-    if (mode === "update") {
-      if (!offer) return; // parent is still fetching; show loading state in UI
-
-      const selectedSlugs = [
-        ...(offer.treatments?.map((t: any) => t.mainTreatmentSlug) || []),
-        ...(offer.treatments?.flatMap(
-          (t: any) => t.subTreatments?.map((st: any) => st.slug) || []
-        ) || []),
-      ];
-
+    if (mode === "update" && offer) {
       setForm({
         title: offer.title || "",
         description: offer.description || "",
-        type: offer.type || "percentage",
-        value: offer.value || 0,
-        currency: offer.currency || "INR",
+        offerType: offer.offerType || "instant_discount",
         code: offer.code || "",
         slug: offer.slug || "",
         startsAt: offer.startsAt ? new Date(offer.startsAt).toISOString().slice(0, 16) : "",
         endsAt: offer.endsAt ? new Date(offer.endsAt).toISOString().slice(0, 16) : "",
         timezone: offer.timezone || "Asia/Kolkata",
+        status: offer.status || "draft",
+        enabled: offer.enabled ?? true,
         maxUses: offer.maxUses || null,
         usesCount: offer.usesCount || 0,
         perUserLimit: offer.perUserLimit || 1,
-        channels: offer.channels || [],
-        utm: offer.utm || { source: actorRole, medium: "email", campaign: "" },
-        conditions: offer.conditions || {},
-        status: offer.status || "draft",
-        treatments: selectedSlugs,
+        
+        applyOnType: offer.applyOnAllServices ? "all_services" : 
+                    offer.departmentIds?.length > 0 ? "selected_departments" :
+                    offer.doctorIds?.length > 0 ? "selected_doctors" :
+                    "selected_services",
+        applyOnAllServices: offer.applyOnAllServices ?? true,
+        serviceIds: offer.serviceIds || [],
+        departmentIds: offer.departmentIds || [],
+        doctorIds: offer.doctorIds || [],
+        
+        allowCombiningWithOtherOffers: offer.allowCombiningWithOtherOffers || false,
+        allowReceptionistDiscount: offer.allowReceptionistDiscount || false,
+        maxBenefitCap: offer.maxBenefitCap || 0,
+        minimumBillAmount: offer.minimumBillAmount || 0,
+        marginThresholdPercent: offer.marginThresholdPercent || 0,
+        sameDayReuseBlocked: offer.sameDayReuseBlocked ?? true,
+        partialPaymentAllowed: offer.partialPaymentAllowed || false,
+        
+        autoApplyBestOffer: offer.autoApplyBestOffer ?? true,
+        allowManualOverride: offer.allowManualOverride || false,
+        requireApprovalForOverride: offer.requireApprovalForOverride ?? true,
+        blockIfProfitMarginBelowX: offer.blockIfProfitMarginBelowX ?? true,
+        
+        discountMode: offer.discountMode || "percentage",
+        discountValue: offer.discountValue || 0,
+        
+        buyQty: offer.buyQty || 0,
+        freeQty: offer.freeQty || 0,
+        
+        cashbackAmount: offer.cashbackAmount || 0,
+        cashbackExpiryDays: offer.cashbackExpiryDays || 0,
       });
       setClinicId(offer.clinicId || null);
     }
-  }, [isOpen, mode, offer, actorRole]);
+  }, [isOpen, mode, offer]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -263,102 +327,58 @@ export default function CreateOfferModal({
       setErrors({ ...errors, [baseKey]: "" });
     }
 
-    if (["value", "perUserLimit", "maxUses"].includes(name)) {
-      setForm((prev) => ({ ...prev, [name]: value ? Number(value) : null }));
+    if (["discountValue", "perUserLimit", "maxUses", "cashbackAmount", "cashbackExpiryDays", "buyQty", "freeQty", "maxBenefitCap", "minimumBillAmount", "marginThresholdPercent"].includes(name)) {
+      setForm((prev) => ({ ...prev, [name]: value ? Number(value) : (name === "maxUses" ? null : 0) }));
       return;
     }
 
-    if (type === "checkbox" && name === "channels") {
-      setForm((prev) => ({
-        ...prev,
-        channels: checked
-          ? [...prev.channels, value]
-          : prev.channels.filter((c) => c !== value),
-      }));
-      return;
-    }
-
-    if (name.startsWith("utm.")) {
-      const key = name.split(".")[1];
-      setForm((prev) => ({ ...prev, utm: { ...prev.utm, [key]: value } }));
-      return;
-    }
-
-    if (name.startsWith("conditions.")) {
-      const key = name.split(".")[1];
-      setForm((prev) => ({
-        ...prev,
-        conditions: { ...prev.conditions, [key]: value },
-      }));
+    if (type === "checkbox") {
+      setForm((prev) => ({ ...prev, [name]: checked }));
       return;
     }
 
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const toggleTreatment = (slug: string, checked: boolean) => {
+  const toggleSelection = (listName: "serviceIds" | "departmentIds" | "doctorIds", id: string, checked: boolean) => {
     setForm((prev) => ({
       ...prev,
-      treatments: checked
-        ? [...prev.treatments, slug]
-        : prev.treatments.filter((s) => s !== slug),
+      [listName]: checked
+        ? [...prev[listName], id]
+        : prev[listName].filter((item: string) => item !== id),
     }));
   };
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    // Title validation
     if (!form.title || form.title.trim().length === 0) {
       newErrors.title = "Offer title is required";
-    } else if (form.title.trim().length < 3) {
-      newErrors.title = "Title must be at least 3 characters";
     }
 
-    // Value validation
-    if (form.type !== "free Consult") {
-      if (!form.value || form.value <= 0) {
-        newErrors.value = "Value must be greater than 0";
-      }
-      if (form.type === "percentage" && form.value > 100) {
-        newErrors.value = "Percentage cannot exceed 100%";
-      }
+    if (form.offerType === "instant_discount" && form.discountValue <= 0) {
+      newErrors.discountValue = "Discount value must be greater than 0";
     }
 
-    // Start date validation
-    if (!form.startsAt || form.startsAt.trim().length === 0) {
-      newErrors.startsAt = "Start date is required";
+    if (form.offerType === "bundle" && (form.buyQty <= 0 || form.freeQty <= 0)) {
+      newErrors.bundle = "Buy and Free quantities must be greater than 0";
     }
 
-    // End date validation
-    if (!form.endsAt || form.endsAt.trim().length === 0) {
-      newErrors.endsAt = "End date is required";
+    if (form.offerType === "cashback" && form.cashbackAmount <= 0) {
+      newErrors.cashbackAmount = "Cashback amount must be greater than 0";
     }
 
-    // Date comparison validation
+    if (!form.startsAt) newErrors.startsAt = "Start date is required";
+    if (!form.endsAt) newErrors.endsAt = "End date is required";
+
     if (form.startsAt && form.endsAt) {
-      const startDate = new Date(form.startsAt);
-      const endDate = new Date(form.endsAt);
-      if (endDate <= startDate) {
+      if (new Date(form.endsAt) <= new Date(form.startsAt)) {
         newErrors.endsAt = "End date must be after start date";
       }
     }
 
-    // Max uses validation
-    if (form.maxUses !== null && form.maxUses !== undefined && form.maxUses < 1) {
-      newErrors.maxUses = "Maximum uses must be at least 1";
-    }
-
-    // Per user limit validation
-    if (!form.perUserLimit || form.perUserLimit < 1) {
-      newErrors.perUserLimit = "Uses per user must be at least 1";
-    }
-
-    // UTM Source validation (if provided, must be valid)
-    if (form.utm.source && form.utm.source.trim().length > 0) {
-      if (form.utm.source.trim().length < 2) {
-        newErrors["utm.source"] = "UTM source must be at least 2 characters";
-      }
+    if (form.maxBenefitCap <= 0) {
+      newErrors.maxBenefitCap = "Max benefit cap is mandatory";
     }
 
     setErrors(newErrors);
@@ -367,41 +387,37 @@ export default function CreateOfferModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate form before submitting
     if (!validateForm()) {
+      console.log("Validation failed", errors);
       return;
     }
-
     if (!clinicId) {
-      setErrors({ ...errors, clinic: "Clinic ID not loaded yet." });
+      alert("Clinic ID not found. Please try again or contact support.");
+      console.error("Submission blocked: clinicId is null");
       return;
     }
 
-    // ✅ Strict permission checks before submitting
-    if (mode === "create" && permissions.canCreate !== true) {
-      alert("You do not have permission to create offers");
+    if (mode === "create" && !permissions.canCreate) {
+      alert("No permission to create");
       return;
     }
-    if (mode === "update" && permissions.canUpdate !== true) {
-      alert("You do not have permission to update offers");
+    if (mode === "update" && !permissions.canUpdate) {
+      alert("No permission to update");
       return;
     }
 
     setLoading(true);
     try {
       const authToken = resolvedToken || resolveTokenFromContext();
-      if (!authToken) {
-        alert("Authentication token missing. Please log in again.");
-        setLoading(false);
-        return;
-      }
-
-      const url =
-        mode === "create"
-          ? "/api/lead-ms/create-offer"
-          : `/api/lead-ms/update-offer?id=${offer._id}`;
+      const url = mode === "create" ? "/api/lead-ms/create-offer" : `/api/lead-ms/update-offer?id=${offer._id}`;
       const method = mode === "create" ? "POST" : "PUT";
+
+      // Final adjustments based on applyOnType
+      const finalForm = { ...form };
+      finalForm.applyOnAllServices = form.applyOnType === "all_services";
+      if (form.applyOnType !== "selected_services") finalForm.serviceIds = [];
+      if (form.applyOnType !== "selected_departments") finalForm.departmentIds = [];
+      if (form.applyOnType !== "selected_doctors") finalForm.doctorIds = [];
 
       const res = await fetch(url, {
         method,
@@ -410,37 +426,27 @@ export default function CreateOfferModal({
           Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({
-          ...form,
+          ...finalForm,
           clinicId,
-          startsAt: form.startsAt ? new Date(form.startsAt) : null,
-          endsAt: form.endsAt ? new Date(form.endsAt) : null,
+          startsAt: new Date(form.startsAt),
+          endsAt: new Date(form.endsAt),
         }),
       });
 
       const data = await res.json();
-      
-      // ✅ Handle 403 permission denied explicitly
-      if (res.status === 403 || (data.message && data.message.toLowerCase().includes("permission"))) {
-        alert(data.message || `You do not have permission to ${mode} offers`);
-        setLoading(false);
-        return;
-      }
-      
       if (data.success) {
         onCreated(data.offer);
         setShowSuccessPopup(true);
-        // Close modal after 2 seconds
         setTimeout(() => {
           setShowSuccessPopup(false);
           onClose();
-          setErrors({});
         }, 2000);
       } else {
-        alert(data.message || `Failed to ${mode} offer`);
+        alert(data.message || "Failed to save offer");
       }
     } catch (err) {
       console.error(err);
-      alert("Server error");
+      alert("Error saving offer");
     } finally {
       setLoading(false);
     }
@@ -475,286 +481,392 @@ export default function CreateOfferModal({
 
         {/* Compact Form Content */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-          <div className={`${formBgClass} px-4 py-3 space-y-4`}>
-            {/* Basic Information Section */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-bold text-teal-800 border-b border-gray-200 pb-1.5">Basic Information</h3>
+          <div className={`${formBgClass} px-4 py-3 space-y-6`}>
+            
+            {/* 1. BASIC SETTINGS */}
+            <section className="space-y-4">
+              <h3 className="text-sm font-bold text-teal-800 border-b border-gray-200 pb-1.5 flex items-center gap-2">
+                <span className="bg-teal-100 text-teal-800 px-2 py-0.5 rounded text-[10px]">1</span>
+                BASIC SETTINGS
+              </h3>
               
-              <div>
-                <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">
-                  Offer Title <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="title"
-                  value={form.title}
-                  onChange={handleChange}
-                  className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm ${
-                    errors.title ? "border-red-500" : "border-gray-200"
-                  }`}
-                  placeholder="e.g., Summer Special Discount"
-                  required
-                />
-                {errors.title && (
-                  <p className="text-red-500 text-[10px] mt-1">{errors.title}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">Description</label>
-                <textarea
-                  name="description"
-                  value={form.description}
-                  onChange={handleChange}
-                  rows={3}
-                  className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all resize-none text-xs sm:text-sm"
-                  placeholder="Describe the offer details..."
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">
-                    Discount Type <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="type"
-                    value={form.type}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-medium text-teal-700 mb-1">Offer Name *</label>
+                  <input
+                    type="text"
+                    name="title"
+                    value={form.title}
                     onChange={handleChange}
-                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
+                    className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.title ? "border-red-500" : "border-gray-200"}`}
+                    placeholder="e.g., Summer Special 2024"
                     required
+                  />
+                  {errors.title && <p className="text-red-500 text-[10px] mt-1">{errors.title}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-medium text-teal-700 mb-1">Offer Type *</label>
+                  <select
+                    name="offerType"
+                    value={form.offerType}
+                    onChange={handleChange}
+                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
                   >
-                    <option value="percentage">Percentage (%)</option>
-                    <option value="fixed">Fixed Amount</option>
-                    <option value="free Consult">Free Consultation</option>
+                    <option value="instant_discount">🟢 TYPE 1: INSTANT DISCOUNT</option>
+                    <option value="bundle">🟡 TYPE 2: BUNDLE / PACKAGE</option>
+                    <option value="cashback">🔵 TYPE 3: CASHBACK / WALLET</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">
-                    {form.type === "percentage" ? "Discount (%)" : `Amount (د.إ)`}
-                  </label>
-                  <input
-                    type="number"
-                    name="value"
-                    value={form.value}
-                    onChange={handleChange}
-                    min="0"
-                    step={form.type === "percentage" ? "1" : "0.01"}
-                    className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm ${
-                      errors.value ? "border-red-500" : "border-gray-200"
-                    }`}
-                    placeholder="0"
-                  />
-                  {errors.value && (
-                    <p className="text-red-500 text-[10px] mt-1">{errors.value}</p>
-                  )}
-                </div>
-              </div>
-            </div>
 
-            {/* Compact Schedule Section */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-bold text-teal-800 border-b border-gray-200 pb-1.5">Schedule & Limits</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">Start Date & Time</label>
+                  <label className="block text-[10px] font-medium text-teal-700 mb-1">Offer Code (Optional)</label>
+                  <input
+                    type="text"
+                    name="code"
+                    value={form.code}
+                    onChange={handleChange}
+                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
+                    placeholder="SUMMER24"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-medium text-teal-700 mb-1">Start Date *</label>
                   <input
                     type="datetime-local"
                     name="startsAt"
                     value={form.startsAt}
                     onChange={handleChange}
-                    className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm ${
-                      errors.startsAt ? "border-red-500" : "border-gray-200"
-                    }`}
+                    className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.startsAt ? "border-red-500" : "border-gray-200"}`}
+                    required
                   />
-                  {errors.startsAt && (
-                    <p className="text-red-500 text-[10px] mt-1">{errors.startsAt}</p>
-                  )}
+                  {errors.startsAt && <p className="text-red-500 text-[10px] mt-1">{errors.startsAt}</p>}
                 </div>
+
                 <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">End Date & Time</label>
+                  <label className="block text-[10px] font-medium text-teal-700 mb-1">End Date *</label>
                   <input
                     type="datetime-local"
                     name="endsAt"
                     value={form.endsAt}
                     onChange={handleChange}
-                    className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm ${
-                      errors.endsAt ? "border-red-500" : "border-gray-200"
-                    }`}
+                    className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.endsAt ? "border-red-500" : "border-gray-200"}`}
+                    required
                   />
-                  {errors.endsAt && (
-                    <p className="text-red-500 text-[10px] mt-1">{errors.endsAt}</p>
-                  )}
+                  {errors.endsAt && <p className="text-red-500 text-[10px] mt-1">{errors.endsAt}</p>}
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">Maximum Total Uses</label>
+                  <label className="block text-[10px] font-medium text-teal-700 mb-1">Total Usage Limit (Global)</label>
                   <input
                     type="number"
                     name="maxUses"
                     value={form.maxUses || ""}
                     onChange={handleChange}
-                    min="1"
-                    className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm ${
-                      errors.maxUses ? "border-red-500" : "border-gray-200"
-                    }`}
+                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
                     placeholder="Unlimited"
                   />
-                  {errors.maxUses && (
-                    <p className="text-red-500 text-[10px] mt-1">{errors.maxUses}</p>
-                  )}
                 </div>
+
                 <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">Uses Per User</label>
+                  <label className="block text-[10px] font-medium text-teal-700 mb-1">Usage Limit Per Patient</label>
                   <input
                     type="number"
                     name="perUserLimit"
                     value={form.perUserLimit}
                     onChange={handleChange}
-                    min="1"
-                    className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm ${
-                      errors.perUserLimit ? "border-red-500" : "border-gray-200"
-                    }`}
-                    placeholder="1"
+                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
                   />
-                  {errors.perUserLimit && (
-                    <p className="text-red-500 text-[10px] mt-1">{errors.perUserLimit}</p>
-                  )}
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-medium text-teal-700 mb-1">Status</label>
+                  <select
+                    name="status"
+                    value={form.status}
+                    onChange={handleChange}
+                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="active">Active</option>
+                    <option value="paused">Paused</option>
+                    <option value="expired">Expired</option>
+                    <option value="archived">Archived</option>
+                  </select>
                 </div>
               </div>
-            </div>
 
-            {/* Compact Distribution Channels */}
-            <div className="space-y-2.5">
-              <h3 className="text-sm font-bold text-teal-800 border-b border-gray-200 pb-1.5">Distribution Channels</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {["email", "sms", "web", "affiliate"].map((c) => (
-                  <label key={c} className="flex items-center space-x-2 p-2 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
-                    <input
-                      type="checkbox"
-                      name="channels"
-                      value={c}
-                      checked={form.channels.includes(c)}
-                      onChange={handleChange}
-                      className="w-3.5 h-3.5 text-gray-800 rounded focus:ring-gray-800"
-                    />
-                    <span className="text-[10px] sm:text-xs font-medium text-teal-700 capitalize">{c}</span>
-                  </label>
-                ))}
+              {/* Type-Specific Fields */}
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                {form.offerType === "instant_discount" && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-medium text-teal-700 mb-1">Discount Mode</label>
+                      <select
+                        name="discountMode"
+                        value={form.discountMode}
+                        onChange={handleChange}
+                        className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
+                      >
+                        <option value="percentage">Percentage (%)</option>
+                        <option value="flat">Flat Amount (OFF)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-medium text-teal-700 mb-1">Discount Value *</label>
+                      <input
+                        type="number"
+                        name="discountValue"
+                        value={form.discountValue}
+                        onChange={handleChange}
+                        className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.discountValue ? "border-red-500" : "border-gray-200"}`}
+                        required
+                      />
+                      {errors.discountValue && <p className="text-red-500 text-[10px] mt-1">{errors.discountValue}</p>}
+                    </div>
+                  </div>
+                )}
+
+                {form.offerType === "bundle" && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      {errors.bundle && <p className="text-red-500 text-[10px] mb-2">{errors.bundle}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-medium text-teal-700 mb-1">Buy Quantity (Paid)</label>
+                      <input
+                        type="number"
+                        name="buyQty"
+                        value={form.buyQty}
+                        onChange={handleChange}
+                        className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-medium text-teal-700 mb-1">Get Free Quantity</label>
+                      <input
+                        type="number"
+                        name="freeQty"
+                        value={form.freeQty}
+                        onChange={handleChange}
+                        className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {form.offerType === "cashback" && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-medium text-teal-700 mb-1">Cashback Amount</label>
+                      <input
+                        type="number"
+                        name="cashbackAmount"
+                        value={form.cashbackAmount}
+                        onChange={handleChange}
+                        className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.cashbackAmount ? "border-red-500" : "border-gray-200"}`}
+                      />
+                      {errors.cashbackAmount && <p className="text-red-500 text-[10px] mt-1">{errors.cashbackAmount}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-medium text-teal-700 mb-1">Wallet Credit Expiry (Days)</label>
+                      <input
+                        type="number"
+                        name="cashbackExpiryDays"
+                        value={form.cashbackExpiryDays}
+                        onChange={handleChange}
+                        className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            </section>
 
-            {/* Compact UTM Parameters */}
-            <div className="space-y-2.5">
-              <h3 className="text-sm font-bold text-teal-800 border-b border-gray-200 pb-1.5">Tracking (UTM Parameters)</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">UTM Source</label>
-                  <input
-                    type="text"
-                    name="utm.source"
-                    value={form.utm.source}
-                    onChange={handleChange}
-                    className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm ${
-                      errors["utm.source"] ? "border-red-500" : "border-gray-200"
-                    }`}
-                    placeholder="clinic"
-                  />
-                  {errors["utm.source"] && (
-                    <p className="text-red-500 text-[10px] mt-1">{errors["utm.source"]}</p>
-                  )}
+            {/* 2. APPLICABILITY CONTROL */}
+            <section className="space-y-4">
+              <h3 className="text-sm font-bold text-teal-800 border-b border-gray-200 pb-1.5 flex items-center gap-2">
+                <span className="bg-teal-100 text-teal-800 px-2 py-0.5 rounded text-[10px]">2</span>
+                APPLICABILITY CONTROL
+              </h3>
+              
+              <div className="space-y-3">
+                <label className="block text-[10px] font-medium text-teal-700">Apply On:</label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {[
+                    { id: "all_services", label: "All Services" },
+                    { id: "selected_services", label: "Selected Services" },
+                    { id: "selected_departments", label: "Selected Departments" },
+                    { id: "selected_doctors", label: "Selected Doctors" }
+                  ].map((opt) => (
+                    <label key={opt.id} className={`flex items-center justify-center p-2 border rounded-lg cursor-pointer transition-all text-[10px] text-center ${form.applyOnType === opt.id ? "bg-teal-600 text-white border-teal-600 shadow-sm" : "bg-white text-teal-700 border-gray-200 hover:bg-gray-50"}`}>
+                      <input
+                        type="radio"
+                        name="applyOnType"
+                        value={opt.id}
+                        checked={form.applyOnType === opt.id}
+                        onChange={handleChange}
+                        className="hidden"
+                      />
+                      {opt.label}
+                    </label>
+                  ))}
                 </div>
-                <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">UTM Medium</label>
-                  <input
-                    type="text"
-                    name="utm.medium"
-                    value={form.utm.medium}
-                    onChange={handleChange}
-                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
-                    placeholder="email"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">UTM Campaign</label>
-                  <input
-                    type="text"
-                    name="utm.campaign"
-                    value={form.utm.campaign}
-                    onChange={handleChange}
-                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
-                    placeholder="summer-2024"
-                  />
-                </div>
-              </div>
-            </div>
 
-            {/* Compact Status */}
-            <div className="space-y-2.5">
-              <h3 className="text-sm font-bold text-teal-800 border-b border-gray-200 pb-1.5">Status</h3>
-              <select
-                name="status"
-                value={form.status}
-                onChange={handleChange}
-                className="text-gray-900 w-full md:w-1/2 border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
-              >
-                {["draft", "active", "paused", "expired", "archived"].map((s) => (
-                  <option key={s} value={s} className="capitalize">
-                    {s.charAt(0).toUpperCase() + s.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
+                {/* Selection Lists based on type */}
+                {form.applyOnType === "selected_services" && (
+                  <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 max-h-48 overflow-y-auto space-y-2">
+                    {allServices.map((s: any) => (
+                      <label key={s._id} className="flex items-center gap-2 p-1.5 hover:bg-white rounded transition-colors cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={form.serviceIds.includes(s.serviceSlug || s._id)}
+                          onChange={(e) => toggleSelection("serviceIds", s.serviceSlug || s._id, e.target.checked)}
+                          className="w-3.5 h-3.5 text-teal-600 rounded"
+                        />
+                        <span className="text-xs text-gray-700">{s.name || s.mainTreatment}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
 
-            {/* Compact Treatments Selection */}
-            <div className="space-y-2.5">
-              <h3 className="text-sm font-bold text-teal-800 border-b border-gray-200 pb-1.5">Applicable Treatments</h3>
-              <div className="border border-gray-200 rounded-lg p-2.5 bg-gray-50 max-h-56 overflow-y-auto">
-                {treatments.length === 0 ? (
-                  <p className="text-gray-500 text-center py-2 text-xs sm:text-sm">No treatments available</p>
-                ) : (
-                  <div className="space-y-2">
-                    {treatments.map((t: any, i: number) => (
-                      <div key={i} className="bg-white rounded-lg p-2.5 shadow-sm">
-                        <label className="flex items-center space-x-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={form.treatments.includes(t.mainTreatmentSlug)}
-                            onChange={(e) =>
-                              toggleTreatment(t.mainTreatmentSlug, e.target.checked)
-                            }
-                            className="w-3.5 h-3.5 text-gray-800 rounded focus:ring-gray-800"
-                          />
-                          <span className="font-medium text-gray-900 text-xs sm:text-sm">{t.mainTreatment}</span>
-                        </label>
-                        {t.subTreatments?.length > 0 && (
-                          <div className="ml-5 mt-1.5 space-y-1">
-                            {t.subTreatments.map((sub: any, j: number) => (
-                              <label key={j} className="flex items-center space-x-2 cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={form.treatments.includes(sub.slug)}
-                                  onChange={(e) =>
-                                    toggleTreatment(sub.slug, e.target.checked)
-                                  }
-                                  className="w-3 h-3 text-gray-800 rounded focus:ring-gray-800"
-                                />
-                                <span className="text-[10px] sm:text-xs text-gray-600">
-                                  {sub.name} <span className="text-gray-400">— د.إ{sub.price ?? 0}</span>
-                                </span>
-                              </label>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                {form.applyOnType === "selected_departments" && (
+                  <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 max-h-48 overflow-y-auto space-y-2">
+                    {allDepartments.map((d: any) => (
+                      <label key={d._id} className="flex items-center gap-2 p-1.5 hover:bg-white rounded transition-colors cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={form.departmentIds.includes(d._id)}
+                          onChange={(e) => toggleSelection("departmentIds", d._id, e.target.checked)}
+                          className="w-3.5 h-3.5 text-teal-600 rounded"
+                        />
+                        <span className="text-xs text-gray-700">{d.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {form.applyOnType === "selected_doctors" && (
+                  <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 max-h-48 overflow-y-auto space-y-2">
+                    {allDoctors.map((doc: any) => (
+                      <label key={doc._id} className="flex items-center gap-2 p-1.5 hover:bg-white rounded transition-colors cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={form.doctorIds.includes(doc._id)}
+                          onChange={(e) => toggleSelection("doctorIds", doc._id, e.target.checked)}
+                          className="w-3.5 h-3.5 text-teal-600 rounded"
+                        />
+                        <div className="flex flex-col">
+                          <span className="text-xs text-gray-700 font-medium">{doc.name}</span>
+                          <span className="text-[10px] text-gray-500">{doc.role}</span>
+                        </div>
+                      </label>
                     ))}
                   </div>
                 )}
               </div>
-            </div>
+            </section>
+
+            {/* 3. STACKING & CONTROL RULES */}
+            <section className="space-y-4">
+              <h3 className="text-sm font-bold text-teal-800 border-b border-gray-200 pb-1.5 flex items-center gap-2">
+                <span className="bg-teal-100 text-teal-800 px-2 py-0.5 rounded text-[10px]">3</span>
+                STACKING & CONTROL RULES
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="allowCombiningWithOtherOffers"
+                      checked={form.allowCombiningWithOtherOffers}
+                      onChange={handleChange}
+                      className="w-4 h-4 text-teal-600 rounded"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-semibold text-teal-900">Allow Stacking</span>
+                      <span className="text-[10px] text-gray-500">Combine with other active offers</span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="allowReceptionistDiscount"
+                      checked={form.allowReceptionistDiscount}
+                      onChange={handleChange}
+                      className="w-4 h-4 text-teal-600 rounded"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-semibold text-teal-900">Allow Receptionist Discount</span>
+                      <span className="text-[10px] text-gray-500">Can be combined with manual discounts</span>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[10px] font-medium text-teal-700 mb-1">Max Total Benefit Cap (%) *</label>
+                    <input
+                      type="number"
+                      name="maxBenefitCap"
+                      value={form.maxBenefitCap}
+                      onChange={handleChange}
+                      className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.maxBenefitCap ? "border-red-500" : "border-gray-200"}`}
+                      placeholder="e.g., 30"
+                      required
+                    />
+                    {errors.maxBenefitCap && <p className="text-red-500 text-[10px] mt-1">{errors.maxBenefitCap}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-medium text-teal-700 mb-1">Minimum Billing Amount (Optional)</label>
+                    <input
+                      type="number"
+                      name="minimumBillAmount"
+                      value={form.minimumBillAmount}
+                      onChange={handleChange}
+                      className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
+                      placeholder="e.g., 1000"
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* 4. SMART TOGGLES */}
+            <section className="space-y-4">
+              <h3 className="text-sm font-bold text-teal-800 border-b border-gray-200 pb-1.5 flex items-center gap-2">
+                <span className="bg-teal-100 text-teal-800 px-2 py-0.5 rounded text-[10px]">4</span>
+                SMART TOGGLES
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {[
+                  { name: "autoApplyBestOffer", label: "Auto Apply Best Offer", sub: "System automatically picks highest benefit" },
+                  { name: "allowManualOverride", label: "Allow Manual Override", sub: "Restricted manual selection by staff" },
+                  { name: "requireApprovalForOverride", label: "Require Approval for Override", sub: "Admin PIN required for manual changes" },
+                  { name: "blockIfProfitMarginBelowX", label: "Block if Margin Low", sub: "Prevent loss-making discounts" }
+                ].map((toggle) => (
+                  <label key={toggle.name} className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name={toggle.name}
+                      checked={(form as any)[toggle.name]}
+                      onChange={handleChange}
+                      className="w-4 h-4 text-teal-600 rounded"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-semibold text-teal-900">{toggle.label}</span>
+                      <span className="text-[10px] text-gray-500">{toggle.sub}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </section>
+
           </div>
 
           {/* Compact Footer Actions */}
