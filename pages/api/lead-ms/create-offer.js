@@ -104,6 +104,37 @@ export default async function handler(req, res) {
       );
     }
 
+    // ✅ Check if any of the selected services are already linked to another active offer
+    // Skip this check if forceUpdate is true (user confirmed they want to proceed)
+    if (serviceIds.length > 0 && !data.applyOnAllServices && !data.forceUpdate) {
+      const existingOffers = await Offer.find({
+        clinicId: resolvedClinicId,
+        status: { $in: ['active', 'draft'] },
+        serviceIds: { $in: serviceIds }
+      }).populate('serviceIds', 'name');
+
+      if (existingOffers.length > 0) {
+        // Find which services are already linked
+        const linkedServices = new Set();
+        existingOffers.forEach(offer => {
+          offer.serviceIds.forEach(service => {
+            const serviceIdStr = service._id ? service._id.toString() : service.toString();
+            if (serviceIds.some(sid => sid.toString() === serviceIdStr)) {
+              linkedServices.add(service.name || serviceIdStr);
+            }
+          });
+        });
+
+        if (linkedServices.size > 0) {
+          const serviceNames = Array.from(linkedServices).join(', ');
+          return res.status(400).json({
+            success: false,
+            message: `The following treatments are already linked with another offer: ${serviceNames}`
+          });
+        }
+      }
+    }
+
     const offer = new Offer({
       clinicId: resolvedClinicId,
       title: data.title,

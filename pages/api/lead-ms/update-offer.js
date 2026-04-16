@@ -86,11 +86,8 @@ export default async function handler(req, res) {
 
     // 🔹 GET: Fetch offer for editing
     if (req.method === "GET") {
-      // Ensure expired status is reflected if end date passed
-      if (offer.endsAt && new Date(offer.endsAt) < new Date() && offer.status !== "expired") {
-        offer.status = "expired";
-        await offer.save();
-      }
+      // Return the offer as-is from the database without modifying it
+      // Do NOT auto-update status to expired - let the UI display the exact data from DB
       
       return res.status(200).json({
         success: true,
@@ -129,6 +126,38 @@ export default async function handler(req, res) {
         serviceIds = Array.from(new Set(serviceIds.map((id) => id.toString()))).map(
           (id) => new mongoose.Types.ObjectId(id)
         );
+      }
+      
+      // ✅ Check if any of the selected services are already linked to another active offer (exclude current offer)
+      // Skip this check if forceUpdate is true (user confirmed they want to proceed)
+      if (serviceIds.length > 0 && !data.applyOnAllServices && !data.forceUpdate) {
+        const existingOffers = await Offer.find({
+          clinicId: clinic._id,
+          _id: { $ne: id }, // Exclude current offer
+          status: { $in: ['active', 'draft'] },
+          serviceIds: { $in: serviceIds }
+        }).populate('serviceIds', 'name');
+      
+        if (existingOffers.length > 0) {
+          // Find which services are already linked
+          const linkedServices = new Set();
+          existingOffers.forEach(offer => {
+            offer.serviceIds.forEach(service => {
+              const serviceIdStr = service._id ? service._id.toString() : service.toString();
+              if (serviceIds.some(sid => sid.toString() === serviceIdStr)) {
+                linkedServices.add(service.name || serviceIdStr);
+              }
+            });
+          });
+      
+          if (linkedServices.size > 0) {
+            const serviceNames = Array.from(linkedServices).join(', ');
+            return res.status(400).json({
+              success: false,
+              message: `The following treatments are already linked with another offer: ${serviceNames}`
+            });
+          }
+        }
       }
 
       // Update fields

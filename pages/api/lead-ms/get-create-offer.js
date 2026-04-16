@@ -110,11 +110,11 @@ export default async function handler(req, res) {
       .sort({ createdAt: -1 })
       .lean();
 
-    // Compute expired status in-memory without DB write
+    // Compute expired status in-memory without DB write (only for active offers)
     const shapedOffers = offers.map((offer) => {
       return {
         ...offer,
-        status: offer.endsAt && new Date(offer.endsAt) < now ? "expired" : offer.status,
+        status: offer.endsAt && new Date(offer.endsAt) < now && offer.status === "active" ? "expired" : offer.status,
       };
     });
 
