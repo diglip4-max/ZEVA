@@ -394,7 +394,7 @@ export default async function handler(req, res) {
           emrNumber: emrNumber,
           firstName: String(firstName).trim(),
           lastName: lastName ? String(lastName).trim() : "",
-          gender: gender || "Other", // Default to "Other" if not provided
+          gender: gender || undefined, // Leave undefined if not provided
           email: patientEmail, // Optional - already normalized above
           mobileNumber: patientPhone, // Required - validated above
           referredBy: mapped.referredBy ? String(mapped.referredBy).trim() : "",

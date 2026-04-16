@@ -68,7 +68,8 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
   const [transferSubmitting, setTransferSubmitting] = useState(false);
   const [localMemberships, setLocalMemberships] = useState<any[]>([]);
   const [localPackages, setLocalPackages] = useState<any[]>([]);
-  const [publicPackages, setPublicPackages] = useState<any[]>([]);
+  // COMMENTED OUT: Public packages no longer used - only patient packages are fetched
+  // const [publicPackages, setPublicPackages] = useState<any[]>([]);
 
   // Fetch memberships and packages on mount
   useEffect(() => {
@@ -88,19 +89,19 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
           setLocalPackages(packagesRes.data.packages || []);
         }
 
-        // Fetch public packages
-        if (patientData?._id) {
-          const publicPackagesRes = await axios.get('/api/clinic/public-package', { 
-            headers,
-            params: {
-              patientId: patientData._id,
-              clinicId: patientData.clinicId,
-            }
-          });
-          if (publicPackagesRes.data.success) {
-            setPublicPackages(publicPackagesRes.data.existingPackages || []);
-          }
-        }
+        // Fetch public packages - COMMENTED OUT: Only fetch patient packages now
+        // if (patientData?._id) {
+        //   const publicPackagesRes = await axios.get('/api/clinic/public-package', { 
+        //     headers,
+        //     params: {
+        //       patientId: patientData._id,
+        //       clinicId: patientData.clinicId,
+        //     }
+        //   });
+        //   if (publicPackagesRes.data.success) {
+        //     setPublicPackages(publicPackagesRes.data.existingPackages || []);
+        //   }
+        // }
       } catch (error) {
         console.error('Error fetching transfer data:', error);
       }
@@ -144,8 +145,8 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
           const headers = getAuthHeaders() || {};
           const res = await axios.get(`/api/clinic/package-usage/${patientId}`, { headers });
           if (res.data.success) {
-            // Find the selected package from localPackages or publicPackages to get its name
-            const selectedPkg = localPackages.find((p: any) => p._id === selectedPackageId) || publicPackages.find((p: any) => p._id === selectedPackageId);
+            // Find the selected package from localPackages to get its name
+            const selectedPkg = localPackages.find((p: any) => p._id === selectedPackageId);
             if (selectedPkg) {
               // Match by packageName like the Packages section does
               const usage = res.data.packageUsage?.find((p: any) => p.packageName === selectedPkg.name);
@@ -160,7 +161,7 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
       };
       fetchPackageUsage();
     }
-  }, [transferType, selectedPackageId, patientId, localPackages, publicPackages]);
+  }, [transferType, selectedPackageId, patientId, localPackages]);
 
   // Search for target patients
   useEffect(() => {
@@ -405,16 +406,16 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                       </option>
                     ) : null;
                   })}
-                  {/* Public packages */}
-                  {publicPackages.map((pkg: any) => (
+                  {/* Public packages - COMMENTED OUT: Only show patient packages */}
+                  {/* publicPackages.map((pkg: any) => (
                     <option key={pkg._id} value={pkg._id}>
                       {pkg.packageName || pkg.name} - Public Package
                     </option>
-                  ))}
+                  )) */}
                 </select>
               </div>
               {selectedPackageId && (() => {
-                const pkg = localPackages.find((p: any) => p._id === selectedPackageId) || publicPackages.find((p: any) => p._id === selectedPackageId);
+                const pkg = localPackages.find((p: any) => p._id === selectedPackageId);
                 const totalSess = pkg ? pkg.totalSessions : 0;
                 const usedSess = packageUsage?.totalSessions || 0;
                 // Always calculate remaining from total and used to ensure consistency
