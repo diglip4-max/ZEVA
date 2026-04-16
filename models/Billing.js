@@ -270,6 +270,18 @@ offerOverrideReason: String,
 offerAppliedBy: {
   type: mongoose.Schema.Types.ObjectId,
   ref: "User"
+},
+
+// Bundle offer tracking fields
+offerFreeSession: {
+  type: [String],
+  default: []
+},
+
+freeOfferSessionCount: {
+  type: Number,
+  default: 0,
+  min: 0
 }
   },
   { timestamps: true },

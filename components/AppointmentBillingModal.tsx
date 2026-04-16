@@ -84,6 +84,7 @@ interface SelectedTreatment {
   totalPrice: number;
   usesFreeConsultation?: boolean;
   usesMembershipDiscount?: boolean;
+  isFreeSession?: boolean;
 }
 
 interface PackageTreatmentSession {
@@ -130,8 +131,9 @@ interface Offer {
   minimumBillAmount: number;
   allowCombiningWithOtherOffers: boolean;
   allowReceptionistDiscount: boolean;
-  buyQty: number;
-  freeQty: number;
+  // Bundle-specific fields
+  buyQty?: number;
+  freeQty?: number;
 }
 
 interface AppointmentBillingModalProps {
@@ -174,12 +176,15 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [activeOffers, setActiveOffers] = useState<Offer[]>([]);
   const [matchedOffers, setMatchedOffers] = useState<Offer[]>([]);
   const [appliedOfferIds, setAppliedOfferIds] = useState<string[]>([]);
+  
+  // Bundle offer tracking state
+  const [matchedBundleOffer, setMatchedBundleOffer] = useState<Offer | null>(null);
+  const [bundleFreeSessions, setBundleFreeSessions] = useState<string[]>([]);
+  const [bundleFreeSessionCount, setBundleFreeSessionCount] = useState<number>(0);
   const [isMembershipApplied, setIsMembershipApplied] = useState(false);
   const [finalMembershipDiscount, setFinalMembershipDiscount] = useState(0);
   const [finalOfferDiscount, setFinalOfferDiscount] = useState(0);
   const [finalReceptionistDiscount, setFinalReceptionistDiscount] = useState(0);
-  const [offerFreeSession, setOfferFreeSession] = useState<string | null>(null);
-  const [freeOfferSessionCount, setFreeOfferSessionCount] = useState(0);
   const [currency, setCurrency] = useState('INR');
   const [billingHistory, setBillingHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -190,6 +195,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [loadingMembershipUsage, setLoadingMembershipUsage] = useState(false);
   const [activePackageUsage, setActivePackageUsage] = useState<any[]>([]);
   const [loadingActivePackageUsage, setLoadingActivePackageUsage] = useState(false);
+  const [availableFreeSessions, setAvailableFreeSessions] = useState<any[]>([]);
+  const [loadingFreeSessions, setLoadingFreeSessions] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [expandedPackages, setExpandedPackages] = useState<Record<string, boolean>>({});
 
@@ -401,6 +408,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       setActiveOffers([]);
       setMatchedOffers([]);
       setAppliedOfferIds([]);
+      setMatchedBundleOffer(null);
+      setBundleFreeSessions([]);
+      setBundleFreeSessionCount(0);
       setMultiplePayments([
         { paymentMethod: "Cash", amount: "" },
         { paymentMethod: "Card", amount: "" },
@@ -1136,38 +1146,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         return false;
       }
 
-      // 1. Bundle Offer Logic
-      if (offer.offerType === "bundle") {
-        const eligibleTreatments = currentTreatments.filter(t => 
-          offer.serviceIds && Array.isArray(offer.serviceIds) &&
-          offer.serviceIds.some(svc => {
-            if (typeof svc === 'string') {
-              return String(svc) === String(t.slug) || String(svc).toLowerCase() === String(t.name).toLowerCase();
-            } else if (svc && typeof svc === 'object') {
-              return (
-                String(svc._id) === String(t.slug) || 
-                (svc.serviceSlug && String(svc.serviceSlug) === String(t.slug)) ||
-                (svc.name && String(svc.name).toLowerCase() === String(t.name).toLowerCase())
-              );
-            }
-            return false;
-          })
-        );
-        const totalEligibleQty = eligibleTreatments.reduce((sum, t) => sum + t.quantity, 0);
-        if (totalEligibleQty >= (offer.buyQty || 0)) {
-          console.log(`[OfferMatching] Bundle Offer "${offer.title}" matches. Eligible Qty: ${totalEligibleQty}, Buy Qty: ${offer.buyQty}`);
-          return true;
-        }
-        return false;
-      }
-
-      // 2. Check Global Application
+      // 1. Check Global Application
       if (offer.applyOnAllServices) {
         console.log(`[OfferMatching] Offer "${offer.title}" matches globally.`);
         return true;
       }
       
-      // 3. Check Doctor-Specific Application
+      // 2. Check Doctor-Specific Application
       if (offer.doctorIds && Array.isArray(offer.doctorIds) && currentDoctorId) {
         if (offer.doctorIds.some(id => String(id) === String(currentDoctorId))) {
           console.log(`[OfferMatching] Offer "${offer.title}" matches for current doctor.`);
@@ -1175,7 +1160,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         }
       }
 
-      // 4. Check Service-Specific Application (Slug or Name or ID)
+      // 3. Check Service-Specific Application (Slug or Name or ID)
        if (offer.serviceIds && Array.isArray(offer.serviceIds)) {
          const matchesService = currentTreatments.some(t => 
            offer.serviceIds.some(svc => {
@@ -1203,12 +1188,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     if (applicableOffers.length > 0) {
       // Sort to find the best offer (highest actual discount amount)
       const bestOffer = applicableOffers.sort((a, b) => {
-        const getDiscountValue = (offer: Offer) => {
-          if (offer.offerType === "bundle") {
-            // For bundle, "value" is roughly the free sessions' worth. 
-            // We'll estimate it by using freeQty for comparison, but it's secondary to instant discounts.
-            return (offer.freeQty || 0) * 1000; // Arbitrary high value to prioritize bundles if needed, or keep it simple
-          }
+        const getDiscountAmount = (offer: Offer) => {
           let amount = 0;
           if (offer.discountMode === "percentage") {
             amount = (baseTotal * offer.discountValue) / 100;
@@ -1218,7 +1198,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           }
           return amount;
         };
-        return getDiscountValue(b) - getDiscountValue(a);
+        return getDiscountAmount(b) - getDiscountAmount(a);
       })[0];
 
       console.log(`[OfferMatching] Matched ${applicableOffers.length} offers.`);
@@ -1231,6 +1211,135 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       setAppliedOfferIds([]);
     }
   }, [isOpen, activeOffers, selectedTreatments, selectedService, packageTreatmentSessions, appointment?.doctorId]);
+
+  // Bundle Offer Matching Logic
+  useEffect(() => {
+    if (!isOpen || activeOffers.length === 0) {
+      setMatchedBundleOffer(null);
+      setBundleFreeSessions([]);
+      setBundleFreeSessionCount(0);
+      return;
+    }
+
+    const currentTreatments = selectedService === "Treatment" 
+      ? selectedTreatments.map(t => ({ slug: t.treatmentSlug, name: t.treatmentName, price: t.price, quantity: t.quantity }))
+      : packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions }));
+
+    if (currentTreatments.length === 0) {
+      setMatchedBundleOffer(null);
+      setBundleFreeSessions([]);
+      setBundleFreeSessionCount(0);
+      return;
+    }
+
+    const baseTotal = currentTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
+    
+    console.log("[BundleMatching] Checking for bundle offers. Selected treatments:", currentTreatments);
+
+    // Find bundle offers
+    const bundleOffers = activeOffers.filter(offer => offer.offerType === "bundle");
+    
+    if (bundleOffers.length === 0) {
+      console.log("[BundleMatching] No bundle offers found.");
+      setMatchedBundleOffer(null);
+      setBundleFreeSessions([]);
+      setBundleFreeSessionCount(0);
+      return;
+    }
+
+    // Check each bundle offer
+    let bestBundleOffer: Offer | null = null;
+    let bestFreeSessions: string[] = [];
+    let bestFreeCount = 0;
+
+    for (const offer of bundleOffers) {
+      // Skip if bundle doesn't have valid buyQty/freeQty
+      if (!offer.buyQty || offer.buyQty <= 0 || !offer.freeQty || offer.freeQty <= 0) {
+        continue;
+      }
+
+      // Skip if minimum bill amount not met
+      if (offer.minimumBillAmount > 0 && baseTotal < offer.minimumBillAmount) {
+        console.log(`[BundleMatching] Bundle "${offer.title}" skipped: Base total ${baseTotal} below minimum ${offer.minimumBillAmount}`);
+        continue;
+      }
+
+      // Check which selected treatments are in the bundle's serviceIds
+      const eligibleTreatments: typeof currentTreatments = [];
+      
+      if (offer.serviceIds && Array.isArray(offer.serviceIds) && offer.serviceIds.length > 0) {
+        // Bundle has specific services - check matches
+        for (const treatment of currentTreatments) {
+          const isEligible = offer.serviceIds.some(svc => {
+            if (typeof svc === 'string') {
+              return String(svc) === String(treatment.slug) || 
+                     String(svc).toLowerCase() === String(treatment.name).toLowerCase();
+            } else if (svc && typeof svc === 'object') {
+              return (
+                String(svc._id) === String(treatment.slug) || 
+                (svc.serviceSlug && String(svc.serviceSlug) === String(treatment.slug)) ||
+                (svc.name && String(svc.name).toLowerCase() === String(treatment.name).toLowerCase())
+              );
+            }
+            return false;
+          });
+          
+          if (isEligible) {
+            // Add treatment quantity times (if quantity > 1, count it multiple times)
+            for (let i = 0; i < treatment.quantity; i++) {
+              eligibleTreatments.push(treatment);
+            }
+          }
+        }
+      } else if (offer.applyOnAllServices) {
+        // Bundle applies to all services
+        eligibleTreatments.push(...currentTreatments.flatMap(t => 
+          Array(t.quantity).fill(t)
+        ));
+      }
+
+      console.log(`[BundleMatching] Bundle "${offer.title}": ${eligibleTreatments.length} eligible treatments (need ${offer.buyQty})`);
+
+      // Check if we have enough eligible treatments
+      if (eligibleTreatments.length >= offer.buyQty) {
+        // Sort eligible treatments by price (ascending) to find lowest-priced ones for free sessions
+        const sortedByPrice = [...eligibleTreatments].sort((a, b) => a.price - b.price);
+        
+        // The lowest-priced treatments become free
+        const freeSessions = sortedByPrice.slice(0, offer.freeQty).map(t => t.name);
+        const freeCount = Math.min(offer.freeQty, eligibleTreatments.length);
+
+        console.log(`[BundleMatching] Bundle "${offer.title}" MATCHED! Free sessions:`, freeSessions);
+
+        // Store this as the best bundle offer (you could add logic to compare multiple bundles)
+        if (!bestBundleOffer || freeCount > bestFreeCount) {
+          bestBundleOffer = offer;
+          bestFreeSessions = freeSessions;
+          bestFreeCount = freeCount;
+        }
+      }
+    }
+
+    if (bestBundleOffer) {
+      console.log(`[BundleMatching] Best bundle offer: ${bestBundleOffer.title}, Free sessions: ${bestFreeSessions.join(', ')}`);
+      setMatchedBundleOffer(bestBundleOffer);
+      setBundleFreeSessions(bestFreeSessions);
+      setBundleFreeSessionCount(bestFreeCount);
+      
+      // Auto-apply the bundle offer
+      setAppliedOfferIds(prev => {
+        if (!prev.includes(bestBundleOffer!._id)) {
+          return [...prev, bestBundleOffer!._id];
+        }
+        return prev;
+      });
+    } else {
+      console.log("[BundleMatching] No matching bundle offers.");
+      setMatchedBundleOffer(null);
+      setBundleFreeSessions([]);
+      setBundleFreeSessionCount(0);
+    }
+  }, [isOpen, activeOffers, selectedTreatments, selectedService, packageTreatmentSessions]);
 
   // Fetch and override referredBy with patient's referral name when available
   useEffect(() => {
@@ -1440,6 +1549,57 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     fetchActivePackageUsage();
   }, [isOpen, appointment?.patientId, getAuthHeaders]);
 
+  // Fetch available free sessions from billing history
+  useEffect(() => {
+    const fetchFreeSessions = async () => {
+      if (!isOpen || !appointment?.patientId) return;
+      const headers = getAuthHeaders();
+      if (!headers.Authorization) return;
+     
+      setLoadingFreeSessions(true);
+      try {
+        // Fetch billing history for this patient
+        const response = await axios.get(
+          `/api/clinic/billing-history/${appointment.patientId}`,
+          { headers }
+        );
+       
+        if (response.data.success && response.data.billings) {
+          // Extract bundle offers with free sessions
+          const freeSessions = response.data.billings
+            .filter((billing: any) => 
+              billing.offerType === 'bundle' && 
+              billing.offerFreeSession && 
+              billing.offerFreeSession.length > 0 &&
+              billing.freeOfferSessionCount > 0
+            )
+            .map((billing: any) => ({
+              billingId: billing._id,
+              offerName: billing.offerName || billing.offerTitle || 'Bundle Offer',
+              offerFreeSession: billing.offerFreeSession || [],
+              freeOfferSessionCount: billing.freeOfferSessionCount || 0,
+              invoiceNumber: billing.invoiceNumber,
+              invoicedDate: billing.invoicedDate,
+              purchasedTreatment: billing.treatment,
+              amount: billing.amount
+            }));
+          
+          setAvailableFreeSessions(freeSessions);
+          console.log('[FreeSessions] Available free sessions:', freeSessions);
+        } else {
+          setAvailableFreeSessions([]);
+        }
+      } catch (error) {
+        console.error('Error fetching free sessions:', error);
+        setAvailableFreeSessions([]);
+      } finally {
+        setLoadingFreeSessions(false);
+      }
+    };
+   
+    fetchFreeSessions();
+  }, [isOpen, appointment?.patientId, getAuthHeaders]);
+
   // Calculate total price with membership benefits
   useEffect(() => {
     let baseTotal = 0;
@@ -1528,6 +1688,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     let membershipDiscountAmount = 0;
     let offerDiscountAmount = 0;
     let receptionistDiscountAmount = 0;
+
+    // Define currentTreatments for offer calculations
+    const currentTreatments: Array<{ slug: string; name: string; price: number; quantity: number }> = selectedService === "Treatment" 
+      ? selectedTreatments.map((t: any) => ({ slug: t.treatmentSlug, name: t.treatmentName, price: t.price, quantity: t.quantity }))
+      : packageTreatmentSessions.filter((t: any) => t.isSelected).map((t: any) => ({ slug: t.treatmentSlug, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions }));
 
     // 1. Calculate Membership Discount
     const membershipTransferredOut =
@@ -1633,61 +1798,39 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       }
     }
 
-    // 2. Calculate Offer Discount and Bundle Sessions
+    // 2. Calculate Offer Discount
     const appliedOffers = matchedOffers.filter(o => appliedOfferIds.includes(o._id));
-    let bundleFreeSessions: string[] = [];
-    let totalFreeCount = 0;
-
     if (appliedOffers.length > 0 && baseTotal > 0) {
       appliedOffers.forEach(offer => {
         if (offer.minimumBillAmount === 0 || baseTotal >= offer.minimumBillAmount) {
-          if (offer.offerType === "bundle") {
-            // Handle Bundle Offer (Buy X Get Y Free)
-            const eligibleInSelection = currentTreatments.filter(t => 
-              offer.serviceIds && Array.isArray(offer.serviceIds) &&
-              offer.serviceIds.some(svc => {
-                if (typeof svc === 'string') {
-                  return String(svc) === String(t.slug) || String(svc).toLowerCase() === String(t.name).toLowerCase();
-                } else if (svc && typeof svc === 'object') {
-                  return (
-                    String(svc._id) === String(t.slug) || 
-                    (svc.serviceSlug && String(svc.serviceSlug) === String(t.slug)) ||
-                    (svc.name && String(svc.name).toLowerCase() === String(t.name).toLowerCase())
-                  );
+          let currentOfferDiscount = 0;
+          
+          // Handle bundle offers differently
+          if (offer.offerType === "bundle" && matchedBundleOffer && matchedBundleOffer._id === offer._id) {
+            // For bundle offers, NO discount is applied in current billing
+            // The free session is stored for FUTURE redemption
+            // Bundle offers with discountValue > 0 can still apply additional discount
+            if (offer.discountValue && offer.discountValue > 0) {
+              // Bundle has an additional percentage/flat discount (optional)
+              let additionalDiscount = 0;
+              if (offer.discountMode === "percentage") {
+                additionalDiscount = (baseTotal * offer.discountValue) / 100;
+                if (offer.maxBenefitCap && offer.maxBenefitCap > 0) {
+                  additionalDiscount = Math.min(additionalDiscount, offer.maxBenefitCap);
                 }
-                return false;
-              })
-            );
-
-            const totalEligibleQty = eligibleInSelection.reduce((sum, t) => sum + t.quantity, 0);
-            const buyQty = offer.buyQty || 1;
-            const freeQty = offer.freeQty || 0;
-            
-            // Calculate how many times the bundle applies
-            const earnedTimes = Math.floor(totalEligibleQty / buyQty);
-            const earnedFreeCount = earnedTimes * freeQty;
-
-            if (earnedFreeCount > 0) {
-              totalFreeCount += earnedFreeCount;
-              // To assign names for free sessions, sort eligible treatments by price (lower price first)
-              const sortedEligible = [...eligibleInSelection].sort((a, b) => a.price - b.price);
-              
-              let countToAssign = earnedFreeCount;
-              // Create a flat list of individual treatment names based on their quantity to pick the cheapest ones
-              const flatEligibleNames: string[] = [];
-              sortedEligible.forEach(item => {
-                for (let i = 0; i < item.quantity; i++) {
-                  flatEligibleNames.push(item.name);
-                }
-              });
-
-              // Take the first 'earnedFreeCount' names (which are the cheapest ones due to sorting)
-              const assignedNames = flatEligibleNames.slice(0, earnedFreeCount);
-              bundleFreeSessions.push(...assignedNames);
+              } else {
+                additionalDiscount = offer.discountValue;
+              }
+              currentOfferDiscount = additionalDiscount;
+              console.log(`[BundleDiscount] Bundle "${offer.title}": Additional discount only = ${additionalDiscount} (free session stored for future)`);
+            } else {
+              // Pure bundle offer - NO discount in current billing
+              // Free session will be redeemed in next visit
+              currentOfferDiscount = 0;
+              console.log(`[BundleDiscount] Bundle "${offer.title}": No discount in current billing. Free session (${bundleFreeSessions.join(', ')}) stored for future redemption`);
             }
-          } else {
-            // Handle Instant Discount
-            let currentOfferDiscount = 0;
+          } else if (offer.offerType !== "bundle") {
+            // Regular instant discount
             if (offer.discountMode === "percentage") {
               currentOfferDiscount = (baseTotal * offer.discountValue) / 100;
               if (offer.maxBenefitCap > 0) {
@@ -1696,14 +1839,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             } else {
               currentOfferDiscount = offer.discountValue;
             }
-            offerDiscountAmount += currentOfferDiscount;
           }
+          
+          offerDiscountAmount += currentOfferDiscount;
         }
       });
     }
-
-    setOfferFreeSession(bundleFreeSessions.length > 0 ? bundleFreeSessions.join(", ") : null);
-    setFreeOfferSessionCount(totalFreeCount);
 
     // 3. Calculate Receptionist (Doctor/Agent) Discount
     // Only if receptionist discount is allowed by ALL applied offers (or no offers applied)
@@ -1969,16 +2110,30 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         prev.filter((_, i) => i !== existingIndex),
       );
     } else {
+      // Check if this treatment is available as a free session
+      const isFreeSession = availableFreeSessions.some((session: any) => 
+        session.offerFreeSession.some((freeTreatment: string) => 
+          freeTreatment.toLowerCase() === treatment.name.toLowerCase()
+        )
+      );
+
       // Add treatment with quantity 1
-      // Initial total price = treatment price (not doubled)
+      // If it's a free session, price = 0, otherwise use original price
+      const treatmentPrice = isFreeSession ? 0 : treatment.price;
+      
       const newTreatment: SelectedTreatment = {
         treatmentName: treatment.name,
         treatmentSlug: treatment.slug,
-        price: treatment.price, // Original price
+        price: treatmentPrice, // 0 for free sessions, original price otherwise
         quantity: 1,
-        totalPrice: treatment.price, // Initial total = price × 1 (not doubled)
+        totalPrice: treatmentPrice, // Initial total = price × 1
+        isFreeSession: isFreeSession,
       };
       setSelectedTreatments((prev) => [...prev, newTreatment]);
+      
+      if (isFreeSession) {
+        console.log(`[FreeSession] Treatment "${treatment.name}" added as FREE session`);
+      }
      
       // Show notification if requested (e.g., from Smart Recommendations)
       if (showNotification) {
@@ -2627,12 +2782,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         agentDiscountType: (calcReceptionistDiscount > 0 && isAgentDiscountApplied) ? agentDiscount?.discountType : null,
         agentDiscountAmount: (calcReceptionistDiscount > 0 && isAgentDiscountApplied) ? agentDiscount?.discountAmount : 0,
         // Offer fields
-        isOfferApplied: calcOfferDiscount > 0 || freeOfferSessionCount > 0,
-        offerId: (calcOfferDiscount > 0 || freeOfferSessionCount > 0) ? appliedOffers.map(o => o._id).join(", ") : null,
-        offerTitle: (calcOfferDiscount > 0 || freeOfferSessionCount > 0) ? appliedOffers.map(o => o.title).join(", ") : null,
+        isOfferApplied: calcOfferDiscount > 0 || (matchedBundleOffer !== null),
+        offerId: (calcOfferDiscount > 0 || matchedBundleOffer) ? appliedOffers[0]?._id : null,
+        offerTitle: (calcOfferDiscount > 0 || matchedBundleOffer) ? appliedOffers.map(o => o.title).join(", ") : null,
+        offerType: (calcOfferDiscount > 0 || matchedBundleOffer) ? (matchedBundleOffer ? matchedBundleOffer.offerType : appliedOffers[0]?.offerType) : null,
         offerDiscountAmount: calcOfferDiscount,
-        offerFreeSession: freeOfferSessionCount > 0 ? offerFreeSession : null,
-        freeOfferSessionCount: freeOfferSessionCount,
+        // Bundle offer fields - Track which free sessions are being USED
+        offerFreeSession: matchedBundleOffer && bundleFreeSessions.length > 0 ? bundleFreeSessions : [],
+        freeOfferSessionCount: matchedBundleOffer ? bundleFreeSessionCount : 0,
+        // Free sessions being REDEEMED in this billing (price = 0)
+        usedFreeSessions: selectedTreatments.filter((t: any) => t.isFreeSession).map((t: any) => t.treatmentName),
+        usedFreeSessionCount: selectedTreatments.filter((t: any) => t.isFreeSession).length,
         discountPercent: (calcMembershipDiscount > 0 || calcOfferDiscount > 0 || calcReceptionistDiscount > 0)
           ? (baseAmount > 0
               ? ((baseAmount - finalAmount) / baseAmount * 100)
@@ -2684,6 +2844,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       }
 
       console.log("Final submission payload:", payload);
+      console.log("[BundleDebug] matchedBundleOffer:", matchedBundleOffer);
+      console.log("[BundleDebug] bundleFreeSessions:", bundleFreeSessions);
+      console.log("[BundleDebug] bundleFreeSessionCount:", bundleFreeSessionCount);
+      console.log("[BundleDebug] offerFreeSession in payload:", payload.offerFreeSession);
+      console.log("[BundleDebug] freeOfferSessionCount in payload:", payload.freeOfferSessionCount);
 
       const response = await axios.post(
         "/api/clinic/create-patient-registration",
@@ -2776,7 +2941,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const canRebill = isAlreadyBilled;
 
   const filteredTreatments = treatments.filter((t) => {
-    if (isTreatmentBilledRecently(t.name)) {
+    const isBilled = isTreatmentBilledRecently(t.name);
+    
+    // Check if this treatment is available as a free session
+    const isFreeSession = availableFreeSessions.some((session: any) => 
+      session.offerFreeSession.some((freeTreatment: string) => 
+        freeTreatment.toLowerCase() === t.name.toLowerCase()
+      )
+    );
+
+    // If treatment is already billed, only show it if it's a free session
+    if (isBilled && !isFreeSession) {
       return false;
     }
 
@@ -3168,15 +3343,28 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                         <span className="absolute right-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow" />
                                       </button>
                                       <div className="min-w-0">
-                                        <div className="text-xs font-semibold text-gray-900 truncate">{treatment.treatmentName}</div>
+                                        <div className="text-xs font-semibold text-gray-900 truncate">
+                                          {treatment.treatmentName}
+                                          {treatment.isFreeSession && (
+                                            <span className="ml-1 text-[9px] px-1.5 py-0.5 bg-green-200 text-green-800 rounded-full font-bold">FREE</span>
+                                          )}
+                                        </div>
                                         <div className="text-[10px] text-gray-500">Dr. {appointment.doctorName}</div>
-                                        {(treatment.usesFreeConsultation || treatment.usesMembershipDiscount) && (
+                                        {(treatment.usesFreeConsultation || treatment.usesMembershipDiscount || treatment.isFreeSession) && (
                                           <div className="flex items-center gap-1 mt-0.5">
                                             {treatment.usesFreeConsultation && (
-                                              <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-semibold">Free</span>
+                                              <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-semibold">Free Consultation</span>
                                             )}
                                             {treatment.usesMembershipDiscount && (
                                               <span className="text-[9px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-semibold">{membershipUsage?.discountPercentage || 10}% Off</span>
+                                            )}
+                                            {treatment.isFreeSession && (
+                                              <span className="text-[9px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded font-semibold flex items-center gap-0.5">
+                                                <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                                  <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                </svg>
+                                                Bundle Offer
+                                              </span>
                                             )}
                                           </div>
                                         )}
@@ -3557,10 +3745,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                     {offer.title}
                                   </span>
                                   <span className="text-[9px] bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded font-bold">
-                                    {offer.offerType === "bundle" 
-                                      ? `Buy ${offer.buyQty} Get ${offer.freeQty} Free`
-                                      : `${offer.discountValue}${offer.discountMode === "percentage" ? "%" : " Fixed"}`
-                                    }
+                                    {offer.discountValue}{offer.discountMode === "percentage" ? "%" : " Fixed"}
                                   </span>
                                 </div>
                                 {offer.maxBenefitCap > 0 && (
@@ -3938,28 +4123,44 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       )}
 
                       {/* Offer Discount (if applied) */}
-                      {appliedOfferIds.length > 0 && (finalOfferDiscount > 0 || freeOfferSessionCount > 0) && (
-                        <div className="flex flex-col gap-1 py-1">
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-gray-600">
-                              Offer: {matchedOffers.filter(o => appliedOfferIds.includes(o._id)).map(o => o.title).join(", ")}
-                            </span>
-                            {finalOfferDiscount > 0 && (
-                              <span className="font-semibold text-teal-600">
-                                −{getCurrencySymbol(currency)} {finalOfferDiscount.toFixed(2)}
-                              </span>
-                            )}
-                          </div>
-                          {freeOfferSessionCount > 0 && offerFreeSession && (
-                            <div className="flex items-center justify-between text-[10px] bg-teal-50 px-2 py-1 rounded border border-teal-100">
-                              <span className="text-teal-700 font-medium italic">
-                                ✓ Bundle Benefit: {freeOfferSessionCount} Free Session{freeOfferSessionCount > 1 ? 's' : ''} earned
-                              </span>
-                              <span className="text-teal-800 font-bold truncate max-w-[150px]">
-                                ({offerFreeSession})
-                              </span>
+                      {appliedOfferIds.length > 0 && finalOfferDiscount > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-600">
+                            Offer: {matchedOffers.filter(o => appliedOfferIds.includes(o._id)).map(o => o.title).join(", ")}
+                          </span>
+                          <span className="font-semibold text-teal-600">
+                            −{getCurrencySymbol(currency)} {finalOfferDiscount.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Bundle Offer Free Sessions Indicator */}
+                      {matchedBundleOffer && bundleFreeSessions.length > 0 && (
+                        <div className="mt-2 p-2 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
+                          <div className="flex items-start gap-2">
+                            <svg className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            <div className="flex-1">
+                              <div className="text-[10px] font-bold text-green-900 uppercase tracking-wide">
+                                ✅ Bundle Reward Earned: {matchedBundleOffer.title}
+                              </div>
+                              <div className="text-[10px] text-green-700 mt-1 font-semibold">
+                                🎁 Free Session Earned: {bundleFreeSessions.join(", ")}
+                              </div>
+                              <div className="text-[9px] text-green-600 mt-1">
+                                Buy {matchedBundleOffer.buyQty} Get {matchedBundleOffer.freeQty} Free - Redeem on your next visit!
+                              </div>
+                              {matchedBundleOffer.discountValue && matchedBundleOffer.discountValue > 0 && (
+                                <div className="text-[9px] text-green-800 mt-1 font-semibold">
+                                  Additional Discount Applied: {matchedBundleOffer.discountMode === "percentage" ? `${matchedBundleOffer.discountValue}%` : `${getCurrencySymbol(currency)}${matchedBundleOffer.discountValue}`}
+                                </div>
+                              )}
+                              <div className="text-[9px] text-green-700 mt-1 italic">
+                                💡 This free session has been saved to your account for future use
+                              </div>
                             </div>
-                          )}
+                          </div>
                         </div>
                       )}
 
@@ -4170,6 +4371,58 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                     )}
                   </div>
 
+                  {/* Available Free Sessions from Bundle Offers */}
+                  {(loadingFreeSessions || availableFreeSessions.length > 0) && (
+                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border-2 border-green-300 p-4 shadow-sm">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center">
+                          <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-green-900">🎁 Available Free Sessions</div>
+                          <div className="text-[10px] text-green-700">Earned from bundle offers - Ready to redeem!</div>
+                        </div>
+                      </div>
+
+                      {loadingFreeSessions ? (
+                        <div className="flex items-center gap-2 py-2">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-green-500" />
+                          <span className="text-[10px] text-gray-500">Loading free sessions...</span>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                        {availableFreeSessions.map((session: any, index: number) => (
+                          <div key={index} className="bg-white rounded-lg p-2.5 border border-green-200">
+                            <div className="flex items-start gap-2">
+                              <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[11px] font-bold text-green-900 truncate">
+                                  {session.offerName}
+                                </div>
+                                <div className="text-[10px] text-green-800 font-semibold mt-0.5">
+                                  Free: {session.offerFreeSession.join(', ')}
+                                </div>
+                                <div className="text-[9px] text-green-600 mt-0.5">
+                                  Earned: {session.invoicedDate ? new Date(session.invoicedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                                </div>
+                                <div className="text-[9px] text-green-500 mt-0.5">
+                                  Invoice: {session.invoiceNumber}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
                   {/* Active Packages (Financial Profile-style) */}
                   <div className="bg-white rounded-xl border border-gray-200 p-4">
                     <div className="flex items-center gap-2 mb-3">
