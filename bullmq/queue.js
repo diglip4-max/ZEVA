@@ -53,3 +53,16 @@ export const bookAppointmentActionQueue = new Queue(
     connection: redis,
   },
 );
+
+export const scheduleWhatsappCampaignQueue = new Queue(
+  "scheduleWhatsappCampaignQueue",
+  {
+    connection: redis,
+  },
+);
+export const sendBatchWhatsappMessageQueue = new Queue(
+  "sendBatchWhatsappMessageQueue",
+  {
+    connection: redis,
+  },
+);

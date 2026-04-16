@@ -1,15 +1,15 @@
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
 import Clinic from "../../../../models/Clinic";
-import Provider from "../../../../models/Provider";
-import Template from "../../../../models/Template";
 import dbConnect from "../../../../lib/database";
 import Campaign from "../../../../models/Campaign";
+import Message from "../../../../models/Message";
+import { scheduleWhatsappCampaignQueue } from "../../../../bullmq/queue";
 
 export default async function handler(req, res) {
   await dbConnect();
 
-  if (req.method !== "DELETE") {
-    res.setHeader("Allow", ["DELETE"]);
+  if (req.method !== "POST") {
+    res.setHeader("Allow", ["POST"]);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
@@ -79,15 +79,36 @@ export default async function handler(req, res) {
       });
     }
 
-    console.log({ campaign });
+    // Ensure the campaign is completed
+    if (campaign.status !== "processing") {
+      return res.status(400).json({
+        success: false,
+        message: "Campaign has not been processing yet",
+      });
+    }
+
+    // Update the campaign status to 'paused'
+    campaign.status = "paused";
+    await campaign.save();
+
+    const jobId = campaign.jobId;
+    if (campaign.type === "whatsapp") {
+      let whatsappCampaignJob =
+        await scheduleWhatsappCampaignQueue.getJob(jobId);
+      if (whatsappCampaignJob) {
+        await whatsappCampaignJob.remove();
+        console.log(
+          `Whatsapp campaign job removed successfully of JobId : ${jobId}`,
+        );
+      }
+    }
 
     return res.status(200).json({
       success: true,
-      message: "Campaign deleted successfully",
-      data: campaign,
+      message: "Campaign paused successfully",
     });
   } catch (err) {
-    console.error("Error in delete campaign:", err);
+    console.error("Error pausing campaign:", err);
 
     return res.status(500).json({
       success: false,
