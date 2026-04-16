@@ -927,8 +927,8 @@ const evaluateSingleCondition = ({ condition, ...rest }) => {
   value = replaceVariableInString(value, "patient", patientPayload);
 
   // Replace with message payload
-  field = replaceVariableInString(field, "message", messagePayload);
-  value = replaceVariableInString(value, "message", messagePayload);
+  field = replaceVariableInString(field, "incoming_message", messagePayload);
+  value = replaceVariableInString(value, "incoming_message", messagePayload);
 
   // Replace with appointment payload
   field = replaceVariableInString(field, "appointment", appointmentPayload);
@@ -938,7 +938,11 @@ const evaluateSingleCondition = ({ condition, ...rest }) => {
   field = replaceVariableInString(field, "system", systemPayload);
   value = replaceVariableInString(value, "system", systemPayload);
 
-  console.log({ field, operator, value });
+  console.log({
+    field,
+    operator,
+    value,
+  });
 
   //   Evaluate the condition based on the field, operator, and value
   //   This is a placeholder for actual evaluation logic
@@ -966,10 +970,16 @@ const evaluateSingleCondition = ({ condition, ...rest }) => {
       return field !== value && parseFloat(field) !== parseFloat(value);
 
     case "contains":
-      return field.includes(value);
+      return (
+        field.includes(value) ||
+        field?.toLowerCase().includes(value?.toLowerCase())
+      );
 
     case "not_contains":
-      return !field.includes(value);
+      return (
+        !field.includes(value) &&
+        !field?.toLowerCase().includes(value?.toLowerCase())
+      );
 
     case "exists":
       return field !== undefined && field !== null;
@@ -1228,48 +1238,55 @@ export const replaceVariableInObject = (
   moduleName = "",
   moduleData = {},
 ) => {
-  if (typeof obj !== "object" || obj === null) {
-    // If it's a string, check for variable replacement
-    if (typeof obj === "string") {
-      // Replace {{moduleName.field}} pattern with actual value
-      return obj.replace(/\{\{([^}]+)\}\}/g, (match, field) => {
-        // Split by dot to handle nested paths
-        const parts = field.trim().split(".");
-
-        // Check if the first part matches the moduleName
-        if (parts[0] === moduleName) {
-          // Remove the module prefix and get the actual field path
-          const fieldPath = parts.slice(1).join(".");
-
-          // Get the value from moduleData using the field path
-          const value = fieldPath
-            .split(".")
-            .reduce(
-              (data, key) =>
-                data && data[key] !== undefined ? data[key] : match,
-              moduleData,
-            );
-
-          return value !== undefined ? value : match;
-        }
-        return match; // Keep original if module doesn't match
-      });
-    }
+  // Handle primitive values
+  if (obj === null || obj === undefined) {
     return obj;
   }
 
+  // Handle strings - variable replacement
+  if (typeof obj === "string") {
+    return obj.replace(/\{\{([^}]+)\}\}/g, (match, field) => {
+      const parts = field.trim().split(".");
+
+      // Check if module matches
+      if (parts[0] === moduleName) {
+        const fieldPath = parts.slice(1).join(".");
+
+        // Safe value extraction
+        let value = moduleData;
+        for (const key of fieldPath.split(".")) {
+          if (value && typeof value === "object" && key in value) {
+            value = value[key];
+          } else {
+            return match; // Path not found
+          }
+        }
+
+        return value !== undefined && value !== null ? String(value) : match;
+      }
+
+      return match;
+    });
+  }
+
+  // Handle arrays
   if (Array.isArray(obj)) {
     return obj.map((item) =>
       replaceVariableInObject(item, moduleName, moduleData),
     );
   }
 
-  return Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => [
-      key,
-      replaceVariableInObject(value, moduleName, moduleData),
-    ]),
-  );
+  // Handle objects
+  if (typeof obj === "object") {
+    const result = {};
+    for (const [key, value] of Object.entries(obj)) {
+      result[key] = replaceVariableInObject(value, moduleName, moduleData);
+    }
+    return result;
+  }
+
+  // Handle numbers, booleans, etc.
+  return obj;
 };
 
 export const replaceVariableInString = (
@@ -1281,30 +1298,41 @@ export const replaceVariableInString = (
     return str;
   }
 
-  // Replace {{moduleName.field}} pattern with actual value
   return str.replace(/\{\{([^}]+)\}\}/g, (match, field) => {
-    // Split by dot to handle nested paths
-    const parts = field.trim().split(".");
+    const trimmedField = field.trim();
 
-    // Check if the first part matches the moduleName
+    // Check if this is a numeric-only placeholder like {{1}}, {{2}}, etc.
+    const isNumericPlaceholder = /^\d+$/.test(trimmedField);
+
+    if (isNumericPlaceholder) {
+      // For numeric placeholders, check moduleData directly
+      if (moduleData[trimmedField] !== undefined) {
+        return moduleData[trimmedField];
+      }
+      // Also check with the original match {{1}}
+      if (moduleData[match] !== undefined) {
+        return moduleData[match];
+      }
+      return match;
+    }
+
+    // Original logic for moduleName.field pattern
+    const parts = trimmedField.split(".");
+
     if (parts[0] === moduleName) {
-      // Remove the module prefix and get the actual field path
       const fieldPath = parts.slice(1).join(".");
-
-      // Get the value from moduleData using the field path
       const value = fieldPath
         .split(".")
         .reduce(
           (data, key) => (data && data[key] !== undefined ? data[key] : match),
           moduleData,
         );
-
       return value !== undefined ? value : match;
     }
-    return match; // Keep original if module doesn't match
+
+    return match;
   });
 };
-
 // ------------------------ GET Lead Details ------------------------ //
 export const getLeadDetails = async (leadId) => {
   let leadData = {};
@@ -1351,7 +1379,7 @@ export const getMessageDetails = async (messageId) => {
       _id: message._id,
       clinicId: message.clinicId,
       leadId: message.leadId,
-      message: message.message,
+      message: message.content,
       type: message.messageType,
       channel: message.channel,
       direction: message.direction,
@@ -1360,7 +1388,7 @@ export const getMessageDetails = async (messageId) => {
       content: message.content,
       mediaUrl: message.mediaUrl,
       mediaType: message.mediaType,
-      status: message.status,
+      status: "incoming",
       source: message.source,
       error_code: message.errorCode,
       error_message: message.errorMessage,

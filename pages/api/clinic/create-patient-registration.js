@@ -188,9 +188,25 @@ export default async function handler(req, res) {
         isUserPackage, // Added for user-created packages
         patientPackageId, // Added for user-created packages
         patientPackageSubId, // Added for user-created packages (sub-document ID)
+        // Offer fields
+        isOfferApplied,
+        offerId,
+        offerTitle,
+        offerType,
+        offerDiscountAmount,
+        cashbackEarned,
+        bundleSessionsAdded,
+        // Bundle offer fields
+        offerFreeSession,
+        freeOfferSessionCount,
+        // Free sessions being REDEEMED in this billing
+        usedFreeSessions,
+        usedFreeSessionCount,
       } = req.body;
 
     console.log({ bmModify: req.body });
+    console.log('[BundleAPI] Extracted offerFreeSession:', offerFreeSession);
+    console.log('[BundleAPI] Extracted freeOfferSessionCount:', freeOfferSessionCount);
 
     // Validate required fields
     if (
@@ -558,11 +574,94 @@ export default async function handler(req, res) {
       discountPercent: discountPercent || 0,
       originalAmount: originalAmount || amountNum,
       isAdvanceOnly: false,
+      // Offer tracking fields
+      offerApplied: isOfferApplied || false,
+      offerId: offerId || null,
+      offerName: offerTitle || null,
+      offerType: offerType || null,
+      offerDiscountAmount: offerDiscountAmount || 0,
+      cashbackEarned: cashbackEarned || 0,
+      bundleSessionsAdded: bundleSessionsAdded || 0,
+      // Bundle offer tracking fields
+      offerFreeSession: Array.isArray(offerFreeSession) ? offerFreeSession : [],
+      freeOfferSessionCount: freeOfferSessionCount || 0,
     };
 
-    console.log({ billingData });
+    // console.log({ billingData });
+    // console.log('[BundleAPI] billingData.offerFreeSession:', billingData.offerFreeSession);
+    // console.log('[BundleAPI] billingData.freeOfferSessionCount:', billingData.freeOfferSessionCount);
+    // console.log('[BundleAPI] typeof billingData.offerFreeSession:', typeof billingData.offerFreeSession);
+    // console.log('[BundleAPI] Array.isArray(billingData.offerFreeSession):', Array.isArray(billingData.offerFreeSession));
+    // console.log('[BundleAPI] usedFreeSessions (being redeemed):', usedFreeSessions);
+    // console.log('[BundleAPI] usedFreeSessionCount:', usedFreeSessionCount);
 
     const billing = await Billing.create(billingData);
+    
+    // Explicitly verify the fields were saved
+    const savedBilling = await Billing.findById(billing._id).lean();
+    // console.log('[BundleAPI] Saved billing offerFreeSession:', savedBilling?.offerFreeSession);
+    // console.log('[BundleAPI] Saved billing freeOfferSessionCount:', savedBilling?.freeOfferSessionCount);
+    // console.log('[BundleAPI] Saved billing has offerFreeSession key:', 'offerFreeSession' in (savedBilling || {}));
+    // console.log('[BundleAPI] Saved billing has freeOfferSessionCount key:', 'freeOfferSessionCount' in (savedBilling || {}));
+
+    // If free sessions are being REDEEMED, update previous billings to remove them
+    if (usedFreeSessions && Array.isArray(usedFreeSessions) && usedFreeSessions.length > 0) {
+      console.log('[BundleAPI] Consuming free sessions:', usedFreeSessions);
+      
+      // Find all previous billings for this patient with free sessions
+      const previousBillings = await Billing.find({
+        patientId: userId,  // Use userId from request body
+        offerType: 'bundle',
+        freeOfferSessionCount: { $gt: 0 },
+        _id: { $ne: billing._id } // Exclude current billing
+      }).sort({ createdAt: 1 }); // Oldest first (FIFO)
+
+      console.log('[BundleAPI] Found', previousBillings.length, 'previous billings with free sessions');
+
+      // Consume free sessions from previous billings (FIFO)
+      let sessionsToConsume = [...usedFreeSessions];
+      
+      for (const prevBilling of previousBillings) {
+        if (sessionsToConsume.length === 0) break;
+        
+        const currentFreeSessions = prevBilling.offerFreeSession || [];
+        const updatedSessions = [];
+        let consumedFromThisBilling = 0;
+
+        for (const session of currentFreeSessions) {
+          const sessionIndex = sessionsToConsume.findIndex(
+            (s) => s.toLowerCase() === session.toLowerCase()
+          );
+          
+          if (sessionIndex !== -1) {
+            // This session is being redeemed, remove it
+            sessionsToConsume.splice(sessionIndex, 1);
+            consumedFromThisBilling++;
+            console.log(`[BundleAPI] Consumed free session "${session}" from billing ${prevBilling.invoiceNumber}`);
+          } else {
+            // Keep this session
+            updatedSessions.push(session);
+          }
+        }
+
+        // Update the previous billing if sessions were consumed
+        if (consumedFromThisBilling > 0) {
+          await Billing.findByIdAndUpdate(prevBilling._id, {
+            $set: {
+              offerFreeSession: updatedSessions,
+              freeOfferSessionCount: updatedSessions.length
+            }
+          });
+          console.log(`[BundleAPI] Updated billing ${prevBilling.invoiceNumber}: ${consumedFromThisBilling} sessions consumed, ${updatedSessions.length} remaining`);
+        }
+      }
+
+      if (sessionsToConsume.length > 0) {
+        console.warn('[BundleAPI] Warning: Could not find free sessions for:', sessionsToConsume);
+      } else {
+        console.log('[BundleAPI] All free sessions successfully consumed!');
+      }
+    }
 
     // Commission calculation and storage
     try {
@@ -743,7 +842,7 @@ export default async function handler(req, res) {
     return res.status(201).json({
       success: true,
       message: "Billing created successfully",
-      billing,
+      billing: billing.toObject(),
       data: {
         _id: billing._id,
         invoiceNumber: billing.invoiceNumber,

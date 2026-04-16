@@ -631,7 +631,7 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
               </div>
 
               {/* VAT Percentage */}
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <label className="block text-sm font-bold text-gray-900">
                   VAT % <span className="text-red-500">*</span>
                 </label>
@@ -648,11 +648,11 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                   disabled={loading}
                   required
                 />
-              </div>
+              </div> */}
             </div>
 
             {/* Row 5: Min Qty, Max Qty */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-gray-900">
                   Min Qty <span className="text-red-500">*</span>
@@ -685,7 +685,7 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                   required
                 />
               </div>
-            </div>
+            </div> */}
 
             {/* Description */}
             <div className="space-y-2">
@@ -971,13 +971,10 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
             type="submit"
             onClick={handleSubmit}
             disabled={
-              loading ||
-              !formData.name ||
-              !formData.location ||
-              !formData.type ||
-              !formData.vatPercentage ||
-              !formData.minQuantity ||
-              !formData.maxQuantity
+              loading || !formData.name || !formData.location || !formData.type
+              // !formData.vatPercentage ||
+              // !formData.minQuantity ||
+              // !formData.maxQuantity
             }
             className="px-4 py-2.5 text-sm font-medium text-white bg-gray-800 border border-transparent rounded-lg hover:bg-gray-900 focus:ring-2 focus:ring-gray-800/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >

@@ -9,6 +9,7 @@ const useTriggerByWorkflowId = ({ workflowId }: { workflowId: string }) => {
   const fetchTrigger = React.useCallback(
     async (workflowId: string) => {
       try {
+        if (!workflowId) return;
         const token = getTokenByPath();
         axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
         const { data } = await axios.get(

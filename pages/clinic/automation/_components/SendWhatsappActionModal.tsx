@@ -10,6 +10,10 @@ import {
   Info,
   CheckCircle2,
   Phone,
+  Reply,
+  Upload,
+  FileText,
+  Eye,
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import axios from "axios";
@@ -17,12 +21,14 @@ import {
   getMediaTypeFromFile,
   getTokenByPath,
   handleUpload,
+  capitalize,
 } from "@/lib/helper";
 import { clsx, type ClassValue } from "clsx";
 import useProvider from "@/hooks/useProvider";
 import { Template } from "@/types/templates";
 import VariableMappingDropdown from "./VariableMappingDropdown";
 import { WorkflowEntity } from "@/types/workflows";
+import { toast } from "react-toastify";
 
 function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
@@ -107,9 +113,111 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setAttachedFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      const fileType = selectedFile.type;
+      const fileSize = selectedFile.size;
+
+      const maxSize = fileType.startsWith("image/")
+        ? 5 * 1024 * 1024
+        : fileType.startsWith("video/")
+          ? 16 * 1024 * 1024
+          : 100 * 1024 * 1024;
+
+      if (fileSize > maxSize) {
+        toast.warning(
+          `File size exceeds the limit of ${maxSize / (1024 * 1024)}MB`,
+        );
+        e.target.value = "";
+        return;
+      }
+
+      const type = selectedFile.type;
+      if (type.startsWith("image/")) {
+        setMediaType("image");
+      } else if (type.startsWith("video/")) {
+        setMediaType("video");
+      } else if (type === "application/pdf") {
+        setMediaType("document");
+      }
+
+      setAttachedFile(selectedFile);
     }
   };
+
+  const handleTempVarValueChange = (
+    key: string,
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const value = event.target.value;
+    setVariableMappings((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
+  const handleTempHeaderVarValueChange = (
+    key: string,
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const value = event.target.value;
+    setHeaderVariableMappings((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
+  const renderVariableInput = (
+    key: string,
+    index: number,
+    isHeader: boolean = false,
+  ) => (
+    <div key={index} className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">
+        {isHeader ? "Header" : "Body"} variable {"{{"}
+        {index + 1}
+        {"}}"}:
+      </label>
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <div className="relative">
+            <input
+              type="text"
+              value={
+                isHeader
+                  ? headerVariableMappings[key] || ""
+                  : variableMappings[key] || ""
+              }
+              onChange={(event) =>
+                isHeader
+                  ? handleTempHeaderVarValueChange(key, event)
+                  : handleTempVarValueChange(key, event)
+              }
+              className="w-full text-gray-500 text-sm px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl hover:border-green-500 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+              placeholder={`Enter value for {{${index + 1}}}`}
+            />
+          </div>
+        </div>
+        <VariableMappingDropdown
+          entity={entity}
+          onSelect={(value: string) => {
+            if (isHeader) {
+              setHeaderVariableMappings((prev) => ({
+                ...prev,
+                [key]: value,
+              }));
+            } else {
+              setVariableMappings((prev) => ({
+                ...prev,
+                [key]: value,
+              }));
+            }
+          }}
+          nodeId={actionId as string}
+          align="right"
+        />
+      </div>
+    </div>
+  );
 
   const handleAddReplyButton = () => {
     setReplyButtons([
@@ -351,6 +459,16 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
       p.label.toLowerCase().includes(providerSearchTerm.toLowerCase()) ||
       p.phone.toLowerCase().includes(providerSearchTerm.toLowerCase()),
   );
+
+  useEffect(() => {
+    if (selectedTemplate && selectedTemplate?.headerFileUrl) {
+      setMediaUrl(selectedTemplate?.headerFileUrl || "");
+      setMediaType(selectedTemplate?.headerType || "");
+    } else {
+      setMediaUrl("");
+      setMediaType("");
+    }
+  }, [selectedTemplate]);
 
   if (!isOpen) return null;
 
@@ -681,6 +799,164 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
                 </div>
               )}
 
+              {/* Variable Mappings for Template */}
+              {whatsappMsgType === "template-message" && selectedTemplate && (
+                <div className="space-y-4 mt-4 pt-4 border-t border-gray-200">
+                  {/* Header Variables - Text Type */}
+                  {selectedTemplate?.headerType === "text" &&
+                    selectedTemplate?.headerText && (
+                      <div className="mb-6">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                          <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                          Header
+                        </h4>
+                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                          <p className="text-sm text-gray-800">
+                            {selectedTemplate?.headerText}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                  {/* Media Template Header */}
+                  {selectedTemplate?.headerType &&
+                    selectedTemplate?.headerType !== "text" &&
+                    selectedTemplate?.headerFileUrl && (
+                      <div className="mb-6">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                          <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                          Attachment
+                        </h4>
+                        <button
+                          onClick={() =>
+                            window.open(
+                              selectedTemplate?.headerFileUrl,
+                              "_blank",
+                            )
+                          }
+                          className="bg-green-600 rounded-lg flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-green-700 text-white"
+                        >
+                          <Eye className="w-4 h-4" />
+                          View
+                        </button>
+                      </div>
+                    )}
+
+                  {/* Header Variables */}
+                  {selectedTemplate?.headerVariables?.length > 0 && (
+                    <div className="space-y-4 mb-6">
+                      <h4 className="text-sm font-semibold text-gray-700">
+                        Header Variables
+                      </h4>
+                      {selectedTemplate?.headerVariables?.map(
+                        (key: string, index: number) =>
+                          renderVariableInput(key, index, true),
+                      )}
+                    </div>
+                  )}
+
+                  {/* Body Section */}
+                  <div className="mb-6">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                      <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                      Message Body
+                    </h4>
+                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                      <pre className="text-sm text-gray-800 whitespace-pre-wrap font-sans">
+                        {selectedTemplate?.content}
+                      </pre>
+                    </div>
+                  </div>
+
+                  {/* Body Variables */}
+                  {selectedTemplate &&
+                    selectedTemplate?.variables?.length > 0 && (
+                      <div className="space-y-4 mb-6">
+                        <h4 className="text-sm font-semibold text-gray-700">
+                          Fill Variables
+                        </h4>
+                        {selectedTemplate?.variables?.map(
+                          (key: string, index: number) =>
+                            renderVariableInput(key, index, false),
+                        )}
+                      </div>
+                    )}
+
+                  {/* File Upload for Media Headers */}
+                  {selectedTemplate?.isHeader &&
+                    selectedTemplate?.headerType !== "text" && (
+                      <div className="mb-6">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                          Upload {capitalize(selectedTemplate?.headerType)}
+                        </h4>
+                        <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-gray-400 transition-colors">
+                          <div className="flex flex-col items-center">
+                            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
+                              <Upload className="w-8 h-8 text-gray-500" />
+                            </div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">
+                              Drop your file here or click to browse
+                            </p>
+                            <p className="text-xs text-gray-500 mb-4">
+                              Supports{" "}
+                              {selectedTemplate?.headerType === "image"
+                                ? "JPG, PNG up to 5MB"
+                                : selectedTemplate?.headerType === "video"
+                                  ? "MP4, 3GP up to 16MB"
+                                  : "PDF, DOC, PPT up to 100MB"}
+                            </p>
+                            <label className="cursor-pointer">
+                              <input
+                                type="file"
+                                className="hidden"
+                                onChange={handleFileChange}
+                                accept={
+                                  selectedTemplate?.headerType === "image"
+                                    ? "image/jpeg,image/jpg,image/png"
+                                    : selectedTemplate?.headerType === "video"
+                                      ? "video/mp4,video/3gp"
+                                      : ".pdf,.doc,.docx,.pptx,.xlsx"
+                                }
+                              />
+                              <span className="px-6 py-2.5 bg-gradient-to-r from-gray-600 to-gray-700 text-white font-medium rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all inline-flex items-center gap-2">
+                                Browse Files
+                              </span>
+                            </label>
+                            {attachedFile && (
+                              <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <FileText className="w-5 h-5 text-green-600" />
+                                    <div>
+                                      <p className="text-sm font-medium text-gray-800">
+                                        {attachedFile.name}
+                                      </p>
+                                      <p className="text-xs text-gray-500">
+                                        {(
+                                          attachedFile.size /
+                                          1024 /
+                                          1024
+                                        ).toFixed(2)}{" "}
+                                        MB
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => setAttachedFile(null)}
+                                    className="p-1 hover:bg-red-50 rounded-full"
+                                  >
+                                    <X className="w-4 h-4 text-red-500" />
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                </div>
+              )}
+
               {whatsappMsgType !== "template-message" && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
@@ -878,286 +1154,205 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
                 </div>
               )}
 
-              {selectedTemplate && whatsappMsgType === "template-message" && (
-                <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-300">
-                  {/* Template Preview Card */}
-                  <div className="p-5 bg-gray-50 rounded-2xl border border-gray-100 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                        Template Preview
-                      </span>
-                      <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] font-bold">
-                        ACTIVE
-                      </span>
-                    </div>
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative">
-                      <div className="absolute -left-2 top-4 w-4 h-4 bg-white rotate-45 border-l border-b border-gray-100 shadow-sm" />
+              {/* WhatsApp Preview */}
+              <div className="space-y-3">
+                <label className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <Smartphone className="w-4 h-4 text-gray-400" />
+                  WhatsApp Preview
+                </label>
+                <div className="bg-[#e5ddd5] rounded-2xl p-4 min-h-[200px]">
+                  {/* WhatsApp Chat Background Pattern */}
+                  <div className="relative bg-[#e5ddd5] rounded-lg overflow-hidden">
+                    {/* Message Bubble */}
+                    <div className="max-w-[85%] ml-auto bg-[#dcf8c6] rounded-lg shadow-sm p-3 mb-2">
+                      {/* Message Header */}
+                      <div className="text-xs text-gray-500 font-medium mb-1">
+                        You
+                      </div>
 
-                      {/* Media Header Preview */}
-                      {selectedTemplate.isHeader &&
+                      {/* Media Header */}
+                      {whatsappMsgType === "template-message" &&
+                        selectedTemplate?.isHeader &&
                         ["image", "video", "document"].includes(
                           selectedTemplate.headerType || "",
-                        ) && (
-                          <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-100 flex items-center gap-3">
-                            <Smartphone className="w-5 h-5 text-gray-400" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[10px] font-bold text-gray-500 uppercase">
-                                {selectedTemplate.headerType} Header
-                              </p>
-                              <p className="text-xs text-gray-400 truncate">
-                                {mediaUrl || "No URL provided"}
-                              </p>
-                            </div>
+                        ) &&
+                        mediaUrl && (
+                          <div className="mb-2 rounded-lg overflow-hidden bg-gray-100">
+                            {selectedTemplate.headerType === "image" && (
+                              <div className="w-full h-32 bg-gray-300 flex items-center justify-center text-gray-500 text-xs">
+                                <img
+                                  src={mediaUrl}
+                                  alt="Media"
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            )}
+                            {selectedTemplate.headerType === "video" && (
+                              <div className="w-full h-32 bg-gray-800 flex items-center justify-center text-white text-xs">
+                                <video
+                                  src={mediaUrl}
+                                  className="w-full h-full object-cover"
+                                  controls
+                                />
+                              </div>
+                            )}
+                            {selectedTemplate.headerType === "document" && (
+                              <div className="p-3 bg-white flex items-center gap-2">
+                                <div className="w-10 h-10 bg-red-100 rounded flex items-center justify-center text-red-600 text-xs font-bold">
+                                  PDF
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium text-gray-700 truncate">
+                                    Document
+                                  </p>
+                                  <p className="text-[10px] text-gray-500 truncate">
+                                    {mediaUrl}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
 
-                      {selectedTemplate.headerType === "text" &&
+                      {/* Text Header */}
+                      {whatsappMsgType === "template-message" &&
+                        selectedTemplate?.isHeader &&
+                        selectedTemplate.headerType === "text" &&
                         selectedTemplate.headerText && (
-                          <div className="font-bold text-gray-900 mb-2 text-sm border-b border-gray-50 pb-2">
+                          <div className="font-bold text-gray-900 text-sm mb-1 pb-1 border-b border-gray-300/50">
                             {selectedTemplate.headerText}
                           </div>
                         )}
 
-                      <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
-                        {selectedTemplate.content}
-                      </p>
-
-                      {/* Footer Preview */}
-                      {selectedTemplate.isFooter && selectedTemplate.footer && (
-                        <p className="mt-2 text-xs text-gray-400 italic">
-                          {selectedTemplate.footer}
-                        </p>
-                      )}
-
-                      <div className="mt-2 text-[10px] text-gray-400 text-right">
-                        12:00 PM
-                      </div>
-                    </div>
-
-                    {/* Buttons Preview */}
-                    {selectedTemplate.isButton &&
-                      selectedTemplate.templateButtons &&
-                      selectedTemplate.templateButtons.length > 0 && (
-                        <div className="grid grid-cols-1 gap-1.5 pt-1">
-                          {selectedTemplate.templateButtons.map((btn, idx) => (
-                            <div
-                              key={idx}
-                              className="bg-white/60 py-2 px-4 rounded-xl border border-gray-100 text-center text-sm font-bold text-blue-600 shadow-sm"
-                            >
-                              {btn.text}
-                            </div>
-                          ))}
+                      {whatsappMsgType === "list-message" && headerText && (
+                        <div className="font-bold text-gray-900 text-sm mb-1 pb-1 border-b border-gray-300/50">
+                          {headerText}
                         </div>
                       )}
-                  </div>
 
-                  {/* Variable Mapping */}
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
-                        Variable Mapping
-                      </h4>
-                      <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 text-blue-600 rounded-lg">
-                        <Info className="w-3.5 h-3.5" />
-                        <span className="text-[10px] font-bold">
-                          Use {"{{variable}}"} syntax
-                        </span>
+                      {/* Message Content */}
+                      <div className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">
+                        {whatsappMsgType === "template-message"
+                          ? selectedTemplate?.content ||
+                            "Template content will appear here"
+                          : message || "Your message will appear here..."}
                       </div>
-                    </div>
 
-                    {/* Header Variables */}
-                    {selectedTemplate.isHeader && (
-                      <div className="space-y-4">
-                        {/* Media Header URL */}
-                        {["image", "video", "document"].includes(
-                          selectedTemplate.headerType || "",
-                        ) && (
-                          <div className="grid grid-cols-1 gap-2 p-4 bg-yellow-50/50 border border-yellow-100 rounded-2xl">
-                            <label className="text-xs font-bold text-yellow-700 flex items-center gap-2 uppercase tracking-wider">
-                              {selectedTemplate.headerType} Header URL
-                            </label>
-                            <input
-                              type="text"
-                              value={mediaUrl}
-                              onChange={(e) => setMediaUrl(e.target.value)}
-                              placeholder={`e.g. {{lead.${selectedTemplate.headerType}_url}} or static https://... url`}
-                              className="w-full px-4 py-2.5 bg-white border border-yellow-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-yellow-500 outline-none transition-all shadow-sm"
-                            />
-                            <p className="text-[10px] text-yellow-600 font-medium">
-                              Provide a URL for the{" "}
-                              {selectedTemplate.headerType} header. You can use
-                              workflow variables.
-                            </p>
+                      {/* Footer */}
+                      {whatsappMsgType === "template-message" &&
+                        selectedTemplate?.isFooter &&
+                        selectedTemplate.footer && (
+                          <div className="mt-2 text-[11px] text-gray-500 italic">
+                            {selectedTemplate.footer}
                           </div>
                         )}
 
-                        {selectedTemplate.headerType === "text" &&
-                          selectedTemplate.headerVariables &&
-                          selectedTemplate.headerVariables.length > 0 && (
-                            <div className="space-y-4">
-                              <div className="text-xs font-bold text-gray-400 uppercase">
-                                Header Text Variables
-                              </div>
-                              {selectedTemplate.headerVariables.map(
-                                (variable, idx) => (
+                      {whatsappMsgType === "list-message" && footerText && (
+                        <div className="mt-2 text-[11px] text-gray-500 italic">
+                          {footerText}
+                        </div>
+                      )}
+
+                      {/* Reply Buttons */}
+                      {whatsappMsgType === "reply-button-message" &&
+                        replyButtons.length > 0 && (
+                          <div className="mt-3 space-y-1">
+                            {replyButtons.map((button, idx) => (
+                              <button
+                                key={idx}
+                                className="w-full flex items-center justify-center py-2 px-3 bg-white/80 hover:bg-white rounded text-center text-sm font-medium text-blue-600 border border-gray-200 transition-colors"
+                              >
+                                <Reply className="w-4 h-4 mr-2" />
+                                {button.reply.title || `Button ${idx + 1}`}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                      {/* Template Buttons */}
+                      {whatsappMsgType === "template-message" &&
+                        selectedTemplate?.isButton &&
+                        selectedTemplate.templateButtons &&
+                        selectedTemplate.templateButtons.length > 0 && (
+                          <div className="mt-3 space-y-1">
+                            {selectedTemplate.templateButtons.map(
+                              (btn: any, idx: number) => (
+                                <button
+                                  key={idx}
+                                  className="w-full py-2 px-3 bg-white/80 hover:bg-white rounded text-center text-sm font-medium text-blue-600 border border-gray-200 transition-colors"
+                                >
+                                  {btn.text}
+                                </button>
+                              ),
+                            )}
+                          </div>
+                        )}
+
+                      {/* List Message Button */}
+                      {whatsappMsgType === "list-message" && (
+                        <div className="mt-3">
+                          <button className="w-full py-2 px-3 bg-white/80 hover:bg-white rounded text-center text-sm font-medium text-gray-700 border border-gray-200 transition-colors flex items-center justify-between">
+                            <span>📋 Menu</span>
+                            <span className="text-xs">▼</span>
+                          </button>
+
+                          {/* List Sections Preview */}
+                          {listSections.length > 0 && (
+                            <div className="mt-2 bg-white rounded-lg border border-gray-200 overflow-hidden">
+                              {listSections.map(
+                                (section: any, sectionIdx: number) => (
                                   <div
-                                    key={`header-${idx}`}
-                                    className="grid grid-cols-1 gap-2"
+                                    key={sectionIdx}
+                                    className="border-b border-gray-200 last:border-b-0"
                                   >
-                                    <label className="text-xs font-bold text-gray-600">
-                                      Variable {variable}
-                                    </label>
-
-                                    <div className="flex items-center gap-2">
-                                      <input
-                                        type="text"
-                                        value={
-                                          headerVariableMappings[variable] || ""
-                                        }
-                                        onChange={(e) =>
-                                          setHeaderVariableMappings((prev) => ({
-                                            ...prev,
-                                            [variable]: e.target.value,
-                                          }))
-                                        }
-                                        placeholder="e.g. {{lead.name}} or static text"
-                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-green-500 outline-none transition-all"
-                                      />
-
-                                      <VariableMappingDropdown
-                                        onSelect={(value: string) =>
-                                          setHeaderVariableMappings((prev) => ({
-                                            ...prev,
-                                            [variable]: value,
-                                          }))
-                                        }
-                                        align="right"
-                                        entity={entity}
-                                        nodeId={actionId as string}
-                                      />
-                                    </div>
+                                    {section.title && (
+                                      <div className="px-3 py-2 bg-gray-50 text-xs font-bold text-gray-700 uppercase">
+                                        {section.title}
+                                      </div>
+                                    )}
+                                    {section.rows.map(
+                                      (row: any, rowIdx: number) => (
+                                        <div
+                                          key={rowIdx}
+                                          className="px-3 py-2 hover:bg-gray-50 border-t border-gray-100"
+                                        >
+                                          <div className="text-sm font-medium text-gray-800">
+                                            {row.title || "Row title"}
+                                          </div>
+                                          {row.description && (
+                                            <div className="text-xs text-gray-500 mt-0.5">
+                                              {row.description}
+                                            </div>
+                                          )}
+                                        </div>
+                                      ),
+                                    )}
                                   </div>
                                 ),
                               )}
                             </div>
                           )}
-                      </div>
-                    )}
-
-                    {/* Button Variable Mappings */}
-                    {selectedTemplate.isButton &&
-                      selectedTemplate.templateButtons &&
-                      selectedTemplate.templateButtons.some(
-                        (btn: any) =>
-                          btn.type === "URL" && btn.url?.includes("{{1}}"),
-                      ) && (
-                        <div className="space-y-4 pt-2">
-                          <div className="text-xs font-bold text-gray-400 uppercase">
-                            Button URL Variables
-                          </div>
-                          {selectedTemplate.templateButtons
-                            .filter(
-                              (btn: any) =>
-                                btn.type === "URL" &&
-                                btn.url?.includes("{{1}}"),
-                            )
-                            .map((btn: any, idx: number) => (
-                              <div
-                                key={`btn-${idx}`}
-                                className="grid grid-cols-1 gap-2"
-                              >
-                                <label className="text-xs font-bold text-gray-600">
-                                  Variable for Button: "{btn.text}"
-                                </label>
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="text"
-                                    value={buttonVariableMappings[idx] || ""}
-                                    onChange={(e) =>
-                                      setButtonVariableMappings((prev) => ({
-                                        ...prev,
-                                        [idx]: e.target.value,
-                                      }))
-                                    }
-                                    placeholder="e.g. {{lead.id}} or custom-path"
-                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-green-500 outline-none transition-all"
-                                  />
-                                  <VariableMappingDropdown
-                                    onSelect={(value: string) =>
-                                      setButtonVariableMappings((prev) => ({
-                                        ...prev,
-                                        [idx]: value,
-                                      }))
-                                    }
-                                    align="right"
-                                    entity={entity}
-                                    nodeId={actionId as string}
-                                  />
-                                </div>
-                                <p className="text-[10px] text-gray-400">
-                                  This value will be appended to the button's
-                                  base URL.
-                                </p>
-                              </div>
-                            ))}
                         </div>
                       )}
 
-                    {/* Body Variables */}
-                    {selectedTemplate.variables &&
-                    selectedTemplate.variables.length > 0 ? (
-                      <div className="space-y-4 pt-2">
-                        <div className="text-xs font-bold text-gray-400 uppercase">
-                          Body Variables
-                        </div>
-                        {selectedTemplate.variables.map((variable, idx) => (
-                          <div
-                            key={`body-${idx}`}
-                            className="grid grid-cols-1 gap-2"
-                          >
-                            <label className="text-xs font-bold text-gray-600">
-                              Variable {variable}
-                            </label>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="text"
-                                value={variableMappings[variable] || ""}
-                                onChange={(e) =>
-                                  setVariableMappings((prev) => ({
-                                    ...prev,
-                                    [variable]: e.target.value,
-                                  }))
-                                }
-                                placeholder="e.g. {{lead.first_name}} or static text"
-                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-green-500 outline-none transition-all"
-                              />
-                              <VariableMappingDropdown
-                                onSelect={(value: string) =>
-                                  setVariableMappings((prev) => ({
-                                    ...prev,
-                                    [variable]: value,
-                                  }))
-                                }
-                                align="right"
-                                entity={entity}
-                                nodeId={actionId as string}
-                              />
-                            </div>
-                          </div>
-                        ))}
+                      {/* Message Timestamp */}
+                      <div className="mt-1 text-[10px] text-gray-500 text-right flex items-center justify-end gap-1">
+                        12:00 PM
+                        <svg
+                          className="w-3 h-3 text-blue-500"
+                          fill="currentColor"
+                          viewBox="0 0 16 15"
+                          width="16"
+                          height="15"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.88 5.644 6.3a.365.365 0 0 0-.51.063l-.477.372a.365.365 0 0 0-.063.51l3.547 4.197a.365.365 0 0 0 .51.063l6.353-7.563a.365.365 0 0 0 .063-.51zm-3.51 3.192l-.478-.372a.365.365 0 0 0-.51.063L5.644 9.88 4.32 8.32a.365.365 0 0 0-.51.063l-.477.372a.365.365 0 0 0-.063.51l1.646 1.944a.365.365 0 0 0 .51.063l5.533-6.563a.365.365 0 0 0 .063-.51z" />
+                        </svg>
                       </div>
-                    ) : (
-                      !selectedTemplate.isHeader && (
-                        <div className="p-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                          <p className="text-sm text-gray-400 font-medium italic">
-                            No variables detected in this template
-                          </p>
-                        </div>
-                      )
-                    )}
+                    </div>
                   </div>
                 </div>
-              )}
+              </div>
             </>
           )}
         </div>
