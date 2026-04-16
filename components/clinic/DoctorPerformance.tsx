@@ -230,7 +230,7 @@ const DoctorPerformance: React.FC<DoctorPerformanceProps> = ({
                   {/* <th className="text-center py-4 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Performance Score</th> */}
                   <th className="text-center py-4 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Appointments</th>
                   <th className="text-right py-4 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Revenue</th>
-                  <th className="text-center py-4 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Rating</th>
+                  {/* <th className="text-center py-4 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Rating</th> */}
                 </tr>
               </thead>
               <tbody>
@@ -287,12 +287,12 @@ const DoctorPerformance: React.FC<DoctorPerformanceProps> = ({
                     </td>
                     
                     {/* Rating Column */}
-                    <td className="py-4 px-6">
+                    {/* <td className="py-4 px-6">
                       <div className="flex items-center justify-center space-x-1">
                         <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                         <span className="text-sm font-bold text-gray-900">{doctor.rating?.toFixed(1) ?? '-'}</span>
                       </div>
-                    </td>
+                    </td> */}
                   </tr>
                 ))}
               </tbody>

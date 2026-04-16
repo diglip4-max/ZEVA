@@ -834,7 +834,7 @@ function AuthSettingsPage() {
             {/* Left Column - OTP Settings - Enhanced to match OTP modal */}
             <div className="lg:col-span-1 space-y-6">
               {/* Delivery Channels Card - Now matches OTP modal styling */}
-              <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-xl border border-gray-200 overflow-hidden animate-slideIn">
+              <div className="bg-white/80 mt-10 backdrop-blur-lg rounded-2xl shadow-xl border border-gray-200 overflow-hidden animate-slideIn ">
                 <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-100 rounded-xl">
@@ -1039,12 +1039,12 @@ function AuthSettingsPage() {
                   </div>
                 </div>
 
-                {/* Staff Table - Enhanced with better mobile responsiveness */}
-                <div className="overflow-x-auto">
+                {/* Staff Table - Enhanced with better mobile responsiveness and scrollable container */}
+                <div className="overflow-x-auto max-h-[450px] overflow-y-auto">
                   <div className="inline-block min-w-full align-middle">
                     <div className="overflow-hidden">
                       <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+                        <thead className="bg-gray-50 sticky top-0 z-10">
                           <tr>
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Staff Member</th>
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
