@@ -44,6 +44,10 @@ const CampaignSchema = new mongoose.Schema(
       enum: ["now", "later"],
       default: "now",
     },
+    scheduleTime: {
+      date: String,
+      time: String,
+    },
     template: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Template",
@@ -119,7 +123,7 @@ const CampaignSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-    lastProcessedBatches: {
+    lastProcessedBatch: {
       type: Number,
       default: 0,
     },
@@ -164,6 +168,9 @@ const CampaignSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    jobId: {
+      type: String,
+    },
     // message tracking end
     errorCode: {
       type: String,
@@ -171,6 +178,10 @@ const CampaignSchema = new mongoose.Schema(
     errorMessage: {
       type: String,
     },
+
+    variableMappings: { type: Object, default: {} },
+    headerVariableMappings: { type: Object, default: {} },
+    buttonVariableMappings: { type: Object, default: {} },
 
     // for whatsapp template messages
     bodyParameters: {

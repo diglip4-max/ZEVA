@@ -45,6 +45,7 @@ export const uploadMedia = async (mediaBlob, ext, originalName) => {
       filename,
       contentType,
     });
+    formData.append("source", "zeva_server");
 
     const getBaseUrl = () => {
       if (typeof window !== "undefined") return ""; // Use relative on client
@@ -60,7 +61,7 @@ export const uploadMedia = async (mediaBlob, ext, originalName) => {
         },
         maxBodyLength: Infinity,
         maxContentLength: Infinity,
-      }
+      },
     );
 
     return uploadResponse.data?.url || "";

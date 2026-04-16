@@ -8,6 +8,12 @@ import Message from "../../../models/Message";
 import Template from "../../../models/Template";
 import { handleWhatsappSendMessage } from "../../../services/whatsapp";
 import PatientRegistration from "../../../models/PatientRegistration";
+import {
+  getLeadDetails,
+  getSystemDetails,
+  replaceVariableInObject,
+  replaceVariableInString,
+} from "../../../bullmq/workflow";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -172,17 +178,33 @@ export default async function handler(req, res) {
     const messageType = "conversational";
     const direction = "outgoing";
 
+    const leadPayload = await getLeadDetails(lead?._id);
+
     // TODO: Replace field mapping here with a more flexible solution
-    // bodyParameters = replaceFieldMappingParams(
-    //   bodyParameters,
-    //   contact?.additionalFields,
-    //   "contact"
-    // );
-    // headerParameters = replaceFieldMappingParams(
-    //   headerParameters,
-    //   contact?.additionalFields,
-    //   "contact"
-    // );
+    bodyParameters = replaceVariableInObject(
+      bodyParameters,
+      "lead",
+      leadPayload,
+    );
+    headerParameters = replaceVariableInObject(
+      headerParameters,
+      "lead",
+      leadPayload,
+    );
+    content = replaceVariableInString(content, "lead", leadPayload);
+
+    const systemPayload = getSystemDetails();
+    bodyParameters = replaceVariableInObject(
+      bodyParameters,
+      "system",
+      systemPayload,
+    );
+    headerParameters = replaceVariableInObject(
+      headerParameters,
+      "system",
+      systemPayload,
+    );
+    content = replaceVariableInString(content, "system", systemPayload);
 
     const newMessage = new Message({
       clinicId,
@@ -334,11 +356,11 @@ export default async function handler(req, res) {
     // }
 
     // // define errors and don't call actuall send msg api
-    // if (!toPhoneNumber) {
-    //   newMessage.errorCode = "70001";
-    //   newMessage.errorMessage =
-    //     "Recipient phone number is invalid or in an incorrect format.";
-    // }
+    if (!toPhoneNumber) {
+      newMessage.errorCode = "70001";
+      newMessage.errorMessage =
+        "Recipient phone number is invalid or in an incorrect format.";
+    }
 
     // TODO: Create activity log for message send
     await Promise.all([newMessage.save(), conversation.save()]);

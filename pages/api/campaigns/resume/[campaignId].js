@@ -1,15 +1,15 @@
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
 import Clinic from "../../../../models/Clinic";
-import Provider from "../../../../models/Provider";
-import Template from "../../../../models/Template";
 import dbConnect from "../../../../lib/database";
 import Campaign from "../../../../models/Campaign";
+import Message from "../../../../models/Message";
+import { scheduleWhatsappCampaignQueue } from "../../../../bullmq/queue";
 
 export default async function handler(req, res) {
   await dbConnect();
 
-  if (req.method !== "DELETE") {
-    res.setHeader("Allow", ["DELETE"]);
+  if (req.method !== "POST") {
+    res.setHeader("Allow", ["POST"]);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
@@ -79,15 +79,45 @@ export default async function handler(req, res) {
       });
     }
 
-    console.log({ campaign });
+    // Ensure the campaign is completed
+    if (campaign.status !== "paused") {
+      return res.status(400).json({
+        success: false,
+        message: "Campaign has not been paused yet",
+      });
+    }
+
+    // Update the campaign status to 'paused'
+    campaign.status = "processing";
+    await campaign.save();
+
+    let queueJob;
+    // generate custom job id for unique identifier for every job
+    const customJobId = `${campaignId}-${Date.now()}`;
+    if (campaign.type === "whatsapp") {
+      queueJob = await scheduleWhatsappCampaignQueue.add(
+        "scheduleWhatsappQueue",
+        {
+          campaignId,
+        },
+        {
+          attempts: 3,
+          backoff: 5000,
+          removeOnComplete: true,
+          jobId: customJobId,
+        },
+      );
+    }
+
+    campaign.jobId = queueJob.id;
+    await campaign.save();
 
     return res.status(200).json({
       success: true,
-      message: "Campaign deleted successfully",
-      data: campaign,
+      message: "Campaign resumed successfully",
     });
   } catch (err) {
-    console.error("Error in delete campaign:", err);
+    console.error("Error resuming campaign:", err);
 
     return res.status(500).json({
       success: false,

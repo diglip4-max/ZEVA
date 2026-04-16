@@ -125,7 +125,6 @@ export default async function handler(req, res) {
       const existingLeadIds = await Lead.find({
         clinicId: clinic._id,
       }).distinct("_id");
-      console.log({ existingLeadIds });
       if (!existingLeadIds || existingLeadIds.length === 0) {
         // No leads for this clinic -> return empty result
         return res.status(200).json({
@@ -150,8 +149,6 @@ export default async function handler(req, res) {
         );
         finalLeadIds = filtered;
       }
-
-      console.log({ finalLeadIds });
 
       if (!finalLeadIds || finalLeadIds.length === 0) {
         return res.status(200).json({
