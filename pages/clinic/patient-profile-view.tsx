@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
 import {
@@ -6,8 +6,8 @@ import {
   CreditCard, TrendingUp, Package, Phone,
   Mail, Clock, Shield, X, CheckCircle, XCircle,
   ExternalLink,
-  AlertTriangle, Info, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck,
-  ChevronDown, Search, Loader2, Check, Upload, Camera, Image as ImageIcon, Eye
+  AlertTriangle, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck,
+  ChevronDown, Search, Loader2, Check,  Camera, Image as ImageIcon, Eye
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -68,7 +68,8 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
   const [transferSubmitting, setTransferSubmitting] = useState(false);
   const [localMemberships, setLocalMemberships] = useState<any[]>([]);
   const [localPackages, setLocalPackages] = useState<any[]>([]);
-  const [publicPackages, setPublicPackages] = useState<any[]>([]);
+  // COMMENTED OUT: Public packages no longer used - only patient packages are fetched
+  // const [publicPackages, setPublicPackages] = useState<any[]>([]);
 
   // Fetch memberships and packages on mount
   useEffect(() => {
@@ -88,19 +89,19 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
           setLocalPackages(packagesRes.data.packages || []);
         }
 
-        // Fetch public packages
-        if (patientData?._id) {
-          const publicPackagesRes = await axios.get('/api/clinic/public-package', { 
-            headers,
-            params: {
-              patientId: patientData._id,
-              clinicId: patientData.clinicId,
-            }
-          });
-          if (publicPackagesRes.data.success) {
-            setPublicPackages(publicPackagesRes.data.existingPackages || []);
-          }
-        }
+        // Fetch public packages - COMMENTED OUT: Only fetch patient packages now
+        // if (patientData?._id) {
+        //   const publicPackagesRes = await axios.get('/api/clinic/public-package', { 
+        //     headers,
+        //     params: {
+        //       patientId: patientData._id,
+        //       clinicId: patientData.clinicId,
+        //     }
+        //   });
+        //   if (publicPackagesRes.data.success) {
+        //     setPublicPackages(publicPackagesRes.data.existingPackages || []);
+        //   }
+        // }
       } catch (error) {
         console.error('Error fetching transfer data:', error);
       }
@@ -144,8 +145,8 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
           const headers = getAuthHeaders() || {};
           const res = await axios.get(`/api/clinic/package-usage/${patientId}`, { headers });
           if (res.data.success) {
-            // Find the selected package from localPackages or publicPackages to get its name
-            const selectedPkg = localPackages.find((p: any) => p._id === selectedPackageId) || publicPackages.find((p: any) => p._id === selectedPackageId);
+            // Find the selected package from localPackages to get its name
+            const selectedPkg = localPackages.find((p: any) => p._id === selectedPackageId);
             if (selectedPkg) {
               // Match by packageName like the Packages section does
               const usage = res.data.packageUsage?.find((p: any) => p.packageName === selectedPkg.name);
@@ -160,7 +161,7 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
       };
       fetchPackageUsage();
     }
-  }, [transferType, selectedPackageId, patientId, localPackages, publicPackages]);
+  }, [transferType, selectedPackageId, patientId, localPackages]);
 
   // Search for target patients
   useEffect(() => {
@@ -405,16 +406,16 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                       </option>
                     ) : null;
                   })}
-                  {/* Public packages */}
-                  {publicPackages.map((pkg: any) => (
+                  {/* Public packages - COMMENTED OUT: Only show patient packages */}
+                  {/* publicPackages.map((pkg: any) => (
                     <option key={pkg._id} value={pkg._id}>
                       {pkg.packageName || pkg.name} - Public Package
                     </option>
-                  ))}
+                  )) */}
                 </select>
               </div>
               {selectedPackageId && (() => {
-                const pkg = localPackages.find((p: any) => p._id === selectedPackageId) || publicPackages.find((p: any) => p._id === selectedPackageId);
+                const pkg = localPackages.find((p: any) => p._id === selectedPackageId);
                 const totalSess = pkg ? pkg.totalSessions : 0;
                 const usedSess = packageUsage?.totalSessions || 0;
                 // Always calculate remaining from total and used to ensure consistency
@@ -602,11 +603,28 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   const [showAddPastAdvancePayment54PercentModal, setShowAddPastAdvancePayment54PercentModal] = useState(false);
   const [showAddPastAdvancePayment159FlatModal, setShowAddPastAdvancePayment159FlatModal] = useState(false);
   const [showPayPendingModal, setShowPayPendingModal] = useState(false);
-  const [treatmentFilter, setTreatmentFilter] = useState<'all' | 'ongoing' | 'completed'>('all');
+  const [treatmentFilter, setTreatmentFilter] = useState<'all' | 'ongoing' | 'completed' | 'pending'>('all');
+  
+  // Track invoice numbers that have been paid but billing history hasn't updated yet
+  // Persisted in sessionStorage to survive page refreshes
+  const [manuallyPaidInvoices, setManuallyPaidInvoices] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = sessionStorage.getItem(`manuallyPaidInvoices_${patientData._id}`);
+        if (stored) {
+          const parsed = new Set<string>(JSON.parse(stored));
+          console.log('📦 Loaded manuallyPaidInvoices from sessionStorage:', parsed.size, 'invoices');
+          return parsed;
+        }
+      } catch (e) {
+        console.error('Error loading manually paid invoices:', e);
+      }
+    }
+    return new Set<string>();
+  });
 
   // Create Package state
   const [showCreatePackage, setShowCreatePackage] = useState(false);
-  const [createdPackage, setCreatedPackage] = useState<any>(null);
   const [pkgModalName, setPkgModalName] = useState("");
   const [pkgModalPrice, setPkgModalPrice] = useState("");
   const [pkgModalValidityInMonths, setPkgModalValidityInMonths] = useState("");
@@ -635,6 +653,21 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       setPkgModalEndDate("");
     }
   }, [pkgModalStartDate, pkgModalValidityInMonths]);
+
+  // Persist manually paid invoices to sessionStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined' && patientData._id) {
+      try {
+        sessionStorage.setItem(
+          `manuallyPaidInvoices_${patientData._id}`, 
+          JSON.stringify(Array.from(manuallyPaidInvoices))
+        );
+        console.log('💾 Saved manuallyPaidInvoices to sessionStorage:', manuallyPaidInvoices.size, 'invoices');
+      } catch (e) {
+        console.error('Error saving manually paid invoices:', e);
+      }
+    }
+  }, [manuallyPaidInvoices, patientData._id]);
 
   // Fetch all clinic services
   const fetchAllServices = async () => {
@@ -696,7 +729,6 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       }, { headers });
       if (res.data?.success) {
         const newPkgId = res.data.package?._id || res.data.packageId || null;
-        const createdPkgData = res.data.package || null;
         if (addToPatient && newPkgId && patientData?._id) {
           setAddingPackageToPatient(true);
           try {
@@ -708,7 +740,6 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
               endDate: pkgModalEndDate,
             }, { headers });
             setPkgSuccess("Package created and added to patient profile!");
-            setCreatedPackage(createdPkgData);
 
             // Refresh patient data and available packages
             const [patientRes, pRes] = await Promise.all([
@@ -760,13 +791,11 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           } catch (err) {
             console.error('Error refreshing data after package creation:', err);
             setPkgSuccess("Package created. (Could not refresh patient profile)");
-            setCreatedPackage(createdPkgData);
           } finally {
             setAddingPackageToPatient(false);
           }
         } else {
           setPkgSuccess("Package created successfully!");
-          setCreatedPackage(createdPkgData);
           // Refresh available packages list
           const pRes = await axios.get('/api/clinic/packages', { headers });
           if (pRes.data.success) setAllAvailablePackages(pRes.data.packages || []);
@@ -1297,7 +1326,8 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   })();
 
   // Alerts — computed from real data
-  const alerts = (() => {
+  // Commented out because the UI using this is also commented out
+  /* const alerts = (() => {
     const list: { type: string; icon: any; message: string }[] = [];
 
     // Outstanding payment alert
@@ -1346,7 +1376,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     }
 
     return list;
-  })();
+  })(); */
 
   // Patient Behavior — using statsData (from Total Visits card) for accuracy
   const behaviorMetrics = (() => {
@@ -1920,12 +1950,42 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         });
       }
 
-      // Completed invoices from billing history
+      // Completed invoices from billing history - Use same logic as treatment section
       if (billingRes) {
         const billings: any[] = billingRes;
-        completedInvoices = billings.filter(
-          (b: any) => (b.status || '').toLowerCase() === 'paid' || (b.paid >= b.amount && b.amount > 0)
-        ).length;
+        
+        // Filter out advance payments first
+        const treatmentBillings = billings.filter((b: any) => {
+          const isAdvance = b.isAdvanceOnly || 
+                           b.treatment === "Advance Payment" || 
+                           b.treatment === "Historical Advance Balance";
+          return !isAdvance;
+        });
+        
+        // Apply the same completed/pending logic as treatment section
+        completedInvoices = treatmentBillings.filter((billing: any) => {
+          const amount = parseFloat(billing.amount) || 0;
+          const paid = parseFloat(billing.paid || billing.paidAmount || 0) || 0;
+          const pending = parseFloat(billing.pending || 0) || 0;
+          const pendingUsed = parseFloat(billing.pendingUsed || 0) || 0;
+          const billingDate = billing.createdAt ? new Date(billing.createdAt).getTime() : 0;
+          
+          // Check if this invoice's pending was cleared by a newer invoice
+          const hasNewerInvoiceWithPendingUsed = treatmentBillings.some((otherBilling: any) => {
+            const otherDate = otherBilling.createdAt ? new Date(otherBilling.createdAt).getTime() : 0;
+            const otherPendingUsed = parseFloat(otherBilling.pendingUsed || 0) || 0;
+            return otherDate > billingDate && otherPendingUsed > 0;
+          });
+          
+          const hasPendingAmount = pending > 0;
+          const pendingClearedSeparately = pendingUsed > 0;
+          
+          // Same logic as treatment section
+          const isFullyPaid = (!hasPendingAmount && (paid >= amount || pendingClearedSeparately)) ||
+                             (hasPendingAmount && hasNewerInvoiceWithPendingUsed);
+          
+          return isFullyPaid;
+        }).length;
       }
 
       // Insurance
@@ -2214,6 +2274,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
   // Fetch created packages from UserPackage model
   const fetchCreatedPackages = async () => {
+    // Don't run if patient data not available yet or missing required fields
     if (!patientData?._id) {
       console.warn("Patient ID not available, skipping fetchCreatedPackages");
       return;
@@ -2222,14 +2283,36 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     setLoadingCreatedPackages(true);
     try {
       const headers = getAuthHeaders();
-      if (!headers) return;
+      if (!headers) {
+        setLoadingCreatedPackages(false);
+        return;
+      }
+
+      // Build params - need at least one valid ID
+      const params: any = {};
+      
+      // Only add patientId if it's a valid string
+      if (patientData._id && typeof patientData._id === 'string' && patientData._id.length > 0) {
+        params.patientId = patientData._id;
+      }
+      
+      // Only add clinicId if it's a valid string
+      if (patientData.clinicId && typeof patientData.clinicId === 'string' && patientData.clinicId.length > 0) {
+        params.clinicId = patientData.clinicId;
+      }
+
+      // Ensure we have at least one valid parameter
+      if (Object.keys(params).length === 0) {
+        console.warn("No valid IDs available for fetchCreatedPackages");
+        setLoadingCreatedPackages(false);
+        return;
+      }
+
+      console.log('Fetching packages with params:', params);
 
       const response = await axios.get('/api/clinic/public-package', {
         headers,
-        params: { 
-          patientId: patientData._id,
-          clinicId: patientData.clinicId || undefined,
-        },
+        params,
       });
 
       if (response.data.success) {
@@ -2237,7 +2320,8 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       }
     } catch (error: any) {
       console.error("Error fetching created packages:", error);
-      setCreatedPackages([]);
+      // Don't set createdPackages to empty array - keep existing data
+      // setCreatedPackages([]);
     } finally {
       setLoadingCreatedPackages(false);
     }
@@ -2317,7 +2401,8 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     }
   };
 
-  const handleUploadBalance = async () => {
+  // Commented out - not currently used in the UI
+  /* const handleUploadBalance = async () => {
     if (!patientData?._id) return;
     
     setUploadLoading(true);
@@ -2339,7 +2424,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     } finally {
       setUploadLoading(false);
     }
-  };
+  }; */
 
   const handleImageUpload = async (file: File) => {
     if (!patientData?._id) return;
@@ -2529,7 +2614,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-lg hover:from-teal-600 hover:to-cyan-700 transition-all shadow-md font-medium text-xs whitespace-nowrap"
               >
                 {/* <DollarSign className="w-3.5 h-3.5" /> */}
-                {getCurrencySymbol(patientData.currency)} Add Payment
+                {getCurrencySymbol(currency)} Add Payment 
               </button>
             </div>
           </div>
@@ -3857,7 +3942,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                                     <th className="text-left py-2 px-2.5 font-semibold text-gray-700 rounded-tl-lg">Invoice</th>
                                                     <th className="text-left py-2 px-2.5 font-semibold text-gray-700">Date</th>
                                                     <th className="text-center py-2 px-2.5 font-semibold text-gray-700">Sessions</th>
-                                                    <th className="text-right py-2 px-2.5 font-semibold text-gray-700">Amount</th>
+                                                    <th className="text-left py-2 px-2.5 font-semibold text-gray-700">Method</th>
+                                                    <th className="text-center py-2 px-2.5 font-semibold text-gray-700">Discount</th>
+                                                    <th className="text-right py-2 px-2.5 font-semibold text-gray-700">Original Amount</th>
+                                                    <th className="text-right py-2 px-2.5 font-semibold text-gray-700">Total</th>
                                                     <th className="text-right py-2 px-2.5 font-semibold text-gray-700 rounded-tr-lg">Paid</th>
                                                   </tr>
                                                 </thead>
@@ -3874,6 +3962,61 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                                         <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-teal-100 text-teal-700 font-bold text-[10px] shadow-sm">
                                                           {detail.sessions} Session{detail.sessions !== 1 ? 's' : ''}
                                                         </span>
+                                                      </td>
+                                                      <td className="py-2.5 px-2.5 text-left">
+                                                        <span className="text-[10px] text-gray-700 font-medium">
+                                                          {detail.multiplePayments && detail.multiplePayments.length > 0 
+                                                            ? detail.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ")
+                                                            : (detail.paymentMethod || "–")}
+                                                        </span>
+                                                      </td>
+                                                      <td className="py-2.5 px-2.5 text-center">
+                                                        {(() => {
+                                                          const isDoctorDiscount = detail.isDoctorDiscountApplied;
+                                                          const isAgentDiscount = detail.isAgentDiscountApplied;
+                                                          const membershipDiscountAmount = detail.membershipDiscountApplied || 0;
+                                                          const isMembershipDiscount = membershipDiscountAmount > 0;
+                                                          
+                                                          const originalAmount = detail.originalAmount || 0;
+                                                          const finalAmount = detail.amount || 0;
+                                                          const totalDiscountAmount = originalAmount > finalAmount ? (originalAmount - finalAmount) : 0;
+                                                          const totalPercent = totalDiscountAmount > 0 && originalAmount > 0 ? (totalDiscountAmount / originalAmount * 100) : 0;
+                                                          const membershipPercent = isMembershipDiscount && originalAmount > 0 ? (membershipDiscountAmount / originalAmount * 100) : 0;
+
+                                                          if (!isDoctorDiscount && !isAgentDiscount && !isMembershipDiscount && totalPercent <= 0) {
+                                                            return <div className="text-xs text-gray-400">—</div>;
+                                                          }
+
+                                                          return (
+                                                            <div className="flex flex-col items-center gap-1">
+                                                              {totalPercent > 0 && (
+                                                                <div className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-200 shadow-sm">
+                                                                  {Number(totalPercent).toFixed(1)}% OFF
+                                                                </div>
+                                                              )}
+                                                              <div className="flex flex-wrap justify-center gap-1 mt-0.5">
+                                                                {isMembershipDiscount && (
+                                                                  <div className="text-[7px] uppercase tracking-wider text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded font-bold border border-emerald-100">
+                                                                    Memb {membershipPercent > 0 ? `(${membershipPercent.toFixed(0)}%)` : 'Disc.'}
+                                                                  </div>
+                                                                )}
+                                                                {isDoctorDiscount && (
+                                                                  <div className="text-[7px] uppercase tracking-wider text-orange-600 bg-orange-50 px-1 py-0.5 rounded font-bold border border-orange-100">
+                                                                    Dr Disc.
+                                                                  </div>
+                                                                )}
+                                                                {isAgentDiscount && (
+                                                                  <div className="text-[7px] uppercase tracking-wider text-blue-600 bg-blue-50 px-1 py-0.5 rounded font-bold border border-blue-100">
+                                                                    Ag Disc.
+                                                                  </div>
+                                                                )}
+                                                              </div>
+                                                            </div>
+                                                          );
+                                                        })()}
+                                                      </td>
+                                                      <td className="py-2.5 px-2.5 text-right">
+                                                        <span className="font-medium text-gray-600">{getCurrencySymbol(currency)}{(detail.originalAmount || detail.amount || 0).toLocaleString()}</span>
                                                       </td>
                                                       <td className="py-2.5 px-2.5 text-right">
                                                         {detail.amount !== undefined && detail.amount !== null ? (
@@ -4662,7 +4805,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
                                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Treatment</th>
                                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Payment Method</th>
-                                <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
+                                <th className="px-5 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Discount</th>
+                                <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Original Amount</th>
+                                <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Total</th>
                               </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-100">
@@ -4670,7 +4815,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                 .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
                                 .map((billing: any, index: number) => {
                                 // Determine payment method
-                                const paymentMethod = billing.paymentMethod || (billing.multiplePayments?.length > 0 ? billing.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ") : "–");
+                                const paymentMethods = billing.multiplePayments && billing.multiplePayments.length > 0 
+                                  ? billing.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ")
+                                  : (billing.paymentMethod || "–");
                                 
                                 return (
                                   <tr key={billing._id || index} className="hover:bg-gray-50 transition-colors">
@@ -4703,7 +4850,57 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                      </div>
                                     </td>
                                     <td className="px-5 py-4 whitespace-nowrap">
-                                      <div className="text-sm text-gray-700">{paymentMethod}</div>
+                                      <div className="text-sm text-gray-700">{paymentMethods}</div>
+                                    </td>
+                                    <td className="px-5 py-4 whitespace-nowrap text-center">
+                                      {(() => {
+                                        const isDoctorDiscount = billing.isDoctorDiscountApplied;
+                                        const isAgentDiscount = billing.isAgentDiscountApplied;
+                                        const membershipDiscountAmount = billing.membershipDiscountApplied || 0;
+                                        const isMembershipDiscount = membershipDiscountAmount > 0;
+                                        
+                                        const originalAmount = billing.originalAmount || 0;
+                                        const finalAmount = billing.amount || 0;
+                                        const totalDiscountAmount = originalAmount > finalAmount ? (originalAmount - finalAmount) : 0;
+                                        const totalPercent = totalDiscountAmount > 0 && originalAmount > 0 ? (totalDiscountAmount / originalAmount * 100) : 0;
+                                        const membershipPercent = isMembershipDiscount && originalAmount > 0 ? (membershipDiscountAmount / originalAmount * 100) : 0;
+
+                                        if (!isDoctorDiscount && !isAgentDiscount && !isMembershipDiscount && totalPercent <= 0) {
+                                          return <div className="text-xs text-gray-400">—</div>;
+                                        }
+
+                                        return (
+                                          <div className="flex flex-col items-center gap-1">
+                                            {totalPercent > 0 && (
+                                              <div className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 shadow-sm">
+                                                {Number(totalPercent).toFixed(1)}% OFF
+                                              </div>
+                                            )}
+                                            <div className="flex flex-wrap justify-center gap-1 mt-0.5">
+                                              {isMembershipDiscount && (
+                                                <div className="text-[8px] uppercase tracking-wider text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-bold border border-emerald-100">
+                                                  Memb {membershipPercent > 0 ? `(${membershipPercent.toFixed(0)}%)` : 'Disc.'}
+                                                </div>
+                                              )}
+                                              {isDoctorDiscount && (
+                                                <div className="text-[8px] uppercase tracking-wider text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded font-bold border border-orange-100">
+                                                  Doctor Disc.
+                                                </div>
+                                              )}
+                                              {isAgentDiscount && (
+                                                <div className="text-[8px] uppercase tracking-wider text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold border border-blue-100">
+                                                  Agent Disc.
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        );
+                                      })()}
+                                    </td>
+                                    <td className="px-5 py-4 whitespace-nowrap text-right">
+                                      <div className="text-sm font-medium text-gray-600">
+                                        {formatAED(billing.originalAmount || billing.amount || 0)}
+                                      </div>
                                     </td>
                                     <td className="px-5 py-4 whitespace-nowrap text-right">
                                        <div className="text-sm font-bold text-gray-900">Paid: {formatAED(billing.paid || 0)}</div>
@@ -4711,13 +4908,6 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                       <div className="text-[10px] text-gray-900">Total: {formatAED(billing.amount || 0)}</div>
                                        
                                       <div className="flex flex-col items-end mt-1 space-y-0.5">
-                                        {/* <div className="text-[10px] text-gray-500">Total: {formatAED(billing.originalAmount || billing.amount || 0)}</div> */}
-                                       
-                                        {(billing.discountPercent > 0 || billing.discountPercentage > 0) && (
-                                          <div className="text-[10px] text-teal-600 font-medium">
-                                            Disc: {(billing.discountPercent || billing.discountPercentage || 0).toFixed(1)}%
-                                          </div>
-                                        )}
                                         <div className="text-[10px] text-gray-400">Qty: {billing.quantity || 0}</div>
                                       </div>
                                     </td>
@@ -4732,44 +4922,56 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                             {(billingHistory || [])
                               .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
                               .map((billing: any, index: number) => {
-                                const paymentMethod = billing.paymentMethod || (billing.multiplePayments?.length > 0 ? billing.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ") : "–");
+                                const paymentMethods = billing.multiplePayments && billing.multiplePayments.length > 0 
+                                  ? billing.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ")
+                                  : (billing.paymentMethod || "–");
                                 return (
                                   <div key={billing._id || index} className="p-4 hover:bg-gray-50">
-                                    <div className="flex justify-between items-start mb-2">
-                                      <div>
-                                        <div className="text-sm font-bold text-gray-900">{billing.invoiceNumber || `INV-${String(index + 1).padStart(4, '0')}`}</div>
-                                        <div className="text-xs text-gray-500">{billing.service || 'Treatment'}</div>
-                                      </div>
-                                      <div className="text-right">
-                                        <div className="text-sm font-bold text-gray-900">{formatAED(billing.amount || 0)}</div>
-                                        <div className="text-[10px] text-gray-500">{billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString() : 'N/A'}</div>
-                                      </div>
-                                    </div>
-                                    <div className="text-sm text-gray-700 mb-2">
-                                      {billing.package ? (
-                                        <div className="flex items-center gap-1 font-semibold text-indigo-700">
-                                          <Package className="w-3 h-3" />
-                                          {billing.package}
-                                        </div>
-                                      ) : (
-                                        billing.treatment || '-'
-                                      )}
-                                    </div>
-                                    <div className="text-xs text-gray-600 mb-2">
-                                      <span className="font-medium">Payment: </span>{paymentMethod}
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-gray-50">
-                                      <div className="text-[10px] text-gray-500">
-                                        <span className="block">Original: {formatAED(billing.originalAmount || billing.amount || 0)}</span>
-                                        <span className="block">Paid: {formatAED(billing.paid || 0)}</span>
-                                      </div>
-                                      <div className="text-[10px] text-right">
-                                        {(billing.discountPercent > 0 || billing.discountPercentage > 0) && (
-                                          <span className="block text-teal-600 font-medium">Disc: {(billing.discountPercent || billing.discountPercentage || 0).toFixed(1)}%</span>
-                                        )}
-                                        <span className="block text-gray-400">Qty: {billing.quantity || 0}</span>
-                                      </div>
-                                    </div>
+                                    {(() => {
+                                      const originalAmt = billing.originalAmount || billing.amount || 0;
+                                      const totalDisc = originalAmt > billing.amount ? (originalAmt - billing.amount) : 0;
+                                      const totalPct = originalAmt > 0 ? (totalDisc / originalAmt * 100) : 0;
+                                      
+                                      return (
+                                        <>
+                                          <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                              <div className="text-sm font-bold text-gray-900">{billing.invoiceNumber || `INV-${String(index + 1).padStart(4, '0')}`}</div>
+                                              <div className="text-xs text-gray-500">{billing.service || 'Treatment'}</div>
+                                            </div>
+                                            <div className="text-right">
+                                              <div className="text-sm font-bold text-gray-900">{formatAED(billing.amount || 0)}</div>
+                                              <div className="text-[10px] text-gray-500">{billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString() : 'N/A'}</div>
+                                            </div>
+                                          </div>
+                                          <div className="text-sm text-gray-700 mb-2">
+                                            {billing.package ? (
+                                              <div className="flex items-center gap-1 font-semibold text-indigo-700">
+                                                <Package className="w-3 h-3" />
+                                                {billing.package}
+                                              </div>
+                                            ) : (
+                                              billing.treatment || '-'
+                                            )}
+                                          </div>
+                                          <div className="text-xs text-gray-600 mb-2">
+                                            <span className="font-medium">Payment: </span>{paymentMethods}
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-gray-50">
+                                            <div className="text-[10px] text-gray-500">
+                                              <span className="block">Original: {formatAED(originalAmt)}</span>
+                                              <span className="block font-medium text-emerald-600">Paid: {formatAED(billing.paid || 0)}</span>
+                                            </div>
+                                            <div className="text-[10px] text-right">
+                                              {totalPct > 0 && (
+                                                <span className="block text-amber-600 font-bold">{totalPct.toFixed(1)}% OFF</span>
+                                              )}
+                                              <span className="block text-gray-400">Qty: {billing.quantity || 0}</span>
+                                            </div>
+                                          </div>
+                                        </>
+                                      );
+                                    })()}
                                   </div>
                                 );
                               })}
@@ -5141,12 +5343,20 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                 
                 // Build treatment items from appointments (for Ongoing and All sections)
                 const appointmentTreatments = (allAppointmentsData || [])
+                  .filter((apt: any) => {
+                    // Filter out appointments without valid treatment names
+                    const treatmentName = apt.treatmentName || apt.serviceName || '';
+                    const hasValidTreatmentName = treatmentName && 
+                                                  treatmentName.trim() !== '' && 
+                                                  treatmentName.toLowerCase() !== 'appointment';
+                    return hasValidTreatmentName;
+                  })
                   .map((apt: any) => {
                     const status = (apt.status || apt.appointmentStatus || '').toLowerCase();
                     const isCompleted = status === 'completed' || status === 'discharge';
                     
                     // Get treatment name
-                    const treatmentName = apt.treatmentName || apt.serviceName || 'Appointment';
+                    const treatmentName = apt.treatmentName || apt.serviceName || '';
                     
                     // Get doctor name
                     const doctorName = apt.doctorName || '';
@@ -5161,6 +5371,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     // Get time
                     const time = apt.fromTime || '';
                     
+                    // Get invoice number if available
+                    const invoiceNumber = apt.invoiceNumber || apt.invoiceNo || apt._id?.slice(-8).toUpperCase() || '';
+                    
                     return {
                       source: 'appointment',
                       data: apt,
@@ -5170,11 +5383,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                       treatmentStatus: isCompleted ? 'completed' : 'ongoing',
                       amount: apt.amount || apt.totalAmount || 0,
                       paid: apt.paidAmount || 0,
-                      isFullyPaid: isCompleted
+                      isFullyPaid: isCompleted,
+                      invoiceNumber
                     };
                   });
 
-                // Build treatment items from billing history (for Completed section)
+                // Build treatment items from billing history (for Completed and Pending sections)
                 const billingTreatments = (billingHistory || [])
                   .filter((b: any) => {
                     // Filter out advance payments and balance adjustments
@@ -5182,20 +5396,74 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                      b.treatment === "Advance Payment" || 
                                      b.treatment === "Historical Advance Balance";
                     
-                    // Include if it has a treatment name OR a package name
-                    const hasTreatment = b.treatment && b.treatment.trim() !== '';
-                    const hasPackage = b.package && b.package.trim() !== '';
-                    
-                    return !isAdvance && (hasTreatment || hasPackage);
+                    // Include all billing records except advance payments
+                    // Show even if treatment/package name is empty (will display as '-')
+                    return !isAdvance;
                   })
                   .map((billing: any) => {
                     const amount = parseFloat(billing.amount) || 0;
+                    const originalAmount = parseFloat(billing.originalAmount) || amount;
                     const paid = parseFloat(billing.paid || billing.paidAmount || 0) || 0;
-                    const isFullyPaid = amount > 0 && paid >= amount;
-                    const treatmentStatus = isFullyPaid ? 'completed' : 'ongoing';
+                    const pending = parseFloat(billing.pending || 0) || 0;
+                    const pendingUsed = parseFloat(billing.pendingUsed || 0) || 0;
+                    
+                    // Get invoice number early (needed for manuallyPaidInvoices check)
+                    const invoiceNumber = billing.invoiceNumber || billing.invoiceNo || billing._id?.slice(-8).toUpperCase() || '';
+                    const billingDate = billing.createdAt ? new Date(billing.createdAt).getTime() : 0;
+                    
+                    // Calculate pending amount based on original amount
+                    const pendingAmount = originalAmount - paid;
+                    
+                    // Check if this invoice's pending was cleared by a newer invoice
+                    // Look for any newer invoice that has pendingUsed > 0
+                    const hasNewerInvoiceWithPendingUsed = (billingHistory || []).some((otherBilling: any) => {
+                      const otherDate = otherBilling.createdAt ? new Date(otherBilling.createdAt).getTime() : 0;
+                      const otherPendingUsed = parseFloat(otherBilling.pendingUsed || 0) || 0;
+                      // Check if this is a newer invoice (created after current billing) with pendingUsed > 0
+                      return otherDate > billingDate && otherPendingUsed > 0;
+                    });
+                    
+                    // Check if pending was cleared separately (pendingUsed > 0 means THIS invoice cleared previous pending)
+                    const pendingClearedSeparately = pendingUsed > 0;
+                    
+                    // Check if fully paid:
+                    // PRIMARY CHECK: Use the pending field from backend
+                    // - If pending > 0 AND no newer invoice cleared it → NOT fully paid (show in pending section)
+                    // - If pending > 0 BUT newer invoice cleared it (hasNewerInvoiceWithPendingUsed) → completed
+                    // - If pending = 0 AND (paid >= amount OR pendingClearedSeparately) → fully paid
+                    // - Special case: manuallyPaidInvoices for invoices paid but billing not updated yet
+                    const hasPendingAmount = pending > 0;
+                    const isFullyPaid = (!hasPendingAmount && (paid >= amount || pendingClearedSeparately)) ||
+                                       (hasPendingAmount && hasNewerInvoiceWithPendingUsed) || // Pending was cleared by newer invoice
+                                       manuallyPaidInvoices.has(invoiceNumber);
+                    
+                    // Debug logging for invoice status calculation
+                    console.log('📊 Invoice Status Calculation:', {
+                      invoiceNumber,
+                      treatment: billing.treatment || billing.package || 'N/A',
+                      originalAmount,
+                      amount,
+                      paid,
+                      pending,
+                      pendingUsed,
+                      billingDate: new Date(billingDate).toLocaleString(),
+                      hasNewerInvoiceWithPendingUsed,
+                      hasPendingAmount,
+                      pendingClearedSeparately,
+                      isFullyPaid,
+                      reason: manuallyPaidInvoices.has(invoiceNumber) ? 'manuallyPaidInvoices' :
+                              (hasPendingAmount && hasNewerInvoiceWithPendingUsed) ? 'PENDING_CLEARED_BY_NEWER_INVOICE' :
+                              hasPendingAmount ? 'HAS_PENDING_FROM_BACKEND' :
+                              pendingClearedSeparately ? 'pendingClearedSeparately' :
+                              paid >= amount ? 'paid_equals_or_exceeds_amount' : 'NOT_FULLY_PAID'
+                    });
+                    
+                    // Status based on actual payment status
+                    const treatmentStatus = isFullyPaid ? 'completed' : 'pending';
                     
                     // Get treatment/package name from billing record
-                    const treatmentName = (billing.treatment && billing.treatment.trim() !== '' ? billing.treatment : billing.package) || '-';
+                    const treatmentName = (billing.treatment && billing.treatment.trim() !== '' ? billing.treatment : 
+                                          (billing.package && billing.package.trim() !== '' ? billing.package : '-'));
                     
                     // Get doctor name if available
                     const doctorName = billing.doctorName || 
@@ -5216,7 +5484,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                       treatmentStatus,
                       amount,
                       paid,
-                      isFullyPaid
+                      pendingAmount,
+                      isFullyPaid,
+                      invoiceNumber
                     };
                   });
 
@@ -5230,27 +5500,50 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                 if (treatmentFilter === 'completed') {
                   // Completed section: Use billing history (fully paid treatments with ZERO pending amount)
                   filtered = billingTreatments.filter((t: any) => {
-                    const pendingAmount = t.amount - t.paid;
-                    // Only show treatments where:
-                    // 1. Status is completed
-                    // 2. Paid amount is greater than or equal to total amount
-                    // 3. Pending amount is exactly 0 (no remaining balance)
-                    return t.treatmentStatus === 'completed' && 
-                           t.paid >= t.amount && 
-                           pendingAmount <= 0;
+                    // Only show treatments where status is completed (fully paid)
+                    return t.treatmentStatus === 'completed';
+                  });
+                } else if (treatmentFilter === 'pending') {
+                  // Pending section: Show billing treatments with pending status badge
+                  filtered = billingTreatments.filter((t: any) => {
+                    return t.treatmentStatus === 'pending';
                   });
                 } else if (treatmentFilter === 'ongoing') {
-                  // Ongoing section: Use appointments (non-completed status)
-                  filtered = appointmentTreatments.filter((t: any) => t.treatmentStatus === 'ongoing');
+                  // Ongoing section: Use appointments (non-completed status) - FILTER OUT empty treatment names
+                  filtered = appointmentTreatments.filter((t: any) => {
+                    // Filter out appointments without treatment names (like generic "Appointment" entries)
+                    const hasValidTreatmentName = t.treatmentName && 
+                                                  t.treatmentName.trim() !== '' && 
+                                                  t.treatmentName.toLowerCase() !== 'appointment';
+                    return t.treatmentStatus === 'ongoing' && hasValidTreatmentName;
+                  });
                 } else {
-                  // All section: Combine BOTH appointments (ongoing + completed) AND billing (completed)
-                  // Merge both data sources to show everything
-                  filtered = [...appointmentTreatments, ...billingTreatments];
+                  // All section: Combine ONLY filtered data from Ongoing, Pending, and Completed sections
+                  // Get completed treatments (billing with completed status)
+                  const completedTreatments = billingTreatments.filter((t: any) => {
+                    return t.treatmentStatus === 'completed';
+                  });
                   
-                  // Remove duplicates by checking if treatment names match
+                  // Get pending treatments (billing with pending status)
+                  const pendingTreatments = billingTreatments.filter((t: any) => {
+                    return t.treatmentStatus === 'pending';
+                  });
+                  
+                  // Get ongoing treatments (appointments with valid treatment names)
+                  const ongoingTreatments = appointmentTreatments.filter((t: any) => {
+                    const hasValidTreatmentName = t.treatmentName && 
+                                                  t.treatmentName.trim() !== '' && 
+                                                  t.treatmentName.toLowerCase() !== 'appointment';
+                    return t.treatmentStatus === 'ongoing' && hasValidTreatmentName;
+                  });
+                  
+                  // Combine ONLY valid records from all three sections
+                  filtered = [...completedTreatments, ...pendingTreatments, ...ongoingTreatments];
+                  
+                  // Remove duplicates by checking if treatment names and IDs match
                   const seen = new Set();
                   filtered = filtered.filter((item: any) => {
-                    const key = `${item.treatmentName}-${item.date}-${item.source}`;
+                    const key = `${item.data._id || item.treatmentName}-${item.date}-${item.source}`;
                     if (seen.has(key)) return false;
                     seen.add(key);
                     return true;
@@ -5265,7 +5558,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   <div className="space-y-4">
                     {/* Filter Chips */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      {(['all', 'ongoing', 'completed'] as const).map((f) => (
+                      {(['all', 'ongoing', 'pending', 'completed'] as const).map((f) => (
                         <button
                           key={f}
                           onClick={() => setTreatmentFilter(f)}
@@ -5292,8 +5585,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         </div>
                         <p className="text-sm font-medium text-gray-500">No treatments found</p>
                         <p className="text-xs text-gray-400 mt-1">
-                          {treatmentFilter === 'all' ? 'No treatments or billing records yet' : 
-                           treatmentFilter === 'completed' ? 'No completed billing records' : 
+                          {treatmentFilter === 'all' ? 'No treatments or billing records yet' :
+                           treatmentFilter === 'completed' ? 'No completed billing records' :
+                           treatmentFilter === 'pending' ? 'No pending treatments' :
                            'No ongoing treatments'}
                         </p>
                       </div>
@@ -5301,8 +5595,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {filtered.map((item: any, index: number) => {
                           const isCompleted = item.treatmentStatus === 'completed';
-                          const pendingAmount = item.amount - item.paid;
+                          const isPending = item.treatmentStatus === 'pending';
+                          const pendingAmount = item.pendingAmount || (item.amount - item.paid);
                           const isFromBilling = item.source === 'billing';
+                          const hasPendingAmount = pendingAmount > 0;
                           
                           return (
                             <div
@@ -5316,48 +5612,56 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   {item.doctorName && (
                                     <p className="text-sm text-gray-500 mt-0.5">{item.doctorName}</p>
                                   )}
+                                  {/* Invoice Number - Show for all items with invoice number */}
+                                  {item.invoiceNumber && (
+                                    <p className="text-xs text-gray-400 mt-1">Invoice Number : {item.invoiceNumber}</p>
+                                  )}
                                 </div>
                                 <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                                  isCompleted
+                                  isPending
+                                    ? 'bg-red-50 text-red-700 border border-red-200'
+                                    : isCompleted
                                     ? 'bg-green-50 text-green-700 border border-green-200'
                                     : 'bg-amber-50 text-amber-700 border border-amber-200'
                                 }`}>
-                                  {isCompleted ? (
+                                  {isPending ? (
+                                    <AlertCircle className="w-3.5 h-3.5" />
+                                  ) : isCompleted ? (
                                     <CheckCircle className="w-3.5 h-3.5" />
                                   ) : (
                                     <Clock className="w-3.5 h-3.5" />
                                   )}
-                                  {isCompleted ? 'Completed' : 'Ongoing'}
+                                  {isPending ? 'Pending' : isCompleted ? 'Completed' : 'Ongoing'}
                                 </span>
                               </div>
 
-                              {/* Payment Info - Only show for billing source */}
-                              {isFromBilling && (
+                              {/* Payment Info - Only show for Ongoing filter if amount > 0 */}
+                              {treatmentFilter === 'ongoing' && item.amount > 0 && (
                                 <div className="space-y-2 mb-3">
-                                  {/* <div className="flex items-center justify-between text-sm">
+                                  <div className="flex items-center justify-between text-sm">
                                     <span className="text-gray-500">Total Amount:</span>
-                                    <span className="font-semibold text-gray-900">{formatAED(item.amount)}</span>
+                                    <span className="font-semibold text-gray-900">{getCurrencySymbol(currency)} {item.amount.toFixed(2)}</span>
                                   </div>
                                   <div className="flex items-center justify-between text-sm">
                                     <span className="text-gray-500">Paid:</span>
-                                    <span className="font-semibold text-green-600">{formatAED(item.paid)}</span>
+                                    <span className="font-semibold text-green-600">{getCurrencySymbol(currency)} {item.paid.toFixed(2)}</span>
                                   </div>
-                                  {!isCompleted && pendingAmount > 0 && (
+                                  {hasPendingAmount && (
                                     <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-100">
                                       <span className="text-gray-500">Pending:</span>
-                                      <span className="font-semibold text-red-600">{formatAED(pendingAmount)}</span>
-                                    </div> */}
-                                
-                                
-                                 
+                                      <span className="font-bold text-red-600">{getCurrencySymbol(currency)} {pendingAmount.toFixed(2)}</span>
+                                    </div>
+                                  )}
                                 </div>
                               )}
 
-                              {/* Date */}
-                              <div className="flex items-center gap-1.5 text-xs text-gray-500 pt-2 border-t border-gray-100">
-                                {/* <Calendar className="w-3.5 h-3.5 flex-shrink-0" /> */}
-                                {/* <span>{isFromBilling ? 'Billed' : ''}: {item.date}</span> */}
-                              </div>
+                              {/* Date - Only show for Ongoing filter if amount > 0 */}
+                              {treatmentFilter === 'ongoing' && item.amount > 0 && (
+                                <div className="flex items-center gap-1.5 text-xs text-gray-500 pt-2 border-t border-gray-100">
+                                  <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+                                  <span>{isFromBilling ? 'Billed' : 'Date'}: {item.date}</span>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -6149,12 +6453,47 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           patientId={patientData._id}
           patientName={`${patientData.firstName} ${patientData.lastName}`}
           pendingBalance={balance.pendingBalance}
-          onSuccess={async () => {
+          onSuccess={async (_paymentData: any) => {
+            // Store the previous pending balance before update
+            const prevBalance = balance.pendingBalance;
+            
             const updated = await fetchPatientBalance(patientData._id);
             if (updated) {
+              const newPendingBalance = Number(updated.pendingBalance || 0);
               setBalance(updated as typeof balance);
-              // Also refresh billing history to show the payment
-              fetchBillingHistory();
+              
+              // If pending balance decreased, it means payment was successful
+              if (newPendingBalance < prevBalance) {
+                // CRITICAL: Refresh billing history FIRST to get the latest data
+                const refreshedBillings = await fetchBillingHistory();
+                
+                // Use the refreshed billing history (or fallback to current state)
+                const billingsToCheck = refreshedBillings || billingHistory || [];
+                
+                // Get all invoice numbers from billing history that have pending amount
+                const pendingInvoices = billingsToCheck
+                  .filter((b: any) => {
+                    const amount = parseFloat(b.amount) || 0;
+                    const paid = parseFloat(b.paid || b.paidAmount || 0) || 0;
+                    const isAdvance = b.isAdvanceOnly || 
+                                     b.treatment === "Advance Payment" || 
+                                     b.treatment === "Historical Advance Balance";
+                    return !isAdvance && (amount - paid) > 0;
+                  })
+                  .map((b: any) => b.invoiceNumber || b.invoiceNo || b._id?.slice(-8).toUpperCase() || '');
+                
+                // Add these invoices to manually paid set
+                if (pendingInvoices.length > 0) {
+                  setManuallyPaidInvoices(prev => {
+                    const updated = new Set(prev);
+                    pendingInvoices.forEach((inv: string) => updated.add(inv));
+                    return updated;
+                  });
+                }
+              } else {
+                // Even if balance didn't change, still refresh billing history
+                await fetchBillingHistory();
+              }
             }
           }}
         />

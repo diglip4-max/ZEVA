@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import {
   X,
-  Wallet,
+  
   Save,
   Loader2,
   DollarSign,
   CreditCard,
-  MessageSquare,
+ 
   Landmark,
   Zap,
 } from "lucide-react";

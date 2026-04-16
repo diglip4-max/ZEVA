@@ -1,6 +1,6 @@
 "use client";
 import React from 'react';
-import { Shield, FileText, AlertTriangle, BookOpen, CheckCircle, Users, Lock, Trash2, Heart, ClipboardCheck, FolderOpen, PlayCircle, UserCheck, Filter, Plus, Tag } from 'lucide-react';
+import { Shield, AlertTriangle, BookOpen, CheckCircle, Users, Lock, Trash2, Heart, ClipboardCheck, FolderOpen, PlayCircle, UserCheck, Tag, FileText, Plus } from 'lucide-react';
 
 const PolicyComplianceGuide: React.FC = () => {
   return (

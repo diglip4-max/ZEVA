@@ -220,6 +220,9 @@ export default async function handler(req, res) {
           items: c.items || [],
           beforeImage: c.beforeImage,
           afterImage: c.afterImage,
+          isDoctorDiscountApplied: c.isDoctorDiscountApplied,
+          doctorDiscountType: c.doctorDiscountType,
+          doctorDiscountAmount: c.doctorDiscountAmount,
           createdAt: c.createdAt,
           updatedAt: c.updatedAt,
         })),
@@ -233,8 +236,16 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "PATCH") {
-    const { complaintId, complaints, items, beforeImage, afterImage } =
-      req.body || {};
+    const {
+      complaintId,
+      complaints,
+      items,
+      beforeImage,
+      afterImage,
+      isDoctorDiscountApplied,
+      doctorDiscountType,
+      doctorDiscountAmount,
+    } = req.body || {};
     if (!complaintId) {
       return res
         .status(400)
@@ -269,6 +280,15 @@ export default async function handler(req, res) {
       if (typeof afterImage === "string") {
         existing.afterImage = afterImage;
       }
+      if (typeof isDoctorDiscountApplied !== "undefined") {
+        existing.isDoctorDiscountApplied = isDoctorDiscountApplied;
+      }
+      if (typeof doctorDiscountType !== "undefined") {
+        existing.doctorDiscountType = doctorDiscountType;
+      }
+      if (typeof doctorDiscountAmount !== "undefined") {
+        existing.doctorDiscountAmount = doctorDiscountAmount;
+      }
       await existing.save();
 
       return res.status(200).json({
@@ -285,6 +305,9 @@ export default async function handler(req, res) {
           items: existing.items || [],
           beforeImage: existing.beforeImage,
           afterImage: existing.afterImage,
+          isDoctorDiscountApplied: existing.isDoctorDiscountApplied,
+          doctorDiscountType: existing.doctorDiscountType,
+          doctorDiscountAmount: existing.doctorDiscountAmount,
           createdAt: existing.createdAt,
           updatedAt: existing.updatedAt,
         },

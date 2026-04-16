@@ -1,6 +1,6 @@
 "use client";
 import React from 'react';
-import { Layout, MousePointer2, CalendarCheck, Edit, Info, Settings, Search, PlusCircle } from 'lucide-react';
+import { Layout, Edit, Info, Settings, PlusCircle } from 'lucide-react';
 
 const BookAppointmentWorkflowGuide: React.FC = () => {
   return (

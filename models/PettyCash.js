@@ -12,14 +12,25 @@ const AllocSchema = new mongoose.Schema({
 const ExpenseSchema = new mongoose.Schema({
   description: { type: String, required: true },
   spentAmount: { type: Number, required: true },
-  vendor: { type: String, default: null }, // vendor ID reference
-  vendorName: { type: String, default: null }, // vendor name for display
+  vendor: { type: mongoose.Schema.Types.ObjectId, ref: "Supplier", default: null },
+  vendorName: { type: String, default: null },
+  items: [{
+    itemName: { type: String },
+    amount: { type: Number }
+  }],
   receipts: [{ type: String }], // array of Cloudinary URLs
+  usedFromPettyCash: { type: Boolean, default: true },
   date: { type: Date, default: Date.now },
 });
 
 const PettyCashSchema = new mongoose.Schema(
   {
+    clinicId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Clinic",
+      required: false, // For backward compatibility or global records
+      index: true,
+    },
     staffId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -70,11 +81,13 @@ PettyCashSchema.pre("save", function (next) {
   next();
 });
 
-// Static method to get current global amounts
-PettyCashSchema.statics.getGlobalAmounts = async function() {
+// Helper to get total global amounts across all staff for a specific clinic
+PettyCashSchema.statics.getGlobalAmounts = async function(clinicId) {
+  if (!clinicId) return { globalTotalAmount: 0, globalSpentAmount: 0, globalRemainingAmount: 0 };
+  
   try {
-    // Get the global tracking record
-    const globalRecord = await this.findOne({ staffId: null });
+    // Get the global tracking record for this clinic
+    const globalRecord = await this.findOne({ staffId: null, clinicId });
     return {
       globalTotalAmount: globalRecord ? globalRecord.globalTotalAmount : 0,
       globalSpentAmount: globalRecord ? globalRecord.globalSpentAmount : 0,
@@ -82,61 +95,22 @@ PettyCashSchema.statics.getGlobalAmounts = async function() {
     };
   } catch (error) {
     console.error("Error getting global amounts:", error);
-    return {
-      globalTotalAmount: 0,
-      globalSpentAmount: 0,
-      globalRemainingAmount: 0
-    };
+    return { globalTotalAmount: 0, globalSpentAmount: 0, globalRemainingAmount: 0 };
   }
 };
 
-// Static method to update global total amount (when cash is received or petty cash is added)
-PettyCashSchema.statics.updateGlobalTotalAmount = async function(amount, operation = 'add') {
+// Static method to update global totals for a specific clinic
+PettyCashSchema.statics.updateGlobalSpentAmount = async function(clinicId, amount, operation = 'add') {
+  if (!clinicId) return;
+  
   try {
-    // Find or create a global tracking record
-    let globalRecord = await this.findOne({ staffId: null });
+    let globalRecord = await this.findOne({ staffId: null, clinicId });
     
     if (!globalRecord) {
-      // Create a new global tracking record
+      // Create a new global tracking record for this clinic
       globalRecord = await this.create({
         staffId: null, // Global record
-        note: "Global petty cash tracking",
-        allocatedAmounts: [],
-        expenses: [],
-        globalTotalAmount: 0,
-        globalSpentAmount: 0
-      });
-    }
-
-    const currentGlobalTotal = globalRecord.globalTotalAmount || 0;
-    const newGlobalTotal = operation === 'add' 
-      ? currentGlobalTotal + amount 
-      : operation === 'subtract'
-      ? Math.max(0, currentGlobalTotal - amount)
-      : currentGlobalTotal;
-
-    // Update only the global record
-    globalRecord.globalTotalAmount = newGlobalTotal;
-    await globalRecord.save();
-    
-    console.log(`Global Total Amount updated: ${currentGlobalTotal} + ${amount} = ${newGlobalTotal}`);
-    return newGlobalTotal;
-  } catch (error) {
-    console.error("Error updating global total amount:", error);
-    return 0;
-  }
-};
-
-// Static method to update global spent amount (when expenses are added)
-PettyCashSchema.statics.updateGlobalSpentAmount = async function(amount, operation = 'add') {
-  try {
-    // Find or create a global tracking record
-    let globalRecord = await this.findOne({ staffId: null });
-    
-    if (!globalRecord) {
-      // Create a new global tracking record
-      globalRecord = await this.create({
-        staffId: null, // Global record
+        clinicId,
         note: "Global petty cash tracking",
         allocatedAmounts: [],
         expenses: [],
@@ -152,15 +126,45 @@ PettyCashSchema.statics.updateGlobalSpentAmount = async function(amount, operati
       ? Math.max(0, currentGlobalSpent - amount)
       : currentGlobalSpent;
 
-    // Update only the global record
     globalRecord.globalSpentAmount = newGlobalSpent;
     await globalRecord.save();
-    
-    console.log(`Global Spent Amount updated: ${currentGlobalSpent} + ${amount} = ${newGlobalSpent}`);
-    return newGlobalSpent;
-  } catch (error) {
+    return globalRecord;
+  } catch (error) { 
     console.error("Error updating global spent amount:", error);
-    return 0;
+  }
+};
+
+// Update global total amount when new petty cash is added (optional)
+PettyCashSchema.statics.updateGlobalTotalAmount = async function(clinicId, amount, operation = 'add') {
+  if (!clinicId) return;
+  
+  try {
+    let globalRecord = await this.findOne({ staffId: null, clinicId });
+    
+    if (!globalRecord) {
+      globalRecord = await this.create({
+        staffId: null,
+        clinicId,
+        note: "Global petty cash tracking",
+        allocatedAmounts: [],
+        expenses: [],
+        globalTotalAmount: 0,
+        globalSpentAmount: 0
+      });
+    }
+
+    const currentGlobalTotal = globalRecord.globalTotalAmount || 0;
+    const newGlobalTotal = operation === 'add' 
+      ? currentGlobalTotal + amount 
+      : operation === 'subtract'
+      ? Math.max(0, currentGlobalTotal - amount)
+      : currentGlobalTotal;
+
+    globalRecord.globalTotalAmount = newGlobalTotal;
+    await globalRecord.save();
+    return globalRecord;
+  } catch (error) {
+    console.error("Error updating global total amount:", error);
   }
 };
 

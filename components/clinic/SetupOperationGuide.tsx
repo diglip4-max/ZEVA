@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from 'react';
-import { ClipboardList, Building2, Users, Wrench, CheckCircle, AlertCircle, Package } from 'lucide-react';
+import { ClipboardList, Building2, Users, CheckCircle, AlertCircle, Package } from 'lucide-react';
 
 const SetupOperationGuide: React.FC = () => {
   const [activeSection, setActiveSection] = useState("rooms");

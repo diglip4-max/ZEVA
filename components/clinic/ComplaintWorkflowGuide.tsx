@@ -2,10 +2,8 @@
 import React from 'react';
 import { 
   ClipboardList, 
-  FileText, 
   Image as ImageIcon, 
   CalendarCheck, 
-  FlaskConical, 
   MessageSquare, 
   History, 
   Info, 
@@ -17,8 +15,7 @@ import {
   Send, 
   BookOpen, 
   Lightbulb, 
-  Stethoscope,
-  PlusCircle
+  Stethoscope
 } from 'lucide-react';
 
 const ComplaintWorkflowGuide: React.FC = () => {

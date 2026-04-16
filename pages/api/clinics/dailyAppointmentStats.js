@@ -204,7 +204,12 @@ export default async function handler(req, res) {
     // Daily stats for Today's Activity section - only include needed fields
     const daily = {
       patients: dailyPatients,
+      jobs: dailyJobs,
       offers: dailyOffers,
+      leads: dailyLeads,
+      reviews: dailyReviews,
+      enquiries: dailyEnquiries,
+      applications: dailyApplications,
       arrived: stats.arrived,
       booked: stats.booked,
       cancelled: stats.cancelled,

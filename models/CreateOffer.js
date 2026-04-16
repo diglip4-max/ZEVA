@@ -1,66 +1,132 @@
 import mongoose from "mongoose";
-
 const { Schema } = mongoose;
 
-const OfferSchema = new Schema({
-  clinicId: { type: Schema.Types.ObjectId, ref: "Clinic", required: true, index: true },
+const OfferSchema = new Schema(
+{
+  clinicId: {
+    type: Schema.Types.ObjectId,
+    ref: "Clinic",
+    required: true,
+    index: true
+  },
+
   title: { type: String, required: true },
   description: { type: String, default: "" },
-  type: {
+
+  /* =============================
+     MAIN OFFER TYPE
+  ============================= */
+  offerType: {
     type: String,
-    enum: ["percentage", "fixed", "free Consult"],
-    required: true,
+    enum: ["instant_discount", "cashback", "bundle"],
+    required: true
   },
-  value: { type: Number, required: true },
-  currency: { type: String, default: "INR" },
-  code: { type: String, index: true, sparse: true },
-  slug: { type: String, index: true, sparse: true },
+
+  /* =============================
+     BASIC SETTINGS
+  ============================= */
+  code: { type: String, index: true },
+  slug: { type: String, index: true },
+
   startsAt: { type: Date, required: true },
   endsAt: { type: Date, required: true },
+
   timezone: { type: String, default: "Asia/Kolkata" },
-  maxUses: { type: Number, default: null },
-  usesCount: { type: Number, default: 0 },
-  perUserLimit: { type: Number, default: 1 },
-  channels: [{ type: String, enum: ["email", "sms", "web", "affiliate"] }],
-  utm: {
-    source: { type: String, default: "clinic" },
-    medium: { type: String, default: "email" },
-    campaign: { type: String, default: "" },
-  },
-  conditions: { type: Schema.Types.Mixed, default: {} },
+
   status: {
     type: String,
     enum: ["draft", "active", "paused", "expired", "archived"],
-    default: "draft",
+    default: "draft"
   },
+
   enabled: { type: Boolean, default: true },
 
-  // 🔹 Store selected treatments
+  /* =============================
+     USAGE LIMITS
+  ============================= */
+  maxUses: { type: Number, default: null },
+  usesCount: { type: Number, default: 0 },
+  perUserLimit: { type: Number, default: 1 },
+
+  /* =============================
+     APPLICABILITY
+  ============================= */
+  applyOnAllServices: { type: Boolean, default: true },
+
   treatments: [{ type: Schema.Types.ObjectId, ref: "Treatment" }],
 
-  // 🔹 Store selected subtreatments as embedded docs
   subTreatments: [
     {
-      treatmentId: { type: Schema.Types.ObjectId, ref: "Treatment", required: true },
-      slug: { type: String, required: true }, // e.g. "root-canal-treatment"
-      name: { type: String, required: true }, // e.g. "Root Canal Treatment"
-    },
+      treatmentId: { type: Schema.Types.ObjectId, ref: "Treatment" },
+      slug: String,
+      name: String
+    }
   ],
 
+  doctorIds: [{ type: Schema.Types.ObjectId, ref: "User" }],
+  departmentIds: [{ type: Schema.Types.ObjectId, ref: "Department" }],
+
+  /* =============================
+     BILLING RULES
+  ============================= */
+  minimumBillAmount: { type: Number, default: 0 },
+
+  allowStacking: { type: Boolean, default: false },
+
+  allowReceptionistDiscount: {
+    type: Boolean,
+    default: false
+  },
+
+  maxBenefitCap: { type: Number, default: 0 },
+
+  marginThresholdPercent: { type: Number, default: 0 },
+
+  sameDayReuseBlocked: { type: Boolean, default: true },
+
+  partialPaymentAllowed: { type: Boolean, default: false },
+
+  /* =============================
+     TYPE 1 : INSTANT DISCOUNT
+  ============================= */
+  discountMode: {
+    type: String,
+    enum: ["percentage", "flat"],
+    default: null
+  },
+
+  discountValue: { type: Number, default: 0 },
+
+  /* =============================
+     TYPE 2 : CASHBACK
+  ============================= */
+  cashbackAmount: { type: Number, default: 0 },
+
+  cashbackExpiryDays: { type: Number, default: 0 },
+
+  /* =============================
+     TYPE 3 : BUNDLE
+  ============================= */
+  buyQty: { type: Number, default: 0 },
+
+  freeQty: { type: Number, default: 0 },
+
+  bundleServiceId: {
+    type: Schema.Types.ObjectId,
+    ref: "Treatment"
+  },
+
+  bundleExpiryDays: { type: Number, default: 0 },
+
+  /* =============================
+     AUDIT
+  ============================= */
   createdBy: { type: Schema.Types.ObjectId, ref: "User" },
-  updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
-});
+  updatedBy: { type: Schema.Types.ObjectId, ref: "User" }
 
-OfferSchema.pre("save", function (next) {
-  this.updatedAt = Date.now();
-  if (this.endsAt && new Date() > this.endsAt) this.status = "expired";
-  next();
-});
+},
+{ timestamps: true }
+);
 
-// ✅ Export the model correctly
-if (mongoose.models.Offer) {
-  delete mongoose.models.Offer;
-}
-export default mongoose.model("Offer", OfferSchema);
+export default mongoose.models.Offer ||
+mongoose.model("Offer", OfferSchema);

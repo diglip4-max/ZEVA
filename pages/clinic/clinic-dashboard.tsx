@@ -559,7 +559,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const [activeId, setActiveId] = useState<string | null>(null);
  
   // Individual stat card state
-  const STAT_CARDS_STORAGE_KEY = 'clinic-dashboard-stat-cards-v4';
+  const STAT_CARDS_STORAGE_KEY = 'clinic-dashboard-stat-cards-v5'; // Updated to v5 to add Reviews & Enquiries cards
   const [statCards, setStatCards] = useState<{ primary: StatCard[]; secondary: StatCard[] }>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(STAT_CARDS_STORAGE_KEY);
@@ -588,6 +588,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
         { id: 's9', label: 'Jobs', value: 0, icon: 'briefcase', moduleKey: 'daily_jobs', gridType: 'secondary' as const, order: 8, visible: true },
         { id: 's10', label: 'Offers', value: 0, icon: 'gift', moduleKey: 'daily_offers', gridType: 'secondary' as const, order: 9, visible: true },
         { id: 's11', label: 'Leads', value: 0, icon: 'users', moduleKey: 'daily_leads', gridType: 'secondary' as const, order: 10, visible: true },
+        { id: 's12', label: 'Reviews', value: 0, icon: 'star', moduleKey: 'daily_reviews', gridType: 'secondary' as const, order: 11, visible: true },
+        { id: 's13', label: 'Enquiries', value: 0, icon: 'mail', moduleKey: 'daily_enquiries', gridType: 'secondary' as const, order: 12, visible: true },
       ],
     };
   });
@@ -2367,18 +2369,19 @@ const ClinicDashboard: NextPageWithLayout = () => {
     });
   };
 
-  const togglePackageOfferVisibility = (cardId: string) => {
-    setPackageOfferCards((prev) => {
-      const updated = prev.map(card =>
-        card.id === cardId ? { ...card, visible: !card.visible } : card
-      );
-      // Save to localStorage
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(PACKAGE_OFFER_STORAGE_KEY, JSON.stringify(updated));
-      }
-      return updated;
-    });
-  };
+  // Commented out as unused - packages-offers widget is disabled
+  // const togglePackageOfferVisibility = (cardId: string) => {
+  //   setPackageOfferCards((prev) => {
+  //     const updated = prev.map(card =>
+  //       card.id === cardId ? { ...card, visible: !card.visible } : card
+  //     );
+  //     // Save to localStorage
+  //     if (typeof window !== 'undefined') {
+  //       localStorage.setItem(PACKAGE_OFFER_STORAGE_KEY, JSON.stringify(updated));
+  //     }
+  //     return updated;
+  //   });
+  // };
 
   // Helper: Convert package card to stat card format (preserves ID for drag tracking)
   const packageToStatCard = (pkg: PackageOfferCard, gridType: 'primary' | 'secondary', order: number): StatCard => {
@@ -3224,12 +3227,15 @@ const ClinicDashboard: NextPageWithLayout = () => {
       const hasDailyPatients = prev.secondary.some(c => c.moduleKey === 'daily_patients');
       const hasDailyApplications = prev.secondary.some(c => c.moduleKey === 'daily_applications');
       const hasDailyReviews = prev.secondary.some(c => c.moduleKey === 'daily_reviews');
+      const hasDailyJobs = prev.secondary.some(c => c.moduleKey === 'daily_jobs');
+      const hasDailyLeads = prev.secondary.some(c => c.moduleKey === 'daily_leads');
+      const hasDailyEnquiries = prev.secondary.some(c => c.moduleKey === 'daily_enquiries');
      
       // Also hide unwanted cards as per user request
       const unwantedKeys = ['modules', 'subscription'];
       const needsHiding = prev.primary.some(c => c.moduleKey && unwantedKeys.includes(c.moduleKey) && c.visible);
 
-      if (hasMembership && hasJobs && hasDailyPatients && hasDailyApplications && hasDailyReviews && !needsHiding) return prev; // Already migrated
+      if (hasMembership && hasJobs && hasDailyPatients && hasDailyApplications && hasDailyReviews && hasDailyJobs && hasDailyLeads && hasDailyEnquiries && !needsHiding) return prev; // Already migrated
 
       const newPrimary = [...prev.primary];
       if (!hasMembership) {
@@ -3282,6 +3288,19 @@ const ClinicDashboard: NextPageWithLayout = () => {
             }
             if (!filteredSecondary.some(c => c.moduleKey === 'daily_enquiry')) {
                filteredSecondary.push({ id: 's14', label: 'Enquiry', value: 0, icon: 'message-square', moduleKey: 'daily_enquiry', gridType: 'secondary' as const, order: 13, visible: true });
+            }
+            // Add new daily activity cards if not present
+            if (!filteredSecondary.some(c => c.moduleKey === 'daily_jobs')) {
+               filteredSecondary.push({ id: 's9', label: 'Jobs', value: 0, icon: 'briefcase', moduleKey: 'daily_jobs', gridType: 'secondary' as const, order: 8, visible: true });
+            }
+            if (!filteredSecondary.some(c => c.moduleKey === 'daily_leads')) {
+               filteredSecondary.push({ id: 's11', label: 'Leads', value: 0, icon: 'users', moduleKey: 'daily_leads', gridType: 'secondary' as const, order: 10, visible: true });
+            }
+            if (!filteredSecondary.some(c => c.moduleKey === 'daily_reviews')) {
+               filteredSecondary.push({ id: 's12', label: 'Reviews', value: 0, icon: 'star', moduleKey: 'daily_reviews', gridType: 'secondary' as const, order: 11, visible: true });
+            }
+            if (!filteredSecondary.some(c => c.moduleKey === 'daily_enquiries')) {
+               filteredSecondary.push({ id: 's13', label: 'Enquiries', value: 0, icon: 'mail', moduleKey: 'daily_enquiries', gridType: 'secondary' as const, order: 12, visible: true });
             }
             return {
                primary: updatedPrimary,
@@ -3423,6 +3442,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
             break;
           case 'daily_enquiry':
             value = dailyStats.daily.enquiry || 0;
+            break;
+          case 'daily_jobs':
+            value = dailyStats.daily.jobs || 0;
+            break;
+          case 'daily_leads':
+            value = dailyStats.daily.leads || 0;
+            break;
+          case 'daily_reviews':
+            value = dailyStats.daily.reviews || 0;
+            break;
+          case 'daily_enquiries':
+            value = dailyStats.daily.enquiries || 0;
             break;
         }
         return { ...card, value };
@@ -3615,65 +3646,65 @@ const ClinicDashboard: NextPageWithLayout = () => {
     );
   };
 
-  // Sortable Package/Offer Card Component
-  const SortablePackageOffer: React.FC<{
-    card: PackageOfferCard;
-    children: React.ReactNode;
-  }> = ({ card, children }) => {
-    const {
-      attributes,
-      listeners,
-      setNodeRef,
-      transform,
-      transition,
-      isDragging,
-    } = useSortable({ id: card.id });
-
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-      opacity: isDragging ? 0.5 : 1,
-    };
-
-    if (!card.visible && !isEditMode) {
-      return null;
-    }
-
-    return (
-      <div
-        ref={setNodeRef}
-        style={style}
-        className={`relative ${isDragging ? 'z-50' : ''} ${!card.visible ? 'opacity-50' : ''}`}
-      >
-        {isEditMode && (
-          <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
-            <button
-              onClick={() => togglePackageOfferVisibility(card.id)}
-              className="p-1 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-              title={card.visible ? 'Hide card' : 'Show card'}
-            >
-              {card.visible ? (
-                <Eye className="w-3 h-3 text-gray-600" />
-              ) : (
-                <EyeOff className="w-3 h-3 text-gray-400" />
-              )}
-            </button>
-            <div
-              {...attributes}
-              {...listeners}
-              className="p-1.5 bg-indigo-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:bg-indigo-600 transition-colors"
-              title="Drag to move card"
-            >
-              <GripVertical className="w-3.5 h-3.5 text-white" />
-            </div>
-          </div>
-        )}
-        <div className={isEditMode ? 'pl-14' : ''}>
-          {children}
-        </div>
-      </div>
-    );
-  };
+  // Sortable Package/Offer Card Component (commented out as unused - packages-offers widget is disabled)
+  // const SortablePackageOffer: React.FC<{
+  //   card: PackageOfferCard;
+  //   children: React.ReactNode;
+  // }> = ({ card, children }) => {
+  //   const {
+  //     attributes,
+  //     listeners,
+  //     setNodeRef,
+  //     transform,
+  //     transition,
+  //     isDragging,
+  //   } = useSortable({ id: card.id });
+  //
+  //   const style = {
+  //     transform: CSS.Transform.toString(transform),
+  //     transition,
+  //     opacity: isDragging ? 0.5 : 1,
+  //   };
+  //
+  //   if (!card.visible && !isEditMode) {
+  //     return null;
+  //   }
+  //
+  //   return (
+  //     <div
+  //       ref={setNodeRef}
+  //       style={style}
+  //       className={`relative ${isDragging ? 'z-50' : ''} ${!card.visible ? 'opacity-50' : ''}`}
+  //     >
+  //       {isEditMode && (
+  //         <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
+  //           <button
+  //             onClick={() => togglePackageOfferVisibility(card.id)}
+  //             className="p-1 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+  //             title={card.visible ? 'Hide card' : 'Show card'}
+  //           >
+  //             {card.visible ? (
+  //               <Eye className="w-3 h-3 text-gray-600" />
+  //             ) : (
+  //               <EyeOff className="w-3 h-3 text-gray-400" />
+  //             )}
+  //           </button>
+  //           <div
+  //             {...attributes}
+  //             {...listeners}
+  //             className="p-1.5 bg-indigo-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:bg-indigo-600 transition-colors"
+  //             title="Drag to move card"
+  //           >
+  //             <GripVertical className="w-3.5 h-3.5 text-white" />
+  //           </div>
+  //         </div>
+  //       )}
+  //       <div className={isEditMode ? 'pl-14' : ''}>
+  //         {children}
+  //       </div>
+  //     </div>
+  //   );
+  // };
 
   // Sortable Chart Component (commented out as unused)
   // const SortableChart: React.FC<{
@@ -4184,101 +4215,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 .map((widget) => {
                   const widgetContent = (() => {
                     switch (widget.type) {
+                      // COMMENTED OUT: Packages & Offers Widget - Temporarily disabled
                       case 'packages-offers':
-                        const sortedPackageOfferCards = packageOfferCards.sort((a, b) => a.order - b.order);
-                        return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                {sortedPackageOfferCards.map((card) => {
-                                  if (card.type === 'package') {
-                                    return (
-                                      <SortablePackageOffer key={card.id} card={card}>
-          <div className="bg-gradient-to-br from-indigo-50 via-teal-50 to-pink-50 rounded-lg border-2 border-indigo-200 shadow-md p-4 hover:shadow-lg transition-all duration-300 relative overflow-hidden group">
-            {/* Decorative Background Elements */}
-            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-indigo-200/30 to-teal-200/30 rounded-full blur-xl -mr-10 -mt-10"></div>
-            <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-pink-200/30 to-teal-200/30 rounded-full blur-lg -ml-8 -mb-8"></div>
-           
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-gradient-to-br from-indigo-500 to-teal-600 rounded-lg shadow-md group-hover:scale-105 transition-transform">
-                    <Package className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900">Packages</h3>
-                    <p className="text-[10px] text-gray-600">Total available packages</p>
-                  </div>
-                </div>
-                <div className="px-2 py-0.5 bg-indigo-100 rounded-full">
-                  <span className="text-[10px] font-semibold text-indigo-700">ACTIVE</span>
-                </div>
-              </div>
-             
-              <div className="mb-3">
-                <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-teal-600 mb-1">
-                  {stats.totalPackages || 0}
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                  <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></div>
-                  <span>Available packages</span>
-                </div>
-              </div>
-             
-              <div className="pt-3 border-t border-indigo-200/50">
-                <div className="text-[10px] text-gray-600">
-                  <span className="font-semibold text-gray-900">Status:</span> Active
-                </div>
-              </div>
-            </div>
-          </div>
-                                      </SortablePackageOffer>
-                                    );
-                                  } else {
-                                    return (
-                                      <SortablePackageOffer key={card.id} card={card}>
-          <div className="bg-gradient-to-br from-amber-300 via-amber-200 to-amber-100 rounded-lg border-2 border-amber-400 shadow-md p-4 hover:shadow-lg transition-all duration-300 relative overflow-hidden group">
-            {/* Decorative Background Elements */}
-            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-amber-400/30 to-amber-300/30 rounded-full blur-xl -mr-10 -mt-10"></div>
-            <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-amber-200/30 to-amber-300/30 rounded-full blur-lg -ml-8 -mb-8"></div>
-           
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-gradient-to-br from-amber-600 to-amber-700 rounded-lg shadow-md group-hover:scale-105 transition-transform">
-                    <Gift className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900">Offers</h3>
-                    <p className="text-[10px] text-gray-700">Current active offers</p>
-                  </div>
-                </div>
-                <div className="px-2 py-0.5 bg-amber-200 rounded-full">
-                  <span className="text-[10px] font-semibold text-amber-800">ACTIVE</span>
-                </div>
-              </div>
-             
-              <div className="mb-3">
-                <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-700 to-amber-800 mb-1">
-                  {stats.totalOffers || 0}
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-gray-700">
-                  <div className="w-1.5 h-1.5 bg-amber-600 rounded-full animate-pulse"></div>
-                  <span>Active offers</span>
-                </div>
-              </div>
-             
-              <div className="pt-3 border-t border-amber-400/50">
-                <div className="text-[10px] text-gray-700">
-                  <span className="font-semibold text-gray-900">Status:</span> Active
-                </div>
-              </div>
-            </div>
-          </div>
-                                      </SortablePackageOffer>
-                                    );
-                                  }
-                                })}
-        </div>
-                        );
+                        return null;
+                      /* 
+                      const sortedPackageOfferCards = packageOfferCards.sort((a, b) => a.order - b.order);
+                      ... [rest of packages-offers code commented out - lines 4190-4283] ...
+                      */
                       
                       case 'financial-reports':
                         // Financial Reports Section - Revenue, Payments, and Financial Performance
@@ -4326,7 +4269,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                   <YAxis 
                                     tick={{ fontSize: 10, fill: '#374151' }}
                                     stroke="#6b7280"
-                                    tickFormatter={(value) => `₹${(value/1000).toFixed(0)}K`}
+                                    tickFormatter={(value) => `${getCurrencySymbol(currency)}${(value/1000).toFixed(0)}K`}
                                   />
                                   <Tooltip
                                     contentStyle={{
@@ -4337,7 +4280,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                                     }}
                                     labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
-                                    formatter={(value: any) => [`₹${value.toLocaleString()}`, '']}
+                                    formatter={(value: any) => [`${getCurrencySymbol(currency)}${value.toLocaleString()}`, '']}
                                   />
                                   <Legend 
                                     wrapperStyle={{ 
@@ -4445,7 +4388,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                   />
                                   <YAxis 
                                     tick={{ fontSize: 10, fill: '#6b7280' }}
-                                    tickFormatter={(value) => `₹${(value/1000).toFixed(0)}K`}
+                                    tickFormatter={(value) => `${getCurrencySymbol(currency)}${(value/1000).toFixed(0)}K`}
                                   />
                                   <Tooltip
                                     contentStyle={{
@@ -4458,7 +4401,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
                                     formatter={(value: any, name: any) => {
                                       if (name === 'revenue') {
-                                        return [`₹${value.toLocaleString()}`, 'Revenue'];
+                                        return [`${getCurrencySymbol(currency)}${value.toLocaleString()}`, 'Revenue'];
                                       }
                                       return [value, name];
                                     }}
@@ -4520,7 +4463,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
                           </div>
                         );
                       
-                      case 'primary-stats':
+                      {/* COMMENTED OUT: Primary Stats Cards - Reviews, Enquiries, Jobs, Leads now in Today's Activity */}
+                      {/* case 'primary-stats':
                         const primaryCards = statCards.primary.sort((a, b) => a.order - b.order);
                         const gapClass = gridSize === 'compact' ? 'gap-1.5' : gridSize === 'spacious' ? 'gap-4' : 'gap-3';
                         return (
@@ -4529,7 +4473,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                   <SortableStatCard key={card.id} card={card} />
                                 ))}
             </div>
-                        );
+                        ); */}
                      
                       case 'secondary-stats':
                         const secondaryCards = statCards.secondary.sort((a, b) => a.order - b.order);
@@ -4578,6 +4522,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
                           if (!moduleKey) return 'from-gray-500 to-slate-500';
                           if (moduleKey === 'daily_patients') return 'from-green-500 to-emerald-500';
                           if (moduleKey === 'daily_offers') return 'from-pink-500 to-rose-500';
+                          if (moduleKey === 'daily_jobs') return 'from-blue-500 to-indigo-500';
+                          if (moduleKey === 'daily_leads') return 'from-purple-500 to-violet-500';
+                          if (moduleKey === 'daily_reviews') return 'from-yellow-500 to-amber-500';
+                          if (moduleKey === 'daily_enquiries') return 'from-teal-500 to-cyan-500';
                           if (moduleKey === 'daily_arrived') return 'from-blue-500 to-cyan-500';
                           if (moduleKey === 'daily_booked') return 'from-purple-500 to-indigo-500';
                           if (moduleKey === 'daily_cancelled') return 'from-red-500 to-rose-500';
@@ -4719,7 +4667,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                       <YAxis 
                                         tick={{ fontSize: 10, fill: '#374151' }}
                                         stroke="#6b7280"
-                                        tickFormatter={(value) => `₹${(value/1000).toFixed(0)}K`}
+                                        tickFormatter={(value) => `${getCurrencySymbol(currency)}${(value/1000).toFixed(0)}K`}
                                       />
                                       <Tooltip
                                         contentStyle={{
@@ -4730,7 +4678,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                                         }}
                                         labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
-                                        formatter={(value: any) => [`₹${value.toLocaleString()}`, '']}
+                                        formatter={(value: any) => [`${getCurrencySymbol(currency)}${value.toLocaleString()}`, '']}
                                       />
                                       <Legend 
                                         wrapperStyle={{ 
@@ -4854,7 +4802,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                       />
                                       <YAxis 
                                         tick={{ fontSize: 10, fill: '#6b7280' }}
-                                        tickFormatter={(value) => `₹${(value/1000).toFixed(0)}K`}
+                                        tickFormatter={(value) => `${getCurrencySymbol(currency)}${(value/1000).toFixed(0)}K`}
                                       />
                                       <Tooltip
                                         contentStyle={{
@@ -4867,7 +4815,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                         labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
                                         formatter={(value: any, name: any) => {
                                           if (name === 'revenue') {
-                                            return [`₹${value.toLocaleString()}`, 'Revenue'];
+                                            return [`${getCurrencySymbol(currency)}${value.toLocaleString()}`, 'Revenue'];
                                           }
                                           return [value, name];
                                         }}
@@ -5673,20 +5621,17 @@ const ClinicDashboard: NextPageWithLayout = () => {
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
                               {/* Left Side - Lead Source Wise */}
                               <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-                                <h3 className="text-base font-bold text-black">Lead Source Wise</h3>
-                                <div className="h-72">
+                                <h3 className="text-base font-bold text-black mb-3">Lead Source Wise</h3>
+                                <div className="h-80">
                                   <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                       <Pie
                                         data={filteredLeadSourceData.length > 0 ? filteredLeadSourceData : [{ name: 'No Data', value: 0 }]}
                                         cx="50%"
-                                        cy="50%"
+                                        cy="42%"
+                                        label={false}
                                         labelLine={false}
-                                        label={({ name, percent }) => {
-                                          const displayName = (name && name.length > 12) ? name.substring(0, 10) + '...' : (name || '');
-                                          return `${displayName}: ${((percent ?? 0) * 100).toFixed(0)}%`;
-                                        }}
-                                        outerRadius={70}
+                                        outerRadius={85}
                                         fill="#8884d8"
                                         dataKey="value"
                                         paddingAngle={2}
@@ -5703,13 +5648,28 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                           fontSize: '12px',
                                           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                                         }}
-                                        labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
+                                        formatter={(value: any, name: any) => {
+                                          const total = filteredLeadSourceData.reduce((s: number, d: any) => s + (d.value || 0), 0);
+                                          const pct = total > 0 ? ((value / total) * 100).toFixed(0) : 0;
+                                          return [`${value} (${pct}%)`, name];
+                                        }}
                                       />
                                       <Legend 
+                                        layout="horizontal"
+                                        verticalAlign="bottom"
+                                        align="center"
+                                        iconType="circle"
+                                        iconSize={8}
                                         wrapperStyle={{ 
                                           fontSize: '10px', 
-                                          paddingTop: '10px',
-                                          color: '#4b5563'
+                                          paddingTop: '8px',
+                                          color: '#4b5563',
+                                          lineHeight: '18px'
+                                        }}
+                                        formatter={(value: any, entry: any) => {
+                                          const total = filteredLeadSourceData.reduce((s: number, d: any) => s + (d.value || 0), 0);
+                                          const pct = total > 0 ? (((entry.payload?.value || 0) / total) * 100).toFixed(0) : 0;
+                                          return `${value}: ${pct}%`;
                                         }}
                                       />
                                     </PieChart>
@@ -5719,20 +5679,17 @@ const ClinicDashboard: NextPageWithLayout = () => {
 
                               {/* Right Side - Lead Status Wise */}
                               <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-                                <h3 className="text-base font-bold text-black">Lead Status Wise</h3>
-                                <div className="h-72">
+                                <h3 className="text-base font-bold text-black mb-3">Lead Status Wise</h3>
+                                <div className="h-80">
                                   <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                       <Pie
                                         data={filteredLeadStatusData.length > 0 ? filteredLeadStatusData : [{ name: 'No Data', value: 0 }]}
                                         cx="50%"
-                                        cy="50%"
+                                        cy="42%"
+                                        label={false}
                                         labelLine={false}
-                                        label={({ name, percent }) => {
-                                          const displayName = (name && name.length > 12) ? name.substring(0, 10) + '...' : (name || '');
-                                          return `${displayName}: ${((percent ?? 0) * 100).toFixed(0)}%`;
-                                        }}
-                                        outerRadius={70}
+                                        outerRadius={85}
                                         fill="#8884d8"
                                         dataKey="value"
                                         paddingAngle={2}
@@ -5749,13 +5706,28 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                           fontSize: '12px',
                                           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                                         }}
-                                        labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
+                                        formatter={(value: any, name: any) => {
+                                          const total = filteredLeadStatusData.reduce((s: number, d: any) => s + (d.value || 0), 0);
+                                          const pct = total > 0 ? ((value / total) * 100).toFixed(0) : 0;
+                                          return [`${value} (${pct}%)`, name];
+                                        }}
                                       />
                                       <Legend 
+                                        layout="horizontal"
+                                        verticalAlign="bottom"
+                                        align="center"
+                                        iconType="circle"
+                                        iconSize={8}
                                         wrapperStyle={{ 
                                           fontSize: '10px', 
-                                          paddingTop: '10px',
-                                          color: '#4b5563'
+                                          paddingTop: '8px',
+                                          color: '#4b5563',
+                                          lineHeight: '18px'
+                                        }}
+                                        formatter={(value: any, entry: any) => {
+                                          const total = filteredLeadStatusData.reduce((s: number, d: any) => s + (d.value || 0), 0);
+                                          const pct = total > 0 ? (((entry.payload?.value || 0) / total) * 100).toFixed(0) : 0;
+                                          return `${value}: ${pct}%`;
                                         }}
                                       />
                                     </PieChart>
@@ -5822,27 +5794,55 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                 {/* Pie Chart - In Div Box */}
                                 <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
                                   <h3 className="text-base font-bold text-black mb-2">Offer Status Distribution</h3>
-                                  <div className="h-72">
+                                  <div className="h-80">
                                   <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                                    <PieChart>
                                       <Pie
                                         data={offerStatusData}
                                         cx="50%"
-                                        cy="50%"
+                                        cy="42%"
+                                        label={false}
                                         labelLine={false}
-                                        label={({ name, value }) => `${name}: ${value}`}
-                                        outerRadius={80}
+                                        outerRadius={85}
                                         fill="#8884d8"
                                         dataKey="value"
+                                        paddingAngle={2}
                                       >
                                         {offerStatusData.map((_entry, index) => (
                                           <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
                                         ))}
                                       </Pie>
-                                      <Tooltip />
+                                      <Tooltip
+                                        contentStyle={{
+                                          backgroundColor: '#fff',
+                                          border: '1px solid #e5e7eb',
+                                          borderRadius: '8px',
+                                          fontSize: '12px',
+                                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                        }}
+                                        formatter={(value: any, name: any) => {
+                                          const total = offerStatusData.reduce((s: number, d: any) => s + (d.value || 0), 0);
+                                          const pct = total > 0 ? ((value / total) * 100).toFixed(0) : 0;
+                                          return [`${value} (${pct}%)`, name];
+                                        }}
+                                      />
                                       <Legend
-                                        wrapperStyle={{ fontSize: '11px', paddingTop: '15px' }}
+                                        layout="horizontal"
+                                        verticalAlign="bottom"
+                                        align="center"
                                         iconType="circle"
+                                        iconSize={8}
+                                        wrapperStyle={{ 
+                                          fontSize: '10px', 
+                                          paddingTop: '8px',
+                                          color: '#4b5563',
+                                          lineHeight: '18px'
+                                        }}
+                                        formatter={(value: any, entry: any) => {
+                                          const total = offerStatusData.reduce((s: number, d: any) => s + (d.value || 0), 0);
+                                          const pct = total > 0 ? (((entry.payload?.value || 0) / total) * 100).toFixed(0) : 0;
+                                          return `${value}: ${pct}%`;
+                                        }}
                                       />
                                     </PieChart>
                                   </ResponsiveContainer>
@@ -5892,7 +5892,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       <Tooltip
                         formatter={(value: any, name: any) => {
                           if (name === 'totalAmount') {
-                            return [`$${value.toLocaleString()}`, 'Total Amount'];
+                            return [`${getCurrencySymbol(currency)}${value.toLocaleString()}`, 'Total Amount'];
                           }
                           return [value, name === 'count' ? 'Count' : name];
                         }}
@@ -6036,11 +6036,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       height={80}
                       interval={0}
                     />
-                    <YAxis tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} tickFormatter={(value) => value === 0 ? '0' : `${getCurrencySymbol(currency)}${(value/1000).toFixed(0)}k`} />
                     <Tooltip
                       formatter={(value: any, name: any) => {
                         if (name === 'totalRevenue') {
-                          return [`$${value.toLocaleString()}`, 'Total Revenue'];
+                          return [`${getCurrencySymbol(currency)}${value.toLocaleString()}`, 'Total Revenue'];
                         }
                         return [value, name === 'count' ? 'Purchases' : name];
                       }}
@@ -6240,12 +6240,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                         tick={{ fontSize: 11 }}
                                         stroke="#6b7280"
                                         width={60}
-                                        tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`}
+                                        tickFormatter={(value) => `${getCurrencySymbol(currency)}${(value / 1000).toFixed(0)}k`}
                                       />
                                       <Tooltip
                                         formatter={(value: any, name: any) => {
                                           if (name === 'amount') {
-                                            return [`₹${value.toLocaleString()}`, 'Total Earned'];
+                                            return [`${getCurrencySymbol(currency)}${value.toLocaleString()}`, 'Total Earned'];
                                           }
                                           if (name === 'count') {
                                             return [value, 'Transactions'];

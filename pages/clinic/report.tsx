@@ -57,7 +57,7 @@ function ReportPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header Section - Responsive */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-[90%] sm:max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+        <div className="max-w-[90%] sm:max-w-9xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Analytics Dashboard</h1>
@@ -73,7 +73,7 @@ function ReportPage() {
         </div>
       </div>
 
-      <div className="max-w-[90%] sm:max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
+      <div className="max-w-[90%] sm:max-w-9xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
         {/* Date Filter & Tabs Container - Responsive */}
         <div className="bg-white rounded-xl shadow-md border border-gray-200 mb-4 sm:mb-6 overflow-hidden">
           {/* Tabs Navigation - Scrollable on Mobile */}

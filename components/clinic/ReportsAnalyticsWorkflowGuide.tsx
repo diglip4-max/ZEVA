@@ -1,6 +1,6 @@
 "use client";
 import React from 'react';
-import { BarChart3, TrendingUp, PieChart, Users, Activity, Box, Home, Briefcase, Layers, CheckCircle, Info, Package, CreditCard, Calendar, User, DollarSign } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, Box, Home, Briefcase, Layers, CheckCircle, Info, Package, CreditCard, Calendar, User, DollarSign } from 'lucide-react';
 
 const ReportsAnalyticsWorkflowGuide: React.FC = () => {
   return (
