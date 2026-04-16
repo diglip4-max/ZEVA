@@ -11,6 +11,9 @@ import {
   CheckCircle2,
   Phone,
   Reply,
+  Upload,
+  FileText,
+  Eye,
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import axios from "axios";
@@ -18,12 +21,14 @@ import {
   getMediaTypeFromFile,
   getTokenByPath,
   handleUpload,
+  capitalize,
 } from "@/lib/helper";
 import { clsx, type ClassValue } from "clsx";
 import useProvider from "@/hooks/useProvider";
 import { Template } from "@/types/templates";
 import VariableMappingDropdown from "./VariableMappingDropdown";
 import { WorkflowEntity } from "@/types/workflows";
+import { toast } from "react-toastify";
 
 function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
@@ -108,9 +113,111 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setAttachedFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      const fileType = selectedFile.type;
+      const fileSize = selectedFile.size;
+
+      const maxSize = fileType.startsWith("image/")
+        ? 5 * 1024 * 1024
+        : fileType.startsWith("video/")
+          ? 16 * 1024 * 1024
+          : 100 * 1024 * 1024;
+
+      if (fileSize > maxSize) {
+        toast.warning(
+          `File size exceeds the limit of ${maxSize / (1024 * 1024)}MB`,
+        );
+        e.target.value = "";
+        return;
+      }
+
+      const type = selectedFile.type;
+      if (type.startsWith("image/")) {
+        setMediaType("image");
+      } else if (type.startsWith("video/")) {
+        setMediaType("video");
+      } else if (type === "application/pdf") {
+        setMediaType("document");
+      }
+
+      setAttachedFile(selectedFile);
     }
   };
+
+  const handleTempVarValueChange = (
+    key: string,
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const value = event.target.value;
+    setVariableMappings((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
+  const handleTempHeaderVarValueChange = (
+    key: string,
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const value = event.target.value;
+    setHeaderVariableMappings((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
+  const renderVariableInput = (
+    key: string,
+    index: number,
+    isHeader: boolean = false,
+  ) => (
+    <div key={index} className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">
+        {isHeader ? "Header" : "Body"} variable {"{{"}
+        {index + 1}
+        {"}}"}:
+      </label>
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <div className="relative">
+            <input
+              type="text"
+              value={
+                isHeader
+                  ? headerVariableMappings[key] || ""
+                  : variableMappings[key] || ""
+              }
+              onChange={(event) =>
+                isHeader
+                  ? handleTempHeaderVarValueChange(key, event)
+                  : handleTempVarValueChange(key, event)
+              }
+              className="w-full text-gray-500 text-sm px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl hover:border-green-500 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+              placeholder={`Enter value for {{${index + 1}}}`}
+            />
+          </div>
+        </div>
+        <VariableMappingDropdown
+          entity={entity}
+          onSelect={(value: string) => {
+            if (isHeader) {
+              setHeaderVariableMappings((prev) => ({
+                ...prev,
+                [key]: value,
+              }));
+            } else {
+              setVariableMappings((prev) => ({
+                ...prev,
+                [key]: value,
+              }));
+            }
+          }}
+          nodeId={actionId as string}
+          align="right"
+        />
+      </div>
+    </div>
+  );
 
   const handleAddReplyButton = () => {
     setReplyButtons([
@@ -689,6 +796,164 @@ const SendWhatsappActionModal: React.FC<SendWhatsappActionModalProps> = ({
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Variable Mappings for Template */}
+              {whatsappMsgType === "template-message" && selectedTemplate && (
+                <div className="space-y-4 mt-4 pt-4 border-t border-gray-200">
+                  {/* Header Variables - Text Type */}
+                  {selectedTemplate?.headerType === "text" &&
+                    selectedTemplate?.headerText && (
+                      <div className="mb-6">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                          <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                          Header
+                        </h4>
+                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                          <p className="text-sm text-gray-800">
+                            {selectedTemplate?.headerText}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                  {/* Media Template Header */}
+                  {selectedTemplate?.headerType &&
+                    selectedTemplate?.headerType !== "text" &&
+                    selectedTemplate?.headerFileUrl && (
+                      <div className="mb-6">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                          <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                          Attachment
+                        </h4>
+                        <button
+                          onClick={() =>
+                            window.open(
+                              selectedTemplate?.headerFileUrl,
+                              "_blank",
+                            )
+                          }
+                          className="bg-green-600 rounded-lg flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-green-700 text-white"
+                        >
+                          <Eye className="w-4 h-4" />
+                          View
+                        </button>
+                      </div>
+                    )}
+
+                  {/* Header Variables */}
+                  {selectedTemplate?.headerVariables?.length > 0 && (
+                    <div className="space-y-4 mb-6">
+                      <h4 className="text-sm font-semibold text-gray-700">
+                        Header Variables
+                      </h4>
+                      {selectedTemplate?.headerVariables?.map(
+                        (key: string, index: number) =>
+                          renderVariableInput(key, index, true),
+                      )}
+                    </div>
+                  )}
+
+                  {/* Body Section */}
+                  <div className="mb-6">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                      <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                      Message Body
+                    </h4>
+                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                      <pre className="text-sm text-gray-800 whitespace-pre-wrap font-sans">
+                        {selectedTemplate?.content}
+                      </pre>
+                    </div>
+                  </div>
+
+                  {/* Body Variables */}
+                  {selectedTemplate &&
+                    selectedTemplate?.variables?.length > 0 && (
+                      <div className="space-y-4 mb-6">
+                        <h4 className="text-sm font-semibold text-gray-700">
+                          Fill Variables
+                        </h4>
+                        {selectedTemplate?.variables?.map(
+                          (key: string, index: number) =>
+                            renderVariableInput(key, index, false),
+                        )}
+                      </div>
+                    )}
+
+                  {/* File Upload for Media Headers */}
+                  {selectedTemplate?.isHeader &&
+                    selectedTemplate?.headerType !== "text" && (
+                      <div className="mb-6">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                          Upload {capitalize(selectedTemplate?.headerType)}
+                        </h4>
+                        <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-gray-400 transition-colors">
+                          <div className="flex flex-col items-center">
+                            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
+                              <Upload className="w-8 h-8 text-gray-500" />
+                            </div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">
+                              Drop your file here or click to browse
+                            </p>
+                            <p className="text-xs text-gray-500 mb-4">
+                              Supports{" "}
+                              {selectedTemplate?.headerType === "image"
+                                ? "JPG, PNG up to 5MB"
+                                : selectedTemplate?.headerType === "video"
+                                  ? "MP4, 3GP up to 16MB"
+                                  : "PDF, DOC, PPT up to 100MB"}
+                            </p>
+                            <label className="cursor-pointer">
+                              <input
+                                type="file"
+                                className="hidden"
+                                onChange={handleFileChange}
+                                accept={
+                                  selectedTemplate?.headerType === "image"
+                                    ? "image/jpeg,image/jpg,image/png"
+                                    : selectedTemplate?.headerType === "video"
+                                      ? "video/mp4,video/3gp"
+                                      : ".pdf,.doc,.docx,.pptx,.xlsx"
+                                }
+                              />
+                              <span className="px-6 py-2.5 bg-gradient-to-r from-gray-600 to-gray-700 text-white font-medium rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all inline-flex items-center gap-2">
+                                Browse Files
+                              </span>
+                            </label>
+                            {attachedFile && (
+                              <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <FileText className="w-5 h-5 text-green-600" />
+                                    <div>
+                                      <p className="text-sm font-medium text-gray-800">
+                                        {attachedFile.name}
+                                      </p>
+                                      <p className="text-xs text-gray-500">
+                                        {(
+                                          attachedFile.size /
+                                          1024 /
+                                          1024
+                                        ).toFixed(2)}{" "}
+                                        MB
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => setAttachedFile(null)}
+                                    className="p-1 hover:bg-red-50 rounded-full"
+                                  >
+                                    <X className="w-4 h-4 text-red-500" />
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                 </div>
               )}
 

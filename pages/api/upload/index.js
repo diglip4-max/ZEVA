@@ -39,15 +39,27 @@ export default async function handler(req, res) {
     body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
   }
 
-  const me = await getUserFromReq(req);
-  if (!me) {
-    return res
-      .status(401)
-      .json({ success: false, message: "Not authenticated" });
-  }
+  let me;
+  if (body.source !== "zeva_server") {
+    me = await getUserFromReq(req);
+    if (!me) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Not authenticated" });
+    }
 
-  if (!requireRole(me, ["clinic", "agent", "admin", "doctor", "doctorStaff", "staff"])) {
-    return res.status(403).json({ success: false, message: "Access denied" });
+    if (
+      !requireRole(me, [
+        "clinic",
+        "agent",
+        "admin",
+        "doctor",
+        "doctorStaff",
+        "staff",
+      ])
+    ) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
   }
 
   // Get clinicId based on user role
@@ -102,7 +114,7 @@ export default async function handler(req, res) {
 
     // For demonstration, we'll just log some file info
     console.log(
-      `Received file: ${file.originalname}, size: ${file.size} bytes`
+      `Received file: ${file.originalname}, size: ${file.size} bytes`,
     );
 
     // Upload to Cloudinary (unsigned upload using upload preset)
@@ -163,10 +175,10 @@ export default async function handler(req, res) {
       // Fallback to base64 data URL if FormData/Blob isn't available in environment
       console.warn(
         "FormData/Blob upload failed, falling back to data URL upload",
-        e
+        e,
       );
       const dataUrl = `data:${file.mimetype};base64,${file.buffer.toString(
-        "base64"
+        "base64",
       )}`;
       const params = new URLSearchParams();
       params.append("file", dataUrl);

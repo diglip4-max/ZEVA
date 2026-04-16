@@ -51,6 +51,8 @@ import Appointment from "../models/Appointment.js";
 import { generateAiResponse } from "./ai.js";
 import Users from "../models/Users.js";
 import "./queue.js";
+import Campaign from "../models/Campaign.js";
+import { sendBatchWhatsappMessageQueue } from "./queue.js";
 
 // --- Helper to add listeners to all workers ---
 const addWorkerListeners = (worker, queueName) => {
@@ -2031,6 +2033,442 @@ export const bookAppointmentActionWorker = new Worker(
         error: error.message || "Book appointment action failed",
       });
       throw error; // Re-throw to allow BullMQ to handle retry/failure
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 10,
+  },
+);
+
+// Schedule Whatsapp campaign worker
+const scheduleWhatsappCampaignWorker = new Worker(
+  "scheduleWhatsappCampaignQueue",
+  async (job) => {
+    console.log("Processing WhatsApp campaign worker: ", job.data);
+    const { campaignId } = job.data;
+
+    try {
+      const campaign = await Campaign.findById(campaignId).select(
+        "name recipients status userId clinicId sender type template content mediaType mediaUrl lastProcessedBatch totalMessages sentMessages failedMessages headerParameters bodyParameters source headerVariableMappings buttonVariableMappings variableMappings",
+      );
+      if (!campaign) {
+        console.log("Campaign not found for campaignId: ", campaignId);
+        return;
+      }
+
+      const recipientIds = campaign.recipients;
+      const totalRecipients = recipientIds.length;
+      const batchSize = 10;
+      const totalBatches = Math.ceil(totalRecipients / batchSize);
+      campaign.totalMessages = recipientIds.length;
+      campaign.totalBatches = totalBatches;
+      await campaign.save();
+
+      // If campaign is paused, skip further processing
+      if (campaign.status === "paused") {
+        console.log(
+          `Campaign ${campaignId} is paused. Skipping further processing.`,
+        );
+        return;
+      }
+
+      // Update campaign state before starting the process
+      if (campaign.status !== "processing") {
+        campaign.status = "processing";
+        campaign.processedBatches = 0; // Reset the processed batches when restarting
+        await campaign.save();
+      }
+
+      const provider = await Provider.findById(campaign.sender);
+      if (!provider) {
+        console.log("Provider not found for this campaignId: ", campaign._id);
+        await Campaign.findByIdAndUpdate(campaignId, {
+          status: "failed",
+          errorMessage: "Provider not found for this campaignId",
+        });
+        return;
+      }
+
+      const accessToken = provider?.secrets?.whatsappAccessToken;
+      const phoneNumberId = provider?.phone;
+
+      if (!accessToken || !phoneNumberId) {
+        console.log("Valid Provider details not found");
+        await Campaign.findByIdAndUpdate(campaignId, {
+          status: "failed",
+          errorMessage: "Valid Provider details not found",
+        });
+        return;
+      }
+
+      const template = await Template.findById(campaign.template);
+
+      if (!template || template.status !== "approved") {
+        console.log("Template is not found or not approved");
+        await Campaign.findByIdAndUpdate(campaignId, {
+          status: "failed",
+          errorMessage: "Template is not found or not approved",
+        });
+        return;
+      }
+
+      // Check the last processed batch and continue from there
+      const lastProcessedBatch = campaign.lastProcessedBatch || 0;
+      for (
+        let batchIndex = lastProcessedBatch;
+        batchIndex < totalBatches;
+        batchIndex++
+      ) {
+        const start = batchIndex * batchSize;
+        const end = start + batchSize;
+        const batchRecipients = recipientIds.slice(start, end);
+
+        // If the campaign has been paused or canceled, exit the loop
+        const currentCampaign =
+          await Campaign.findById(campaignId).select("status");
+        if (currentCampaign && currentCampaign.status !== "processing") {
+          console.log(
+            "Campaign stopped or paused for campaignId: ",
+            campaignId,
+          );
+          break;
+        }
+
+        // Process the current batch
+        const recipients = await Lead.find({
+          _id: { $in: batchRecipients },
+        });
+        let batchMsgs = [];
+        let msgData = [];
+        let failedMessages = 0;
+        for (const recipient of recipients) {
+          try {
+            let conversation = await Conversation.findOne({
+              leadId: recipient._id,
+              clinicId: campaign.clinicId,
+            });
+
+            if (!conversation) {
+              conversation = await Conversation.create({
+                clinicId: campaign.clinicId,
+                ownerId: campaign.userId,
+                leadId: recipient._id,
+              });
+            }
+
+            // Generate a unique message ID
+            const messageId = new mongoose.Types.ObjectId(); // Generates a new ObjectId
+
+            const leadPayload = await getLeadDetails(recipient?._id);
+            let content = campaign.content || "";
+            let headerVariableMappings = campaign.headerVariableMappings || {};
+            let variableMappings = campaign.variableMappings || {};
+            let buttonVariableMappings = campaign.buttonVariableMappings || {};
+
+            headerVariableMappings = replaceVariableInObject(
+              headerVariableMappings,
+              "lead",
+              leadPayload,
+            );
+            buttonVariableMappings = replaceVariableInObject(
+              buttonVariableMappings,
+              "lead",
+              leadPayload,
+            );
+            variableMappings = replaceVariableInObject(
+              variableMappings,
+              "lead",
+              leadPayload,
+            );
+
+            // Replace header, button and body variables with actual system data
+            const systemPayload = getSystemDetails();
+            headerVariableMappings = replaceVariableInObject(
+              headerVariableMappings,
+              "system",
+              systemPayload,
+            );
+            buttonVariableMappings = replaceVariableInObject(
+              buttonVariableMappings,
+              "system",
+              systemPayload,
+            );
+            variableMappings = replaceVariableInObject(
+              variableMappings,
+              "system",
+              systemPayload,
+            );
+            content = replaceVariableInString(content, "", variableMappings);
+
+            // Make an array of header, button and body parameters for whatsapp message
+            let headerParameters = [];
+            if (headerVariableMappings) {
+              headerParameters = Object.entries(headerVariableMappings).map(
+                ([key, value]) => ({
+                  type: "text",
+                  text: value,
+                }),
+              );
+            }
+            let buttonParameters = [];
+            if (buttonVariableMappings) {
+              // Ensure it's an array of objects, not an object of objects
+              buttonParameters = Object.values(buttonVariableMappings).map(
+                (value) => ({
+                  type: "text",
+                  text: value,
+                }),
+              );
+            }
+            let bodyParameters = [];
+            if (variableMappings) {
+              bodyParameters = Object.entries(variableMappings).map(
+                ([key, value]) => ({
+                  type: "text",
+                  text: value,
+                }),
+              );
+            }
+            console.log({
+              headerVariableMappings,
+              buttonVariableMappings,
+              variableMappings,
+            });
+            console.log("Header Parameters: ", headerParameters);
+            console.log("Button Parameters: ", buttonParameters);
+            console.log("Body Parameters: ", bodyParameters);
+            console.log("Content: ", content);
+
+            // check status is optOut or not if optOut then don't send message to this contact
+
+            // check toPhoneNumber is valid or not if seeting enabled
+            let toPhoneNumber = recipient?.phone || "";
+            let consentStatus = "optIn";
+
+            msgData.push({
+              _id: messageId, // Assign generated messageId
+              clinicId: campaign.clinicId,
+              conversationId: conversation._id,
+              leadId: recipient._id,
+              campaignId: campaign._id,
+              senderId: campaign.userId,
+              recipientId: recipient._id,
+              provider: campaign.sender,
+              channel: "whatsapp",
+              messageType: "bulk",
+              direction: "outgoing",
+              content: content,
+              mediaType: campaign.mediaType,
+              mediaUrl: campaign.mediaUrl,
+              status:
+                !toPhoneNumber || consentStatus === "optOut"
+                  ? "failed"
+                  : "sent",
+              source: "Zeva",
+              errorCode:
+                consentStatus === "optOut"
+                  ? "70002"
+                  : !toPhoneNumber
+                    ? "70001"
+                    : "",
+              errorMessage:
+                consentStatus === "optOut"
+                  ? "Recipient has opted out."
+                  : !toPhoneNumber
+                    ? "Recipient phone number is invalid or in an incorrect format."
+                    : "",
+              bodyParameters,
+              headerParameters,
+            });
+
+            // push msg data to batch if phoneNumber exist and consentStatus is optIn
+
+            if (toPhoneNumber && consentStatus === "optIn") {
+              batchMsgs.push({
+                channel: "whatsapp",
+                to: toPhoneNumber,
+                template: template.uniqueName,
+                language: template?.language || "en_US",
+                clientMessageId: messageId.toString(), // above message id
+                components: [
+                  template?.isHeader && template?.headerType
+                    ? {
+                        type: "header",
+                        ...(template.headerType === "text"
+                          ? headerParameters.length > 0
+                            ? { parameters: headerParameters } // Pass parameters only if they exist
+                            : {} // Use static text
+                          : {
+                              parameters: [
+                                {
+                                  type: template.headerType,
+                                  [template.headerType]: {
+                                    link: campaign.mediaUrl,
+                                  },
+                                },
+                              ],
+                            }),
+                      }
+                    : null,
+                  bodyParameters?.length > 0
+                    ? {
+                        type: "body",
+                        parameters: bodyParameters,
+                      }
+                    : null,
+
+                  // for authentication template
+                  template?.category?.toLowerCase() === "authentication"
+                    ? {
+                        type: "button",
+                        sub_type: "url",
+                        index: "0",
+                        parameters: bodyParameters,
+                      }
+                    : null,
+                ].filter(Boolean),
+                clientMessageId: messageId.toString(), // above message id
+                credentials: {
+                  accessToken,
+                  phoneNumberId,
+                },
+              });
+            } else {
+              failedMessages += 1;
+            }
+          } catch (error) {
+            console.log(
+              "Failed to create bulk message for contactId: ",
+              recipient._id,
+              error.message,
+            );
+          }
+        }
+
+        try {
+          // Insert messages in bulk
+          const insertedMessages = await Message.insertMany(msgData, {
+            ordered: false,
+          });
+          console.log("Bulk insert result length: ", insertedMessages.length);
+
+          // Prepare bulk update operations for conversation.recentMessage
+          let bulkUpdateOperations = insertedMessages.map((msg) => ({
+            updateOne: {
+              filter: { _id: msg.conversationId }, // Find the conversation
+              update: { $set: { recentMessage: msg._id } }, // Set the recentMessage field
+            },
+          }));
+
+          // Perform bulk update
+          if (bulkUpdateOperations.length > 0) {
+            await Conversation.bulkWrite(bulkUpdateOperations);
+            console.log("Updated recentMessage for conversations.");
+          }
+        } catch (error) {
+          console.log("Error in bulk write operation: ", error.message);
+        }
+
+        // now call the crm bulk api
+        const sendBatchWhatsappJob = await sendBatchWhatsappMessageQueue.add(
+          "sendBatchWhatsappMessageJob",
+          {
+            campaignId,
+            batchIndex,
+            totalBatches,
+            clientBatchId: `${campaign._id}-${campaign.lastProcessedBatch}`,
+            statusCallback: `https://zeva360.com/api/webhook/bulk/whatsapp`, // enter your webhook url
+            credentials: {
+              accessToken,
+              phoneNumberId,
+            },
+            messages: batchMsgs,
+          },
+          {
+            priority: 1,
+            attempts: 3,
+            backoff: {
+              type: "exponential",
+              delay: 1000,
+            },
+          },
+        );
+        // const responseData = await sendBulkWhatsapp(formData);
+        // try {
+        //   const { data } = await axios.get("https://fakestoreapi.com/products");
+        //   console.log(
+        //     `Dummy api resp length for ${batchIndex + 1}/${totalBatches} is ${
+        //       data?.length
+        //     }`
+        //   );
+        // } catch (error) {
+        //   console.log("Dummy api err: ", error?.message);
+        // }
+
+        // Update processed batch count and save the campaign state
+        campaign.lastProcessedBatch = batchIndex + 1; // Update to the next batch to be processed
+        campaign.sentMessages += recipients?.length - failedMessages;
+        campaign.failedMessages += failedMessages;
+        campaign.processedBatches = batchIndex + 1;
+        await campaign.save();
+        console.log(
+          `Processed batch ${batchIndex + 1}/${totalBatches} and jobID is `,
+          sendBatchWhatsappJob.id,
+        );
+
+        // Optional: add a delay between batches (e.g., to avoid rate limiting)
+        await new Promise((resolve) => setTimeout(resolve, 15000)); // 15 second delay
+      }
+
+      // Mark the campaign as completed once all batches are processed
+      campaign.status = "completed";
+      await campaign.save();
+      // await sendCampaignCompleteEmail(campaign._id);
+      console.log(`Campaign ${campaignId} completed successfully.`);
+    } catch (error) {
+      console.log(
+        "Error in schedule whatsapp campaign worker: ",
+        error.message,
+      );
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 10,
+  },
+);
+
+export const sendBatchWhatsappMessageWorker = new Worker(
+  "sendBatchWhatsappMessageQueue",
+  async (job) => {
+    console.log("Processing send whatsapp batch worker: ");
+
+    const {
+      campaignId,
+      batchIndex,
+      totalBatches,
+      clientBatchId,
+      statusCallback,
+      credentials,
+      messages,
+    } = job.data;
+
+    for (let msgData of messages) {
+      const messageId = msgData.clientMessageId;
+      console.log("Processing message: ", msgData);
+      const resData = await handleWhatsappSendMessage(msgData);
+      if (!resData) {
+        await Message.findByIdAndUpdate(messageId, {
+          status: "failed",
+        });
+      } else {
+        const providerMessageId = resData?.messages?.[0]?.id || "";
+        await Message.findByIdAndUpdate(messageId, {
+          status: "sent",
+          providerMessageId,
+        });
+      }
     }
   },
   {

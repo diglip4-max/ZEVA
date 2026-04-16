@@ -15,6 +15,7 @@ import {
   WORKFLOW_ENTITY_TYPE,
   WORKFLOW_TRIGGER_TYPE,
 } from "../../../bullmq/workflow";
+import Campaign from "../../../models/Campaign";
 
 // Utility: normalize phone number by removing leading + and non-digit chars
 const getWithoutPlusNumber = (num) => {
@@ -119,6 +120,18 @@ const processWhatsAppWebhook = async (req) => {
           // Emit status update to user via socket
           const userId = message?.senderId?.toString();
           await emitMessageStatusUpdateToUser(userId, message);
+        }
+        if (message.campaignId) {
+          const campaign = await Campaign.findById(message.campaignId);
+          if (status === "delivered") {
+            campaign.deliveredMessages += 1;
+          } else if (status === "failed") {
+            campaign.failedMessages += 1;
+          } else if (status === "read") {
+            campaign.readMessages += 1;
+          }
+
+          await campaign.save();
         }
       }
     }

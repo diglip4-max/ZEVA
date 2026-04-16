@@ -15,6 +15,11 @@ const MessageSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    campaignId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Campaign",
+    },
+
     leadId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Lead",

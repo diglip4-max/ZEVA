@@ -15,6 +15,7 @@ const usePrevRestApiAction = ({
 
   const fetchPrevRestApiAction = React.useCallback(async () => {
     try {
+      if (!nodeId) return;
       const token = getTokenByPath();
       const { data } = await axios.post(
         `/api/workflows/prevRestApiAction`,
