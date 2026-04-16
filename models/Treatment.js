@@ -19,5 +19,9 @@ const TreatmentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.models.Treatment ||
-  mongoose.model("Treatment", TreatmentSchema);
+// Force re-registration of the model to avoid schema conflicts with duplicate files
+if (mongoose.models.Treatment) {
+  delete mongoose.models.Treatment;
+}
+
+export default mongoose.model("Treatment", TreatmentSchema);
