@@ -488,9 +488,13 @@ const CampaignsPage: NextPageWithLayout = () => {
                         </button>
                       )}
 
-                      {["draft", "scheduled", "paused", "completed"].includes(
-                        campaign.status,
-                      ) && (
+                      {[
+                        "draft",
+                        "scheduled",
+                        "paused",
+                        "failed",
+                        "completed",
+                      ].includes(campaign.status) && (
                         <button
                           onClick={() => {
                             setSelectedCampaign(campaign);
@@ -683,6 +687,7 @@ const CampaignsPage: NextPageWithLayout = () => {
                             "draft",
                             "scheduled",
                             "paused",
+                            "failed",
                             "completed",
                           ].includes(campaign.status) && (
                             <button
