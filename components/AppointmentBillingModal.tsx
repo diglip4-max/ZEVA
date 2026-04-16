@@ -130,6 +130,8 @@ interface Offer {
   minimumBillAmount: number;
   allowCombiningWithOtherOffers: boolean;
   allowReceptionistDiscount: boolean;
+  buyQty: number;
+  freeQty: number;
 }
 
 interface AppointmentBillingModalProps {
@@ -176,6 +178,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [finalMembershipDiscount, setFinalMembershipDiscount] = useState(0);
   const [finalOfferDiscount, setFinalOfferDiscount] = useState(0);
   const [finalReceptionistDiscount, setFinalReceptionistDiscount] = useState(0);
+  const [offerFreeSession, setOfferFreeSession] = useState<string | null>(null);
+  const [freeOfferSessionCount, setFreeOfferSessionCount] = useState(0);
   const [currency, setCurrency] = useState('INR');
   const [billingHistory, setBillingHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -1132,13 +1136,38 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         return false;
       }
 
-      // 1. Check Global Application
+      // 1. Bundle Offer Logic
+      if (offer.offerType === "bundle") {
+        const eligibleTreatments = currentTreatments.filter(t => 
+          offer.serviceIds && Array.isArray(offer.serviceIds) &&
+          offer.serviceIds.some(svc => {
+            if (typeof svc === 'string') {
+              return String(svc) === String(t.slug) || String(svc).toLowerCase() === String(t.name).toLowerCase();
+            } else if (svc && typeof svc === 'object') {
+              return (
+                String(svc._id) === String(t.slug) || 
+                (svc.serviceSlug && String(svc.serviceSlug) === String(t.slug)) ||
+                (svc.name && String(svc.name).toLowerCase() === String(t.name).toLowerCase())
+              );
+            }
+            return false;
+          })
+        );
+        const totalEligibleQty = eligibleTreatments.reduce((sum, t) => sum + t.quantity, 0);
+        if (totalEligibleQty >= (offer.buyQty || 0)) {
+          console.log(`[OfferMatching] Bundle Offer "${offer.title}" matches. Eligible Qty: ${totalEligibleQty}, Buy Qty: ${offer.buyQty}`);
+          return true;
+        }
+        return false;
+      }
+
+      // 2. Check Global Application
       if (offer.applyOnAllServices) {
         console.log(`[OfferMatching] Offer "${offer.title}" matches globally.`);
         return true;
       }
       
-      // 2. Check Doctor-Specific Application
+      // 3. Check Doctor-Specific Application
       if (offer.doctorIds && Array.isArray(offer.doctorIds) && currentDoctorId) {
         if (offer.doctorIds.some(id => String(id) === String(currentDoctorId))) {
           console.log(`[OfferMatching] Offer "${offer.title}" matches for current doctor.`);
@@ -1146,7 +1175,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         }
       }
 
-      // 3. Check Service-Specific Application (Slug or Name or ID)
+      // 4. Check Service-Specific Application (Slug or Name or ID)
        if (offer.serviceIds && Array.isArray(offer.serviceIds)) {
          const matchesService = currentTreatments.some(t => 
            offer.serviceIds.some(svc => {
@@ -1174,7 +1203,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     if (applicableOffers.length > 0) {
       // Sort to find the best offer (highest actual discount amount)
       const bestOffer = applicableOffers.sort((a, b) => {
-        const getDiscountAmount = (offer: Offer) => {
+        const getDiscountValue = (offer: Offer) => {
+          if (offer.offerType === "bundle") {
+            // For bundle, "value" is roughly the free sessions' worth. 
+            // We'll estimate it by using freeQty for comparison, but it's secondary to instant discounts.
+            return (offer.freeQty || 0) * 1000; // Arbitrary high value to prioritize bundles if needed, or keep it simple
+          }
           let amount = 0;
           if (offer.discountMode === "percentage") {
             amount = (baseTotal * offer.discountValue) / 100;
@@ -1184,7 +1218,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           }
           return amount;
         };
-        return getDiscountAmount(b) - getDiscountAmount(a);
+        return getDiscountValue(b) - getDiscountValue(a);
       })[0];
 
       console.log(`[OfferMatching] Matched ${applicableOffers.length} offers.`);
@@ -1599,24 +1633,77 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       }
     }
 
-    // 2. Calculate Offer Discount
+    // 2. Calculate Offer Discount and Bundle Sessions
     const appliedOffers = matchedOffers.filter(o => appliedOfferIds.includes(o._id));
+    let bundleFreeSessions: string[] = [];
+    let totalFreeCount = 0;
+
     if (appliedOffers.length > 0 && baseTotal > 0) {
       appliedOffers.forEach(offer => {
         if (offer.minimumBillAmount === 0 || baseTotal >= offer.minimumBillAmount) {
-          let currentOfferDiscount = 0;
-          if (offer.discountMode === "percentage") {
-            currentOfferDiscount = (baseTotal * offer.discountValue) / 100;
-            if (offer.maxBenefitCap > 0) {
-              currentOfferDiscount = Math.min(currentOfferDiscount, offer.maxBenefitCap);
+          if (offer.offerType === "bundle") {
+            // Handle Bundle Offer (Buy X Get Y Free)
+            const eligibleInSelection = currentTreatments.filter(t => 
+              offer.serviceIds && Array.isArray(offer.serviceIds) &&
+              offer.serviceIds.some(svc => {
+                if (typeof svc === 'string') {
+                  return String(svc) === String(t.slug) || String(svc).toLowerCase() === String(t.name).toLowerCase();
+                } else if (svc && typeof svc === 'object') {
+                  return (
+                    String(svc._id) === String(t.slug) || 
+                    (svc.serviceSlug && String(svc.serviceSlug) === String(t.slug)) ||
+                    (svc.name && String(svc.name).toLowerCase() === String(t.name).toLowerCase())
+                  );
+                }
+                return false;
+              })
+            );
+
+            const totalEligibleQty = eligibleInSelection.reduce((sum, t) => sum + t.quantity, 0);
+            const buyQty = offer.buyQty || 1;
+            const freeQty = offer.freeQty || 0;
+            
+            // Calculate how many times the bundle applies
+            const earnedTimes = Math.floor(totalEligibleQty / buyQty);
+            const earnedFreeCount = earnedTimes * freeQty;
+
+            if (earnedFreeCount > 0) {
+              totalFreeCount += earnedFreeCount;
+              // To assign names for free sessions, sort eligible treatments by price (lower price first)
+              const sortedEligible = [...eligibleInSelection].sort((a, b) => a.price - b.price);
+              
+              let countToAssign = earnedFreeCount;
+              // Create a flat list of individual treatment names based on their quantity to pick the cheapest ones
+              const flatEligibleNames: string[] = [];
+              sortedEligible.forEach(item => {
+                for (let i = 0; i < item.quantity; i++) {
+                  flatEligibleNames.push(item.name);
+                }
+              });
+
+              // Take the first 'earnedFreeCount' names (which are the cheapest ones due to sorting)
+              const assignedNames = flatEligibleNames.slice(0, earnedFreeCount);
+              bundleFreeSessions.push(...assignedNames);
             }
           } else {
-            currentOfferDiscount = offer.discountValue;
+            // Handle Instant Discount
+            let currentOfferDiscount = 0;
+            if (offer.discountMode === "percentage") {
+              currentOfferDiscount = (baseTotal * offer.discountValue) / 100;
+              if (offer.maxBenefitCap > 0) {
+                currentOfferDiscount = Math.min(currentOfferDiscount, offer.maxBenefitCap);
+              }
+            } else {
+              currentOfferDiscount = offer.discountValue;
+            }
+            offerDiscountAmount += currentOfferDiscount;
           }
-          offerDiscountAmount += currentOfferDiscount;
         }
       });
     }
+
+    setOfferFreeSession(bundleFreeSessions.length > 0 ? bundleFreeSessions.join(", ") : null);
+    setFreeOfferSessionCount(totalFreeCount);
 
     // 3. Calculate Receptionist (Doctor/Agent) Discount
     // Only if receptionist discount is allowed by ALL applied offers (or no offers applied)
@@ -2540,10 +2627,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         agentDiscountType: (calcReceptionistDiscount > 0 && isAgentDiscountApplied) ? agentDiscount?.discountType : null,
         agentDiscountAmount: (calcReceptionistDiscount > 0 && isAgentDiscountApplied) ? agentDiscount?.discountAmount : 0,
         // Offer fields
-        isOfferApplied: calcOfferDiscount > 0,
-        offerId: calcOfferDiscount > 0 ? appliedOffers[0]?._id : null,
-        offerTitle: calcOfferDiscount > 0 ? appliedOffers.map(o => o.title).join(", ") : null,
+        isOfferApplied: calcOfferDiscount > 0 || freeOfferSessionCount > 0,
+        offerId: (calcOfferDiscount > 0 || freeOfferSessionCount > 0) ? appliedOffers.map(o => o._id).join(", ") : null,
+        offerTitle: (calcOfferDiscount > 0 || freeOfferSessionCount > 0) ? appliedOffers.map(o => o.title).join(", ") : null,
         offerDiscountAmount: calcOfferDiscount,
+        offerFreeSession: freeOfferSessionCount > 0 ? offerFreeSession : null,
+        freeOfferSessionCount: freeOfferSessionCount,
         discountPercent: (calcMembershipDiscount > 0 || calcOfferDiscount > 0 || calcReceptionistDiscount > 0)
           ? (baseAmount > 0
               ? ((baseAmount - finalAmount) / baseAmount * 100)
@@ -3468,7 +3557,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                     {offer.title}
                                   </span>
                                   <span className="text-[9px] bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded font-bold">
-                                    {offer.discountValue}{offer.discountMode === "percentage" ? "%" : " Fixed"}
+                                    {offer.offerType === "bundle" 
+                                      ? `Buy ${offer.buyQty} Get ${offer.freeQty} Free`
+                                      : `${offer.discountValue}${offer.discountMode === "percentage" ? "%" : " Fixed"}`
+                                    }
                                   </span>
                                 </div>
                                 {offer.maxBenefitCap > 0 && (
@@ -3846,14 +3938,28 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       )}
 
                       {/* Offer Discount (if applied) */}
-                      {appliedOfferIds.length > 0 && finalOfferDiscount > 0 && (
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-gray-600">
-                            Offer: {matchedOffers.filter(o => appliedOfferIds.includes(o._id)).map(o => o.title).join(", ")}
-                          </span>
-                          <span className="font-semibold text-teal-600">
-                            −{getCurrencySymbol(currency)} {finalOfferDiscount.toFixed(2)}
-                          </span>
+                      {appliedOfferIds.length > 0 && (finalOfferDiscount > 0 || freeOfferSessionCount > 0) && (
+                        <div className="flex flex-col gap-1 py-1">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-gray-600">
+                              Offer: {matchedOffers.filter(o => appliedOfferIds.includes(o._id)).map(o => o.title).join(", ")}
+                            </span>
+                            {finalOfferDiscount > 0 && (
+                              <span className="font-semibold text-teal-600">
+                                −{getCurrencySymbol(currency)} {finalOfferDiscount.toFixed(2)}
+                              </span>
+                            )}
+                          </div>
+                          {freeOfferSessionCount > 0 && offerFreeSession && (
+                            <div className="flex items-center justify-between text-[10px] bg-teal-50 px-2 py-1 rounded border border-teal-100">
+                              <span className="text-teal-700 font-medium italic">
+                                ✓ Bundle Benefit: {freeOfferSessionCount} Free Session{freeOfferSessionCount > 1 ? 's' : ''} earned
+                              </span>
+                              <span className="text-teal-800 font-bold truncate max-w-[150px]">
+                                ({offerFreeSession})
+                              </span>
+                            </div>
+                          )}
                         </div>
                       )}
 
