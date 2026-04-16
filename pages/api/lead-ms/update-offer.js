@@ -1,7 +1,7 @@
 // File: /pages/api/lead-ms/update-offer.js
 import dbConnect from "../../../lib/database";
 import Offer from "../../../models/CreateOffer";
-import Treatment from "../../../models/Treatment";
+import Service from "../../../models/Service";
 import Clinic from "../../../models/Clinic";
 import { getUserFromReq, requireRole } from "./auth";
 import { checkClinicPermission } from "./permissions-helper";
@@ -91,33 +91,10 @@ export default async function handler(req, res) {
         offer.status = "expired";
         await offer.save();
       }
-      const treatments = await Treatment.find({ _id: { $in: offer.treatments } })
-        .select("name slug subcategories duration price")
-        .lean();
-
-      const mappedTreatments = treatments.map((t) => {
-        const relatedSubTreatments =
-          offer.subTreatments
-            ?.filter((st) => st.treatmentId.toString() === t._id.toString())
-            .map((st) => ({
-              name: st.name,
-              slug: st.slug,
-              price: st.price || null,
-            })) || [];
-        return {
-          mainTreatment: t.name,
-          mainTreatmentSlug: t.slug,
-          duration: t.duration || null,
-          subTreatments: relatedSubTreatments,
-        };
-      });
-
+      
       return res.status(200).json({
         success: true,
-        offer: {
-          ...offer.toObject(),
-          treatments: mappedTreatments,
-        },
+        offer: offer.toObject(),
       });
     }
 
@@ -125,52 +102,31 @@ export default async function handler(req, res) {
     if (req.method === "PUT") {
       const data = req.body;
 
-      let treatmentIds = [];
-      let subTreatments = [];
+      // ✅ Resolve serviceIds
+      let serviceIds = [];
 
-      if (Array.isArray(data.treatments) && data.treatments.length > 0) {
-        for (const item of data.treatments) {
-          let treatment = null;
-
+      if (Array.isArray(data.serviceIds) && data.serviceIds.length > 0) {
+        for (const item of data.serviceIds) {
           if (mongoose.Types.ObjectId.isValid(item)) {
-            treatment = await Treatment.findById(item);
+            // If it's already a valid ObjectId, we trust it and add it
+            serviceIds.push(new mongoose.Types.ObjectId(item));
           } else {
+            // If it's a slug, we try to resolve it to an ID
             const slug = typeof item === "string" ? item : item.slug;
             if (slug) {
-              treatment = await Treatment.findOne({
-                $or: [{ slug }, { "subcategories.slug": slug }],
+              const service = await Service.findOne({
+                clinicId: clinic._id,
+                $or: [{ serviceSlug: slug }, { name: slug }],
               });
-            }
-          }
-
-          if (!treatment) {
-            return res.status(400).json({
-              success: false,
-              message: `Treatment not found: ${JSON.stringify(item)}`,
-            });
-          }
-
-          if (treatment.slug === (typeof item === "string" ? item : item.slug)) {
-            treatmentIds.push(treatment._id);
-          }
-
-          if (treatment.subcategories && treatment.subcategories.length > 0) {
-            const sub = treatment.subcategories.find(
-              (s) => s.slug === (typeof item === "string" ? item : item.slug)
-            );
-            if (sub) {
-              treatmentIds.push(treatment._id);
-              subTreatments.push({
-                treatmentId: treatment._id,
-                slug: sub.slug,
-                name: sub.name,
-                price: sub.price || null,
-              });
+              if (service) {
+                serviceIds.push(service._id);
+              }
             }
           }
         }
 
-        treatmentIds = Array.from(new Set(treatmentIds.map((id) => id.toString()))).map(
+        // Ensure unique IDs
+        serviceIds = Array.from(new Set(serviceIds.map((id) => id.toString()))).map(
           (id) => new mongoose.Types.ObjectId(id)
         );
       }
@@ -178,29 +134,45 @@ export default async function handler(req, res) {
       // Update fields
       offer.title = data.title ?? offer.title;
       offer.description = data.description ?? offer.description;
-      offer.type = data.type ?? offer.type;
-      offer.value = data.value !== undefined ? Number(data.value) : offer.value;
-      offer.currency = data.currency ?? offer.currency;
+      offer.offerType = data.offerType ?? offer.offerType;
       offer.code = data.code ?? offer.code;
       offer.slug = data.slug ?? offer.slug;
       offer.startsAt = data.startsAt ? new Date(data.startsAt) : offer.startsAt;
       offer.endsAt = data.endsAt ? new Date(data.endsAt) : offer.endsAt;
       offer.timezone = data.timezone ?? offer.timezone;
-      offer.maxUses = data.maxUses !== undefined ? Number(data.maxUses) : offer.maxUses;
+      offer.maxUses = data.maxUses !== undefined ? (data.maxUses ? Number(data.maxUses) : null) : offer.maxUses;
       offer.perUserLimit = data.perUserLimit !== undefined ? Number(data.perUserLimit) : offer.perUserLimit;
-      offer.channels = data.channels ?? offer.channels;
-      offer.utm = data.utm ?? offer.utm;
-      offer.conditions = data.conditions ?? offer.conditions;
-      if (data.enabled !== undefined) {
-        offer.enabled = Boolean(data.enabled);
-      }
-      // Keep status untouched unless explicitly provided for backward compatibility
-      if (data.status !== undefined) {
-        offer.status = data.status;
-      }
+      offer.status = data.status ?? offer.status;
+      offer.enabled = data.enabled !== undefined ? Boolean(data.enabled) : offer.enabled;
 
-      if (treatmentIds.length > 0) offer.treatments = treatmentIds;
-      if (subTreatments.length > 0) offer.subTreatments = subTreatments;
+      // Applicability
+      offer.applyOnAllServices = data.applyOnAllServices ?? offer.applyOnAllServices;
+      if (serviceIds.length > 0) offer.serviceIds = serviceIds;
+      offer.departmentIds = data.departmentIds ?? offer.departmentIds;
+      offer.doctorIds = data.doctorIds ?? offer.doctorIds;
+
+      // Stacking & Rules
+      offer.allowCombiningWithOtherOffers = data.allowCombiningWithOtherOffers ?? offer.allowCombiningWithOtherOffers;
+      offer.allowReceptionistDiscount = data.allowReceptionistDiscount ?? offer.allowReceptionistDiscount;
+      offer.maxBenefitCap = data.maxBenefitCap !== undefined ? Number(data.maxBenefitCap) : offer.maxBenefitCap;
+      offer.minimumBillAmount = data.minimumBillAmount !== undefined ? Number(data.minimumBillAmount) : offer.minimumBillAmount;
+      offer.marginThresholdPercent = data.marginThresholdPercent !== undefined ? Number(data.marginThresholdPercent) : offer.marginThresholdPercent;
+      offer.sameDayReuseBlocked = data.sameDayReuseBlocked ?? offer.sameDayReuseBlocked;
+      offer.partialPaymentAllowed = data.partialPaymentAllowed ?? offer.partialPaymentAllowed;
+
+      // Smart Toggles
+      offer.autoApplyBestOffer = data.autoApplyBestOffer ?? offer.autoApplyBestOffer;
+      offer.allowManualOverride = data.allowManualOverride ?? offer.allowManualOverride;
+      offer.requireApprovalForOverride = data.requireApprovalForOverride ?? offer.requireApprovalForOverride;
+      offer.blockIfProfitMarginBelowX = data.blockIfProfitMarginBelowX ?? offer.blockIfProfitMarginBelowX;
+
+      // Type Specific
+      offer.discountMode = data.discountMode ?? offer.discountMode;
+      offer.discountValue = data.discountValue !== undefined ? Number(data.discountValue) : offer.discountValue;
+      offer.cashbackAmount = data.cashbackAmount !== undefined ? Number(data.cashbackAmount) : offer.cashbackAmount;
+      offer.cashbackExpiryDays = data.cashbackExpiryDays !== undefined ? Number(data.cashbackExpiryDays) : offer.cashbackExpiryDays;
+      offer.buyQty = data.buyQty !== undefined ? Number(data.buyQty) : offer.buyQty;
+      offer.freeQty = data.freeQty !== undefined ? Number(data.freeQty) : offer.freeQty;
 
       offer.updatedBy = user._id;
       offer.updatedAt = new Date();

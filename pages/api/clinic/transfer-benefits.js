@@ -3,6 +3,7 @@ import { getUserFromReq } from "../lead-ms/auth";
 import PatientRegistration from "../../../models/PatientRegistration";
 import MembershipPlan from "../../../models/MembershipPlan";
 import Package from "../../../models/Package";
+import UserPackage from "../../../models/UserPackage";
 import Billing from "../../../models/Billing";
 import mongoose from "mongoose";
 
@@ -180,30 +181,54 @@ export default async function handler(req, res) {
       if (!packageId) {
         return res.status(400).json({ success: false, message: "packageId is required" });
       }
-      const hasPackage = Array.isArray(source.packages) && source.packages.some(p => String(p.packageId) === String(packageId));
-      if (!hasPackage) {
+
+      let pkg = null;
+      let isUserPackage = false;
+      let sourcePkgEntry = null;
+
+      // Check standard packages first (stored in source.packages array)
+      const hasStandardPackage = Array.isArray(source.packages) && source.packages.some(p => String(p.packageId) === String(packageId));
+      
+      if (hasStandardPackage) {
+        pkg = await Package.findById(packageId);
+        sourcePkgEntry = source.packages.find(p => String(p.packageId) === String(packageId)) || {};
+      } else {
+        // Check UserPackage model for user-created packages
+        const userPkg = await UserPackage.findOne({ _id: packageId, patientId: sourcePatientId });
+        if (userPkg) {
+          pkg = userPkg;
+          isUserPackage = true;
+          sourcePkgEntry = {
+            paymentStatus: userPkg.paymentStatus,
+            paidAmount: userPkg.totalPrice || 0,
+            paymentMethod: "", // UserPackage doesn't track method directly in its schema
+          };
+        }
+      }
+
+      if (!pkg) {
         return res.status(400).json({ success: false, message: "Source patient does not have selected package" });
       }
 
-      const pkg = await Package.findById(packageId);
-      if (!pkg) {
-        return res.status(404).json({ success: false, message: "Package not found" });
+      // Find original package entry to copy payment details
+      const { paymentStatus = "Unpaid", paidAmount = 0, paymentMethod = "" } = sourcePkgEntry;
+      const packageName = isUserPackage ? pkg.packageName : pkg.name;
+      const total = Number(pkg.totalSessions) || 0;
+      let remaining = 0;
+
+      if (isUserPackage) {
+        remaining = Number(pkg.remainingSessions) || 0;
+      } else {
+        const billings = await Billing.find({
+          patientId: sourcePatientId,
+          service: "Package",
+          package: packageName,
+        }).select("sessions");
+        let used = 0;
+        billings.forEach(b => { used += (b.sessions || 0); });
+        remaining = Math.max(0, total - used);
       }
 
-      // Find original package entry to copy payment details
-      const sourcePkgEntry = source.packages.find(p => String(p.packageId) === String(packageId)) || {};
-      const { paymentStatus = "Unpaid", paidAmount = 0, paymentMethod = "" } = sourcePkgEntry;
-
-      const total = Number(pkg.totalSessions) || 0;
-
-      const billings = await Billing.find({
-        patientId: sourcePatientId,
-        service: "Package",
-        package: pkg.name,
-      }).select("sessions");
-      let used = 0;
-      billings.forEach(b => { used += (b.sessions || 0); });
-      const remaining = Math.max(0, total - used);
       if (remaining <= 0) {
         return res.status(400).json({ success: false, message: "No remaining package sessions to transfer" });
       }
@@ -211,14 +236,32 @@ export default async function handler(req, res) {
       const session = await mongoose.startSession();
       session.startTransaction();
       try {
-        // Remove the package from source patient (they transferred it out)
-        source.packages = (Array.isArray(source.packages) ? source.packages.filter(p => String(p.packageId) !== String(packageId)) : []);
+        if (isUserPackage) {
+          // For UserPackage, we just transfer ownership of the document
+          pkg.patientId = targetPatientId;
+          await pkg.save({ session });
+        } else {
+          // For standard package, we remove from source and add to target
+          source.packages = (Array.isArray(source.packages) ? source.packages.filter(p => String(p.packageId) !== String(packageId)) : []);
+          
+          target.packages = Array.isArray(target.packages) ? target.packages : [];
+          target.packages.push({ 
+            packageId, 
+            assignedDate: new Date(),
+            paymentStatus,
+            paidAmount,
+            paymentMethod,
+          });
+        }
+
+        // Common logging for transfer history
         source.hasTransferredOut = true;
         source.packageTransfers = source.packageTransfers || [];
         source.packageTransfers.push({
           type: "out",
           packageId,
-          packageName: pkg.name,
+          packageName,
+          isUserPackage,
           toPatientId: target._id,
           transferredSessions: remaining,
           paymentStatus,
@@ -228,19 +271,12 @@ export default async function handler(req, res) {
         });
         await source.save({ session });
 
-        target.packages = Array.isArray(target.packages) ? target.packages : [];
-        target.packages.push({ 
-          packageId, 
-          assignedDate: new Date(),
-          paymentStatus,
-          paidAmount,
-          paymentMethod,
-        });
         target.packageTransfers = target.packageTransfers || [];
         target.packageTransfers.push({
           type: "in",
           packageId,
-          packageName: pkg.name,
+          packageName,
+          isUserPackage,
           fromPatientId: source._id,
           transferredSessions: remaining,
           paymentStatus,

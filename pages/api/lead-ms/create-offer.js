@@ -1,6 +1,6 @@
 import dbConnect from "../../../lib/database";
 import Offer from "../../../models/CreateOffer";
-import Treatment from "../../../models/Treatment";
+import Service from "../../../models/Service";
 import Clinic from "../../../models/Clinic";  
 import { getUserFromReq, requireRole } from "./auth";
 import { getClinicIdFromUser, checkClinicPermission } from "./permissions-helper";
@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     }
 
     const data = req.body;
-    const requiredFields = ["title", "type", "value", "startsAt", "endsAt"];
+    const requiredFields = ["title", "offerType", "startsAt", "endsAt"];
     for (const field of requiredFields) {
       if (!data[field]) {
         return res.status(400).json({ success: false, message: `${field} is required` });
@@ -78,36 +78,28 @@ export default async function handler(req, res) {
     }
 
 
-    // ✅ Resolve treatments & subtreatments
-    let treatmentIds = [];
-    let subTreatments = [];
+    // ✅ Resolve serviceIds
+    let serviceIds = [];
 
-    if (Array.isArray(data.treatments) && data.treatments.length > 0) {
-      for (const slug of data.treatments) {
-        const treatment = await Treatment.findOne({
-          $or: [{ slug }, { "subcategories.slug": slug }],
-        });
-
-        if (!treatment) {
-          return res.status(400).json({ success: false, message: `Treatment not found: ${slug}` });
-        }
-
-        if (treatment.slug === slug) {
-          treatmentIds.push(treatment._id);
-        }
-
-        const sub = treatment.subcategories.find((s) => s.slug === slug);
-        if (sub) {
-          treatmentIds.push(treatment._id);
-          subTreatments.push({
-            treatmentId: treatment._id,
-            slug: sub.slug,
-            name: sub.name,
+    if (Array.isArray(data.serviceIds) && data.serviceIds.length > 0) {
+      for (const idOrSlug of data.serviceIds) {
+        if (mongoose.Types.ObjectId.isValid(idOrSlug)) {
+          // If it's already a valid ObjectId, we trust it and add it
+          serviceIds.push(new mongoose.Types.ObjectId(idOrSlug));
+        } else {
+          // If it's a slug, we try to resolve it to an ID
+          const service = await Service.findOne({
+            clinicId: resolvedClinicId,
+            $or: [{ serviceSlug: idOrSlug }, { name: idOrSlug }],
           });
+          if (service) {
+            serviceIds.push(service._id);
+          }
         }
       }
 
-      treatmentIds = Array.from(new Set(treatmentIds.map((id) => id.toString()))).map(
+      // Ensure unique IDs
+      serviceIds = Array.from(new Set(serviceIds.map((id) => id.toString()))).map(
         (id) => new mongoose.Types.ObjectId(id)
       );
     }
@@ -116,22 +108,46 @@ export default async function handler(req, res) {
       clinicId: resolvedClinicId,
       title: data.title,
       description: data.description || "",
-      type: data.type,
-      value: Number(data.value),
-      currency: data.currency || "INR",
+      offerType: data.offerType,
       code: data.code || undefined,
       slug: data.slug || undefined,
       startsAt: new Date(data.startsAt),
       endsAt: new Date(data.endsAt),
       timezone: data.timezone || "Asia/Kolkata",
+      status: data.status || "draft",
+      enabled: data.enabled ?? true,
       maxUses: data.maxUses ? Number(data.maxUses) : null,
       perUserLimit: data.perUserLimit ? Number(data.perUserLimit) : 1,
-      channels: data.channels || [],
-      utm: data.utm || { source: "clinic", medium: "email", campaign: "" },
-      conditions: data.conditions || {},
-      status: data.status || "draft",
-      treatments: treatmentIds,
-      subTreatments,
+
+      // Applicability
+      applyOnAllServices: data.applyOnAllServices ?? true,
+      serviceIds: serviceIds,
+      departmentIds: data.departmentIds || [],
+      doctorIds: data.doctorIds || [],
+
+      // Stacking & Rules
+      allowCombiningWithOtherOffers: data.allowCombiningWithOtherOffers || false,
+      allowReceptionistDiscount: data.allowReceptionistDiscount || false,
+      maxBenefitCap: data.maxBenefitCap || 0,
+      minimumBillAmount: data.minimumBillAmount || 0,
+      marginThresholdPercent: data.marginThresholdPercent || 0,
+      sameDayReuseBlocked: data.sameDayReuseBlocked ?? true,
+      partialPaymentAllowed: data.partialPaymentAllowed || false,
+
+      // Smart Toggles
+      autoApplyBestOffer: data.autoApplyBestOffer ?? true,
+      allowManualOverride: data.allowManualOverride || false,
+      requireApprovalForOverride: data.requireApprovalForOverride ?? true,
+      blockIfProfitMarginBelowX: data.blockIfProfitMarginBelowX ?? true,
+
+      // Type Specific
+      discountMode: data.discountMode || null,
+      discountValue: data.discountValue || 0,
+      cashbackAmount: data.cashbackAmount || 0,
+      cashbackExpiryDays: data.cashbackExpiryDays || 0,
+      buyQty: data.buyQty || 0,
+      freeQty: data.freeQty || 0,
+
       createdBy: user._id,
       updatedBy: user._id,
     });

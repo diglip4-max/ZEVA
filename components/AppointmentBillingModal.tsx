@@ -15,8 +15,7 @@ import {
   FileText,
   TrendingUp,
   Clock,
- 
-  
+  Tag,
 } from "lucide-react";
 
 interface Appointment {
@@ -109,6 +108,30 @@ interface BilledTreatmentInfo {
   name: string;
 }
 
+interface Offer {
+  _id: string;
+  title: string;
+  description: string;
+  offerType: "instant_discount" | "bundle" | "cashback";
+  discountMode: "percentage" | "flat";
+  discountValue: number;
+  applyOnAllServices: boolean;
+  serviceIds: Array<{
+    _id: string;
+    name?: string;
+    serviceSlug?: string;
+  } | string>;
+  doctorIds?: string[];
+  departmentIds?: string[];
+  status: string;
+  enabled: boolean;
+  code: string;
+  maxBenefitCap: number;
+  minimumBillAmount: number;
+  allowCombiningWithOtherOffers: boolean;
+  allowReceptionistDiscount: boolean;
+}
+
 interface AppointmentBillingModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -146,6 +169,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [packageSearchQuery, setPackageSearchQuery] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [totalPrice, setTotalPrice] = useState(0);
+  const [activeOffers, setActiveOffers] = useState<Offer[]>([]);
+  const [matchedOffers, setMatchedOffers] = useState<Offer[]>([]);
+  const [appliedOfferIds, setAppliedOfferIds] = useState<string[]>([]);
+  const [isMembershipApplied, setIsMembershipApplied] = useState(false);
+  const [finalMembershipDiscount, setFinalMembershipDiscount] = useState(0);
+  const [finalOfferDiscount, setFinalOfferDiscount] = useState(0);
+  const [finalReceptionistDiscount, setFinalReceptionistDiscount] = useState(0);
   const [currency, setCurrency] = useState('INR');
   const [billingHistory, setBillingHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -364,6 +394,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       setApplyAdvance(false);
       setApplyPastAdvance159Flat(false);
       setUseMultiplePayments(false);
+      setActiveOffers([]);
+      setMatchedOffers([]);
+      setAppliedOfferIds([]);
       setMultiplePayments([
         { paymentMethod: "Cash", amount: "" },
         { paymentMethod: "Card", amount: "" },
@@ -601,6 +634,23 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         } finally {
           setLoadingSmartRec(false);
         }
+
+        // Fetch active offers
+         try {
+           const offersRes = await axios.get("/api/lead-ms/get-create-offer", {
+             headers,
+           });
+           if (offersRes.data.success && Array.isArray(offersRes.data.offers)) {
+             // Include only 'active' status offers
+             const applicableOnes = offersRes.data.offers.filter((o: any) => 
+               o.status === "active" && o.enabled === true
+             );
+             console.log(`[OfferFetch] Successfully fetched ${applicableOnes.length} active and enabled offers.`);
+             setActiveOffers(applicableOnes);
+           }
+         } catch (offerErr) {
+           console.error("Error fetching offers:", offerErr);
+         }
       } catch (error) {
         console.error("Error fetching data:", error);
       }
@@ -1047,6 +1097,107 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
   }, [isOpen, appointment, treatments, billingHistory, billingHistoryFetched, billedTreatmentInfos]);
 
+  // Auto-select offer based on selected treatment
+  useEffect(() => {
+    if (!isOpen || activeOffers.length === 0) {
+      setMatchedOffers([]);
+      setAppliedOfferIds([]);
+      return;
+    }
+
+    const currentTreatments = selectedService === "Treatment" 
+      ? selectedTreatments.map(t => ({ slug: t.treatmentSlug, name: t.treatmentName, price: t.price, quantity: t.quantity }))
+      : packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions }));
+
+    if (currentTreatments.length === 0) {
+      setMatchedOffers([]);
+      setAppliedOfferIds([]);
+      return;
+    }
+
+    const baseTotal = currentTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
+    
+    // Appointment-level context for matching
+    const currentDoctorId = typeof appointment?.doctorId === 'object'
+      ? (appointment.doctorId as any)._id
+      : appointment?.doctorId;
+
+    console.log("[OfferMatching] Attempting to match offers for treatments:", currentTreatments, "Base Total:", baseTotal);
+    
+    // Find applicable offers for the selected treatments
+    const applicableOffers = activeOffers.filter(offer => {
+      // 0. Check Minimum Bill Amount
+      if (offer.minimumBillAmount > 0 && baseTotal < offer.minimumBillAmount) {
+        console.log(`[OfferMatching] Offer "${offer.title}" skipped: Base total ${baseTotal} is below minimum bill amount ${offer.minimumBillAmount}.`);
+        return false;
+      }
+
+      // 1. Check Global Application
+      if (offer.applyOnAllServices) {
+        console.log(`[OfferMatching] Offer "${offer.title}" matches globally.`);
+        return true;
+      }
+      
+      // 2. Check Doctor-Specific Application
+      if (offer.doctorIds && Array.isArray(offer.doctorIds) && currentDoctorId) {
+        if (offer.doctorIds.some(id => String(id) === String(currentDoctorId))) {
+          console.log(`[OfferMatching] Offer "${offer.title}" matches for current doctor.`);
+          return true;
+        }
+      }
+
+      // 3. Check Service-Specific Application (Slug or Name or ID)
+       if (offer.serviceIds && Array.isArray(offer.serviceIds)) {
+         const matchesService = currentTreatments.some(t => 
+           offer.serviceIds.some(svc => {
+             if (typeof svc === 'string') {
+               return String(svc) === String(t.slug) || String(svc).toLowerCase() === String(t.name).toLowerCase();
+             } else if (svc && typeof svc === 'object') {
+               return (
+                 String(svc._id) === String(t.slug) || 
+                 (svc.serviceSlug && String(svc.serviceSlug) === String(t.slug)) ||
+                 (svc.name && String(svc.name).toLowerCase() === String(t.name).toLowerCase())
+               );
+             }
+             return false;
+           })
+         );
+         if (matchesService) {
+           console.log(`[OfferMatching] Offer "${offer.title}" matches for selected service (slug/name/id).`);
+           return true;
+         }
+       }
+
+      return false;
+    });
+
+    if (applicableOffers.length > 0) {
+      // Sort to find the best offer (highest actual discount amount)
+      const bestOffer = applicableOffers.sort((a, b) => {
+        const getDiscountAmount = (offer: Offer) => {
+          let amount = 0;
+          if (offer.discountMode === "percentage") {
+            amount = (baseTotal * offer.discountValue) / 100;
+            if (offer.maxBenefitCap > 0) amount = Math.min(amount, offer.maxBenefitCap);
+          } else {
+            amount = offer.discountValue;
+          }
+          return amount;
+        };
+        return getDiscountAmount(b) - getDiscountAmount(a);
+      })[0];
+
+      console.log(`[OfferMatching] Matched ${applicableOffers.length} offers.`);
+      setMatchedOffers(applicableOffers);
+      // Keep only those applied IDs that are still in applicable offers
+      setAppliedOfferIds(prev => prev.filter(id => applicableOffers.some(o => o._id === id)));
+    } else {
+      console.log("[OfferMatching] No applicable offers found.");
+      setMatchedOffers([]);
+      setAppliedOfferIds([]);
+    }
+  }, [isOpen, activeOffers, selectedTreatments, selectedService, packageTreatmentSessions, appointment?.doctorId]);
+
   // Fetch and override referredBy with patient's referral name when available
   useEffect(() => {
     const fetchReferralName = async () => {
@@ -1340,9 +1491,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
     // Apply membership benefits (skip if membership was transferred out)
     let finalTotal = baseTotal;
-    let membershipDiscount = 0;
+    let membershipDiscountAmount = 0;
+    let offerDiscountAmount = 0;
+    let receptionistDiscountAmount = 0;
 
-    // Check if membership was transferred out
+    // 1. Calculate Membership Discount
     const membershipTransferredOut =
       membershipUsage?.membershipId &&
       patientDetails?.membershipTransfers?.some(
@@ -1351,8 +1504,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           String(t.membershipId) === String(membershipUsage.membershipId),
       );
 
-    // Check if patient has active membership with free consultations
     if (
+      isMembershipApplied &&
       membershipUsage?.hasMembership &&
       !membershipUsage?.isExpired &&
       !membershipTransferredOut
@@ -1360,7 +1513,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       const remainingFreeConsultations = membershipUsage.remainingFreeConsultations || 0;
       const discountPercentage = membershipUsage.discountPercentage || 0;
 
-      // Treatment service
       if (selectedService === "Treatment" && selectedTreatments.length > 0) {
         const sortedTreatments = [...selectedTreatments].sort((a, b) => a.price - b.price);
         let freeAvailable = remainingFreeConsultations;
@@ -1370,7 +1522,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         const updated = sortedTreatments.map((t) => {
           let usesFree = false;
           let usesDiscount = false;
-         
           if (freeAvailable > 0 && t.quantity > 0) {
             const qtyFree = Math.min(t.quantity, freeAvailable);
             if (qtyFree > 0) {
@@ -1392,18 +1543,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
         const map = new Map(updated.map((t: any) => [t.treatmentSlug, t]));
         setSelectedTreatments(prev => prev.map((t: any) => map.get(t.treatmentSlug) || t));
-        membershipDiscount = totalDiscount;
-        finalTotal = Math.max(0, baseTotal - totalFree - totalDiscount);
-      }
-      // Package service - process sessions only when sessions > 0
-      else if (selectedService === "Package" && packageTreatmentSessions.some(t => t.isSelected)) {
+        membershipDiscountAmount = totalFree + totalDiscount;
+      } else if (selectedService === "Package" && packageTreatmentSessions.some(t => t.isSelected)) {
         const hasSessions = packageTreatmentSessions.some(t => t.isSelected && (t.usedSessions || 0) > 0);
-       
         if (hasSessions) {
           const selectedSessions = packageTreatmentSessions
             .filter((t: any) => t.isSelected && (t.usedSessions || 0) > 0)
             .sort((a, b) => a.sessionPrice - b.sessionPrice);
-         
           let freeAvailable = remainingFreeConsultations;
           let totalFree = 0;
           let totalDiscount = 0;
@@ -1418,72 +1564,119 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             return { ...t, sessionsFree, remainingSessions: sessions - sessionsFree };
           });
 
-          // Create a map of updated flags by treatmentSlug
           const sessionUpdates = new Map();
           withFreeInfo.forEach((t: any) => {
             const sf = t.sessionsFree || 0;
             const rs = t.remainingSessions || 0;
             let usesFree = sf > 0;
             let usesDiscount = false;
-           
             if (sf > 0) totalFree += t.sessionPrice * sf;
-           
             if (rs > 0 && discountPercentage > 0) {
               usesDiscount = true;
               totalDiscount += (t.sessionPrice * rs * discountPercentage) / 100;
             }
-           
             sessionUpdates.set(t.treatmentSlug, { usesFreeConsultation: usesFree, usesMembershipDiscount: usesDiscount });
           });
 
-          // Update only the flags in the existing state (don't replace the array)
           setPackageTreatmentSessions(prev => prev.map((t: any) => {
             const update = sessionUpdates.get(t.treatmentSlug);
-            if (update) {
-              return { ...t, ...update };
-            }
-            return { ...t, usesFreeConsultation: false, usesMembershipDiscount: false };
+            return update ? { ...t, ...update } : { ...t, usesFreeConsultation: false, usesMembershipDiscount: false };
           }));
 
-          membershipDiscount = totalDiscount;
-          finalTotal = Math.max(0, baseTotal - totalFree - totalDiscount);
+          membershipDiscountAmount = totalFree + totalDiscount;
         }
       } else if (remainingFreeConsultations > 0 && baseTotal > 0) {
-        finalTotal = 0;
+        membershipDiscountAmount = baseTotal;
       } else if (discountPercentage > 0 && baseTotal > 0) {
-        membershipDiscount = (baseTotal * discountPercentage) / 100;
-        finalTotal = baseTotal - membershipDiscount;
+        membershipDiscountAmount = (baseTotal * discountPercentage) / 100;
+      }
+    } else {
+      // Reset membership flags if not applied
+      if (selectedService === "Treatment") {
+        setSelectedTreatments(prev => prev.map(t => ({ ...t, usesFreeConsultation: false, usesMembershipDiscount: false })));
+      } else if (selectedService === "Package") {
+        setPackageTreatmentSessions(prev => prev.map(t => ({ ...t, usesFreeConsultation: false, usesMembershipDiscount: false })));
       }
     }
 
-    // Apply doctor discount if applicable
-    if (isDoctorDiscountApplied && finalTotal > 0 && doctorAppliedDiscount) {
-      const activeDoctorDiscount = doctorComplaintDiscount;
-      if (activeDoctorDiscount) {
-        if (activeDoctorDiscount.discountType === "percentage") {
-          const discountVal = (finalTotal * activeDoctorDiscount.discountAmount) / 100;
-          finalTotal = Math.max(0, finalTotal - discountVal);
-        } else if (activeDoctorDiscount.discountType === "fixed_amount") {
-          finalTotal = Math.max(0, finalTotal - activeDoctorDiscount.discountAmount);
+    // 2. Calculate Offer Discount
+    const appliedOffers = matchedOffers.filter(o => appliedOfferIds.includes(o._id));
+    if (appliedOffers.length > 0 && baseTotal > 0) {
+      appliedOffers.forEach(offer => {
+        if (offer.minimumBillAmount === 0 || baseTotal >= offer.minimumBillAmount) {
+          let currentOfferDiscount = 0;
+          if (offer.discountMode === "percentage") {
+            currentOfferDiscount = (baseTotal * offer.discountValue) / 100;
+            if (offer.maxBenefitCap > 0) {
+              currentOfferDiscount = Math.min(currentOfferDiscount, offer.maxBenefitCap);
+            }
+          } else {
+            currentOfferDiscount = offer.discountValue;
+          }
+          offerDiscountAmount += currentOfferDiscount;
+        }
+      });
+    }
+
+    // 3. Calculate Receptionist (Doctor/Agent) Discount
+    // Only if receptionist discount is allowed by ALL applied offers (or no offers applied)
+    const receptionistDiscountAllowed = appliedOffers.length === 0 || appliedOffers.every(o => o.allowReceptionistDiscount);
+    if (receptionistDiscountAllowed) {
+      if (isDoctorDiscountApplied && baseTotal > 0 && doctorAppliedDiscount && doctorComplaintDiscount) {
+        if (doctorComplaintDiscount.discountType === "percentage") {
+          receptionistDiscountAmount = (baseTotal * doctorComplaintDiscount.discountAmount) / 100;
+        } else {
+          receptionistDiscountAmount = doctorComplaintDiscount.discountAmount;
+        }
+      } else if (isAgentDiscountApplied && agentDiscount && baseTotal > 0) {
+        if (agentDiscount.discountType === "percentage") {
+          receptionistDiscountAmount = (baseTotal * agentDiscount.discountAmount) / 100;
+        } else {
+          receptionistDiscountAmount = agentDiscount.discountAmount;
         }
       }
     }
-    // Apply agent discount if applicable (only if doctor discount not applied)
-    else if (isAgentDiscountApplied && agentDiscount && finalTotal > 0) {
-      if (agentDiscount.discountType === "percentage") {
-        const discountVal = (finalTotal * agentDiscount.discountAmount) / 100;
-        finalTotal = Math.max(0, finalTotal - discountVal);
-      } else if (agentDiscount.discountType === "fixed_amount") {
-        finalTotal = Math.max(0, finalTotal - agentDiscount.discountAmount);
-      }
+
+    // 4. Combine or Select Highest
+    // Note: If ANY applied offer does not allow combining, then canCombine is false.
+    const canCombine = appliedOffers.length === 0 || appliedOffers.every(o => o.allowCombiningWithOtherOffers);
+
+    let calcMembershipDiscount = 0;
+    let calcOfferDiscount = 0;
+    let calcReceptionistDiscount = 0;
+
+    if (canCombine) {
+      // Apply all sequential: Membership -> Offer -> Receptionist
+      const totalDiscount = membershipDiscountAmount + offerDiscountAmount + receptionistDiscountAmount;
+      finalTotal = Math.max(0, baseTotal - totalDiscount);
+      calcMembershipDiscount = membershipDiscountAmount;
+      calcOfferDiscount = offerDiscountAmount;
+      calcReceptionistDiscount = receptionistDiscountAmount;
+    } else {
+      // Only apply the highest discount
+      const discounts = [
+        { type: 'Membership', amount: membershipDiscountAmount },
+        { type: 'Offer', amount: offerDiscountAmount },
+        { type: 'Receptionist', amount: receptionistDiscountAmount }
+      ];
+      const highest = discounts.reduce((prev, current) => (prev.amount >= current.amount) ? prev : current);
+      
+      calcMembershipDiscount = highest.type === 'Membership' ? highest.amount : 0;
+      calcOfferDiscount = highest.type === 'Offer' ? highest.amount : 0;
+      calcReceptionistDiscount = highest.type === 'Receptionist' ? highest.amount : 0;
+      
+      finalTotal = Math.max(0, baseTotal - highest.amount);
     }
+
+    setFinalMembershipDiscount(calcMembershipDiscount);
+    setFinalOfferDiscount(calcOfferDiscount);
+    setFinalReceptionistDiscount(calcReceptionistDiscount);
 
     setTotalPrice(finalTotal);
     setFormData((prev) => ({
       ...prev,
       discountedAmount: finalTotal.toFixed(2),
       originalAmount: baseTotal.toFixed(2),
-      // Auto-set paid to 0.00 if total is 0 (free consultation)
       paid: finalTotal === 0 ? "0.00" : prev.paid,
     }));
   }, [
@@ -1498,6 +1691,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     doctorComplaintDiscount,
     isAgentDiscountApplied,
     agentDiscount,
+    matchedOffers,
+    appliedOfferIds,
+    isMembershipApplied,
   ]);
 
   // Override displayed invoice total to include previous pending
@@ -2209,6 +2405,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         );
 
       if (
+        isMembershipApplied &&
         membershipUsage?.hasMembership &&
         !membershipUsage?.isExpired &&
         !membershipTransferredOut
@@ -2243,6 +2440,45 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         } else if (doctorComplaintDiscount.discountType === "fixed_amount") {
           doctorDiscountApplied = doctorComplaintDiscount.discountAmount;
         }
+      }
+
+      // Calculate offer discount applied
+      let offerDiscountApplied = 0;
+      const appliedOffers = matchedOffers.filter(o => appliedOfferIds.includes(o._id));
+      if (appliedOffers.length > 0) {
+        appliedOffers.forEach(offer => {
+          if (offer.minimumBillAmount === 0 || baseAmount >= offer.minimumBillAmount) {
+            let currentOfferDiscount = 0;
+            if (offer.discountMode === "percentage") {
+              currentOfferDiscount = (baseAmount * offer.discountValue) / 100;
+              if (offer.maxBenefitCap && offer.maxBenefitCap > 0) {
+                currentOfferDiscount = Math.min(currentOfferDiscount, offer.maxBenefitCap);
+              }
+            } else if (offer.discountMode === "flat") {
+              currentOfferDiscount = offer.discountValue;
+            }
+            offerDiscountApplied += currentOfferDiscount;
+          }
+        });
+      }
+
+      // 4. Combine or Select Highest
+      const canCombine = appliedOffers.length === 0 || appliedOffers.every(o => o.allowCombiningWithOtherOffers);
+      let calcMembershipDiscount = membershipDiscountApplied;
+      let calcOfferDiscount = offerDiscountApplied;
+      let calcReceptionistDiscount = doctorDiscountApplied || (isAgentDiscountApplied ? (agentDiscount?.discountType === "percentage" ? (baseAmount * agentDiscount.discountAmount / 100) : agentDiscount?.discountAmount || 0) : 0);
+
+      if (!canCombine) {
+        const discounts = [
+          { type: 'Membership', amount: membershipDiscountApplied },
+          { type: 'Offer', amount: offerDiscountApplied },
+          { type: 'Receptionist', amount: calcReceptionistDiscount }
+        ];
+        const highest = discounts.reduce((prev, current) => (prev.amount > current.amount) ? prev : current);
+        
+        calcMembershipDiscount = highest.type === 'Membership' ? highest.amount : 0;
+        calcOfferDiscount = highest.type === 'Offer' ? highest.amount : 0;
+        calcReceptionistDiscount = highest.type === 'Receptionist' ? highest.amount : 0;
       }
 
       // Prepare payload
@@ -2293,19 +2529,24 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
               }))
           : [],
         // Membership tracking fields
-        isFreeConsultation,
+        isFreeConsultation: isFreeConsultation && (canCombine || calcMembershipDiscount > 0),
         freeConsultationCount,
-        membershipDiscountApplied,
-        doctorDiscountApplied,
-        isDoctorDiscountApplied,
-        doctorDiscountType: isDoctorDiscountApplied ? (doctorAppliedDiscount ? doctorComplaintDiscount?.discountType : null) : null,
-        doctorDiscountAmount: isDoctorDiscountApplied ? (doctorAppliedDiscount ? doctorComplaintDiscount?.discountAmount : 0) : 0,
-        isAgentDiscountApplied,
-        agentDiscountType: isAgentDiscountApplied ? agentDiscount?.discountType : null,
-        agentDiscountAmount: isAgentDiscountApplied ? agentDiscount?.discountAmount : 0,
-        discountPercent: (isDoctorDiscountApplied || isAgentDiscountApplied)
-          ? (baseAmount - (membershipDiscountApplied || 0) > 0
-              ? (((baseAmount - (membershipDiscountApplied || 0)) - parseFloat(formData.discountedAmount || "0")) / (baseAmount - (membershipDiscountApplied || 0)) * 100)
+        membershipDiscountApplied: calcMembershipDiscount,
+        doctorDiscountApplied: calcReceptionistDiscount > 0 && isDoctorDiscountApplied ? calcReceptionistDiscount : 0,
+        isDoctorDiscountApplied: calcReceptionistDiscount > 0 && isDoctorDiscountApplied,
+        doctorDiscountType: (calcReceptionistDiscount > 0 && isDoctorDiscountApplied) ? (doctorAppliedDiscount ? doctorComplaintDiscount?.discountType : null) : null,
+        doctorDiscountAmount: (calcReceptionistDiscount > 0 && isDoctorDiscountApplied) ? (doctorAppliedDiscount ? doctorComplaintDiscount?.discountAmount : 0) : 0,
+        isAgentDiscountApplied: calcReceptionistDiscount > 0 && isAgentDiscountApplied,
+        agentDiscountType: (calcReceptionistDiscount > 0 && isAgentDiscountApplied) ? agentDiscount?.discountType : null,
+        agentDiscountAmount: (calcReceptionistDiscount > 0 && isAgentDiscountApplied) ? agentDiscount?.discountAmount : 0,
+        // Offer fields
+        isOfferApplied: calcOfferDiscount > 0,
+        offerId: calcOfferDiscount > 0 ? appliedOffers[0]?._id : null,
+        offerTitle: calcOfferDiscount > 0 ? appliedOffers.map(o => o.title).join(", ") : null,
+        offerDiscountAmount: calcOfferDiscount,
+        discountPercent: (calcMembershipDiscount > 0 || calcOfferDiscount > 0 || calcReceptionistDiscount > 0)
+          ? (baseAmount > 0
+              ? ((baseAmount - finalAmount) / baseAmount * 100)
               : 0)
           : 0,
         originalAmount: baseAmount,
@@ -3101,20 +3342,28 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
                     {/* Membership discount breakdown in service area */}
                     {(() => {
-                      const showSummary = ((membershipUsage?.hasMembership && !membershipUsage?.isExpired && membershipUsage?.remainingFreeConsultations === 0 && membershipUsage?.discountPercentage > 0) || isDoctorDiscountApplied || isAgentDiscountApplied) && parseFloat(formData.originalAmount || "0") > 0;
+                      const appliedOffers = matchedOffers.filter(o => appliedOfferIds.includes(o._id));
+                      const showSummary = ((isMembershipApplied && membershipUsage?.hasMembership && !membershipUsage?.isExpired && membershipUsage?.remainingFreeConsultations === 0 && membershipUsage?.discountPercentage > 0) || isDoctorDiscountApplied || isAgentDiscountApplied || appliedOfferIds.length > 0) && parseFloat(formData.originalAmount || "0") > 0;
                       if (!showSummary) return null;
 
                       const activeDiscounts = [];
-                      if (membershipUsage?.hasMembership && !membershipUsage?.isExpired && membershipUsage?.remainingFreeConsultations === 0 && membershipUsage?.discountPercentage > 0) {
-                        activeDiscounts.push(`Memb (${membershipUsage.discountPercentage}%)`);
+                      if (finalMembershipDiscount > 0) {
+                        activeDiscounts.push(`Membership (${membershipUsage?.discountPercentage || 0}%)`);
                       }
-                      if (isDoctorDiscountApplied && doctorComplaintDiscount) {
-                        activeDiscounts.push(`Dr (${doctorComplaintDiscount.discountAmount}${doctorComplaintDiscount.discountType === "percentage" ? "%" : " Fixed"})`);
-                      } else if (isAgentDiscountApplied && agentDiscount) {
-                        activeDiscounts.push(`Agent (${agentDiscount.discountAmount}${agentDiscount.discountType === "percentage" ? "%" : " Fixed"})`);
+                      if (finalOfferDiscount > 0 && appliedOffers.length > 0) {
+                        activeDiscounts.push(`Offer: ${appliedOffers.map(o => o.title).join(", ")}`);
+                      }
+                      if (finalReceptionistDiscount > 0) {
+                        if (isDoctorDiscountApplied && doctorComplaintDiscount) {
+                          activeDiscounts.push(`Dr. Disc (${doctorComplaintDiscount.discountAmount}${doctorComplaintDiscount.discountType === "percentage" ? "%" : " Fixed"})`);
+                        } else if (isAgentDiscountApplied && agentDiscount) {
+                          activeDiscounts.push(`Agent Disc (${agentDiscount.discountAmount}${agentDiscount.discountType === "percentage" ? "%" : " Fixed"})`);
+                        }
                       }
 
                       const discountDesc = activeDiscounts.join(" + ");
+                      const canCombine = appliedOffers.length === 0 || appliedOffers.every(o => o.allowCombiningWithOtherOffers);
+                      const hasMultipleDiscounts = activeDiscounts.length > 1;
 
                       return (
                         <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
@@ -3135,10 +3384,15 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                               <div className="font-bold text-emerald-600">{getCurrencySymbol(currency)} {totalPrice.toFixed(2)}</div>
                             </div>
                           </div>
+                          {!canCombine && hasMultipleDiscounts && (
+                            <div className="mt-2 text-[9px] text-blue-700 font-bold italic text-center bg-blue-100/50 py-1 rounded">
+                              * Other discounts cannot be applied, only the highest one can be applied.
+                            </div>
+                          )}
                         </div>
                       );
                     })()}
-                    {membershipUsage?.hasMembership && !membershipUsage?.isExpired && membershipUsage?.remainingFreeConsultations > 0 && totalPrice === 0 && (
+                    {isMembershipApplied && membershipUsage?.hasMembership && !membershipUsage?.isExpired && membershipUsage?.remainingFreeConsultations > 0 && totalPrice === 0 && (
                       <div className="mt-3 p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-700">
                         ✓ Free consultation applied — no charge for this session.
                       </div>
@@ -3150,9 +3404,117 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                     <h3 className="text-[10px] font-bold text-gray-700 uppercase tracking-wider mb-3">Payment Details</h3>
                    
                     {/* Discount Controls */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+                      {/* Membership Discount Toggle */}
+                      {membershipUsage?.hasMembership && !membershipUsage?.isExpired && !isMembershipTransferredOut() && (
+                        <div className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                          isMembershipApplied ? "bg-blue-50 border-blue-200 shadow-sm" : "bg-gray-50 border-gray-100"
+                        }`}>
+                          <div className="flex items-start gap-2.5">
+                            <div className={`p-1.5 rounded-lg ${isMembershipApplied ? "bg-blue-100" : "bg-gray-100"}`}>
+                              <Tag size={14} className={isMembershipApplied ? "text-blue-600" : "text-gray-400"} />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className={`text-[10px] font-bold ${isMembershipApplied ? "text-blue-700" : "text-gray-500"}`}>MEMBERSHIP</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-gray-600 font-medium">
+                                  {membershipUsage.remainingFreeConsultations > 0 
+                                    ? "Free Session" 
+                                    : `${membershipUsage.discountPercentage}% Off`}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newStatus = !isMembershipApplied;
+                              setIsMembershipApplied(newStatus);
+                              
+                              if (newStatus) {
+                                // If any applied offer doesn't allow combining, deselect all offers
+                                const anyRestricted = matchedOffers.some(o => appliedOfferIds.includes(o._id) && !o.allowCombiningWithOtherOffers);
+                                if (anyRestricted) {
+                                  setAppliedOfferIds([]);
+                                }
+                              }
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all shadow-sm ${
+                              isMembershipApplied
+                                ? "bg-blue-200 text-blue-800 hover:bg-blue-300"
+                                : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            {isMembershipApplied ? "Applied" : "Apply"}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Offer Toggles */}
+                      {matchedOffers.map((offer) => {
+                        const isApplied = appliedOfferIds.includes(offer._id);
+                        return (
+                          <div key={offer._id} className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                            isApplied ? "bg-teal-50 border-teal-200 shadow-sm" : "bg-gray-50 border-gray-100"
+                          }`}>
+                            <div className="flex items-start gap-2.5">
+                              <div className={`p-1.5 rounded-lg ${isApplied ? "bg-teal-100" : "bg-gray-100"}`}>
+                                <Tag size={14} className={isApplied ? "text-teal-600" : "text-gray-400"} />
+                              </div>
+                              <div className="flex flex-col">
+                                <span className={`text-[10px] font-bold ${isApplied ? "text-teal-700" : "text-gray-500"}`}>OFFER</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] text-gray-600 font-medium truncate max-w-[120px]">
+                                    {offer.title}
+                                  </span>
+                                  <span className="text-[9px] bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded font-bold">
+                                    {offer.discountValue}{offer.discountMode === "percentage" ? "%" : " Fixed"}
+                                  </span>
+                                </div>
+                                {offer.maxBenefitCap > 0 && (
+                                  <span className="text-[8px] text-teal-600 font-bold italic">
+                                    Up to {getCurrencySymbol(currency)} {offer.maxBenefitCap}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isApplied) {
+                                  setAppliedOfferIds(prev => prev.filter(id => id !== offer._id));
+                                } else {
+                                  if (!offer.allowCombiningWithOtherOffers) {
+                                    // If this offer doesn't allow combining, clear EVERYTHING else
+                                    setAppliedOfferIds([offer._id]);
+                                    setIsMembershipApplied(false);
+                                    setIsDoctorDiscountApplied(false);
+                                    setIsAgentDiscountApplied(false);
+                                  } else {
+                                    // If combining is allowed, but we already have a restricted offer applied, clear it
+                                    const hasRestricted = matchedOffers.some(o => appliedOfferIds.includes(o._id) && !o.allowCombiningWithOtherOffers);
+                                    if (hasRestricted) {
+                                      setAppliedOfferIds([offer._id]);
+                                    } else {
+                                      setAppliedOfferIds(prev => [...prev, offer._id]);
+                                    }
+                                  }
+                                }
+                              }}
+                              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all shadow-sm ${
+                                isApplied
+                                  ? "bg-teal-200 text-teal-800 hover:bg-teal-300"
+                                  : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+                              }`}
+                            >
+                              {isApplied ? "Applied" : "Apply"}
+                            </button>
+                          </div>
+                        );
+                      })}
+
                       {/* Doctor Discount Section (From Profile or Complaint) */}
-                      {doctorAppliedDiscount && (
+                      {doctorAppliedDiscount && (appliedOfferIds.length === 0 || matchedOffers.filter(o => appliedOfferIds.includes(o._id)).every(o => o.allowReceptionistDiscount)) && (
                         <div className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
                           isDoctorDiscountApplied ? "bg-orange-50 border-orange-200 shadow-sm" : "bg-gray-50 border-gray-100"
                         }`}>
@@ -3168,19 +3530,22 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                   {doctorComplaintDiscount ? (doctorComplaintDiscount?.discountType === "percentage" ? "%" : " Fixed") : ""}
                                   {isDoctorDiscountApplied ? " (Applied)" : ""}
                                 </span>
-                                {agentDiscount && ((doctorComplaintDiscount?.discountAmount || 0)) > agentDiscount.discountAmount && (
-                                  <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">
-                                    Best Value!
-                                  </span>
-                                )}
                               </div>
                             </div>
                           </div>
                           <button
                             type="button"
                             onClick={() => {
-                              setIsDoctorDiscountApplied(!isDoctorDiscountApplied);
-                              if (!isDoctorDiscountApplied) setIsAgentDiscountApplied(false);
+                              const newStatus = !isDoctorDiscountApplied;
+                              setIsDoctorDiscountApplied(newStatus);
+                              if (newStatus) {
+                                setIsAgentDiscountApplied(false);
+                                // If any applied offer doesn't allow combining, clear offers
+                                const anyRestricted = matchedOffers.some(o => appliedOfferIds.includes(o._id) && !o.allowCombiningWithOtherOffers);
+                                if (anyRestricted) {
+                                  setAppliedOfferIds([]);
+                                }
+                              }
                             }}
                             className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all shadow-sm ${
                               isDoctorDiscountApplied
@@ -3193,7 +3558,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         </div>
                       )}
 
-                      {agentDiscount && ((userRole === "agent") || !doctorAppliedDiscount) && (
+                      {agentDiscount && ((userRole === "agent") || !doctorAppliedDiscount) && (appliedOfferIds.length === 0 || matchedOffers.filter(o => appliedOfferIds.includes(o._id)).every(o => o.allowReceptionistDiscount)) && (
                         <div className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
                           isAgentDiscountApplied ? "bg-blue-50 border-blue-200 shadow-sm" : "bg-gray-50 border-gray-100"
                         }`}>
@@ -3207,19 +3572,22 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                 <span className="text-[10px] text-gray-600 font-medium">
                                   {agentDiscount.discountAmount}{agentDiscount.discountType === "percentage" ? "%" : " Fixed"} available
                                 </span>
-                                {(doctorAppliedDiscount && doctorComplaintDiscount) && agentDiscount.discountAmount > (doctorComplaintDiscount?.discountAmount || 0) && (
-                                  <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold animate-pulse">
-                                    Best Value!
-                                  </span>
-                                )}
                               </div>
                             </div>
                           </div>
                           <button
                             type="button"
                             onClick={() => {
-                              setIsAgentDiscountApplied(!isAgentDiscountApplied);
-                              if (!isAgentDiscountApplied) setIsDoctorDiscountApplied(false);
+                              const newStatus = !isAgentDiscountApplied;
+                              setIsAgentDiscountApplied(newStatus);
+                              if (newStatus) {
+                                setIsDoctorDiscountApplied(false);
+                                // If any applied offer doesn't allow combining, clear offers
+                                const anyRestricted = matchedOffers.some(o => appliedOfferIds.includes(o._id) && !o.allowCombiningWithOtherOffers);
+                                if (anyRestricted) {
+                                  setAppliedOfferIds([]);
+                                }
+                              }
                             }}
                             className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all shadow-sm ${
                               isAgentDiscountApplied
@@ -3449,7 +3817,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       </svg>
                       <span className="text-xs font-bold text-gray-900">Billing Summary</span>
                       {/* Free Consultation Tag */}
-                      {membershipUsage && membershipUsage.hasMembership && !membershipUsage.isExpired && membershipUsage.remainingFreeConsultations > 0 && parseFloat(formData.originalAmount || "0") > 0 && (
+                      {isMembershipApplied && membershipUsage && membershipUsage.hasMembership && !membershipUsage.isExpired && membershipUsage.remainingFreeConsultations > 0 && parseFloat(formData.originalAmount || "0") > 0 && (
                         <span className="ml-auto px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 rounded-full">
                           Free Consultation Applied
                         </span>
@@ -3465,35 +3833,38 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         </div>
                       )}
 
-                      {/* Doctor Discount (if applied) */}
-                      {isDoctorDiscountApplied && (doctorComplaintDiscount || doctorDiscount) && (() => {
-                        const activeDoctor = doctorComplaintDiscount || doctorDiscount;
-                        return (
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-gray-600">
-                              Doctor Discount ({activeDoctor?.discountType === "percentage" ? `${activeDoctor?.discountAmount}%` : "Fixed"})
-                            </span>
-                            <span className="font-semibold text-red-500">
-                              −{getCurrencySymbol(currency)} {(() => {
-                                const originalAmt = parseFloat(formData.originalAmount || formData.amount || "0");
-                                if (activeDoctor?.discountType === "percentage") {
-                                  return ((originalAmt * (activeDoctor?.discountAmount || 0)) / 100).toFixed(2);
-                                }
-                                return (activeDoctor?.discountAmount || 0).toFixed(2);
-                              })()}
-                            </span>
-                          </div>
-                        );
-                      })()}
-
                       {/* Membership Discount (if applied) */}
-                      {membershipUsage && membershipUsage.hasMembership && !membershipUsage.isExpired && membershipUsage.discountPercentage > 0 && (
+                      {isMembershipApplied && finalMembershipDiscount > 0 && (
                         <div className="flex items-center justify-between text-[11px]">
                           <span className="text-gray-600">
-                            Membership Discount ({membershipUsage.discountPercentage}%)
+                            Membership Discount ({membershipUsage?.discountPercentage || 0}%)
                           </span>
                           <span className="font-semibold text-blue-600">
-                            −{getCurrencySymbol(currency)} {((parseFloat(formData.originalAmount || "0") * membershipUsage.discountPercentage) / 100).toFixed(2)}
+                            −{getCurrencySymbol(currency)} {finalMembershipDiscount.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Offer Discount (if applied) */}
+                      {appliedOfferIds.length > 0 && finalOfferDiscount > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-600">
+                            Offer: {matchedOffers.filter(o => appliedOfferIds.includes(o._id)).map(o => o.title).join(", ")}
+                          </span>
+                          <span className="font-semibold text-teal-600">
+                            −{getCurrencySymbol(currency)} {finalOfferDiscount.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Doctor/Agent Discount (if applied) */}
+                      {finalReceptionistDiscount > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-600">
+                            {isDoctorDiscountApplied ? "Doctor" : "Agent"} Discount
+                          </span>
+                          <span className="font-semibold text-orange-600">
+                            −{getCurrencySymbol(currency)} {finalReceptionistDiscount.toFixed(2)}
                           </span>
                         </div>
                       )}
