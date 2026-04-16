@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { getCurrencySymbol } from '../../lib/currencyHelper';
 import {
   LineChart,
   Line,
@@ -51,6 +52,32 @@ const MembershipPackageReports: React.FC<MembershipPackageReportsProps> = ({ cli
   const [membershipRevenue, setMembershipRevenue] = useState<RevenueData[]>([]);
   const [packageUsage, setPackageUsage] = useState<PackageUsage[]>([]);
   const [sessionsRemaining, setSessionsRemaining] = useState<SessionsRemaining[]>([]);
+  const [clinicCurrency, setClinicCurrency] = useState<string>('INR');
+
+  // Fetch clinic currency
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const token = 
+          localStorage.getItem('clinicToken') || 
+          sessionStorage.getItem('clinicToken') ||
+          localStorage.getItem('userToken') || 
+          sessionStorage.getItem('userToken');
+        
+        if (!token) return;
+        
+        const res = await axios.get('/api/clinics/myallClinic', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.data?.success && res.data.clinic?.currency) {
+          setClinicCurrency(res.data.clinic.currency);
+        }
+      } catch (err) {
+        console.error('Error fetching clinic currency:', err);
+      }
+    };
+    fetchClinicCurrency();
+  }, []);
 
   useEffect(() => {
     const fetchReports = async () => {
@@ -291,7 +318,7 @@ const MembershipPackageReports: React.FC<MembershipPackageReportsProps> = ({ cli
                   <YAxis
                     tick={{ fontSize: 12, fill: '#6b7280' }}
                     stroke="#9ca3af"
-                    tickFormatter={(value) => `₹${value}`}
+                    tickFormatter={(value) => `${getCurrencySymbol(clinicCurrency)}${value}`}
                   />
                   <Tooltip
                     contentStyle={{
@@ -300,7 +327,7 @@ const MembershipPackageReports: React.FC<MembershipPackageReportsProps> = ({ cli
                       borderRadius: '8px',
                       boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                     }}
-                    formatter={(value: any) => [`₹${value}`, 'Revenue']}
+                    formatter={(value: any) => [`${getCurrencySymbol(clinicCurrency)}${value}`, 'Revenue']}
                     labelFormatter={(label, payload) => {
                       if (payload && payload[0] && payload[0].payload.date) {
                         return `${label} - ${payload[0].payload.date}`;
@@ -345,7 +372,7 @@ const MembershipPackageReports: React.FC<MembershipPackageReportsProps> = ({ cli
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-gray-800">{pkg.packageName}</p>
                         <p className="text-xs text-gray-500 mt-0.5">
-                          Revenue: ₹{pkg.revenue}
+                          Revenue: {getCurrencySymbol(clinicCurrency)}{pkg.revenue}
                         </p>
                       </div>
                       <div className="text-right">

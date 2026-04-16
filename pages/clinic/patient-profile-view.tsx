@@ -2907,10 +2907,14 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                             .map((m: any, originalIdx: number) => ({ m, originalIdx }))
                             .filter(({ m }: any) => !txOutMembershipIds.has(String(m.membershipId)));
                           if (visibleMemberships.length === 0) return null;
+                          
+                          // Check if more than 3 memberships to enable scroll
+                          const shouldScroll = visibleMemberships.length > 3;
+                          
                           return (
                             <div className="border border-gray-200 rounded p-2 mt-2">
                               <div className="text-[10px] font-semibold text-gray-900 mb-1">Added Memberships</div>
-                              <div className="space-y-1">
+                              <div className={shouldScroll ? "space-y-1 max-h-[350px] overflow-y-auto pr-1" : "space-y-1"}>
                                 {visibleMemberships.map(({ m, originalIdx }: any) => {
                                   const plan = allAvailableMemberships.find((x: any) => x._id === m.membershipId);
                                   const k = `${m.membershipId}|${m.startDate}|${m.endDate}`;
@@ -3347,10 +3351,14 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                             .map((p: any, originalIdx: number) => ({ p, originalIdx }))
                             .filter(({ p }: any) => !txOutPackageIds.has(String(p.packageId)));
                           if (visiblePackages.length === 0) return null;
+                          
+                          // Check if more than 3 packages to enable scroll
+                          const shouldScroll = visiblePackages.length > 3;
+                          
                           return (
                             <div className="border border-gray-200 rounded p-2 mt-2">
                               <div className="text-[10px] font-semibold text-gray-900 mb-1">Added Packages</div>
-                              <div className="space-y-1">
+                              <div className={shouldScroll ? "space-y-1 max-h-[350px] overflow-y-auto pr-1" : "space-y-1"}>
                                 {visiblePackages.map(({ p, originalIdx }: any) => {
                                   const pkg = allAvailablePackages.find((x: any) => x._id === p.packageId);
                                   const validity = p.validityInMonths || pkg?.validityInMonths;
@@ -6168,7 +6176,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                       <span className="truncate">Activity Timeline</span>
                     </h3>
                                     
-                    <div className="space-y-2 max-h-[850px] overflow-y-auto scrollbar-hide pr-2">
+                    <div className={`space-y-2 ${timelineItems.length > 4 ? 'max-h-[280px] overflow-y-auto custom-scrollbar pr-2' : ''}`}>
                       {timelineItems.map((item, index) => (
                         <div key={index} className="relative flex gap-2 pb-3 last:pb-0">
                           {/* Timeline Line */}

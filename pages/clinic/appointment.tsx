@@ -712,7 +712,6 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   const timeDragSelectionRef = useRef(timeDragSelection);
   const dateInputRef = useRef<HTMLInputElement | null>(null);
   const dataScrollRef = useRef<HTMLDivElement | null>(null);
-  const timeScrollRef = useRef<HTMLDivElement | null>(null);
  
   // Keep ref in sync with state
   useEffect(() => {
@@ -3071,785 +3070,747 @@ useEffect(() => {
             </div>
             )}
 
-            <div className="border border-gray-200 dark:border-gray-300 rounded bg-white dark:bg-gray-50 flex" style={{ maxHeight: '75vh' }}>
-              {/* LEFT: Fixed time column - physically outside horizontal scroll */}
-              <div className="flex-shrink-0 w-16 border-r border-gray-200 dark:border-gray-300 flex flex-col bg-white dark:bg-gray-50">
-                {/* Time header - fixed outside the scroll area, always visible */}
-                <div className="flex-shrink-0 bg-gray-50 dark:bg-gray-200 border-b border-gray-200 dark:border-gray-300 p-1.5 flex items-center z-50" style={{ height: '36px' }}>
-                  <div className="flex items-center gap-0.5 text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900">
-                    <Clock className="w-3 h-3" />
-                    <span>Time</span>
-                  </div>
-                </div>
-                {/* Time slot labels - overflow-y-hidden so only data area scroll controls position */}
-                <div
-                  ref={timeScrollRef}
-                  className="flex-1 overflow-y-hidden bg-white dark:bg-gray-50"
-                >
-                  {timeSlots.map((slot) => (
-                    <div
-                      key={slot.time}
-                      className="border-b border-gray-100 dark:border-gray-300 p-1 relative bg-white dark:bg-gray-50"
-                      style={{ height: ROW_HEIGHT_PX }}
-                    >
-                      <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900">{slot.displayTime}</p>
-                      <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 dark:border-gray-300 pointer-events-none" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* RIGHT: Scrollable data area - scrolls both horizontally and vertically */}
+            <div className="border border-gray-200 dark:border-gray-300 rounded bg-white dark:bg-gray-50" style={{ maxHeight: '75vh' }}>
+              {/* Unified grid container with single scroll */}
               <div
                 ref={dataScrollRef}
-                className="flex-1 overflow-x-auto overflow-y-auto"
-                onScroll={(e) => {
-                  if (timeScrollRef.current) {
-                    timeScrollRef.current.scrollTop = e.currentTarget.scrollTop;
-                  }
-                }}
+                className="overflow-auto scrollbar-spacing"
+                style={{ maxHeight: 'calc(75vh - 1px)' }}
               >
-            {/* Header with doctor names and rooms */}
-              <div className="flex bg-gray-50 dark:bg-gray-200 border-b border-gray-200 dark:border-gray-300 sticky top-0 z-[40]" style={{ minWidth: 'max-content', height: '36px' }}>
-              {/* Unified columns (doctors and rooms in order) */}
-                {orderedColumns.map((column, index) => {
-                  const columnKey = column.type === "doctor" ? `doctor:${column.data._id}` : `room:${column.data._id}`;
-                  const isDragged = draggedColumnId === columnKey;
-                  const isLast = index === orderedColumns.length - 1;
-                 
-                  if (column.type === "doctor") {
-                    const doctor = column.data;
-                    return (
-                      <div
-                        key={columnKey}
-                        className={`flex-1 min-w-[160px] sm:min-w-[180px] ${isLast ? '' : 'border-r'} border-gray-200 dark:border-gray-300 p-1.5 relative bg-white dark:bg-gray-50 transition-all ${
-                          isDragged ? "opacity-50" : ""
-                        } ${draggedColumnId ? "cursor-move" : ""}`}
-                        draggable={permissions.canUpdate}
-                        onDragStart={(e) => {
-                          if (!permissions.canUpdate) {
-                            e.preventDefault();
-                            showErrorToast("You do not have permission to reorder columns");
-                            return;
-                          }
-                          handleColumnDragStart(e, columnKey);
-                        }}
-                        onDragEnd={handleColumnDragEnd}
-                        onDragOver={handleColumnDragOver}
-                        onDragLeave={handleColumnDragLeave}
-                        onDrop={(e) => {
-                          handleColumnDrop(e, columnKey);
-                          if (e.currentTarget instanceof HTMLElement) {
-                            e.currentTarget.classList.remove("border-blue-400", "bg-blue-50", "border-emerald-400", "bg-emerald-50");
-                          }
-                        }}
-                    onMouseEnter={(e) => handleDoctorMouseEnter(doctor, e)}
-                    onMouseLeave={handleDoctorMouseLeave}
-                        title={permissions.canUpdate ? "Drag to reorder columns" : "Column (no permission to reorder)"}
+                {/* Grid wrapper with CSS Grid for perfect alignment */}
+                <div 
+                  className="grid"
+                  style={{
+                    gridTemplateColumns: `64px repeat(${orderedColumns.length}, minmax(160px, 1fr))`,
+                    minWidth: 'max-content',
+                  }}
                 >
-                    {/* âœ… Only show doctor name if user has read permission */}
-                    {permissions.canRead ? (
-                      <div className="flex items-center gap-1">
-                        <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-blue-50 dark:bg-blue-100 border border-blue-200 dark:border-blue-300 flex items-center justify-center text-blue-700 dark:text-blue-800 font-semibold text-[8px] sm:text-[9px] flex-shrink-0">
-                          {getInitials(doctor.name)}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900 truncate">{doctor.name}</p>
-                          {/* <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 text-[8px]">
-                            Doctor
-                          </span> */}
-                        </div>
-                        {permissions.canUpdate && (
-                          <div className="flex-shrink-0 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-70 transition-opacity" title="Drag to reorder">
-                            <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-gray-500 dark:text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                            </svg>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1">
-                        <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-gray-100 dark:bg-gray-200 flex items-center justify-center text-gray-400 dark:text-gray-600 font-semibold text-[8px] sm:text-[9px] flex-shrink-0">
-                          ?
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[8px] sm:text-[9px] font-semibold text-gray-500 dark:text-gray-500 truncate">Hidden</p>
-                        </div>
-                      </div>
-                    )}
-                      </div>
-                    );
-                  } else {
-                    const room = column.data;
-                    return (
-                      <div
-                        key={columnKey}
-                        className={`flex-1 min-w-[160px] sm:min-w-[180px] ${isLast ? '' : 'border-r'} border-gray-200 dark:border-gray-300 p-1.5 bg-emerald-50 dark:bg-emerald-100 transition-all room-column ${
-                          isDragged ? "opacity-50" : ""
-                        } ${draggedColumnId ? "cursor-move" : ""}`}
-                        draggable={permissions.canUpdate}
-                        onDragStart={(e) => {
-                          if (!permissions.canUpdate) {
-                            e.preventDefault();
-                            showErrorToast("You do not have permission to reorder columns");
-                            return;
-                          }
-                          handleColumnDragStart(e, columnKey);
-                        }}
-                        onDragEnd={handleColumnDragEnd}
-                        onDragOver={handleColumnDragOver}
-                        onDragLeave={handleColumnDragLeave}
-                        onDrop={(e) => {
-                          handleColumnDrop(e, columnKey);
-                          if (e.currentTarget instanceof HTMLElement) {
-                            e.currentTarget.classList.remove("border-blue-400", "bg-blue-50", "border-emerald-400", "bg-emerald-50");
-                          }
-                        }}
-                        title={permissions.canUpdate ? "Drag to reorder columns" : "Column (no permission to reorder)"}
-                >
-                    {/* âœ… Only show room name if user has read permission */}
-                    {permissions.canRead ? (
-                      <div className="flex items-center gap-1">
-                        <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-emerald-50 dark:bg-emerald-100 border border-emerald-200 dark:border-emerald-300 flex items-center justify-center text-emerald-700 dark:text-emerald-800 font-semibold text-[8px] sm:text-[9px] flex-shrink-0">
-                          ðŸ ¥
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900 truncate">{room.name}</p>
-                          {/* <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 text-[8px]">
-                            Room
-                          </span> */}
-                        </div>
-                        {permissions.canUpdate && (
-                          <div className="flex-shrink-0 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-70 transition-opacity" title="Drag to reorder">
-                            <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-gray-500 dark:text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                            </svg>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1">
-                        <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-gray-100 dark:bg-gray-200 flex items-center justify-center text-gray-400 dark:text-gray-600 font-semibold text-[8px] sm:text-[9px] flex-shrink-0">
-                          ?
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[8px] sm:text-[9px] font-semibold text-gray-500 dark:text-gray-500 truncate">Hidden</p>
-                        </div>
-                      </div>
-                    )}
-                      </div>
-                    );
-                  }
-                })}
-            </div>
-
-            {/* Time slots grid */}
-              <div style={{ minWidth: 'max-content' }}>
-              {timeSlots.map((slot) => {
-                const rowStartMinutes = timeStringToMinutes(slot.time);
-                return (
-                  <div key={slot.time} className="flex hover:bg-gray-50/50 dark:hover:bg-gray-100/50 transition-colors" style={{ minWidth: 'max-content' }}>
-                    {/* Unified columns (doctors and rooms in order) */}
-                          {orderedColumns.map((column, colIndex) => {
-                      const isLastColumn = colIndex === orderedColumns.length - 1;
-                      if (column.type === "doctor") {
-                        const doctor = column.data;
-                      const rowAppointments = getAppointmentsForRow(doctor._id, slot.time);
-
-                      const isInSelection = timeDragSelection.isDragging && timeDragSelection.doctorId === doctor._id;
-
-                      const isDragOver = dragOverDoctorId === doctor._id;
-
-                      return (
-                        <div
-                            key={`${slot.time}-doctor-${doctor._id}`}
-                          className={`flex-1 min-w-[160px] sm:min-w-[180px] flex-shrink-0 ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 relative transition-colors ${isDragOver ? "bg-blue-100 dark:bg-blue-200 border-blue-300 dark:border-blue-400" : ""} ${
-                            (timeDragSelection.isDragging && timeDragSelection.doctorId === doctor._id && isSlotInSelection(rowStartMinutes, rowStartMinutes + ROW_INTERVAL_MINUTES, doctor._id))
-                              ? "bg-blue-200 dark:bg-blue-200"
-                              : "bg-blue-50 dark:bg-blue-100"
-                          }`}
-                          style={{
-                            height: ROW_HEIGHT_PX,
-                          }}
-                          data-doctor-id={doctor._id}
-                          onDragOver={(e) => {
-                            if (permissions.canUpdate) {
-                              handleDoctorColumnDragOver(e, doctor._id);
-                            }
-                          }}
-                          onDragLeave={handleDragLeave}
-                          onDrop={(e) => {
-                            if (permissions.canUpdate) {
-                              handleDoctorColumnDrop(e, doctor._id);
-                            }
-                          }}
-                        >
-                          <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 dark:border-gray-700 pointer-events-none" />
-                          <div className="flex flex-col h-full">
-                            {[0, SLOT_INTERVAL_MINUTES].map((offset) => {
-                              const subSlotTime = addMinutesToTime(slot.time, offset);
-                              const subStartMinutes = rowStartMinutes + offset;
-                              const subEndMinutes = subStartMinutes + SLOT_INTERVAL_MINUTES;
-                              const isSubSlotOccupied = rowAppointments.some((apt) => {
-                                const aptStart = timeStringToMinutes(apt.fromTime);
-                                const aptEnd = timeStringToMinutes(apt.toTime);
-                                return aptStart < subEndMinutes && aptEnd > subStartMinutes;
-                              });
-                              const slotWithinClosing =
-                                lastBookableMinutes === null ||
-                                subStartMinutes <= lastBookableMinutes;
-                              const canBookSlot =
-                                !isPastDay &&
-                                (!isToday || subStartMinutes >= currentMinutes) &&
-                                slotWithinClosing &&
-                                !isSubSlotOccupied;
-                             
-                              // Check if this slot is in the drag selection
-                              const isSelected = isInSelection && isSlotInSelection(subStartMinutes, subEndMinutes, doctor._id);
-                              const isDragOverSlot = dragOverTimeSlot?.doctorId === doctor._id && dragOverTimeSlot?.minutes === subStartMinutes;
-
-                              return (
-                                <div
-                                  key={`${slot.time}-${doctor._id}-${offset}`}
-                                  className={`flex-1 transition-all ${
-                                    isDragOverSlot
-                                      ? "bg-green-200 dark:bg-green-200 border-l-2 border-green-500 dark:border-green-600"
-                                      : isSelected
-                                      ? "bg-blue-200 dark:bg-blue-200 border-l-2 border-blue-500 dark:border-blue-600 cursor-crosshair"
-                                      : canBookSlot
-                                      ? "cursor-crosshair hover:bg-blue-50 dark:hover:bg-blue-100 border-l-2 border-transparent hover:border-blue-400 dark:hover:border-blue-500"
-                                      : isSubSlotOccupied
-                                      ? "bg-gray-50 dark:bg-gray-100 cursor-not-allowed"
-                                      : "bg-gray-50 dark:bg-gray-100 cursor-not-allowed"
-                                  }`}
-                                  style={{ height: SUB_SLOT_HEIGHT_PX }}
-                                  title={
-                                    draggedAppointmentId
-                                      ? `Drop appointment here to move to ${minutesToDisplay(subStartMinutes)}`
-                                      : canBookSlot
-                                      ? `Click or drag to select time range starting at ${minutesToDisplay(subStartMinutes)}`
-                                      : isPastDay
-                                      ? "Cannot book appointments for past dates"
-                                      : slotWithinClosing
-                                      ? "Cannot book past time slots"
-                                      : "Cannot book beyond clinic closing time"
-                                  }
-                                  onDragOver={(e) => {
-                                    if (permissions.canUpdate && draggedAppointmentId && canBookSlot) {
-                                      handleTimeSlotDragOver(e, doctor._id, subStartMinutes);
-                                    }
-                                  }}
-                                  onDragLeave={handleDragLeave}
-                                  onDrop={(e) => {
-                                    if (permissions.canUpdate && draggedAppointmentId && canBookSlot) {
-                                      handleTimeSlotDrop(e, doctor._id, subStartMinutes, false); // false indicates this is not a room drop
-                                    }
-                                  }}
-                                  onMouseDown={(e) => {
-                                    if (canBookSlot && !draggedAppointmentId) {
-                                      handleTimeSlotMouseDown(e, doctor._id, subStartMinutes);
-                                    }
-                                  }}
-                                  onClick={(_e) => {
-                                    console.log("Slot clicked:", {
-                                      canBookSlot,
-                                      canCreate: permissions.canCreate,
-                                      isDragging: timeDragSelection.isDragging,
-                                      draggedAppointmentId,
-                                      subStartMinutes,
-                                      currentMinutes,
-                                      isToday,
-                                      isPastDay
-                                    });
-                                    // âœ… Check permission before opening booking modal
-                                    if (!permissions.canCreate) {
-                                      showErrorToast("You do not have permission to book appointments");
-                                      return;
-                                    }
-                                    // Only handle click if not dragging (to avoid double-triggering)
-                                    if (canBookSlot && !timeDragSelection.isDragging && !draggedAppointmentId) {
-                                      setBookingModal({
-                                        isOpen: true,
-                                        doctorId: doctor._id,
-                                        doctorName: doctor.name,
-                                        roomId: "",
-                                        roomName: "",
-                                        slotTime: subSlotTime,
-                                        slotDisplayTime: minutesToDisplay(subStartMinutes),
-                                        selectedDate,
-                                        bookedFrom: "doctor",
-                                      });
-                                    } else if (!canBookSlot) {
-                                       showErrorToast("This slot cannot be booked. Check date/time or availability.");
-                                    }
-                                  }}
-                                />
-                              );
-                            })}
-                          </div>
-
-                          {/* âœ… Only show appointments if user has read permission */}
-                          {permissions.canRead && rowAppointments.length > 0
-                            ? (() => {
-                                // Filter to only show appointments that START in this row to avoid duplication across rows
-                                // Also filter out cancelled appointments - don't show them in UI
-                                const startingAppointments = rowAppointments.filter(apt => {
-                                  if (apt.status === 'Cancelled') return false;
-                                  const aptStart = timeStringToMinutes(apt.fromTime);
-                                  return aptStart >= rowStartMinutes && aptStart < rowStartMinutes + ROW_INTERVAL_MINUTES;
-                                });
-
-                                if (startingAppointments.length === 0) return null;
-
-                                // Group appointments by their start time within the row to position them correctly
-                                const appointmentsBySlot = startingAppointments.map((apt) => {
-                                  const aptStart = timeStringToMinutes(apt.fromTime);
-                                  const aptEnd = timeStringToMinutes(apt.toTime);
-                                  const slotOffset = aptStart - rowStartMinutes; // Offset from row start in minutes
-                                  const topOffset = (slotOffset / ROW_INTERVAL_MINUTES) * ROW_HEIGHT_PX; // Convert to pixels
-                                  const duration = aptEnd - aptStart;
-                                  const height = (duration / ROW_INTERVAL_MINUTES) * ROW_HEIGHT_PX;
-                                 
-                                  return { apt, topOffset, height: Math.max(height, ROW_HEIGHT_PX / 2) };
-                                });
-                               
-                                // Group appointments by their top offset (same time slot)
-                                const groupedBySlot: { [key: string]: typeof appointmentsBySlot } = {};
-                                appointmentsBySlot.forEach((item) => {
-                                  const slotKey = Math.round(item.topOffset).toString();
-                                  if (!groupedBySlot[slotKey]) {
-                                    groupedBySlot[slotKey] = [];
-                                  }
-                                  groupedBySlot[slotKey].push(item);
-                                });
-                               
-                                return (
-                                  <>
-                                    {Object.values(groupedBySlot).map((slotAppointments, groupIndex) => {
-                                      const firstAppt = slotAppointments[0];
-                                      const maxHeight = Math.max(...slotAppointments.map(item => item.height));
-                                     
-                                      return (
-                                        <div
-                                          key={`slot-${groupIndex}`}
-                                          className="absolute left-[2px] right-[2px] flex flex-row items-center"
-                                          style={{
-                                            top: `${Math.max(0, firstAppt.topOffset + 1)}px`,
-                                            height: `${maxHeight - 2}px`,
-                                            zIndex: 10,
-                                          }}
-                                        >
-                                          {slotAppointments.map((item) => {
-                                            const statusColor = getStatusColor(item.apt.status);
-                                            // Calculate card width based on number of patients
-                                            const patientCount = slotAppointments.length;
-                                            const cardWidthPercent = patientCount > 1 ? `${Math.floor(100 / patientCount)}%` : '100%';
-                                           
-                                            return (
-                                              <div
-                                                key={item.apt._id}
-                                                className={`flex flex-col justify-center flex-1 min-w-0 px-2 py-1 border transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${draggedAppointmentId === item.apt._id ? "opacity-50" : ""}`}
-                                                style={{
-                                                  backgroundColor: statusColor.bg,
-                                                  color: statusColor.text,
-                                                  borderColor: statusColor.border,
-                                                  height: `${item.height - 2}px`,
-                                                  width: cardWidthPercent,
-                                                  flexBasis: cardWidthPercent,
-                                                }}
-                                                draggable={permissions.canUpdate}
-                                                onDragStart={(e) => handleAppointmentDragStart(e, item.apt._id)}
-                                                onDragEnd={handleAppointmentDragEnd}
-                                                onMouseEnter={(e) => {
-                                                  const rect = e.currentTarget.getBoundingClientRect();
-                                                  const tooltipWidth = 200;
-                                                  const tooltipHeight = 300;
-                                                  const spacing = 8;
-                                                 
-                                                  let left = rect.right + spacing;
-                                                  let top = rect.top;
-                                                 
-                                                  if (left + tooltipWidth > window.innerWidth) {
-                                                    left = rect.left - tooltipWidth - spacing;
-                                                  }
-                                                 
-                                                  if (top + tooltipHeight > window.innerHeight) {
-                                                    top = window.innerHeight - tooltipHeight - 10;
-                                                  }
-                                                 
-                                                  if (top < 10) {
-                                                    top = 10;
-                                                  }
-                                                 
-                                                  if (left < 10) {
-                                                    left = 10;
-                                                  }
-                                                 
-                                                  setHoveredAppointment({
-                                                    appointment: item.apt,
-                                                    position: { top, left },
-                                                  });
-                                                }}
-                                                onMouseLeave={() => {
-                                                  setHoveredAppointment(null);
-                                                }}
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  if (permissions.canUpdate) {
-                                                    appointmentRef.current = item.apt;
-                                                    setSelectedAppointment(item.apt);
-                                                    setEditModalOpen(true);
-                                                  } else {
-                                                    showErrorToast("You do not have permission to edit appointments");
-                                                  }
-                                                }}
-                                                title={`${item.apt.patientName} - ${formatTime(item.apt.fromTime)} - ${formatTime(item.apt.toTime)}`}
-                                                >
-                                                <div className="flex flex-col justify-center h-full">
-                                                  {/* Show minimal view for single appointments or same-doctor multiple appointments */}
-                                                  {item.height < 60 ? (
-                                                    <div className="flex items-center h-full px-2">
-                                                      <span className="text-[13px] font-[600] leading-[1.2] tracking-tight text-black truncate">
-                                                        {item.apt.patientName}
-                                                      </span>
-                                                    </div>
-                                                  ) : (
-                                                    /* Show full details for multiple or large appointments */
-                                                    <div className="px-2 py-1.5 leading-[1.2] space-y-[2px]">
-                                                      <span className="text-[11px] font-[400] opacity-[0.75] mb-[2px] block">
-                                                        {formatTime(item.apt.fromTime)} - {formatTime(item.apt.toTime)}
-                                                      </span>
-                                                      <span className="text-[13px] font-[600] text-black mb-[2px] block">
-                                                        {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
-                                                      </span>
-                                                      {item.apt.serviceNames && item.apt.serviceNames.length > 0 ? (
-                                                        <span className="text-[12px] font-[400] text-black opacity-[0.8] block truncate">
-                                                          {item.apt.serviceNames.join(", ")}
-                                                        </span>
-                                                      ) : item.apt.serviceName && (
-                                                        <span className="text-[12px] font-[400] text-black opacity-[0.8] block truncate">
-                                                          {item.apt.serviceName}
-                                                        </span>
-                                                      )}
-                                                    </div>
-                                                  )}
-                                                </div>
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
-                                      );
-                                    })}
-                                  </>
-                                );
-                              })()
-                            : null}
-                        </div>
-                      );
-                      } else {
-                        const room = column.data;
-                      const roomAppointments = getRoomAppointmentsForRow(room._id, slot.time);
-
-                      const isInRoomSelection = roomDragSelection.isDragging && roomDragSelection.roomId === room._id;
-
-                      return (
-                        <div
-                            key={`${slot.time}-room-${room._id}`}
-                          className={`flex-1 min-w-[160px] sm:min-w-[180px] flex-shrink-0 ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 relative ${
-                            (roomDragSelection.isDragging && roomDragSelection.roomId === room._id && isRoomSlotInSelection(rowStartMinutes, rowStartMinutes + ROW_INTERVAL_MINUTES, room._id))
-                              ? "bg-emerald-200 dark:bg-emerald-200"
-                              : "bg-emerald-50 dark:bg-emerald-100"
-                          }`}
-                          style={{
-                            height: ROW_HEIGHT_PX,
-                          }}
-                          data-room-id={room._id}
-                          onDragOver={(e) => {
-                            if (permissions.canUpdate && draggedAppointmentId) {
-                              handleRoomColumnDragOver(e);
-                            }
-                          }}
-                          onDragLeave={handleDragLeave}
-                          onDrop={(e) => {
-                            if (permissions.canUpdate) {
-                              handleRoomColumnDrop(e, room._id);
-                            }
-                          }}
-                        >
-                          <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 dark:border-gray-700 pointer-events-none" />
-                          <div className="flex flex-col h-full">
-                            {[0, SLOT_INTERVAL_MINUTES].map((offset) => {
-                              const subSlotTime = addMinutesToTime(slot.time, offset);
-                              const subStartMinutes = rowStartMinutes + offset;
-                              const subEndMinutes = subStartMinutes + SLOT_INTERVAL_MINUTES;
-                              const isSubSlotOccupied = roomAppointments.some((apt) => {
-                                const aptStart = timeStringToMinutes(apt.fromTime);
-                                const aptEnd = timeStringToMinutes(apt.toTime);
-                                return aptStart < subEndMinutes && aptEnd > subStartMinutes;
-                              });
-                              const slotWithinClosing =
-                                lastBookableMinutes === null ||
-                                subStartMinutes <= lastBookableMinutes;
-                              const canBookSlot =
-                                permissions.canCreate &&
-                                !isPastDay &&
-                                (!isToday || subStartMinutes >= currentMinutes) &&
-                                slotWithinClosing &&
-                                !isSubSlotOccupied;
-                             
-                              // Check if this slot is in the drag selection
-                              const isSelected = isInRoomSelection && isRoomSlotInSelection(subStartMinutes, subEndMinutes, room._id);
-
-                              return (
-                                <div
-                                  key={`${slot.time}-${room._id}-${offset}`}
-                                  className={`flex-1 transition-all ${
-                                    isSelected
-                                      ? "bg-emerald-200 dark:bg-emerald-200 border-l-2 border-emerald-500 dark:border-emerald-600 cursor-crosshair"
-                                      : canBookSlot
-                                      ? "cursor-crosshair hover:bg-emerald-50 dark:hover:bg-emerald-100 border-l-2 border-transparent hover:border-emerald-400 dark:hover:border-emerald-500"
-                                      : isSubSlotOccupied
-                                      ? "bg-gray-50 dark:bg-gray-100 cursor-not-allowed"
-                                      : "bg-gray-50 dark:bg-gray-100 cursor-not-allowed"
-                                  }`}
-                                  style={{ height: SUB_SLOT_HEIGHT_PX }}
-                                  title={
-                                    !permissions.canCreate
-                                      ? "You do not have permission to book appointments"
-                                      : canBookSlot
-                                      ? `Click or drag to select time range starting at ${minutesToDisplay(subStartMinutes)}`
-                                      : isPastDay
-                                      ? "Cannot book appointments for past dates"
-                                      : slotWithinClosing
-                                      ? "Cannot book past time slots"
-                                      : "Cannot book beyond clinic closing time"
-                                  }
-                                  onMouseDown={(e) => {
-                                    if (canBookSlot && !draggedAppointmentId) {
-                                      handleRoomSlotMouseDown(e, room._id, subStartMinutes);
-                                    }
-                                  }}
-                                  onDragOver={(e) => {
-                                    if (permissions.canUpdate && draggedAppointmentId && canBookSlot) {
-                                      handleRoomTimeSlotDragOver(e, room._id, subStartMinutes);
-                                    }
-                                  }}
-                                  onDragLeave={handleDragLeave}
-                                  onDrop={(e) => {
-                                    if (permissions.canUpdate && draggedAppointmentId && canBookSlot) {
-                                      handleTimeSlotDrop(e, room._id, subStartMinutes, true); // true indicates this is a room drop
-                                    }
-                                  }}
-                                  onClick={(_e) => {
-                                    console.log("Room slot clicked:", {
-                                      canBookSlot,
-                                      canCreate: permissions.canCreate,
-                                      isDragging: roomDragSelection.isDragging,
-                                      draggedAppointmentId,
-                                      subStartMinutes,
-                                      currentMinutes,
-                                      isToday,
-                                      isPastDay
-                                    });
-                                    // âœ… Check permission before opening booking modal
-                                    if (!permissions.canCreate) {
-                                      showErrorToast("You do not have permission to book appointments");
-                                      return;
-                                    }
-                                    // Only handle click if not dragging (to avoid double-triggering)
-                                    if (canBookSlot && !roomDragSelection.isDragging && !draggedAppointmentId) {
-                                      setBookingModal({
-                                        isOpen: true,
-                                        doctorId: "",
-                                        doctorName: "",
-                                        roomId: room._id,
-                                        roomName: room.name,
-                                        slotTime: subSlotTime,
-                                        slotDisplayTime: minutesToDisplay(subStartMinutes),
-                                        selectedDate,
-                                        bookedFrom: "room",
-                                      });
-                                    } else if (!canBookSlot) {
-                                       showErrorToast("This slot cannot be booked. Check date/time or availability.");
-                                    }
-                                  }}
-                                />
-                              );
-                            })}
-                          </div>
-
-                          {/* âœ… Only show appointments if user has read permission */}
-                          {permissions.canRead && roomAppointments.length > 0
-                            ? (() => {
-                                // Filter to only show appointments that START in this row to avoid duplication across rows
-                                // Also filter out cancelled appointments - don't show them in UI
-                                const startingAppointments = roomAppointments.filter(apt => {
-                                  if (apt.status === 'Cancelled') return false;
-                                  const aptStart = timeStringToMinutes(apt.fromTime);
-                                  return aptStart >= rowStartMinutes && aptStart < rowStartMinutes + ROW_INTERVAL_MINUTES;
-                                });
-
-                                if (startingAppointments.length === 0) return null;
-
-                                // Group appointments by their start time within the row to position them correctly
-                                const appointmentsBySlot = startingAppointments.map((apt) => {
-                                  const aptStart = timeStringToMinutes(apt.fromTime);
-                                  const aptEnd = timeStringToMinutes(apt.toTime);
-                                  const slotOffset = aptStart - rowStartMinutes; // Offset from row start in minutes
-                                  const topOffset = (slotOffset / ROW_INTERVAL_MINUTES) * ROW_HEIGHT_PX; // Convert to pixels
-                                  const duration = aptEnd - aptStart;
-                                  const height = (duration / ROW_INTERVAL_MINUTES) * ROW_HEIGHT_PX;
-                                 
-                                  return { apt, topOffset, height: Math.max(height, ROW_HEIGHT_PX / 2) };
-                                });
-                               
-                                // Group appointments by their top offset (same time slot)
-                                const groupedBySlot: { [key: string]: typeof appointmentsBySlot } = {};
-                                appointmentsBySlot.forEach((item) => {
-                                  const slotKey = Math.round(item.topOffset).toString();
-                                  if (!groupedBySlot[slotKey]) {
-                                    groupedBySlot[slotKey] = [];
-                                  }
-                                  groupedBySlot[slotKey].push(item);
-                                });
-                               
-                                return (
-                                  <>
-                                    {Object.values(groupedBySlot).map((slotAppointments, groupIndex) => {
-                                      const firstAppt = slotAppointments[0];
-                                      const maxHeight = Math.max(...slotAppointments.map(item => item.height));
-                                     
-                                      return (
-                                        <div
-                                          key={`slot-${groupIndex}`}
-                                          className="absolute left-0.5 right-0.5 flex flex-row items-center"
-                                          style={{
-                                            top: `${Math.max(0, firstAppt.topOffset + 1)}px`,
-                                            height: `${maxHeight - 2}px`,
-                                            zIndex: 10,
-                                            gap: '2px',
-                                          }}
-                                        >
-                                          {slotAppointments.map((item, index) => {
-                                            const statusColor = getStatusColor(item.apt.status);
-                                            // Calculate card width based on number of patients - more patients = smaller cards
-                                            const patientCount = slotAppointments.length;
-                                            const cardWidthPercent = patientCount > 1 ? `${Math.floor(100 / patientCount)}%` : '100%';
-                                            const maxCardWidth = patientCount > 3 ? '80px' : patientCount > 2 ? '90px' : 'none';
-                                           
-                                            return (
-                                              <div
-                                                key={item.apt._id}
-                                                className={`flex flex-col justify-center flex-1 min-w-0 px-2 py-1 border transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${draggedAppointmentId === item.apt._id ? "opacity-50" : ""}`}
-                                                style={{
-                                                  backgroundColor: statusColor.bg,
-                                                  color: statusColor.text,
-                                                  borderColor: statusColor.border,
-                                                  height: `${item.height - 2}px`,
-                                                  borderWidth: '1px',
-                                                  width: cardWidthPercent,
-                                                  maxWidth: maxCardWidth,
-                                                  flexBasis: cardWidthPercent,
-                                                }}
-                                                draggable={permissions.canUpdate}
-                                                onDragStart={(e) => handleAppointmentDragStart(e, item.apt._id)}
-                                                onDragEnd={handleAppointmentDragEnd}
-                                                onMouseEnter={(e) => {
-                                                  const rect = e.currentTarget.getBoundingClientRect();
-                                                  const tooltipWidth = 200;
-                                                  const tooltipHeight = 300;
-                                                  const spacing = 8;
-                                                 
-                                                  let left = rect.right + spacing;
-                                                  let top = rect.top;
-                                                 
-                                                  if (left + tooltipWidth > window.innerWidth) {
-                                                    left = rect.left - tooltipWidth - spacing;
-                                                  }
-                                                 
-                                                  if (top + tooltipHeight > window.innerHeight) {
-                                                    top = window.innerHeight - tooltipHeight - 10;
-                                                  }
-                                                 
-                                                  if (top < 10) {
-                                                    top = 10;
-                                                  }
-                                                 
-                                                  if (left < 10) {
-                                                    left = 10;
-                                                  }
-                                                 
-                                                  setHoveredAppointment({
-                                                    appointment: item.apt,
-                                                    position: { top, left },
-                                                  });
-                                                }}
-                                                onMouseLeave={() => {
-                                                  setHoveredAppointment(null);
-                                                }}
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  if (permissions.canUpdate) {
-                                                    appointmentRef.current = item.apt;
-                                                    setSelectedAppointment(item.apt);
-                                                    setEditModalOpen(true);
-                                                  } else {
-                                                    showErrorToast("You do not have permission to edit appointments");
-                                                  }
-                                                }}
-                                                title={`${item.apt.patientName} - ${formatTime(item.apt.fromTime)} - ${formatTime(item.apt.toTime)}`}
-                                              >
-                                                <div className="flex flex-col justify-center h-full">
-                                                  {/* Show minimal view for single appointments or same-doctor multiple appointments */}
-                                                  {item.height < 60 ? (
-                                                    <div className="flex items-center h-full px-2">
-                                                      <span className="text-[13px] font-[600] leading-[1.2] tracking-tight text-black truncate">
-                                                        {item.apt.patientName}
-                                                      </span>
-                                                    </div>
-                                                  ) : (
-                                                    /* Show full details for multiple or large appointments */
-                                                    <div className="px-2 py-1.5 leading-[1.2] space-y-[2px]">
-                                                      <span className="text-[11px] font-[400] opacity-[0.75] mb-[2px] block">
-                                                        {formatTime(item.apt.fromTime)} - {formatTime(item.apt.toTime)}
-                                                      </span>
-                                                      <span className="text-[13px] font-[600] text-black mb-[2px] block">
-                                                        {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
-                                                      </span>
-                                                      {item.apt.serviceNames && item.apt.serviceNames.length > 0 ? (
-                                                        <span className="text-[12px] font-[400] text-black opacity-[0.8] block truncate">
-                                                          {item.apt.serviceNames.join(", ")}
-                                                        </span>
-                                                      ) : item.apt.serviceName && (
-                                                        <span className="text-[12px] font-[400] text-black opacity-[0.8] block truncate">
-                                                          {item.apt.serviceName}
-                                                        </span>
-                                                      )}
-                                                    </div>
-                                                  )}
-                                                </div>
-                                                {index < slotAppointments.length - 1 && (
-                                                  <div className="w-px h-2 bg-gray-300 dark:bg-gray-400 mx-0.5 flex-shrink-0" />
-                                                )}
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
-                                      );
-                                    })}
-                                  </>
-                                );
-                              })()
-                            : null}
-                        </div>
-                      );
-                      }
-                    })}
+                  {/* Header row - sticky top */}
+                  {/* Time header cell */}
+                  <div className="sticky top-0 z-[50] bg-gray-50 dark:bg-gray-200 border-b border-r border-gray-200 dark:border-gray-300 p-1.5 flex items-center" style={{ height: '36px', gridColumn: '1', gridRow: '1' }}>
+                    <div className="flex items-center gap-0.5 text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900">
+                      <Clock className="w-3 h-3" />
+                      <span>Time</span>
+                    </div>
                   </div>
-                );
-              })}
+                  
+                  {/* Column headers (doctors/rooms) */}
+                  {orderedColumns.map((column, index) => {
+                    const columnKey = column.type === "doctor" ? `doctor:${column.data._id}` : `room:${column.data._id}`;
+                    const isDragged = draggedColumnId === columnKey;
+                    const isLast = index === orderedColumns.length - 1;
+                    const gridColumn = index + 2;
+                    
+                    if (column.type === "doctor") {
+                      const doctor = column.data;
+                      return (
+                        <div
+                          key={columnKey}
+                          className={`sticky top-0 z-[40] bg-white dark:bg-gray-50 border-b ${isLast ? '' : 'border-r'} border-gray-200 dark:border-gray-300 p-1.5 relative transition-all ${
+                            isDragged ? "opacity-50" : ""
+                          } ${draggedColumnId ? "cursor-move" : ""}`}
+                          style={{ height: '36px', gridColumn, gridRow: '1' }}
+                          draggable={permissions.canUpdate}
+                          onDragStart={(e) => {
+                            if (!permissions.canUpdate) {
+                              e.preventDefault();
+                              showErrorToast("You do not have permission to reorder columns");
+                              return;
+                            }
+                            handleColumnDragStart(e, columnKey);
+                          }}
+                          onDragEnd={handleColumnDragEnd}
+                          onDragOver={handleColumnDragOver}
+                          onDragLeave={handleColumnDragLeave}
+                          onDrop={(e) => {
+                            handleColumnDrop(e, columnKey);
+                            if (e.currentTarget instanceof HTMLElement) {
+                              e.currentTarget.classList.remove("border-blue-400", "bg-blue-50", "border-emerald-400", "bg-emerald-50");
+                            }
+                          }}
+                          onMouseEnter={(e) => handleDoctorMouseEnter(doctor, e)}
+                          onMouseLeave={handleDoctorMouseLeave}
+                          title={permissions.canUpdate ? "Drag to reorder columns" : "Column (no permission to reorder)"}
+                        >
+                          {permissions.canRead ? (
+                            <div className="flex items-center gap-1">
+                              <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-blue-50 dark:bg-blue-100 border border-blue-200 dark:border-blue-300 flex items-center justify-center text-blue-700 dark:text-blue-800 font-semibold text-[8px] sm:text-[9px] flex-shrink-0">
+                                {getInitials(doctor.name)}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900 truncate">{doctor.name}</p>
+                              </div>
+                              {permissions.canUpdate && (
+                                <div className="flex-shrink-0 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-70 transition-opacity" title="Drag to reorder">
+                                  <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-gray-500 dark:text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                                  </svg>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-gray-100 dark:bg-gray-200 flex items-center justify-center text-gray-400 dark:text-gray-600 font-semibold text-[8px] sm:text-[9px] flex-shrink-0">
+                                ?
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[8px] sm:text-[9px] font-semibold text-gray-500 dark:text-gray-500 truncate">Hidden</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    } else {
+                      const room = column.data;
+                      return (
+                        <div
+                          key={columnKey}
+                          className={`sticky top-0 z-[40] bg-emerald-50 dark:bg-emerald-100 border-b ${isLast ? '' : 'border-r'} border-gray-200 dark:border-gray-300 p-1.5 transition-all room-column ${
+                            isDragged ? "opacity-50" : ""
+                          } ${draggedColumnId ? "cursor-move" : ""}`}
+                          style={{ height: '36px', gridColumn, gridRow: '1' }}
+                          draggable={permissions.canUpdate}
+                          onDragStart={(e) => {
+                            if (!permissions.canUpdate) {
+                              e.preventDefault();
+                              showErrorToast("You do not have permission to reorder columns");
+                              return;
+                            }
+                            handleColumnDragStart(e, columnKey);
+                          }}
+                          onDragEnd={handleColumnDragEnd}
+                          onDragOver={handleColumnDragOver}
+                          onDragLeave={handleColumnDragLeave}
+                          onDrop={(e) => {
+                            handleColumnDrop(e, columnKey);
+                            if (e.currentTarget instanceof HTMLElement) {
+                              e.currentTarget.classList.remove("border-blue-400", "bg-blue-50", "border-emerald-400", "bg-emerald-50");
+                            }
+                          }}
+                          title={permissions.canUpdate ? "Drag to reorder columns" : "Column (no permission to reorder)"}
+                        >
+                          {permissions.canRead ? (
+                            <div className="flex items-center gap-1">
+                              <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-emerald-50 dark:bg-emerald-100 border border-emerald-200 dark:border-emerald-300 flex items-center justify-center text-emerald-700 dark:text-emerald-800 font-semibold text-[8px] sm:text-[9px] flex-shrink-0">
+                                🏥
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900 truncate">{room.name}</p>
+                              </div>
+                              {permissions.canUpdate && (
+                                <div className="flex-shrink-0 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-70 transition-opacity" title="Drag to reorder">
+                                  <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-gray-500 dark:text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                                  </svg>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-gray-100 dark:bg-gray-200 flex items-center justify-center text-gray-400 dark:text-gray-600 font-semibold text-[8px] sm:text-[9px] flex-shrink-0">
+                                ?
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[8px] sm:text-[9px] font-semibold text-gray-500 dark:text-gray-500 truncate">Hidden</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                  })}
+                  
+                  {/* Time slots and data cells */}
+                  {timeSlots.map((slot, rowIndex) => {
+                    const rowStartMinutes = timeStringToMinutes(slot.time);
+                    const gridRow = rowIndex + 2; // Row 1 is header
+                    
+                    return (
+                      <React.Fragment key={slot.time}>
+                        {/* Time label cell */}
+                        <div
+                          className="sticky left-0 z-[30] bg-white dark:bg-gray-50 border-b border-r border-gray-200 dark:border-gray-300 p-1 relative"
+                          style={{ height: ROW_HEIGHT_PX, gridColumn: '1', gridRow }}
+                        >
+                          <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900">{slot.displayTime}</p>
+                          <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 dark:border-gray-300 pointer-events-none" />
+                        </div>
+                        
+                        {/* Data cells for each column */}
+                        {orderedColumns.map((column, colIndex) => {
+                          const isLastColumn = colIndex === orderedColumns.length - 1;
+                          const gridColumn = colIndex + 2;
+                          
+                          if (column.type === "doctor") {
+                            const doctor = column.data;
+                            const rowAppointments = getAppointmentsForRow(doctor._id, slot.time);
+                            const isInSelection = timeDragSelection.isDragging && timeDragSelection.doctorId === doctor._id;
+                            const isDragOver = dragOverDoctorId === doctor._id;
+
+                            return (
+                              <div
+                                key={`${slot.time}-doctor-${doctor._id}`}
+                                className={`relative border-b ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 transition-colors ${isDragOver ? "bg-blue-100 dark:bg-blue-200 border-blue-300 dark:border-blue-400" : ""} ${
+                                  (timeDragSelection.isDragging && timeDragSelection.doctorId === doctor._id && isSlotInSelection(rowStartMinutes, rowStartMinutes + ROW_INTERVAL_MINUTES, doctor._id))
+                                    ? "bg-blue-200 dark:bg-blue-200"
+                                    : "bg-blue-50 dark:bg-blue-100"
+                                }`}
+                                style={{ height: ROW_HEIGHT_PX, gridColumn, gridRow }}
+                                data-doctor-id={doctor._id}
+                                onDragOver={(e) => {
+                                  if (permissions.canUpdate) {
+                                    handleDoctorColumnDragOver(e, doctor._id);
+                                  }
+                                }}
+                                onDragLeave={handleDragLeave}
+                                onDrop={(e) => {
+                                  if (permissions.canUpdate) {
+                                    handleDoctorColumnDrop(e, doctor._id);
+                                  }
+                                }}
+                              >
+                                <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 dark:border-gray-700 pointer-events-none" />
+                                <div className="flex flex-col h-full">
+                                  {[0, SLOT_INTERVAL_MINUTES].map((offset) => {
+                                    const subSlotTime = addMinutesToTime(slot.time, offset);
+                                    const subStartMinutes = rowStartMinutes + offset;
+                                    const subEndMinutes = subStartMinutes + SLOT_INTERVAL_MINUTES;
+                                    const isSubSlotOccupied = rowAppointments.some((apt) => {
+                                      const aptStart = timeStringToMinutes(apt.fromTime);
+                                      const aptEnd = timeStringToMinutes(apt.toTime);
+                                      return aptStart < subEndMinutes && aptEnd > subStartMinutes;
+                                    });
+                                    const slotWithinClosing =
+                                      lastBookableMinutes === null ||
+                                      subStartMinutes <= lastBookableMinutes;
+                                    const canBookSlot =
+                                      !isPastDay &&
+                                      (!isToday || subStartMinutes >= currentMinutes) &&
+                                      slotWithinClosing &&
+                                      !isSubSlotOccupied;
+                                   
+                                    const isSelected = isInSelection && isSlotInSelection(subStartMinutes, subEndMinutes, doctor._id);
+                                    const isDragOverSlot = dragOverTimeSlot?.doctorId === doctor._id && dragOverTimeSlot?.minutes === subStartMinutes;
+
+                                    return (
+                                      <div
+                                        key={`${slot.time}-${doctor._id}-${offset}`}
+                                        className={`flex-1 transition-all ${
+                                          isDragOverSlot
+                                            ? "bg-green-200 dark:bg-green-200 border-l-2 border-green-500 dark:border-green-600"
+                                            : isSelected
+                                            ? "bg-blue-200 dark:bg-blue-200 border-l-2 border-blue-500 dark:border-blue-600 cursor-crosshair"
+                                            : canBookSlot
+                                            ? "cursor-crosshair hover:bg-blue-50 dark:hover:bg-blue-100 border-l-2 border-transparent hover:border-blue-400 dark:hover:border-blue-500"
+                                            : isSubSlotOccupied
+                                            ? "bg-gray-50 dark:bg-gray-100 cursor-not-allowed"
+                                            : "bg-gray-50 dark:bg-gray-100 cursor-not-allowed"
+                                        }`}
+                                        style={{ height: SUB_SLOT_HEIGHT_PX }}
+                                        title={
+                                          draggedAppointmentId
+                                            ? `Drop appointment here to move to ${minutesToDisplay(subStartMinutes)}`
+                                            : canBookSlot
+                                            ? `Click or drag to select time range starting at ${minutesToDisplay(subStartMinutes)}`
+                                            : isPastDay
+                                            ? "Cannot book appointments for past dates"
+                                            : slotWithinClosing
+                                            ? "Cannot book past time slots"
+                                            : "Cannot book beyond clinic closing time"
+                                        }
+                                        onDragOver={(e) => {
+                                          if (permissions.canUpdate && draggedAppointmentId && canBookSlot) {
+                                            handleTimeSlotDragOver(e, doctor._id, subStartMinutes);
+                                          }
+                                        }}
+                                        onDragLeave={handleDragLeave}
+                                        onDrop={(e) => {
+                                          if (permissions.canUpdate && draggedAppointmentId && canBookSlot) {
+                                            handleTimeSlotDrop(e, doctor._id, subStartMinutes, false);
+                                          }
+                                        }}
+                                        onMouseDown={(e) => {
+                                          if (canBookSlot && !draggedAppointmentId) {
+                                            handleTimeSlotMouseDown(e, doctor._id, subStartMinutes);
+                                          }
+                                        }}
+                                        onClick={(_e) => {
+                                          console.log("Slot clicked:", {
+                                            canBookSlot,
+                                            canCreate: permissions.canCreate,
+                                            isDragging: timeDragSelection.isDragging,
+                                            draggedAppointmentId,
+                                            subStartMinutes,
+                                            currentMinutes,
+                                            isToday,
+                                            isPastDay
+                                          });
+                                          if (!permissions.canCreate) {
+                                            showErrorToast("You do not have permission to book appointments");
+                                            return;
+                                          }
+                                          if (canBookSlot && !timeDragSelection.isDragging && !draggedAppointmentId) {
+                                            setBookingModal({
+                                              isOpen: true,
+                                              doctorId: doctor._id,
+                                              doctorName: doctor.name,
+                                              roomId: "",
+                                              roomName: "",
+                                              slotTime: subSlotTime,
+                                              slotDisplayTime: minutesToDisplay(subStartMinutes),
+                                              selectedDate,
+                                              bookedFrom: "doctor",
+                                            });
+                                          } else if (!canBookSlot) {
+                                             showErrorToast("This slot cannot be booked. Check date/time or availability.");
+                                          }
+                                        }}
+                                      />
+                                    );
+                                  })}
+                                </div>
+
+                                {permissions.canRead && rowAppointments.length > 0
+                                  ? (() => {
+                                      const startingAppointments = rowAppointments.filter(apt => {
+                                        if (apt.status === 'Cancelled') return false;
+                                        const aptStart = timeStringToMinutes(apt.fromTime);
+                                        return aptStart >= rowStartMinutes && aptStart < rowStartMinutes + ROW_INTERVAL_MINUTES;
+                                      });
+
+                                      if (startingAppointments.length === 0) return null;
+
+                                      const appointmentsBySlot = startingAppointments.map((apt) => {
+                                        const aptStart = timeStringToMinutes(apt.fromTime);
+                                        const aptEnd = timeStringToMinutes(apt.toTime);
+                                        const slotOffset = aptStart - rowStartMinutes;
+                                        const topOffset = (slotOffset / ROW_INTERVAL_MINUTES) * ROW_HEIGHT_PX;
+                                        const duration = aptEnd - aptStart;
+                                        const height = (duration / ROW_INTERVAL_MINUTES) * ROW_HEIGHT_PX;
+                                       
+                                        return { apt, topOffset, height: Math.max(height, ROW_HEIGHT_PX / 2) };
+                                      });
+                                     
+                                      const groupedBySlot: { [key: string]: typeof appointmentsBySlot } = {};
+                                      appointmentsBySlot.forEach((item) => {
+                                        const slotKey = Math.round(item.topOffset).toString();
+                                        if (!groupedBySlot[slotKey]) {
+                                          groupedBySlot[slotKey] = [];
+                                        }
+                                        groupedBySlot[slotKey].push(item);
+                                      });
+                                     
+                                      return (
+                                        <>
+                                          {Object.values(groupedBySlot).map((slotAppointments, groupIndex) => {
+                                            const firstAppt = slotAppointments[0];
+                                            const maxHeight = Math.max(...slotAppointments.map(item => item.height));
+                                           
+                                            return (
+                                              <div
+                                                key={`slot-${groupIndex}`}
+                                                className="absolute left-[2px] right-[2px] flex flex-row items-center"
+                                                style={{
+                                                  top: `${Math.max(0, firstAppt.topOffset + 1)}px`,
+                                                  height: `${maxHeight - 2}px`,
+                                                  zIndex: 10,
+                                                }}
+                                              >
+                                                {slotAppointments.map((item) => {
+                                                  const statusColor = getStatusColor(item.apt.status);
+                                                  const patientCount = slotAppointments.length;
+                                                  const cardWidthPercent = patientCount > 1 ? `${Math.floor(100 / patientCount)}%` : '100%';
+                                                 
+                                                  return (
+                                                    <div
+                                                      key={item.apt._id}
+                                                      className={`flex flex-col justify-center flex-1 min-w-0 px-2 py-1 border transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${draggedAppointmentId === item.apt._id ? "opacity-50" : ""}`}
+                                                      style={{
+                                                        backgroundColor: statusColor.bg,
+                                                        color: statusColor.text,
+                                                        borderColor: statusColor.border,
+                                                        height: `${item.height - 2}px`,
+                                                        width: cardWidthPercent,
+                                                        flexBasis: cardWidthPercent,
+                                                      }}
+                                                      draggable={permissions.canUpdate}
+                                                      onDragStart={(e) => handleAppointmentDragStart(e, item.apt._id)}
+                                                      onDragEnd={handleAppointmentDragEnd}
+                                                      onMouseEnter={(e) => {
+                                                        const rect = e.currentTarget.getBoundingClientRect();
+                                                        const tooltipWidth = 200;
+                                                        const tooltipHeight = 300;
+                                                        const spacing = 8;
+                                                       
+                                                        let left = rect.right + spacing;
+                                                        let top = rect.top;
+                                                       
+                                                        if (left + tooltipWidth > window.innerWidth) {
+                                                          left = rect.left - tooltipWidth - spacing;
+                                                        }
+                                                       
+                                                        if (top + tooltipHeight > window.innerHeight) {
+                                                          top = window.innerHeight - tooltipHeight - 10;
+                                                        }
+                                                       
+                                                        if (top < 10) {
+                                                          top = 10;
+                                                        }
+                                                       
+                                                        if (left < 10) {
+                                                          left = 10;
+                                                        }
+                                                       
+                                                        setHoveredAppointment({
+                                                          appointment: item.apt,
+                                                          position: { top, left },
+                                                        });
+                                                      }}
+                                                      onMouseLeave={() => {
+                                                        setHoveredAppointment(null);
+                                                      }}
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (permissions.canUpdate) {
+                                                          appointmentRef.current = item.apt;
+                                                          setSelectedAppointment(item.apt);
+                                                          setEditModalOpen(true);
+                                                        } else {
+                                                          showErrorToast("You do not have permission to edit appointments");
+                                                        }
+                                                      }}
+                                                      title={`${item.apt.patientName} - ${formatTime(item.apt.fromTime)} - ${formatTime(item.apt.toTime)}`}
+                                                    >
+                                                      <div className="flex flex-col justify-center h-full">
+                                                        {item.height < 60 ? (
+                                                          <div className="flex items-center h-full px-2">
+                                                            <span className="text-[13px] font-[600] leading-[1.2] tracking-tight text-black truncate">
+                                                              {item.apt.patientName}
+                                                            </span>
+                                                          </div>
+                                                        ) : (
+                                                          <div className="px-2 py-1.5 leading-[1.2] space-y-[2px]">
+                                                            <span className="text-[11px] font-[400] opacity-[0.75] mb-[2px] block">
+                                                              {formatTime(item.apt.fromTime)} - {formatTime(item.apt.toTime)}
+                                                            </span>
+                                                            <span className="text-[13px] font-[600] text-black mb-[2px] block">
+                                                              {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
+                                                            </span>
+                                                            {item.apt.serviceNames && item.apt.serviceNames.length > 0 ? (
+                                                              <span className="text-[12px] font-[400] text-black opacity-[0.8] block truncate">
+                                                                {item.apt.serviceNames.join(", ")}
+                                                              </span>
+                                                            ) : item.apt.serviceName && (
+                                                              <span className="text-[12px] font-[400] text-black opacity-[0.8] block truncate">
+                                                                {item.apt.serviceName}
+                                                              </span>
+                                                            )}
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                  );
+                                                })}
+                                              </div>
+                                            );
+                                          })}
+                                        </>
+                                      );
+                                    })()
+                                  : null}
+                              </div>
+                            );
+                          } else {
+                            const room = column.data;
+                            const roomAppointments = getRoomAppointmentsForRow(room._id, slot.time);
+                            const isInRoomSelection = roomDragSelection.isDragging && roomDragSelection.roomId === room._id;
+
+                            return (
+                              <div
+                                key={`${slot.time}-room-${room._id}`}
+                                className={`relative border-b ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 transition-colors ${
+                                  (roomDragSelection.isDragging && roomDragSelection.roomId === room._id && isRoomSlotInSelection(rowStartMinutes, rowStartMinutes + ROW_INTERVAL_MINUTES, room._id))
+                                    ? "bg-emerald-200 dark:bg-emerald-200"
+                                    : "bg-emerald-50 dark:bg-emerald-100"
+                                }`}
+                                style={{ height: ROW_HEIGHT_PX, gridColumn, gridRow }}
+                                data-room-id={room._id}
+                                onDragOver={(e) => {
+                                  if (permissions.canUpdate && draggedAppointmentId) {
+                                    handleRoomColumnDragOver(e);
+                                  }
+                                }}
+                                onDragLeave={handleDragLeave}
+                                onDrop={(e) => {
+                                  if (permissions.canUpdate) {
+                                    handleRoomColumnDrop(e, room._id);
+                                  }
+                                }}
+                              >
+                                <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 dark:border-gray-700 pointer-events-none" />
+                                <div className="flex flex-col h-full">
+                                  {[0, SLOT_INTERVAL_MINUTES].map((offset) => {
+                                    const subSlotTime = addMinutesToTime(slot.time, offset);
+                                    const subStartMinutes = rowStartMinutes + offset;
+                                    const subEndMinutes = subStartMinutes + SLOT_INTERVAL_MINUTES;
+                                    const isSubSlotOccupied = roomAppointments.some((apt) => {
+                                      const aptStart = timeStringToMinutes(apt.fromTime);
+                                      const aptEnd = timeStringToMinutes(apt.toTime);
+                                      return aptStart < subEndMinutes && aptEnd > subStartMinutes;
+                                    });
+                                    const slotWithinClosing =
+                                      lastBookableMinutes === null ||
+                                      subStartMinutes <= lastBookableMinutes;
+                                    const canBookSlot =
+                                      permissions.canCreate &&
+                                      !isPastDay &&
+                                      (!isToday || subStartMinutes >= currentMinutes) &&
+                                      slotWithinClosing &&
+                                      !isSubSlotOccupied;
+                                   
+                                    const isSelected = isInRoomSelection && isRoomSlotInSelection(subStartMinutes, subEndMinutes, room._id);
+
+                                    return (
+                                      <div
+                                        key={`${slot.time}-${room._id}-${offset}`}
+                                        className={`flex-1 transition-all ${
+                                          isSelected
+                                            ? "bg-emerald-200 dark:bg-emerald-200 border-l-2 border-emerald-500 dark:border-emerald-600 cursor-crosshair"
+                                            : canBookSlot
+                                            ? "cursor-crosshair hover:bg-emerald-50 dark:hover:bg-emerald-100 border-l-2 border-transparent hover:border-emerald-400 dark:hover:border-emerald-500"
+                                            : isSubSlotOccupied
+                                            ? "bg-gray-50 dark:bg-gray-100 cursor-not-allowed"
+                                            : "bg-gray-50 dark:bg-gray-100 cursor-not-allowed"
+                                        }`}
+                                        style={{ height: SUB_SLOT_HEIGHT_PX }}
+                                        title={
+                                          !permissions.canCreate
+                                            ? "You do not have permission to book appointments"
+                                            : canBookSlot
+                                            ? `Click or drag to select time range starting at ${minutesToDisplay(subStartMinutes)}`
+                                            : isPastDay
+                                            ? "Cannot book appointments for past dates"
+                                            : slotWithinClosing
+                                            ? "Cannot book past time slots"
+                                            : "Cannot book beyond clinic closing time"
+                                        }
+                                        onMouseDown={(e) => {
+                                          if (canBookSlot && !draggedAppointmentId) {
+                                            handleRoomSlotMouseDown(e, room._id, subStartMinutes);
+                                          }
+                                        }}
+                                        onDragOver={(e) => {
+                                          if (permissions.canUpdate && draggedAppointmentId && canBookSlot) {
+                                            handleRoomTimeSlotDragOver(e, room._id, subStartMinutes);
+                                          }
+                                        }}
+                                        onDragLeave={handleDragLeave}
+                                        onDrop={(e) => {
+                                          if (permissions.canUpdate && draggedAppointmentId && canBookSlot) {
+                                            handleTimeSlotDrop(e, room._id, subStartMinutes, true);
+                                          }
+                                        }}
+                                        onClick={(_e) => {
+                                          console.log("Room slot clicked:", {
+                                            canBookSlot,
+                                            canCreate: permissions.canCreate,
+                                            isDragging: roomDragSelection.isDragging,
+                                            draggedAppointmentId,
+                                            subStartMinutes,
+                                            currentMinutes,
+                                            isToday,
+                                            isPastDay
+                                          });
+                                          if (!permissions.canCreate) {
+                                            showErrorToast("You do not have permission to book appointments");
+                                            return;
+                                          }
+                                          if (canBookSlot && !roomDragSelection.isDragging && !draggedAppointmentId) {
+                                            setBookingModal({
+                                              isOpen: true,
+                                              doctorId: "",
+                                              doctorName: "",
+                                              roomId: room._id,
+                                              roomName: room.name,
+                                              slotTime: subSlotTime,
+                                              slotDisplayTime: minutesToDisplay(subStartMinutes),
+                                              selectedDate,
+                                              bookedFrom: "room",
+                                            });
+                                          } else if (!canBookSlot) {
+                                             showErrorToast("This slot cannot be booked. Check date/time or availability.");
+                                          }
+                                        }}
+                                      />
+                                    );
+                                  })}
+                                </div>
+
+                                {permissions.canRead && roomAppointments.length > 0
+                                  ? (() => {
+                                      const startingAppointments = roomAppointments.filter(apt => {
+                                        if (apt.status === 'Cancelled') return false;
+                                        const aptStart = timeStringToMinutes(apt.fromTime);
+                                        return aptStart >= rowStartMinutes && aptStart < rowStartMinutes + ROW_INTERVAL_MINUTES;
+                                      });
+
+                                      if (startingAppointments.length === 0) return null;
+
+                                      const appointmentsBySlot = startingAppointments.map((apt) => {
+                                        const aptStart = timeStringToMinutes(apt.fromTime);
+                                        const aptEnd = timeStringToMinutes(apt.toTime);
+                                        const slotOffset = aptStart - rowStartMinutes;
+                                        const topOffset = (slotOffset / ROW_INTERVAL_MINUTES) * ROW_HEIGHT_PX;
+                                        const duration = aptEnd - aptStart;
+                                        const height = (duration / ROW_INTERVAL_MINUTES) * ROW_HEIGHT_PX;
+                                       
+                                        return { apt, topOffset, height: Math.max(height, ROW_HEIGHT_PX / 2) };
+                                      });
+                                     
+                                      const groupedBySlot: { [key: string]: typeof appointmentsBySlot } = {};
+                                      appointmentsBySlot.forEach((item) => {
+                                        const slotKey = Math.round(item.topOffset).toString();
+                                        if (!groupedBySlot[slotKey]) {
+                                          groupedBySlot[slotKey] = [];
+                                        }
+                                        groupedBySlot[slotKey].push(item);
+                                      });
+                                     
+                                      return (
+                                        <>
+                                          {Object.values(groupedBySlot).map((slotAppointments, groupIndex) => {
+                                            const firstAppt = slotAppointments[0];
+                                            const maxHeight = Math.max(...slotAppointments.map(item => item.height));
+                                           
+                                            return (
+                                              <div
+                                                key={`slot-${groupIndex}`}
+                                                className="absolute left-0.5 right-0.5 flex flex-row items-center"
+                                                style={{
+                                                  top: `${Math.max(0, firstAppt.topOffset + 1)}px`,
+                                                  height: `${maxHeight - 2}px`,
+                                                  zIndex: 10,
+                                                  gap: '2px',
+                                                }}
+                                              >
+                                                {slotAppointments.map((item, index) => {
+                                                  const statusColor = getStatusColor(item.apt.status);
+                                                  const patientCount = slotAppointments.length;
+                                                  const cardWidthPercent = patientCount > 1 ? `${Math.floor(100 / patientCount)}%` : '100%';
+                                                  const maxCardWidth = patientCount > 3 ? '80px' : patientCount > 2 ? '90px' : 'none';
+                                                 
+                                                  return (
+                                                    <div
+                                                      key={item.apt._id}
+                                                      className={`flex flex-col justify-center flex-1 min-w-0 px-2 py-1 border transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${draggedAppointmentId === item.apt._id ? "opacity-50" : ""}`}
+                                                      style={{
+                                                        backgroundColor: statusColor.bg,
+                                                        color: statusColor.text,
+                                                        borderColor: statusColor.border,
+                                                        height: `${item.height - 2}px`,
+                                                        borderWidth: '1px',
+                                                        width: cardWidthPercent,
+                                                        maxWidth: maxCardWidth,
+                                                        flexBasis: cardWidthPercent,
+                                                      }}
+                                                      draggable={permissions.canUpdate}
+                                                      onDragStart={(e) => handleAppointmentDragStart(e, item.apt._id)}
+                                                      onDragEnd={handleAppointmentDragEnd}
+                                                      onMouseEnter={(e) => {
+                                                        const rect = e.currentTarget.getBoundingClientRect();
+                                                        const tooltipWidth = 200;
+                                                        const tooltipHeight = 300;
+                                                        const spacing = 8;
+                                                       
+                                                        let left = rect.right + spacing;
+                                                        let top = rect.top;
+                                                       
+                                                        if (left + tooltipWidth > window.innerWidth) {
+                                                          left = rect.left - tooltipWidth - spacing;
+                                                        }
+                                                       
+                                                        if (top + tooltipHeight > window.innerHeight) {
+                                                          top = window.innerHeight - tooltipHeight - 10;
+                                                        }
+                                                       
+                                                        if (top < 10) {
+                                                          top = 10;
+                                                        }
+                                                       
+                                                        if (left < 10) {
+                                                          left = 10;
+                                                        }
+                                                       
+                                                        setHoveredAppointment({
+                                                          appointment: item.apt,
+                                                          position: { top, left },
+                                                        });
+                                                      }}
+                                                      onMouseLeave={() => {
+                                                        setHoveredAppointment(null);
+                                                      }}
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (permissions.canUpdate) {
+                                                          appointmentRef.current = item.apt;
+                                                          setSelectedAppointment(item.apt);
+                                                          setEditModalOpen(true);
+                                                        } else {
+                                                          showErrorToast("You do not have permission to edit appointments");
+                                                        }
+                                                      }}
+                                                      title={`${item.apt.patientName} - ${formatTime(item.apt.fromTime)} - ${formatTime(item.apt.toTime)}`}
+                                                    >
+                                                      <div className="flex flex-col justify-center h-full">
+                                                        {item.height < 60 ? (
+                                                          <div className="flex items-center h-full px-2">
+                                                            <span className="text-[13px] font-[600] leading-[1.2] tracking-tight text-black truncate">
+                                                              {item.apt.patientName}
+                                                            </span>
+                                                          </div>
+                                                        ) : (
+                                                          <div className="px-2 py-1.5 leading-[1.2] space-y-[2px]">
+                                                            <span className="text-[11px] font-[400] opacity-[0.75] mb-[2px] block">
+                                                              {formatTime(item.apt.fromTime)} - {formatTime(item.apt.toTime)}
+                                                            </span>
+                                                            <span className="text-[13px] font-[600] text-black mb-[2px] block">
+                                                              {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
+                                                            </span>
+                                                            {item.apt.serviceNames && item.apt.serviceNames.length > 0 ? (
+                                                              <span className="text-[12px] font-[400] text-black opacity-[0.8] block truncate">
+                                                                {item.apt.serviceNames.join(", ")}
+                                                              </span>
+                                                            ) : item.apt.serviceName && (
+                                                              <span className="text-[12px] font-[400] text-black opacity-[0.8] block truncate">
+                                                                {item.apt.serviceName}
+                                                              </span>
+                                                            )}
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                      {index < slotAppointments.length - 1 && (
+                                                        <div className="w-px h-2 bg-gray-300 dark:bg-gray-400 mx-0.5 flex-shrink-0" />
+                                                      )}
+                                                    </div>
+                                                  );
+                                                })}
+                                              </div>
+                                            );
+                                          })}
+                                        </>
+                                      );
+                                    })()
+                                  : null}
+                              </div>
+                            );
+                          }
+                        })}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-          </div>
         {visibleDoctors.length === 0 && visibleRooms.length === 0 && (doctorStaff.length > 0 || rooms.length > 0) && (
           <div className="mt-2 rounded border border-dashed border-gray-300 dark:border-gray-300 bg-gray-50 dark:bg-gray-100 p-2 text-center text-xs text-gray-700 dark:text-gray-800">
             No doctor or room columns selected. Use the filters above to choose which schedules to display.
