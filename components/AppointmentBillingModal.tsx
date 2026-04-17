@@ -134,6 +134,9 @@ interface Offer {
   // Bundle-specific fields
   buyQty?: number;
   freeQty?: number;
+  // Cashback-specific fields
+  cashbackAmount?: number;
+  cashbackExpiryDays?: number;
 }
 
 interface AppointmentBillingModalProps {
@@ -181,6 +184,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [matchedBundleOffer, setMatchedBundleOffer] = useState<Offer | null>(null);
   const [bundleFreeSessions, setBundleFreeSessions] = useState<string[]>([]);
   const [bundleFreeSessionCount, setBundleFreeSessionCount] = useState<number>(0);
+  
+  // Cashback offer tracking state
+  const [matchedCashbackOffer, setMatchedCashbackOffer] = useState<Offer | null>(null);
+  const [appliedCashbackAmount, setAppliedCashbackAmount] = useState<number>(0);
+  const [isCashbackApplied, setIsCashbackApplied] = useState<boolean>(false);
+  // Use refs to avoid stale closure issues in useEffect
+  const appliedCashbackRef = useRef<{ offerId: string; amount: number } | null>(null);
   const [isMembershipApplied, setIsMembershipApplied] = useState(false);
   const [finalMembershipDiscount, setFinalMembershipDiscount] = useState(0);
   const [finalOfferDiscount, setFinalOfferDiscount] = useState(0);
@@ -281,6 +291,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [applyPastAdvance50Percent] = useState(false);
   const [applyPastAdvance54Percent] = useState(false);
   const [applyPastAdvance159Flat, setApplyPastAdvance159Flat] = useState(false);
+  
+  // Cashback state
+  const [availableCashback, setAvailableCashback] = useState<any>(null); // { amount, expiryDate, daysRemaining }
+  const [useCashback, setUseCashback] = useState(false);
+  const [cashbackDeductedAmount, setCashbackDeductedAmount] = useState<number>(0);
 
   // Consent Form States
   const [consentForms, setConsentForms] = useState<any[]>([]);
@@ -967,6 +982,52 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         if (response.data.success) {
             const filteredBillings = (response.data.billings || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance");
             setBillingHistory(filteredBillings);
+            
+            // Calculate available cashback from billing history
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            const cashbackBillings = (response.data.billings || []).filter((billing: any) => {
+              if (!billing.isCashbackApplied || !billing.cashbackAmount || billing.cashbackAmount <= 0) {
+                return false;
+              }
+              
+              if (billing.cashbackEndDate) {
+                const endDate = new Date(billing.cashbackEndDate);
+                endDate.setHours(0, 0, 0, 0);
+                return endDate >= today;
+              }
+              
+              return false;
+            });
+            
+            const totalCashback = cashbackBillings.reduce((sum: number, billing: any) => {
+              return sum + (billing.cashbackAmount || 0);
+            }, 0);
+            
+            let nearestExpiry = null;
+            if (cashbackBillings.length > 0) {
+              const sortedByExpiry = cashbackBillings.sort((a: any, b: any) => {
+                return new Date(a.cashbackEndDate).getTime() - new Date(b.cashbackEndDate).getTime();
+              });
+              nearestExpiry = sortedByExpiry[0].cashbackEndDate;
+            }
+            
+            if (totalCashback > 0 && nearestExpiry) {
+              setAvailableCashback({
+                amount: totalCashback,
+                expiryDate: nearestExpiry,
+                daysRemaining: Math.ceil((new Date(nearestExpiry).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+              });
+              console.log('[CashbackModal] Available cashback:', {
+                amount: totalCashback,
+                expiryDate: nearestExpiry,
+                daysRemaining: Math.ceil((new Date(nearestExpiry).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+              });
+            } else {
+              setAvailableCashback(null);
+              setUseCashback(false); // Reset cashback usage if no cashback available
+            }
             setBillingHistoryFetched(true);
           }
       } catch (error) {
@@ -1338,6 +1399,157 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       setMatchedBundleOffer(null);
       setBundleFreeSessions([]);
       setBundleFreeSessionCount(0);
+    }
+  }, [isOpen, activeOffers, selectedTreatments, selectedService, packageTreatmentSessions]);
+
+  // Cashback Offer Matching Logic
+  useEffect(() => {
+    if (!isOpen || activeOffers.length === 0) {
+      console.log('[CashbackMatching] Skipped: isOpen=', isOpen, 'activeOffers.length=', activeOffers?.length || 0);
+      setMatchedCashbackOffer(null);
+      setAppliedCashbackAmount(0);
+      return;
+    }
+
+    const currentTreatments = selectedService === "Treatment" 
+      ? selectedTreatments.map(t => ({ slug: t.treatmentSlug, name: t.treatmentName, price: t.price, quantity: t.quantity }))
+      : packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions }));
+
+    if (currentTreatments.length === 0) {
+      console.log('[CashbackMatching] Skipped: No treatments selected');
+      setMatchedCashbackOffer(null);
+      setAppliedCashbackAmount(0);
+      return;
+    }
+
+    const baseTotal = currentTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
+    
+    console.log('[CashbackMatching] Checking for cashback offers. Selected treatments:', currentTreatments);
+    console.log('[CashbackMatching] Base total:', baseTotal);
+    console.log('[CashbackMatching] Total active offers:', activeOffers.length);
+    
+    // Find cashback offers
+    const cashbackOffers = activeOffers.filter(offer => offer.offerType === "cashback");
+    console.log('[CashbackMatching] All active offers with types:', activeOffers.map(o => ({
+      title: o.title,
+      offerType: o.offerType,
+      applyOnAllServices: o.applyOnAllServices,
+      serviceIds: o.serviceIds
+    })));
+    console.log('[CashbackMatching] Cashback offers found:', cashbackOffers.length);
+    if (cashbackOffers.length > 0) {
+      console.log('[CashbackMatching] Cashback offers details:', cashbackOffers.map(o => ({
+        title: o.title,
+        offerType: o.offerType,
+        discountMode: o.discountMode,
+        discountValue: o.discountValue
+      })));
+    }
+    
+    if (cashbackOffers.length === 0) {
+      console.log("[CashbackMatching] No cashback offers found.");
+      setMatchedCashbackOffer(null);
+      setAppliedCashbackAmount(0);
+      return;
+    }
+
+    // Find best cashback offer (by discount value)
+    let bestCashbackOffer: Offer | null = null;
+    let bestCashbackAmount = 0;
+
+    for (const offer of cashbackOffers) {
+      console.log(`[CashbackMatching] Processing cashback offer:`, {
+        title: offer.title,
+        cashbackAmount: offer.cashbackAmount,    // ← Use cashbackAmount for cashback offers
+        cashbackExpiryDays: offer.cashbackExpiryDays,
+        minimumBillAmount: offer.minimumBillAmount,
+        baseTotal: baseTotal
+      });
+      
+      // Skip if no cashback amount
+      if (!offer.cashbackAmount || offer.cashbackAmount <= 0) {
+        console.log(`[CashbackMatching] Skip: No cashback amount`);
+        continue;
+      }
+
+      // Skip if minimum bill amount not met
+      if (offer.minimumBillAmount > 0 && baseTotal < offer.minimumBillAmount) {
+        console.log(`[CashbackMatching] Cashback "${offer.title}" skipped: Base total ${baseTotal} below minimum ${offer.minimumBillAmount}`);
+        continue;
+      }
+
+      // Check which selected treatments are in the offer's serviceIds
+      let eligibleTotal = 0;
+      console.log(`[CashbackMatching] Checking serviceIds:`, {
+        serviceIds: offer.serviceIds,
+        currentTreatments: currentTreatments
+      });
+      
+      if (offer.serviceIds && Array.isArray(offer.serviceIds) && offer.serviceIds.length > 0) {
+        // Offer has specific services - check matches
+        for (const treatment of currentTreatments) {
+          const isEligible = offer.serviceIds.some(svc => {
+            if (typeof svc === 'string') {
+              return svc.toLowerCase() === treatment.slug.toLowerCase() || svc.toLowerCase() === treatment.name.toLowerCase();
+            }
+            return svc.serviceSlug?.toLowerCase() === treatment.slug.toLowerCase() || svc.name?.toLowerCase() === treatment.name.toLowerCase();
+          });
+          console.log(`[CashbackMatching] Treatment "${treatment.name}" (slug: ${treatment.slug}) eligible:`, isEligible);
+          if (isEligible) {
+            eligibleTotal += treatment.price * treatment.quantity;
+          }
+        }
+        console.log(`[CashbackMatching] Eligible total for "${offer.title}":`, eligibleTotal);
+      } else {
+        // No specific services - apply to all
+        eligibleTotal = baseTotal;
+        console.log(`[CashbackMatching] No serviceIds, applying to all. Eligible total:`, eligibleTotal);
+      }
+
+      // For cashback offers, use the fixed cashbackAmount
+      // (NOT discountValue - that's for instant_discount offers)
+      let cashbackAmount = offer.cashbackAmount || 0;
+      
+      console.log(`[CashbackMatching] Cashback "${offer.title}": ${cashbackAmount} (fixed amount from cashbackAmount field)`);
+
+      if (cashbackAmount > bestCashbackAmount) {
+        bestCashbackAmount = cashbackAmount;
+        bestCashbackOffer = offer;
+      }
+    }
+
+    if (bestCashbackOffer) {
+      console.log(`[CashbackMatching] Best cashback offer: ${bestCashbackOffer.title}, Cashback: ${bestCashbackAmount}`);
+      setMatchedCashbackOffer(bestCashbackOffer);
+      
+      // Check if this is the same offer that was already applied (using ref to avoid stale closure)
+      const isSameOffer = appliedCashbackRef.current && appliedCashbackRef.current.offerId === bestCashbackOffer._id;
+      
+      if (isSameOffer) {
+        // Restore the applied amount from ref
+        const refData = appliedCashbackRef.current;
+        if (refData) {
+          console.log('[CashbackMatching] Restoring applied cashback amount for same offer', {
+            offerId: bestCashbackOffer._id,
+            amount: refData.amount
+          });
+          setAppliedCashbackAmount(refData.amount);
+          setIsCashbackApplied(true);
+        }
+      } else {
+        // Reset if different offer or not applied yet
+        console.log('[CashbackMatching] Resetting cashback amount (different offer or not applied)', {
+          currentRef: appliedCashbackRef.current,
+          newOfferId: bestCashbackOffer._id
+        });
+        setAppliedCashbackAmount(0);
+        setIsCashbackApplied(false);
+      }
+    } else {
+      console.log("[CashbackMatching] No matching cashback offers.");
+      setMatchedCashbackOffer(null);
+      setAppliedCashbackAmount(0);
+      setIsCashbackApplied(false);  // Also reset applied state when no offer matches
     }
   }, [isOpen, activeOffers, selectedTreatments, selectedService, packageTreatmentSessions]);
 
@@ -2723,6 +2935,18 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         calcReceptionistDiscount = highest.type === 'Receptionist' ? highest.amount : 0;
       }
 
+      // Calculate cashback deduction
+      const cashbackAmountToUse = useCashback && availableCashback ? Math.min(availableCashback.amount, finalAmount) : 0;
+      const amountAfterCashback = finalAmount - cashbackAmountToUse;
+      
+      console.log('[CashbackModal] Cashback calculation:', {
+        finalAmount,
+        availableCashback: availableCashback?.amount || 0,
+        useCashback,
+        cashbackAmountToUse,
+        amountAfterCashback
+      });
+
       // Prepare payload
       const payload: any = {
         invoiceNumber: formData.invoiceNumber,
@@ -2736,7 +2960,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         doctor: appointment.doctorName,
         service: selectedService,
         referredBy: formData.referredBy,
-        amount: finalAmount,
+        amount: amountAfterCashback,  // Deduct cashback from amount
+        cashbackWalletUsed: cashbackAmountToUse,  // Track how much cashback was used
         paid: parseFloat(formData.paid) || 0,
         advanceUsed: parseFloat(formData.advanceUsed) || 0,
         pastAdvanceUsed: parseFloat(formData.pastAdvanceUsed) || 0,
@@ -2793,6 +3018,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         // Free sessions being REDEEMED in this billing (price = 0)
         usedFreeSessions: selectedTreatments.filter((t: any) => t.isFreeSession).map((t: any) => t.treatmentName),
         usedFreeSessionCount: selectedTreatments.filter((t: any) => t.isFreeSession).length,
+        // Cashback offer fields
+        isCashbackApplied: isCashbackApplied && matchedCashbackOffer !== null,
+        cashbackOfferId: isCashbackApplied && matchedCashbackOffer ? matchedCashbackOffer._id : null,
+        cashbackOfferName: isCashbackApplied && matchedCashbackOffer ? matchedCashbackOffer.title : null,
+        cashbackAmount: isCashbackApplied && matchedCashbackOffer ? appliedCashbackAmount : 0,
         discountPercent: (calcMembershipDiscount > 0 || calcOfferDiscount > 0 || calcReceptionistDiscount > 0)
           ? (baseAmount > 0
               ? ((baseAmount - finalAmount) / baseAmount * 100)
@@ -2849,6 +3079,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       console.log("[BundleDebug] bundleFreeSessionCount:", bundleFreeSessionCount);
       console.log("[BundleDebug] offerFreeSession in payload:", payload.offerFreeSession);
       console.log("[BundleDebug] freeOfferSessionCount in payload:", payload.freeOfferSessionCount);
+      console.log('[CashbackDebug] Current state - isCashbackApplied:', isCashbackApplied);
+      console.log('[CashbackDebug] Current state - appliedCashbackAmount:', appliedCashbackAmount);
+      console.log('[CashbackDebug] Current state - matchedCashbackOffer:', matchedCashbackOffer ? matchedCashbackOffer.title : null);
+      console.log("[CashbackDebug] isCashbackApplied in payload:", payload.isCashbackApplied);
+      console.log("[CashbackDebug] cashbackAmount in payload:", payload.cashbackAmount);
+      console.log("[CashbackDebug] cashbackOfferName in payload:", payload.cashbackOfferName);
 
       const response = await axios.post(
         "/api/clinic/create-patient-registration",
@@ -3896,6 +4132,24 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             Discounted from {getCurrencySymbol(currency)} {parseFloat(formData.originalAmount || "0").toFixed(2)}
                           </div>
                         )}
+                        
+                        {/* Cashback Deduction */}
+                        {useCashback && availableCashback && availableCashback.amount > 0 && (
+                          <div className="mt-2 space-y-1">
+                            <div className="flex items-center justify-between text-[9px] text-green-700 font-semibold">
+                              <span>💰 Cashback Used:</span>
+                              <span>−{getCurrencySymbol(currency)} {Math.min(availableCashback.amount, parseFloat(formData.amount || "0")).toFixed(2)}</span>
+                            </div>
+                            <div className="bg-green-50 border border-green-200 rounded-lg px-2 py-1.5">
+                              <div className="flex items-center justify-between text-[10px]">
+                                <span className="text-green-800 font-bold">Final Amount:</span>
+                                <span className="text-green-700 font-bold text-xs">
+                                  {getCurrencySymbol(currency)} {Math.max(0, parseFloat(formData.amount || "0") - Math.min(availableCashback.amount, parseFloat(formData.amount || "0"))).toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <label className="block text-[10px] font-semibold text-gray-600 mb-1">Paid <span className="text-red-500">*</span></label>
@@ -3916,12 +4170,15 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           }
                         `}} />
                         <div className="text-[9px] text-gray-500 mt-0.5">
-                          Net due: {getCurrencySymbol(currency)} {Math.max(0, (parseFloat(formData.amount) || 0) - (applyAdvance ? Math.min(balances.advanceBalance, parseFloat(formData.amount) || 0) : 0) - (applyPastAdvance50Percent ? Math.min(balances.pastAdvance50PercentBalance, parseFloat(formData.amount) || 0) : 0) - (applyPastAdvance54Percent ? Math.min(balances.pastAdvance54PercentBalance, parseFloat(formData.amount) || 0) : 0) - (applyPastAdvance159Flat ? Math.min(balances.pastAdvance159FlatBalance, parseFloat(formData.amount) || 0) : 0)).toFixed(2)}
+                          Net due: {getCurrencySymbol(currency)} {Math.max(0, (parseFloat(formData.amount) || 0) - (useCashback && availableCashback ? Math.min(availableCashback.amount, parseFloat(formData.amount) || 0) : 0) - (applyAdvance ? Math.min(balances.advanceBalance, parseFloat(formData.amount) || 0) : 0) - (applyPastAdvance50Percent ? Math.min(balances.pastAdvance50PercentBalance, parseFloat(formData.amount) || 0) : 0) - (applyPastAdvance54Percent ? Math.min(balances.pastAdvance54PercentBalance, parseFloat(formData.amount) || 0) : 0) - (applyPastAdvance159Flat ? Math.min(balances.pastAdvance159FlatBalance, parseFloat(formData.amount) || 0) : 0)).toFixed(2)}
                           {isDoctorDiscountApplied && (
                             <span className="text-orange-600 font-bold ml-1">(Doctor Disc. Applied)</span>
                           )}
                           {isAgentDiscountApplied && (
                             <span className="text-blue-600 font-bold ml-1">(Agent Disc. Applied)</span>
+                          )}
+                          {useCashback && availableCashback && (
+                            <span className="text-green-600 font-bold ml-1">(Cashback Applied)</span>
                           )}
                         </div>
                       </div>
@@ -3956,6 +4213,42 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         </select>
                       </div>
                     </div>
+
+                    {/* Cashback Balance Options */}
+                    {availableCashback && availableCashback.amount > 0 && (
+                      <div className="mt-3">
+                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-3 space-y-2">
+                          <h4 className="text-[10px] font-bold text-green-800 uppercase tracking-wider mb-2 flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                            </svg>
+                            Available Cashback
+                          </h4>
+                         
+                          <label className="flex items-center justify-between cursor-pointer group">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={useCashback}
+                                onChange={(e) => {
+                                  setUseCashback(e.target.checked);
+                                  console.log('[CashbackModal] Use cashback:', e.target.checked);
+                                }}
+                                className="w-3.5 h-3.5 text-green-600 rounded focus:ring-green-500 border-gray-300"
+                              />
+                              <span className="text-[10px] font-medium text-gray-700 group-hover:text-gray-900">Use cashback balance now</span>
+                            </div>
+                            <span className="text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                              {getCurrencySymbol(currency)} {availableCashback.amount.toFixed(2)}
+                            </span>
+                          </label>
+                          
+                          <div className="text-[9px] text-green-600 mt-1">
+                            Expires: {new Date(availableCashback.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ({availableCashback.daysRemaining} days remaining)
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Advance Balance Options */}
                     <div className="mt-3">
@@ -4164,6 +4457,76 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         </div>
                       )}
 
+                      {/* Cashback Offer Indicator */}
+                      {matchedCashbackOffer && (
+                        <div className="mt-2 p-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+                          <div className="flex items-start gap-2">
+                            <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                            </svg>
+                            <div className="flex-1">
+                              <div className="text-[10px] font-bold text-blue-900 uppercase tracking-wide">
+                                💰 Cashback Available: {matchedCashbackOffer.title}
+                              </div>
+                              <div className="text-[10px] text-blue-700 mt-1 font-semibold">
+                                Earn {getCurrencySymbol(currency)}{matchedCashbackOffer.cashbackAmount || 0} Cashback (expires in {matchedCashbackOffer.cashbackExpiryDays || 365} days)
+                              </div>
+                              {isCashbackApplied ? (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <div className="text-[9px] text-blue-800 font-bold">
+                                    ✓ Cashback Applied: {getCurrencySymbol(currency)}{appliedCashbackAmount.toFixed(2)}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      // Clear the ref
+                                      appliedCashbackRef.current = null;
+                                      setIsCashbackApplied(false);
+                                      setAppliedCashbackAmount(0);
+                                      console.log("[Cashback] Cashback removed");
+                                    }}
+                                    className="text-[9px] px-2 py-0.5 bg-red-100 text-red-700 rounded hover:bg-red-200 font-bold"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    // For cashback offers, use the fixed cashbackAmount
+                                    // (NOT discountValue - that's for instant_discount offers)
+                                    const cashbackAmount = matchedCashbackOffer.cashbackAmount || 0;
+                                    
+                                    // Save to ref to persist across useEffect runs
+                                    appliedCashbackRef.current = {
+                                      offerId: matchedCashbackOffer._id,
+                                      amount: cashbackAmount
+                                    };
+                                    
+                                    setAppliedCashbackAmount(cashbackAmount);
+                                    setIsCashbackApplied(true);
+                                    console.log("[Cashback] Applied successfully:", {
+                                      cashbackAmount,
+                                      offerId: matchedCashbackOffer._id,
+                                      offerName: matchedCashbackOffer.title,
+                                      cashbackExpiryDays: matchedCashbackOffer.cashbackExpiryDays,
+                                      isCashbackApplied: true
+                                    });
+                                  }}
+                                  className="mt-1 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded shadow-sm transition-all"
+                                >
+                                  Apply Cashback
+                                </button>
+                              )}
+                              <div className="text-[9px] text-blue-600 mt-1 italic">
+                                💡 Cashback will be added to patient's wallet after billing
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Doctor/Agent Discount (if applied) */}
                       {finalReceptionistDiscount > 0 && (
                         <div className="flex items-center justify-between text-[11px]">
@@ -4191,6 +4554,29 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         </div>
                         <span className="font-bold text-gray-900">{getCurrencySymbol(currency)} {parseFloat(formData.amount || "0").toFixed(2)}</span>
                       </div>
+
+                      {/* Cashback Deduction (if applied) */}
+                      {useCashback && availableCashback && availableCashback.amount > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <div className="flex items-center gap-1">
+                            <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                            </svg>
+                            <span className="text-green-700 font-semibold">Cashback Deduction</span>
+                          </div>
+                          <span className="font-bold text-green-600">−{getCurrencySymbol(currency)} {Math.min(availableCashback.amount, parseFloat(formData.amount || "0")).toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      {/* Final Amount After Cashback */}
+                      {useCashback && availableCashback && availableCashback.amount > 0 && (
+                        <div className="flex items-center justify-between text-[12px] bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                          <span className="text-green-800 font-bold">Final Amount</span>
+                          <span className="font-bold text-green-700 text-base">
+                            {getCurrencySymbol(currency)} {Math.max(0, parseFloat(formData.amount || "0") - Math.min(availableCashback.amount, parseFloat(formData.amount || "0"))).toFixed(2)}
+                          </span>
+                        </div>
+                      )}
 
                       {/* Previous Pending Rolled In */}
                       {parseFloat(formData.pendingUsed || "0") > 0 && (

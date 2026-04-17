@@ -202,6 +202,11 @@ export default async function handler(req, res) {
         // Free sessions being REDEEMED in this billing
         usedFreeSessions,
         usedFreeSessionCount,
+        // Cashback offer fields
+        isCashbackApplied,
+        cashbackOfferId,
+        cashbackOfferName,
+        cashbackAmount,
       } = req.body;
 
     console.log({ bmModify: req.body });
@@ -508,6 +513,28 @@ export default async function handler(req, res) {
     const pendingToStore = finalPending;
     const advanceToStore = finalAdvance;
 
+    // Calculate cashback validity dates if cashback is applied
+    let cashbackStartDate = null;
+    let cashbackEndDate = null;
+    if (isCashbackApplied && cashbackAmount && cashbackAmount > 0) {
+      // Use dynamic import for ES6 modules
+      const CreateOfferModule = await import('../../../models/CreateOffer');
+      const CreateOffer = CreateOfferModule.default;
+      const cashbackOffer = cashbackOfferId ? await CreateOffer.findById(cashbackOfferId).lean() : null;
+      const cashbackExpiryDays = cashbackOffer?.cashbackExpiryDays || 365; // Default to 1 year if not set
+      
+      cashbackStartDate = new Date(invoicedDate);
+      cashbackEndDate = new Date(invoicedDate);
+      cashbackEndDate.setDate(cashbackEndDate.getDate() + cashbackExpiryDays);
+      
+      console.log('[CashbackAPI] Cashback validity period:', {
+        invoicedDate,
+        cashbackStartDate,
+        cashbackExpiryDays,
+        cashbackEndDate
+      });
+    }
+
     // Create billing record
     const billingData = {
       clinicId: clinic._id,
@@ -585,6 +612,14 @@ export default async function handler(req, res) {
       // Bundle offer tracking fields
       offerFreeSession: Array.isArray(offerFreeSession) ? offerFreeSession : [],
       freeOfferSessionCount: freeOfferSessionCount || 0,
+      // Cashback offer tracking fields
+      isCashbackApplied: isCashbackApplied || false,
+      cashbackOfferId: cashbackOfferId || null,
+      cashbackOfferName: cashbackOfferName || null,
+      cashbackAmount: cashbackAmount || 0,
+      // Cashback validity period - calculated above based on offer's cashbackExpiryDays
+      cashbackStartDate: cashbackStartDate,
+      cashbackEndDate: cashbackEndDate,
     };
 
     // console.log({ billingData });
@@ -597,12 +632,17 @@ export default async function handler(req, res) {
 
     const billing = await Billing.create(billingData);
     
-    // Explicitly verify the fields were saved
+    // Explicitly verify the cashback fields were saved
     const savedBilling = await Billing.findById(billing._id).lean();
-    // console.log('[BundleAPI] Saved billing offerFreeSession:', savedBilling?.offerFreeSession);
-    // console.log('[BundleAPI] Saved billing freeOfferSessionCount:', savedBilling?.freeOfferSessionCount);
-    // console.log('[BundleAPI] Saved billing has offerFreeSession key:', 'offerFreeSession' in (savedBilling || {}));
-    // console.log('[BundleAPI] Saved billing has freeOfferSessionCount key:', 'freeOfferSessionCount' in (savedBilling || {}));
+    console.log('[CashbackAPI] Saved billing isCashbackApplied:', savedBilling?.isCashbackApplied);
+    console.log('[CashbackAPI] Saved billing cashbackAmount:', savedBilling?.cashbackAmount);
+    console.log('[CashbackAPI] Saved billing cashbackOfferName:', savedBilling?.cashbackOfferName);
+    console.log('[CashbackAPI] Saved billing has isCashbackApplied key:', 'isCashbackApplied' in (savedBilling || {}));
+    console.log('[CashbackAPI] Saved billing has cashbackAmount key:', 'cashbackAmount' in (savedBilling || {}));
+    console.log('[CashbackAPI] Saved billing cashbackStartDate:', savedBilling?.cashbackStartDate);
+    console.log('[CashbackAPI] Saved billing cashbackEndDate:', savedBilling?.cashbackEndDate);
+    console.log('[CashbackAPI] Saved billing has cashbackStartDate key:', 'cashbackStartDate' in (savedBilling || {}));
+    console.log('[CashbackAPI] Saved billing has cashbackEndDate key:', 'cashbackEndDate' in (savedBilling || {}));
 
     // If free sessions are being REDEEMED, update previous billings to remove them
     if (usedFreeSessions && Array.isArray(usedFreeSessions) && usedFreeSessions.length > 0) {
@@ -660,6 +700,69 @@ export default async function handler(req, res) {
         console.warn('[BundleAPI] Warning: Could not find free sessions for:', sessionsToConsume);
       } else {
         console.log('[BundleAPI] All free sessions successfully consumed!');
+      }
+    }
+
+    // If cashback is applied, credit the patient's wallet
+    if (isCashbackApplied && cashbackAmount && cashbackAmount > 0) {
+      console.log('[CashbackAPI] Crediting wallet:', { patientId: userId, amount: cashbackAmount, offerName: cashbackOfferName });
+      
+      try {
+        // Fetch the offer to get cashbackExpiryDays
+        const CreateOfferModule = await import('../../../models/CreateOffer');
+        const CreateOffer = CreateOfferModule.default;
+        const cashbackOffer = cashbackOfferId ? await CreateOffer.findById(cashbackOfferId).lean() : null;
+        const cashbackExpiryDays = cashbackOffer?.cashbackExpiryDays || 365; // Default to 1 year if not set
+        
+        console.log('[CashbackAPI] Cashback offer details:', {
+          offerName: cashbackOffer?.title,
+          cashbackAmount: cashbackOffer?.cashbackAmount,
+          cashbackExpiryDays: cashbackExpiryDays
+        });
+        
+        // Update PatientRegistration with wallet credit
+        const PatientRegistration = require('../../../models/PatientRegistration');
+        
+        // Find the patient
+        const patient = await PatientRegistration.findById(userId);
+        if (patient) {
+          // Add to wallet balance
+          const currentWalletBalance = patient.walletBalance || 0;
+          const newWalletBalance = currentWalletBalance + cashbackAmount;
+          
+          // Use the cashbackEndDate from billing record (calculated from invoicedDate)
+          const walletCreditExpiry = cashbackEndDate || new Date();
+          
+          await PatientRegistration.findByIdAndUpdate(userId, {
+            $set: {
+              walletBalance: newWalletBalance,
+              walletCreditExpiry: walletCreditExpiry,
+              updatedAt: new Date()
+            },
+            $push: {
+              walletTransactions: {
+                amount: cashbackAmount,
+                type: 'credit',
+                source: 'cashback',
+                offerId: cashbackOfferId,
+                offerName: cashbackOfferName,
+                billingId: billing._id,
+                invoiceNumber: billing.invoiceNumber,
+                description: `Cashback earned from ${cashbackOfferName || 'offer'}`,
+                expiryDate: walletCreditExpiry,
+                createdAt: new Date()
+              }
+            }
+          });
+          
+          console.log('[CashbackAPI] Wallet credited successfully. New balance:', newWalletBalance);
+          console.log('[CashbackAPI] Wallet credit expires:', walletCreditExpiry);
+        } else {
+          console.warn('[CashbackAPI] Patient not found:', userId);
+        }
+      } catch (walletError) {
+        console.error('[CashbackAPI] Error crediting wallet:', walletError);
+        // Don't fail the billing if wallet update fails
       }
     }
 
