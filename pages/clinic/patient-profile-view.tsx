@@ -535,6 +535,9 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { p
   const [loadingPackages, setLoadingPackages] = useState(false);
   const [billingHistory, setBillingHistory] = useState<any>(null);
   const [loadingBilling, setLoadingBilling] = useState(false);
+  
+  // Cashback state
+  const [validCashback, setValidCashback] = useState<any>(null);
   const [allAppointmentsData, setAllAppointmentsData] = useState<any[]>([]);
   const [loadingTreatmentAppointments, setLoadingTreatmentAppointments] = useState(false);
   const [mediaDocuments, setMediaDocuments] = useState<any[]>([]);
@@ -1822,6 +1825,64 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         const billings = response.data.billings || [];
         setBillingHistory(billings);
         calculateFinancialSnapshot(billings);
+        
+        // Calculate valid cashback from billing history
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Reset time to start of day
+        
+        console.log('[CashbackProfile] Checking cashback validity:', {
+          totalBillings: billings.length,
+          today: today.toISOString()
+        });
+        
+        // Find all billings with valid cashback
+        const cashbackBillings = billings.filter((billing: any) => {
+          if (!billing.isCashbackApplied || !billing.cashbackAmount || billing.cashbackAmount <= 0) {
+            return false;
+          }
+          
+          // Check if cashback has not expired
+          if (billing.cashbackEndDate) {
+            const endDate = new Date(billing.cashbackEndDate);
+            endDate.setHours(0, 0, 0, 0);
+            const isValid = endDate >= today;
+            console.log('[CashbackProfile] Billing:', billing.invoiceNumber, {
+              cashbackAmount: billing.cashbackAmount,
+              endDate: billing.cashbackEndDate,
+              isValid
+            });
+            return isValid; // Not expired
+          }
+          
+          return false;
+        });
+        
+        console.log('[CashbackProfile] Valid cashback billings:', cashbackBillings.length);
+        
+        // Calculate total valid cashback amount
+        const totalCashback = cashbackBillings.reduce((sum: number, billing: any) => {
+          return sum + (billing.cashbackAmount || 0);
+        }, 0);
+        
+        // Get the nearest expiry date
+        let nearestExpiry = null;
+        if (cashbackBillings.length > 0) {
+          const sortedByExpiry = cashbackBillings.sort((a: any, b: any) => {
+            return new Date(a.cashbackEndDate).getTime() - new Date(b.cashbackEndDate).getTime();
+          });
+          nearestExpiry = sortedByExpiry[0].cashbackEndDate;
+        }
+        
+        if (totalCashback > 0 && nearestExpiry) {
+          setValidCashback({
+            amount: totalCashback,
+            expiryDate: nearestExpiry,
+            daysRemaining: Math.ceil((new Date(nearestExpiry).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+          });
+        } else {
+          setValidCashback(null);
+        }
+        
         return billings;
       }
     } catch (error: any) {
@@ -2586,8 +2647,29 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
               </div>
             </div>
 
-            {/* Right: Last Visit + Add Payment */}
+            {/* Right: Cashback + Last Visit + Add Payment */}
             <div className="flex items-center gap-4 flex-shrink-0">
+              {/* Cashback Display - Only show if valid cashback exists */}
+              {validCashback && validCashback.amount > 0 && (
+                <div className="text-center bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-1 mb-0.5">
+                    <svg className="w-3.5 h-3.5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                    </svg>
+                    <div className="text-[11px] font-bold text-green-800 uppercase tracking-wide">Cashback</div>
+                  </div>
+                  <div className="text-base font-bold text-green-700 mb-0.5">
+                    {getCurrencySymbol(currency)}{validCashback.amount.toFixed(2)}
+                  </div>
+                  <div className="text-[9px] text-green-600 font-semibold">
+                    Expires: {new Date(validCashback.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </div>
+                  <div className="text-[9px] text-green-500 mt-0.5">
+                    {validCashback.daysRemaining} days remaining
+                  </div>
+                </div>
+              )}
+
               {/* Last Visit */}
               <div className="text-center">
                 <div className="text-[12px] font-semibold text-gray-800 font-medium mb-0.5">Last Visit</div>
