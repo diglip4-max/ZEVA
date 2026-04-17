@@ -30,7 +30,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, users: agents });
   } catch (err) {
-    console.error("Error fetching agents:", err);
+    // console.error("Error fetching agents:", err);/
     return res.status(500).json({ success: false, message: "Failed to fetch agents" });
   }
 }

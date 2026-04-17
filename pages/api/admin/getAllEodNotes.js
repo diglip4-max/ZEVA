@@ -85,7 +85,7 @@ export default async function handler(req, res) {
       doctorStaffList,
     });
   } catch (error) {
-    console.error("Admin EOD Notes Error:", error);
+    // console.error("Admin EOD Notes Error:", error);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 }

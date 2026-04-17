@@ -41,7 +41,7 @@ async function saveSessionSafely(session, targetUserId) {
     await session.save();
     return true;
   } catch (saveError) {
-    console.error('Failed to save session:', saveError.message);
+    // console.error('Failed to save session:', saveError.message);
     return false;
   }
 }
@@ -169,7 +169,7 @@ export default withDoctorApiAuth(async function handler(req, res) {
       },
     });
   } catch (error) {
-    console.error('DOCTOR TODAY SESSION ERROR:', error);
+    // console.error('DOCTOR TODAY SESSION ERROR:', error);
     return res.status(500).json({
       success: false,
       message: 'Server error',

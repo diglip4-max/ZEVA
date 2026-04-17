@@ -86,7 +86,7 @@ export default async function handler(req, res) {
       // Remove slug and slugLocked from update data to prevent changes
       delete req.body.slug;
       delete req.body.slugLocked;
-      console.log("🔒 Slug is locked - preventing slug changes for SEO stability");
+      // console.log("🔒 Slug is locked - preventing slug changes for SEO stability");
     }
 
     // Update fields
@@ -119,7 +119,7 @@ export default async function handler(req, res) {
           });
         }
       } catch (error) {
-        console.error("Error parsing treatments:", error);
+        // console.error("Error parsing treatments:", error);
         // Fallback: convert to simple array format
         if (Array.isArray(treatments)) {
           profile.treatments = treatments.map((treatment) => ({
@@ -187,7 +187,7 @@ export default async function handler(req, res) {
       profile: responseProfile,
     });
   } catch (error) {
-    console.error("Edit profile error:", error);
+    // console.error("Edit profile error:", error);
     return res
       .status(500)
       .json({ message: "Something went wrong", error: error.message });

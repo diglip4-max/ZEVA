@@ -54,7 +54,7 @@ export default async function handler(req, res) {
           }
         }
       } catch (permErr) {
-        console.error("Permission check error:", permErr);
+        // console.error("Permission check error:", permErr);
         return res.status(500).json({ success: false, message: "Error checking permissions" });
       }
     } else if (me.role !== 'admin') {
@@ -64,7 +64,7 @@ export default async function handler(req, res) {
     const vendors = await Vendor.find().sort({ createdAt: -1 });
     res.status(200).json({ success: true, data: vendors });
   } catch (error) {
-    console.error("Error fetching vendors:", error);
+    // console.error("Error fetching vendors:", error);
     res.status(400).json({ success: false, message: error.message });
   }
 }

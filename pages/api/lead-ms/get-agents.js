@@ -238,25 +238,25 @@ export default async function handler(req, res) {
       }
 
       // Debug: Log the query and user info
-      console.log('GET Agents Query:', JSON.stringify(query, null, 2));
-      console.log('Current User:', { role: me.role, _id: me._id.toString() });
+      // console.log('GET Agents Query:', JSON.stringify(query, null, 2));
+      // console.log('Current User:', { role: me.role, _id: me._id.toString() });
 
       const users = await User.find(query).select('_id name email phone isApproved declined clinicId createdBy role');
 
       // Debug: Log results
-      console.log('Found users:', users.length);
+      // console.log('Found users:', users.length);
       if (users.length > 0) {
-        console.log('Sample user:', {
-          name: users[0].name,
-          role: users[0].role,
-          clinicId: users[0].clinicId?.toString(),
-          createdBy: users[0].createdBy?.toString()
-        });
+        // console.log('Sample user:', {
+        //   name: users[0].name,
+        //   role: users[0].role,
+        //   clinicId: users[0].clinicId?.toString(),
+        //   createdBy: users[0].createdBy?.toString()
+        // });
       }
 
       return res.status(200).json({ success: true, agents: users });
     } catch (err) {
-      console.error('Error fetching users:', err);
+      // console.error('Error fetching users:', err);
       return res.status(500).json({ success: false, message: 'Failed to fetch users', error: err.message });
     }
   }
@@ -416,14 +416,14 @@ export default async function handler(req, res) {
       // Update AgentProfile
       let profile = await AgentProfile.findOne({ userId: agent._id });
       if (!profile) {
-        console.log('API: Creating new profile for user:', agent._id);
+        // console.log('API: Creating new profile for user:', agent._id);
         profile = new AgentProfile({ userId: agent._id });
       } else {
-        console.log('API: Found existing profile for user:', agent._id);
+        // console.log('API: Found existing profile for user:', agent._id);
       }
 
-      console.log('API: Raw req.body.discountType:', req.body.discountType);
-      console.log('API: Raw req.body.discountAmount:', req.body.discountAmount);
+      // console.log('API: Raw req.body.discountType:', req.body.discountType);
+      // console.log('API: Raw req.body.discountAmount:', req.body.discountAmount);
 
       if (profile.agentCode == null) {
         profile.agentCode = `USR-${agent._id.toString()}`;
@@ -476,9 +476,9 @@ export default async function handler(req, res) {
       if (discountType !== undefined) profile.set('discountType', discountType, { strict: false });
       if (discountAmount !== undefined) profile.set('discountAmount', discountAmount, { strict: false });
 
-      console.log('API: Before profile.save(), profile data:', JSON.stringify(profile, null, 2));
+      // console.log('API: Before profile.save(), profile data:', JSON.stringify(profile, null, 2));
       await profile.save();
-      console.log('API: After profile.save(), profile data:', JSON.stringify(profile, null, 2));
+      // console.log('API: After profile.save(), profile data:', JSON.stringify(profile, null, 2));
       updatedProfile = profile;
     }
 

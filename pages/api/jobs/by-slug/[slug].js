@@ -69,7 +69,7 @@ export default async function handler(req, res) {
       job: populatedJob,
     });
   } catch (error) {
-    console.error("Error fetching job by slug:", error);
+    // console.error("Error fetching job by slug:", error);
     return res.status(500).json({
       success: false,
       message: "Server error",

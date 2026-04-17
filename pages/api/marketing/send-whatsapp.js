@@ -57,7 +57,7 @@ export default async function handler(req, res) {
           });
         }
       } catch (permErr) {
-        console.error("Permission check error:", permErr);
+        // console.error("Permission check error:", permErr);
         return res.status(500).json({ success: false, error: "Error checking permissions" });
       }
     }
@@ -104,14 +104,14 @@ export default async function handler(req, res) {
 
       return res.status(200).json({ success: true, data: response.data });
     } catch (err) {
-      console.error("❌ WhatsApp API Error:", err.response?.data || err.message);
+      // console.error("❌ WhatsApp API Error:", err.response?.data || err.message);
       const errorMessage = err.response?.data?.error?.message || err.message;
       return res
         .status(err.response?.status || 500)
         .json({ success: false, error: errorMessage });
     }
   } catch (err) {
-    console.error("WhatsApp send error:", err);
+    // console.error("WhatsApp send error:", err);
     return res.status(500).json({ success: false, error: err.message || "Internal server error" });
   }
 }

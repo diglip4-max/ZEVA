@@ -76,7 +76,7 @@ export default async function handler(req, res) {
     
     try {
       if (!clinic.slugLocked && clinic.isApproved) {
-        console.log(`🔄 Generating slug for clinic: ${clinic.name} (ID: ${clinicId})`);
+        // console.log(`🔄 Generating slug for clinic: ${clinic.name} (ID: ${clinicId})`);
         
         // Use central slug service to generate and lock slug
         const updatedClinic = await generateAndLockSlug('clinic', clinicId.toString());
@@ -86,18 +86,18 @@ export default async function handler(req, res) {
         finalClinic = await Clinic.findById(clinicId);
         
         if (slugGenerated) {
-          console.log(`✅ Slug generated successfully: ${finalClinic.slug}`);
+          // console.log(`✅ Slug generated successfully: ${finalClinic.slug}`);
           
           // Step 3: Run SEO pipeline after slug generation
           let seoResult = null;
           let seoMessages = [];
           
           try {
-            console.log(`🚀 Running SEO pipeline for clinic: ${clinicId}`);
+            // console.log(`🚀 Running SEO pipeline for clinic: ${clinicId}`);
             seoResult = await runSEOPipeline('clinic', clinicId.toString(), finalClinic);
             
             if (seoResult.success) {
-              console.log(`✅ SEO pipeline completed successfully`);
+              // console.log(`✅ SEO pipeline completed successfully`);
               
               // Generate user-friendly messages from SEO results
               if (seoResult.indexing) {
@@ -174,7 +174,7 @@ export default async function handler(req, res) {
               }
               
             } else {
-              console.warn(`⚠️ SEO pipeline completed with warnings:`, seoResult.errors);
+              // console.warn(`⚠️ SEO pipeline completed with warnings:`, seoResult.errors);
               seoMessages.push({
                 type: 'warning',
                 message: `⚠️ SEO setup completed with some warnings. Please review your clinic profile.`,
@@ -182,7 +182,7 @@ export default async function handler(req, res) {
             }
           } catch (seoError) {
             // SEO errors are non-fatal - log but continue
-            console.error("❌ SEO pipeline error (non-fatal):", seoError.message);
+            // console.error("❌ SEO pipeline error (non-fatal):", seoError.message);
             seoMessages.push({
               type: 'error',
               message: `❌ SEO setup encountered an error. Your clinic is approved but SEO features may be limited.`,
@@ -193,15 +193,15 @@ export default async function handler(req, res) {
           finalClinic._seoMessages = seoMessages;
           finalClinic._seoResult = seoResult;
         } else {
-          console.log(`⚠️ Slug generation completed but slugLocked is false`);
+          // console.log(`⚠️ Slug generation completed but slugLocked is false`);
         }
       } else {
-        console.log(`⏭️ Skipping slug generation - slugLocked: ${clinic.slugLocked}, isApproved: ${clinic.isApproved}`);
+        // console.log(`⏭️ Skipping slug generation - slugLocked: ${clinic.slugLocked}, isApproved: ${clinic.isApproved}`);
       }
     } catch (slugError) {
       // If slug generation fails but clinic is approved, continue with approval
-      console.error("❌ Slug generation error (non-fatal):", slugError.message);
-      console.error("Error stack:", slugError.stack);
+      // console.error("❌ Slug generation error (non-fatal):", slugError.message);
+      // console.error("Error stack:", slugError.stack);
       // Continue with approval even if slug generation fails
     }
 
@@ -234,7 +234,7 @@ export default async function handler(req, res) {
 
     res.status(200).json(response);
   } catch (error) {
-    console.error("❌ Clinic Approval Error:", error);
+    // console.error("❌ Clinic Approval Error:", error);
     res.status(500).json({
       success: false,
       message: "Server error",

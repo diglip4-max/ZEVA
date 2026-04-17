@@ -11,7 +11,7 @@ export default async function handler(req, res) {
       await Notification.deleteMany({ user: userId }); // ✅ Fix here
       return res.status(200).json({ success: true, message: "All notifications cleared" });
     } catch (err) {
-      console.error("Clear notifications error:", err);
+      // console.error("Clear notifications error:", err);
       return res.status(500).json({ success: false, message: "Failed to clear notifications" });
     }
   } else {

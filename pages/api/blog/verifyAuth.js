@@ -17,7 +17,7 @@ export async function verifyAuth(req, res) {
     }
 
     if (!process.env.JWT_SECRET) {
-      console.error('JWT_SECRET is not set in environment variables');
+      // console.error('JWT_SECRET is not set in environment variables');
       res.status(500).json({ success: false, error: 'Server configuration error' });
       return null;
     }
@@ -38,7 +38,7 @@ export async function verifyAuth(req, res) {
 
     return user;
   } catch (err) {
-    console.error('verifyAuth error:', err);
+    // console.error('verifyAuth error:', err);
     if (err.name === 'JsonWebTokenError') {
       res.status(401).json({ success: false, error: 'Invalid token' });
     } else if (err.name === 'TokenExpiredError') {

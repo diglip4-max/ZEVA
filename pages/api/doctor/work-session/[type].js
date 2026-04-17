@@ -85,14 +85,14 @@ export default withDoctorApiAuth(async function handler(req, res) {
 
     await session.save();
 
-    console.log('Doctor activity recorded:', {
-      type,
-      duration,
-      doctorId,
-      role,
-      deskTime: session.deskTimeSeconds,
-      productive: session.productiveSeconds,
-    });
+    // console.log('Doctor activity recorded:', {
+    //   type,
+    //   duration,
+    //   doctorId,
+    //   role,
+    //   deskTime: session.deskTimeSeconds,
+    //   productive: session.productiveSeconds,
+    // });
 
     return res.json({
       success: true,
@@ -103,7 +103,7 @@ export default withDoctorApiAuth(async function handler(req, res) {
       productivityPercentage: session.productivityPercentage,
     });
   } catch (error) {
-    console.error('DOCTOR ACTIVITY ERROR:', error);
+    // console.error('DOCTOR ACTIVITY ERROR:', error);
     return res.status(500).json({
       success: false,
       message: 'Server error',

@@ -15,15 +15,15 @@ export default function handler(req, res) {
               registerWsClient(data.phoneNumber, ws); // phone normalized inside ws-utils
             }
           } catch (e) {
-            console.error("⚠️ WS parse error:", e);
+            // console.error("⚠️ WS parse error:", e);
           }
         });
 
-        ws.on("close", () => console.log("❌ WS client disconnected"));
+        // ws.on("close", () => console.log("❌ WS client disconnected"));
       });
     });
 
-    console.log("✅ WebSocket server initialized");
+    // console.log("✅ WebSocket server initialized");
   }
 
   res.status(200).json({ success: true });

@@ -147,7 +147,7 @@ export default async function handler(req, res) {
     const applicantUserId = updatedApplication.applicantId._id;
     const jobTitle = updatedApplication.jobId?.jobTitle || "Job Posting";
 
-    console.log("Populated JobId:", jobTitle );
+    // console.log("Populated JobId:", jobTitle );
 
 
     // ✅ Create notification in DB
@@ -182,11 +182,11 @@ export default async function handler(req, res) {
         notification,
       });
     } catch (error) {
-      console.error("Status update error:", error);
+      // console.error("Status update error:", error);
       return res.status(500).json({ success: false, message: "Internal server error" });
     }
   } catch (error) {
-    console.error("Error in application-status API:", error);
+    // console.error("Error in application-status API:", error);
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 }

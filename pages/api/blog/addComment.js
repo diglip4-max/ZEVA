@@ -58,7 +58,7 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Error adding comment:', error);
+    // console.error('Error adding comment:', error);
     res.status(500).json({ success: false, error: 'Failed to add comment' });
   }
 }

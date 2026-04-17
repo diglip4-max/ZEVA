@@ -99,7 +99,7 @@ export default async function handler(req, res) {
           });
         }
       } catch (slugError) {
-        console.error('Error generating slug:', slugError);
+        // console.error('Error generating slug:', slugError);
         treatmentSlug = trimmedName.toLowerCase().replace(/\s+/g, '-');
       }
 
@@ -130,41 +130,41 @@ export default async function handler(req, res) {
       const treatment = new Treatment(treatmentData);
       await treatment.save();
 
-      console.log(`\n✅ [Treatment API] Treatment created successfully`);
-      console.log(`   Treatment ID: ${treatment._id}`);
-      console.log(`   Treatment Name: ${treatment.name}`);
-      console.log(`   Treatment Slug: ${treatment.slug}`);
+      // console.log(`\n✅ [Treatment API] Treatment created successfully`);
+      // console.log(`   Treatment ID: ${treatment._id}`);
+      // console.log(`   Treatment Name: ${treatment.name}`);
+      // console.log(`   Treatment Slug: ${treatment.slug}`);
       if (treatment.subcategories.length > 0) {
-        console.log(`   Sub-treatments: ${treatment.subcategories.map(s => s.name).join(', ')}`);
+        // console.log(`   Sub-treatments: ${treatment.subcategories.map(s => s.name).join(', ')}`);
       }
 
       // Run SEO Pipeline for treatment
       try {
-        console.log(`\n🔍 [SEO] Running SEO pipeline for treatment ${treatment._id}`);
+        // console.log(`\n🔍 [SEO] Running SEO pipeline for treatment ${treatment._id}`);
         const seoResult = await runSEOPipeline('treatment', treatment._id.toString(), treatment);
-        console.log(`✅ [SEO] SEO pipeline completed:`, JSON.stringify({
-          success: seoResult.success,
-          indexing: seoResult.indexing,
-          robots: seoResult.robots,
-          meta: seoResult.meta,
-          canonical: seoResult.canonical,
-          duplicateCheck: seoResult.duplicateCheck,
-          headings: seoResult.headings,
-          sitemapUpdated: seoResult.sitemapUpdated,
-          errors: seoResult.errors
-        }, null, 2));
+        // console.log(`✅ [SEO] SEO pipeline completed:`, JSON.stringify({
+        //   success: seoResult.success,
+        //   indexing: seoResult.indexing,
+        //   robots: seoResult.robots,
+        //   meta: seoResult.meta,
+        //   canonical: seoResult.canonical,
+        //   duplicateCheck: seoResult.duplicateCheck,
+        //   headings: seoResult.headings,
+        //   sitemapUpdated: seoResult.sitemapUpdated,
+        //   errors: seoResult.errors
+        // }, null, 2));
 
         // Run SEO Health Check
-        console.log(`\n🔍 [SEO Health] Running health check for treatment ${treatment._id}`);
+        // console.log(`\n🔍 [SEO Health] Running health check for treatment ${treatment._id}`);
         const healthCheck = await checkSEOHealth('treatment', treatment._id.toString());
-        console.log(`✅ [SEO Health] Health check completed:`, JSON.stringify({
-          overallHealth: healthCheck.overallHealth,
-          score: healthCheck.score,
-          issuesCount: healthCheck.issues.length,
-          recommendationsCount: healthCheck.recommendations.length
-        }, null, 2));
+        // console.log(`✅ [SEO Health] Health check completed:`, JSON.stringify({
+        //   overallHealth: healthCheck.overallHealth,
+        //   score: healthCheck.score,
+        //   issuesCount: healthCheck.issues.length,
+        //   recommendationsCount: healthCheck.recommendations.length
+        // }, null, 2));
       } catch (seoError) {
-        console.error('❌ [SEO] Error running SEO pipeline:', seoError);
+        // console.error('❌ [SEO] Error running SEO pipeline:', seoError);
         // Don't fail the request if SEO fails, just log it
       }
 
@@ -174,7 +174,7 @@ export default async function handler(req, res) {
         seoProcessed: true
       });
     } catch (error) {
-      console.error('Error adding treatment:', error);
+      // console.error('Error adding treatment:', error);
       return res.status(500).json({ success: false, message: 'Failed to add treatment' });
     }
   }

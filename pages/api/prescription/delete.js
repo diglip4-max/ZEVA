@@ -49,7 +49,7 @@ export default async function handler(req, res) {
       message: "Prescription and related chats deleted successfully",
     });
   } catch (err) {
-    console.error("Delete prescription error:", err);
+    // console.error("Delete prescription error:", err);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 }

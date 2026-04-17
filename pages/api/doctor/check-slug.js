@@ -100,7 +100,7 @@ export default async function handler(req, res) {
       user_message: userMessage,
     });
   } catch (err) {
-    console.error('❌ Slug Check Error:', err);
+    // console.error('❌ Slug Check Error:', err);
     return res.status(500).json({
       success: false,
       message: 'Error checking slug availability',

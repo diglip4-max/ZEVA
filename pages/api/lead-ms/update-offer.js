@@ -213,7 +213,7 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ success: false, message: "Method not allowed" });
   } catch (err) {
-    console.error("Error in update-offer:", err);
+    // console.error("Error in update-offer:", err);
     return res.status(500).json({ success: false, message: err.message || "Server error" });
   }
 }

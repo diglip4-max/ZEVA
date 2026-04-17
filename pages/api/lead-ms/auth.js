@@ -7,7 +7,7 @@ export async function getUserFromReq(req) {
   try {
     await dbConnect();
   } catch (dbError) {
-    console.error("Database connection error in getUserFromReq:", dbError);
+    // console.error("Database connection error in getUserFromReq:", dbError);
     return null;
   }
 
@@ -27,7 +27,7 @@ export async function getUserFromReq(req) {
     }
 
     if (!process.env.JWT_SECRET) {
-      console.error("JWT_SECRET is not set in environment variables");
+      // console.error("JWT_SECRET is not set in environment variables");
       return null;
     }
 
@@ -45,7 +45,7 @@ export async function getUserFromReq(req) {
   } catch (e) {
     // Don't log JWT errors as they're expected for invalid tokens
     if (e.name !== 'JsonWebTokenError' && e.name !== 'TokenExpiredError') {
-      console.error("Auth error in getUserFromReq:", e.message);
+      // console.error("Auth error in getUserFromReq:", e.message);
     }
     return null;
   }

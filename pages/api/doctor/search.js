@@ -42,7 +42,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ treatments: suggestions });
   } catch (err) {
-    console.error("Treatment search error:", err);
+    // console.error("Treatment search/ error:", err);
     return res.status(500).json({ message: 'Server error while fetching treatments' });
   }
 }

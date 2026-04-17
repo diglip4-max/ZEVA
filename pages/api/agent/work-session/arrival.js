@@ -29,14 +29,14 @@ export default async function handler(req, res) {
     const agentId = decoded.id || decoded.userId || decoded.agentId || decoded._id;
 
     if (!agentId) {
-      console.error('No agentId found in token:', decoded);
+      // console.error('No agentId found in token:', decoded);
       return res.status(400).json({ 
         success: false, 
         message: 'Invalid token structure',
       });
     }
 
-    console.log('Processing arrival for agent:', agentId);
+    // console.log('Processing arrival for agent:', agentId);
 
     const start = new Date();
     start.setHours(0, 0, 0, 0);
@@ -66,7 +66,7 @@ export default async function handler(req, res) {
         status: 'ONLINE',
         lastActivity: now
       });
-      console.log('Created new arrival session for agent:', agentId);
+      // console.log('Created new arrival session for agent:', agentId);
     } else if (!session.arrivalTime) {
       session.arrivalTime = now;
       session.status = 'ONLINE';
@@ -77,7 +77,7 @@ export default async function handler(req, res) {
       if (!session.role) session.role = 'agent';
       
       await session.save();
-      console.log('Updated arrival time for agent:', agentId);
+      // console.log('Updated arrival time for agent:', agentId);
     }
 
     return res.json({
@@ -85,8 +85,8 @@ export default async function handler(req, res) {
       arrivalTime: session.arrivalTime,
     });
   } catch (err) {
-    console.error('ARRIVAL ERROR:', err);
-    console.error('Validation errors:', err.errors || 'No validation errors');
+    // console.error('ARRIVAL ERROR:', err);
+    // console.error('Validation errors:', err.errors || 'No validation errors');
     
     return res.status(500).json({ 
       success: false,

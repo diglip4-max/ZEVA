@@ -27,7 +27,7 @@ export default async function handler(req, res) {
       data: doctors,
     });
   } catch (error) {
-    console.error("❌ Error fetching doctors:", error);
+    // console.error("❌ Error fetching doctors:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",

@@ -128,7 +128,7 @@ export default async function handler(req, res) {
       treatment: treatmentQuery,
     });
   } catch (error) {
-    console.error("Error searching doctors by treatment:", error);
+    // console.error("Error searching doctors by treatment:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to search doctors",

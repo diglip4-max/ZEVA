@@ -89,13 +89,13 @@ export default async function handler(req, res) {
         message: "Template retrieved successfully",
       });
     } catch (error) {
-      console.error("Error fetching provider:", error);
+      // console.error("Error fetching provider:", error);
       return res
         .status(500)
         .json({ success: false, message: "Failed to fetch providers" });
     }
   } catch (error) {
-    console.error("Get Providers error: ", error);
+    // console.error("Get Providers error: ", error);
     return res.status(500).json({
       success: false,
       message: error?.message || "Internal server error",

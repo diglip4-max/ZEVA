@@ -84,14 +84,14 @@ export default withAgentApiAuth(async function handler(req, res) {
 
     await session.save();
 
-    console.log('Agent activity recorded:', {
-      type,
-      duration,
-      agentId,
-      role,
-      deskTime: session.deskTimeSeconds,
-      productive: session.productiveSeconds,
-    });
+    // console.log('Agent activity recorded:', {
+    //   type,
+    //   duration,
+    //   agentId,
+    //   role,
+    //   deskTime: session.deskTimeSeconds,
+    //   productive: session.productiveSeconds,
+    // });
 
     return res.json({
       success: true,
@@ -102,7 +102,7 @@ export default withAgentApiAuth(async function handler(req, res) {
       productivityPercentage: session.productivityPercentage,
     });
   } catch (error) {
-    console.error('AGENT ACTIVITY ERROR:', error);
+    // console.error('AGENT ACTIVITY ERROR:', error);
     return res.status(500).json({
       success: false,
       message: 'Server error',

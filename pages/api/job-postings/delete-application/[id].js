@@ -140,11 +140,11 @@ export default async function handler(req, res) {
 
       return res.status(200).json({ success: true, message: "Application deleted successfully" });
     } catch (error) {
-      console.error("Delete application error:", error);
+      // console.error("Delete application error:", error);
       return res.status(500).json({ success: false, message: "Internal server error" });
     }
   } catch (error) {
-    console.error("Error in delete-application API:", error);
+    // console.error("Error in delete-application API:", error);
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 }

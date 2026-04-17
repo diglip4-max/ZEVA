@@ -66,38 +66,38 @@ export default async function handler(req, res) {
 
       await mainTreatment.save();
 
-      console.log(`\n✅ [SubTreatment API] Sub-treatment deleted successfully`);
-      console.log(`   Treatment ID: ${mainTreatment._id}`);
-      console.log(`   Treatment Name: ${mainTreatment.name}`);
-      console.log(`   Sub-treatment Name: ${trimmedSubTreatmentName}`);
+      // console.log(`\n✅ [SubTreatment API] Sub-treatment deleted successfully`);
+      // console.log(`   Treatment ID: ${mainTreatment._id}`);
+      // console.log(`   Treatment Name: ${mainTreatment.name}`);
+      // console.log(`   Sub-treatment Name: ${trimmedSubTreatmentName}`);
 
       // Run SEO Pipeline for treatment
       try {
-        console.log(`\n🔍 [SEO] Running SEO pipeline for treatment ${mainTreatment._id}`);
+        // console.log(`\n🔍 [SEO] Running SEO pipeline for treatment ${mainTreatment._id}`);
         const seoResult = await runSEOPipeline('treatment', mainTreatment._id.toString(), mainTreatment);
-        console.log(`✅ [SEO] SEO pipeline completed:`, JSON.stringify({
-          success: seoResult.success,
-          indexing: seoResult.indexing,
-          robots: seoResult.robots,
-          meta: seoResult.meta,
-          canonical: seoResult.canonical,
-          duplicateCheck: seoResult.duplicateCheck,
-          headings: seoResult.headings,
-          sitemapUpdated: seoResult.sitemapUpdated,
-          errors: seoResult.errors
-        }, null, 2));
+        // console.log(`✅ [SEO] SEO pipeline completed:`, JSON.stringify({
+        //   success: seoResult.success,
+        //   indexing: seoResult.indexing,
+        //   robots: seoResult.robots,
+        //   meta: seoResult.meta,
+        //   canonical: seoResult.canonical,
+        //   duplicateCheck: seoResult.duplicateCheck,
+        //   headings: seoResult.headings,
+        //   sitemapUpdated: seoResult.sitemapUpdated,
+        //   errors: seoResult.errors
+        // }, null, 2));
 
         // Run SEO Health Check
-        console.log(`\n🔍 [SEO Health] Running health check for treatment ${mainTreatment._id}`);
+        // console.log(`\n🔍 [SEO Health] Running health check for treatment ${mainTreatment._id}`);
         const healthCheck = await checkSEOHealth('treatment', mainTreatment._id.toString());
-        console.log(`✅ [SEO Health] Health check completed:`, JSON.stringify({
-          overallHealth: healthCheck.overallHealth,
-          score: healthCheck.score,
-          issuesCount: healthCheck.issues.length,
-          recommendationsCount: healthCheck.recommendations.length
-        }, null, 2));
+        // console.log(`✅ [SEO Health] Health check completed:`, JSON.stringify({
+        //   overallHealth: healthCheck.overallHealth,
+        //   score: healthCheck.score,
+        //   issuesCount: healthCheck.issues.length,
+        //   recommendationsCount: healthCheck.recommendations.length
+        // }, null, 2));
       } catch (seoError) {
-        console.error('❌ [SEO] Error running SEO pipeline:', seoError);
+        // console.error('❌ [SEO] Error running SEO pipeline:', seoError);
         // Don't fail the request if SEO fails, just log it
       }
 
@@ -107,7 +107,7 @@ export default async function handler(req, res) {
         seoProcessed: true
       });
     } catch (error) {
-      console.error("Error deleting sub-treatment:", error);
+      // console.error("Error deleting sub-treatment:", error);
       return res
         .status(500)
         .json({ success: false, message: "Failed to delete sub-treatment" });

@@ -219,7 +219,7 @@ if (startDate && !endDate) {
       globalAmounts: globalAmounts,
     });
   } catch (error) {
-    console.error("Error fetching petty cash:", error);
+    // console.error("Error fetching petty cash:", error);
     return res
       .status(500)
       .json({ message: "Internal Server Error", error: error.message });

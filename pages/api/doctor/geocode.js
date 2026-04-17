@@ -28,7 +28,7 @@ export default async function handler(req, res) {
       formattedAddress: result.formatted_address
     });
   } catch (err) {
-    console.error('Geocoding error:', err);
+    // console.error('Geocoding error:', err);
     res.status(500).json({ message: 'Geocoding failed', error: err.message });
   }
 }

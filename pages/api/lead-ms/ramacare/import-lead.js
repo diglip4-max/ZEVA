@@ -49,7 +49,7 @@ export default async function handler(req, res) {
     body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
   }
 
-  console.log({ body });
+  // console.log({ body });
 
   let me = await getUserFromReq(req);
   if (!me && body.userEmail) {
@@ -169,7 +169,7 @@ export default async function handler(req, res) {
       ...(age ? { age } : {}),
     });
 
-    console.log("Created lead:", lead);
+    // console.log("Created lead:", lead);
 
     await Segment.findByIdAndUpdate(segmentId, {
       $addToSet: {
@@ -195,7 +195,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, message: "Success", lead });
   } catch (err) {
-    console.error("Error in importing lead from ramacare:", err);
+    // console.error("Error in importing lead from ramacare:", err);
     return res.status(500).json({
       success: false,
       message: err.message || "Internal Server Error",

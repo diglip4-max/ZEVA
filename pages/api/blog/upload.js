@@ -59,7 +59,7 @@ export default async function handler(req, res) {
       }
 
       if (!file) {
-        console.error('No file found in upload:', { fields, files });
+        // console.error('No file found in upload:', { fields, files });
         return res.status(400).json({ 
           error: 'No file uploaded',
           message: 'Please select a file to upload'
@@ -69,7 +69,7 @@ export default async function handler(req, res) {
       // In formidable v3, the file object has a filepath property
       const filepath = file.filepath || file.path;
       if (!filepath) {
-        console.error('File path not found:', file);
+        // console.error('File path not found:', file);
         return res.status(500).json({ 
           error: 'Upload failed',
           message: 'File path not found after upload'
@@ -81,7 +81,7 @@ export default async function handler(req, res) {
 
       // Verify file exists
       if (!fs.existsSync(filepath)) {
-        console.error('Uploaded file does not exist:', filepath);
+        // console.error('Uploaded file does not exist:', filepath);
         return res.status(500).json({ 
           error: 'Upload failed',
           message: 'File was not saved correctly'
@@ -90,14 +90,14 @@ export default async function handler(req, res) {
 
       return res.status(200).json({ url: fileUrl });
     } catch (error) {
-      console.error('Error processing uploaded file:', error);
+      // console.error('Error processing uploaded file:', error);
       return res.status(500).json({ 
         error: 'Upload failed',
         message: error.message || 'Failed to process uploaded file'
       });
     }
   } catch (error) {
-    console.error('Error in upload handler:', error);
+    // console.error('Error in upload handler:', error);
     return res.status(500).json({ 
       error: 'Upload failed',
       message: error.message || 'Internal server error'

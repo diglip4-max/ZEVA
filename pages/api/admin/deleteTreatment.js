@@ -54,7 +54,7 @@ export default async function handler(req, res) {
         message: `Treatment "${treatment.name}" and all its sub-treatments deleted successfully` 
       });
     } catch (error) {
-      console.error('Error deleting treatment:', error);
+      // console.error('Error deleting treatment:', error);
       return res.status(500).json({ message: 'Error deleting treatment' });
     }
   }

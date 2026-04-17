@@ -55,7 +55,7 @@ export default async function handler(req, res) {
     if (error.name === "TokenExpiredError") {
       return res.status(401).json({ valid: false, message: "Token expired" });
     }
-    console.error("Agent token verification error:", error);
+    // console.error("Agent token verification error:", error);
     return res
       .status(401)
       .json({ valid: false, message: "Invalid token. Please login to continue" });

@@ -51,7 +51,7 @@ export default async function handler(req, res) {
             }
           }
         } catch (permErr) {
-          console.error("Permission check error:", permErr);
+          // console.error("Permission check error:", permErr);
           return res.status(500).json({ success: false, message: "Error checking permissions" });
         }
       } else if (me.role !== 'admin') {
@@ -70,7 +70,7 @@ export default async function handler(req, res) {
 
       res.status(201).json({ success: true, data: vendor });
     } catch (error) {
-      console.error("Error creating vendor:", error);
+      // console.error("Error creating vendor:", error);
       res.status(400).json({ success: false, message: error.message });
     }
   } else {

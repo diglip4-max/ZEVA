@@ -71,7 +71,7 @@ async function handler(req, res) {
       sessionId: session._id
     });
   } catch (error) {
-    console.error('DOCTOR IDLE ERROR:', error);
+    // console.error('DOCTOR IDLE ERROR:', error);
     return res.status(500).json({
       success: false,
       message: 'Server error',

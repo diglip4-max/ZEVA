@@ -56,7 +56,7 @@ export default async function handler(req, res) {
         if (error.code === "INSUFFICIENT_ADMIN_CREDITS") {
           return res.status(400).json({ success: false, message: "Admin SMS credits are insufficient to approve this request." });
         }
-    console.error("topup update error", error);
+    // console.error("topup update error", error);
     return res.status(500).json({ success: false, message: "Failed to update top-up request" });
   }
 }

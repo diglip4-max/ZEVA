@@ -46,7 +46,7 @@ export default withAgentApiAuth(async function handler(req, res) {
           activityType: 'idle'
         }]
       });
-      console.log('Created new agent idle session:', agentId);
+      // console.log('Created new agent idle session:', agentId);
     } else {
       // Update existing session
       session.idleTimeSeconds = (session.idleTimeSeconds || 0) + duration;
@@ -77,8 +77,8 @@ export default withAgentApiAuth(async function handler(req, res) {
       idleTimeSeconds: session.idleTimeSeconds,
     });
   } catch (error) {
-    console.error('IDLE TIME ERROR:', error);
-    console.error('Validation errors:', error.errors || 'No validation errors');
+    // console.error('IDLE TIME ERROR:', error);
+    // console.error('Validation errors:', error.errors || 'No validation errors');
     
     return res.status(500).json({ 
       success: false, 

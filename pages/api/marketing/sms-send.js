@@ -49,7 +49,7 @@ export default async function handler(req, res) {
           });
         }
       } catch (permErr) {
-        console.error("Permission check error:", permErr);
+        // console.error("Permission check error:", permErr);
         return res.status(500).json({ success: false, message: "Error checking permissions" });
       }
     }
@@ -148,7 +148,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, data: results });
   } catch (err) {
-    console.error("SMS API error:", err);
+    // console.error("SMS API error:", err);
     return res.status(500).json({ success: false, error: err.message });
   }
 }

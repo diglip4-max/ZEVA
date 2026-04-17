@@ -187,7 +187,7 @@ export default async function handler(req, res) {
 
     // Generate robots meta tags for the offer
     try {
-      console.log(`🤖 [SEO] Generating robots meta for offer: ${offer._id}`);
+      // console.log(`🤖 [SEO] Generating robots meta for offer: ${offer._id}`);
       
       // Create a simple indexing decision for the offer
       // Active offers should be indexed, others should not
@@ -206,21 +206,21 @@ export default async function handler(req, res) {
 
       const robotsMeta = await getRobotsMetaForEntity('offer', offer._id.toString(), indexingDecision);
       
-      console.log(`   📊 Robots Meta Result:`, JSON.stringify({
-        content: robotsMeta.content,
-        noindex: robotsMeta.noindex,
-        nofollow: robotsMeta.nofollow,
-      }, null, 2));
+      // console.log(`   📊 Robots Meta Result:`, JSON.stringify({
+      //   content: robotsMeta.content,
+      //   noindex: robotsMeta.noindex,
+      //   nofollow: robotsMeta.nofollow,
+      // }, null, 2));
       
       // You can store robotsMeta in the offer if needed, or just log it
       // For now, we'll just log it
     } catch (robotsError) {
-      console.error("❌ Robots meta generation error (non-fatal):", robotsError.message);
+      // console.error("❌ Robots meta generation error (non-fatal):", robotsError.message);
     }
 
     return res.status(201).json({ success: true, offer });
   } catch (err) {
-    console.error("Error creating offer:", err);
+    // console.error("Error creating offer:", err);
     return res.status(500).json({ success: false, message: err.message || "Server error" });
   }
 }

@@ -40,7 +40,7 @@ export default async function handler(req, res) {
       user: { id: user._id, isApproved: user.isApproved, declined: user.declined },
     });
   } catch (err) {
-    console.error(err);
+    // console.error(err);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 }

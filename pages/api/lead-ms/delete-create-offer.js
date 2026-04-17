@@ -107,7 +107,7 @@ export default async function handler(req, res) {
       .status(200)
       .json({ success: true, message: "Offer deleted successfully" });
   } catch (err) {
-    console.error("Error deleting offer:", err.message || err);
+    // console.error("Error deleting offer:", err.message || err);
     return res
       .status(500)
       .json({ success: false, message: err.message || "Server error" });

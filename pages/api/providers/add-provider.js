@@ -103,7 +103,7 @@ export default async function handler(req, res) {
         message: "Secrets are required for provider configuration",
       });
     }
-    console.log({ me });
+    // console.log({ me });
 
     // Determine provider status
     // If status is provided in request (like "approved" from frontend test), use it
@@ -135,7 +135,7 @@ export default async function handler(req, res) {
       data: findProvider,
     });
   } catch (err) {
-    console.error("Error adding provider:", err);
+    // console.error("Error adding provider:", err);
 
     if (err.name === "ValidationError") {
       return res.status(400).json({

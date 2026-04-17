@@ -131,7 +131,7 @@ export default async function handler(req, res) {
       data: findProvider,
     });
   } catch (err) {
-    console.error("Error update provider:", err);
+    // console.error("Error update provider:", err);
 
     if (err.name === "ValidationError") {
       return res.status(400).json({

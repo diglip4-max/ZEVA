@@ -32,7 +32,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ message: 'Password reset successfully' });
   } catch (error) {
-    console.error('Reset password error:', error);
+    // console.error('Reset password error:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 }

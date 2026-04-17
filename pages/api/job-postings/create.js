@@ -112,7 +112,7 @@ export default async function handler(req, res) {
         }
       }
     } catch (slugError) {
-      console.error('❌ Slug preview generation error (non-fatal):', slugError.message);
+      // console.error('❌ Slug preview generation error (non-fatal):', slugError.message);
       // Continue with job creation even if slug preview fails
     }
 
@@ -134,7 +134,7 @@ export default async function handler(req, res) {
       } : null,
     });
   } catch (error) {
-    console.error("Error creating job:", error);
+    // console.error("Error creating job:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 }

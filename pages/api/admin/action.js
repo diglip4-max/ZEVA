@@ -85,26 +85,26 @@ export default async function handler(req, res) {
       try {
         const doctorProfile = await DoctorProfile.findOne({ user: userId });
         if (doctorProfile && !doctorProfile.slugLocked) {
-          console.log(`🔄 Generating slug for doctor: ${updatedUser.name} (Profile ID: ${doctorProfile._id})`);
+          // console.log(`🔄 Generating slug for doctor: ${updatedUser.name} (Profile ID: ${doctorProfile._id})`);
           
           // Use central slug service to generate and lock slug
           const updatedProfile = await generateAndLockSlug('doctor', doctorProfile._id.toString());
           
           if (updatedProfile.slug && updatedProfile.slugLocked) {
-            console.log(`✅ Slug generated successfully: ${updatedProfile.slug}`);
+            // console.log(`✅ Slug generated successfully: ${updatedProfile.slug}`);
             
             // Step 3: Run SEO pipeline after slug generation
             let seoResult = null;
             let seoMessages = [];
             
             try {
-              console.log(`🚀 Running SEO pipeline for doctor: ${doctorProfile._id}`);
+              // console.log(`🚀 Running SEO pipeline for doctor: ${doctorProfile._id}`);
               // Refresh doctor profile with populated user
               const refreshedProfile = await DoctorProfile.findById(doctorProfile._id).populate('user');
               seoResult = await runSEOPipeline('doctor', doctorProfile._id.toString(), refreshedProfile, updatedUser);
               
               if (seoResult.success) {
-                console.log(`✅ SEO pipeline completed successfully`);
+                // console.log(`✅ SEO pipeline completed successfully`);
                 
                 // Generate user-friendly messages from SEO results
                 if (seoResult.indexing) {
@@ -181,7 +181,7 @@ export default async function handler(req, res) {
                 }
                 
               } else {
-                console.warn(`⚠️ SEO pipeline completed with warnings:`, seoResult.errors);
+                // console.warn(`⚠️ SEO pipeline completed with warnings:`, seoResult.errors);
                 seoMessages.push({
                   type: 'warning',
                   message: `⚠️ SEO setup completed with some warnings. Please review your doctor profile.`,
@@ -189,7 +189,7 @@ export default async function handler(req, res) {
               }
             } catch (seoError) {
               // SEO errors are non-fatal - log but continue
-              console.error("❌ SEO pipeline error (non-fatal):", seoError.message);
+              // console.error("❌ SEO pipeline error (non-fatal):", seoError.message);
               seoMessages.push({
                 type: 'error',
                 message: `❌ SEO setup encountered an error. Your doctor is approved but SEO features may be limited.`,
@@ -200,15 +200,15 @@ export default async function handler(req, res) {
             updatedUser._seoMessages = seoMessages;
             updatedUser._seoResult = seoResult;
           } else {
-            console.log(`⚠️ Slug generation completed but slugLocked is false`);
+            // console.log(`⚠️ Slug generation completed but slugLocked is false`);
           }
         } else if (doctorProfile && doctorProfile.slugLocked) {
-          console.log(`⏭️ Skipping slug generation - slug already locked: ${doctorProfile.slug}`);
+          // console.log(`⏭️ Skipping slug generation - slug already locked: ${doctorProfile.slug}`);
         }
       } catch (slugError) {
         // If slug generation fails but doctor is approved, continue with approval
-        console.error("❌ Slug generation error (non-fatal):", slugError.message);
-        console.error("Error stack:", slugError.stack);
+        // console.error("❌ Slug generation error (non-fatal):", slugError.message);
+        // console.error("Error stack:", slugError.stack);
         // Continue with approval even if slug generation fails
       }
     }

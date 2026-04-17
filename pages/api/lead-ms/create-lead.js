@@ -131,7 +131,7 @@ export default async function handler(req, res) {
   const mode = isMultipart ? body.mode || "bulk" : body.mode || "manual";
 
   try {
-    console.log({ mode });
+    // console.log({ mode });
     // ---------------- Manual Mode ----------------
     if (mode === "manual") {
       const {
@@ -255,7 +255,7 @@ export default async function handler(req, res) {
         },
       });
 
-      console.log({ lead });
+      // console.log({ lead });
 
       // Note: Execute workflow for the created lead
       executeWorkflows({
@@ -431,7 +431,7 @@ export default async function handler(req, res) {
 
     return res.status(400).json({ success: false, message: "Invalid mode" });
   } catch (err) {
-    console.error("Error creating/uploading leads:", err);
+    // console.error("Error creating/uploading leads:", err);
     return res.status(500).json({
       success: false,
       message: err.message || "Internal Server Error",

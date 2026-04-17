@@ -141,23 +141,23 @@ export default async function handler(req, res) {
     const jobApplications = await JobApplication.find({ jobId }).session(session);
     const jobApplicationIds = jobApplications.map(app => app._id);
 
-    console.log("📌 Found applications:", jobApplications.length);
-    console.log("📌 Application IDs:", jobApplicationIds);
+    // console.log("📌 Found applications:", jobApplications.length);
+    // console.log("📌 Application IDs:", jobApplicationIds);
 
     // Delete ONLY notifications linked to these applications
     const notificationResult = await Notification.deleteMany({
       relatedJobApplication: { $in: jobApplicationIds }
     }).session(session);
 
-    console.log("🗑 Notifications deleted:", notificationResult.deletedCount);
+    // console.log("🗑 Notifications deleted:", notificationResult.deletedCount);
 
     // Delete job applications
     const applicationResult = await JobApplication.deleteMany({ jobId }).session(session);
-    console.log("🗑 Applications deleted:", applicationResult.deletedCount);
+    // console.log("🗑 Applications deleted:", applicationResult.deletedCount);
 
     // Delete job posting
     const jobResult = await JobPosting.deleteOne({ _id: jobId }).session(session);
-    console.log("🗑 Job deleted:", jobResult.deletedCount);
+    // console.log("🗑 Job deleted:", jobResult.deletedCount);
 
       await session.commitTransaction();
       session.endSession();
@@ -175,7 +175,7 @@ export default async function handler(req, res) {
     } catch (error) {
       await session.abortTransaction();
       session.endSession();
-      console.error("❌ Delete error:", error);
+      // console.error("❌ Delete error:", error);
 
       if (error.code === 112) {
         return res.status(500).json({ success: false, message: "Write conflict. Please try again." });
@@ -184,7 +184,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ success: false, message: "Server error" });
     }
   } catch (error) {
-    console.error("Error in delete job API:", error);
+    // console.error("Error in delete job API:", error);
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 }

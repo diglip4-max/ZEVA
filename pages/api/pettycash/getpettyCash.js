@@ -39,7 +39,7 @@ export default async function handler(req, res) {
           });
         }
       } catch (permErr) {
-        console.error("Permission check error:", permErr);
+        // console.error("Permission check error:", permErr);
         return res.status(500).json({ message: "Error checking permissions" });
       }
     }
@@ -66,7 +66,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({ pettyCashList });
   } catch (error) {
-    console.error("Error fetching petty cash:", error);
+    // console.error("Error fetching petty cash:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 }

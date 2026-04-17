@@ -37,7 +37,7 @@ export default async function handler(req, res) {
       data: leads,
     });
   } catch (error) {
-    console.error("❌ Error fetching leads:", error);
+    // console.error("❌ Error fetching leads:", error);
     return res.status(500).json({
       message: "Failed to fetch leads",
       details: error.message,
