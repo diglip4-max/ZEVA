@@ -1859,12 +1859,26 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         
         console.log('[CashbackProfile] Valid cashback billings:', cashbackBillings.length);
         
-        // Calculate total valid cashback amount
-        const totalCashback = cashbackBillings.reduce((sum: number, billing: any) => {
+        // Calculate total EARNED cashback (still valid, not expired)
+        const totalCashbackEarned = cashbackBillings.reduce((sum: number, billing: any) => {
           return sum + (billing.cashbackAmount || 0);
         }, 0);
         
-        // Get the nearest expiry date
+        // Calculate total USED cashback (from all billings)
+        const totalCashbackUsed = billings.reduce((sum: number, billing: any) => {
+          return sum + (billing.cashbackWalletUsed || 0);
+        }, 0);
+        
+        // Calculate AVAILABLE cashback = Earned - Used
+        const availableCashbackAmount = Math.max(0, totalCashbackEarned - totalCashbackUsed);
+        
+        console.log('[CashbackProfile] Cashback calculation:', {
+          totalEarned: totalCashbackEarned,
+          totalUsed: totalCashbackUsed,
+          available: availableCashbackAmount
+        });
+        
+        // Get the nearest expiry date (from earned cashback billings)
         let nearestExpiry = null;
         if (cashbackBillings.length > 0) {
           const sortedByExpiry = cashbackBillings.sort((a: any, b: any) => {
@@ -1873,9 +1887,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           nearestExpiry = sortedByExpiry[0].cashbackEndDate;
         }
         
-        if (totalCashback > 0 && nearestExpiry) {
+        if (availableCashbackAmount > 0 && nearestExpiry) {
           setValidCashback({
-            amount: totalCashback,
+            amount: availableCashbackAmount,
             expiryDate: nearestExpiry,
             daysRemaining: Math.ceil((new Date(nearestExpiry).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
           });

@@ -289,6 +289,13 @@ cashbackEndDate: {
   default: null
 },
 
+// Cashback WALLET usage (when patient uses previously earned cashback)
+cashbackWalletUsed: {
+  type: Number,
+  default: 0,
+  min: 0
+},
+
 bundleSessionsAdded: {
   type: Number,
   default: 0

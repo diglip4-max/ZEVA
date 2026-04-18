@@ -984,10 +984,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             setBillingHistory(filteredBillings);
             
             // Calculate available cashback from billing history
+            // Available = Earned (cashbackAmount) - Used (cashbackWalletUsed)
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             
-            const cashbackBillings = (response.data.billings || []).filter((billing: any) => {
+            // Calculate total earned cashback (still valid)
+            const cashbackEarnedBillings = (response.data.billings || []).filter((billing: any) => {
               if (!billing.isCashbackApplied || !billing.cashbackAmount || billing.cashbackAmount <= 0) {
                 return false;
               }
@@ -1001,26 +1003,41 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
               return false;
             });
             
-            const totalCashback = cashbackBillings.reduce((sum: number, billing: any) => {
+            const totalCashbackEarned = cashbackEarnedBillings.reduce((sum: number, billing: any) => {
               return sum + (billing.cashbackAmount || 0);
             }, 0);
             
+            // Calculate total used cashback
+            const totalCashbackUsed = (response.data.billings || []).reduce((sum: number, billing: any) => {
+              return sum + (billing.cashbackWalletUsed || 0);
+            }, 0);
+            
+            // Available cashback = Earned - Used
+            const availableCashbackAmount = Math.max(0, totalCashbackEarned - totalCashbackUsed);
+            
+            console.log('[CashbackModal] Cashback calculation:', {
+              totalEarned: totalCashbackEarned,
+              totalUsed: totalCashbackUsed,
+              available: availableCashbackAmount
+            });
+            
+            // Find nearest expiry from earned billings
             let nearestExpiry = null;
-            if (cashbackBillings.length > 0) {
-              const sortedByExpiry = cashbackBillings.sort((a: any, b: any) => {
+            if (cashbackEarnedBillings.length > 0) {
+              const sortedByExpiry = cashbackEarnedBillings.sort((a: any, b: any) => {
                 return new Date(a.cashbackEndDate).getTime() - new Date(b.cashbackEndDate).getTime();
               });
               nearestExpiry = sortedByExpiry[0].cashbackEndDate;
             }
             
-            if (totalCashback > 0 && nearestExpiry) {
+            if (availableCashbackAmount > 0 && nearestExpiry) {
               setAvailableCashback({
-                amount: totalCashback,
+                amount: availableCashbackAmount,
                 expiryDate: nearestExpiry,
                 daysRemaining: Math.ceil((new Date(nearestExpiry).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
               });
               console.log('[CashbackModal] Available cashback:', {
-                amount: totalCashback,
+                amount: availableCashbackAmount,
                 expiryDate: nearestExpiry,
                 daysRemaining: Math.ceil((new Date(nearestExpiry).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
               });
@@ -2163,24 +2180,44 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
   // Auto-calc pending/advance considering applied advance balances
   useEffect(() => {
-    const amountNum = parseFloat(formData.amount) || 0;
     const discountedAmount = parseFloat(formData.discountedAmount || "0") || 0;
-   
+    const originalAmountNum = parseFloat(formData.amount) || 0;
+    
+    // Calculate cashback deduction based on discounted amount
+    const cashbackDeduction = (useCashback && availableCashback) 
+      ? Math.min(availableCashback.amount, discountedAmount) 
+      : 0;
+    
+    // Final amount after all discounts AND cashback
+    const finalAmountAfterCashback = Math.max(0, discountedAmount - cashbackDeduction);
+    
     // Calculate how much previous pending is being rolled into this billing
-    const pendingBeingRolledIn = Math.max(0, amountNum - discountedAmount);
+    const pendingBeingRolledIn = Math.max(0, originalAmountNum - discountedAmount);
 
-    // Calculate applied credits
+    // Amount available for applying credits = final amount after cashback + pending rolled in
+    const amountForCredits = finalAmountAfterCashback + pendingBeingRolledIn;
+    
+    console.log('[PendingCalculation] Calculation breakdown:', {
+      originalAmount: originalAmountNum,
+      discountedAmount,
+      cashbackDeduction,
+      finalAmountAfterCashback,
+      pendingBeingRolledIn,
+      amountForCredits
+    });
+
+    // Calculate applied credits based on FINAL amount after cashback
     const appliedAdvance = applyAdvance
-      ? Math.min(balances.advanceBalance || 0, amountNum)
+      ? Math.min(balances.advanceBalance || 0, amountForCredits)
       : 0;
     const appliedPastAdvance50Percent = applyPastAdvance50Percent
-      ? Math.min(balances.pastAdvance50PercentBalance || 0, amountNum - appliedAdvance)
+      ? Math.min(balances.pastAdvance50PercentBalance || 0, amountForCredits - appliedAdvance)
       : 0;
     const appliedPastAdvance54Percent = applyPastAdvance54Percent
-      ? Math.min(balances.pastAdvance54PercentBalance || 0, amountNum - appliedAdvance - appliedPastAdvance50Percent)
+      ? Math.min(balances.pastAdvance54PercentBalance || 0, amountForCredits - appliedAdvance - appliedPastAdvance50Percent)
       : 0;
     const appliedPastAdvance159Flat = applyPastAdvance159Flat
-      ? Math.min(balances.pastAdvance159FlatBalance || 0, amountNum - appliedAdvance - appliedPastAdvance50Percent - appliedPastAdvance54Percent)
+      ? Math.min(balances.pastAdvance159FlatBalance || 0, amountForCredits - appliedAdvance - appliedPastAdvance50Percent - appliedPastAdvance54Percent)
       : 0;
 
     const totalPastAdvanceUsed =
@@ -2191,7 +2228,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     // 2. Net Due (Remaining amount to be paid after credits)
     const netDue = Math.max(
       0,
-      amountNum - appliedAdvance - totalPastAdvanceUsed,
+      amountForCredits - appliedAdvance - totalPastAdvanceUsed,
     );
 
     // 3. Determine how much is actually being paid today (Cash/Card etc)
@@ -4170,7 +4207,34 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           }
                         `}} />
                         <div className="text-[9px] text-gray-500 mt-0.5">
-                          Net due: {getCurrencySymbol(currency)} {Math.max(0, (parseFloat(formData.amount) || 0) - (useCashback && availableCashback ? Math.min(availableCashback.amount, parseFloat(formData.amount) || 0) : 0) - (applyAdvance ? Math.min(balances.advanceBalance, parseFloat(formData.amount) || 0) : 0) - (applyPastAdvance50Percent ? Math.min(balances.pastAdvance50PercentBalance, parseFloat(formData.amount) || 0) : 0) - (applyPastAdvance54Percent ? Math.min(balances.pastAdvance54PercentBalance, parseFloat(formData.amount) || 0) : 0) - (applyPastAdvance159Flat ? Math.min(balances.pastAdvance159FlatBalance, parseFloat(formData.amount) || 0) : 0)).toFixed(2)}
+                          {/* Calculate net due based on final amount after all deductions */}
+                          Net due: {getCurrencySymbol(currency)} {
+                            (() => {
+                              const discountedAmount = parseFloat(formData.discountedAmount || "0") || 0;
+                              const cashbackDeduction = (useCashback && availableCashback) 
+                                ? Math.min(availableCashback.amount, discountedAmount) 
+                                : 0;
+                              const finalAmountAfterCashback = Math.max(0, discountedAmount - cashbackDeduction);
+                              const pendingBeingRolledIn = Math.max(0, (parseFloat(formData.amount) || 0) - discountedAmount);
+                              const amountForCredits = finalAmountAfterCashback + pendingBeingRolledIn;
+                              
+                              const appliedAdvance = applyAdvance 
+                                ? Math.min(balances.advanceBalance, amountForCredits) 
+                                : 0;
+                              const appliedPast50 = applyPastAdvance50Percent 
+                                ? Math.min(balances.pastAdvance50PercentBalance, amountForCredits - appliedAdvance) 
+                                : 0;
+                              const appliedPast54 = applyPastAdvance54Percent 
+                                ? Math.min(balances.pastAdvance54PercentBalance, amountForCredits - appliedAdvance - appliedPast50) 
+                                : 0;
+                              const appliedPast159 = applyPastAdvance159Flat 
+                                ? Math.min(balances.pastAdvance159FlatBalance, amountForCredits - appliedAdvance - appliedPast50 - appliedPast54) 
+                                : 0;
+                              
+                              const netDue = Math.max(0, amountForCredits - appliedAdvance - appliedPast50 - appliedPast54 - appliedPast159);
+                              return netDue.toFixed(2);
+                            })()
+                          }
                           {isDoctorDiscountApplied && (
                             <span className="text-orange-600 font-bold ml-1">(Doctor Disc. Applied)</span>
                           )}

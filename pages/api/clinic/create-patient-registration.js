@@ -207,6 +207,8 @@ export default async function handler(req, res) {
         cashbackOfferId,
         cashbackOfferName,
         cashbackAmount,
+        // Cashback WALLET usage (when patient uses previously earned cashback)
+        cashbackWalletUsed,
       } = req.body;
 
     console.log({ bmModify: req.body });
@@ -620,6 +622,8 @@ export default async function handler(req, res) {
       // Cashback validity period - calculated above based on offer's cashbackExpiryDays
       cashbackStartDate: cashbackStartDate,
       cashbackEndDate: cashbackEndDate,
+      // Cashback WALLET usage (when patient uses previously earned cashback)
+      cashbackWalletUsed: cashbackWalletUsed || 0,
     };
 
     // console.log({ billingData });
@@ -700,6 +704,71 @@ export default async function handler(req, res) {
         console.warn('[BundleAPI] Warning: Could not find free sessions for:', sessionsToConsume);
       } else {
         console.log('[BundleAPI] All free sessions successfully consumed!');
+      }
+    }
+
+    // If patient is using cashback from wallet, deduct it
+    if (cashbackWalletUsed && cashbackWalletUsed > 0) {
+      console.log('[CashbackWalletAPI] Deducting cashback from wallet:', { 
+        patientId: userId, 
+        amount: cashbackWalletUsed,
+        invoiceNumber: invoiceNumber
+      });
+      
+      try {
+        const PatientRegistration = require('../../../models/PatientRegistration');
+        
+        // Find the patient
+        const patient = await PatientRegistration.findById(userId);
+        if (patient) {
+          const currentWalletBalance = patient.walletBalance || 0;
+          
+          // Check if patient has enough balance
+          if (currentWalletBalance < cashbackWalletUsed) {
+            console.error('[CashbackWalletAPI] Insufficient wallet balance:', {
+              current: currentWalletBalance,
+              requested: cashbackWalletUsed
+            });
+          } else {
+            // Deduct from wallet balance
+            const newWalletBalance = Math.max(0, currentWalletBalance - cashbackWalletUsed);
+            
+            await PatientRegistration.findByIdAndUpdate(userId, {
+              $set: {
+                walletBalance: newWalletBalance,
+                updatedAt: new Date()
+              },
+              $push: {
+                walletTransactions: {
+                  amount: cashbackWalletUsed,
+                  type: 'debit',
+                  source: 'cashback_usage',
+                  billingId: billing._id,
+                  invoiceNumber: invoiceNumber,
+                  description: `Cashback used for billing ${invoiceNumber}`,
+                  createdAt: new Date()
+                }
+              }
+            });
+            
+            console.log('[CashbackWalletAPI] Wallet debited successfully. New balance:', newWalletBalance);
+            
+            // If wallet balance is now 0, also clear the expiry date
+            if (newWalletBalance === 0) {
+              await PatientRegistration.findByIdAndUpdate(userId, {
+                $set: {
+                  walletCreditExpiry: null
+                }
+              });
+              console.log('[CashbackWalletAPI] Wallet balance is 0, cleared expiry date');
+            }
+          }
+        } else {
+          console.warn('[CashbackWalletAPI] Patient not found:', userId);
+        }
+      } catch (walletError) {
+        console.error('[CashbackWalletAPI] Error deducting from wallet:', walletError);
+        // Don't fail the billing if wallet update fails
       }
     }
 
