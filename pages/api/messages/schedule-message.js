@@ -97,11 +97,11 @@ export default async function handler(req, res) {
     });
   }
 
-  console.log("Schedule Message data: ", {
-    scheduledDate,
-    scheduledTime,
-    scheduledTimezone,
-  });
+  // console.log("Schedule Message data: ", {
+  //   scheduledDate,
+  //   scheduledTime,
+  //   scheduledTimezone,
+  // });
 
   try {
     let conversation = await Conversation.findById(conversationId);
@@ -219,7 +219,7 @@ export default async function handler(req, res) {
       }
 
       const templateId = rest.templateId;
-      console.log({ replyToMessageId, quotedMessageId });
+      // console.log({ replyToMessageId, quotedMessageId });
       if (replyToMessageId) {
         const replyToMsg = await Message.findById(replyToMessageId);
         quotedMessageId = quotedMessageId || replyToMsg.providerMessageId;
@@ -303,7 +303,7 @@ export default async function handler(req, res) {
       scheduledTime,
       scheduledTimezone
     );
-    console.log("Scheduled message delay in ms: ", { delay });
+    // console.log("Scheduled message delay in ms: ", { delay });
 
     const scheduledJob = await scheduleMessageQueue.add(
       "schedule-message",
@@ -360,7 +360,7 @@ export default async function handler(req, res) {
       data: findMessage,
     });
   } catch (err) {
-    console.error("Error in send message:", err);
+    // console.error("Error in send message:", err);
 
     return res.status(500).json({
       success: false,

@@ -110,11 +110,11 @@ export default async function handler(req, res) {
       .sort({ createdAt: -1 })
       .lean();
 
-    // Compute expired status in-memory without DB write
+    // Compute expired status in-memory without DB write (only for active offers)
     const shapedOffers = offers.map((offer) => {
       return {
         ...offer,
-        status: offer.endsAt && new Date(offer.endsAt) < now ? "expired" : offer.status,
+        status: offer.endsAt && new Date(offer.endsAt) < now && offer.status === "active" ? "expired" : offer.status,
       };
     });
 
@@ -122,7 +122,7 @@ export default async function handler(req, res) {
     res.setHeader("Cache-Control", "private, max-age=5, stale-while-revalidate=30");
     res.status(200).json({ success: true, offers: shapedOffers });
   } catch (err) {
-    console.error("Error fetching offers:", err);
+    // console.error("Error fetching offers:", err);
     res
       .status(500)
       .json({ success: false, message: err.message || "Server error" });

@@ -162,7 +162,7 @@ export default async function handler(req, res) {
           };
         });
       } catch (clinicError) {
-        console.error("Error fetching clinics:", clinicError);
+        // console.error("Error fetching clinics:", clinicError);
         clinics = [];
         clinicsTotal = 0;
       }
@@ -274,7 +274,7 @@ export default async function handler(req, res) {
           };
         });
       } catch (doctorError) {
-        console.error("Error fetching doctors:", doctorError);
+        // console.error("Error fetching doctors:", doctorError);
         doctors = [];
         doctorsTotal = 0;
       }
@@ -308,14 +308,7 @@ export default async function handler(req, res) {
       },
     });
   } catch (error) {
-    console.error("Featured providers API error:", error);
-    console.error("Error details:", {
-      message: error.message,
-      stack: error.stack,
-      tab: tab,
-      page: page,
-      pageSize: pageSize
-    });
+   
     return res.status(500).json({ 
       success: false, 
       message: "Internal server error", 

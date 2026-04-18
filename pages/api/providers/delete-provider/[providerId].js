@@ -95,7 +95,7 @@ export default async function handler(req, res) {
 
     try {
       const result = await session.withTransaction(async () => {
-        console.log({ providerId, clinicId });
+        // console.log({ providerId, clinicId });
         // Find the provider within transaction
         const provider = await Provider.findById({
           _id: providerId,
@@ -185,7 +185,7 @@ export default async function handler(req, res) {
       throw transactionError;
     }
   } catch (err) {
-    console.error("Error in deleting provider:", err);
+    // console.error("Error in deleting provider:", err);
 
     if (err.name === "CastError") {
       return res.status(400).json({

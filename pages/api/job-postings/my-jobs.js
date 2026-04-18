@@ -130,7 +130,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, jobs });
   } catch (error) {
-    console.error("Error fetching jobs:", error);
+    // console.error("Error fetching jobs:", error);
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 }

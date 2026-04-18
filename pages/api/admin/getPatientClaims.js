@@ -74,7 +74,7 @@ export default async function handler(req, res) {
             const user = await User.findById(p.userId).select("name").lean();
             patient.userId = user ? { _id: user._id, name: user.name } : null;
           } catch (err) {
-            console.error(`Error populating userId for patient ${p._id}:`, err);
+            // console.error(`Error populating userId for patient ${p._id}:`, err);
             patient.userId = null;
           }
         } else {
@@ -90,7 +90,7 @@ export default async function handler(req, res) {
               .lean();
             patient.doctor = doctor ? { _id: doctor._id, name: doctor.name, role: doctor.role } : null;
           } catch (err) {
-            console.error(`Error populating doctor for patient ${p._id}:`, err);
+            // console.error(`Error populating doctor for patient ${p._id}:`, err);
             patient.doctor = null;
           }
         } else {
@@ -156,7 +156,7 @@ export default async function handler(req, res) {
       patients: patientDetails,
     });
   } catch (error) {
-    console.error("Admin Patient Claim Error:", error);
+    // console.error("Admin Patient Claim Error:", error);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 }

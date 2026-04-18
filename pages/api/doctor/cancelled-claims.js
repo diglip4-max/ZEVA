@@ -93,7 +93,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, data, count: data.length });
   } catch (err) {
-    console.error("cancelled-claims error:", err);
+    // console.error("cancelled-claims error:", err);
     return res.status(err.status || 500).json({ success: false, message: err.message || "Server error" });
   }
 }

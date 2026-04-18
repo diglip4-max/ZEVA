@@ -99,7 +99,7 @@ export default async function handler(req, res) {
 
   try {
     const { templateId } = req.query;
-    console.log("Updating template with ID:", templateId);
+    // console.log("Updating template with ID:", templateId);
     let {
       templateType,
       name,
@@ -257,7 +257,7 @@ export default async function handler(req, res) {
           );
         }
       }
-      console.log({ resData });
+      // console.log({ resData });
 
       if (!resData) {
         return res.status(500).json({
@@ -277,7 +277,7 @@ export default async function handler(req, res) {
       data: template,
     });
   } catch (err) {
-    console.error("Error updating template:", err);
+    // console.error("Error updating template:", err);
 
     return res.status(500).json({
       success: false,

@@ -132,7 +132,7 @@ export default async function handler(req, res) {
       },
     });
   } catch (error) {
-    console.error('Dashboard stats error:', error);
+    // console.error('Dashboard stats error:', error);
     return res.status(500).json({ message: 'Server Error', error: error.message });
   }
 }

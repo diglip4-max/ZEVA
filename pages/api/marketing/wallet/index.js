@@ -20,7 +20,7 @@ export default async function handler(req, res) {
       const wallets = await SmsWallet.find(query).populate("ownerId", "name email phone role");
       return res.status(200).json({ success: true, data: wallets });
     } catch (error) {
-      console.error("wallet admin get error", error);
+      // console.error("wallet admin get error", error);
       return res.status(500).json({ success: false, message: "Failed to fetch wallets" });
     }
   }
@@ -65,7 +65,7 @@ export default async function handler(req, res) {
       if (error.code === "INSUFFICIENT_ADMIN_CREDITS") {
         return res.status(400).json({ success: false, message: "Not enough admin SMS credits available." });
       }
-      console.error("wallet admin post error", error);
+      // console.error("wallet admin post error", error);
       return res.status(500).json({ success: false, message: "Failed to update wallet" });
     }
   }

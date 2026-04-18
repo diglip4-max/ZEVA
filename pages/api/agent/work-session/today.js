@@ -41,11 +41,11 @@ async function saveSessionSafely(session, targetAgentId) {
   
   try {
     await session.save();
-    console.log('Agent session saved successfully for:', targetAgentId);
+    // console.log('Agent session saved successfully for:', targetAgentId);
     return true;
   } catch (saveError) {
-    console.error('Failed to save agent session:', saveError.message);
-    console.error('Session validation errors:', saveError.errors || 'No validation errors');
+    // console.error('Failed to save agent session:', saveError.message);
+    // console.error('Session validation errors:', saveError.errors || 'No validation errors');
     return false;
   }
 }
@@ -125,11 +125,11 @@ export default async function handler(req, res) {
       });
     }
 
-    console.log('Found agent session for:', targetAgentId, {
-      userId: session.userId,
-      agentId: session.agentId,
-      role: session.role
-    });
+    // console.log('Found agent session for:', targetAgentId, {
+    //   userId: session.userId,
+    //   agentId: session.agentId,
+    //   role: session.role
+    // });
 
     const now = new Date();
 
@@ -188,12 +188,12 @@ export default async function handler(req, res) {
     });
 
   } catch (err) {
-    console.error('TODAY SESSION ERROR:', err);
-    console.error('Error details:', {
-      message: err.message,
-      errors: err.errors,
-      validationErrors: err.errors ? Object.keys(err.errors) : null
-    });
+    // console.error('TODAY SESSION ERROR:', err);
+    // console.error('Error details:', {
+      // message: err.message,
+    //   errors: err.errors,
+    //   validationErrors: err.errors ? Object.keys(err.errors) : null
+    // });
     
     return res.status(500).json({
       success: false,

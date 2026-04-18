@@ -110,10 +110,10 @@ export async function checkClinicPermission(clinicId, moduleKey, action, subModu
 
     // If no permissions found, check if ANY permissions exist for this clinic (for backward compatibility)
     if (!clinicPermission) {
-      console.warn(
-        '[permissions-helper] No ClinicPermission found for role',
-        { clinicId: clinicId?.toString?.() || clinicId, moduleKey, action, requestedRole: role }
-      );
+      // console.warn(
+      //   '[permissions-helper] No ClinicPermission found for role',
+      //   { clinicId: clinicId?.toString?.() || clinicId, moduleKey, action, requestedRole: role }
+      // );
       
       // Check if ANY permission document exists for this clinic (for backward compatibility)
       const anyPermission = await ClinicPermission.findOne({
@@ -123,20 +123,20 @@ export async function checkClinicPermission(clinicId, moduleKey, action, subModu
       
       if (!anyPermission) {
         // No permissions set up at all - allow access (backward compatibility)
-        console.log('[permissions-helper] No permissions set up for clinic, allowing access (backward compatibility)');
+        // console.log('[permissions-helper] No permissions set up for clinic, allowing access (backward compatibility)');
         return { hasPermission: true, error: null };
       } else {
         // Permissions ARE set up, but not for this role/module - deny access
-        console.warn(
-          '[permissions-helper] Permissions exist but not for requested role/module, denying access',
-          { 
-            clinicId: clinicId?.toString?.() || clinicId, 
-            moduleKey, 
-            action, 
-            requestedRole: role,
-            foundRole: anyPermission.role
-          }
-        );
+        // console.warn(
+        //   '[permissions-helper] Permissions exist but not for requested role/module, denying access',
+        //   { 
+        //     clinicId: clinicId?.toString?.() || clinicId, 
+        //     moduleKey, 
+        //     action, 
+        //     requestedRole: role,
+        //     foundRole: anyPermission.role
+        //   }
+        // );
         return { hasPermission: false, error: `No permissions found for ${role || 'clinic'} role` };
       }
     }
@@ -174,30 +174,30 @@ export async function checkClinicPermission(clinicId, moduleKey, action, subModu
     );
 
     if (!modulePermission) {
-      console.warn(
-        '[permissions-helper] Module not present in clinic permissions',
-        {
-          clinicId: clinicId?.toString?.() || clinicId,
-          moduleKey,
-          action,
-          availableModules: clinicPermission.permissions.map((p) => p.module)
-        }
-      );
+      // console.warn(
+      //   '[permissions-helper] Module not present in clinic permissions',
+      //   {
+      //     clinicId: clinicId?.toString?.() || clinicId,
+      //     moduleKey,
+      //     action,
+      //     availableModules: clinicPermission.permissions.map((p) => p.module)
+      //   }
+      // );
       return { hasPermission: true, error: null };
     }
 
-    console.log('[permissions-helper] Evaluating permission', {
-      clinicId: clinicId?.toString?.() || clinicId,
-      requestedModule: moduleKey,
-      resolvedModule: modulePermission.module,
-      candidates: moduleCandidates,
-      action,
-      moduleActions: modulePermission.actions,
-      subModules: modulePermission.subModules?.map((sub) => ({
-        name: sub.name,
-        actions: sub.actions,
-      })),
-    });
+    // console.log('[permissions-helper] Evaluating permission', {
+    //   clinicId: clinicId?.toString?.() || clinicId,
+    //   requestedModule: moduleKey,
+    //   resolvedModule: modulePermission.module,
+    //   candidates: moduleCandidates,
+    //   action,
+    //   moduleActions: modulePermission.actions,
+    //   subModules: modulePermission.subModules?.map((sub) => ({
+    //     name: sub.name,
+    //     actions: sub.actions,
+    //   })),
+    // });
 
     // Check module-level permission first (before submodule checks)
     // If "all" action is enabled, grant all permissions
@@ -207,7 +207,7 @@ export async function checkClinicPermission(clinicId, moduleKey, action, subModu
                              String(modulePermission.actions?.all).toLowerCase() === "true";
     
     if (hasAllPermission) {
-      console.log('[permissions-helper] Module has "all" permission, granting access');
+      // console.log('[permissions-helper] Module has "all" permission, granting access');
       return { hasPermission: true, error: null };
     }
 
@@ -306,22 +306,22 @@ export async function checkClinicPermission(clinicId, moduleKey, action, subModu
       });
       
       if (hasSubModulePermission) {
-        console.log('[permissions-helper] Submodule has permission, granting access');
+        // console.log('[permissions-helper] Submodule has permission, granting access');
         return { hasPermission: true, error: null };
       }
     }
 
     return { hasPermission: false, error: `Permission denied: ${action} action not allowed for module ${moduleKey}` };
   } catch (error) {
-    console.error("Error checking clinic permission:", error);
-    console.error("Error stack:", error.stack);
-    console.error("Error details:", {
-      clinicId: clinicId?.toString?.() || clinicId,
-      moduleKey,
-      action,
-      role,
-      errorMessage: error.message
-    });
+    // console.error("Error checking clinic permission:", error);
+    // console.error("Error stack:", error.stack);
+    // console.error("Error details:", {
+    //   clinicId: clinicId?.toString?.() || clinicId,
+    //   moduleKey,
+    //   action,
+    //   role,
+    //   errorMessage: error.message
+    // });
     return { hasPermission: false, error: `Error checking permissions: ${error.message}` };
   }
 }
@@ -359,7 +359,7 @@ export async function getModulePermissions(clinicId, moduleKey) {
 
     return { permissions: modulePermission, error: null };
   } catch (error) {
-    console.error("Error getting module permissions:", error);
+    // console.error("Error getting module permissions:", error);
     return { permissions: null, error: "Error getting permissions" };
   }
 }

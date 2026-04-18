@@ -98,7 +98,7 @@ export default async function handler(req, res) {
       data: template,
     });
   } catch (err) {
-    console.error("Error delete template:", err);
+    // console.error("Error delete template:", err);
 
     return res.status(500).json({
       success: false,

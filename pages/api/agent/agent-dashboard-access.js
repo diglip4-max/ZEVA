@@ -48,7 +48,7 @@ export default async function handler(req, res) {
       permissions: mappedPermissions,
     });
   } catch (err) {
-    console.error("Error in /api/agent/agent-dashboard-access:", err);
+    // console.error("Error in /api/agent/agent-dashboard-access:", err);
     return res.status(500).json({ message: "Server error" });
   }
 }

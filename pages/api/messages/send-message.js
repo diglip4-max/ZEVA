@@ -92,9 +92,9 @@ export default async function handler(req, res) {
   } = req.body;
 
   try {
-    console.log({ clinicId });
+    // console.log({ clinicId });
     const clinic = await Clinic.findById(clinicId);
-    console.log({ clinic });
+    // console.log({ clinic });
     let conversation = await Conversation.findById(conversationId);
     if (req.body.leadId) {
       conversation = await Conversation.findOne({
@@ -107,7 +107,7 @@ export default async function handler(req, res) {
     // If i want to send message to patient
     if (req.body.patientId) {
       const patient = await PatientRegistration.findById(req.body.patientId);
-      console.log({ patient });
+      // console.log({ patient });
       if (patient && patient.leadId) {
         recipientId = patient.leadId;
         conversation = await Conversation.findOne({
@@ -263,7 +263,7 @@ export default async function handler(req, res) {
       }
 
       const templateId = rest.templateId;
-      console.log({ replyToMessageId, quotedMessageId });
+      // console.log({ replyToMessageId, quotedMessageId });
       if (replyToMessageId) {
         const replyToMsg = await Message.findById(replyToMessageId);
         quotedMessageId = quotedMessageId || replyToMsg.providerMessageId;
@@ -389,7 +389,7 @@ export default async function handler(req, res) {
       data: findMessage,
     });
   } catch (err) {
-    console.error("Error in send message:", err);
+    // console.error("Error in send message:", err);
 
     return res.status(500).json({
       success: false,

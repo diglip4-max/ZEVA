@@ -1443,8 +1443,9 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
         console.log(`[FRONTEND] Received ${appointmentsData.length} appointment(s) from API`);
         // Show ALL appointments regardless of status (booked, Arrived, Consultation, etc.)
         setAppointments(appointmentsData);
+        // Removed toast notification for loading appointments - only show on booking success
         if (appointmentsData.length > 0) {
-          toast.success(`Loaded ${appointmentsData.length} appointment(s)`, { duration: 2000 });
+          console.log(`[FRONTEND] Loaded ${appointmentsData.length} appointment(s) for date:`, selectedDate);
         } else {
           console.log("[FRONTEND] No appointments returned for date:", selectedDate);
         }
@@ -1458,6 +1459,16 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       const errorMsg = err.response?.data?.message || "Failed to load appointments";
       if (status === 403) {
         setAppointments([]);
+        toast.error("Session expired. Please login again.", { 
+          duration: 4000,
+          style: {
+            background: '#fef2f2',
+            color: '#991b1b',
+            border: '1px solid #fecaca',
+            fontSize: '13px',
+            fontWeight: '500',
+          },
+        });
         setError("You do not have permission to view appointments.");
       } else {
         showErrorToast(errorMsg);
@@ -1542,6 +1553,21 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
         showErrorToast(res.data.message || "Failed to update appointment");
       }
     } catch (err: any) {
+      // Handle 403 authentication error
+      const status = err.response?.status;
+      if (status === 403) {
+        toast.error("Session expired. Please login again.", { 
+          duration: 4000,
+          style: {
+            background: '#fef2f2',
+            color: '#991b1b',
+            border: '1px solid #fecaca',
+            fontSize: '13px',
+            fontWeight: '500',
+          },
+        });
+        return;
+      }
       // Swallow update errors; generic message already set
       const errorMsg = err.response?.data?.message || "Failed to update appointment";
       showErrorToast(errorMsg);

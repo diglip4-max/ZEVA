@@ -124,7 +124,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, data: lead });
   } catch (err) {
-    console.error("GET /api/lead-ms/get-lead error:", err);
+    // console.error("GET /api/lead-ms/get-lead error:", err);
     return res
       .status(500)
       .json({ success: false, message: err.message || "Server error" });

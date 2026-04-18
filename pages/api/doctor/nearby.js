@@ -54,11 +54,11 @@ export default async function handler(req, res) {
         mainTreatmentName = match[2].trim();
       }
 
-      console.log("Parsed service:", {
-        subTreatmentName,
-        mainTreatmentName,
-        originalService: service,
-      });
+      // console.log("Parsed service:", {
+      //   subTreatmentName,
+      //   mainTreatmentName,
+      //   originalService: service,
+      // });
 
       // First, try to find the exact treatment in the global Treatment model
       let foundTreatment = null;
@@ -86,12 +86,12 @@ export default async function handler(req, res) {
           );
 
           if (foundSubTreatment) {
-            console.log(
-              "Found sub-treatment:",
-              foundSubTreatment.name,
-              "in main treatment:",
-              foundTreatment.name
-            );
+            // console.log(
+            //   "Found sub-treatment:",
+            //   foundSubTreatment.name,
+            //   "in main treatment:",
+            //   foundTreatment.name
+            // );
 
             // Search for doctors that have this specific sub-treatment
             query.$or = [
@@ -102,10 +102,10 @@ export default async function handler(req, res) {
             ];
           } else {
             // If sub-treatment not found, search by main treatment
-            console.log(
-              "Sub-treatment not found, searching by main treatment:",
-              foundTreatment.name
-            );
+            // console.log(
+            //   "Sub-treatment not found, searching by main treatment:",
+            //   foundTreatment.name
+            // );
             query.$or = [
               { "treatments.mainTreatment": foundTreatment.name },
               { "user.name": { $regex: new RegExp(service, "i") } },
@@ -114,9 +114,9 @@ export default async function handler(req, res) {
           }
         } else {
           // Fallback to regex search if treatment not found in global model
-          console.log(
-            "Treatment not found in global model, using fallback search"
-          );
+          // console.log(
+          //   "Treatment not found in global model, using fallback search"
+          // );
           query.$or = [
             {
               "treatments.mainTreatment": { $regex: new RegExp(service, "i") },
@@ -131,7 +131,7 @@ export default async function handler(req, res) {
           ];
         }
       } catch (error) {
-        console.error("Error searching for treatment:", error);
+        // console.error("Error searching for treatment:", error);
         // Fallback to regex search with proper regex patterns
         query.$or = [
           { "treatments.mainTreatment": { $regex: new RegExp(service, "i") } },
@@ -245,7 +245,7 @@ export default async function handler(req, res) {
       locationInfo, // Optional: include location info in response
     });
   } catch (error) {
-    console.error("Error fetching doctors:", error);
+    // console.error("Error fetching doctors:", error);
     res
       .status(500)
       .json({ message: "Error fetching doctors", error: error.message });
@@ -307,10 +307,10 @@ async function checkLocationInfo(lat, lng) {
         };
       }
     } catch (geocodeError) {
-      console.log(
-        "Geocoding error, falling back to bounds check:",
-        geocodeError.message
-      );
+      // console.log(
+      //   "Geocoding error, falling back to bounds check:",
+      //   geocodeError.message
+      // );
       return {
         isDubai: isWithinDubaiBounds,
         isInternational: false,
@@ -324,7 +324,7 @@ async function checkLocationInfo(lat, lng) {
       country: "Unknown",
     };
   } catch (error) {
-    console.error("Error checking location:", error);
+    // console.error("Error checking location:", error);
     return {
       isDubai: false,
       isInternational: false,

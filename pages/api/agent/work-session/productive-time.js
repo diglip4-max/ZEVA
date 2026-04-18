@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log('Productive time endpoint called');
+    // console.log('Productive time endpoint called');
     
     // Verify token
     const authHeader = req.headers.authorization;
@@ -108,7 +108,7 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Productive time update error:', error);
+    // console.error('Productive time update error:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Internal server error',

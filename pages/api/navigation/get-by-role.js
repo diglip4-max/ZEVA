@@ -87,7 +87,7 @@ export default async function handler(req, res) {
       count: items.length
     });
   } catch (error) {
-    console.error('Error fetching navigation items:', error);
+    // console.error('Error fetching navigation items:', error);
     return res.status(500).json({ 
       success: false, 
       message: 'Internal server error',

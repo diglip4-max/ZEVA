@@ -41,7 +41,7 @@ export default async function handler(req, res) {
       totalEnquiries,
     });
   } catch (error) {
-    console.error("Doctor analytics error:", error);
+    // console.error("Doctor analytics error:", error);
     return res.status(401).json({ message: "Invalid token" });
   }
 }

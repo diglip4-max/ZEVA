@@ -53,7 +53,7 @@ export default async function handler(req, res) {
       count: specialties.length,
     });
   } catch (error) {
-    console.error("Error fetching specialties:", error);
+    // console.error("Error fetching specialties:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch specialties",

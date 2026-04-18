@@ -53,7 +53,7 @@ export default async function handler(req, res) {
       user.lastActivity = new Date();
       await user.save();
     } catch (e) {
-      console.error('Failed to update lastActivity/currentStatus on login', e);
+      // console.error('Failed to update lastActivity/currentStatus on login', e);
     }
 
     return res.status(200).json({
@@ -65,7 +65,7 @@ export default async function handler(req, res) {
     });
 
   } catch (err) {
-    console.error("Login error:", err);
+    // console.error("Login error:", err);
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 }

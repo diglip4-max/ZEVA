@@ -105,13 +105,13 @@ export default async function handler(req, res) {
         message: "WhatsApp template sync initiated",
       });
     } catch (error) {
-      console.error("Error fetching whatsapp templates from meta:", error);
+      // console.error("Error fetching whatsapp templates from meta:", error);
       return res
         .status(500)
         .json({ success: false, message: "Failed to fetch providers" });
     }
   } catch (error) {
-    console.error("Error fetching whatsapp templates:", error);
+    // console.error("Error fetching whatsapp templates:", error);
     return res.status(500).json({
       success: false,
       message: error?.message || "Internal server error",

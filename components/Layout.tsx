@@ -1,6 +1,5 @@
 import { ReactNode } from 'react'
 import Header from './Header'
-import Footer from './Footer'
 
 
 type Props = {
@@ -17,7 +16,6 @@ const Layout: React.FC<Props> = ({ children }) => {
         {children}
       </main>
      
-      <Footer />
       {/* Modal Root - Container for modals to render at root level */}
       <div id="modal-root" className="modal-root-container" style={{ position: 'static' }} />
     </div>

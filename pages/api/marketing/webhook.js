@@ -16,7 +16,7 @@ export default function handler(req, res) {
     const challenge = req.query["hub.challenge"];
 
     if (mode && token && mode === "subscribe" && token === VERIFY_TOKEN) {
-      console.log("✅ WEBHOOK_VERIFIED");
+      // console.log("✅ WEBHOOK_VERIFIED");
       return res.status(200).send(challenge);
     }
     return res.status(403).end();
@@ -25,7 +25,7 @@ export default function handler(req, res) {
   // Incoming webhook
   if (req.method === "POST") {
     try {
-      console.log("📩 Incoming webhook:", JSON.stringify(req.body, null, 2));
+      // console.log("📩 Incoming webhook:", JSON.stringify(req.body, null, 2));
 
       req.body.entry?.forEach((entry) => {
         entry.changes?.forEach((change) => {
@@ -64,7 +64,7 @@ export default function handler(req, res) {
 
       return res.status(200).send("EVENT_RECEIVED");
     } catch (err) {
-      console.error("❌ Webhook error:", err);
+      // console.error("❌ Webhook error:", err);
       return res.sendStatus(500);
     }
   }

@@ -10,7 +10,7 @@ export default async function handler(req, res){
 
     try{
         const me = await getUserFromReq(req);
-        console.log("Logged in user:", me);
+        // console.log("Logged in user:", me);
         if(!me || !requireRole(me, ["admin"])){
             return res.status(403).json({success:false, error:"Access denied. Admin only"});
         }
@@ -51,7 +51,7 @@ export default async function handler(req, res){
     });
 
   } catch (err) {
-    console.error("Error creating user:", err);
+    // console.error("Error creating user:", err);
     return res.status(500).json({ success: false, error: "Internal server error" });
   }
 }

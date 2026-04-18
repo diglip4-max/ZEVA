@@ -42,7 +42,7 @@ export default async function handler(req, res) {
     const user = await verifyToken(token);
     return res.status(200).json({ user });
   } catch (error) {
-    console.error('Token verification error:', error);
+    // console.error('Token verification error:', error);
 
     const message =
       error.name === 'TokenExpiredError'

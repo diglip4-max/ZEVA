@@ -50,7 +50,7 @@ export default async function handler(req, res) {
           });
         }
       } catch (permErr) {
-        console.error("Permission check error:", permErr);
+        // console.error("Permission check error:", permErr);
         return res.status(500).json({ success: false, message: "Error checking permissions" });
       }
     } else if (!["staff", "admin"].includes(user.role)) {
@@ -106,7 +106,7 @@ export default async function handler(req, res) {
       message: "Invalid type. Must be 'patient' or 'expense'.",
     });
   } catch (err) {
-    console.error("Delete API error:", err);
+    // console.error("Delete API error:", err);
     return res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 }

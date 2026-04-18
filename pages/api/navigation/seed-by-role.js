@@ -477,7 +477,7 @@ export default async function handler(req, res) {
       totalTemplates: itemsToInsert.length
     });
   } catch (error) {
-    console.error('Error seeding navigation items:', error);
+    // console.error('Error seeding navigation items:', error);
     return res.status(500).json({ 
       success: false, 
       message: 'Internal server error',

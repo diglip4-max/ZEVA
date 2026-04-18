@@ -74,7 +74,7 @@ export default async function handler(req, res) {
       message: "Clinic, associated user, reviews, and enquiries deleted successfully" 
     });
   } catch (error) {
-    console.error("Error deleting clinic:", error);
+    // console.error("Error deleting clinic:", error);
     res
       .status(500)
       .json({ success: false, message: "Server error", error: error.message });

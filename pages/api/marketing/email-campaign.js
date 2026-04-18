@@ -29,7 +29,7 @@ export default async function handler(req, res) {
 
     // Validate Brevo API key
     if (!process.env.BREVO_API_KEY) {
-      console.error('BREVO_API_KEY is not set in environment variables');
+      // console.error('BREVO_API_KEY is not set in environment variables');
       return res.status(500).json({ 
         success: false, 
         message: "Brevo API key not configured. Please set BREVO_API_KEY in environment variables." 
@@ -37,7 +37,7 @@ export default async function handler(req, res) {
     }
     
     // Log API key status (first 10 chars only for security)
-    console.log('Brevo API Key loaded:', process.env.BREVO_API_KEY ? `${process.env.BREVO_API_KEY.substring(0, 10)}...` : 'NOT FOUND');
+    // console.log('Brevo API Key loaded:', process.env.BREVO_API_KEY ? `${process.env.BREVO_API_KEY.substring(0, 10)}...` : 'NOT FOUND');
 
     let result;
 
@@ -103,7 +103,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json(result);
   } catch (err) {
-    console.error("Email Campaign API error:", err);
+    // console.error("Email Campaign API error:", err);
     return res.status(500).json({
       success: false,
       message: err.message || "Internal server error",

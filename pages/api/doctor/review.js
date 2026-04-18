@@ -27,7 +27,7 @@ export default async function handler(req, res) {
 
       res.status(201).json(review);
     } catch (error) {
-      console.error('Review creation error:', error);
+      // console.error('Review creation error:', error);
       return res.status(401).json({ message: 'Unauthorized or invalid data' });
     }
   } else {

@@ -90,7 +90,7 @@ export default async function handler(req, res) {
         data: permissions || null 
       });
     } catch (error) {
-      console.error('Error fetching agent permissions:', error);
+      // console.error('Error fetching agent permissions:', error);
       return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
     }
   }
@@ -196,7 +196,7 @@ export default async function handler(req, res) {
         data: agentPermission 
       });
     } catch (error) {
-      console.error('Error updating agent permissions:', error);
+      // console.error('Error updating agent permissions:', error);
       return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
     }
   }

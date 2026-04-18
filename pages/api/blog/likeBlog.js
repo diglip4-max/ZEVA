@@ -70,7 +70,7 @@ export default async function handler(req, res) {
       liked: !alreadyLiked,
     });
   } catch (error) {
-    console.error('Error in likeBlog API:', error);
+    // console.error('Error in likeBlog API:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Internal server error',

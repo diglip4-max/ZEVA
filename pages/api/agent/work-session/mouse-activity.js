@@ -50,7 +50,7 @@ export default withAgentApiAuth(async function handler(req, res) {
           },
         ],
       });
-      console.log("Created new agent mouse activity session:", agentId);
+      // console.log("Created new agent mouse activity session:", agentId);
     } else {
       // Add to existing productive time
       session.productiveSeconds = (session.productiveSeconds || 0) + duration;
@@ -96,8 +96,8 @@ export default withAgentApiAuth(async function handler(req, res) {
       productiveSeconds: session.productiveSeconds,
     });
   } catch (error) {
-    console.error("MOUSE ACTIVITY ERROR:", error);
-    console.error("Validation errors:", error.errors || "No validation errors");
+    // console.error("MOUSE ACTIVITY ERROR:", error);
+    // console.error("Validation errors:", error.errors || "No validation errors");
 
     return res.status(500).json({
       success: false,

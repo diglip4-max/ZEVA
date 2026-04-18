@@ -288,7 +288,7 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Error fetching agent sidebar permissions:', error);
+    // console.error('Error fetching agent sidebar permissions:', error);
     return res.status(500).json({ 
       success: false, 
       message: 'Internal server error', 

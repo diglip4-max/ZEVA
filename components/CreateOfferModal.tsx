@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { toast } from "react-hot-toast";
 
 interface Props {
   isOpen: boolean;
@@ -98,6 +99,9 @@ export default function CreateOfferModal({
   const [resolvedToken, setResolvedToken] = useState<string>("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [showLinkedWarning, setShowLinkedWarning] = useState(false);
+  const [linkedServicesMessage, setLinkedServicesMessage] = useState("");
+  const [pendingSubmit, setPendingSubmit] = useState(false);
 
   const resolveTokenFromContext = () => {
     if (token) return token;
@@ -257,6 +261,32 @@ export default function CreateOfferModal({
     }
 
     if (mode === "update" && offer) {
+      console.log('Loading offer for update:', offer);
+      console.log('Offer serviceIds (raw):', offer.serviceIds);
+      console.log('Offer departmentIds (raw):', offer.departmentIds);
+      console.log('Offer doctorIds (raw):', offer.doctorIds);
+      
+      // Handle both populated objects and raw IDs
+      const extractIds = (items: any[]) => {
+        if (!Array.isArray(items)) return [];
+        return items.map((item: any) => {
+          // If it's a populated object, get the _id
+          if (item && typeof item === 'object' && item._id) {
+            return String(item._id);
+          }
+          // If it's already a string/ObjectId
+          return String(item);
+        });
+      };
+      
+      const serviceIds = extractIds(offer.serviceIds || []);
+      const departmentIds = extractIds(offer.departmentIds || []);
+      const doctorIds = extractIds(offer.doctorIds || []);
+      
+      console.log('Extracted serviceIds:', serviceIds);
+      console.log('Extracted departmentIds:', departmentIds);
+      console.log('Extracted doctorIds:', doctorIds);
+      
       setForm({
         title: offer.title || "",
         description: offer.description || "",
@@ -275,11 +305,11 @@ export default function CreateOfferModal({
         applyOnType: offer.applyOnAllServices ? "all_services" : 
                     offer.departmentIds?.length > 0 ? "selected_departments" :
                     offer.doctorIds?.length > 0 ? "selected_doctors" :
-                    "selected_services",
+                    offer.serviceIds?.length > 0 ? "selected_services" : "all_services",
         applyOnAllServices: offer.applyOnAllServices ?? true,
-        serviceIds: offer.serviceIds || [],
-        departmentIds: offer.departmentIds || [],
-        doctorIds: offer.doctorIds || [],
+        serviceIds: serviceIds,
+        departmentIds: departmentIds,
+        doctorIds: doctorIds,
         
         allowCombiningWithOtherOffers: offer.allowCombiningWithOtherOffers || false,
         allowReceptionistDiscount: offer.allowReceptionistDiscount || false,
@@ -351,61 +381,129 @@ export default function CreateOfferModal({
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
+    const errorMessages: string[] = [];
 
     if (!form.title || form.title.trim().length === 0) {
       newErrors.title = "Offer title is required";
+      errorMessages.push("Please fill in the Offer Name");
     }
 
     if (form.offerType === "instant_discount" && form.discountValue <= 0) {
       newErrors.discountValue = "Discount value must be greater than 0";
+      errorMessages.push("Please enter a valid Discount Value greater than 0");
     }
 
     if (form.offerType === "bundle" && (form.buyQty <= 0 || form.freeQty <= 0)) {
       newErrors.bundle = "Buy and Free quantities must be greater than 0";
+      errorMessages.push("Please enter valid Buy and Free quantities for Bundle offer");
     }
 
     if (form.offerType === "cashback" && form.cashbackAmount <= 0) {
       newErrors.cashbackAmount = "Cashback amount must be greater than 0";
+      errorMessages.push("Please enter a valid Cashback Amount greater than 0");
     }
 
-    if (!form.startsAt) newErrors.startsAt = "Start date is required";
-    if (!form.endsAt) newErrors.endsAt = "End date is required";
+    if (!form.startsAt) {
+      newErrors.startsAt = "Start date is required";
+      errorMessages.push("Please select a Start Date");
+    }
+    
+    if (!form.endsAt) {
+      newErrors.endsAt = "End date is required";
+      errorMessages.push("Please select an End Date");
+    }
 
     if (form.startsAt && form.endsAt) {
       if (new Date(form.endsAt) <= new Date(form.startsAt)) {
         newErrors.endsAt = "End date must be after start date";
+        errorMessages.push("End Date must be after Start Date");
       }
     }
 
     if (form.maxBenefitCap <= 0) {
       newErrors.maxBenefitCap = "Max benefit cap is mandatory";
+      errorMessages.push("Please enter a valid Max Total Benefit Cap");
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    
+    // Show all validation errors in toaster notifications
+    if (errorMessages.length > 0) {
+      errorMessages.forEach((message, index) => {
+        setTimeout(() => {
+          toast.error(message, {
+            duration: 4000,
+            style: {
+              background: '#fef2f2',
+              color: '#991b1b',
+              border: '1px solid #fecaca',
+              fontSize: '13px',
+              fontWeight: '500',
+            },
+            icon: '⚠️',
+          });
+        }, index * 300); // Stagger toasts for better UX
+      });
+      return false;
+    }
+    
+    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) {
-      console.log("Validation failed", errors);
       return;
     }
     if (!clinicId) {
-      alert("Clinic ID not found. Please try again or contact support.");
-      console.error("Submission blocked: clinicId is null");
+      toast.error("Clinic ID not found. Please try again or contact support.", {
+        duration: 4000,
+        style: {
+          background: '#fef2f2',
+          color: '#991b1b',
+          border: '1px solid #fecaca',
+          fontSize: '13px',
+          fontWeight: '500',
+        },
+      });
       return;
     }
 
     if (mode === "create" && !permissions.canCreate) {
-      alert("No permission to create");
+      toast.error("You do not have permission to create offers", {
+        duration: 4000,
+        style: {
+          background: '#fef2f2',
+          color: '#991b1b',
+          border: '1px solid #fecaca',
+          fontSize: '13px',
+          fontWeight: '500',
+        },
+      });
       return;
     }
     if (mode === "update" && !permissions.canUpdate) {
-      alert("No permission to update");
+      toast.error("You do not have permission to update offers", {
+        duration: 4000,
+        style: {
+          background: '#fef2f2',
+          color: '#991b1b',
+          border: '1px solid #fecaca',
+          fontSize: '13px',
+          fontWeight: '500',
+        },
+      });
       return;
     }
 
+    // If this is a pending submit after user confirmation, proceed directly
+    if (pendingSubmit) {
+      setPendingSubmit(false);
+      await submitOffer();
+      return;
+    }
+
+    // First, try to submit to check for linked services
     setLoading(true);
     try {
       const authToken = resolvedToken || resolveTokenFromContext();
@@ -434,19 +532,144 @@ export default function CreateOfferModal({
       });
 
       const data = await res.json();
+      
+      // Check if error is about already linked treatments
+      if (!data.success && data.message && data.message.toLowerCase().includes('already linked')) {
+        setLinkedServicesMessage(data.message);
+        setShowLinkedWarning(true);
+        setLoading(false);
+        return;
+      }
+      
       if (data.success) {
         onCreated(data.offer);
         setShowSuccessPopup(true);
+        toast.success(`Offer ${mode === "create" ? "created" : "updated"} successfully!`, {
+          duration: 3000,
+          style: {
+            background: '#f0fdf4',
+            color: '#166534',
+            border: '1px solid #bbf7d0',
+            fontSize: '13px',
+            fontWeight: '500',
+          },
+        });
         setTimeout(() => {
           setShowSuccessPopup(false);
           onClose();
         }, 2000);
       } else {
-        alert(data.message || "Failed to save offer");
+        toast.error(data.message || "Failed to save offer", {
+          duration: 4000,
+          style: {
+            background: '#fef2f2',
+            color: '#991b1b',
+            border: '1px solid #fecaca',
+            fontSize: '13px',
+            fontWeight: '500',
+          },
+        });
       }
     } catch (err) {
       console.error(err);
-      alert("Error saving offer");
+      toast.error("Error saving offer. Please try again.", {
+        duration: 4000,
+        style: {
+          background: '#fef2f2',
+          color: '#991b1b',
+          border: '1px solid #fecaca',
+          fontSize: '13px',
+          fontWeight: '500',
+        },
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to submit offer after user confirms
+  const submitOffer = async () => {
+    setLoading(true);
+    try {
+      const authToken = resolvedToken || resolveTokenFromContext();
+      const url = mode === "create" ? "/api/lead-ms/create-offer" : `/api/lead-ms/update-offer?id=${offer._id}`;
+      const method = mode === "create" ? "POST" : "PUT";
+
+      // Final adjustments based on applyOnType
+      const finalForm = { ...form };
+      finalForm.applyOnAllServices = form.applyOnType === "all_services";
+      if (form.applyOnType !== "selected_services") finalForm.serviceIds = [];
+      if (form.applyOnType !== "selected_departments") finalForm.departmentIds = [];
+      if (form.applyOnType !== "selected_doctors") finalForm.doctorIds = [];
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          ...finalForm,
+          clinicId,
+          startsAt: new Date(form.startsAt),
+          endsAt: new Date(form.endsAt),
+          forceUpdate: true, // Flag to bypass duplicate check
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        onCreated(data.offer);
+        setShowSuccessPopup(true);
+        toast.success(`Offer ${mode === "create" ? "created" : "updated"} successfully!`, {
+          duration: 3000,
+          style: {
+            background: '#f0fdf4',
+            color: '#166534',
+            border: '1px solid #bbf7d0',
+            fontSize: '13px',
+            fontWeight: '500',
+          },
+        });
+        toast.success("Treatment linkage updated despite existing connections", {
+          duration: 4000,
+          style: {
+            background: '#fef3c7',
+            color: '#92400e',
+            border: '1px solid #f59e0b',
+            fontSize: '13px',
+            fontWeight: '500',
+          },
+          icon: '✅',
+        });
+        setTimeout(() => {
+          setShowSuccessPopup(false);
+          onClose();
+        }, 2000);
+      } else {
+        toast.error(data.message || "Failed to save offer", {
+          duration: 4000,
+          style: {
+            background: '#fef2f2',
+            color: '#991b1b',
+            border: '1px solid #fecaca',
+            fontSize: '13px',
+            fontWeight: '500',
+          },
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Error saving offer. Please try again.", {
+        duration: 4000,
+        style: {
+          background: '#fef2f2',
+          color: '#991b1b',
+          border: '1px solid #fecaca',
+          fontSize: '13px',
+          fontWeight: '500',
+        },
+      });
     } finally {
       setLoading(false);
     }
@@ -517,18 +740,6 @@ export default function CreateOfferModal({
                     <option value="bundle">🟡 TYPE 2: BUNDLE / PACKAGE</option>
                     <option value="cashback">🔵 TYPE 3: CASHBACK / WALLET</option>
                   </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-medium text-teal-700 mb-1">Offer Code (Optional)</label>
-                  <input
-                    type="text"
-                    name="code"
-                    value={form.code}
-                    onChange={handleChange}
-                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
-                    placeholder="SUMMER24"
-                  />
                 </div>
 
                 <div>
@@ -717,52 +928,106 @@ export default function CreateOfferModal({
                 {/* Selection Lists based on type */}
                 {form.applyOnType === "selected_services" && (
                   <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 max-h-48 overflow-y-auto space-y-2">
-                    {allServices.map((s: any) => (
+                    {(() => {
+                      console.log('=== SERVICES CHECKBOX RENDERING ===');
+                      console.log('form.serviceIds:', form.serviceIds);
+                      console.log('allServices count:', allServices.length);
+                      return null;
+                    })()}
+                    {allServices.map((s: any) => {
+                      // Check both _id and serviceSlug
+                      const serviceId = s._id;
+                      const serviceSlug = s.serviceSlug;
+                      const isChecked = form.serviceIds.includes(serviceId) || 
+                                       (serviceSlug && form.serviceIds.includes(serviceSlug));
+                      
+                      if (isChecked) {
+                        console.log(`✓ Service MATCHED: ${s.name}, _id: ${serviceId}, slug: ${serviceSlug}`);
+                      }
+                      
+                      return (
                       <label key={s._id} className="flex items-center gap-2 p-1.5 hover:bg-white rounded transition-colors cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={form.serviceIds.includes(s.serviceSlug || s._id)}
-                          onChange={(e) => toggleSelection("serviceIds", s.serviceSlug || s._id, e.target.checked)}
+                          checked={isChecked}
+                          onChange={(e) => toggleSelection("serviceIds", serviceId, e.target.checked)}
                           className="w-3.5 h-3.5 text-teal-600 rounded"
                         />
-                        <span className="text-xs text-gray-700">{s.name || s.mainTreatment}</span>
+                        <div className="flex flex-col">
+                          <span className="text-xs text-gray-700 font-medium">{s.name || s.mainTreatment || 'Unnamed Service'}</span>
+                          {s.serviceSlug && <span className="text-[10px] text-gray-500">{s.serviceSlug}</span>}
+                        </div>
                       </label>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 
                 {form.applyOnType === "selected_departments" && (
                   <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 max-h-48 overflow-y-auto space-y-2">
-                    {allDepartments.map((d: any) => (
+                    {(() => {
+                      console.log('=== DEPARTMENTS CHECKBOX RENDERING ===');
+                      console.log('form.departmentIds:', form.departmentIds);
+                      console.log('allDepartments count:', allDepartments.length);
+                      return null;
+                    })()}
+                    {allDepartments.map((d: any) => {
+                      const departmentId = d._id;
+                      const isChecked = form.departmentIds.includes(departmentId);
+                      
+                      if (isChecked) {
+                        console.log(`✓ Department MATCHED: ${d.name}, _id: ${departmentId}`);
+                      }
+                      
+                      return (
                       <label key={d._id} className="flex items-center gap-2 p-1.5 hover:bg-white rounded transition-colors cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={form.departmentIds.includes(d._id)}
-                          onChange={(e) => toggleSelection("departmentIds", d._id, e.target.checked)}
+                          checked={isChecked}
+                          onChange={(e) => toggleSelection("departmentIds", departmentId, e.target.checked)}
                           className="w-3.5 h-3.5 text-teal-600 rounded"
                         />
-                        <span className="text-xs text-gray-700">{d.name}</span>
+                        <div className="flex flex-col">
+                          <span className="text-xs text-gray-700 font-medium">{d.name || 'Unnamed Department'}</span>
+                          {d.description && <span className="text-[10px] text-gray-500">{d.description}</span>}
+                        </div>
                       </label>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 
                 {form.applyOnType === "selected_doctors" && (
                   <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 max-h-48 overflow-y-auto space-y-2">
-                    {allDoctors.map((doc: any) => (
+                    {(() => {
+                      console.log('=== DOCTORS CHECKBOX RENDERING ===');
+                      console.log('form.doctorIds:', form.doctorIds);
+                      console.log('allDoctors count:', allDoctors.length);
+                      return null;
+                    })()}
+                    {allDoctors.map((doc: any) => {
+                      const doctorId = doc._id;
+                      const isChecked = form.doctorIds.includes(doctorId);
+                      
+                      if (isChecked) {
+                        console.log(`✓ Doctor MATCHED: ${doc.name}, _id: ${doctorId}`);
+                      }
+                      
+                      return (
                       <label key={doc._id} className="flex items-center gap-2 p-1.5 hover:bg-white rounded transition-colors cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={form.doctorIds.includes(doc._id)}
-                          onChange={(e) => toggleSelection("doctorIds", doc._id, e.target.checked)}
+                          checked={isChecked}
+                          onChange={(e) => toggleSelection("doctorIds", doctorId, e.target.checked)}
                           className="w-3.5 h-3.5 text-teal-600 rounded"
                         />
                         <div className="flex flex-col">
-                          <span className="text-xs text-gray-700 font-medium">{doc.name}</span>
-                          <span className="text-[10px] text-gray-500">{doc.role}</span>
+                          <span className="text-xs text-gray-700 font-medium">{doc.name || 'Unnamed Doctor'}</span>
+                          {doc.role && <span className="text-[10px] text-gray-500">{doc.role}</span>}
                         </div>
                       </label>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -924,6 +1189,60 @@ export default function CreateOfferModal({
               <p className="text-sm text-gray-600">
                 Your offer has been {mode === "create" ? "created" : "updated"} successfully.
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Linked Services Warning Popup */}
+      {showLinkedWarning && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4 transform transition-all">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-amber-100 mb-4">
+                <svg
+                  className="h-8 w-8 text-amber-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Treatment Already Linked</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                {linkedServicesMessage}
+              </p>
+              <p className="text-xs text-gray-500 mb-6">
+                Do you want to proceed anyway? This will update the treatment linkage.
+              </p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => {
+                    setShowLinkedWarning(false);
+                    setLinkedServicesMessage("");
+                  }}
+                  className="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors font-medium text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowLinkedWarning(false);
+                    setPendingSubmit(true);
+                    // Trigger submit again with forceUpdate flag
+                    setTimeout(() => submitOffer(), 100);
+                  }}
+                  className="px-6 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors font-medium text-sm shadow-sm"
+                >
+                  Proceed Anyway
+                </button>
+              </div>
             </div>
           </div>
         </div>

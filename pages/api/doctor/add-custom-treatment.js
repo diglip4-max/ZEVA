@@ -39,7 +39,7 @@ export default async function handler(req, res) {
         }
       }
     } catch (error) {
-      console.error("Auth error:", error);
+      // console.error("Auth error:", error);
       return res.status(401).json({ message: "Invalid token" });
     }
 
@@ -95,7 +95,7 @@ export default async function handler(req, res) {
         });
       }
     } catch (error) {
-      console.error("Error adding custom treatment:", error);
+      // console.error("Error adding custom treatment:", error);
       return res.status(500).json({
         success: false,
         message: "Failed to add treatment",

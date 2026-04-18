@@ -77,7 +77,7 @@ export default withAgentApiAuth(async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching work session:', error);
+    // console.error('Error fetching work session:', error);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 });

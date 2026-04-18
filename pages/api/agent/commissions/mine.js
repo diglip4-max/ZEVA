@@ -87,7 +87,7 @@ export default async function handler(req, res) {
       items,
     });
   } catch (err) {
-    console.error("Error in agent commissions mine:", err);
+    // console.error("Error in agent commissions mine:", err);
     return res.status(500).json({ success: false, message: err.message || "Internal Server Error" });
   }
 }

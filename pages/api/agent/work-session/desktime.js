@@ -46,7 +46,7 @@ export default withAgentApiAuth(async function handler(req, res) {
           activityType: 'desktime'
         }]
       });
-      console.log('Created new agent desktime session:', agentId);
+      // console.log('Created new agent desktime session:', agentId);
     } else {
       // Update existing session
       session.deskTimeSeconds = (session.deskTimeSeconds || 0) + duration;
@@ -86,8 +86,8 @@ export default withAgentApiAuth(async function handler(req, res) {
       productivityPercentage: session.productivityPercentage,
     });
   } catch (error) {
-    console.error('DESK TIME ERROR:', error);
-    console.error('Validation errors:', error.errors || 'No validation errors');
+    // console.error('DESK TIME ERROR:', error);
+    // console.error('Validation errors:', error.errors || 'No validation errors');
     
     return res.status(500).json({ 
       success: false, 

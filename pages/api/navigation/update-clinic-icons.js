@@ -47,7 +47,7 @@ export default async function handler(req, res) {
     // Get all clinic navigation items
     const allClinicItems = await ClinicNavigationItem.find({ role: 'clinic', isActive: true });
     
-    console.log(`Found ${allClinicItems.length} clinic navigation items to check`);
+    // console.log(`Found ${allClinicItems.length} clinic navigation items to check`);
     
     let updatedCount = 0;
     let subModuleUpdatedCount = 0;
@@ -128,8 +128,8 @@ export default async function handler(req, res) {
     }
 
 
-    console.log(`Updated ${updatedCount} items and ${subModuleUpdatedCount} sub-modules`);
-    console.log('Update log:', updateLog);
+    // console.log(`Updated ${updatedCount} items and ${subModuleUpdatedCount} sub-modules`);
+    // console.log('Update log:', updateLog);
 
     return res.status(200).json({
       success: true,
@@ -141,7 +141,7 @@ export default async function handler(req, res) {
       log: updateLog.slice(0, 10) // Return first 10 updates for debugging
     });
   } catch (error) {
-    console.error('Error updating clinic navigation icons:', error);
+    // console.error('Error updating clinic navigation icons:', error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error',

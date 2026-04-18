@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     await dbConnect();
 
     const me = await getUserFromReq(req);
-    console.log({ me });
+    // console.log({ me });
     if (
       !requireRole(me, [
         "clinic",
@@ -84,13 +84,13 @@ export default async function handler(req, res) {
         data: providers,
       });
     } catch (error) {
-      console.error("Error in fetching all provider:", error);
+      // console.error("Error in fetching all provider:", error);
       return res
         .status(500)
         .json({ success: false, message: "Failed to fetch providers" });
     }
   } catch (error) {
-    console.error("Get all Providers error: ", error);
+    // console.error("Get all Providers error: ", error);
     return res.status(500).json({
       success: false,
       message: error?.message || "Internal server error",

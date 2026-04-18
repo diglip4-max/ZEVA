@@ -86,7 +86,7 @@ async function handler(req, res) {
       productivityPercentage: session.productivityPercentage,
     });
   } catch (error) {
-    console.error('DOCTOR MOUSE ACTIVITY ERROR:', error);
+    // console.error('DOCTOR MOUSE ACTIVITY ERROR:', error);
     return res.status(500).json({
       success: false,
       message: 'Server error',

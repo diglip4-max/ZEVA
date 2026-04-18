@@ -60,7 +60,7 @@ export default async function handler(req, res) {
     // This should rarely happen if slug generation is working correctly
     return res.redirect(301, `/job-details/${job._id}`);
   } catch (error) {
-    console.error("Error in job redirect:", error);
+    // console.error("Error in job redirect:", error);
     return res.status(500).json({
       success: false,
       message: "Server error",

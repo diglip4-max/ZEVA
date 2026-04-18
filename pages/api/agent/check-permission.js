@@ -51,7 +51,7 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Error checking agent permission:', error);
+    // console.error('Error checking agent permission:', error);
     return res.status(500).json({ 
       success: false, 
       message: 'Internal server error', 

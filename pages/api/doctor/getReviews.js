@@ -19,7 +19,7 @@ export default async function handler(req, res) {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('Decoded JWT:', decoded);
+    // console.log('Decoded JWT:', decoded);
 
     if (decoded.role !== 'doctor') {
       return res.status(403).json({ message: 'Access denied: not a doctor' });
@@ -41,14 +41,14 @@ export default async function handler(req, res) {
         model: User,
       });
 
-    console.log('Fetched reviews:', reviews);
+    // console.log('Fetched reviews:', reviews);
 
     return res.status(200).json({ 
       success: true, 
       reviews 
     });
   } catch (error) {
-    console.error('Get reviews error:', error);
+    // console.error('Get reviews error:', error);
     return res.status(500).json({
       success: false,
       message: 'Server error fetching reviews'

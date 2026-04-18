@@ -77,7 +77,7 @@ export default async function handler(req, res) {
       treatments: clinic.treatments || [],
     });
   } catch (err) {
-    console.error("Error fetching clinic treatments:", err);
+    // console.error("Error fetching clinic treatments:", err);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch clinic treatments",

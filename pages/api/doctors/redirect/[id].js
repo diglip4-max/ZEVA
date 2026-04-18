@@ -63,7 +63,7 @@ export default async function handler(req, res) {
     return res.redirect(302, `/doctor/${id}`);
 
   } catch (error) {
-    console.error("Error in redirect API:", error);
+    // console.error("Error in redirect API:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",

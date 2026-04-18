@@ -65,7 +65,7 @@ export default async function handler(req, res) {
           createdAt: new Date(),
         });
       } catch (notifError) {
-        console.error("Error sending notification:", notifError);
+        // console.error("Error sending notification:", notifError);
         // Don't fail the request if notification fails
       }
     }
@@ -89,7 +89,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({ success: true, comment: responseComment });
   } catch (error) {
-    console.error("Error in addReply API:", error);
+    // console.error("Error in addReply API:", error);
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 }
