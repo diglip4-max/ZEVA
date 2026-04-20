@@ -427,7 +427,7 @@ export async function checkTreatmentDuplicates(treatment: any): Promise<Duplicat
       similarEntities.push({
         id: otherTreatment._id.toString(),
         name: otherTreatment.name,
-        slug: otherTreatment.slug,
+        slug: otherTreatment.slug || undefined,
         similarity: nameSimilarity,
       });
     }

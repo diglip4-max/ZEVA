@@ -71,6 +71,7 @@ function OffersPage() {
   const [editingOfferId, setEditingOfferId] = useState(null);
   const [editingOfferData, setEditingOfferData] = useState(null);
   const [viewingOffer, setViewingOffer] = useState(null);
+  const [doctorNamesMap, setDoctorNamesMap] = useState({});
   const [permissions, setPermissions] = useState({
     canCreate: false,
     canUpdate: false,
@@ -376,6 +377,48 @@ function OffersPage() {
       fetchOffers();
     }
   }, [permissionsLoaded, finalCanRead]);
+
+  // Fetch doctor names when viewing an offer
+  useEffect(() => {
+    const fetchDoctorNames = async () => {
+      if (!viewingOffer || !viewingOffer.doctorIds || viewingOffer.doctorIds.length === 0) {
+        setDoctorNamesMap({});
+        return;
+      }
+
+      // Extract doctor IDs (could be strings or objects)
+      const doctorIds = viewingOffer.doctorIds
+        .map(doc => typeof doc === 'object' ? doc._id || doc.id : doc)
+        .filter(id => id);
+
+      if (doctorIds.length === 0) {
+        setDoctorNamesMap({});
+        return;
+      }
+
+      try {
+        const authHeaders = getAuthHeaders();
+        // Fetch doctors from the correct API endpoint
+        const res = await axios.get('/api/lead-ms/get-agents?role=doctorStaff', {
+          headers: authHeaders,
+        });
+
+        if (res.data.success) {
+          const doctors = res.data.agents || res.data.data || [];
+          const namesMap = {};
+          doctors.forEach(doctor => {
+            namesMap[doctor._id] = doctor.name || doctor.title || 'Unknown Doctor';
+          });
+          setDoctorNamesMap(namesMap);
+        }
+      } catch (err) {
+        console.error('Error fetching doctor names:', err);
+        setDoctorNamesMap({});
+      }
+    };
+
+    fetchDoctorNames();
+  }, [viewingOffer]);
 
   // Fetch clinic currency preference
   useEffect(() => {
@@ -992,7 +1035,7 @@ function OffersPage() {
           aria-modal="true"
         >
           <div
-            className="bg-white rounded-lg shadow-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[95vh]"
+            className="bg-white rounded-lg shadow-xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[95vh]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="bg-teal-100 px-4 py-3 flex items-center justify-between">
@@ -1015,194 +1058,417 @@ function OffersPage() {
                 </svg>
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto bg-white px-4 py-3 text-xs sm:text-sm text-gray-700">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-[10px] font-medium text-teal-700 mb-1">Title</p>
-                    <p className="text-sm font-semibold text-gray-900">{viewingOffer.title || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-medium text-teal-700 mb-1">Description</p>
-                    {viewingOffer.description && viewingOffer.description.trim().length > 0 ? (
-                      <p className="text-sm text-gray-900 break-words">{viewingOffer.description}</p>
-                    ) : (
-                      <div className="border border-gray-200 rounded-md px-2 py-2 min-h-[36px] bg-white"></div>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-[10px] font-medium text-teal-700 mb-1">Type</p>
-                      <span className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200 capitalize">
-                        {viewingOffer.type || "—"}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-medium text-teal-700 mb-1">Value</p>
-                      <span className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200">
-                        {typeof viewingOffer.value === "number" ? viewingOffer.value : "—"}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-[10px] font-medium text-teal-700 mb-1">Currency</p>
-                      <span className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200">
-                        {viewingOffer.currency || "—"}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-medium text-teal-700 mb-1">Starts At</p>
-                      <p className="text-sm text-gray-900">
-                        {viewingOffer.startsAt ? new Date(viewingOffer.startsAt).toLocaleString() : "—"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <p className="text-[10px] font-medium text-teal-700 mb-1">Max Uses</p>
-                      <span className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200">
-                        {viewingOffer.maxUses ?? "—"}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-medium text-teal-700 mb-1">Uses Count</p>
-                      <span className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200">
-                        {viewingOffer.usesCount ?? "—"}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-medium text-teal-700 mb-1">Per User Limit</p>
-                      <span className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200">
-                        {viewingOffer.perUserLimit ?? "—"}
-                      </span>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-medium text-teal-700 mb-1">Status</p>
-                    <span className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200">
-                      {viewingOffer.status || "—"}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-[10px] font-medium text-teal-700 mb-1">Code</p>
-                      <p className="text-sm text-gray-900">{viewingOffer.code || "—"}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-medium text-teal-700 mb-1">Channels</p>
-                      {Array.isArray(viewingOffer.channels) && viewingOffer.channels.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5">
-                          {viewingOffer.channels.map((ch, idx) => (
-                            <span key={idx} className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200">
-                              {ch}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-900">—</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <p className="text-[10px] font-medium text-teal-700 mb-1">UTM Source</p>
-                      <p className="text-sm text-gray-900">{viewingOffer?.utm?.source || "—"}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-medium text-teal-700 mb-1">UTM Medium</p>
-                      <p className="text-sm text-gray-900">{viewingOffer?.utm?.medium || "—"}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-medium text-teal-700 mb-1">UTM Campaign</p>
-                      <p className="text-sm text-gray-900">{viewingOffer?.utm?.campaign || "—"}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-medium text-teal-700 mb-1">Conditions</p>
-                    <div className="rounded-md border border-gray-200 bg-white p-2">
-                      <pre className="text-[11px] text-gray-900 whitespace-pre-wrap break-words">
-                        {viewingOffer?.conditions ? JSON.stringify(viewingOffer.conditions, null, 2) : "—"}
-                      </pre>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-medium text-teal-700 mb-1">Treatments</p>
-                    {Array.isArray(viewingOffer.treatments) && viewingOffer.treatments.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {viewingOffer.treatments.map((t, idx) => (
-                          <span key={idx} className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200">
-                            {typeof t === "string" ? t : t?.name || t?._id || "—"}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-900">—</p>
-                    )}
-                  </div>
+            <div className="flex-1 overflow-y-auto bg-gray-50 px-6 py-6 text-xs sm:text-sm text-gray-700">
+              {/* META INFORMATION - Top Full Width */}
+              <div className="mb-6 bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
+                <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
+                  <h3 className="text-sm font-bold text-teal-900">Meta Information</h3>
                 </div>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
+                <div className="px-5 py-4">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <div>
-                      <p className="text-[10px] font-medium text-teal-700 mb-1">Timezone</p>
-                      <span className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200">
-                        {viewingOffer.timezone || "—"}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-medium text-teal-700 mb-1">Ends At</p>
-                      <p className="text-sm text-gray-900">
-                        {viewingOffer.endsAt ? new Date(viewingOffer.endsAt).toLocaleString() : "—"}
+                      <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Clinic</p>
+                      <p className="text-xs text-gray-900 bg-teal-50 px-2 py-2 rounded-lg border border-teal-100 truncate">
+                        {typeof viewingOffer?.clinicId === 'object' && viewingOffer.clinicId?.name 
+                          ? viewingOffer.clinicId.name 
+                          : viewingOffer?.clinicId || "—"}
                       </p>
                     </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <p className="text-[10px] font-medium text-teal-700 mb-1">Slug</p>
-                      <p className="text-sm text-gray-900 break-words">{viewingOffer.slug || "—"}</p>
+                      <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Created By</p>
+                      <p className="text-xs text-gray-900 bg-teal-50 px-2 py-2 rounded-lg border border-teal-100 truncate">
+                        {typeof viewingOffer?.createdBy === 'object' && viewingOffer.createdBy?.name 
+                          ? viewingOffer.createdBy.name 
+                          : viewingOffer?.createdBy || "—"}
+                      </p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-medium text-teal-700 mb-1">SubTreatments</p>
-                      {Array.isArray(viewingOffer.subTreatments) && viewingOffer.subTreatments.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5">
-                          {viewingOffer.subTreatments.map((st, idx) => (
-                            <span key={idx} className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200">
-                              {st?.name || st?.slug || "—"}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-900">—</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-[10px] font-medium text-teal-700 mb-1">Clinic ID</p>
-                      <p className="text-sm text-gray-900">{viewingOffer?.clinicId?.name || "—"}</p>
+                      <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Updated By</p>
+                      <p className="text-xs text-gray-900 bg-teal-50 px-2 py-2 rounded-lg border border-teal-100 truncate">
+                        {typeof viewingOffer?.updatedBy === 'object' && viewingOffer.updatedBy?.name 
+                          ? viewingOffer.updatedBy.name 
+                          : viewingOffer?.updatedBy || "—"}
+                      </p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-medium text-teal-700 mb-1">Created By</p>
-                      <p className="text-sm text-gray-900">{viewingOffer?.createdBy?.name || "—"}</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-[10px] font-medium text-teal-700 mb-1">Updated By</p>
-                      <p className="text-sm text-gray-900">{viewingOffer?.updatedBy?.name || "—"}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-medium text-teal-700 mb-1">Created At</p>
-                      <p className="text-sm text-gray-900">
+                      <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Created At</p>
+                      <p className="text-xs text-gray-900 bg-teal-50 px-2 py-2 rounded-lg border border-teal-100">
                         {viewingOffer?.createdAt ? new Date(viewingOffer.createdAt).toLocaleString() : "—"}
                       </p>
                     </div>
+                    <div>
+                      <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Updated At</p>
+                      <p className="text-xs text-gray-900 bg-teal-50 px-3 py-2 rounded-lg border border-teal-100">
+                        {viewingOffer?.updatedAt ? new Date(viewingOffer.updatedAt).toLocaleString() : "—"}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[10px] font-medium text-teal-700 mb-1">Updated At</p>
-                    <p className="text-sm text-gray-900">
-                      {viewingOffer?.updatedAt ? new Date(viewingOffer.updatedAt).toLocaleString() : "—"}
-                    </p>
+                </div>
+              </div>
+
+              {/* TWO-COLUMN GRID FOR ALL SECTIONS */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* LEFT COLUMN */}
+                <div className="space-y-6">
+                  {/* BASIC SETTINGS */}
+                  <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
+                    <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
+                      <h3 className="text-sm font-bold text-teal-900">Basic Settings</h3>
+                    </div>
+                    <div className="px-5 py-4 space-y-4">
+                      <div>
+                        <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Title</p>
+                        <p className="text-sm font-semibold text-gray-900 bg-teal-50 px-3 py-1 rounded-lg border border-teal-100">{viewingOffer.title || "—"}</p>
+                      </div>
+                      {/* <div>
+                        <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Description</p>
+                        {viewingOffer.description && viewingOffer.description.trim().length > 0 ? (
+                          <p className="text-sm text-gray-900 bg-teal-50 px-3 py-2 rounded-lg border border-teal-100 break-words">{viewingOffer.description}</p>
+                        ) : (
+                          <div className="border border-teal-200 rounded-lg px-3 py-2 min-h-[40px] bg-gray-50"></div>
+                        )}
+                      </div> */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Offer Type</p>
+                          <span className="inline-flex items-center px-6 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 capitalize font-medium">
+                            {viewingOffer.offerType?.replace("_", " ") || viewingOffer.type || "—"}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Status</p>
+                          <span className="inline-flex items-center px-6 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 capitalize font-medium">
+                            {viewingOffer.status || "—"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        {/* <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Code</p>
+                          <p className="text-xs text-gray-900 bg-teal-50 px-3 py-2 rounded-lg border border-teal-100">{viewingOffer.code || "—"}</p>
+                        </div> */}
+                        {/* <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Slug</p>
+                          <p className="text-xs text-gray-900 bg-teal-50 px-3 py-2 rounded-lg border border-teal-100 break-words">{viewingOffer.slug || "—"}</p>
+                        </div> */}
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Starts At</p>
+                          <p className="text-xs text-gray-900 bg-teal-50 px-3 py-2 rounded-lg border border-teal-100">
+                            {viewingOffer.startsAt ? new Date(viewingOffer.startsAt).toLocaleString() : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Ends At</p>
+                          <p className="text-xs text-gray-900 bg-teal-50 px-3 py-2 rounded-lg border border-teal-100">
+                            {viewingOffer.endsAt ? new Date(viewingOffer.endsAt).toLocaleString() : "—"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        
+                        {/* </div> */}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* OFFER DETAILS */}
+                  <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
+                    <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
+                      <h3 className="text-sm font-bold text-teal-900">Offer Details</h3>
+                    </div>
+                    <div className="px-5 py-4 space-y-4">
+                      {viewingOffer.offerType === "instant_discount" && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Discount Mode</p>
+                            <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 capitalize font-medium">
+                              {viewingOffer.discountMode || "—"}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Discount Value</p>
+                            <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                              {viewingOffer.discountMode === "percentage" ? `${viewingOffer.discountValue}%` : `${getCurrencySymbol(currency)}${viewingOffer.discountValue}`}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {viewingOffer.offerType === "bundle" && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Buy Quantity</p>
+                            <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                              {viewingOffer.buyQty ?? "—"}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Free Quantity</p>
+                            <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                              {viewingOffer.freeQty ?? "—"}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {viewingOffer.offerType === "cashback" && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Cashback Amount</p>
+                            <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                              {getCurrencySymbol(currency)}{viewingOffer.cashbackAmount ?? "—"}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Cashback Expiry (Days)</p>
+                            <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                              {viewingOffer.cashbackExpiryDays ?? "—"}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {(!viewingOffer.offerType || (!["instant_discount", "bundle", "cashback"].includes(viewingOffer.offerType))) && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Type</p>
+                            <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 capitalize font-medium">
+                              {viewingOffer.type || "—"}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Value</p>
+                            <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                              {typeof viewingOffer.value === "number" ? viewingOffer.value : "—"}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* APPLICABILITY CONTROL */}
+                  <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
+                    <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
+                      <h3 className="text-sm font-bold text-teal-900">Applicability Control</h3>
+                    </div>
+                    <div className="px-5 py-4 space-y-4">
+                      <div>
+                        <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Apply On</p>
+                        <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 capitalize font-medium">
+                          {viewingOffer.applyOnAllServices ? "All Services" : 
+                           viewingOffer.departmentIds?.length > 0 ? "Selected Departments" :
+                           viewingOffer.doctorIds?.length > 0 ? "Selected Doctors" :
+                           viewingOffer.serviceIds?.length > 0 ? "Selected Services" : "—"}
+                        </span>
+                      </div>
+                      {viewingOffer.serviceIds?.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Selected Services</p>
+                          <div className="flex flex-wrap gap-2">
+                            {Array.isArray(viewingOffer.serviceIds) && viewingOffer.serviceIds.map((s, idx) => (
+                              <span key={idx} className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                                {typeof s === "object" && s?.name ? s.name : 
+                                 typeof s === "object" && s?.title ? s.title : 
+                                 typeof s === "string" ? s : "—"}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {viewingOffer.departmentIds?.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Selected Departments</p>
+                          <div className="flex flex-wrap gap-2">
+                            {Array.isArray(viewingOffer.departmentIds) && viewingOffer.departmentIds.map((d, idx) => (
+                              <span key={idx} className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                                {typeof d === "object" && d?.name ? d.name : 
+                                 typeof d === "object" && d?.title ? d.title : 
+                                 typeof d === "string" ? d : "—"}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {viewingOffer.doctorIds?.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Selected Doctors</p>
+                          <div className="flex flex-wrap gap-2">
+                            {Array.isArray(viewingOffer.doctorIds) && viewingOffer.doctorIds.map((doc, idx) => {
+                              const doctorId = typeof doc === 'object' ? (doc._id || doc.id) : doc;
+                              const doctorName = doctorNamesMap[doctorId] || (typeof doc === 'object' ? (doc.name || doc.title) : doc);
+                              return (
+                                <span key={idx} className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                                  {doctorName || "—"}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* RIGHT COLUMN */}
+                <div className="space-y-6">
+                  {/* STACKING & CONTROL */}
+                  <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
+                    <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
+                      <h3 className="text-sm font-bold text-teal-900">Stacking & Control</h3>
+                    </div>
+                    <div className="px-5 py-4 space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Allow Stacking</p>
+                          <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                            {viewingOffer.allowCombiningWithOtherOffers ? "Yes" : "No"}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Receptionist Discount</p>
+                          <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                            {viewingOffer.allowReceptionistDiscount ? "Yes" : "No"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Max Benefit Cap (%)</p>
+                          <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                            {viewingOffer.maxBenefitCap ?? "—"}%
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Min Bill Amount</p>
+                          <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                            {viewingOffer.minimumBillAmount ? `${getCurrencySymbol(currency)}${viewingOffer.minimumBillAmount}` : "—"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Margin Threshold (%)</p>
+                          <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                            {viewingOffer.marginThresholdPercent ?? "—"}%
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Same Day Reuse Blocked</p>
+                          <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                            {viewingOffer.sameDayReuseBlocked !== false ? "Yes" : "No"}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Partial Payment Allowed</p>
+                        <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                          {viewingOffer.partialPaymentAllowed ? "Yes" : "No"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SMART TOGGLES - COMMENTED OUT */}
+                  {/* <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
+                    <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
+                      <h3 className="text-sm font-bold text-teal-900">Smart Toggles</h3>
+                    </div>
+                    <div className="px-5 py-4 space-y-3">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Auto Apply Best Offer</p>
+                          <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                            {viewingOffer.autoApplyBestOffer !== false ? "Yes" : "No"}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Allow Manual Override</p>
+                          <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                            {viewingOffer.allowManualOverride ? "Yes" : "No"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Require Approval</p>
+                          <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                            {viewingOffer.requireApprovalForOverride !== false ? "Yes" : "No"}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Block if Margin Low (%)</p>
+                          <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                            {viewingOffer.blockIfProfitMarginBelowX !== false ? `${viewingOffer.blockIfProfitMarginBelowX}%` : "No"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div> */}
+
+                  {/* USAGE LIMITS */}
+                  {/* <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
+                    <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
+                      <h3 className="text-sm font-bold text-teal-900">Usage Limits</h3>
+                    </div>
+                    <div className="px-5 py-4">
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Max Uses</p>
+                          <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                            {viewingOffer.maxUses ?? "Unlimited"}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Uses Count</p>
+                          <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                            {viewingOffer.usesCount ?? 0}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Per User Limit</p>
+                          <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                            {viewingOffer.perUserLimit ?? 1}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div> */}
+
+                  {/* TREATMENTS & SUBTREATMENTS */}
+                  <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
+                    <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
+                      <h3 className="text-sm font-bold text-teal-900">Treatments</h3>
+                    </div>
+                    <div className="px-5 py-4 space-y-4">
+                      <div>
+                        <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Treatments</p>
+                        {Array.isArray(viewingOffer.treatments) && viewingOffer.treatments.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {viewingOffer.treatments.map((t, idx) => (
+                              <span key={idx} className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                                {typeof t === "string" ? t : t?.name || t?._id || "—"}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-900 bg-teal-50 px-3 py-2 rounded-lg border border-teal-100">—</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold text-teal-700 mb-1.5">SubTreatments</p>
+                        {Array.isArray(viewingOffer.subTreatments) && viewingOffer.subTreatments.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {viewingOffer.subTreatments.map((st, idx) => (
+                              <span key={idx} className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                                {st?.name || st?.slug || "—"}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-900 bg-teal-50 px-3 py-2 rounded-lg border border-teal-100">—</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

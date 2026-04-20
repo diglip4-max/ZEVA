@@ -295,7 +295,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   // Cashback state
   const [availableCashback, setAvailableCashback] = useState<any>(null); // { amount, expiryDate, daysRemaining }
   const [useCashback, setUseCashback] = useState(false);
-  const [cashbackDeductedAmount, setCashbackDeductedAmount] = useState<number>(0);
 
   // Consent Form States
   const [consentForms, setConsentForms] = useState<any[]>([]);
@@ -1248,7 +1247,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
     if (applicableOffers.length > 0) {
       // Sort to find the best offer (highest actual discount amount)
-      const bestOffer = applicableOffers.sort((a, b) => {
+      applicableOffers.sort((a, b) => {
         const getDiscountAmount = (offer: Offer) => {
           let amount = 0;
           if (offer.discountMode === "percentage") {
@@ -1260,7 +1259,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           return amount;
         };
         return getDiscountAmount(b) - getDiscountAmount(a);
-      })[0];
+      });
 
       console.log(`[OfferMatching] Matched ${applicableOffers.length} offers.`);
       setMatchedOffers(applicableOffers);
@@ -1900,11 +1899,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     let membershipDiscountAmount = 0;
     let offerDiscountAmount = 0;
     let receptionistDiscountAmount = 0;
-
-    // Define currentTreatments for offer calculations
-    const currentTreatments: Array<{ slug: string; name: string; price: number; quantity: number }> = selectedService === "Treatment" 
-      ? selectedTreatments.map((t: any) => ({ slug: t.treatmentSlug, name: t.treatmentName, price: t.price, quantity: t.quantity }))
-      : packageTreatmentSessions.filter((t: any) => t.isSelected).map((t: any) => ({ slug: t.treatmentSlug, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions }));
 
     // 1. Calculate Membership Discount
     const membershipTransferredOut =
