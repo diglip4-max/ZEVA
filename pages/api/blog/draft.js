@@ -283,7 +283,7 @@ export default async function handler(req, res) {
 
           res.status(200).json({ success: true, drafts });
         } catch (error) {
-          console.error("Error in GET drafts:", error);
+          // console.error("Error in GET drafts:", error);
           res.status(500).json({ success: false, message: "Internal server error" });
         }
         break;
@@ -367,7 +367,7 @@ export default async function handler(req, res) {
 
           res.status(201).json({ success: true, draft: populatedDraft });
         } catch (error) {
-          console.error("Error in POST draft:", error);
+          // console.error("Error in POST draft:", error);
           res.status(500).json({ success: false, message: "Internal server error" });
         }
         break;
@@ -554,7 +554,7 @@ export default async function handler(req, res) {
             .status(200)
             .json({ success: true, message: "Draft deleted successfully" });
         } catch (error) {
-          console.error("Error in DELETE draft:", error);
+          // console.error("Error in DELETE draft:", error);
           res.status(500).json({ success: false, message: "Internal server error" });
         }
         break;
@@ -563,7 +563,7 @@ export default async function handler(req, res) {
         res.status(405).json({ success: false, message: "Method not allowed" });
     }
   } catch (error) {
-    console.error("Error in draft API:", error);
+    // console.error("Error in draft API:", error);
     res
       .status(500)
       .json({

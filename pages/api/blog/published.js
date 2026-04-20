@@ -258,7 +258,7 @@ export default async function handler(req, res) {
 
           res.status(200).json({ success: true, blogs: publishedBlogs });
         } catch (error) {
-          console.error("Error in GET published blogs:", error);
+          // console.error("Error in GET published blogs:", error);
           res.status(500).json({ success: false, message: "Internal server error" });
         }
         break;
@@ -371,7 +371,7 @@ export default async function handler(req, res) {
               const nextNumber = maxNumber === 0 ? 2 : maxNumber + 1;
               finalParamlink = `${baseSlug}-${nextNumber}`;
               
-              console.log(`🔄 Paramlink conflict detected. Generated sequential slug: ${finalParamlink}`);
+              // console.log(`🔄 Paramlink conflict detected. Generated sequential slug: ${finalParamlink}`);
             }
 
             // Update the draft to published status
@@ -390,37 +390,37 @@ export default async function handler(req, res) {
             // Step 2: Generate and lock slug for published blog
             if (updatedBlog && !updatedBlog.slugLocked) {
               try {
-                console.log(`🔄 Generating slug for blog: ${updatedBlog.title} (ID: ${draftId})`);
+                // console.log(`🔄 Generating slug for blog: ${updatedBlog.title} (ID: ${draftId})`);
                 
                 // Use central slug service to generate and lock slug
                 const blogWithSlug = await generateAndLockSlug('blog', draftId.toString());
                 
                 if (blogWithSlug.paramlink && blogWithSlug.slugLocked) {
-                  console.log(`✅ Slug generated successfully: ${blogWithSlug.paramlink}`);
+                  // console.log(`✅ Slug generated successfully: ${blogWithSlug.paramlink}`);
                   
                   // Step 3: Run SEO pipeline after slug generation
                   try {
-                    console.log(`🚀 Running SEO pipeline for blog: ${draftId}`);
+                    // console.log(`🚀 Running SEO pipeline for blog: ${draftId}`);
                     const refreshedBlog = await Blog.findById(draftId);
                     const seoResult = await runSEOPipeline('blog', draftId.toString(), refreshedBlog);
                     if (seoResult.success) {
-                      console.log(`✅ SEO pipeline completed successfully`);
+                      // console.log(`✅ SEO pipeline completed successfully`);
                       
                       // Step 4: Run SEO Health Check after pipeline
                       try {
-                        console.log(`\n🏥 [SEO Health Check] Running health check for blog: ${draftId}`);
+                        // console.log(`\n🏥 [SEO Health Check] Running health check for blog: ${draftId}`);
                         const healthCheck = await checkSEOHealth('blog', draftId.toString());
                         
-                        console.log(`\n📊 [SEO Health Check] Results:`);
-                        console.log(`   Overall Health: ${healthCheck.overallHealth.toUpperCase()}`);
-                        console.log(`   Health Score: ${healthCheck.score}/100`);
-                        console.log(`   Total Issues: ${healthCheck.issues.length}`);
+                        // console.log(`\n📊 [SEO Health Check] Results:`);
+                        // console.log(`   Overall Health: ${healthCheck.overallHealth.toUpperCase()}`);
+                        // console.log(`   Health Score: ${healthCheck.score}/100`);
+                        // console.log(`   Total Issues: ${healthCheck.issues.length}`);
                         
                         if (healthCheck.issues.length > 0) {
                           console.log(`\n   🚨 Issues Found:`);
                           healthCheck.issues.forEach((issue, index) => {
-                            console.log(`   ${index + 1}. [${issue.severity.toUpperCase()}] ${issue.type}`);
-                            console.log(`      Message: ${issue.message}`);
+                            // console.log(`   ${index + 1}. [${issue.severity.toUpperCase()}] ${issue.type}`);
+                            // console.log(`      Message: ${issue.message}`);
                             if (issue.field) console.log(`      Field: ${issue.field}`);
                             if (issue.expected) console.log(`      Expected: ${issue.expected}`);
                             if (issue.actual) console.log(`      Actual: ${issue.actual}`);
@@ -429,37 +429,37 @@ export default async function handler(req, res) {
                         }
                         
                         if (healthCheck.recommendations.length > 0) {
-                          console.log(`\n   💡 Recommendations:`);
+                          // console.log(`\n   💡 Recommendations:`);
                           healthCheck.recommendations.forEach((rec, index) => {
-                            console.log(`   ${index + 1}. ${rec}`);
+                            // console.log(`   ${index + 1}. ${rec}`);
                           });
                         }
                         
-                        console.log(`\n`);
+                        // console.log(`\n`);
                         
                         // Store health check in SEO result
                         seoResult.healthCheck = healthCheck;
                       } catch (healthError) {
-                        console.error(`❌ SEO Health Check error (non-fatal):`, healthError.message);
+                        // console.error(`❌ SEO Health Check error (non-fatal):`, healthError.message);
                         // Non-fatal - continue with response
                       }
                     } else {
-                      console.warn(`⚠️ SEO pipeline completed with warnings:`, seoResult.errors);
+                      // console.warn(`⚠️ SEO pipeline completed with warnings:`, seoResult.errors);
                     }
                   } catch (seoError) {
                     // SEO errors are non-fatal - log but continue
-                    console.error("❌ SEO pipeline error (non-fatal):", seoError.message);
+                    // console.error("❌ SEO pipeline error (non-fatal):", seoError.message);
                   }
                 } else {
-                  console.log(`⚠️ Slug generation completed but slugLocked is false`);
+                  // console.log(`⚠️ Slug generation completed but slugLocked is false`);
                 }
               } catch (slugError) {
                 // If slug generation fails but blog is published, continue
-                console.error("❌ Slug generation error (non-fatal):", slugError.message);
-                console.error("Error stack:", slugError.stack);
+                // console.error("❌ Slug generation error (non-fatal):", slugError.message);
+                // console.error("Error stack:", slugError.stack);
               }
             } else if (updatedBlog && updatedBlog.slugLocked) {
-              console.log(`⏭️ Skipping slug generation - slug already locked: ${updatedBlog.paramlink}`);
+              // console.log(`⏭️ Skipping slug generation - slug already locked: ${updatedBlog.paramlink}`);
             }
 
             // Refresh blog data to get updated slug
@@ -507,7 +507,7 @@ export default async function handler(req, res) {
             const nextNumber = maxNumber === 0 ? 2 : maxNumber + 1;
             finalParamlink = `${baseSlug}-${nextNumber}`;
             
-            console.log(`🔄 Paramlink conflict detected. Generated sequential slug: ${finalParamlink}`);
+            // console.log(`🔄 Paramlink conflict detected. Generated sequential slug: ${finalParamlink}`);
           }
 
           // Determine the role to use for the blog
@@ -529,37 +529,37 @@ export default async function handler(req, res) {
           // Step 2: Generate and lock slug for published blog
           if (publishedBlog && !publishedBlog.slugLocked) {
             try {
-              console.log(`🔄 Generating slug for blog: ${publishedBlog.title} (ID: ${publishedBlog._id})`);
+              // console.log(`🔄 Generating slug for blog: ${publishedBlog.title} (ID: ${publishedBlog._id})`);
               
               // Use central slug service to generate and lock slug
               const blogWithSlug = await generateAndLockSlug('blog', publishedBlog._id.toString());
               
               if (blogWithSlug.paramlink && blogWithSlug.slugLocked) {
-                console.log(`✅ Slug generated successfully: ${blogWithSlug.paramlink}`);
+                // console.log(`✅ Slug generated successfully: ${blogWithSlug.paramlink}`);
                 
                 // Step 3: Run SEO pipeline after slug generation
                 try {
-                  console.log(`🚀 Running SEO pipeline for blog: ${publishedBlog._id}`);
+                  // console.log(`🚀 Running SEO pipeline for blog: ${publishedBlog._id}`);
                   const refreshedBlog = await Blog.findById(publishedBlog._id);
                   const seoResult = await runSEOPipeline('blog', publishedBlog._id.toString(), refreshedBlog);
                   if (seoResult.success) {
-                    console.log(`✅ SEO pipeline completed successfully`);
+                    // console.log(`✅ SEO pipeline completed successfully`);
                     
                     // Step 4: Run SEO Health Check after pipeline
                     try {
-                      console.log(`\n🏥 [SEO Health Check] Running health check for blog: ${publishedBlog._id}`);
+                      // console.log(`\n🏥 [SEO Health Check] Running health check for blog: ${publishedBlog._id}`);
                       const healthCheck = await checkSEOHealth('blog', publishedBlog._id.toString());
                       
-                      console.log(`\n📊 [SEO Health Check] Results:`);
-                      console.log(`   Overall Health: ${healthCheck.overallHealth.toUpperCase()}`);
-                      console.log(`   Health Score: ${healthCheck.score}/100`);
-                      console.log(`   Total Issues: ${healthCheck.issues.length}`);
+                      // console.log(`\n📊 [SEO Health Check] Results:`);
+                      // console.log(`   Overall Health: ${healthCheck.overallHealth.toUpperCase()}`);
+                      // console.log(`   Health Score: ${healthCheck.score}/100`);
+                      // console.log(`   Total Issues: ${healthCheck.issues.length}`);
                       
                       if (healthCheck.issues.length > 0) {
-                        console.log(`\n   🚨 Issues Found:`);
+                        // console.log(`\n   🚨 Issues Found:`);
                         healthCheck.issues.forEach((issue, index) => {
-                          console.log(`   ${index + 1}. [${issue.severity.toUpperCase()}] ${issue.type}`);
-                          console.log(`      Message: ${issue.message}`);
+                          // console.log(`   ${index + 1}. [${issue.severity.toUpperCase()}] ${issue.type}`);
+                          // console.log(`      Message: ${issue.message}`);
                           if (issue.field) console.log(`      Field: ${issue.field}`);
                           if (issue.expected) console.log(`      Expected: ${issue.expected}`);
                           if (issue.actual) console.log(`      Actual: ${issue.actual}`);
@@ -568,34 +568,34 @@ export default async function handler(req, res) {
                       }
                       
                       if (healthCheck.recommendations.length > 0) {
-                        console.log(`\n   💡 Recommendations:`);
+                        // console.log(`\n   💡 Recommendations:`);
                         healthCheck.recommendations.forEach((rec, index) => {
-                          console.log(`   ${index + 1}. ${rec}`);
+                          // console.log(`   ${index + 1}. ${rec}`);
                         });
                       }
                       
-                      console.log(`\n`);
+                      // console.log(`\n`);
                       
                       // Store health check in SEO result
                       seoResult.healthCheck = healthCheck;
                     } catch (healthError) {
-                      console.error(`❌ SEO Health Check error (non-fatal):`, healthError.message);
+                      // console.error(`❌ SEO Health Check error (non-fatal):`, healthError.message);
                       // Non-fatal - continue with response
                     }
                   } else {
-                    console.warn(`⚠️ SEO pipeline completed with warnings:`, seoResult.errors);
+                    // console.warn(`⚠️ SEO pipeline completed with warnings:`, seoResult.errors);
                   }
                 } catch (seoError) {
                   // SEO errors are non-fatal - log but continue
-                  console.error("❌ SEO pipeline error (non-fatal):", seoError.message);
+                  // console.error("❌ SEO pipeline error (non-fatal):", seoError.message);
                 }
               } else {
-                console.log(`⚠️ Slug generation completed but slugLocked is false`);
+                // console.log(`⚠️ Slug generation completed but slugLocked is false`);
               }
             } catch (slugError) {
               // If slug generation fails but blog is published, continue
-              console.error("❌ Slug generation error (non-fatal):", slugError.message);
-              console.error("Error stack:", slugError.stack);
+              // console.error("❌ Slug generation error (non-fatal):", slugError.message);
+              // console.error("Error stack:", slugError.stack);
             }
           }
 
@@ -607,7 +607,7 @@ export default async function handler(req, res) {
 
           res.status(201).json({ success: true, blog: populatedBlog });
         } catch (error) {
-          console.error("Error in POST published blog:", error);
+          // console.error("Error in POST published blog:", error);
           res.status(500).json({ success: false, message: "Internal server error" });
         }
         break;
@@ -734,7 +734,7 @@ export default async function handler(req, res) {
               const nextNumber = maxNumber === 0 ? 2 : maxNumber + 1;
               finalParamlink = `${baseSlug}-${nextNumber}`;
               
-              console.log(`🔄 Paramlink conflict detected. Generated sequential slug: ${finalParamlink}`);
+              // console.log(`🔄 Paramlink conflict detected. Generated sequential slug: ${finalParamlink}`);
             } else {
               finalParamlink = paramlink.trim();
             }
@@ -754,7 +754,7 @@ export default async function handler(req, res) {
 
           res.status(200).json({ success: true, blog: updatedBlog });
         } catch (error) {
-          console.error("Error in PUT published blog:", error);
+          // console.error("Error in PUT published blog:", error);
           res.status(500).json({ success: false, message: "Internal server error" });
         }
         break;
@@ -851,7 +851,7 @@ export default async function handler(req, res) {
               "Published blog and all related comments & likes deleted successfully",
           });
         } catch (error) {
-          console.error("Error in DELETE published blog:", error);
+          // console.error("Error in DELETE published blog:", error);
           res.status(500).json({ success: false, message: "Internal server error" });
         }
         break;
@@ -860,7 +860,7 @@ export default async function handler(req, res) {
         res.status(405).json({ success: false, message: "Method not allowed" });
     }
   } catch (error) {
-    console.error("Error in published blog API:", error);
+    // console.error("Error in published blog API:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",

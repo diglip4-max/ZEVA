@@ -14,21 +14,21 @@ export default async function handler(req, res) {
       
       // If no user is authenticated, allow public access (return all treatments)
       if (!me) {
-        console.log("getTreatment - Public access: No authentication, returning all treatments");
+        // console.log("getTreatment - Public access: No authentication, returning all treatments");
         const treatments = await Treatment.find({}).lean();
         return res.status(200).json({ treatments });
       }
 
-      console.log("getTreatment - User role:", me.role, "User ID:", me._id);
+      // console.log("getTreatment - User role:", me.role, "User ID:", me._id);
 
       // Allow clinic, doctor, admin roles without permission checks
       if (['clinic', 'doctor', 'admin'].includes(me.role)) {
         // These roles can access treatments without permission checks
-        console.log("getTreatment - Allowing access for role:", me.role);
+        // console.log("getTreatment - Allowing access for role:", me.role);
       } else if (['agent', 'staff', 'doctorStaff'].includes(me.role)) {
         // For agent, staff, and doctorStaff, check clinic permissions
         try {
-          console.log("getTreatment - Checking permission for role:", me.role);
+          // console.log("getTreatment - Checking permission for role:", me.role);
           
           // Get clinic ID for the user
           const { clinicId, error: clinicError, isAdmin } = await getClinicIdFromUser(me);
@@ -61,7 +61,7 @@ export default async function handler(req, res) {
               roleForPermission
             );
 
-            console.log("getTreatment - Permission result (clinic):", { hasPermission, error: permissionError });
+            // console.log("getTreatment - Permission result (clinic):", { hasPermission, error: permissionError });
 
             // If read is not granted, allow access when create OR delete is granted
             let canAccess = hasPermission;
@@ -140,7 +140,7 @@ export default async function handler(req, res) {
             }
           }
         } catch (permissionError) {
-          console.error("Permission check error:", permissionError);
+          // console.error("Permission check error:", permissionError);
           // If permission check fails, deny access
           return res.status(403).json({
             success: false,
@@ -151,7 +151,7 @@ export default async function handler(req, res) {
         }
       } else {
         // Unknown role, deny access
-        console.log("getTreatment - Unknown role:", me.role);
+        // console.log("getTreatment - Unknown role:", me.role);
         return res.status(403).json({
           success: false,
           message: "Access denied. Your role does not have access to treatments.",
@@ -162,7 +162,7 @@ export default async function handler(req, res) {
       const treatments = await Treatment.find({}).lean();
       return res.status(200).json({ treatments });
     } catch (error) {
-      console.error("Error fetching treatments:", error);
+      // console.error("Error fetching treatments:", error);
       return res.status(500).json({ message: "Error fetching treatments" });
     }
   }

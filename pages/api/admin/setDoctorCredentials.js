@@ -59,7 +59,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, message: 'Credentials set successfully' });
   } catch (err) {
-    console.error('Set credentials error:', err);
+    // console.error('Set credentials error:', err);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 }

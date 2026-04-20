@@ -19,7 +19,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ applied: !!existing });
   } catch (err) {
-    console.error(err);
+    // console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 }

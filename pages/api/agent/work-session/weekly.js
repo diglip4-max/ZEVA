@@ -147,7 +147,7 @@ export default async function handler(req, res) {
       }
     });
   } catch (error) {
-    console.error('WEEKLY STATS ERROR:', error);
+    // console.error('WEEKLY STATS ERROR:', error);
     return res.status(500).json({ 
       success: false, 
       message: 'Server error',

@@ -63,7 +63,7 @@ export async function checkAgentPermission(agentId, moduleKey, action, subModule
                              String(modulePermission.actions?.all).toLowerCase() === "true";
     
     if (hasAllPermission) {
-      console.log('[agent-permissions-helper] Module has "all" permission, granting access');
+      // console.log('[agent-permissions-helper] Module has "all" permission, granting access');
       return { hasPermission: true, error: null };
     }
 
@@ -124,7 +124,7 @@ export async function checkAgentPermission(agentId, moduleKey, action, subModule
 
     return { hasPermission: false, error: `Permission denied: ${action} action not allowed for module ${moduleKey}` };
   } catch (error) {
-    console.error("Error checking agent permission:", error);
+    // console.error("Error checking agent permission:", error);
     return { hasPermission: false, error: "Error checking permissions" };
   }
 }
@@ -179,7 +179,7 @@ export async function getAgentModulePermissions(agentId, moduleKey) {
 
     return { permissions: modulePermission, error: null };
   } catch (error) {
-    console.error("Error getting agent module permissions:", error);
+    // console.error("Error getting agent module permissions:", error);
     return { permissions: null, error: "Error getting permissions" };
   }
 }

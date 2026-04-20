@@ -104,6 +104,37 @@ export default async function handler(req, res) {
       );
     }
 
+    // ✅ Check if any of the selected services are already linked to another active offer
+    // Skip this check if forceUpdate is true (user confirmed they want to proceed)
+    if (serviceIds.length > 0 && !data.applyOnAllServices && !data.forceUpdate) {
+      const existingOffers = await Offer.find({
+        clinicId: resolvedClinicId,
+        status: { $in: ['active', 'draft'] },
+        serviceIds: { $in: serviceIds }
+      }).populate('serviceIds', 'name');
+
+      if (existingOffers.length > 0) {
+        // Find which services are already linked
+        const linkedServices = new Set();
+        existingOffers.forEach(offer => {
+          offer.serviceIds.forEach(service => {
+            const serviceIdStr = service._id ? service._id.toString() : service.toString();
+            if (serviceIds.some(sid => sid.toString() === serviceIdStr)) {
+              linkedServices.add(service.name || serviceIdStr);
+            }
+          });
+        });
+
+        if (linkedServices.size > 0) {
+          const serviceNames = Array.from(linkedServices).join(', ');
+          return res.status(400).json({
+            success: false,
+            message: `The following treatments are already linked with another offer: ${serviceNames}`
+          });
+        }
+      }
+    }
+
     const offer = new Offer({
       clinicId: resolvedClinicId,
       title: data.title,
@@ -156,7 +187,7 @@ export default async function handler(req, res) {
 
     // Generate robots meta tags for the offer
     try {
-      console.log(`🤖 [SEO] Generating robots meta for offer: ${offer._id}`);
+      // console.log(`🤖 [SEO] Generating robots meta for offer: ${offer._id}`);
       
       // Create a simple indexing decision for the offer
       // Active offers should be indexed, others should not
@@ -175,21 +206,21 @@ export default async function handler(req, res) {
 
       const robotsMeta = await getRobotsMetaForEntity('offer', offer._id.toString(), indexingDecision);
       
-      console.log(`   📊 Robots Meta Result:`, JSON.stringify({
-        content: robotsMeta.content,
-        noindex: robotsMeta.noindex,
-        nofollow: robotsMeta.nofollow,
-      }, null, 2));
+      // console.log(`   📊 Robots Meta Result:`, JSON.stringify({
+      //   content: robotsMeta.content,
+      //   noindex: robotsMeta.noindex,
+      //   nofollow: robotsMeta.nofollow,
+      // }, null, 2));
       
       // You can store robotsMeta in the offer if needed, or just log it
       // For now, we'll just log it
     } catch (robotsError) {
-      console.error("❌ Robots meta generation error (non-fatal):", robotsError.message);
+      // console.error("❌ Robots meta generation error (non-fatal):", robotsError.message);
     }
 
     return res.status(201).json({ success: true, offer });
   } catch (err) {
-    console.error("Error creating offer:", err);
+    // console.error("Error creating offer:", err);
     return res.status(500).json({ success: false, message: err.message || "Server error" });
   }
 }

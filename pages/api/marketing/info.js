@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     const redirectUrl = type === "doctor" ? `/doctors/${id}` : `/clinics/${id}`;
     return res.redirect(redirectUrl);
   } catch (err) {
-    console.error(err);
+    // console.error(err);
     return res.status(500).send("Server error");
   }
 }

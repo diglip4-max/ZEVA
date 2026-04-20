@@ -73,7 +73,7 @@ export default async function handler(req, res) {
       leads: orderedLeads,
     });
   } catch (error) {
-    console.error("Error fetching assigned leads:", error);
+    // console.error("Error fetching assigned leads:", error);
     return res.status(500).json({ success: false, message: "Server Error" });
   }
 }

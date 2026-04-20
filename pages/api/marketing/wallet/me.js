@@ -27,7 +27,7 @@ export default async function handler(req, res) {
       try {
         const { clinicId, error: clinicError } = await getClinicIdFromUser(user);
         if (clinicError || !clinicId) {
-          console.error("Wallet access - clinic ID error:", clinicError);
+          // console.error("Wallet access - clinic ID error:", clinicError);
           // Still allow wallet access even if clinic ID resolution fails
           // The wallet is user-specific, not clinic-specific
         } else {
@@ -42,16 +42,16 @@ export default async function handler(req, res) {
             );
 
             if (!hasPermission) {
-              console.log("Wallet access - Permission check failed (non-blocking):", permError);
+              // console.log("Wallet access - Permission check failed (non-blocking):", permError);
               // Don't block - allow wallet viewing for UX
             }
           } catch (permErr) {
-            console.error("Wallet access - Permission check error (non-blocking):", permErr);
+            // console.error("Wallet access - Permission check error (non-blocking):", permErr);
             // Continue without blocking - allow wallet viewing
           }
         }
       } catch (err) {
-        console.error("Wallet access - Error in permission check setup (non-blocking):", err);
+        // console.error("Wallet access - Error in permission check setup (non-blocking):", err);
         // Continue without blocking - allow wallet viewing
       }
     }
@@ -79,7 +79,7 @@ export default async function handler(req, res) {
       },
     });
   } catch (error) {
-    console.error("wallet me error", error);
+    // console.error("wallet me error", error);
     return res.status(500).json({ success: false, message: "Failed to load wallet" });
   }
 }

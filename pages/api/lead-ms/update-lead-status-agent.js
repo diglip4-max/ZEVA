@@ -89,7 +89,7 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error("Error updating lead status:", error);
+    // console.error("Error updating lead status:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",

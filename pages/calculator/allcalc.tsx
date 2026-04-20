@@ -4,7 +4,6 @@ import { useRouter } from 'next/router';
 import Image from 'next/image';
 import Head from 'next/head';
 import Header from '../../components/Header';
-import Footer from '../../components/Footer';
 import { calculators } from '../../components/CalculatorGames';
 
 function AllCalculators(){
@@ -257,7 +256,6 @@ function AllCalculators(){
           })}
         </div>
       </div>
-      <Footer />
     </div>
     </>
   );

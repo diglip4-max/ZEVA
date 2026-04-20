@@ -57,7 +57,7 @@ export default async function handler(req, res) {
       leads: filteredLeads
     });
   } catch (err) {
-    console.error("Error filtering assigned leads:", err);
+    // console.error("Error filtering assigned leads:", err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 }

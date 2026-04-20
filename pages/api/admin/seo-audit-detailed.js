@@ -92,7 +92,7 @@ export default async function handler(req, res) {
         });
     }
 
-    console.log(`\n📊 [Detailed SEO Audit API] Running full SEO pipeline for ${entityType}: ${entityId}`);
+    // console.log(`\n📊 [Detailed SEO Audit API] Running full SEO pipeline for ${entityType}: ${entityId}`);
 
     // Run full SEO pipeline
     const seoPipelineResult = await runSEOPipeline(entityType, entityId.toString(), entity, user);
@@ -168,7 +168,7 @@ export default async function handler(req, res) {
       timestamp: new Date().toISOString(),
     };
 
-    console.log(`\n✅ [Detailed SEO Audit API] Detailed audit completed for ${entityType}: ${entityId}\n`);
+    // console.log(`\n✅ [Detailed SEO Audit API] Detailed audit completed for ${entityType}: ${entityId}\n`);
 
     return res.status(200).json({
       success: true,
@@ -176,7 +176,7 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Error in detailed SEO audit API:', error);
+    // console.error('Error in detailed SEO audit API:', error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error',

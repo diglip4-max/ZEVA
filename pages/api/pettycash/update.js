@@ -48,7 +48,7 @@ export default async function handler(req, res) {
           });
         }
       } catch (permErr) {
-        console.error("Permission check error:", permErr);
+        // console.error("Permission check error:", permErr);
         return res.status(500).json({ message: "Error checking permissions" });
       }
     } else if (!["staff", "admin"].includes(user.role)) {
@@ -155,7 +155,7 @@ export default async function handler(req, res) {
       pettyCash,
     });
   } catch (err) {
-    console.error("Error updating petty cash:", err);
+    // console.error("Error updating petty cash:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }

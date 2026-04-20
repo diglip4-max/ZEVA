@@ -104,7 +104,7 @@ export default async function handler(req, res) {
           return res.status(400).json({ message: "Invalid address. Please set location on map." });
         }
       } catch (geoError) {
-        console.error("Geocoding error:", geoError);
+        // console.error("Geocoding error:", geoError);
         return res.status(400).json({ message: "Invalid address. Please set location on map." });
       }
     }
@@ -192,7 +192,7 @@ export default async function handler(req, res) {
           }
         }
       } catch (slugError) {
-        console.error('❌ Slug preview generation error (non-fatal):', slugError.message);
+        // console.error('❌ Slug preview generation error (non-fatal):', slugError.message);
         // Continue with doctor creation even if slug preview fails
       }
 
@@ -223,14 +223,14 @@ export default async function handler(req, res) {
     } catch (err) {
       // Rollback user if doctor profile fails
       await User.findByIdAndDelete(user._id);
-      console.error("DoctorProfile creation failed, rolled back user:", err);
+      // console.error("DoctorProfile creation failed, rolled back user:", err);
       return res.status(500).json({
         message: "Failed to create doctor profile",
         error: err.message,
       });
     }
   } catch (error) {
-    console.error("Unhandled error:", error);
+    // console.error("Unhandled error:", error);
     return res
       .status(500)
       .json({ message: "Server error", error: error.message });

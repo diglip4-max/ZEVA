@@ -30,7 +30,7 @@ export default async function handler(req, res) {
 
       return res.status(200).json({ success: true, data: requests });
     } catch (error) {
-      console.error("topup list error", error);
+      // console.error("topup list error", error);
       return res.status(500).json({ success: false, message: "Failed to fetch top-up requests" });
     }
   }
@@ -54,7 +54,7 @@ export default async function handler(req, res) {
       });
       return res.status(201).json({ success: true, data: request });
     } catch (error) {
-      console.error("topup create error", error);
+      // console.error("topup create error", error);
       return res.status(500).json({ success: false, message: "Failed to create top-up request" });
     }
   }

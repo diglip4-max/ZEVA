@@ -118,7 +118,7 @@ export default async function handler(req, res) {
       data: pettyCashRecord,
     });
   } catch (error) {
-    console.error("Error adding manual petty cash:", error);
+    // console.error("Error adding manual petty cash:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",

@@ -459,6 +459,7 @@ const BillingHistoryPage = () => {
                           const isAgentDiscount = billing.isAgentDiscountApplied;
                           const membershipDiscountAmount = billing.membershipDiscountApplied || 0;
                           const isMembershipDiscount = membershipDiscountAmount > 0;
+                          const isFreeSession = billing.offerType === 'bundle' && billing.offerFreeSession && billing.offerFreeSession.length > 0;
                           
                           const originalAmount = billing.originalAmount || 0;
                           const finalAmount = billing.amount || 0;
@@ -466,7 +467,7 @@ const BillingHistoryPage = () => {
                           const totalPercent = totalDiscountAmount > 0 && originalAmount > 0 ? (totalDiscountAmount / originalAmount * 100) : 0;
                           const membershipPercent = isMembershipDiscount && originalAmount > 0 ? (membershipDiscountAmount / originalAmount * 100) : 0;
 
-                          if (!isDoctorDiscount && !isAgentDiscount && !isMembershipDiscount && totalPercent <= 0) {
+                          if (!isDoctorDiscount && !isAgentDiscount && !isMembershipDiscount && !isFreeSession && totalPercent <= 0) {
                             return <div className="text-xs text-gray-400">—</div>;
                           }
 
@@ -483,6 +484,14 @@ const BillingHistoryPage = () => {
                                 </div>
                               )}
                               <div className="flex flex-col items-center gap-1 mt-0.5">
+                                {isFreeSession && (
+                                  <div className="text-[8px] uppercase tracking-wider text-green-700 bg-green-100 px-1.5 py-0.5 rounded font-bold border border-green-200 flex items-center gap-0.5">
+                                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                    </svg>
+                                    Free: {billing.offerFreeSession.join(', ')}
+                                  </div>
+                                )}
                                 {isMembershipDiscount && (
                                   <div className="text-[8px] uppercase tracking-wider text-emerald-600 px-1.5 py-0.5 rounded font-bold">
                                     Memb {membershipPercent > 0 ? `(${membershipPercent.toFixed(0)}%)` : 'Disc.'}

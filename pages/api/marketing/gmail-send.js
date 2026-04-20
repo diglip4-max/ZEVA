@@ -50,7 +50,7 @@ export default async function handler(req, res) {
           });
         }
       } catch (permErr) {
-        console.error("Permission check error:", permErr);
+        // console.error("Permission check error:", permErr);
         return res.status(500).json({ success: false, message: "Error checking permissions" });
       }
     }
@@ -177,7 +177,7 @@ export default async function handler(req, res) {
           status: response.accepted?.includes(recipientEmail) ? "success" : "failed",
         });
       } catch (err) {
-        console.error(`Failed to send email to ${recipientEmail}:`, err);
+        // console.error(`Failed to send email to ${recipientEmail}:`, err);
         results.push({
           to: recipientEmail,
           status: "failed",
@@ -194,7 +194,7 @@ export default async function handler(req, res) {
       data: results,
     });
   } catch (err) {
-    console.error("Gmail Send API error:", err);
+    // console.error("Gmail Send API error:", err);
     return res.status(500).json({
       success: false,
       message: err.message || "Internal server error",

@@ -48,7 +48,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, profile });
   } catch (error) {
-    console.error('Error fetching doctor profile:', error);
+    // console.error('Error fetching doctor profile:', error);
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 }

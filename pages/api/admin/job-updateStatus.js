@@ -57,55 +57,55 @@ export default async function handler(req, res) {
       // Step 2: Generate and lock slug for approved jobs
       if (status === 'approved' && !job.slugLocked) {
         try {
-          console.log(`🔄 Generating slug for job: ${job.jobTitle} (ID: ${jobId})`);
+          // console.log(`🔄 Generating slug for job: ${job.jobTitle} (ID: ${jobId})`);
           
           // Use central slug service to generate and lock slug
           const updatedJob = await generateAndLockSlug('job', jobId.toString());
           
           if (updatedJob.slug && updatedJob.slugLocked) {
-            console.log(`✅ Slug generated successfully: ${updatedJob.slug}`);
+            // console.log(`✅ Slug generated successfully: ${updatedJob.slug}`);
             
             // Step 3: Run SEO pipeline after slug generation
             let seoResult = null;
             let seoMessages = [];
             
             try {
-              console.log(`🚀 Running SEO pipeline for job: ${jobId}`);
+              // console.log(`🚀 Running SEO pipeline for job: ${jobId}`);
               seoResult = await runSEOPipeline('job', jobId.toString(), updatedJob);
               
               if (seoResult.success) {
-                console.log(`✅ SEO pipeline completed successfully`);
+                // console.log(`✅ SEO pipeline completed successfully`);
                 
                 // Step 4: Run SEO Health Check after pipeline
                 try {
-                  console.log(`\n🏥 [SEO Health Check] Running health check for job: ${jobId}`);
+                  // console.log(`\n🏥 [SEO Health Check] Running health check for job: ${jobId}`);
                   const healthCheck = await checkSEOHealth('job', jobId.toString());
                   
-                  console.log(`\n📊 [SEO Health Check] Results:`);
-                  console.log(`   Overall Health: ${healthCheck.overallHealth.toUpperCase()}`);
-                  console.log(`   Health Score: ${healthCheck.score}/100`);
-                  console.log(`   Total Issues: ${healthCheck.issues.length}`);
+                  // console.log(`\n📊 [SEO Health Check] Results:`);
+                  // console.log(`   Overall Health: ${healthCheck.overallHealth.toUpperCase()}`);
+                  // console.log(`   Health Score: ${healthCheck.score}/100`);
+                  // console.log(`   Total Issues: ${healthCheck.issues.length}`);
                   
                   if (healthCheck.issues.length > 0) {
-                    console.log(`\n   🚨 Issues Found:`);
+                    // console.log(`\n   🚨 Issues Found:`);
                     healthCheck.issues.forEach((issue, index) => {
-                      console.log(`   ${index + 1}. [${issue.severity.toUpperCase()}] ${issue.type}`);
-                      console.log(`      Message: ${issue.message}`);
-                      if (issue.field) console.log(`      Field: ${issue.field}`);
-                      if (issue.expected) console.log(`      Expected: ${issue.expected}`);
-                      if (issue.actual) console.log(`      Actual: ${issue.actual}`);
-                      if (issue.fix) console.log(`      Fix: ${issue.fix}`);
+                      // console.log(`   ${index + 1}. [${issue.severity.toUpperCase()}] ${issue.type}`);
+                      // console.log(`      Message: ${issue.message}`);
+                      // if (issue.field) console.log(`      Field: ${issue.field}`);
+                      // if (issue.expected) console.log(`      Expected: ${issue.expected}`);
+                      // if (issue.actual) console.log(`      Actual: ${issue.actual}`);
+                      // if (issue.fix) console.log(`      Fix: ${issue.fix}`);
                     });
                   }
                   
                   if (healthCheck.recommendations.length > 0) {
-                    console.log(`\n   💡 Recommendations:`);
+                    // console.log(`\n   💡 Recommendations:`);
                     healthCheck.recommendations.forEach((rec, index) => {
-                      console.log(`   ${index + 1}. ${rec}`);
+                      // console.log(`   ${index + 1}. ${rec}`);
                     });
                   }
                   
-                  console.log(`\n`);
+                  // console.log(`\n`);
                   
                   // Add health check to SEO messages
                   if (healthCheck.overallHealth === 'critical') {
@@ -128,7 +128,7 @@ export default async function handler(req, res) {
                   // Store health check in response
                   seoResult.healthCheck = healthCheck;
                 } catch (healthError) {
-                  console.error(`❌ SEO Health Check error (non-fatal):`, healthError.message);
+                  // console.error(`❌ SEO Health Check error (non-fatal):`, healthError.message);
                   // Non-fatal - continue with response
                 }
                 
@@ -207,15 +207,15 @@ export default async function handler(req, res) {
                 }
                 
               } else {
-                console.warn(`⚠️ SEO pipeline completed with warnings:`, seoResult.errors);
-                seoMessages.push({
-                  type: 'warning',
-                  message: `⚠️ SEO setup completed with some warnings. Please review your job posting.`,
-                });
+                // console.warn(`⚠️ SEO pipeline completed with warnings:`, seoResult.errors);
+                // seoMessages.push({
+                //   type: 'warning',
+                //   message: `⚠️ SEO setup completed with some warnings. Please review your job posting.`,
+                // });
               }
             } catch (seoError) {
               // SEO errors are non-fatal - log but continue
-              console.error("❌ SEO pipeline error (non-fatal):", seoError.message);
+              // console.error("❌ SEO pipeline error (non-fatal):", seoError.message);
               seoMessages.push({
                 type: 'error',
                 message: `❌ SEO setup encountered an error. Your job is approved but SEO features may be limited.`,
@@ -226,16 +226,16 @@ export default async function handler(req, res) {
             updatedJob._seoMessages = seoMessages;
             updatedJob._seoResult = seoResult;
           } else {
-            console.log(`⚠️ Slug generation completed but slugLocked is false`);
+            // console.log(`⚠️ Slug generation completed but slugLocked is false`);
           }
         } catch (slugError) {
           // If slug generation fails but job is approved, continue with approval
-          console.error("❌ Slug generation error (non-fatal):", slugError.message);
-          console.error("Error stack:", slugError.stack);
+          // console.error("❌ Slug generation error (non-fatal):", slugError.message);
+          // console.error("Error stack:", slugError.stack);
           // Continue with approval even if slug generation fails
         }
       } else if (status === 'approved' && job.slugLocked) {
-        console.log(`⏭️ Skipping slug generation - slug already locked: ${job.slug}`);
+        // console.log(`⏭️ Skipping slug generation - slug already locked: ${job.slug}`);
       }
 
       // Refresh job data to get updated slug

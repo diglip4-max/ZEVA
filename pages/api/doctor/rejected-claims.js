@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     let user;
     try {
       user = await getUserFromToken(req);
-      console.log("user name",user);
+      // console.log("user name",user);
     } catch (err) {
       return res.status(err.status || 401).json({ success: false, message: err.message });
     }
@@ -113,7 +113,7 @@ export default async function handler(req, res) {
       doctorName,
     });
   } catch (err) {
-    console.error("Error fetching rejected claims:", err);
+    // console.error("Error fetching rejected claims:", err);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 }

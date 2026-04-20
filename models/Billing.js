@@ -255,6 +255,40 @@ cashbackEarned: {
   default: 0
 },
 
+// Detailed cashback offer tracking fields
+isCashbackApplied: {
+  type: Boolean,
+  default: false
+},
+
+cashbackOfferId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Offer",
+  default: null
+},
+
+cashbackOfferName: {
+  type: String,
+  default: null
+},
+
+cashbackAmount: {
+  type: Number,
+  default: 0,
+  min: 0
+},
+
+// Cashback validity period
+cashbackStartDate: {
+  type: Date,
+  default: null
+},
+
+cashbackEndDate: {
+  type: Date,
+  default: null
+},
+
 bundleSessionsAdded: {
   type: Number,
   default: 0
@@ -270,6 +304,18 @@ offerOverrideReason: String,
 offerAppliedBy: {
   type: mongoose.Schema.Types.ObjectId,
   ref: "User"
+},
+
+// Bundle offer tracking fields
+offerFreeSession: {
+  type: [String],
+  default: []
+},
+
+freeOfferSessionCount: {
+  type: Number,
+  default: 0,
+  min: 0
 }
   },
   { timestamps: true },

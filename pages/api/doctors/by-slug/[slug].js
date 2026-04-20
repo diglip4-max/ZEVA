@@ -97,7 +97,7 @@ export default async function handler(req, res) {
       profile,
     });
   } catch (error) {
-    console.error("Error fetching doctor by slug:", error);
+    // console.error("Error fetching doctor by slug:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",

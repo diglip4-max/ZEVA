@@ -125,7 +125,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, job: updatedJob });
   } catch (error) {
-    console.error("Error updating job:", error);
+    // console.error("Error updating job:", error);
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 }

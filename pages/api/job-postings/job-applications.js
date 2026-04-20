@@ -128,7 +128,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({ success: true, applications: formattedApps });
   } catch (error) {
-    console.error("Error fetching applications:", error);
+    // console.error("Error fetching applications:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 }

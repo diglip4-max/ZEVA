@@ -112,7 +112,7 @@ export default async function handler(req, res) {
     await blog.save();
     return res.status(200).json({ success: true, message: 'Comment/reply deleted successfully' });
   } catch (error) {
-    console.error("Error in deleteComment API:", error);
+    // console.error("Error in deleteComment API:", error);
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 }

@@ -9,7 +9,7 @@ const verifyToken = (token) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     return decoded;
   } catch (error) {
-    console.error('Token verification error:', error.message);
+    // console.error('Token verification error:', error.message);
     return null;
   }
 };
@@ -69,11 +69,7 @@ export default async function handler(req, res) {
     // ✅ CRITICAL: Use the same value for both doctorId and userId
     const targetId = doctorId;
 
-    console.log('Processing desktime for:', { 
-      targetId, 
-      role: decoded.role,
-      duration 
-    });
+   
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -112,7 +108,7 @@ export default async function handler(req, res) {
           activityType: 'desktime'
         }],
       });
-      console.log('Created new session for doctor:', targetId);
+      // console.log('Created new session for doctor:', targetId);
     } else {
       // Update existing session
       session.deskTimeSeconds = (session.deskTimeSeconds || 0) + duration;
@@ -136,7 +132,7 @@ export default async function handler(req, res) {
           Math.round(((session.productiveSeconds || 0) / session.deskTimeSeconds) * 100)
         );
       }
-      console.log('Updated session for doctor:', targetId);
+      // console.log('Updated session for doctor:', targetId);
     }
 
     // ✅ CRITICAL: Double-check that userId is set before saving
@@ -148,7 +144,7 @@ export default async function handler(req, res) {
     }
 
     await session.save();
-    console.log('Session saved successfully');
+    // console.log('Session saved successfully');
 
     return res.json({
       success: true,
@@ -157,12 +153,12 @@ export default async function handler(req, res) {
       productivityPercentage: session.productivityPercentage,
     });
   } catch (error) {
-    console.error('DOCTOR DESK TIME ERROR:', error);
-    console.error('Error details:', {
-      message: error.message,
-      errors: error.errors,
-      validationErrors: error.errors ? Object.keys(error.errors) : null
-    });
+    // console.error('DOCTOR DESK TIME ERROR:', error);
+    // console.error('Error details:', {
+    //   message: error.message,
+    //   errors: error.errors,
+    //   validationErrors: error.errors ? Object.keys(error.errors) : null
+    // });
     
     return res.status(500).json({ 
       success: false, 

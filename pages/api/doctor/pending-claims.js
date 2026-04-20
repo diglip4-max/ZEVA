@@ -11,7 +11,7 @@ import User from "../../../models/Users";
   if (!token) throw { status: 401, message: "No token provided" };
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log("decoded",decoded)
+    // console.log("decoded",decoded)
     const user = await User.findById(decoded.userId).select("-password");
     if (!user) throw { status: 401, message: "User not found" };
     return user;
@@ -45,7 +45,7 @@ export default async function handler(req, res) {
       const patients = await PatientRegistration.find(query).sort({ createdAt: -1 });
       return res.status(200).json({ success: true, data: patients });
     } catch (err) {
-      console.error("GET /api/patients error:", err);
+      // console.error("GET /api/patients error:", err);
       return res.status(err.status || 500).json({ success: false, message: err.message || "Server error" });
     }
   }
@@ -116,7 +116,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, message: "Invalid action" });
       }
     } catch (err) {
-      console.error("PATCH /api/patients error:", err);
+      // console.error("PATCH /api/patients error:", err);
       return res.status(err.status || 500).json({ success: false, message: err.message || "Server error" });
     }
   }

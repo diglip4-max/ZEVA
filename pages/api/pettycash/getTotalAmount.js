@@ -41,7 +41,7 @@ export default async function handler(req, res) {
     try {
       staffObjectId = new mongoose.Types.ObjectId(staffId);
     } catch (idError) {
-      console.error("Invalid staffId format:", staffId, idError);
+      // console.error("Invalid staffId format:", staffId, idError);
       return res.status(400).json({ success: false, message: "Invalid staff ID format" });
     }
 
@@ -296,8 +296,8 @@ export default async function handler(req, res) {
       patients: result.patients || [],
     });
   } catch (err) {
-    console.error("global-total error:", err);
-    console.error("Error stack:", err.stack);
+    // .error("global-total error:", err);
+    // coconsolensole.error("Error stack:", err.stack);
     // Handle errors from getAuthorizedStaffUser which have a status property
     if (err.status) {
       return res.status(err.status).json({ success: false, message: err.message || "Authentication error" });

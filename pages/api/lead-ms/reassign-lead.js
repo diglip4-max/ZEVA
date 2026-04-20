@@ -156,7 +156,7 @@ export default async function handler(req, res) {
         lead: updatedLead,
       });
     } catch (err) {
-      console.error("Error updating lead:", err);
+      // console.error("Error updating lead:", err);
       return res
         .status(500)
         .json({ success: false, message: "Failed to update lead" });

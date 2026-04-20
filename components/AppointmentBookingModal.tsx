@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { toast } from "react-hot-toast";
 import {
   X,
   Search,
@@ -555,7 +556,25 @@ export default function AppointmentBookingModal({
         setError(res.data.message || "Failed to book appointment");
       }
     } catch (err: any) {
+      const status = err.response?.status;
       const errorData = err.response?.data;
+      
+      // Handle 403 authentication error
+      if (status === 403) {
+        toast.error("Session expired. Please login again.", { 
+          duration: 4000,
+          style: {
+            background: '#fef2f2',
+            color: '#991b1b',
+            border: '1px solid #fecaca',
+            fontSize: '13px',
+            fontWeight: '500',
+          },
+        });
+        setError("Authentication failed. Please login again.");
+        return;
+      }
+      
       if (errorData?.errors) {
         // Field-level errors from API
         setFieldErrors(errorData.errors);

@@ -70,12 +70,12 @@ export default async function handler(req, res) {
     try {
       // First check if clinic has read permission for "create_lead" module
       const { checkClinicPermission } = await import("./permissions-helper");
-      console.log("[leadFilter] Checking permission for", {
-        role: me.role,
-        clinicId: clinic._id?.toString(),
-        moduleKey: "create_lead",
-        action: "read",
-      });
+      // console.log("[leadFilter] Checking permission for", {
+      //   role: me.role,
+      //   clinicId: clinic._id?.toString(),
+      //   moduleKey: "create_lead",
+      //   action: "read",
+      // });
       // Pass the user's role to check role-specific permissions (doctor uses 'doctor' role, clinic uses 'clinic' role)
       const { hasPermission: clinicHasPermission, error: clinicError } =
         await checkClinicPermission(
@@ -90,11 +90,11 @@ export default async function handler(req, res) {
             : null
         );
 
-      console.log("[leadFilter] Permission check result", {
-        hasPermission: clinicHasPermission,
-        error: clinicError,
-        role: me.role,
-      });
+      // console.log("[leadFilter] Permission check result", {
+      //   hasPermission: clinicHasPermission,
+      //   error: clinicError,
+      //   role: me.role,
+      // });
 
       if (!clinicHasPermission) {
         return res.status(403).json({
@@ -103,7 +103,7 @@ export default async function handler(req, res) {
         });
       }
     } catch (permError) {
-      console.error("[leadFilter] Error checking permissions:", permError);
+      // console.error("[leadFilter] Error checking permissions:", permError);
       return res.status(500).json({
         success: false,
         message: "Error checking permissions",
@@ -211,7 +211,7 @@ export default async function handler(req, res) {
         },
       });
     } catch (err) {
-      console.error("Error fetching leads:", err);
+      // console.error("Error fetching leads:", err);
       return res
         .status(500)
         .json({ success: false, message: "Failed to fetch leads" });

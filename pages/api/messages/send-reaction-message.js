@@ -244,7 +244,7 @@ export default async function handler(req, res) {
       });
     }
   } catch (err) {
-    console.error("Error in send reaction:", err);
+    // console.error("Error in send reaction:", err);
 
     return res.status(500).json({
       success: false,

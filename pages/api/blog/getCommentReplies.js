@@ -35,7 +35,7 @@ export default async function handler(req, res) {
       .status(200)
       .json({ success: true, replies: comment.replies || [] });
   } catch (error) {
-    console.error("Error fetching comment replies:", error);
+    // console.error("Error fetching comment replies:", error);
     return res.status(500).json({ success: false, error: "Server error" });
   }
 }

@@ -80,7 +80,7 @@ async function handler(req, res) {
       doctorId: doctorId,
     });
   } catch (err) {
-    console.error('DOCTOR ARRIVAL ERROR:', err);
+    // console.error('DOCTOR ARRIVAL ERROR:', err);
     return res.status(500).json({ 
       success: false,
       message: 'Server error',

@@ -213,6 +213,22 @@ const patientRegistrationSchema = new mongoose.Schema(
     hasTransferredOut: { type: Boolean, default: false },
     transferredOutMembershipPriority: { type: Boolean, default: false },
 
+    // Wallet Balance & Credit System
+    walletBalance: { type: Number, default: 0, min: 0 },
+    walletCreditExpiry: { type: Date, default: null },
+    walletTransactions: [
+      {
+        amount: { type: Number, required: true, min: 0 },
+        type: { type: String, enum: ['credit', 'debit'], required: true },
+        source: { type: String, enum: ['cashback', 'refund', 'manual', 'payment'], required: true },
+        offerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Offer', default: null },
+        offerName: { type: String, default: null },
+        billingId: { type: mongoose.Schema.Types.ObjectId, ref: 'Billing', default: null },
+        invoiceNumber: { type: String, default: null },
+        description: { type: String, trim: true, default: '' },
+        createdAt: { type: Date, default: Date.now }
+      }
+    ],
     // map with lead
     leadId: {
       type: mongoose.Schema.Types.ObjectId,

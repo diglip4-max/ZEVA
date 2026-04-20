@@ -35,7 +35,7 @@ export default async function handler(req, res) {
       });
     }
   } catch (err) {
-    console.error('❌ Slug Validation Error:', err);
+    // console.error('❌ Slug Validation Error:', err);
     return res.status(500).json({
       success: false,
       valid: false,

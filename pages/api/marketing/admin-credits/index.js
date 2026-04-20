@@ -26,7 +26,7 @@ export default async function handler(req, res) {
         },
       });
     } catch (error) {
-      console.error("admin credits get error", error);
+      // console.error("admin credits get error", error);
       return res.status(500).json({ success: false, message: "Failed to load admin credits" });
     }
   }
@@ -61,7 +61,7 @@ export default async function handler(req, res) {
       if (error.message === "Amount must be greater than zero") {
         return res.status(400).json({ success: false, message: error.message });
       }
-      console.error("admin credits post error", error);
+      // console.error("admin credits post error", error);
       return res.status(500).json({ success: false, message: "Failed to update admin credits" });
     }
   }

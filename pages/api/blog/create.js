@@ -54,7 +54,7 @@ export default async function handler(req, res) {
             blog: populatedBlog 
           });
         } catch (error) {
-          console.error("Error in POST create blog:", error);
+          // console.error("Error in POST create blog:", error);
           res.status(500).json({ success: false, message: "Internal server error" });
         }
         break;
@@ -135,7 +135,7 @@ export default async function handler(req, res) {
           
           res.status(200).json({ success: true, blog: updatedBlog });
         } catch (error) {
-          console.error("Error in PUT create blog:", error);
+          // console.error("Error in PUT create blog:", error);
           res.status(500).json({ success: false, message: "Internal server error" });
         }
         break;
@@ -182,7 +182,7 @@ export default async function handler(req, res) {
           await Blog.findByIdAndDelete(id);
           res.status(200).json({ success: true, message: 'Blog deleted successfully' });
         } catch (error) {
-          console.error("Error in DELETE create blog:", error);
+          // console.error("Error in DELETE create blog:", error);
           res.status(500).json({ success: false, message: "Internal server error" });
         }
         break;
@@ -191,7 +191,7 @@ export default async function handler(req, res) {
         res.status(405).json({ success: false, message: 'Method not allowed' });
     }
   } catch (error) {
-    console.error("Error in create blog API:", error);
+    // console.error("Error in create blog API:", error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 }

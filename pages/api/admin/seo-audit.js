@@ -426,7 +426,7 @@ export default async function handler(req, res) {
     });
 
     // Batch check SEO health
-    console.log(`\n📊 [SEO Audit API] Checking SEO health for ${entityIds.length} ${entityType}s`);
+    // console.log(`\n📊 [SEO Audit API] Checking SEO health for ${entityIds.length} ${entityType}s`);
     const healthData = await batchCheckSEOHealth(entityTypeForHealth, entityIds);
 
     // Combine entity data with health data
@@ -496,14 +496,14 @@ export default async function handler(req, res) {
     const totalPages = Math.ceil(totalCount / pageSize);
     const hasMore = pageNumber < totalPages;
 
-    console.log(`\n✅ [SEO Audit API] Audit completed for ${entityType}s`);
-    console.log(`   Total ${entityType}s: ${totalCount}`);
-    console.log(`   Page: ${pageNumber}/${totalPages}`);
-    console.log(`   Items on this page: ${entitiesWithHealth.length}`);
-    console.log(`   Healthy: ${summary.healthy}`);
-    console.log(`   Warning: ${summary.warning}`);
-    console.log(`   Critical: ${summary.critical}`);
-    console.log(`   Average Score: ${summary.averageScore}/100\n`);
+    // console.log(`\n✅ [SEO Audit API] Audit completed for ${entityType}s`);
+    // console.log(`   Total ${entityType}s: ${totalCount}`);
+    // console.log(`   Page: ${pageNumber}/${totalPages}`);
+    // console.log(`   Items on this page: ${entitiesWithHealth.length}`);
+    // console.log(`   Healthy: ${summary.healthy}`);
+    // console.log(`   Warning: ${summary.warning}`);
+    // console.log(`   Critical: ${summary.critical}`);
+    // console.log(`   Average Score: ${summary.averageScore}/100\n`);
 
     return res.status(200).json({
       success: true,
@@ -522,7 +522,7 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Error in SEO audit API:', error);
+    // console.error('Error in SEO audit API:', error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error',

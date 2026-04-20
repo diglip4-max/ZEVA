@@ -31,7 +31,7 @@ export default async function handler(req, res) {
 
     form.parse(req, async (err, fields, files) => {
       if (err) {
-        console.error("Form parse error:", err);
+        // console.error("Form parse error:", err);
         return res.status(500).json({ message: "File upload error" });
       }
 
@@ -85,7 +85,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ message: "Application submitted successfully." });
     });
   } catch (err) {
-    console.error("Server error:", err);
+    // console.error("Server error:", err);
     res.status(500).json({ message: "Server error" });
   }
 }

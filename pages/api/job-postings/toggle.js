@@ -133,7 +133,7 @@ export default async function handler(req, res) {
       job 
     });
   } catch (error) {
-    console.error('[Toggle Job] Error:', error);
+    // console.error('[Toggle Job] Error:', error);
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 }

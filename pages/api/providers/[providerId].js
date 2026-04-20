@@ -113,7 +113,7 @@ export default async function handler(req, res) {
       data: responseData,
     });
   } catch (err) {
-    console.error("Error in getting provider:", err);
+    // console.error("Error in getting provider:", err);
 
     if (err.name === "ValidationError") {
       return res.status(400).json({

@@ -33,7 +33,7 @@ export default async function handler(req, res) {
       return res.status(403).json({ success: false, message: 'Admin access required' });
     }
   } catch (error) {
-    console.error('Invalid admin token for clinic permissions:', error);
+    // console.error('Invalid admin token for clinic permissions:', error);
     return res.status(401).json({ success: false, message: 'Invalid token' });
   }
 
@@ -163,7 +163,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, data: permissions });
       }
     } catch (error) {
-      console.error('Error fetching clinic permissions:', error);
+      // console.error('Error fetching clinic permissions:', error);
       return res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
@@ -193,7 +193,7 @@ export default async function handler(req, res) {
       // Note: Clinic role permissions can now be managed. 
       // If you want clinic to have full access by default, ensure permissions are set accordingly.
 
-      console.log('Received clinic permission request:', { clinicId, role: normalizedRole, permissions });
+      // console.log('Received clinic permission request:', { clinicId, role: normalizedRole, permissions });
 
       if (!clinicId || !permissions) {
         return res.status(400).json({ success: false, message: 'Clinic ID and permissions are required' });
@@ -251,7 +251,7 @@ export default async function handler(req, res) {
       const adminObjectId = await resolveAdminObjectId(adminPayload);
 
       if (!adminObjectId) {
-        console.error('Unable to resolve admin id from token payload:', adminPayload);
+        // console.error('Unable to resolve admin id from token payload:', adminPayload);
         return res.status(401).json({ success: false, message: 'Invalid admin token payload' });
       }
 
@@ -269,7 +269,7 @@ export default async function handler(req, res) {
         { runValidators: false }
       );
 
-      console.log('Creating/updating clinic permissions for clinic:', clinicId);
+      // console.log('Creating/updating clinic permissions for clinic:', clinicId);
       
       // Create or update clinic permissions
       const clinicPermission = await ClinicPermission.findOneAndUpdate(
@@ -291,7 +291,7 @@ export default async function handler(req, res) {
         }
       );
 
-      console.log('Clinic permission saved successfully:', clinicPermission._id);
+      // console.log('Clinic permission saved successfully:', clinicPermission._id);
 
       return res.status(200).json({ 
         success: true, 
@@ -299,7 +299,7 @@ export default async function handler(req, res) {
         data: clinicPermission 
       });
     } catch (error) {
-      console.error('Error updating clinic permissions:', error);
+      // console.error('Error updating clinic permissions:', error);
       return res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
@@ -327,7 +327,7 @@ export default async function handler(req, res) {
         message: 'Clinic permissions deactivated successfully' 
       });
     } catch (error) {
-      console.error('Error deactivating clinic permissions:', error);
+      // console.error('Error deactivating clinic permissions:', error);
       return res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }

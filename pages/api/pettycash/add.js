@@ -81,7 +81,7 @@ export default async function handler(req, res) {
 
         const data = await response.json();
         if (data.secure_url) receiptUrls.push(data.secure_url);
-        else console.warn("Cloudinary upload failed:", data);
+        // else console.warn("Cloudinary upload failed:", data);
       }
     }
 
@@ -114,7 +114,7 @@ export default async function handler(req, res) {
       pettyCash: newPettyCash,
     });
   } catch (error) {
-    console.error("Error adding petty cash:", error);
+    // console.error("Error adding petty cash:", error);
     res.status(500).json({
       success: false,
       message: "Server error",

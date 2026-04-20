@@ -135,14 +135,14 @@ export default async function handler(req, res) {
         },
       });
     } catch (error) {
-      console.error("Error fetching messages of conversation:", error);
+      // console.error("Error fetching messages of conversation:", error);
       return res.status(500).json({
         success: false,
         message: "Failed to fetch messages of conversation",
       });
     }
   } catch (error) {
-    console.error("Get Messages error conversation: ", error);
+    // console.error("Get Messages error conversation: ", error);
     return res.status(500).json({
       success: false,
       message: error?.message || "Internal server error",

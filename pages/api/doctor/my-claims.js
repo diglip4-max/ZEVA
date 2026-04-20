@@ -86,7 +86,7 @@ export default async function handler(req, res) {
       stats,
     });
   } catch (err) {
-    console.error("Error fetching my claims:", err);
+    // console.error("Error fetching my claims:", err);
     return res.status(err.status || 500).json({
       success: false,
       message: err.message || "Internal server error",

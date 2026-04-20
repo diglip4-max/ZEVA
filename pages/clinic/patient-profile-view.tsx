@@ -535,6 +535,9 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { p
   const [loadingPackages, setLoadingPackages] = useState(false);
   const [billingHistory, setBillingHistory] = useState<any>(null);
   const [loadingBilling, setLoadingBilling] = useState(false);
+  
+  // Cashback state
+  const [validCashback, setValidCashback] = useState<any>(null);
   const [allAppointmentsData, setAllAppointmentsData] = useState<any[]>([]);
   const [loadingTreatmentAppointments, setLoadingTreatmentAppointments] = useState(false);
   const [mediaDocuments, setMediaDocuments] = useState<any[]>([]);
@@ -1822,6 +1825,64 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         const billings = response.data.billings || [];
         setBillingHistory(billings);
         calculateFinancialSnapshot(billings);
+        
+        // Calculate valid cashback from billing history
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Reset time to start of day
+        
+        console.log('[CashbackProfile] Checking cashback validity:', {
+          totalBillings: billings.length,
+          today: today.toISOString()
+        });
+        
+        // Find all billings with valid cashback
+        const cashbackBillings = billings.filter((billing: any) => {
+          if (!billing.isCashbackApplied || !billing.cashbackAmount || billing.cashbackAmount <= 0) {
+            return false;
+          }
+          
+          // Check if cashback has not expired
+          if (billing.cashbackEndDate) {
+            const endDate = new Date(billing.cashbackEndDate);
+            endDate.setHours(0, 0, 0, 0);
+            const isValid = endDate >= today;
+            console.log('[CashbackProfile] Billing:', billing.invoiceNumber, {
+              cashbackAmount: billing.cashbackAmount,
+              endDate: billing.cashbackEndDate,
+              isValid
+            });
+            return isValid; // Not expired
+          }
+          
+          return false;
+        });
+        
+        console.log('[CashbackProfile] Valid cashback billings:', cashbackBillings.length);
+        
+        // Calculate total valid cashback amount
+        const totalCashback = cashbackBillings.reduce((sum: number, billing: any) => {
+          return sum + (billing.cashbackAmount || 0);
+        }, 0);
+        
+        // Get the nearest expiry date
+        let nearestExpiry = null;
+        if (cashbackBillings.length > 0) {
+          const sortedByExpiry = cashbackBillings.sort((a: any, b: any) => {
+            return new Date(a.cashbackEndDate).getTime() - new Date(b.cashbackEndDate).getTime();
+          });
+          nearestExpiry = sortedByExpiry[0].cashbackEndDate;
+        }
+        
+        if (totalCashback > 0 && nearestExpiry) {
+          setValidCashback({
+            amount: totalCashback,
+            expiryDate: nearestExpiry,
+            daysRemaining: Math.ceil((new Date(nearestExpiry).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+          });
+        } else {
+          setValidCashback(null);
+        }
+        
         return billings;
       }
     } catch (error: any) {
@@ -2586,8 +2647,29 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
               </div>
             </div>
 
-            {/* Right: Last Visit + Add Payment */}
+            {/* Right: Cashback + Last Visit + Add Payment */}
             <div className="flex items-center gap-4 flex-shrink-0">
+              {/* Cashback Display - Only show if valid cashback exists */}
+              {validCashback && validCashback.amount > 0 && (
+                <div className="text-center bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-1 mb-0.5">
+                    <svg className="w-3.5 h-3.5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                    </svg>
+                    <div className="text-[11px] font-bold text-green-800 uppercase tracking-wide">Cashback</div>
+                  </div>
+                  <div className="text-base font-bold text-green-700 mb-0.5">
+                    {getCurrencySymbol(currency)}{validCashback.amount.toFixed(2)}
+                  </div>
+                  <div className="text-[9px] text-green-600 font-semibold">
+                    Expires: {new Date(validCashback.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </div>
+                  <div className="text-[9px] text-green-500 mt-0.5">
+                    {validCashback.daysRemaining} days remaining
+                  </div>
+                </div>
+              )}
+
               {/* Last Visit */}
               <div className="text-center">
                 <div className="text-[12px] font-semibold text-gray-800 font-medium mb-0.5">Last Visit</div>
@@ -6224,6 +6306,72 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                           </div>
                         </div>
                       </div>
+
+                  {/* Bundle Offers - Earned Free Sessions */}
+                  {!loadingBilling && billingHistory && (
+                    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-2.5 flex items-center gap-2">
+                        <svg className="w-4 h-4 text-purple-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                        </svg>
+                        Bundle Offers & Free Sessions
+                      </h3>
+                      
+                      <div className="space-y-2">
+                        {(() => {
+                          // Extract unique bundle offers from billing history
+                          const bundleOffers = (billingHistory || [])
+                            .filter((b: any) => b.offerType === 'bundle' && b.offerFreeSession && b.offerFreeSession.length > 0)
+                            .map((b: any) => ({
+                              offerName: b.offerName || b.offerTitle || 'Bundle Offer',
+                              offerFreeSession: b.offerFreeSession || [],
+                              freeOfferSessionCount: b.freeOfferSessionCount || 0,
+                              invoiceNumber: b.invoiceNumber,
+                              invoicedDate: b.invoicedDate,
+                              treatment: b.treatment,
+                              amount: b.amount
+                            }));
+
+                          if (bundleOffers.length === 0) {
+                            return (
+                              <div className="text-center py-3">
+                                <svg className="w-8 h-8 mx-auto text-gray-300 mb-2" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                </svg>
+                                <p className="text-xs text-gray-500">No bundle offers earned yet</p>
+                              </div>
+                            );
+                          }
+
+                          return bundleOffers.map((offer: any, index: number) => (
+                            <div key={index} className="p-2 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-md">
+                              <div className="flex items-start gap-2">
+                                <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                                  <svg className="w-3.5 h-3.5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                  </svg>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs font-bold text-purple-900 truncate">
+                                    {offer.offerName}
+                                  </div>
+                                  <div className="text-[10px] text-purple-700 mt-1 font-semibold">
+                                    🎁 Free Session{offer.freeOfferSessionCount > 1 ? 's' : ''}: {offer.offerFreeSession.join(', ')}
+                                  </div>
+                                  <div className="text-[10px] text-purple-600 mt-0.5">
+                                    Earned on: {offer.invoicedDate ? new Date(offer.invoicedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                                  </div>
+                                  <div className="text-[10px] text-purple-500 mt-0.5">
+                                    Invoice: {offer.invoiceNumber} • Purchased: {offer.treatment}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+                  )}
                                           
                       {/* Pending Payment */}
                       <div className="flex items-center justify-between p-2 bg-red-50 border border-red-100 rounded-md">

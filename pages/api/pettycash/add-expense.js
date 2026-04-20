@@ -62,7 +62,7 @@ export default async function handler(req, res) {
         // const { hasPermission } = await checkClinicPermission(clinicId, "clinic_staff_management", "create", "Add Expense");
         // if (!hasPermission) return res.status(403).json({ message: "No permission to add expense" });
       } catch (permErr) {
-        console.error("Permission check error:", permErr);
+        // console.error("Permission check error:", permErr);
       }
     } else if (staffUser.role !== "staff" && staffUser.role !== "admin") {
       return res.status(403).json({ message: "Access denied" });
@@ -80,7 +80,7 @@ export default async function handler(req, res) {
       const { clinicId: cid } = await getClinicIdFromUser(staffUser);
       clinicId = cid;
     } catch (err) {
-      console.error("Error getting clinicId:", err);
+      // console.error("Error getting clinicId:", err);
     }
 
     // Find an existing PettyCash record for this staff or create a new one
@@ -124,7 +124,7 @@ export default async function handler(req, res) {
       data: pettyCash,
     });
   } catch (error) {
-    console.error("Error adding expense:", error);
+    // console.error("Error adding expense:", error);
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 }

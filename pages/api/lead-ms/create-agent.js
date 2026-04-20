@@ -70,11 +70,11 @@ export default async function handler(req, res) {
   }
 
   // Debug: Log who is creating
-  console.log('CREATE Agent - Current User:', { 
-    role: me.role, 
-    _id: me._id.toString(),
-    email: me.email 
-  });
+  // console.log('CREATE Agent - Current User:', { 
+  //   role: me.role, 
+  //   _id: me._id.toString(),
+  //   email: me.email 
+  // });
 
   const { name, email, phone, password, role } = req.body;
   if (!name || !email || !password || !role) {
@@ -94,15 +94,15 @@ export default async function handler(req, res) {
   try {
     // For agent creation: Allow admin, clinic, doctor, and agent roles
     // For doctorStaff creation: Allow admin, clinic, doctor, agent, and doctorStaff roles (permission checks already done above)
-    console.log('CREATE Agent - Role Check:', { 
-      creatingRole: role, 
-      currentUserRole: me.role,
-      currentUserId: me._id.toString()
-    });
+    // console.log('CREATE Agent - Role Check:', { 
+    //   creatingRole: role, 
+    //   currentUserRole: me.role,
+    //   currentUserId: me._id.toString()
+    // });
     
     if (role === "agent") {
       if (!requireRole(me, ["admin", "clinic", "doctor", "agent"])) {
-        console.log('CREATE Agent - Access denied for agent creation:', me.role);
+        // console.log('CREATE Agent - Access denied for agent creation:', me.role);
         return res.status(403).json({ success: false, message: "Access denied" });
       }
     } else if (role === "doctorStaff") {
@@ -110,17 +110,17 @@ export default async function handler(req, res) {
       // Permission checks for agent and doctorStaff are already done above (lines 43-69)
       const allowedRoles = ["admin", "clinic", "doctor", "agent", "doctorStaff"];
       const hasRole = requireRole(me, allowedRoles);
-      console.log('CREATE Agent - doctorStaff creation check:', { 
-        currentUserRole: me.role, 
-        allowedRoles, 
-        hasRole 
-      });
+      // console.log('CREATE Agent - doctorStaff creation check:', { 
+      //   currentUserRole: me.role, 
+      //   allowedRoles, 
+      //   hasRole 
+      // });
       
       if (!hasRole) {
-        console.log('CREATE Agent - Access denied for doctorStaff creation:', { 
-          currentUserRole: me.role, 
-          allowedRoles 
-        });
+        // console.log('CREATE Agent - Access denied for doctorStaff creation:', { 
+        //   currentUserRole: me.role, 
+        //   allowedRoles 
+        // });
         return res.status(403).json({ 
           success: false, 
           message: "Access denied. Admin, clinic, doctor, agent, or doctorStaff only for doctorStaff creation" 
@@ -226,21 +226,21 @@ export default async function handler(req, res) {
     }
 
     // Debug: Log what we're creating
-    console.log('CREATE Agent - User Data:', {
-      role: userData.role,
-      clinicId: userData.clinicId?.toString() || null,
-      createdBy: userData.createdBy.toString()
-    });
+    // console.log('CREATE Agent - User Data:', {
+    //   role: userData.role,
+    //   clinicId: userData.clinicId?.toString() || null,
+    //   createdBy: userData.createdBy.toString()
+    // });
 
     const user = await User.create(userData);
 
     // Debug: Log what was actually created
-    console.log('CREATE Agent - Created User:', {
-      _id: user._id.toString(),
-      role: user.role,
-      clinicId: user.clinicId?.toString() || null,
-      createdBy: user.createdBy?.toString() || null
-    });
+    // console.log('CREATE Agent - Created User:', {
+    //   _id: user._id.toString(),
+    //   role: user.role,
+    //   clinicId: user.clinicId?.toString() || null,
+    //   createdBy: user.createdBy?.toString() || null
+    // });
 
     return res.status(201).json({
       success: true,
@@ -256,7 +256,7 @@ export default async function handler(req, res) {
       },
     });
   } catch (err) {
-    console.error("Error creating user:", err);
+    // console.error("Error creating user:", err);
     return res
       .status(500)
       .json({ success: false, message: "Internal Server Error" });

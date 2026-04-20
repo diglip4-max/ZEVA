@@ -56,7 +56,7 @@ export default async function handler(req, res) {
           }
         }
       } catch (permErr) {
-        console.error("Permission check error:", permErr);
+        // console.error("Permission check error:", permErr);
         return res.status(500).json({ success: false, message: "Error checking permissions" });
       }
     } else if (me.role !== 'admin') {

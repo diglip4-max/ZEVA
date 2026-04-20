@@ -49,7 +49,7 @@ export default async function handler(req, res) {
         body = { ...body, ...parsedData };
         delete body.data;
       } catch (error) {
-        console.error("Error parsing form data:", error);
+        // console.error("Error parsing form data:", error);
       }
     }
   } else {
@@ -223,7 +223,7 @@ export default async function handler(req, res) {
             });
 
         if (!tDoc) {
-          console.warn(`Treatment not found: ${treatmentName}`);
+          // console.warn(`Treatment not found: ${treatmentName}`);
           return null;
         }
 
@@ -232,7 +232,7 @@ export default async function handler(req, res) {
             (s) => s.name === t.subTreatment
           );
           if (!subExists) {
-            console.warn(`SubTreatment not found: ${t.subTreatment}`);
+            // console.warn(`SubTreatment not found: ${t.subTreatment}`);
             return null;
           }
         }
@@ -252,7 +252,7 @@ export default async function handler(req, res) {
           if (mongoose.Types.ObjectId.isValid(val)) {
             const user = await User.findById(val);
             if (!user) {
-              console.warn(`User not found with ID: ${val}`);
+              // console.warn(`User not found with ID: ${val}`);
               return null;
             }
             return {
@@ -265,7 +265,7 @@ export default async function handler(req, res) {
               clinicId: clinicId,
             });
             if (!u) {
-              console.warn(`User not found with name: ${val}`);
+              // console.warn(`User not found with name: ${val}`);
               return null;
             }
             return { user: u._id, assignedAt: new Date() };
@@ -432,7 +432,7 @@ export default async function handler(req, res) {
         }
       }
 
-      console.warn(`Could not parse date: ${dateStr}`);
+      // console.warn(`Could not parse date: ${dateStr}`);
       return null;
     };
 
@@ -504,7 +504,7 @@ export default async function handler(req, res) {
               followUpsArray.push({ date: additionalDate, addedBy: me._id });
             }
           } catch (e) {
-            console.warn(`Invalid additional follow-up date: ${followUpDate}`);
+            // console.warn(`Invalid additional follow-up date: ${followUpDate}`);
           }
         }
 
@@ -535,7 +535,7 @@ export default async function handler(req, res) {
           error: error.message,
           data: row,
         });
-        console.warn(`Error processing row ${i + 1}:`, error.message);
+        // console.warn(`Error processing row ${i + 1}:`, error.message);
       }
     }
 
@@ -620,7 +620,7 @@ export default async function handler(req, res) {
       },
     });
   } catch (err) {
-    console.error("Error importing leads:", err);
+    // console.error("Error importing leads:", err);
     return res.status(500).json({
       success: false,
       message: err.message || "Internal Server Error",

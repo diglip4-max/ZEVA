@@ -137,13 +137,13 @@ export default async function handler(req, res) {
     headerVariableSampleValues = safeParseArray(headerVariableSampleValues);
     templateButtons = safeParseArray(templateButtons);
 
-    console.log({
-      templateButtons,
-      bodyVariableSampleValues,
-      variables,
-      headerVariables,
-      headerVariableSampleValues,
-    });
+    // console.log({
+    //   templateButtons,
+    //   bodyVariableSampleValues,
+    //   variables,
+    //   headerVariables,
+    //   headerVariableSampleValues,
+    // });
 
     let newTemplate;
 
@@ -186,7 +186,7 @@ export default async function handler(req, res) {
         ...rest,
       });
     } else if (templateType === "whatsapp") {
-      console.log({ provider });
+      // console.log({ provider });
       const findProvider = await Provider.findById(provider);
       if (!findProvider) {
         return res.status(404).json({
@@ -197,7 +197,7 @@ export default async function handler(req, res) {
 
       const accessToken = findProvider?.secrets?.whatsappAccessToken;
       const whatsappNumberId = findProvider?.secrets?.wabaId;
-      console.log({ accessToken, whatsappNumberId });
+      // console.log({ accessToken, whatsappNumberId });
 
       if (!accessToken || !whatsappNumberId) {
         return res.status(400).json({
@@ -233,10 +233,10 @@ export default async function handler(req, res) {
         // Sanitize the filename by replacing spaces with underscores
         const sanitizedFilename = originalname.replace(/\s+/g, "_");
 
-        console.log("File Name:", sanitizedFilename);
-        console.log("File Type:", mimetype);
-        console.log("File Size:", size); // File size in bytes
-        console.log("File Buffer:", buffer);
+        // console.log("File Name:", sanitizedFilename);
+        // console.log("File Type:", mimetype);
+        // console.log("File Size:", size); // File size in bytes
+        // console.log("File Buffer:", buffer);
 
         let whatsappUploadId = await getWhatsappUploadId(
           size,
@@ -307,7 +307,7 @@ export default async function handler(req, res) {
       data: newTemplate,
     });
   } catch (err) {
-    console.error("Error creating template:", err);
+    // console.error("Error creating template:", err);
 
     return res.status(500).json({
       success: false,
