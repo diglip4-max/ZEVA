@@ -112,6 +112,10 @@ export default async function handler(req, res) {
 
       let query = { clinicId };
 
+      if (["agent", "doctor", "doctorStaff"].includes(me.role)) {
+        query.ownerId = me._id;
+      }
+
       if (search) {
         query.$or = [{ name: { $regex: search, $options: "i" } }];
       }
