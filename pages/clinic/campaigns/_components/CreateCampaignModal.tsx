@@ -80,7 +80,7 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
             {/* Campaign Type Selection */}
             <div className="space-y-2">
               <label className="block text-sm font-bold text-gray-900">
-                Campaign Type *
+                Campaign Type <span className="text-red-500">*</span>
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {[
@@ -127,7 +127,7 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
             {/* Campaign Name Field */}
             <div className="space-y-2">
               <label className="block text-sm font-bold text-gray-900">
-                Campaign Name *
+                Campaign Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"

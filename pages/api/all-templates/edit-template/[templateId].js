@@ -213,7 +213,7 @@ export default async function handler(req, res) {
             headerVariableSampleValues,
             templateButtons,
             ...rest,
-          }
+          },
         );
       } else {
         if (!req.file) {
@@ -228,13 +228,13 @@ export default async function handler(req, res) {
         let whatsappUploadId = await getWhatsappUploadId(
           size,
           mimetype,
-          accessToken
+          accessToken,
         );
         if (whatsappUploadId) {
           let whatsappHandlerId = await getWhatsappHandlerId(
             whatsappUploadId,
             buffer,
-            accessToken
+            accessToken,
           );
 
           resData = await updateWhatsAppTemplate(
@@ -253,7 +253,7 @@ export default async function handler(req, res) {
               whatsappHandlerId,
               templateButtons,
               ...rest,
-            }
+            },
           );
         }
       }

@@ -728,7 +728,7 @@ export const sendWhatsappActionWorker = new Worker(
         "webhook",
         webhookPayload,
       );
-      content = replaceVariableInObject(content, "webhook", webhookPayload);
+      content = replaceVariableInString(content, "webhook", webhookPayload);
 
       // Replace header, button and body variables with actual rest api response
       headerVariableMappings = replaceVariableInObject(
@@ -746,7 +746,7 @@ export const sendWhatsappActionWorker = new Worker(
         "rest_api",
         restApiPayload,
       );
-      content = replaceVariableInObject(content, "rest_api", restApiPayload);
+      content = replaceVariableInString(content, "rest_api", restApiPayload);
 
       // Replace header, button and body variables with actual ai composer response
       headerVariableMappings = replaceVariableInObject(
@@ -764,7 +764,7 @@ export const sendWhatsappActionWorker = new Worker(
         "ai_composer",
         aiComposerPayload,
       );
-      content = replaceVariableInObject(
+      content = replaceVariableInString(
         content,
         "ai_composer",
         aiComposerPayload,
@@ -787,7 +787,7 @@ export const sendWhatsappActionWorker = new Worker(
         "lead",
         leadPayload,
       );
-      content = replaceVariableInObject(content, "lead", leadPayload);
+      content = replaceVariableInString(content, "lead", leadPayload);
 
       // Replace header, button and body variables with actual incoming message data
       if (actionData.messageId) {
@@ -807,7 +807,7 @@ export const sendWhatsappActionWorker = new Worker(
           "incoming_message",
           messagePayload,
         );
-        content = replaceVariableInObject(
+        content = replaceVariableInString(
           content,
           "incoming_message",
           messagePayload,
@@ -832,7 +832,7 @@ export const sendWhatsappActionWorker = new Worker(
           "patient",
           patientPayload,
         );
-        content = replaceVariableInObject(content, "patient", patientPayload);
+        content = replaceVariableInString(content, "patient", patientPayload);
       }
 
       // Replace header, button and body variables with actual appointment data
@@ -855,7 +855,7 @@ export const sendWhatsappActionWorker = new Worker(
           "appointment",
           appointmentPayload,
         );
-        content = replaceVariableInObject(
+        content = replaceVariableInString(
           content,
           "appointment",
           appointmentPayload,
@@ -879,7 +879,7 @@ export const sendWhatsappActionWorker = new Worker(
         "system",
         systemPayload,
       );
-      content = replaceVariableInObject(content, "system", systemPayload);
+      content = replaceVariableInString(content, "system", systemPayload);
 
       // Make an array of header, button and body parameters for whatsapp message
       let headerParameters = [];
@@ -2230,15 +2230,6 @@ const scheduleWhatsappCampaignWorker = new Worker(
                 }),
               );
             }
-            console.log({
-              headerVariableMappings,
-              buttonVariableMappings,
-              variableMappings,
-            });
-            console.log("Header Parameters: ", headerParameters);
-            console.log("Button Parameters: ", buttonParameters);
-            console.log("Body Parameters: ", bodyParameters);
-            console.log("Content: ", content);
 
             // check status is optOut or not if optOut then don't send message to this contact
 
@@ -2265,7 +2256,7 @@ const scheduleWhatsappCampaignWorker = new Worker(
                 !toPhoneNumber || consentStatus === "optOut"
                   ? "failed"
                   : "sent",
-              source: "Zeva",
+              source: "Zeva Campaign",
               errorCode:
                 consentStatus === "optOut"
                   ? "70002"
@@ -2283,7 +2274,6 @@ const scheduleWhatsappCampaignWorker = new Worker(
             });
 
             // push msg data to batch if phoneNumber exist and consentStatus is optIn
-
             if (toPhoneNumber && consentStatus === "optIn") {
               batchMsgs.push({
                 channel: "whatsapp",
@@ -2352,7 +2342,6 @@ const scheduleWhatsappCampaignWorker = new Worker(
             ordered: false,
           });
           console.log("Bulk insert result length: ", insertedMessages.length);
-
           // Prepare bulk update operations for conversation.recentMessage
           let bulkUpdateOperations = insertedMessages.map((msg) => ({
             updateOne: {
@@ -2386,6 +2375,7 @@ const scheduleWhatsappCampaignWorker = new Worker(
             messages: batchMsgs,
           },
           {
+            jobId: `${campaignId}-${batchIndex}`,
             priority: 1,
             attempts: 3,
             backoff: {
@@ -2394,17 +2384,6 @@ const scheduleWhatsappCampaignWorker = new Worker(
             },
           },
         );
-        // const responseData = await sendBulkWhatsapp(formData);
-        // try {
-        //   const { data } = await axios.get("https://fakestoreapi.com/products");
-        //   console.log(
-        //     `Dummy api resp length for ${batchIndex + 1}/${totalBatches} is ${
-        //       data?.length
-        //     }`
-        //   );
-        // } catch (error) {
-        //   console.log("Dummy api err: ", error?.message);
-        // }
 
         // Update processed batch count and save the campaign state
         campaign.lastProcessedBatch = batchIndex + 1; // Update to the next batch to be processed

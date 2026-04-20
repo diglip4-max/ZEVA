@@ -28,6 +28,7 @@ import {
   FileText,
   Eye,
   X,
+  ExternalLink,
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { useRouter } from "next/router";
@@ -47,7 +48,7 @@ function cn(...inputs: ClassValue[]) {
 const CampaignEditPage: NextPageWithLayout = () => {
   const router = useRouter();
   const { campaignId } = router.query;
-  const { whatsappProviders } = useProvider();
+  const { whatsappProviders, smsProviders } = useProvider();
 
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -98,9 +99,13 @@ const CampaignEditPage: NextPageWithLayout = () => {
   const segmentDropdownRef = useRef<HTMLDivElement>(null);
 
   const selectedTemplate = templates.find((t) => t._id === selectedTemplateId);
-  const selectedProvider = whatsappProviders.find(
-    (p) => p._id === selectedProviderId,
-  );
+  const selectedProvider = (
+    campaign?.type === "whatsapp"
+      ? whatsappProviders
+      : campaign?.type === "sms"
+        ? smsProviders
+        : []
+  ).find((p) => p._id === selectedProviderId);
 
   // Theme colors based on campaign type
   const getThemeColors = () => {
@@ -159,7 +164,13 @@ const CampaignEditPage: NextPageWithLayout = () => {
   const theme = getThemeColors();
 
   // Filter providers based on search
-  const filteredProviders = whatsappProviders.filter(
+  const filteredProviders = (
+    campaign?.type === "whatsapp"
+      ? whatsappProviders
+      : campaign?.type === "sms"
+        ? smsProviders
+        : []
+  ).filter(
     (p) =>
       p.name.toLowerCase().includes(providerSearchTerm.toLowerCase()) ||
       p.label.toLowerCase().includes(providerSearchTerm.toLowerCase()) ||
@@ -177,6 +188,7 @@ const CampaignEditPage: NextPageWithLayout = () => {
       templateSearchTerm === "" ||
       item.name.toLowerCase().includes(templateSearchTerm.toLowerCase()) ||
       item.uniqueName.toLowerCase().includes(templateSearchTerm.toLowerCase());
+
     return typeMatch && statusMatch && providerMatch && searchMatch;
   });
 
@@ -192,20 +204,22 @@ const CampaignEditPage: NextPageWithLayout = () => {
 
   const fetchTemplates = useCallback(async () => {
     try {
+      if (!campaign) return;
       const token = getTokenByPath();
-      const { data } = await axios.get("/api/all-templates?limit=100", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const { data } = await axios.get(
+        `/api/all-templates?limit=100&types=${campaign?.type || ""}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       if (data.success) {
-        const whatsappTemplates = (data.templates || []).filter(
-          (t: any) => t.templateType === "whatsapp",
-        );
-        setTemplates(whatsappTemplates);
+        const templatesData = data.templates || [];
+        setTemplates(templatesData);
       }
     } catch (err) {
       console.error("Error fetching templates:", err);
     }
-  }, []);
+  }, [campaign?.type]);
 
   const fetchSegments = useCallback(async () => {
     try {
@@ -232,7 +246,6 @@ const CampaignEditPage: NextPageWithLayout = () => {
       });
       if (data.success) {
         const camp = data.campaign;
-        console.log({ camp });
         setCampaign(camp);
         setName(camp.name || "");
         setDescription(camp.description || "");
@@ -440,7 +453,7 @@ const CampaignEditPage: NextPageWithLayout = () => {
                   ? handleTempHeaderVarValueChange(key, event)
                   : handleTempVarValueChange(key, event)
               }
-              className="w-full text-gray-500 text-sm px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl hover:border-green-500 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+              className={`w-full text-gray-500 text-sm px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl hover:border-${theme.primary}-400 focus:border-${theme.primary}-400 focus:outline-none focus:ring-2 focus:ring-${theme.primary}-500 focus:border-transparent transition-all`}
               placeholder={`Enter value for {{${index + 1}}}`}
             />
           </div>
@@ -778,8 +791,10 @@ const CampaignEditPage: NextPageWithLayout = () => {
             </div>
 
             {/* WhatsApp Configuration */}
-            {campaign?.type === "whatsapp" && (
-              <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+            {(campaign?.type === "whatsapp" || campaign?.type === "sms") && (
+              <div
+                className={`bg-white rounded-2xl border border-gray-200 p-6 space-y-4`}
+              >
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                   {theme.icon}
                   {campaign?.type === "whatsapp"
@@ -800,7 +815,7 @@ const CampaignEditPage: NextPageWithLayout = () => {
                     onClick={() =>
                       setIsProviderDropdownOpen(!isProviderDropdownOpen)
                     }
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 flex items-center justify-between cursor-pointer hover:border-green-400 focus:border-green-400 transition-all"
+                    className={`w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 flex items-center justify-between cursor-pointer hover:border-${theme.primary}-400 focus:border-${theme.primary}-400 transition-all`}
                   >
                     <span className="truncate">
                       {selectedProvider
@@ -827,7 +842,7 @@ const CampaignEditPage: NextPageWithLayout = () => {
                             onChange={(e) =>
                               setProviderSearchTerm(e.target.value)
                             }
-                            className={`w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-${theme.primary}-500 outline-none transition-all`}
+                            className={`w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-${theme.primary}-500 focus:border-${theme.primary}-400 outline-none transition-all`}
                             autoFocus
                             onClick={(e) => e.stopPropagation()}
                           />
@@ -883,15 +898,23 @@ const CampaignEditPage: NextPageWithLayout = () => {
 
                 {/* Recipients (Segment) Selection */}
                 <div className="space-y-3 relative" ref={segmentDropdownRef}>
-                  <label className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                    <Users className="w-4 h-4 text-gray-400" /> Recipients
-                    (Segment) <span className="text-red-500">*</span>
+                  <label className="text-sm font-bold text-gray-900 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-gray-400" /> Recipients
+                      (Segment) <span className="text-red-500">*</span>
+                    </div>
+                    <button
+                      onClick={() => router.push("/clinic/segments")}
+                      className="text-sm text-blue-500 underline font-normal flex items-center gap-2"
+                    >
+                      create segment <ExternalLink className="w-4 h-4" />
+                    </button>
                   </label>
                   <div
                     onClick={() =>
                       setIsSegmentDropdownOpen(!isSegmentDropdownOpen)
                     }
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 flex items-center justify-between cursor-pointer hover:border-green-400 focus:border-green-400 transition-all"
+                    className={`w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 flex items-center justify-between cursor-pointer hover:border-${theme.primary}-400 focus:border-${theme.primary}-400 transition-all`}
                   >
                     <span className="truncate">
                       {selectedSegment
@@ -920,7 +943,7 @@ const CampaignEditPage: NextPageWithLayout = () => {
                             onChange={(e) =>
                               setSegmentSearchTerm(e.target.value)
                             }
-                            className={`w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-${theme.primary}-500 outline-none transition-all`}
+                            className={`w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-${theme.primary}-500 focus:border-${theme.primary}-400 outline-none transition-all`}
                             autoFocus
                             onClick={(e) => e.stopPropagation()}
                           />
@@ -1005,20 +1028,28 @@ const CampaignEditPage: NextPageWithLayout = () => {
                 {/* Template Selection */}
                 {whatsappMsgType === "template-message" && (
                   <div className="space-y-3 relative" ref={templateDropdownRef}>
-                    <label className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                      <MessageSquare className="w-4 h-4 text-gray-400" />
-                      Template <span className="text-red-500">*</span>
+                    <label className="text-sm font-bold text-gray-900 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4 text-gray-400" />
+                        Template <span className="text-red-500">*</span>
+                      </div>
+                      <button
+                        onClick={() => router.push("/clinic/all-templates")}
+                        className="text-sm text-blue-500 underline font-normal flex items-center gap-2"
+                      >
+                        create template <ExternalLink className="w-4 h-4" />
+                      </button>
                     </label>
                     <div
                       onClick={() =>
                         setIsTemplateDropdownOpen(!isTemplateDropdownOpen)
                       }
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 flex items-center justify-between cursor-pointer hover:border-green-400 focus:border-green-400 transition-all"
+                      className={`w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 flex items-center justify-between cursor-pointer hover:border-${theme.primary}-400 focus:border-${theme.primary}-400 transition-all`}
                     >
                       <span className="truncate">
                         {selectedTemplate
                           ? selectedTemplate.name
-                          : "Choose a WhatsApp template"}
+                          : `Choose a ${campaign?.type === "whatsapp" ? "WhatsApp" : "SMS"} template`}
                       </span>
                       <ChevronDown
                         className={cn(
@@ -1043,7 +1074,7 @@ const CampaignEditPage: NextPageWithLayout = () => {
                               onChange={(e) =>
                                 setTemplateSearchTerm(e.target.value)
                               }
-                              className={`w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-${theme.primary}-500 outline-none transition-all`}
+                              className={`w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-${theme.primary}-500 focus:border-${theme.primary}-400 outline-none transition-all`}
                               autoFocus
                               onClick={(e) => e.stopPropagation()}
                             />
@@ -1274,28 +1305,6 @@ const CampaignEditPage: NextPageWithLayout = () => {
                         className={`w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-${theme.primary}-500 focus:border-${theme.primary}-400 hover:border-${theme.primary}-400 outline-none transition-all resize-none`}
                       />
                     </div>
-
-                    {/* File Attachment for Non-Template Messages */}
-                    {whatsappMsgType === "non-template-message" && (
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          Attachment (optional)
-                        </label>
-                        <input
-                          type="file"
-                          onChange={handleFileChange}
-                          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
-                        />
-                        {attachedFile && (
-                          <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                            <p className="text-xs text-green-700 font-medium">
-                              Selected: {attachedFile.name} (
-                              {(attachedFile.size / 1024).toFixed(2)} KB)
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 )}
 
@@ -1357,7 +1366,7 @@ const CampaignEditPage: NextPageWithLayout = () => {
                     {replyButtons.length < 3 && (
                       <button
                         onClick={handleAddReplyButton}
-                        className="text-sm font-medium text-green-600 hover:text-green-700"
+                        className={`text-sm font-medium text-${theme.primary}-600 hover:text-${theme.primary}-700`}
                       >
                         + Add Button
                       </button>
@@ -1430,7 +1439,7 @@ const CampaignEditPage: NextPageWithLayout = () => {
                         ))}
                         <button
                           onClick={() => handleAddRow(sectionIndex)}
-                          className="text-sm font-medium text-green-600 hover:text-green-700"
+                          className={`text-sm font-medium text-${theme.primary}-600 hover:text-${theme.primary}-700`}
                         >
                           + Add Row
                         </button>
@@ -1444,7 +1453,7 @@ const CampaignEditPage: NextPageWithLayout = () => {
                     ))}
                     <button
                       onClick={handleAddSection}
-                      className="text-sm font-medium text-green-600 hover:text-green-700"
+                      className={`text-sm font-medium text-${theme.primary}-600 hover:text-${theme.primary}-700`}
                     >
                       + Add Section
                     </button>
@@ -1649,6 +1658,73 @@ const CampaignEditPage: NextPageWithLayout = () => {
                       >
                         <path d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.88 5.644 6.3a.365.365 0 0 0-.51.063l-.477.372a.365.365 0 0 0-.063.51l3.547 4.197a.365.365 0 0 0 .51.063l6.353-7.563a.365.365 0 0 0 .063-.51zm-3.51 3.192l-.478-.372a.365.365 0 0 0-.51.063L5.644 9.88 4.32 8.32a.365.365 0 0 0-.51.063l-.477.372a.365.365 0 0 0-.063.51l1.646 1.944a.365.365 0 0 0 .51.063l5.533-6.563a.365.365 0 0 0 .063-.51z" />
                       </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Right Column - SMS Preview */}
+          {campaign?.type === "sms" && (
+            <div className="lg:sticky lg:top-24 h-fit space-y-3">
+              <label className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                <Smartphone className="w-4 h-4 text-gray-400" />
+                SMS Preview
+              </label>
+              <div className="bg-gradient-to-b from-blue-50 to-white rounded-2xl p-6 min-h-[400px] border border-blue-100">
+                {/* Phone Header */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                  <div className="bg-blue-600 text-white px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="w-5 h-5" />
+                        <span className="font-semibold text-sm">Messages</span>
+                      </div>
+                      <div className="text-xs opacity-80">Recipient</div>
+                    </div>
+                  </div>
+
+                  {/* Message Content */}
+                  <div className="p-4 bg-gray-50 min-h-[250px]">
+                    <div className="max-w-[85%] ml-auto bg-blue-500 text-white rounded-lg rounded-tr-sm p-3 shadow-sm">
+                      <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                        {whatsappMsgType === "template-message"
+                          ? selectedTemplate?.content ||
+                            "Template content will appear here"
+                          : message || "Your SMS message will appear here..."}
+                      </div>
+                      <div className="mt-2 text-[10px] text-blue-100 text-right">
+                        12:00 PM ✓✓
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SMS Info */}
+                  <div className="px-4 py-3 bg-white border-t border-gray-200">
+                    <div className="flex items-center justify-between text-xs text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">Characters:</span>
+                        <span className="font-bold text-blue-600">
+                          {
+                            (whatsappMsgType === "template-message"
+                              ? selectedTemplate?.content || ""
+                              : message
+                            ).length
+                          }
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">Messages:</span>
+                        <span className="font-bold text-blue-600">
+                          {Math.ceil(
+                            (whatsappMsgType === "template-message"
+                              ? selectedTemplate?.content || ""
+                              : message
+                            ).length / 160,
+                          ) || 1}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
