@@ -1502,18 +1502,19 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       const headers = getAuthHeaders();
       if (!headers) return;
 
-      const today = new Date().toISOString().split('T')[0];
       const oneYearAgo = new Date();
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      const oneYearAhead = new Date();
+      oneYearAhead.setFullYear(oneYearAhead.getFullYear() + 1);
 
       const response = await axios.get(
-        `/api/clinic/all-appointments?page=1&limit=1000&fromDate=${oneYearAgo.toISOString().split('T')[0]}&toDate=${today}`,
+        `/api/clinic/all-appointments?page=1&limit=1000&fromDate=${oneYearAgo.toISOString().split('T')[0]}&toDate=${oneYearAhead.toISOString().split('T')[0]}`,
         { headers }
       );
       
       if (response.data.success) {
         const patientAppointments = response.data.appointments?.filter(
-          (apt: any) => apt.patientId === patientData._id
+          (apt: any) => apt.patientId?.toString() === patientData._id?.toString()
         ) || [];
         setAppointments(patientAppointments);
       }
@@ -1904,18 +1905,19 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       const headers = getAuthHeaders();
       if (!headers) return;
 
-      const today = new Date().toISOString().split('T')[0];
       const oneYearAgo = new Date();
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      const oneYearAheadTx = new Date();
+      oneYearAheadTx.setFullYear(oneYearAheadTx.getFullYear() + 1);
 
       const response = await axios.get(
-        `/api/clinic/all-appointments?page=1&limit=1000&fromDate=${oneYearAgo.toISOString().split('T')[0]}&toDate=${today}`,
+        `/api/clinic/all-appointments?page=1&limit=1000&fromDate=${oneYearAgo.toISOString().split('T')[0]}&toDate=${oneYearAheadTx.toISOString().split('T')[0]}`,
         { headers }
       );
       
       if (response.data.success) {
         const patientAppointments = response.data.appointments?.filter(
-          (apt: any) => apt.patientId === patientData._id
+          (apt: any) => apt.patientId?.toString() === patientData._id?.toString()
         ) || [];
         setAllAppointmentsData(patientAppointments);
       }
@@ -2801,18 +2803,41 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         <tbody className="bg-white divide-y divide-gray-200">
                           {filteredAppointments.map((appointment: any, index: number) => (
                             <tr key={index} className="hover:bg-gray-50 transition-colors">
-                              <td className="px-6 py-4 whitespace-nowrap">
+                              <td className="px-6 py-4">
                                 <div className="flex items-center gap-3">
                                   <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-100 to-cyan-100 flex items-center justify-center flex-shrink-0">
                                     <Activity className="w-5 h-5 text-teal-600" />
                                   </div>
                                   <div>
-                                    <div className="font-semibold text-gray-900 text-sm">
-                                      {appointment.treatmentName || appointment.serviceName || '-'}
-                                    </div>
-                                    <div className="text-xs text-gray-500 mt-0.5">
-                                      {appointment.doctorSlotId ? `Slot: ${appointment.doctorSlotId}` : ''}
-                                    </div>
+                                    {(() => {
+                                      const names: string[] = Array.isArray(appointment.serviceNames) && appointment.serviceNames.length > 0
+                                        ? appointment.serviceNames
+                                        : appointment.serviceName
+                                        ? [appointment.serviceName]
+                                        : appointment.treatmentName
+                                        ? [appointment.treatmentName]
+                                        : [];
+                                      if (names.length === 0) {
+                                        return <div className="font-semibold text-gray-400 text-sm">-</div>;
+                                      }
+                                      return (
+                                        <div className="flex flex-wrap gap-1">
+                                          {names.map((name, i) => (
+                                            <span
+                                              key={i}
+                                              className="inline-block px-2 py-0.5 rounded-full bg-teal-50 border border-teal-200 text-teal-700 text-xs font-medium"
+                                            >
+                                              {name}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      );
+                                    })()}
+                                    {appointment.doctorSlotId && (
+                                      <div className="text-xs text-gray-500 mt-0.5">
+                                        Slot: {appointment.doctorSlotId}
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               </td>

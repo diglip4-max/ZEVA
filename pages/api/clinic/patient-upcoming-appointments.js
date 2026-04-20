@@ -36,19 +36,34 @@ export default async function handler(req, res) {
       startDate: { $gt: today },
     })
       .sort({ startDate: 1, fromTime: 1 })
-      .select("_id startDate fromTime toTime status followType")
+      .select("_id startDate fromTime toTime status followType serviceId serviceIds")
+      .populate("serviceId", "name")
+      .populate("serviceIds", "name")
       .lean();
 
     return res.status(200).json({
       success: true,
-      appointments: appointments.map((appt) => ({
-        _id: appt._id,
-        startDate: appt.startDate,
-        fromTime: appt.fromTime,
-        toTime: appt.toTime,
-        status: appt.status,
-        followType: appt.followType,
-      })),
+      appointments: appointments.map((appt) => {
+        // Build serviceNames from both serviceIds and serviceId
+        const fromServiceIds = Array.isArray(appt.serviceIds)
+          ? appt.serviceIds.map((s) => s?.name || "").filter(Boolean)
+          : [];
+        const fromServiceId = appt.serviceId?.name || "";
+        const serviceNames = fromServiceId
+          ? [fromServiceId, ...fromServiceIds.filter((n) => n !== fromServiceId)]
+          : fromServiceIds;
+
+        return {
+          _id: appt._id,
+          startDate: appt.startDate,
+          fromTime: appt.fromTime,
+          toTime: appt.toTime,
+          status: appt.status,
+          followType: appt.followType,
+          serviceName: appt.serviceId?.name || null,
+          serviceNames,
+        };
+      }),
     });
   } catch (err) {
     console.error("patient-upcoming-appointments error:", err);
