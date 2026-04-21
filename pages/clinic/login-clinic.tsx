@@ -152,7 +152,7 @@ return (
 
             {/* Message */}
             <p className="text-gray-600 text-center mb-6 leading-relaxed">
-              Your 2-hour free trial has expired. To continue accessing your healthcare dashboard and all features, please upgrade to a premium plan.
+              Your 30-day free trial has expired. To continue accessing your healthcare dashboard and all features, please upgrade to a premium plan.
             </p>
 
             {/* Trial Details */}
