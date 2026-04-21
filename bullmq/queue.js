@@ -54,6 +54,8 @@ export const bookAppointmentActionQueue = new Queue(
   },
 );
 
+// ----------------------------------- SCHEDULED CAMPAIGNS QUEUE -----------------------------------//
+
 export const scheduleWhatsappCampaignQueue = new Queue(
   "scheduleWhatsappCampaignQueue",
   {

@@ -1,5 +1,5 @@
 import React from "react";
-import { MessageCircle, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import Link from "next/link";
 
 export const WhatsAppIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -65,12 +65,7 @@ const Zeva360Header: React.FC = () => {
               <WhatsAppIcon className="w-4 h-4" />
               <span>WhatsApp</span>
             </a>
-            <a
-              href="#demo"
-              className="inline-flex items-center justify-center px-5 py-2 rounded-lg bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600 transition-all"
-            >
-              Book Demo
-            </a>
+           
           </div>
         </div>
       </div>

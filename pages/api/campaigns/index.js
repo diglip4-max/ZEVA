@@ -74,6 +74,10 @@ export default async function handler(req, res) {
     // Build filter query
     const filter = { clinicId };
 
+    if (["agent", "doctor", "doctorStaff"].includes(me.role)) {
+      filter.userId = me._id;
+    }
+
     // Apply status filter if provided
     if (req.query.status) {
       filter.status = req.query.status;

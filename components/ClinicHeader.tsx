@@ -120,9 +120,11 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
 
   const handleLogout = () => {
     localStorage.removeItem('clinicToken');
+    localStorage.removeItem('clinicUser');
     sessionStorage.removeItem('clinicEmail');
     sessionStorage.removeItem('clinicName');
     sessionStorage.removeItem('clinicUser');
+    sessionStorage.removeItem('clinicTrialInfo');
     sessionStorage.removeItem('resetEmail');
     sessionStorage.removeItem('clinicEmailForReset');
     window.location.href = '/clinic/login-clinic';
