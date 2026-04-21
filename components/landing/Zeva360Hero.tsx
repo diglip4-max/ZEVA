@@ -1,5 +1,5 @@
 import React from "react";
-import {  Play } from "lucide-react";
+// import {  Play } from "lucide-react";
 // import WhatsAppIcon from "../WhatsAppIcon";
 const WhatsAppIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="currentColor" viewBox="0 0 24 24">
@@ -8,53 +8,59 @@ const WhatsAppIcon = ({ className }: { className?: string }) => (
 );
 const Zeva360Hero: React.FC = () => {
   return (
-    <section className="relative  bg-gradient-to-br from-[#1565D8] via-[#0B3E91] to-[#1565D8] text-white pb-16 md:pb-20">
-      <div className="relative max-w-6xl mx-auto px-6 lg:px-8 pt-16 pb-12">
-        <div className="grid md:grid-cols-2 gap-10 items-center">
+    <section className="relative bg-gradient-to-br from-[#1565D8] via-[#0B3E91] to-[#1565D8] text-white -mt-16 pt-16">
+      <div className="relative max-w-7xl mx-auto px-6 lg:px-20 pt-12 md:pt-16 pb-16 md:pb-20">
+        <div className="grid lg:grid-cols-2 gap-20 lg:gap-32 items-center">
           {/* Left Content */}
-          <div>
-            <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-4">
- Stop Losing Patients &
+          <div className="max-w-xl">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-4">
+              Stop Losing Patients &
               <br />
               Automate Your Clinic
               <br />
-              <span className="text-white">All in One Platform</span>
+              <span className="whitespace-nowrap">All in One Platform</span>
             </h1>
             
-            <p className="text-sm text-blue-100 mb-6">
-              Increase Appointments, Reduce No-Shows & Boost Revenue with Ease
+            <p className="text-base md:text-lg text-blue-100 mb-6">
+              Increase Appointments, Reduce No-Shows & Boost
+              <br />
+              Revenue with Ease
             </p>
 
-            <div className="flex flex-wrap gap-3">
-              <button className="inline-flex items-center gap-2 px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition-all text-sm">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition-all text-base h-11">
                 <span>Book Free Demo</span>
-                <Play className="w-4 h-4" />
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </button>
-              <button className="inline-flex items-center gap-2 px-6 py-3 bg-white hover:bg-gray-100 text-gray-800 font-semibold rounded-lg transition-all text-sm">
-                <Play className="w-4 h-4" />
+              <button className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white hover:bg-gray-100 text-gray-800 font-semibold rounded-lg transition-all text-base h-11">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
                 <span>Watch Quick Tour</span>
               </button>
             </div>
           </div>
 
           {/* Right Visual */}
-          <div className="relative hidden md:block">
-            <div className="relative bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+          <div className="relative flex justify-end lg:justify-end lg:pl-8">
+            <div className="relative bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 w-full max-w-md">
               {/* Main Avatar */}
-              <div className="w-48 h-48 mx-auto bg-white/20 rounded-xl flex items-center justify-center mb-4">
-                <svg className="w-24 h-24 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="aspect-square bg-gradient-to-br from-white/20 to-white/5 rounded-xl flex items-center justify-center">
+                <svg className="w-32 h-32 lg:w-40 lg:h-40 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </div>
               
               {/* WhatsApp Badge */}
-              <div className="absolute -top-2 -right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
-                <WhatsAppIcon className="w-4 h-4 text-white" />
+              <div className="absolute -top-2 -right-2 w-10 h-10 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
+                <WhatsAppIcon className="w-5 h-5 text-white" />
               </div>
 
               {/* Phone Badge */}
-              <div className="absolute -bottom-2 -left-2 w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-lg">
-                <svg className="w-4 h-4 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="absolute -bottom-3 -left-5 w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-lg">
+                <svg className="w-6 h-6 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                 </svg>
               </div>

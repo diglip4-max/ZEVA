@@ -125,7 +125,13 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
             clearStorage();
             const errorMessage = data.message || 'Authentication failed';
             
-            if (data.message === 'Token expired') {
+            if (data.trialExpired) {
+              // Trial expired - redirect to login with trial expired message
+              toast.error(errorMessage);
+              setTimeout(() => {
+                router.replace('/clinic/login-clinic?trialExpired=true');
+              }, 2000);
+            } else if (data.message === 'Token expired') {
               alert('Session expired. Please login again.');
               setTimeout(() => {
                 router.replace('/clinic/login-clinic');

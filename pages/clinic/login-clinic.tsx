@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 
@@ -19,6 +19,20 @@ export default function ClinicLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [showTrialPopup, setShowTrialPopup] = useState(false);
+  const [trialInfo, setTrialInfo] = useState<{
+    isExpired: boolean;
+    daysRemaining: number;
+    trialEndDate: string;
+    accountCreatedAt: string;
+  } | null>(null);
+
+  // Check if redirected due to trial expiration
+  useEffect(() => {
+    if (router.query.trialExpired === 'true') {
+      setShowTrialPopup(true);
+    }
+  }, [router.query.trialExpired]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +78,26 @@ export default function ClinicLogin() {
       console.log("clinicToken", localStorage.getItem("clinicToken"));
       console.log("Login successful:", data);
 
+      // Store trial info in sessionStorage for sidebar countdown timer
+      if (data.trial) {
+        // Only apply trial logic for new users (not legacy users)
+        if (!data.trial.isLegacyUser) {
+          setTrialInfo(data.trial);
+          
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('clinicTrialInfo', JSON.stringify(data.trial));
+          }
+          
+          if (data.trial.isExpired) {
+            // Show trial expired popup
+            setShowTrialPopup(true);
+            return; // Don't redirect
+          }
+        } else {
+          console.log('Legacy user - skipping trial validation');
+        }
+      }
+
       // Show success toast
       setToastMessage(data.message || "Login successful!");
       setShowToast(true);
@@ -94,6 +128,82 @@ return (
               />
             </svg>
             <span className="font-medium">{toastMessage}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Trial Expired Popup */}
+      {showTrialPopup && trialInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 transform transition-all animate-fade-in">
+            {/* Icon */}
+            <div className="flex justify-center mb-6">
+              <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
+                <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Title */}
+            <h3 className="text-2xl font-bold text-gray-900 text-center mb-3">
+              Free Trial Expired
+            </h3>
+
+            {/* Message */}
+            <p className="text-gray-600 text-center mb-6 leading-relaxed">
+              Your 2-hour free trial has expired. To continue accessing your healthcare dashboard and all features, please upgrade to a premium plan.
+            </p>
+
+            {/* Trial Details */}
+            <div className="bg-gray-50 rounded-lg p-4 mb-6">
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Account Created:</span>
+                  <span className="font-semibold text-gray-900">
+                    {new Date(trialInfo.accountCreatedAt).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Trial Ended:</span>
+                  <span className="font-semibold text-red-600">
+                    {new Date(trialInfo.trialEndDate).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-3">
+              <button
+                onClick={() => router.push("/clinic/upgrade-plan")}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+              >
+                Upgrade to Premium
+              </button>
+              <button
+                onClick={() => {
+                  setShowTrialPopup(false);
+                  // Clear token and redirect to home
+                  localStorage.removeItem("clinicToken");
+                  localStorage.removeItem("clinicUser");
+                  router.push("/");
+                }}
+                className="w-full bg-white hover:bg-gray-50 text-gray-700 font-semibold py-3 px-6 rounded-lg border border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+              >
+                Return to Home
+              </button>
+            </div>
+
+            {/* Contact Support */}
+            <div className="mt-6 pt-6 border-t border-gray-200 text-center">
+              <p className="text-sm text-gray-600">
+                Need help?{' '}
+                <a href="mailto:support@zeva360.com" className="text-emerald-600 hover:text-emerald-700 font-medium">
+                  Contact Support
+                </a>
+              </p>
+            </div>
           </div>
         </div>
       )}

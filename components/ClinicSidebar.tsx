@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { FC, useState, useEffect, useRef } from "react";
+import React, { FC, useState, useEffect, useRef } from "react";
 import clsx from "clsx";
 import axios from "axios";
 import {
@@ -359,9 +359,15 @@ const iconMap: { [key: string]: React.ReactNode } = {
   // Default fallback for any unmapped icons
 };
 
-const renderIcon = (key: string) => {
+const renderIcon = (key: string, isActive: boolean = false) => {
   const node = iconMap[key];
   if (node) {
+    // Clone the element and update the color class based on active state
+    if (React.isValidElement(node)) {
+      return React.cloneElement(node as React.ReactElement<any>, {
+        className: `w-4 h-4 ${isActive ? 'text-white' : 'text-[#6B7280]'}`
+      });
+    }
     return node;
   }
   // Return null or a default icon instead of showing the key as text
@@ -392,6 +398,17 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [items, setItems] = useState<NavItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Trial countdown timer state
+  const [trialInfo, setTrialInfo] = useState<{
+    days: number;
+    hours: number;
+    minutes: number;
+    seconds: number;
+    isExpired: boolean;
+    trialEndDate: string;
+  } | null>(null);
+  const setShowTrialExpiredPopup = useState(false)[1];
   const dragItemRef = useRef<
     | { type: "parent"; parentIdx: number }
     | { type: "child"; parentIdx: number; childIdx: number }
@@ -427,6 +444,98 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
       document.body.style.overflow = "unset";
     };
   }, [isMobileOpen]);
+
+  // Trial countdown timer
+  useEffect(() => {
+    const calculateTrialTime = () => {
+      // Get trial info from login response stored in sessionStorage
+      const trialData = typeof window !== 'undefined' ? sessionStorage.getItem('clinicTrialInfo') : null;
+      
+      console.log('Sidebar - Trial Data from sessionStorage:', trialData);
+      
+      if (!trialData) {
+        console.log('Sidebar - No trial data found in sessionStorage');
+        setTrialInfo(null);
+        return;
+      }
+
+      try {
+        const trial = JSON.parse(trialData);
+        console.log('Sidebar - Parsed trial data:', trial);
+        
+        // Check if this is a legacy user (no trial restriction)
+        if (trial.isLegacyUser) {
+          console.log('Sidebar - Legacy user detected, hiding trial countdown');
+          setTrialInfo(null);
+          return;
+        }
+        
+        // Handle case where trialEndDate might be null
+        if (!trial.trialEndDate) {
+          console.log('Sidebar - No trial end date, hiding countdown');
+          setTrialInfo(null);
+          return;
+        }
+        
+        const trialEndDate = new Date(trial.trialEndDate);
+        const now = new Date();
+        const difference = trialEndDate.getTime() - now.getTime();
+        
+        console.log('Sidebar - Trial calculation:', {
+          trialEndDate,
+          now,
+          difference,
+          isExpired: difference <= 0
+        });
+
+        if (difference <= 0) {
+          // Trial has expired - show warning but don't auto-logout
+          // The verify-token API or page navigation will handle authentication
+          console.log('Sidebar - Trial expired! Showing warning...');
+          
+          // Show trial expired popup
+          setShowTrialExpiredPopup(true);
+          
+          setTrialInfo({
+            days: 0,
+            hours: 0,
+            minutes: 0,
+            seconds: 0,
+            isExpired: true,
+            trialEndDate: trial.trialEndDate
+          });
+          return;
+        }
+
+        const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+        console.log('Sidebar - Setting trial info:', { days, hours, minutes, seconds });
+        
+        setTrialInfo({
+          days,
+          hours,
+          minutes,
+          seconds,
+          isExpired: false,
+          trialEndDate: trial.trialEndDate
+        });
+      } catch (error) {
+        console.error('Sidebar - Error parsing trial info:', error);
+        setTrialInfo(null);
+      }
+    };
+
+    // Calculate immediately
+    calculateTrialTime();
+
+    // Update every second
+    const interval = setInterval(calculateTrialTime, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Fetch navigation items and permissions
   useEffect(() => {
@@ -542,13 +651,17 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
           });
 
           // Build grouped sections using only existing sidebar items
-          const toKey = (s: string) => s.trim().toLowerCase();
+          const toKey = (s: string) => (s || '').trim().toLowerCase();
           const byLabel: Record<string, NavItem> = {};
           const childByLabel: Record<string, NavItemChild> = {};
           convertedItems.forEach((i) => {
-            byLabel[toKey(i.label)] = i;
+            if (i.label) {
+              byLabel[toKey(i.label)] = i;
+            }
             (i.children || []).forEach((c) => {
-              childByLabel[toKey(c.label)] = c;
+              if (c.label) {
+                childByLabel[toKey(c.label)] = c;
+              }
             });
           });
 
@@ -1166,7 +1279,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                                 },
                               )}
                             >
-                              {renderIcon(item.icon)}
+                              {renderIcon(item.icon, isActive)}
                             </div>
                             <span className="inter-font text-sm font-medium text-[#374151]">
                               {item.label}
@@ -1221,7 +1334,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                                           : "text-[#6B7280] group-hover:text-[#374151]",
                                       )}
                                     >
-                                      {renderIcon(child.icon)}
+                                      {renderIcon(child.icon, isChildActive)}
                                     </span>
                                     <span
                                       className={clsx(
@@ -1278,7 +1391,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                           },
                         )}
                       >
-                        {renderIcon(item.icon)}
+                        {renderIcon(item.icon, isActive)}
                       </div>
 
                       <div className="flex-1 min-w-0 ">
@@ -1414,7 +1527,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                           )}
                         >
                           <span className="flex items-center gap-2">
-                            {renderIcon(item.icon)}
+                            {renderIcon(item.icon, isActive)}
                             <span
                               className={clsx(
                                 "inter-font text-xs font-medium uppercase tracking-wider",
@@ -1472,7 +1585,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                                           : "text-[#6B7280] group-hover:text-[#374151]",
                                       )}
                                     >
-                                      {renderIcon(child.icon)}
+                                      {renderIcon(child.icon, childActive)}
                                     </span>
                                     <span
                                       className={clsx(
@@ -1525,7 +1638,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                             },
                           )}
                         >
-                          {renderIcon(item.icon)}
+                          {renderIcon(item.icon, isActive)}
                           {item.badge && (
                             <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-medium inter-font text-[10px]">
                               {item.badge}
@@ -1566,6 +1679,75 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 })
               )}
             </div>
+
+            {/* Trial Countdown Timer */}
+            {trialInfo && !trialInfo.isExpired && (
+              <div className="mt-3 mx-2 p-3 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-lg">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <svg className="w-3.5 h-3.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-[10px] font-semibold text-amber-800 uppercase tracking-wide">Free Trial Ends In</span>
+                </div>
+                
+                {/* Countdown Display */}
+                <div className="grid grid-cols-4 gap-1.5 mb-2">
+                  <div className="bg-white rounded-md p-1.5 text-center shadow-sm">
+                    <div className="text-base font-bold text-amber-700">{trialInfo.days}</div>
+                    <div className="text-[9px] text-amber-600 uppercase">Days</div>
+                  </div>
+                  <div className="bg-white rounded-md p-1.5 text-center shadow-sm">
+                    <div className="text-base font-bold text-amber-700">{trialInfo.hours}</div>
+                    <div className="text-[9px] text-amber-600 uppercase">Hrs</div>
+                  </div>
+                  <div className="bg-white rounded-md p-1.5 text-center shadow-sm">
+                    <div className="text-base font-bold text-amber-700">{trialInfo.minutes}</div>
+                    <div className="text-[9px] text-amber-600 uppercase">Min</div>
+                  </div>
+                  <div className="bg-white rounded-md p-1.5 text-center shadow-sm">
+                    <div className="text-base font-bold text-amber-700">{trialInfo.seconds}</div>
+                    <div className="text-[9px] text-amber-600 uppercase">Sec</div>
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="w-full bg-amber-200 rounded-full h-1 mb-2">
+                  <div 
+                    className="bg-gradient-to-r from-amber-500 to-orange-500 h-1 rounded-full transition-all duration-1000"
+                    style={{ 
+                      width: `${Math.max(0, Math.min(100, ((trialInfo.hours * 60 + trialInfo.minutes) / 120) * 100))}%` 
+                    }}
+                  ></div>
+                </div>
+                
+                {/* Upgrade Button */}
+                <button
+                  onClick={() => router.push('/clinic/upgrade-plan')}
+                  className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-[10px] font-semibold py-1.5 px-2 rounded-md transition-all duration-200 shadow-sm hover:shadow-md"
+                >
+                  Upgrade to Premium →
+                </button>
+              </div>
+            )}
+
+            {/* Trial Expired Warning */}
+            {trialInfo && trialInfo.isExpired && (
+              <div className="mt-4 mx-3 p-4 bg-gradient-to-br from-red-50 to-rose-50 border border-red-200 rounded-xl">
+                <div className="flex items-center gap-2 mb-3">
+                  <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <span className="text-xs font-semibold text-red-800 uppercase tracking-wide">Trial Expired</span>
+                </div>
+                <p className="text-xs text-red-700 mb-3">Your free trial has ended. Upgrade now to continue accessing all features.</p>
+                <button
+                  onClick={() => router.push('/clinic/upgrade-plan')}
+                  className="w-full bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
+                >
+                  Upgrade to Premium →
+                </button>
+              </div>
+            )}
           </nav>
         </div>
       </aside>

@@ -5,6 +5,8 @@ import dbConnect from '../../../lib/database';
 import Clinic from '../../../models/Clinic';
 import User from '../../../models/Users';
 import Treatment from '../../../models/Treatment';
+import ClinicPermission from '../../../models/ClinicPermission';
+import ClinicNavigationItem from '../../../models/ClinicNavigationItem';
 
 
 // Disable default body parsing
@@ -71,10 +73,18 @@ export default async function handler(req, res) {
       longitude,
     } = req.body;
 
-    const user = await User.findOne({ email, role: 'clinic' });
+    // Find user with case-insensitive email search
+    const user = await User.findOne({ 
+      email: email.toLowerCase().trim(), 
+      role: 'clinic' 
+    });
+    
     if (!user) {
-      return res.status(404).json({ message: 'Clinic user not found' });
+      console.error('Clinic user not found for email:', email);
+      return res.status(404).json({ message: 'Clinic user not found. Please ensure owner registration completed successfully.' });
     }
+    
+    console.log('Found clinic user:', user._id, user.email);
 
     const clinicPhotoPath = req.files?.['clinicPhoto']?.[0]?.path
       ? req.files['clinicPhoto'][0].path.replace('public', '').replace(/\\/g, '/')
@@ -86,31 +96,35 @@ export default async function handler(req, res) {
 
     // 🧠 Parse the treatment references (array of { mainTreatment, mainTreatmentSlug, subTreatments })
     let parsedTreatments = [];
-    try {
-      parsedTreatments = JSON.parse(treatments); // from JSON.stringify on frontend
-      
-      // Ensure each treatment has the correct structure
-      if (Array.isArray(parsedTreatments)) {
-        parsedTreatments = parsedTreatments.map(treatment => {
-          if (typeof treatment === 'string') {
-            // Convert string to object format
-            return {
-              mainTreatment: treatment,
-              mainTreatmentSlug: treatment.toLowerCase().replace(/\s+/g, '-'),
-              subTreatments: []
-            };
-          } else if (treatment.mainTreatment && treatment.mainTreatmentSlug) {
-            // Ensure subTreatments array exists
-            return {
-              ...treatment,
-              subTreatments: treatment.subTreatments || []
-            };
-          }
-          return treatment;
-        });
+    if (treatments) {
+      try {
+        parsedTreatments = JSON.parse(treatments); // from JSON.stringify on frontend
+        
+        // Ensure each treatment has the correct structure
+        if (Array.isArray(parsedTreatments)) {
+          parsedTreatments = parsedTreatments.map(treatment => {
+            if (typeof treatment === 'string') {
+              // Convert string to object format
+              return {
+                mainTreatment: treatment,
+                mainTreatmentSlug: treatment.toLowerCase().replace(/\s+/g, '-'),
+                subTreatments: []
+              };
+            } else if (treatment.mainTreatment && treatment.mainTreatmentSlug) {
+              // Ensure subTreatments array exists
+              return {
+                ...treatment,
+                subTreatments: treatment.subTreatments || []
+              };
+            }
+            return treatment;
+          });
+        }
+      } catch (error) {
+        console.error('Error parsing treatments:', error);
+        // If parsing fails, use empty array instead of throwing error
+        parsedTreatments = [];
       }
-    } catch {
-      return res.status(400).json({ message: 'Invalid treatment format' });
     }
 
     // 🧠 Handle timings format
@@ -170,15 +184,17 @@ export default async function handler(req, res) {
     }
 
     // ✅ Optional validation: check if mainTreatment exists in DB
-    for (let t of parsedTreatments) {
-      let found = await Treatment.findOne({ name: t.mainTreatment });
-      if (!found) {
-        // Add the custom treatment to the database if it doesn't exist
-        found = await Treatment.create({
-          name: t.mainTreatment,
-          slug: t.mainTreatmentSlug,
-          subTreatments: t.subTreatments
-        });
+    if (parsedTreatments && parsedTreatments.length > 0) {
+      for (let t of parsedTreatments) {
+        let found = await Treatment.findOne({ name: t.mainTreatment });
+        if (!found) {
+          // Add the custom treatment to the database if it doesn't exist
+          found = await Treatment.create({
+            name: t.mainTreatment,
+            slug: t.mainTreatmentSlug,
+            subTreatments: t.subTreatments || []
+          });
+        }
       }
     }
 
@@ -253,7 +269,110 @@ export default async function handler(req, res) {
         type: 'Point',
         coordinates: [parseFloat(longitude), parseFloat(latitude)],
       },
+      registeredAt: new Date(), // Set trial start time for new users
     });
+
+    // Create default permissions with all actions enabled for the clinic
+    try {
+      // Fetch all navigation items for clinic role to build default permissions
+      const navigationItems = await ClinicNavigationItem.find({
+        role: 'clinic',
+        isActive: true
+      }).lean();
+
+      // If no navigation items exist, create a minimal set of default permissions
+      if (!navigationItems || navigationItems.length === 0) {
+        console.log('⚠️ No navigation items found, creating minimal default permissions');
+        
+        // Create minimal default permissions
+        const minimalPermissions = [
+          {
+            module: 'clinic_dashboard',
+            subModules: [],
+            actions: {
+              all: true,
+              create: true,
+              read: true,
+              update: true,
+              delete: true
+            }
+          },
+          {
+            module: 'clinic_health_center',
+            subModules: [],
+            actions: {
+              all: true,
+              create: true,
+              read: true,
+              update: true,
+              delete: true
+            }
+          },
+          {
+            module: 'clinic_staff_management',
+            subModules: [],
+            actions: {
+              all: true,
+              create: true,
+              read: true,
+              update: true,
+              delete: true
+            }
+          }
+        ];
+
+        await ClinicPermission.create({
+          clinicId: clinic._id,
+          role: 'clinic',
+          permissions: minimalPermissions,
+          grantedBy: user._id,
+          isActive: true,
+          lastModified: new Date()
+        });
+
+        console.log('✅ Minimal default permissions created for clinic:', clinic._id);
+      } else {
+        // Build default permissions with all actions set to true
+        const defaultPermissions = navigationItems.map(navItem => ({
+          module: navItem.moduleKey,
+          subModules: (navItem.subModules || []).map(subModule => ({
+            name: subModule.name,
+            path: subModule.path || '',
+            icon: subModule.icon || '📄',
+            order: subModule.order || 0,
+            actions: {
+              all: true,
+              create: true,
+              read: true,
+              update: true,
+              delete: true
+            }
+          })),
+          actions: {
+            all: true,
+            create: true,
+            read: true,
+            update: true,
+            delete: true
+          }
+        }));
+
+        // Create ClinicPermission document with all permissions enabled
+        await ClinicPermission.create({
+          clinicId: clinic._id,
+          role: 'clinic',
+          permissions: defaultPermissions,
+          grantedBy: user._id,
+          isActive: true,
+          lastModified: new Date()
+        });
+
+        console.log('✅ Default permissions created for clinic:', clinic._id, 'with', defaultPermissions.length, 'modules');
+      }
+    } catch (permError) {
+      console.error('⚠️ Error creating default permissions (non-fatal):', permError.message);
+      // Continue even if permission creation fails - clinic is still created
+    }
 
     return res.status(200).json({ 
       message: 'Clinic saved', 

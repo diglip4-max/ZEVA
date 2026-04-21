@@ -423,6 +423,12 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
             updated[key] = prev[key];
           }
         });
+        const prevKeys = Object.keys(prev);
+        const updatedKeys = Object.keys(updated);
+        if (prevKeys.length === updatedKeys.length) {
+          const unchanged = prevKeys.every((key) => prev[key] === updated[key]);
+          if (unchanged) return prev;
+        }
         return updated;
       });
     }, 500); // Check every 500ms

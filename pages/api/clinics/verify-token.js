@@ -88,6 +88,22 @@ export default async function handler(req, res) {
       return res.status(403).json({ valid: false, message: 'Account has been declined' });
     }
 
+    // Check 2-hour trial for clinic users (only for new users with registeredAt)
+    if (user.role === 'clinic' && clinic.registeredAt) {
+      const registeredAt = new Date(clinic.registeredAt);
+      const trialEndDate = new Date(registeredAt);
+      trialEndDate.setHours(trialEndDate.getHours() + 2); // 2 hours trial
+      const currentDate = new Date();
+      
+      if (currentDate > trialEndDate) {
+        return res.status(403).json({ 
+          valid: false, 
+          message: 'Your 2-hour free trial has expired. Please upgrade to premium to continue.',
+          trialExpired: true
+        });
+      }
+    }
+
     return res.status(200).json({ 
       valid: true, 
       decoded,

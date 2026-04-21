@@ -39,6 +39,37 @@ export default async function handler(req, res) {
     }
     console.log('clinic details', clinic);
 
+    // 🔍 Check 2-hour trial period (only for new users with registeredAt field)
+    // Legacy users (registeredAt is null) are exempt from trial restriction
+    let isTrialExpired = false;
+    let hoursRemaining = 999; // Large number for legacy users
+    let minutesRemaining = 0;
+    let trialEndDate = null;
+    
+    if (clinic.registeredAt) {
+      // New user - apply 2-hour trial logic
+      const accountCreatedAt = clinic.registeredAt;
+      const currentDate = new Date();
+      trialEndDate = new Date(accountCreatedAt);
+      trialEndDate.setHours(trialEndDate.getHours() + 2); // 2 hours trial
+
+      isTrialExpired = currentDate > trialEndDate;
+      hoursRemaining = Math.max(0, Math.ceil((trialEndDate - currentDate) / (1000 * 60 * 60)));
+      minutesRemaining = Math.max(0, Math.floor((trialEndDate - currentDate) / (1000 * 60)) % 60);
+      
+      console.log('Trial Status (NEW USER):', {
+        registeredAt: accountCreatedAt,
+        trialEndDate,
+        currentDate,
+        isTrialExpired,
+        hoursRemaining,
+        minutesRemaining
+      });
+    } else {
+      // Legacy user - no trial restriction
+      console.log('Legacy user - no trial restriction applied');
+    }
+
     // 🔍 Debug: Ensure JWT_SECRET is properly set
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
@@ -65,6 +96,14 @@ export default async function handler(req, res) {
         email: user.email,
         role: user.role,
       },
+      trial: {
+        isExpired: isTrialExpired,
+        hoursRemaining: hoursRemaining,
+        minutesRemaining: minutesRemaining,
+        trialEndDate: trialEndDate ? trialEndDate.toISOString() : null,
+        accountCreatedAt: clinic.registeredAt ? clinic.registeredAt.toISOString() : null,
+        isLegacyUser: !clinic.registeredAt // Flag to indicate legacy user
+      }
     });
   } catch (err) {
     console.error("Login error:", err);

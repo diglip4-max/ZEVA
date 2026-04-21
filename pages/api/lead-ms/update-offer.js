@@ -2,6 +2,7 @@
 import dbConnect from "../../../lib/database";
 import Offer from "../../../models/CreateOffer";
 import Service from "../../../models/Service";
+import Department from "../../../models/Department";
 import Clinic from "../../../models/Clinic";
 import { getUserFromReq, requireRole } from "./auth";
 import { checkClinicPermission } from "./permissions-helper";
@@ -99,7 +100,7 @@ export default async function handler(req, res) {
     if (req.method === "PUT") {
       const data = req.body;
 
-      // ✅ Resolve serviceIds
+      // ✅ Resolve serviceIds from direct selection
       let serviceIds = [];
 
       if (Array.isArray(data.serviceIds) && data.serviceIds.length > 0) {
@@ -126,6 +127,41 @@ export default async function handler(req, res) {
         serviceIds = Array.from(new Set(serviceIds.map((id) => id.toString()))).map(
           (id) => new mongoose.Types.ObjectId(id)
         );
+      }
+
+      // ✅ Resolve serviceIds from departmentIds
+      const resolvedDepartmentIds = data.departmentIds || offer.departmentIds || [];
+      if (Array.isArray(resolvedDepartmentIds) && resolvedDepartmentIds.length > 0) {
+        const departmentServiceIds = await Service.find({
+          clinicId: clinic._id,
+          departmentId: { $in: resolvedDepartmentIds.map(id => new mongoose.Types.ObjectId(id)) }
+        }).distinct('_id');
+        
+        // Merge with existing serviceIds
+        serviceIds = serviceIds.concat(departmentServiceIds);
+        
+        // Ensure unique IDs
+        serviceIds = Array.from(new Set(serviceIds.map((id) => id.toString()))).map(
+          (id) => new mongoose.Types.ObjectId(id)
+        );
+      }
+
+      // ✅ Cache service names for display purposes
+      let serviceNames = [];
+      if (serviceIds.length > 0) {
+        const services = await Service.find({
+          _id: { $in: serviceIds }
+        }).select('name').lean();
+        serviceNames = services.map(s => s.name);
+      }
+
+      // ✅ Cache department names for display purposes
+      let departmentNames = [];
+      if (resolvedDepartmentIds.length > 0) {
+        const departments = await Department.find({
+          _id: { $in: resolvedDepartmentIds.map(id => new mongoose.Types.ObjectId(id)) }
+        }).select('name').lean();
+        departmentNames = departments.map(d => d.name);
       }
       
       // ✅ Check if any of the selected services are already linked to another active offer (exclude current offer)
@@ -178,6 +214,8 @@ export default async function handler(req, res) {
       offer.applyOnAllServices = data.applyOnAllServices ?? offer.applyOnAllServices;
       if (serviceIds.length > 0) offer.serviceIds = serviceIds;
       offer.departmentIds = data.departmentIds ?? offer.departmentIds;
+      offer.serviceNames = serviceNames;
+      offer.departmentNames = departmentNames;
       offer.doctorIds = data.doctorIds ?? offer.doctorIds;
 
       // Stacking & Rules

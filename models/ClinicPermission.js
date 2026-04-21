@@ -12,19 +12,19 @@ const ModulePermissionSchema = new mongoose.Schema({
     icon: { type: String, default: '📄' },
     order: { type: Number, default: 0 },
     actions: {
-      all: { type: Boolean, default: false },
-      create: { type: Boolean, default: false },
-      read: { type: Boolean, default: false },
-      update: { type: Boolean, default: false },
-      delete: { type: Boolean, default: false }
+      all: { type: Boolean, default: true },
+      create: { type: Boolean, default: true },
+      read: { type: Boolean, default: true },
+      update: { type: Boolean, default: true },
+      delete: { type: Boolean, default: true }
     }
   }],
   actions: {
-    all: { type: Boolean, default: false },
-    create: { type: Boolean, default: false },
-    read: { type: Boolean, default: false },
-    update: { type: Boolean, default: false },
-    delete: { type: Boolean, default: false }
+    all: { type: Boolean, default: true },
+    create: { type: Boolean, default: true },
+    read: { type: Boolean, default: true },
+    update: { type: Boolean, default: true },
+    delete: { type: Boolean, default: true }
   }
 });
 

@@ -84,6 +84,9 @@ export default function CreateOfferModal({
   const [allServices, setAllServices] = useState<any[]>([]);
   const [allDepartments, setAllDepartments] = useState<any[]>([]);
   const [allDoctors, setAllDoctors] = useState<any[]>([]);
+  
+  // Track service count for selected departments
+  const [departmentServiceCount, setDepartmentServiceCount] = useState<number>(0);
 
   const [permissions, setPermissions] = useState<{
     canCreate: boolean;
@@ -336,6 +339,18 @@ export default function CreateOfferModal({
       setClinicId(offer.clinicId || null);
     }
   }, [isOpen, mode, offer]);
+
+  // Calculate service count when departments are selected
+  useEffect(() => {
+    if (form.departmentIds.length > 0 && allServices.length > 0) {
+      const count = allServices.filter(s => 
+        form.departmentIds.includes(s.departmentId || s._id)
+      ).length;
+      setDepartmentServiceCount(count);
+    } else {
+      setDepartmentServiceCount(0);
+    }
+  }, [form.departmentIds, allServices]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -994,6 +1009,20 @@ export default function CreateOfferModal({
                       </label>
                       );
                     })}
+                    
+                    {/* Service count feedback */}
+                    {form.departmentIds.length > 0 && (
+                      <div className="mt-3 p-2 bg-teal-50 border border-teal-200 rounded-md">
+                        <p className="text-xs text-teal-700 font-medium">
+                          {form.departmentIds.length} department{form.departmentIds.length > 1 ? 's' : ''} selected
+                          {departmentServiceCount > 0 && (
+                            <span className="ml-1">
+                              ({departmentServiceCount} service{departmentServiceCount > 1 ? 's' : ''} will be included)
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1101,8 +1130,8 @@ export default function CreateOfferModal({
               </div>
             </section>
 
-            {/* 4. SMART TOGGLES */}
-            <section className="space-y-4">
+            {/* 4. SMART TOGGLES - COMMENTED OUT */}
+            {/* <section className="space-y-4">
               <h3 className="text-sm font-bold text-teal-800 border-b border-gray-200 pb-1.5 flex items-center gap-2">
                 <span className="bg-teal-100 text-teal-800 px-2 py-0.5 rounded text-[10px]">4</span>
                 SMART TOGGLES
@@ -1130,7 +1159,7 @@ export default function CreateOfferModal({
                   </label>
                 ))}
               </div>
-            </section>
+            </section> */}
 
           </div>
 

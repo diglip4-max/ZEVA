@@ -66,7 +66,7 @@ const ClinicSchema = new mongoose.Schema(
     whatsapp: { type: String, default: "" },
     email: { type: String, default: "" },
     website: { type: String, default: "" },
-    isApproved: { type: Boolean, default: false },
+    isApproved: { type: Boolean, default: true },
     declined: { type: Boolean, default: false },
     slug: { 
       type: String, 
@@ -93,6 +93,8 @@ const ClinicSchema = new mongoose.Schema(
     },
     // Currency preference for the clinic
     currency: { type: String, default: "INR" },
+    // Trial registration timestamp (for new users only, introduced after 30-day trial removal)
+    registeredAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
