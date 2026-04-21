@@ -41,18 +41,16 @@ const getRedisClient = () => {
     : "localhost:6379";
   let client;
 
-  if (process.env.NODE_ENV === "production") {
-    console.log(`Connecting to Redis (Prod): ${maskedUrl}`);
-    client = new Redis(REDIS_URL, redisOptions);
-  } else {
-    // In development, use a global variable so the connection is preserved
-    // across hot reloads.
-    if (!global.redis) {
-      console.log(`Creating new Redis connection (Dev): ${maskedUrl}`);
-      global.redis = new Redis(REDIS_URL, redisOptions);
-    }
-    client = global.redis;
+  // Use globalThis for both development and production
+  // This ensures connection is preserved across hot reloads (dev)
+  // and reused across module imports (production)
+  if (!globalThis.redis) {
+    console.log(
+      `Creating new Redis connection (${process.env.NODE_ENV === "production" ? "Prod" : "Dev"}): ${maskedUrl}`,
+    );
+    globalThis.redis = new Redis(REDIS_URL, redisOptions);
   }
+  client = globalThis.redis;
 
   // Add event listeners if they haven't been added yet
   if (client && !client._events_added) {
