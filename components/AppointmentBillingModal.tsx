@@ -154,6 +154,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   getAuthHeaders,
   onSuccess,
 }) => {
+  const ENABLE_BILLING_DEBUG_LOGS = false;
+  const billingDebugLog = (...args: unknown[]) => {
+    if (ENABLE_BILLING_DEBUG_LOGS) console.log(...args);
+  };
+
   const [loading, setLoading] = useState(false);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
@@ -179,6 +184,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [activeOffers, setActiveOffers] = useState<Offer[]>([]);
   const [matchedOffers, setMatchedOffers] = useState<Offer[]>([]);
   const [appliedOfferIds, setAppliedOfferIds] = useState<string[]>([]);
+  const [unmatchedOffersDueToMinimum, setUnmatchedOffersDueToMinimum] = useState<Array<{offer: Offer, minimumAmount: number, currentAmount: number}>>([]);
   
   // Bundle offer tracking state
   const [matchedBundleOffer, setMatchedBundleOffer] = useState<Offer | null>(null);
@@ -191,6 +197,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [isCashbackApplied, setIsCashbackApplied] = useState<boolean>(false);
   // Use refs to avoid stale closure issues in useEffect
   const appliedCashbackRef = useRef<{ offerId: string; amount: number } | null>(null);
+  const matchedOffersRef = useRef<Offer[]>([]); // Track matchedOffers without causing re-renders
+  const lastAutoAppliedRef = useRef<string>(''); // Track last auto-applied discount to prevent infinite loop
+  const offersClearedRef = useRef<boolean>(false); // Prevent repeated clear loops when offers are empty
+  const bundleClearedRef = useRef<boolean>(false); // Prevent repeated bundle-clear loops
   const [isMembershipApplied, setIsMembershipApplied] = useState(false);
   const [finalMembershipDiscount, setFinalMembershipDiscount] = useState(0);
   const [finalOfferDiscount, setFinalOfferDiscount] = useState(0);
@@ -423,6 +433,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       setActiveOffers([]);
       setMatchedOffers([]);
       setAppliedOfferIds([]);
+      setUnmatchedOffersDueToMinimum([]);
       setMatchedBundleOffer(null);
       setBundleFreeSessions([]);
       setBundleFreeSessionCount(0);
@@ -1191,36 +1202,90 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
   // Auto-select offer based on selected treatment
   useEffect(() => {
+    const sameOfferIds = (a: Offer[], b: Offer[]) => {
+      if (a.length !== b.length) return false;
+      return a.every((offer, idx) => offer?._id === b[idx]?._id);
+    };
+    const sameUnmatchedMinimum = (
+      a: Array<{ offer: Offer; minimumAmount: number; currentAmount: number }>,
+      b: Array<{ offer: Offer; minimumAmount: number; currentAmount: number }>
+    ) => {
+      if (a.length !== b.length) return false;
+      return a.every((item, idx) => {
+        const next = b[idx];
+        return (
+          item.offer?._id === next.offer?._id &&
+          item.minimumAmount === next.minimumAmount &&
+          item.currentAmount === next.currentAmount
+        );
+      });
+    };
+
     if (!isOpen || activeOffers.length === 0) {
-      setMatchedOffers([]);
-      setAppliedOfferIds([]);
+      if (!offersClearedRef.current) {
+        offersClearedRef.current = true;
+        setMatchedOffers((prev) => (prev.length > 0 ? [] : prev));
+        setAppliedOfferIds((prev) => (prev.length > 0 ? [] : prev));
+      }
       return;
     }
+    offersClearedRef.current = false;
 
     const currentTreatments = selectedService === "Treatment" 
       ? selectedTreatments.map(t => ({ slug: t.treatmentSlug, name: t.treatmentName, price: t.price, quantity: t.quantity }))
       : packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions }));
 
     if (currentTreatments.length === 0) {
-      setMatchedOffers([]);
-      setAppliedOfferIds([]);
+      setMatchedOffers((prev) => (prev.length > 0 ? [] : prev));
+      setAppliedOfferIds((prev) => (prev.length > 0 ? [] : prev));
+      setUnmatchedOffersDueToMinimum((prev) => (prev.length > 0 ? [] : prev));
       return;
     }
 
-    const baseTotal = currentTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
+    // IMPORTANT: If ALL selected treatments are free sessions (price = 0), don't apply offers
+    const allTreatmentsAreFree = currentTreatments.every(t => t.price === 0);
+    if (allTreatmentsAreFree) {
+      console.log("[OfferMatching] All treatments are free sessions. Skipping offer matching.");
+      setMatchedOffers((prev) => (prev.length > 0 ? [] : prev));
+      setAppliedOfferIds((prev) => (prev.length > 0 ? [] : prev));
+      setUnmatchedOffersDueToMinimum((prev) => (prev.length > 0 ? [] : prev));
+      return;
+    }
+
+    // Filter out free session treatments when calculating base total and matching offers
+    const paidTreatments = currentTreatments.filter(t => t.price > 0);
+    
+    // If no paid treatments, skip offer matching
+    if (paidTreatments.length === 0) {
+      console.log("[OfferMatching] No paid treatments. Skipping offer matching.");
+      setMatchedOffers((prev) => (prev.length > 0 ? [] : prev));
+      setAppliedOfferIds((prev) => (prev.length > 0 ? [] : prev));
+      setUnmatchedOffersDueToMinimum((prev) => (prev.length > 0 ? [] : prev));
+      return;
+    }
+
+    const baseTotal = paidTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
     
     // Appointment-level context for matching
     const currentDoctorId = typeof appointment?.doctorId === 'object'
       ? (appointment.doctorId as any)._id
       : appointment?.doctorId;
 
-    console.log("[OfferMatching] Attempting to match offers for treatments:", currentTreatments, "Base Total:", baseTotal);
+    billingDebugLog("[OfferMatching] Attempting to match offers for treatments:", currentTreatments, "Base Total:", baseTotal);
+    
+    // Track offers that don't match due to minimum bill amount
+    const unmatchedMinimum: Array<{offer: Offer, minimumAmount: number, currentAmount: number}> = [];
     
     // Find applicable offers for the selected treatments
     const applicableOffers = activeOffers.filter(offer => {
       // 0. Check Minimum Bill Amount
       if (offer.minimumBillAmount > 0 && baseTotal < offer.minimumBillAmount) {
         console.log(`[OfferMatching] Offer "${offer.title}" skipped: Base total ${baseTotal} is below minimum bill amount ${offer.minimumBillAmount}.`);
+        unmatchedMinimum.push({
+          offer,
+          minimumAmount: offer.minimumBillAmount,
+          currentAmount: baseTotal
+        });
         return false;
       }
 
@@ -1233,14 +1298,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       // 2. Check Doctor-Specific Application
       if (offer.doctorIds && Array.isArray(offer.doctorIds) && currentDoctorId) {
         if (offer.doctorIds.some(id => String(id) === String(currentDoctorId))) {
-          console.log(`[OfferMatching] Offer "${offer.title}" matches for current doctor.`);
+          billingDebugLog(`[OfferMatching] Offer "${offer.title}" matches for current doctor.`);
           return true;
         }
       }
 
       // 3. Check Service-Specific Application (Slug or Name or ID)
        if (offer.serviceIds && Array.isArray(offer.serviceIds)) {
-         const matchesService = currentTreatments.some(t => 
+         const matchesService = paidTreatments.some(t => 
            offer.serviceIds.some(svc => {
              if (typeof svc === 'string') {
                return String(svc) === String(t.slug) || String(svc).toLowerCase() === String(t.name).toLowerCase();
@@ -1279,49 +1344,87 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         return getDiscountAmount(b) - getDiscountAmount(a);
       })[0];
 
-      console.log(`[OfferMatching] Matched ${applicableOffers.length} offers.`);
-      setMatchedOffers(applicableOffers);
+      billingDebugLog(`[OfferMatching] Matched ${applicableOffers.length} offers.`);
+      setMatchedOffers((prev) =>
+        sameOfferIds(prev, applicableOffers) ? prev : applicableOffers
+      );
+      matchedOffersRef.current = applicableOffers; // Sync ref
+      setUnmatchedOffersDueToMinimum((prev) =>
+        sameUnmatchedMinimum(prev, unmatchedMinimum) ? prev : unmatchedMinimum
+      );
       // Keep only those applied IDs that are still in applicable offers
-      setAppliedOfferIds(prev => prev.filter(id => applicableOffers.some(o => o._id === id)));
+      setAppliedOfferIds((prev) => {
+        const filtered = prev.filter((id) => applicableOffers.some((o) => o._id === id));
+        if (filtered.length === prev.length && filtered.every((id, idx) => id === prev[idx])) {
+          return prev;
+        }
+        return filtered;
+      });
     } else {
       console.log("[OfferMatching] No applicable offers found.");
-      setMatchedOffers([]);
-      setAppliedOfferIds([]);
+      setMatchedOffers((prev) => (prev.length > 0 ? [] : prev));
+      matchedOffersRef.current = []; // Sync ref
+      setUnmatchedOffersDueToMinimum((prev) =>
+        sameUnmatchedMinimum(prev, unmatchedMinimum) ? prev : unmatchedMinimum
+      );
+      setAppliedOfferIds((prev) => (prev.length > 0 ? [] : prev));
     }
   }, [isOpen, activeOffers, selectedTreatments, selectedService, packageTreatmentSessions, appointment?.doctorId]);
 
   // Bundle Offer Matching Logic
   useEffect(() => {
+    const clearBundleStateOnce = () => {
+      if (!bundleClearedRef.current) {
+        bundleClearedRef.current = true;
+        setMatchedBundleOffer((prev) => (prev ? null : prev));
+        setBundleFreeSessions((prev) => (prev.length > 0 ? [] : prev));
+        setBundleFreeSessionCount((prev) => (prev !== 0 ? 0 : prev));
+      }
+    };
+
     if (!isOpen || activeOffers.length === 0) {
-      setMatchedBundleOffer(null);
-      setBundleFreeSessions([]);
-      setBundleFreeSessionCount(0);
+      clearBundleStateOnce();
       return;
     }
+    bundleClearedRef.current = false;
 
     const currentTreatments = selectedService === "Treatment" 
       ? selectedTreatments.map(t => ({ slug: t.treatmentSlug, name: t.treatmentName, price: t.price, quantity: t.quantity }))
       : packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions }));
 
     if (currentTreatments.length === 0) {
-      setMatchedBundleOffer(null);
-      setBundleFreeSessions([]);
-      setBundleFreeSessionCount(0);
+      clearBundleStateOnce();
       return;
     }
 
-    const baseTotal = currentTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
+    // IMPORTANT: If ALL selected treatments are free sessions (price = 0), don't match bundle offers
+    const allTreatmentsAreFree = currentTreatments.every(t => t.price === 0);
+    if (allTreatmentsAreFree) {
+      console.log("[BundleMatching] All treatments are free sessions. Skipping bundle matching.");
+      clearBundleStateOnce();
+      return;
+    }
+
+    // Filter out free session treatments when checking bundle eligibility
+    const paidTreatments = currentTreatments.filter(t => t.price > 0);
     
-    console.log("[BundleMatching] Checking for bundle offers. Selected treatments:", currentTreatments);
+    // If no paid treatments, skip bundle matching
+    if (paidTreatments.length === 0) {
+      console.log("[BundleMatching] No paid treatments. Skipping bundle matching.");
+      clearBundleStateOnce();
+      return;
+    }
+
+    const baseTotal = paidTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
+    
+    billingDebugLog("[BundleMatching] Checking for bundle offers. Selected treatments:", currentTreatments, "Paid treatments:", paidTreatments);
 
     // Find bundle offers
     const bundleOffers = activeOffers.filter(offer => offer.offerType === "bundle");
     
     if (bundleOffers.length === 0) {
-      console.log("[BundleMatching] No bundle offers found.");
-      setMatchedBundleOffer(null);
-      setBundleFreeSessions([]);
-      setBundleFreeSessionCount(0);
+      billingDebugLog("[BundleMatching] No bundle offers found.");
+      clearBundleStateOnce();
       return;
     }
 
@@ -1344,10 +1447,37 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
       // Check which selected treatments are in the bundle's serviceIds
       const eligibleTreatments: typeof currentTreatments = [];
+      let allRequiredServicesSelected = false;
       
       if (offer.serviceIds && Array.isArray(offer.serviceIds) && offer.serviceIds.length > 0) {
-        // Bundle has specific services - check matches
-        for (const treatment of currentTreatments) {
+        // Bundle has specific services - ALL must be selected
+        // First, check if ALL services in serviceIds are present in SELECTED treatments (including free ones)
+        const allServiceIdsMatched = offer.serviceIds.every(svc => {
+          return currentTreatments.some(treatment => {
+            if (typeof svc === 'string') {
+              return String(svc) === String(treatment.slug) || 
+                     String(svc).toLowerCase() === String(treatment.name).toLowerCase();
+            } else if (svc && typeof svc === 'object') {
+              return (
+                String(svc._id) === String(treatment.slug) || 
+                (svc.serviceSlug && String(svc.serviceSlug) === String(treatment.slug)) ||
+                (svc.name && String(svc.name).toLowerCase() === String(treatment.name).toLowerCase())
+              );
+            }
+            return false;
+          });
+        });
+        
+        // Only proceed if ALL required services are selected
+        if (!allServiceIdsMatched) {
+          console.log(`[BundleMatching] Bundle "${offer.title}" skipped: Not all required services selected (${offer.serviceIds.length} required)`);
+          continue;
+        }
+        
+        allRequiredServicesSelected = true;
+        
+        // Now collect eligible treatments from PAID treatments only (exclude free sessions)
+        for (const treatment of paidTreatments) {
           const isEligible = offer.serviceIds.some(svc => {
             if (typeof svc === 'string') {
               return String(svc) === String(treatment.slug) || 
@@ -1370,16 +1500,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           }
         }
       } else if (offer.applyOnAllServices) {
-        // Bundle applies to all services
-        eligibleTreatments.push(...currentTreatments.flatMap(t => 
+        // Bundle applies to all services - but only paid ones
+        eligibleTreatments.push(...paidTreatments.flatMap(t => 
           Array(t.quantity).fill(t)
         ));
+        allRequiredServicesSelected = true;
       }
 
-      console.log(`[BundleMatching] Bundle "${offer.title}": ${eligibleTreatments.length} eligible treatments (need ${offer.buyQty})`);
+      console.log(`[BundleMatching] Bundle "${offer.title}": ${eligibleTreatments.length} eligible treatments from ${paidTreatments.length} paid treatments (need ${offer.buyQty}), All required: ${allRequiredServicesSelected}`);
 
-      // Check if we have enough eligible treatments
-      if (eligibleTreatments.length >= offer.buyQty) {
+      // Check if we have enough eligible treatments AND all required services are selected
+      if (allRequiredServicesSelected && eligibleTreatments.length >= offer.buyQty) {
         // Sort eligible treatments by price (ascending) to find lowest-priced ones for free sessions
         const sortedByPrice = [...eligibleTreatments].sort((a, b) => a.price - b.price);
         
@@ -1400,9 +1531,16 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
     if (bestBundleOffer) {
       console.log(`[BundleMatching] Best bundle offer: ${bestBundleOffer.title}, Free sessions: ${bestFreeSessions.join(', ')}`);
-      setMatchedBundleOffer(bestBundleOffer);
-      setBundleFreeSessions(bestFreeSessions);
-      setBundleFreeSessionCount(bestFreeCount);
+      setMatchedBundleOffer((prev) =>
+        prev?._id === bestBundleOffer!._id ? prev : bestBundleOffer
+      );
+      setBundleFreeSessions((prev) => {
+        if (prev.length === bestFreeSessions.length && prev.every((s, i) => s === bestFreeSessions[i])) {
+          return prev;
+        }
+        return bestFreeSessions;
+      });
+      setBundleFreeSessionCount((prev) => (prev === bestFreeCount ? prev : bestFreeCount));
       
       // Auto-apply the bundle offer
       setAppliedOfferIds(prev => {
@@ -1413,15 +1551,19 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       });
     } else {
       console.log("[BundleMatching] No matching bundle offers.");
-      setMatchedBundleOffer(null);
-      setBundleFreeSessions([]);
-      setBundleFreeSessionCount(0);
+      clearBundleStateOnce();
     }
   }, [isOpen, activeOffers, selectedTreatments, selectedService, packageTreatmentSessions]);
 
   // Cashback Offer Matching Logic
   useEffect(() => {
-    if (!isOpen || activeOffers.length === 0) {
+    // CRITICAL: Do NOT run any logic or set any state when modal is closed
+    // This prevents infinite loops on pages where the component is mounted but modal is closed
+    if (!isOpen) {
+      return;
+    }
+    
+    if (activeOffers.length === 0) {
       console.log('[CashbackMatching] Skipped: isOpen=', isOpen, 'activeOffers.length=', activeOffers?.length || 0);
       setMatchedCashbackOffer(null);
       setAppliedCashbackAmount(0);
@@ -1441,19 +1583,19 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
     const baseTotal = currentTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
     
-    console.log('[CashbackMatching] Checking for cashback offers. Selected treatments:', currentTreatments);
-    console.log('[CashbackMatching] Base total:', baseTotal);
-    console.log('[CashbackMatching] Total active offers:', activeOffers.length);
+    billingDebugLog('[CashbackMatching] Checking for cashback offers. Selected treatments:', currentTreatments);
+    billingDebugLog('[CashbackMatching] Base total:', baseTotal);
+    billingDebugLog('[CashbackMatching] Total active offers:', activeOffers.length);
     
     // Find cashback offers
     const cashbackOffers = activeOffers.filter(offer => offer.offerType === "cashback");
-    console.log('[CashbackMatching] All active offers with types:', activeOffers.map(o => ({
+    billingDebugLog('[CashbackMatching] All active offers with types:', activeOffers.map(o => ({
       title: o.title,
       offerType: o.offerType,
       applyOnAllServices: o.applyOnAllServices,
       serviceIds: o.serviceIds
     })));
-    console.log('[CashbackMatching] Cashback offers found:', cashbackOffers.length);
+    billingDebugLog('[CashbackMatching] Cashback offers found:', cashbackOffers.length);
     if (cashbackOffers.length > 0) {
       console.log('[CashbackMatching] Cashback offers details:', cashbackOffers.map(o => ({
         title: o.title,
@@ -1464,7 +1606,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
     
     if (cashbackOffers.length === 0) {
-      console.log("[CashbackMatching] No cashback offers found.");
+      billingDebugLog("[CashbackMatching] No cashback offers found.");
       setMatchedCashbackOffer(null);
       setAppliedCashbackAmount(0);
       return;
@@ -1698,20 +1840,43 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             ? { type: agentDiscount.discountType, amount: agentDiscount.discountAmount }
             : null;
 
+          // Check if any matched offer has allowReceptionistDiscount = false
+          // Use ref to avoid infinite loop
+          const currentMatchedOffers = matchedOffersRef.current;
+          const hasOffersWithReceptionistDiscountFalse = currentMatchedOffers.length > 0 && 
+            currentMatchedOffers.some(o => o.allowReceptionistDiscount === false);
+
+          // If offers with allowReceptionistDiscount: false are matched, remove agent discount if it was auto-applied
+          if (hasOffersWithReceptionistDiscountFalse && isAgentDiscountApplied) {
+            console.log(`[MaxDiscount] Offers with allowReceptionistDiscount: false detected. Removing auto-applied agent discount.`);
+            setIsAgentDiscountApplied(false);
+          }
+
           if (!isAgentDiscountApplied && !isDoctorDiscountApplied) {
-            if (doctorEffectiveDisc && agentEffectiveDisc) {
-              // Assuming same types for simple comparison (usually %)
-              if (agentEffectiveDisc.amount > doctorEffectiveDisc.amount) {
-                setIsAgentDiscountApplied(true);
-                setIsDoctorDiscountApplied(false);
-              } else {
+            // If offers exist with allowReceptionistDiscount: false, skip auto-apply
+            if (hasOffersWithReceptionistDiscountFalse) {
+              console.log(`[MaxDiscount] Matched offers have allowReceptionistDiscount: false. NOT auto-applying agent discount.`);
+              // Skip auto-apply - user must manually apply agent discount if needed
+            } else {
+              // No offers OR offers have allowReceptionistDiscount: true - run max discount logic
+              if (doctorEffectiveDisc && agentEffectiveDisc) {
+                // Assuming same types for simple comparison (usually %)
+                if (agentEffectiveDisc.amount > doctorEffectiveDisc.amount) {
+                  console.log(`[MaxDiscount] Agent discount (${agentEffectiveDisc.amount}) > Doctor discount (${doctorEffectiveDisc.amount}). Auto-applying agent discount.`);
+                  setIsAgentDiscountApplied(true);
+                  setIsDoctorDiscountApplied(false);
+                } else {
+                  console.log(`[MaxDiscount] Doctor discount (${doctorEffectiveDisc.amount}) >= Agent discount (${agentEffectiveDisc.amount}). Auto-applying doctor discount.`);
+                  setIsDoctorDiscountApplied(true);
+                  setIsAgentDiscountApplied(false);
+                }
+              } else if (doctorEffectiveDisc) {
+                console.log(`[MaxDiscount] Only doctor discount exists. Auto-applying doctor discount.`);
                 setIsDoctorDiscountApplied(true);
-                setIsAgentDiscountApplied(false);
+              } else if (agentEffectiveDisc) {
+                console.log(`[MaxDiscount] Only agent discount exists. Auto-applying agent discount.`);
+                setIsAgentDiscountApplied(true);
               }
-            } else if (doctorEffectiveDisc) {
-              setIsDoctorDiscountApplied(true);
-            } else if (agentEffectiveDisc) {
-              setIsAgentDiscountApplied(true);
             }
           }
         }
@@ -1720,7 +1885,20 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       }
     };
     fetchDoctorAppliedDiscountStatus();
-  }, [isOpen, appointment?._id, getAuthHeaders, agentDiscount, doctorDiscount]);
+  }, [isOpen, appointment?._id, getAuthHeaders, agentDiscount, doctorDiscount]); // Removed matchedOffers to prevent infinite loop
+
+  // Watch matchedOffers and remove agent discount if allowReceptionistDiscount is false
+  useEffect(() => {
+    if (!isOpen || matchedOffers.length === 0) return;
+    
+    // Check if any matched offer has allowReceptionistDiscount: false
+    const hasOffersWithReceptionistDiscountFalse = matchedOffers.some(o => o.allowReceptionistDiscount === false);
+    
+    if (hasOffersWithReceptionistDiscountFalse && isAgentDiscountApplied) {
+      console.log(`[OfferWatch] Matched offers have allowReceptionistDiscount: false. Removing auto-applied agent discount.`);
+      setIsAgentDiscountApplied(false);
+    }
+  }, [isOpen, matchedOffers, isAgentDiscountApplied]);
 
   // Handle maximum discount logic
   useEffect(() => {
@@ -1970,7 +2148,24 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         });
 
         const map = new Map(updated.map((t: any) => [t.treatmentSlug, t]));
-        setSelectedTreatments(prev => prev.map((t: any) => map.get(t.treatmentSlug) || t));
+        setSelectedTreatments((prev) => {
+          let changed = false;
+          const next = prev.map((t: any) => {
+            const mapped = map.get(t.treatmentSlug);
+            if (!mapped) return t;
+            const usesFreeConsultation = !!mapped.usesFreeConsultation;
+            const usesMembershipDiscount = !!mapped.usesMembershipDiscount;
+            if (
+              t.usesFreeConsultation === usesFreeConsultation &&
+              t.usesMembershipDiscount === usesMembershipDiscount
+            ) {
+              return t;
+            }
+            changed = true;
+            return { ...t, usesFreeConsultation, usesMembershipDiscount };
+          });
+          return changed ? next : prev;
+        });
         membershipDiscountAmount = totalFree + totalDiscount;
       } else if (selectedService === "Package" && packageTreatmentSessions.some(t => t.isSelected)) {
         const hasSessions = packageTreatmentSessions.some(t => t.isSelected && (t.usedSessions || 0) > 0);
@@ -2006,10 +2201,23 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             sessionUpdates.set(t.treatmentSlug, { usesFreeConsultation: usesFree, usesMembershipDiscount: usesDiscount });
           });
 
-          setPackageTreatmentSessions(prev => prev.map((t: any) => {
-            const update = sessionUpdates.get(t.treatmentSlug);
-            return update ? { ...t, ...update } : { ...t, usesFreeConsultation: false, usesMembershipDiscount: false };
-          }));
+          setPackageTreatmentSessions((prev) => {
+            let changed = false;
+            const next = prev.map((t: any) => {
+              const update = sessionUpdates.get(t.treatmentSlug);
+              const usesFreeConsultation = !!update?.usesFreeConsultation;
+              const usesMembershipDiscount = !!update?.usesMembershipDiscount;
+              if (
+                t.usesFreeConsultation === usesFreeConsultation &&
+                t.usesMembershipDiscount === usesMembershipDiscount
+              ) {
+                return t;
+              }
+              changed = true;
+              return { ...t, usesFreeConsultation, usesMembershipDiscount };
+            });
+            return changed ? next : prev;
+          });
 
           membershipDiscountAmount = totalFree + totalDiscount;
         }
@@ -2021,9 +2229,19 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     } else {
       // Reset membership flags if not applied
       if (selectedService === "Treatment") {
-        setSelectedTreatments(prev => prev.map(t => ({ ...t, usesFreeConsultation: false, usesMembershipDiscount: false })));
+        setSelectedTreatments((prev) => {
+          if (prev.every((t) => !t.usesFreeConsultation && !t.usesMembershipDiscount)) {
+            return prev;
+          }
+          return prev.map((t) => ({ ...t, usesFreeConsultation: false, usesMembershipDiscount: false }));
+        });
       } else if (selectedService === "Package") {
-        setPackageTreatmentSessions(prev => prev.map(t => ({ ...t, usesFreeConsultation: false, usesMembershipDiscount: false })));
+        setPackageTreatmentSessions((prev) => {
+          if (prev.every((t) => !t.usesFreeConsultation && !t.usesMembershipDiscount)) {
+            return prev;
+          }
+          return prev.map((t) => ({ ...t, usesFreeConsultation: false, usesMembershipDiscount: false }));
+        });
       }
     }
 
@@ -3169,6 +3387,42 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                   balanceResponse.data.balances.pastAdvance159FlatBalance || 0,
               });
             }
+            
+            // ✅ IMPORTANT: Refresh available free sessions after billing
+            // This updates the list when free sessions are consumed
+            try {
+              const freeSessionsResponse = await axios.get(
+                `/api/clinic/billing-history/${appointment.patientId}`,
+                { headers }
+              );
+              
+              if (freeSessionsResponse.data.success && freeSessionsResponse.data.billings) {
+                const freeSessions = freeSessionsResponse.data.billings
+                  .filter((billing: any) => 
+                    billing.offerType === 'bundle' && 
+                    billing.offerFreeSession && 
+                    billing.offerFreeSession.length > 0 &&
+                    billing.freeOfferSessionCount > 0
+                  )
+                  .map((billing: any) => ({
+                    billingId: billing._id,
+                    offerName: billing.offerName || billing.offerTitle || 'Bundle Offer',
+                    offerFreeSession: billing.offerFreeSession || [],
+                    freeOfferSessionCount: billing.freeOfferSessionCount || 0,
+                    invoiceNumber: billing.invoiceNumber,
+                    invoicedDate: billing.invoicedDate,
+                    purchasedTreatment: billing.treatment,
+                    amount: billing.amount
+                  }));
+                
+                setAvailableFreeSessions(freeSessions);
+                console.log('[FreeSessions] Refreshed available free sessions after billing:', freeSessions);
+              } else {
+                setAvailableFreeSessions([]);
+              }
+            } catch (error) {
+              console.error('Error refreshing free sessions:', error);
+            }
           } catch (error) {
             console.error("Error refreshing history/balances:", error);
           }
@@ -4062,6 +4316,31 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           </div>
                         );
                       })}
+                      
+                      {/* Warning for offers not matched due to minimum bill amount */}
+                      {unmatchedOffersDueToMinimum.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          {unmatchedOffersDueToMinimum.map(({offer, minimumAmount, currentAmount}) => (
+                            <div key={offer._id} className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+                              <div className="flex items-start gap-2">
+                                <span className="text-amber-600 text-sm">⚠️</span>
+                                <div className="flex-1">
+                                  <p className="text-[10px] font-bold text-amber-800">{offer.title}</p>
+                                  <p className="text-[9px] text-amber-700 mt-0.5">
+                                    Minimum bill amount required: <span className="font-bold">{getCurrencySymbol(currency)} {minimumAmount.toFixed(2)}</span>
+                                  </p>
+                                  <p className="text-[9px] text-amber-700">
+                                    Current bill amount: <span className="font-bold">{getCurrencySymbol(currency)} {currentAmount.toFixed(2)}</span>
+                                  </p>
+                                  <p className="text-[9px] text-amber-800 font-semibold mt-1">
+                                    Add {getCurrencySymbol(currency)} {(minimumAmount - currentAmount).toFixed(2)} more to apply this offer
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Doctor Discount Section (From Profile or Complaint) */}
                       {doctorAppliedDiscount && (appliedOfferIds.length === 0 || matchedOffers.filter(o => appliedOfferIds.includes(o._id)).every(o => o.allowReceptionistDiscount)) && (
@@ -4108,7 +4387,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         </div>
                       )}
 
-                      {agentDiscount && ((userRole === "agent") || !doctorAppliedDiscount) && (appliedOfferIds.length === 0 || matchedOffers.filter(o => appliedOfferIds.includes(o._id)).every(o => o.allowReceptionistDiscount)) && (
+                      {/* Hide agent discount if any matched offer has allowReceptionistDiscount: false */}
+                      {agentDiscount && 
+                       ((userRole === "agent") || !doctorAppliedDiscount) && 
+                       (appliedOfferIds.length === 0 || matchedOffers.filter(o => appliedOfferIds.includes(o._id)).every(o => o.allowReceptionistDiscount)) &&
+                       !matchedOffers.some(o => o.allowReceptionistDiscount === false) && (
                         <div className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
                           isAgentDiscountApplied ? "bg-blue-50 border-blue-200 shadow-sm" : "bg-gray-50 border-gray-100"
                         }`}>

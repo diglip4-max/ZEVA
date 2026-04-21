@@ -58,6 +58,10 @@ const OfferSchema = new Schema(
   doctorIds: [{ type: Schema.Types.ObjectId, ref: "User" }],
   departmentIds: [{ type: Schema.Types.ObjectId, ref: "Department" }],
 
+  // Optional: Cache service and department names at creation time for display purposes
+  serviceNames: [{ type: String }],
+  departmentNames: [{ type: String }],
+
   /* =============================
      BILLING RULES
   ============================= */

@@ -141,11 +141,76 @@ const BillingHistoryPage = () => {
         const discountAmount = originalAmount > finalAmount ? (originalAmount - finalAmount) : 0;
         const totalPercent = originalAmount > 0 ? (discountAmount / originalAmount * 100) : 0;
         
+        // Build discount description
+        const discountParts = [];
+        if (totalPercent > 0) {
+          discountParts.push(`${totalPercent.toFixed(1)}%`);
+        }
+        // Free sessions USED (redeemed at ₹0)
+        if (item.usedFreeSessions && item.usedFreeSessions.length > 0) {
+          discountParts.push(`Free Session: ${item.usedFreeSessions.join(', ')}`);
+        }
+        // Free sessions EARNED (from bundle offer)
+        if (item.offerType === 'bundle' && item.offerFreeSession && item.offerFreeSession.length > 0) {
+          discountParts.push(`Free: ${item.offerFreeSession.join(', ')}`);
+        }
+        if (item.cashbackWalletUsed && item.cashbackWalletUsed > 0) {
+          discountParts.push(`Cashback: ${getCurrencySymbol(clinicCurrency)}${item.cashbackWalletUsed.toFixed(2)}`);
+        }
+        if (item.isDoctorDiscountApplied) {
+          discountParts.push('Dr. Disc.');
+        }
+        if (item.isAgentDiscountApplied) {
+          discountParts.push('Agent Disc.');
+        }
+        if (item.membershipDiscountApplied > 0) {
+          discountParts.push('Memb.');
+        }
+        
+        const discountDesc = discountParts.length > 0 ? discountParts.join('\n') : '—';
+        
+        // Build offer applied description
+        const offerName = item.offerName || item.offerTitle;
+        const offerType = item.offerType;
+        const offerParts = [];
+        
+        if (offerName) {
+          offerParts.push(offerName);
+          if (offerType) {
+            const typeLabel = offerType === 'instant_discount' ? 'Discount' :
+                             offerType === 'cashback' ? 'Cashback' :
+                             offerType === 'bundle' ? 'Bundle' : offerType;
+            offerParts.push(`[${typeLabel}]`);
+          }
+        }
+        
+        // Add amounts
+        if (item.offerDiscountAmount && item.offerDiscountAmount > 0) {
+          offerParts.push(`Disc: ${getCurrencySymbol(clinicCurrency)}${item.offerDiscountAmount.toFixed(2)}`);
+        }
+        if (item.cashbackAmount && item.cashbackAmount > 0) {
+          offerParts.push(`Earned: ${getCurrencySymbol(clinicCurrency)}${item.cashbackAmount.toFixed(2)}`);
+        }
+        if (item.cashbackWalletUsed && item.cashbackWalletUsed > 0) {
+          offerParts.push(`Used: ${getCurrencySymbol(clinicCurrency)}${item.cashbackWalletUsed.toFixed(2)}`);
+        }
+        // Free sessions USED (redeemed at ₹0)
+        if (item.usedFreeSessions && item.usedFreeSessions.length > 0) {
+          offerParts.push(`Free Session: ${item.usedFreeSessions.join(', ')}`);
+        }
+        // Free sessions EARNED (from bundle offer)
+        if (item.offerType === 'bundle' && item.offerFreeSession && item.offerFreeSession.length > 0) {
+          offerParts.push(`Free: ${item.offerFreeSession.join(', ')}`);
+        }
+        
+        const offerDesc = offerParts.length > 0 ? offerParts.join('\n') : '—';
+        
         return [
           formatDate(item.invoicedDate),
           item.invoiceNumber || '—',
           item.treatment || item.package || '—',
-          totalPercent > 0 ? `${totalPercent.toFixed(1)}%` : '—',
+          discountDesc,
+          offerDesc,
           formatCurrency(item.originalAmount || item.amount || 0),
           formatCurrency(item.amount),
           formatCurrency(item.paid),
@@ -164,7 +229,7 @@ const BillingHistoryPage = () => {
 
       autoTable(doc, {
         startY: 65,
-        head: [['Date', 'Invoice ID', 'Treatment/Package', 'Disc.', 'Orig. Amt', 'Total', 'Paid', 'Pending', 'Adv.', 'Adv.Used', 'PastAdv.', 'P.Adv.Used', 'Qty', 'Sess.', 'Method']],
+        head: [['Date', 'Invoice ID', 'Treatment/Package', 'Disc.', 'Offer Applied', 'Orig. Amt', 'Total', 'Paid', 'Pending', 'Adv.', 'Adv.Used', 'PastAdv.', 'P.Adv.Used', 'Qty', 'Sess.', 'Method']],
         body: tableRows,
         theme: 'striped',
         headStyles: { 
@@ -175,7 +240,7 @@ const BillingHistoryPage = () => {
         bodyStyles: { fontSize: 7 },
         columnStyles: {
           3: { halign: 'center' },
-          4: { halign: 'right' },
+          4: { halign: 'left' },
           5: { halign: 'right' },
           6: { halign: 'right' },
           7: { halign: 'right' },
@@ -183,8 +248,9 @@ const BillingHistoryPage = () => {
           9: { halign: 'right' },
           10: { halign: 'right' },
           11: { halign: 'right' },
-          12: { halign: 'center' },
-          13: { halign: 'center' }
+          12: { halign: 'right' },
+          13: { halign: 'center' },
+          14: { halign: 'center' }
         },
         margin: { top: 65, left: 10, right: 10 }
       });
@@ -355,6 +421,7 @@ const BillingHistoryPage = () => {
                   <th className="px-4 py-3 text-left font-semibold">Invoice ID</th>
                   <th className="px-4 py-3 text-left font-semibold">Treatment/Package</th>
                   <th className="px-4 py-3 text-center font-semibold">Discount</th>
+                  <th className="px-4 py-3 text-left font-semibold">Offer Applied</th>
                   <th className="px-4 py-3 text-right font-semibold">Original Amount</th>
                   <th className="px-4 py-3 text-right font-semibold">Total</th>
                   <th className="px-4 py-3 text-right font-semibold">Paid</th>
@@ -371,7 +438,7 @@ const BillingHistoryPage = () => {
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan={14} className="px-4 py-12">
+                    <td colSpan={15} className="px-4 py-12">
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin text-teal-600" />
                         <span className="text-sm text-gray-500">Loading billing history...</span>
@@ -380,7 +447,7 @@ const BillingHistoryPage = () => {
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan={14} className="px-4 py-12">
+                    <td colSpan={15} className="px-4 py-12">
                       <div className="text-center">
                         <div className="text-sm text-red-600 font-medium mb-2">{error}</div>
                         <button
@@ -394,7 +461,7 @@ const BillingHistoryPage = () => {
                   </tr>
                 ) : billingHistory.length === 0 ? (
                   <tr>
-                    <td colSpan={14} className="px-4 py-12">
+                    <td colSpan={15} className="px-4 py-12">
                       <div className="text-center text-sm text-gray-500">
                         No billing history found for this appointment
                       </div>
@@ -459,7 +526,9 @@ const BillingHistoryPage = () => {
                           const isAgentDiscount = billing.isAgentDiscountApplied;
                           const membershipDiscountAmount = billing.membershipDiscountApplied || 0;
                           const isMembershipDiscount = membershipDiscountAmount > 0;
-                          const isFreeSession = billing.offerType === 'bundle' && billing.offerFreeSession && billing.offerFreeSession.length > 0;
+                          const isFreeSessionEarned = billing.offerType === 'bundle' && billing.offerFreeSession && billing.offerFreeSession.length > 0;
+                          const isFreeSessionUsed = billing.usedFreeSessions && billing.usedFreeSessions.length > 0;
+                          const isCashbackUsed = billing.cashbackWalletUsed && billing.cashbackWalletUsed > 0;
                           
                           const originalAmount = billing.originalAmount || 0;
                           const finalAmount = billing.amount || 0;
@@ -467,7 +536,7 @@ const BillingHistoryPage = () => {
                           const totalPercent = totalDiscountAmount > 0 && originalAmount > 0 ? (totalDiscountAmount / originalAmount * 100) : 0;
                           const membershipPercent = isMembershipDiscount && originalAmount > 0 ? (membershipDiscountAmount / originalAmount * 100) : 0;
 
-                          if (!isDoctorDiscount && !isAgentDiscount && !isMembershipDiscount && !isFreeSession && totalPercent <= 0) {
+                          if (!isDoctorDiscount && !isAgentDiscount && !isMembershipDiscount && !isFreeSessionEarned && !isFreeSessionUsed && !isCashbackUsed && totalPercent <= 0) {
                             return <div className="text-xs text-gray-400">—</div>;
                           }
 
@@ -484,12 +553,31 @@ const BillingHistoryPage = () => {
                                 </div>
                               )}
                               <div className="flex flex-col items-center gap-1 mt-0.5">
-                                {isFreeSession && (
+                                {/* Free Session USED (Redeemed at ₹0) */}
+                                {isFreeSessionUsed && (
+                                  <div className="text-[8px] uppercase tracking-wider text-green-700 bg-green-100 px-1.5 py-0.5 rounded font-bold border border-green-200 flex items-center gap-0.5">
+                                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                    </svg>
+                                    Free Session: {billing.usedFreeSessions.join(', ')}
+                                  </div>
+                                )}
+                                {/* Free Session EARNED (from bundle offer) */}
+                                {isFreeSessionEarned && (
                                   <div className="text-[8px] uppercase tracking-wider text-green-700 bg-green-100 px-1.5 py-0.5 rounded font-bold border border-green-200 flex items-center gap-0.5">
                                     <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
                                       <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                     </svg>
                                     Free: {billing.offerFreeSession.join(', ')}
+                                  </div>
+                                )}
+                                {isCashbackUsed && (
+                                  <div className="text-[8px] uppercase tracking-wider text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded font-bold border border-purple-200 flex items-center gap-0.5">
+                                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                      <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
+                                    </svg>
+                                    Cashback: {getCurrencySymbol(clinicCurrency)} {billing.cashbackWalletUsed.toFixed(2)}
                                   </div>
                                 )}
                                 {isMembershipDiscount && (
@@ -506,6 +594,77 @@ const BillingHistoryPage = () => {
                                   <div className="text-[8px] uppercase tracking-wider text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded font-bold border border-orange-100">
                                     Doctor Disc.
                                   </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </td>
+                      <td className="px-4 py-3">
+                        {(() => {
+                          const offerName = billing.offerName || billing.offerTitle;
+                          const offerType = billing.offerType;
+                          const offerDiscountAmount = billing.offerDiscountAmount || 0;
+                          const cashbackAmount = billing.cashbackAmount || 0;
+                          const cashbackWalletUsed = billing.cashbackWalletUsed || 0;
+                          const isFreeSession = offerType === 'bundle' && billing.offerFreeSession && billing.offerFreeSession.length > 0;
+                          
+                          if (!offerName && !offerType) {
+                            return <div className="text-xs text-gray-400">—</div>;
+                          }
+
+                          return (
+                            <div className="flex flex-col gap-1">
+                              {/* Offer Name & Type */}
+                              {offerName && (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] font-bold text-gray-900 truncate max-w-[150px]">
+                                    {offerName}
+                                  </span>
+                                  {offerType && (
+                                    <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase ${
+                                      offerType === 'instant_discount' ? 'bg-amber-100 text-amber-700' :
+                                      offerType === 'cashback' ? 'bg-purple-100 text-purple-700' :
+                                      offerType === 'bundle' ? 'bg-green-100 text-green-700' :
+                                      'bg-gray-100 text-gray-700'
+                                    }`}>
+                                      {offerType === 'instant_discount' ? 'Discount' :
+                                       offerType === 'cashback' ? 'Cashback' :
+                                       offerType === 'bundle' ? 'Bundle' :
+                                       offerType}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {/* Offer Details */}
+                              <div className="flex flex-wrap items-center gap-1">
+                                {/* Instant Discount Amount */}
+                                {offerType === 'instant_discount' && offerDiscountAmount > 0 && (
+                                  <span className="text-[9px] font-semibold text-amber-700">
+                                    Disc: {getCurrencySymbol(clinicCurrency)}{offerDiscountAmount.toFixed(2)}
+                                  </span>
+                                )}
+                                
+                                {/* Cashback Earned Amount */}
+                                {offerType === 'cashback' && cashbackAmount > 0 && (
+                                  <span className="text-[9px] font-semibold text-purple-700">
+                                    Earned: {getCurrencySymbol(clinicCurrency)}{cashbackAmount.toFixed(2)}
+                                  </span>
+                                )}
+                                
+                                {/* Cashback Wallet Used */}
+                                {cashbackWalletUsed > 0 && (
+                                  <span className="text-[9px] font-semibold text-purple-600">
+                                    Used: {getCurrencySymbol(clinicCurrency)}{cashbackWalletUsed.toFixed(2)}
+                                  </span>
+                                )}
+                                
+                                {/* Free Sessions */}
+                                {isFreeSession && (
+                                  <span className="text-[9px] font-semibold text-green-700">
+                                    Free: {billing.offerFreeSession.join(', ')}
+                                  </span>
                                 )}
                               </div>
                             </div>
