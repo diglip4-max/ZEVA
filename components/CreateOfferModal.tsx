@@ -1131,7 +1131,7 @@ export default function CreateOfferModal({
             </section>
 
             {/* 4. SMART TOGGLES - COMMENTED OUT */}
-            {/* <section className="space-y-4">
+             <section className="space-y-4">
               <h3 className="text-sm font-bold text-teal-800 border-b border-gray-200 pb-1.5 flex items-center gap-2">
                 <span className="bg-teal-100 text-teal-800 px-2 py-0.5 rounded text-[10px]">4</span>
                 SMART TOGGLES
@@ -1159,7 +1159,7 @@ export default function CreateOfferModal({
                   </label>
                 ))}
               </div>
-            </section> */}
+            </section> 
 
           </div>
 
