@@ -3,7 +3,7 @@ import React from "react";
 import Head from "next/head";
 import Zeva360Layout from "../../components/landing/Zeva360Layout";
 import Zeva360Hero from "../../components/landing/Zeva360Hero";
-import Zeva360ProblemSection from "../../components/landing/Zeva360ProblemSection";
+import Whymostuae from "../../components/landing/Whymostuae";
 import Zeva360WorkflowSection from "../../components/landing/Zeva360WorkflowSection";
 import Zeva360SolutionsSection from "../../components/landing/Zeva360SolutionsSection";
 import Zeva360ComparisonTable from "../../components/landing/Zeva360ComparisonTable";
@@ -30,7 +30,8 @@ const ClinicManagementSystemUAE: React.FC = () => {
         homeUrl="/clinic-management-system-uae"
       >
         <Zeva360Hero />
-        <Zeva360ProblemSection />
+        <Whymostuae />
+        {/* <Zeva360ProblemSection /> */}
         <Zeva360WorkflowSection />
         <Zeva360SolutionsSection />
         <Zeva360ComparisonTable />
