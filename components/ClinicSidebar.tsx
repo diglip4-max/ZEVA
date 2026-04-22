@@ -1715,7 +1715,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                   <div 
                     className="bg-gradient-to-r from-amber-500 to-orange-500 h-1 rounded-full transition-all duration-1000"
                     style={{ 
-                      width: `${Math.max(0, Math.min(100, ((trialInfo.hours * 60 + trialInfo.minutes) / 120) * 100))}%` 
+                      width: `${Math.max(0, Math.min(100, ((trialInfo.days * 24 * 60 + trialInfo.hours * 60 + trialInfo.minutes) / (30 * 24 * 60)) * 100))}%` 
                     }}
                   ></div>
                 </div>

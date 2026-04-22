@@ -1,7 +1,7 @@
 import React from "react";
 import { Calendar, UserX, FileText, ClipboardList } from "lucide-react";
 
-const Zeva360ProblemSection: React.FC = () => {
+const Whymostuae: React.FC = () => {
   const problems = [
     {
       icon: Calendar,
@@ -34,7 +34,7 @@ const Zeva360ProblemSection: React.FC = () => {
       <div className="max-w-5xl mx-auto px-6 lg:px-8 text-center">
         <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 mb-12">
           Why Most Clinics Lose{" "}
-          <span className="text-orange-500">₹50,000+</span>{" "}
+          <span className="text-orange-500">AED 2,000+</span>{" "}
           Every Month
         </h2>
 
@@ -65,4 +65,4 @@ const Zeva360ProblemSection: React.FC = () => {
   );
 };
 
-export default Zeva360ProblemSection;
+export default Whymostuae;

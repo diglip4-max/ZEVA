@@ -210,7 +210,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   // Use refs to avoid stale closure issues in useEffect
   const appliedCashbackRef = useRef<{ offerId: string; amount: number } | null>(null);
   const matchedOffersRef = useRef<Offer[]>([]); // Track matchedOffers without causing re-renders
-  const lastAutoAppliedRef = useRef<string>(''); // Track last auto-applied discount to prevent infinite loop
   const offersClearedRef = useRef<boolean>(false); // Prevent repeated clear loops when offers are empty
   const bundleClearedRef = useRef<boolean>(false); // Prevent repeated bundle-clear loops
   
