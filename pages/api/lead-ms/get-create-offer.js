@@ -110,13 +110,35 @@ export default async function handler(req, res) {
       .sort({ createdAt: -1 })
       .lean();
 
-    // Compute expired status in-memory without DB write (only for active offers)
+    // Compute expired status in-memory and update database for expired offers
+    const expiredOfferIds = [];
+    
     const shapedOffers = offers.map((offer) => {
+      // If offer is active but end date has passed, mark as expired
+      const isDateExpired = offer.endsAt && new Date(offer.endsAt) < now;
+      const shouldBeExpired = isDateExpired && offer.status === "active";
+      
+      if (shouldBeExpired) {
+        // Track this offer ID to update in database
+        expiredOfferIds.push(offer._id);
+      }
+      
       return {
         ...offer,
-        status: offer.endsAt && new Date(offer.endsAt) < now && offer.status === "active" ? "expired" : offer.status,
+        status: shouldBeExpired ? "expired" : offer.status,
       };
     });
+    
+    // Update all expired offers in database (fire and forget - don't block response)
+    if (expiredOfferIds.length > 0) {
+      console.log(`[OfferExpiry] Auto-expiring ${expiredOfferIds.length} offers:`, expiredOfferIds);
+      Offer.updateMany(
+        { _id: { $in: expiredOfferIds } },
+        { $set: { status: "expired", updatedAt: now } }
+      ).catch(err => {
+        console.error('[OfferExpiry] Failed to update expired offers in DB:', err);
+      });
+    }
 
     // Light caching for 5s (client-side private cache)
     res.setHeader("Cache-Control", "private, max-age=5, stale-while-revalidate=30");

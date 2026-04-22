@@ -124,6 +124,8 @@ interface Offer {
   } | string>;
   doctorIds?: string[];
   departmentIds?: string[];
+  serviceNames?: string[];
+  departmentNames?: string[];
   status: string;
   enabled: boolean;
   code: string;
@@ -137,6 +139,16 @@ interface Offer {
   // Cashback-specific fields
   cashbackAmount?: number;
   cashbackExpiryDays?: number;
+  // Additional fields from CreateOffer model
+  startsAt?: Date | string;
+  endsAt?: Date | string;
+  maxUses?: number | null;
+  usesCount?: number;
+  perUserLimit?: number;
+  sameDayReuseBlocked?: boolean;
+  marginThresholdPercent?: number;
+  autoApplyBestOffer?: boolean;
+  allowManualOverride?: boolean;
 }
 
 interface AppointmentBillingModalProps {
@@ -200,6 +212,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const matchedOffersRef = useRef<Offer[]>([]); // Track matchedOffers without causing re-renders
   const offersClearedRef = useRef<boolean>(false); // Prevent repeated clear loops when offers are empty
   const bundleClearedRef = useRef<boolean>(false); // Prevent repeated bundle-clear loops
+  
+  // New state variables for flag-based discount visibility control
+  const [showMembershipDiscount, setShowMembershipDiscount] = useState(true);
+  const [showAgentDiscount, setShowAgentDiscount] = useState(true);
+  const [showDoctorDiscount, setShowDoctorDiscount] = useState(true);
+  
   const [isMembershipApplied, setIsMembershipApplied] = useState(false);
   const [finalMembershipDiscount, setFinalMembershipDiscount] = useState(0);
   const [finalOfferDiscount, setFinalOfferDiscount] = useState(0);
@@ -435,6 +453,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       setMatchedBundleOffer(null);
       setBundleFreeSessions([]);
       setBundleFreeSessionCount(0);
+      // Reset new flag-based visibility state to defaults
+      setShowMembershipDiscount(true);
+      setShowAgentDiscount(true);
+      setShowDoctorDiscount(true);
       setMultiplePayments([
         { paymentMethod: "Cash", amount: "" },
         { paymentMethod: "Card", amount: "" },
@@ -679,11 +701,25 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
              headers,
            });
            if (offersRes.data.success && Array.isArray(offersRes.data.offers)) {
+             // Log all offers with their status for debugging
+             console.log('[OfferFetch] All offers from API:', offersRes.data.offers.map((o: any) => ({
+               title: o.title,
+               status: o.status,
+               enabled: o.enabled,
+               endsAt: o.endsAt
+             })));
+             
              // Include only 'active' status offers
              const applicableOnes = offersRes.data.offers.filter((o: any) => 
                o.status === "active" && o.enabled === true
              );
              console.log(`[OfferFetch] Successfully fetched ${applicableOnes.length} active and enabled offers.`);
+             console.log('[OfferFetch] Active offers:', applicableOnes.map((o: any) => ({
+               title: o.title,
+               status: o.status,
+               allowReceptionistDiscount: o.allowReceptionistDiscount,
+               autoApplyBestOffer: o.autoApplyBestOffer
+             })));
              setActiveOffers(applicableOnes);
            }
          } catch (offerErr) {
@@ -1198,6 +1234,40 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
   }, [isOpen, appointment, treatments, billingHistory, billingHistoryFetched, billedTreatmentInfos]);
 
+  // Helper function to validate offer eligibility based on all rules
+  const validateOfferEligibility = useCallback((offer: Offer, baseTotal: number, currentDoctorId: string, paidTreatments: any[]): boolean => {
+    // 1. Check offer is active and enabled (already filtered in activeOffers, but double-check)
+    if (offer.status !== 'active' || !offer.enabled) {
+      console.log(`[FlagLogic] Offer "${offer.title}" rejected: status=${offer.status}, enabled=${offer.enabled}`);
+      return false;
+    }
+    
+    // 2. Check date validity (startsAt/endsAt)
+    const now = new Date();
+    if (offer.startsAt && new Date(offer.startsAt) > now) {
+      console.log(`[FlagLogic] Offer "${offer.title}" rejected: starts in future`);
+      return false;
+    }
+    if (offer.endsAt && new Date(offer.endsAt) < now) {
+      console.log(`[FlagLogic] Offer "${offer.title}" rejected: already expired`);
+      return false;
+    }
+    
+    // 3. Check minimum bill amount
+    if (offer.minimumBillAmount > 0 && baseTotal < offer.minimumBillAmount) {
+      console.log(`[FlagLogic] Offer "${offer.title}" rejected: baseTotal ${baseTotal} < minimum ${offer.minimumBillAmount}`);
+      return false;
+    }
+    
+    // 4. Check margin threshold (marginThresholdPercent) - warning only
+    if (offer.marginThresholdPercent && offer.marginThresholdPercent > 0) {
+      console.log(`[FlagLogic] Offer "${offer.title}" has margin threshold ${offer.marginThresholdPercent}% - not validated (requires cost data)`);
+    }
+    
+    console.log(`[FlagLogic] Offer "${offer.title}" passed all eligibility checks`);
+    return true;
+  }, [billingHistory]);
+
   // Auto-select offer based on selected treatment
   useEffect(() => {
     const sameOfferIds = (a: Offer[], b: Offer[]) => {
@@ -1322,6 +1392,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
            return true;
          }
        }
+       
+       // 4. Fallback: Check serviceNames array (cached names at creation time)
+       if (offer.serviceNames && Array.isArray(offer.serviceNames) && offer.serviceNames.length > 0) {
+         const matchesServiceName = paidTreatments.some(t =>
+           offer.serviceNames!.some((name: string) => String(name).toLowerCase() === String(t.name).toLowerCase())
+         );
+         if (matchesServiceName) {
+           console.log(`[OfferMatching] Offer "${offer.title}" matches for selected service (serviceNames fallback).`);
+           return true;
+         }
+       }
 
       return false;
     });
@@ -1368,6 +1449,210 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       setAppliedOfferIds((prev) => (prev.length > 0 ? [] : prev));
     }
   }, [isOpen, activeOffers, selectedTreatments, selectedService, packageTreatmentSessions, appointment?.doctorId]);
+
+  // ============================================
+  // NEW: Flag-Based Discount Visibility Logic
+  // ============================================
+  // This useEffect evaluates matched offers and determines which discount sources should be visible
+  // based on the three flags: allowCombiningWithOtherOffers, allowReceptionistDiscount, autoApplyBestOffer
+  useEffect(() => {
+    // If no offers matched, keep existing behavior - show all discounts
+    if (!isOpen || matchedOffers.length === 0) {
+      console.log('[FlagLogic] No matched offers - showing all discount sources');
+      setShowMembershipDiscount(true);
+      setShowAgentDiscount(true);
+      setShowDoctorDiscount(true);
+      return;
+    }
+
+    console.log('[FlagLogic] Matched offers found - applying flag-based visibility logic');
+    
+    // Evaluate flags from all matched offers
+    // Strategy: Use the most restrictive flags across all matched offers
+    const allowCombining = matchedOffers.every(o => o.allowCombiningWithOtherOffers);
+    const allowReceptionist = matchedOffers.some(o => o.allowReceptionistDiscount); // If ANY allows receptionist, show it
+    const autoApply = matchedOffers.some(o => o.autoApplyBestOffer); // If ANY has auto-apply, enable it
+
+    console.log('[FlagLogic] Evaluated flags:', {
+      allowCombiningWithOtherOffers: allowCombining,
+      allowReceptionistDiscount: allowReceptionist,
+      autoApplyBestOffer: autoApply,
+      matchedOffersCount: matchedOffers.length
+    });
+
+    // ==========================================
+    // CASE 1: allowCombining=true, allowReceptionistDiscount=false, autoApplyBestOffer=true
+    // ==========================================
+    // Show: All offers + Membership discount (doctor discount too)
+    // Hide: Agent discount (receptionist discount not allowed)
+    // Auto-apply: Best offer from matched offers only
+    if (allowCombining && !allowReceptionist && autoApply) {
+      console.log('[FlagLogic] Case 1: Show offers + membership, hide agent, auto-apply best offer');
+      setShowMembershipDiscount(true);
+      setShowAgentDiscount(false);
+      setShowDoctorDiscount(true);
+    }
+    
+    // ==========================================
+    // CASE 2: allowCombining=true, allowReceptionistDiscount=true, autoApplyBestOffer=true
+    // ==========================================
+    // Show: All offers + Membership + Agent + Doctor discounts
+    // Auto-apply: Best discount among ALL (offers + agent + doctor)
+    else if (allowCombining && allowReceptionist && autoApply) {
+      console.log('[FlagLogic] Case 2: Show ALL discounts, auto-apply best among all');
+      setShowMembershipDiscount(true);
+      setShowAgentDiscount(true);
+      setShowDoctorDiscount(true);
+    }
+    
+    // ==========================================
+    // CASE 3: allowCombining=true, allowReceptionistDiscount=true, autoApplyBestOffer=false
+    // ==========================================
+    // Show: All discounts visible
+    // Do NOT auto-apply: All have manual "Apply" buttons
+    else if (allowCombining && allowReceptionist && !autoApply) {
+      console.log('[FlagLogic] Case 3: Show ALL discounts, NO auto-apply (manual only)');
+      setShowMembershipDiscount(true);
+      setShowAgentDiscount(true);
+      setShowDoctorDiscount(true);
+    }
+    
+    // ==========================================
+    // CASE 4: allowCombining=false, allowReceptionistDiscount=true, autoApplyBestOffer=true
+    // ==========================================
+    // Show: Only createOffer offers + Agent discount
+    // Hide: Membership discount
+    // Auto-apply: Best among (matched offers + agent discount)
+    else if (!allowCombining && allowReceptionist && autoApply) {
+      console.log('[FlagLogic] Case 4: Show offers + agent only (no membership), auto-apply best');
+      setShowMembershipDiscount(false);
+      setShowAgentDiscount(true);
+      setShowDoctorDiscount(true);
+    }
+    
+    // Default: fallback to current behavior (show all)
+    else {
+      console.log('[FlagLogic] Default case: showing all discount sources');
+      setShowMembershipDiscount(true);
+      setShowAgentDiscount(true);
+      setShowDoctorDiscount(true);
+    }
+  }, [isOpen, matchedOffers]);
+
+  // ============================================
+  // NEW: Auto-Apply Best Offer Logic
+  // ============================================
+  // This useEffect automatically compares all eligible discounts and applies the best one
+  // when autoApplyBestOffer flag is true
+  useEffect(() => {
+    // Skip if modal not open, no offers matched, or auto-apply is disabled
+    if (!isOpen || matchedOffers.length === 0) return;
+    
+    // Check if ANY matched offer has autoApplyBestOffer enabled
+    const hasAutoApply = matchedOffers.some(o => o.autoApplyBestOffer);
+    if (!hasAutoApply) {
+      console.log('[AutoApply] Auto-apply disabled - manual mode');
+      return; // Manual mode - skip auto-application
+    }
+
+    console.log('[AutoApply] Auto-apply enabled - calculating best discount');
+    
+    // Calculate base total from selected treatments
+    const currentTreatments = selectedService === "Treatment" 
+      ? selectedTreatments.map(t => ({ price: t.price, quantity: t.quantity }))
+      : packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ price: t.sessionPrice, quantity: t.usedSessions }));
+    
+    const baseTotal = currentTreatments.reduce((sum, t) => sum + (t.price || 0) * (t.quantity || 1), 0);
+    if (baseTotal === 0) {
+      console.log('[AutoApply] Base total is 0 - skipping auto-apply');
+      return;
+    }
+
+    // Collect all eligible discounts based on visibility flags
+    const eligibleDiscounts: Array<{type: string, amount: number, id?: string, label?: string}> = [];
+
+    // 1. Calculate offer discounts for all matched offers
+    matchedOffers.forEach(offer => {
+      // Skip bundle and cashback offers from instant discount comparison
+      if (offer.offerType === 'bundle' || offer.offerType === 'cashback') {
+        console.log(`[AutoApply] Skipping ${offer.offerType} offer "${offer.title}" from instant discount comparison`);
+        return;
+      }
+
+      let discountAmount = 0;
+      if (offer.discountMode === 'percentage') {
+        discountAmount = (baseTotal * offer.discountValue) / 100;
+        if (offer.maxBenefitCap > 0) {
+          discountAmount = Math.min(discountAmount, offer.maxBenefitCap);
+        }
+      } else {
+        discountAmount = offer.discountValue || 0;
+      }
+      
+      console.log(`[AutoApply] Offer "${offer.title}": ${offer.discountMode} ${offer.discountValue} = ${discountAmount}`);
+      eligibleDiscounts.push({ 
+        type: 'offer', 
+        amount: discountAmount, 
+        id: offer._id,
+        label: offer.title 
+      });
+    });
+
+    // 2. Add agent discount if visible and available
+    if (showAgentDiscount && agentDiscount && agentDiscount.discountAmount > 0) {
+      let agentAmount = 0;
+      if (agentDiscount.discountType === 'percentage') {
+        agentAmount = (baseTotal * agentDiscount.discountAmount) / 100;
+      } else {
+        agentAmount = agentDiscount.discountAmount;
+      }
+      console.log(`[AutoApply] Agent discount: ${agentAmount}`);
+      eligibleDiscounts.push({ type: 'agent', amount: agentAmount, label: 'Agent Discount' });
+    }
+
+    // 3. Add doctor discount if visible and available
+    if (showDoctorDiscount && doctorComplaintDiscount && doctorComplaintDiscount.discountAmount > 0) {
+      let doctorAmount = 0;
+      if (doctorComplaintDiscount.discountType === 'percentage') {
+        doctorAmount = (baseTotal * doctorComplaintDiscount.discountAmount) / 100;
+      } else {
+        doctorAmount = doctorComplaintDiscount.discountAmount;
+      }
+      console.log(`[AutoApply] Doctor discount: ${doctorAmount}`);
+      eligibleDiscounts.push({ type: 'doctor', amount: doctorAmount, label: 'Doctor Discount' });
+    }
+
+    if (eligibleDiscounts.length === 0) {
+      console.log('[AutoApply] No eligible discounts found');
+      return;
+    }
+
+    // 4. Find highest discount
+    const bestDiscount = eligibleDiscounts.reduce((best, current) => 
+      current.amount > best.amount ? current : best
+    , { type: '', amount: 0, label: '' });
+
+    console.log('[AutoApply] Best discount:', bestDiscount);
+
+    // 5. Apply best discount automatically
+    if (bestDiscount.type === 'offer' && bestDiscount.id) {
+      console.log(`[AutoApply] Auto-applying offer: ${bestDiscount.label} (${bestDiscount.amount})`);
+      setAppliedOfferIds([bestDiscount.id]);
+      setIsAgentDiscountApplied(false);
+      setIsDoctorDiscountApplied(false);
+    } else if (bestDiscount.type === 'agent') {
+      console.log(`[AutoApply] Auto-applying agent discount: ${bestDiscount.amount}`);
+      setIsAgentDiscountApplied(true);
+      setIsDoctorDiscountApplied(false);
+      setAppliedOfferIds([]);
+    } else if (bestDiscount.type === 'doctor') {
+      console.log(`[AutoApply] Auto-applying doctor discount: ${bestDiscount.amount}`);
+      setIsDoctorDiscountApplied(true);
+      setIsAgentDiscountApplied(false);
+      setAppliedOfferIds([]);
+    }
+
+  }, [isOpen, matchedOffers, agentDiscount, doctorComplaintDiscount, showAgentDiscount, showDoctorDiscount, selectedTreatments, selectedService, packageTreatmentSessions]);
 
   // Bundle Offer Matching Logic
   useEffect(() => {
@@ -4203,7 +4488,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                     {/* Discount Controls */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
                       {/* Membership Discount Toggle */}
-                      {membershipUsage?.hasMembership && !membershipUsage?.isExpired && !isMembershipTransferredOut() && (
+                      {showMembershipDiscount && membershipUsage?.hasMembership && !membershipUsage?.isExpired && !isMembershipTransferredOut() && (
                         <div className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
                           isMembershipApplied ? "bg-blue-50 border-blue-200 shadow-sm" : "bg-gray-50 border-gray-100"
                         }`}>
@@ -4250,62 +4535,132 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       {/* Offer Toggles */}
                       {matchedOffers.map((offer) => {
                         const isApplied = appliedOfferIds.includes(offer._id);
+                        const isAutoApplied = offer.autoApplyBestOffer && isApplied;
+                        const isBundleOffer = offer.offerType === 'bundle';
+                        const isCashbackOffer = offer.offerType === 'cashback';
+                        // For cashback offers, check isCashbackApplied state instead of appliedOfferIds
+                        const isCashbackAppliedState = isCashbackOffer && isCashbackApplied && matchedCashbackOffer?._id === offer._id;
+                        const effectiveIsApplied = isCashbackOffer ? isCashbackAppliedState : isApplied;
+                        
                         return (
                           <div key={offer._id} className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
-                            isApplied ? "bg-teal-50 border-teal-200 shadow-sm" : "bg-gray-50 border-gray-100"
+                            effectiveIsApplied ? "bg-teal-50 border-teal-200 shadow-sm" : "bg-gray-50 border-gray-100"
                           }`}>
-                            <div className="flex items-start gap-2.5">
-                              <div className={`p-1.5 rounded-lg ${isApplied ? "bg-teal-100" : "bg-gray-100"}`}>
-                                <Tag size={14} className={isApplied ? "text-teal-600" : "text-gray-400"} />
+                            <div className="flex items-start gap-2.5 flex-1">
+                              <div className={`p-1.5 rounded-lg ${effectiveIsApplied ? "bg-teal-100" : "bg-gray-100"}`}>
+                                <Tag size={14} className={effectiveIsApplied ? "text-teal-600" : "text-gray-400"} />
                               </div>
-                              <div className="flex flex-col">
-                                <span className={`text-[10px] font-bold ${isApplied ? "text-teal-700" : "text-gray-500"}`}>OFFER</span>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[10px] text-gray-600 font-medium truncate max-w-[120px]">
-                                    {offer.title}
-                                  </span>
-                                  <span className="text-[9px] bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded font-bold">
-                                    {offer.discountValue}{offer.discountMode === "percentage" ? "%" : " Fixed"}
-                                  </span>
-                                </div>
-                                {offer.maxBenefitCap > 0 && (
-                                  <span className="text-[8px] text-teal-600 font-bold italic">
-                                    Up to {getCurrencySymbol(currency)} {offer.maxBenefitCap}
-                                  </span>
+                              <div className="flex flex-col flex-1 min-w-0">
+                                <span className={`text-[10px] font-bold ${effectiveIsApplied ? "text-teal-700" : "text-gray-500"}`}>
+                                  {isBundleOffer ? 'BUNDLE' : isCashbackOffer ? 'CASHBACK' : 'OFFER'}
+                                </span>
+                                
+                                {/* Bundle Offer Display: Show "Buy X Get Y" */}
+                                {isBundleOffer ? (
+                                  <div className="flex flex-col gap-0.5 mt-0.5">
+                                    <span className="text-[10px] text-gray-600 font-medium truncate">
+                                      {offer.title}
+                                    </span>
+                                    <span className="text-[9px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-bold inline-block w-fit">
+                                      Buy {offer.buyQty} Get {offer.freeQty} Free
+                                    </span>
+                                  </div>
+                                ) : isCashbackOffer ? (
+                                  /* Cashback Offer Display: Show "Get $X Cashback" */
+                                  <div className="flex flex-col gap-0.5 mt-0.5">
+                                    <span className="text-[10px] text-gray-600 font-medium truncate">
+                                      {offer.title}
+                                    </span>
+                                    <span className="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold inline-block w-fit">
+                                      Get {getCurrencySymbol(currency)} {offer.cashbackAmount} Cashback
+                                    </span>
+                                    {offer.cashbackExpiryDays && offer.cashbackExpiryDays > 0 && (
+                                      <span className="text-[8px] text-purple-600 font-medium">
+                                        Valid for {offer.cashbackExpiryDays} days
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  /* Regular Instant Discount Offer */
+                                  <div className="flex flex-col gap-0.5 mt-0.5">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[10px] text-gray-600 font-medium truncate max-w-[120px]">
+                                        {offer.title}
+                                      </span>
+                                      <span className="text-[9px] bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded font-bold">
+                                        {offer.discountValue}{offer.discountMode === "percentage" ? "%" : " Fixed"}
+                                      </span>
+                                    </div>
+                                    {offer.maxBenefitCap > 0 && (
+                                      <span className="text-[8px] text-teal-600 font-bold italic">
+                                        Up to {getCurrencySymbol(currency)} {offer.maxBenefitCap}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                                
+                                {isAutoApplied && (
+                                  <span className="text-[8px] text-emerald-600 font-bold mt-0.5">✓ Auto-Applied (Best Offer)</span>
                                 )}
                               </div>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (isApplied) {
-                                  setAppliedOfferIds(prev => prev.filter(id => id !== offer._id));
-                                } else {
-                                  if (!offer.allowCombiningWithOtherOffers) {
-                                    // If this offer doesn't allow combining, clear EVERYTHING else
-                                    setAppliedOfferIds([offer._id]);
-                                    setIsMembershipApplied(false);
-                                    setIsDoctorDiscountApplied(false);
-                                    setIsAgentDiscountApplied(false);
-                                  } else {
-                                    // If combining is allowed, but we already have a restricted offer applied, clear it
-                                    const hasRestricted = matchedOffers.some(o => appliedOfferIds.includes(o._id) && !o.allowCombiningWithOtherOffers);
-                                    if (hasRestricted) {
-                                      setAppliedOfferIds([offer._id]);
+                            {/* Show Apply button only if manual override is allowed or auto-apply is disabled */}
+                            {(!offer.autoApplyBestOffer || offer.allowManualOverride) && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  // Handle cashback offers differently
+                                  if (offer.offerType === 'cashback') {
+                                    if (isCashbackApplied && matchedCashbackOffer?._id === offer._id) {
+                                      // Remove cashback
+                                      appliedCashbackRef.current = null;
+                                      setIsCashbackApplied(false);
+                                      setAppliedCashbackAmount(0);
+                                      console.log("[Cashback] Cashback removed from offer button");
                                     } else {
-                                      setAppliedOfferIds(prev => [...prev, offer._id]);
+                                      // Apply cashback
+                                      const cashbackAmount = offer.cashbackAmount || 0;
+                                      appliedCashbackRef.current = {
+                                        offerId: offer._id,
+                                        amount: cashbackAmount
+                                      };
+                                      setAppliedCashbackAmount(cashbackAmount);
+                                      setIsCashbackApplied(true);
+                                      console.log("[Cashback] Applied from offer button:", { amount: cashbackAmount, offerTitle: offer.title });
+                                    }
+                                    return;
+                                  }
+                                  
+                                  // Regular offer logic (instant_discount, bundle)
+                                  if (isApplied) {
+                                    setAppliedOfferIds(prev => prev.filter(id => id !== offer._id));
+                                  } else {
+                                    if (!offer.allowCombiningWithOtherOffers) {
+                                      // If this offer doesn't allow combining, clear EVERYTHING else
+                                      setAppliedOfferIds([offer._id]);
+                                      setIsMembershipApplied(false);
+                                      setIsDoctorDiscountApplied(false);
+                                      setIsAgentDiscountApplied(false);
+                                    } else {
+                                      // If combining is allowed, but we already have a restricted offer applied, clear it
+                                      const hasRestricted = matchedOffers.some(o => appliedOfferIds.includes(o._id) && !o.allowCombiningWithOtherOffers);
+                                      if (hasRestricted) {
+                                        setAppliedOfferIds([offer._id]);
+                                      } else {
+                                        setAppliedOfferIds(prev => [...prev, offer._id]);
+                                      }
                                     }
                                   }
-                                }
-                              }}
-                              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all shadow-sm ${
-                                isApplied
-                                  ? "bg-teal-200 text-teal-800 hover:bg-teal-300"
-                                  : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
-                              }`}
-                            >
-                              {isApplied ? "Applied" : "Apply"}
-                            </button>
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all shadow-sm ${
+                                  effectiveIsApplied
+                                    ? "bg-teal-200 text-teal-800 hover:bg-teal-300"
+                                    : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+                                }`}
+                              >
+                                {effectiveIsApplied ? "Applied" : "Apply"}
+                              </button>
+                            )}
                           </div>
                         );
                       })}
@@ -4336,7 +4691,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       )}
 
                       {/* Doctor Discount Section (From Profile or Complaint) */}
-                      {doctorAppliedDiscount && (appliedOfferIds.length === 0 || matchedOffers.filter(o => appliedOfferIds.includes(o._id)).every(o => o.allowReceptionistDiscount)) && (
+                      {showDoctorDiscount && doctorAppliedDiscount && (appliedOfferIds.length === 0 || matchedOffers.filter(o => appliedOfferIds.includes(o._id)).every(o => o.allowReceptionistDiscount)) && (
                         <div className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
                           isDoctorDiscountApplied ? "bg-orange-50 border-orange-200 shadow-sm" : "bg-gray-50 border-gray-100"
                         }`}>
@@ -4381,7 +4736,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       )}
 
                       {/* Hide agent discount if any matched offer has allowReceptionistDiscount: false */}
-                      {agentDiscount && 
+                      {showAgentDiscount && agentDiscount && 
                        ((userRole === "agent") || !doctorAppliedDiscount) && 
                        (appliedOfferIds.length === 0 || matchedOffers.filter(o => appliedOfferIds.includes(o._id)).every(o => o.allowReceptionistDiscount)) &&
                        !matchedOffers.some(o => o.allowReceptionistDiscount === false) && (
@@ -4768,7 +5123,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       )}
 
                       {/* Bundle Offer Free Sessions Indicator */}
-                      {matchedBundleOffer && bundleFreeSessions.length > 0 && (
+                      {/* Only show if bundle offer is matched AND actually applied */}
+                      {matchedBundleOffer && bundleFreeSessions.length > 0 && appliedOfferIds.includes(matchedBundleOffer._id) && (
                         <div className="mt-2 p-2 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
                           <div className="flex items-start gap-2">
                             <svg className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -4798,7 +5154,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       )}
 
                       {/* Cashback Offer Indicator */}
-                      {matchedCashbackOffer && (
+                      {/* Only show in billing summary if cashback is actually applied */}
+                      {matchedCashbackOffer && isCashbackApplied && (
                         <div className="mt-2 p-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
                           <div className="flex items-start gap-2">
                             <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -4806,61 +5163,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             </svg>
                             <div className="flex-1">
                               <div className="text-[10px] font-bold text-blue-900 uppercase tracking-wide">
-                                💰 Cashback Available: {matchedCashbackOffer.title}
+                                ✅ Cashback Applied: {matchedCashbackOffer.title}
                               </div>
                               <div className="text-[10px] text-blue-700 mt-1 font-semibold">
-                                Earn {getCurrencySymbol(currency)}{matchedCashbackOffer.cashbackAmount || 0} Cashback (expires in {matchedCashbackOffer.cashbackExpiryDays || 365} days)
+                                {getCurrencySymbol(currency)}{appliedCashbackAmount.toFixed(2)} will be added to wallet
                               </div>
-                              {isCashbackApplied ? (
-                                <div className="flex items-center gap-2 mt-1">
-                                  <div className="text-[9px] text-blue-800 font-bold">
-                                    ✓ Cashback Applied: {getCurrencySymbol(currency)}{appliedCashbackAmount.toFixed(2)}
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      // Clear the ref
-                                      appliedCashbackRef.current = null;
-                                      setIsCashbackApplied(false);
-                                      setAppliedCashbackAmount(0);
-                                      console.log("[Cashback] Cashback removed");
-                                    }}
-                                    className="text-[9px] px-2 py-0.5 bg-red-100 text-red-700 rounded hover:bg-red-200 font-bold"
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    // For cashback offers, use the fixed cashbackAmount
-                                    // (NOT discountValue - that's for instant_discount offers)
-                                    const cashbackAmount = matchedCashbackOffer.cashbackAmount || 0;
-                                    
-                                    // Save to ref to persist across useEffect runs
-                                    appliedCashbackRef.current = {
-                                      offerId: matchedCashbackOffer._id,
-                                      amount: cashbackAmount
-                                    };
-                                    
-                                    setAppliedCashbackAmount(cashbackAmount);
-                                    setIsCashbackApplied(true);
-                                    console.log("[Cashback] Applied successfully:", {
-                                      cashbackAmount,
-                                      offerId: matchedCashbackOffer._id,
-                                      offerName: matchedCashbackOffer.title,
-                                      cashbackExpiryDays: matchedCashbackOffer.cashbackExpiryDays,
-                                      isCashbackApplied: true
-                                    });
-                                  }}
-                                  className="mt-1 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded shadow-sm transition-all"
-                                >
-                                  Apply Cashback
-                                </button>
-                              )}
                               <div className="text-[9px] text-blue-600 mt-1 italic">
-                                💡 Cashback will be added to patient's wallet after billing
+                                💡 Cashback expires in {matchedCashbackOffer.cashbackExpiryDays || 365} days
                               </div>
                             </div>
                           </div>
