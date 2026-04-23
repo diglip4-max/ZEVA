@@ -308,12 +308,6 @@ offerOverrideUsed: {
 
 offerOverrideReason: String,
 
-offerAppliedBy: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "User"
-},
-
-// Bundle offer tracking fields
 offerFreeSession: {
   type: [String],
   default: []
@@ -323,7 +317,64 @@ freeOfferSessionCount: {
   type: Number,
   default: 0,
   min: 0
-}
+},
+
+// Offer refund tracking fields
+isOfferRefunded: {
+  type: Boolean,
+  default: false
+},
+
+refundedAt: {
+  type: Date,
+  default: null
+},
+
+refundedBy: {
+  type: String,
+  trim: true,
+  default: null
+},
+
+refundedAmount: {
+  type: Number,
+  default: 0,
+  min: 0
+},
+
+// Track what offers were refunded
+refundedOffers: [{
+  offerType: {
+    type: String,
+    enum: ['instant_discount', 'cashback', 'bundle'],
+    required: true
+  },
+  offerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Offer',
+    default: null
+  },
+  offerName: {
+    type: String,
+    default: null
+  },
+  amount: {
+    type: Number,
+    default: 0
+  },
+  freeSessionsRefunded: {
+    type: [String],
+    default: []
+  },
+  cashbackRefunded: {
+    type: Number,
+    default: 0
+  },
+  cashbackWalletUsageReversed: {
+    type: Number,
+    default: 0
+  }
+}]
   },
   { timestamps: true },
 );
@@ -361,6 +412,11 @@ billingSchema.pre("save", function (next) {
 // Indexes for faster queries
 billingSchema.index({ patientId: 1 });
 billingSchema.index({ invoiceNumber: 1 });
+
+// Prevent duplicate model compilation error
+if (mongoose.models.Billing) {
+  delete mongoose.models.Billing;
+}
 
 export default mongoose.models.Billing ||
   mongoose.model("Billing", billingSchema);
