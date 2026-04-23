@@ -76,6 +76,7 @@ import {
   Info,
   CheckCircle,
   AlertTriangle,
+  Megaphone,
   // Additional professional icons
   Home,
   ClipboardCheck,
@@ -89,6 +90,7 @@ import {
   Database as Storage,
   ShoppingCart as Deals,
   Receipt as Billing,
+  BookOpen as Guide,
 } from "lucide-react";
 
 interface NavItemChild {
@@ -355,6 +357,11 @@ const iconMap: { [key: string]: React.ReactNode } = {
   insights: <TrendingUp className="w-4 h-4 text-[#6B7280]" />,
   metrics: <Activity className="w-4 h-4 text-[#6B7280]" />,
   activity: <Activity className="w-4 h-4 text-[#6B7280]" />,
+
+  // Marketing & Campaigns
+  campaigns: <Megaphone className="w-4 h-4 text-[#6B7280]" />,
+  marketing: <Target className="w-4 h-4 text-[#6B7280]" />,
+  workflowGuide: <Guide className="w-4 h-4 text-[#6B7280]" />,
 
   // Default fallback for any unmapped icons
 };
@@ -908,7 +915,19 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               ),
               order: 180,
             },
-          ].filter((group) => group.children && group.children.length > 0);
+            {
+              label: "Campaigns",
+              path: "/clinic/campaigns",
+              icon: "campaigns",
+              order: 185,
+            },
+            {
+              label: "Workflow Guide",
+              path: "/clinic/workflow-guide",
+              icon: "workflowGuide",
+              order: 190,
+            },
+          ].filter((group) => (group.children && group.children.length > 0) || group.path);
 
           const usedLabels = new Set<string>([
             ...groupedModules.flatMap((g) =>
