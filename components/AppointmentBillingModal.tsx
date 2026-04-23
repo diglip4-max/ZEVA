@@ -4604,26 +4604,27 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                 )}
                               </div>
                             </div>
-                            {/* Show Apply button only if manual override is allowed or auto-apply is disabled */}
-                            {(!offer.autoApplyBestOffer || offer.allowManualOverride) && (
-                              <button
-                                type="button"
-                                onClick={() => {
+                            {/* Always show Apply button for all offers */}
+                            <button
+                              type="button"
+                              onClick={() => {
                                   // Handle cashback offers differently
                                   if (offer.offerType === 'cashback') {
                                     if (isCashbackApplied && matchedCashbackOffer?._id === offer._id) {
                                       // Remove cashback
                                       appliedCashbackRef.current = null;
+                                      setMatchedCashbackOffer(null);
                                       setIsCashbackApplied(false);
                                       setAppliedCashbackAmount(0);
                                       console.log("[Cashback] Cashback removed from offer button");
                                     } else {
-                                      // Apply cashback
+                                      // Apply cashback - update matchedCashbackOffer to this specific offer
                                       const cashbackAmount = offer.cashbackAmount || 0;
                                       appliedCashbackRef.current = {
                                         offerId: offer._id,
                                         amount: cashbackAmount
                                       };
+                                      setMatchedCashbackOffer(offer);
                                       setAppliedCashbackAmount(cashbackAmount);
                                       setIsCashbackApplied(true);
                                       console.log("[Cashback] Applied from offer button:", { amount: cashbackAmount, offerTitle: offer.title });
@@ -4660,7 +4661,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                               >
                                 {effectiveIsApplied ? "Applied" : "Apply"}
                               </button>
-                            )}
                           </div>
                         );
                       })}
