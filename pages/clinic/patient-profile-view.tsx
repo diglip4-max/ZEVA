@@ -637,10 +637,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   const [pkgSelectedTreatments, setPkgSelectedTreatments] = useState<Array<{ treatmentName: string; treatmentSlug: string; sessions: number; allocatedPrice: number }>>([]);
   const [pkgTreatmentDropdownOpen, setPkgTreatmentDropdownOpen] = useState(false);
   const [pkgTreatmentSearch, setPkgTreatmentSearch] = useState("");
-  const [pkgSubmitting, setPkgSubmitting] = useState(false);
+  const [pkgSubmitting, _setPkgSubmitting] = useState(false);
   const [pkgError, setPkgError] = useState("");
   const [pkgSuccess, setPkgSuccess] = useState("");
-  const [addingPackageToPatient, setAddingPackageToPatient] = useState(false);
+  const [addingPackageToPatient, _setAddingPackageToPatient] = useState(false);
   const [allServices, setAllServices] = useState<any[]>([]);
   const [loadingServices, setLoadingServices] = useState(false);
 
@@ -718,107 +718,40 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       setPkgError(`Total allocated prices (${totalAllocated.toFixed(2)}) must equal the package price (${packagePrice.toFixed(2)})`);
       return;
     }
-    setPkgSubmitting(true);
-    try {
-      const headers = getAuthHeaders();
-      if (!headers) return;
-      const res = await axios.post("/api/clinic/packages", {
-        name: pkgModalName.trim(),
-        totalPrice: packagePrice,
-        validityInMonths: parseInt(pkgModalValidityInMonths) || 0,
-        startDate: pkgModalStartDate,
-        endDate: pkgModalEndDate,
-        treatments: pkgSelectedTreatments,
-      }, { headers });
-      if (res.data?.success) {
-        const newPkgId = res.data.package?._id || res.data.packageId || null;
-        if (addToPatient && newPkgId && patientData?._id) {
-          setAddingPackageToPatient(true);
-          try {
-            await axios.post("/api/clinic/assign-package-to-patient", {
-              patientId: patientData._id,
-              packageId: newPkgId,
-              validityInMonths: parseInt(pkgModalValidityInMonths) || 0,
-              startDate: pkgModalStartDate,
-              endDate: pkgModalEndDate,
-            }, { headers });
-            setPkgSuccess("Package created and added to patient profile!");
-
-            // Refresh patient data and available packages
-            const [patientRes, pRes] = await Promise.all([
-              axios.get(`/api/staff/get-patient-data/${patientData._id}`, { headers }),
-              axios.get('/api/clinic/packages', { headers })
-            ]);
-
-            if (pRes.data.success) setAllAvailablePackages(pRes.data.packages || []);
-
-            if (patientRes.data) {
-              const freshData = patientRes.data;
-
-              // Update the main patient state via callback
-              if (onPatientUpdated) {
-                onPatientUpdated({
-                  ...patientData,
-                  membership: freshData?.membership || 'No',
-                  membershipId: freshData?.membershipId || '',
-                  membershipStartDate: freshData?.membershipStartDate || '',
-                  membershipEndDate: freshData?.membershipEndDate || '',
-                  memberships: Array.isArray(freshData?.memberships) ? freshData.memberships : [],
-                  package: freshData?.package || 'No',
-                  packageId: freshData?.packageId || '',
-                  packages: Array.isArray(freshData?.packages) ? freshData.packages : [],
-                });
-              }
-
-              // Update editFormData with fresh saved data
-              setEditFormData({
-                membership: freshData?.membership || 'No',
-                membershipId: freshData?.membershipId || '',
-                membershipStartDate: freshData?.membershipStartDate || '',
-                membershipEndDate: freshData?.membershipEndDate || '',
-                memberships: Array.isArray(freshData?.memberships) ? freshData.memberships : [],
-                package: freshData?.package || 'No',
-                packageId: freshData?.packageId || '',
-                packages: Array.isArray(freshData?.packages) ? freshData.packages : [],
-              });
-
-              // Refresh packages/memberships display for the lower section
-               fetchPackagesAndMemberships({
-                 memberships: Array.isArray(freshData?.memberships) ? freshData.memberships : (patientData?.memberships || []),
-                 packages: Array.isArray(freshData?.packages) ? freshData.packages : (patientData?.packages || []),
-               });
-
-               // Refresh overview stats
-               fetchOverviewData();
-             }
-          } catch (err) {
-            console.error('Error refreshing data after package creation:', err);
-            setPkgSuccess("Package created. (Could not refresh patient profile)");
-          } finally {
-            setAddingPackageToPatient(false);
-          }
-        } else {
-          setPkgSuccess("Package created successfully!");
-          // Refresh available packages list
-          const pRes = await axios.get('/api/clinic/packages', { headers });
-          if (pRes.data.success) setAllAvailablePackages(pRes.data.packages || []);
-        }
-        // Reset form
-        setPkgModalName(""); 
-        setPkgModalPrice(""); 
-        setPkgModalValidityInMonths("");
-        setPkgModalStartDate(new Date().toISOString().split('T')[0]);
-        setPkgModalEndDate("");
-        setPkgSelectedTreatments([]); 
-        setPkgTreatmentSearch("");
-      } else {
-        setPkgError(res.data?.message || "Failed to create package");
-      }
-    } catch (err: any) {
-      setPkgError(err.response?.data?.message || "Failed to create package");
-    } finally {
-      setPkgSubmitting(false);
-    }
+    
+    console.log('Package validation passed:', {
+      name: pkgModalName,
+      price: packagePrice,
+      treatments: pkgSelectedTreatments,
+      addToPatient
+    });
+    
+    // ALWAYS open payment modal first (both for "Create Package" and "Create & Add to Patient")
+    setPkgTotalAmount(packagePrice);
+    setPkgPaidAmount(packagePrice);
+    setPkgPaymentType("Full");
+    setPkgPaymentMethod("Cash");
+    
+    // Ensure treatments have proper number types
+    const normalizedTreatments = pkgSelectedTreatments.map(t => ({
+      treatmentName: t.treatmentName,
+      treatmentSlug: t.treatmentSlug,
+      sessions: parseInt(String(t.sessions)) || 1,
+      allocatedPrice: parseFloat(String(t.allocatedPrice)) || 0,
+    }));
+    
+    // Store the package data to be created after payment
+    setPkgPendingToCreate({
+      name: pkgModalName.trim(),
+      totalPrice: packagePrice,
+      validityInMonths: parseInt(pkgModalValidityInMonths) || 0,
+      startDate: pkgModalStartDate,
+      endDate: pkgModalEndDate,
+      treatments: normalizedTreatments,
+      addToPatient: addToPatient, // Flag to know if should add to patient after creation
+    });
+    
+    setShowPackagePaymentModal(true);
   };
 
   // ---- Editable Membership & Package State ----
@@ -852,6 +785,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   const [pkgPaidAmount, setPkgPaidAmount] = useState<number>(0);
   const [pkgTotalAmount, setPkgTotalAmount] = useState<number>(0);
   const [pkgPendingToAssign, setPkgPendingToAssign] = useState<any>(null);
+  const [pkgPendingToCreate, setPkgPendingToCreate] = useState<any>(null); // Store package data to create after payment
   const [pmMembershipUsageMap, setPmMembershipUsageMap] = useState<any>({});
   const [showSaveConfirmModal, setShowSaveConfirmModal] = useState(false);
 
@@ -989,7 +923,66 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     }
   };
 
-  const finalizePmAddPackage = (paidAmount: number, paymentStatus: "Unpaid" | "Partial" | "Full", paymentMethod: string) => {
+  const finalizePmAddPackage = async (paidAmount: number, paymentStatus: "Unpaid" | "Partial" | "Full", paymentMethod: string) => {
+    // Case 1: Creating a new package (with or without adding to patient)
+    if (pkgPendingToCreate) {
+      try {
+        const shouldAddToPatient = pkgPendingToCreate.addToPatient;
+        
+        // ALWAYS add to editFormData temporarily - will save on "Save Changes" click
+        const newPkgData = {
+          packageId: `temp_${Date.now()}`, // Temporary ID, will be replaced after save
+          isNewPackage: true, // Flag to indicate this needs to be created
+          packageName: pkgPendingToCreate.name,
+          totalPrice: pkgPendingToCreate.totalPrice,
+          validityInMonths: pkgPendingToCreate.validityInMonths,
+          startDate: pkgPendingToCreate.startDate,
+          endDate: pkgPendingToCreate.endDate,
+          treatments: pkgPendingToCreate.treatments,
+          assignedDate: new Date().toISOString(),
+          paidAmount: paidAmount,
+          paymentStatus: paymentStatus,
+          paymentMethod: paymentMethod,
+          addToPatient: shouldAddToPatient, // Keep flag to know behavior after save
+        };
+        
+        setEditFormData((prev: any) => ({
+          ...prev,
+          packages: [
+            ...(prev.packages || []), 
+            newPkgData
+          ],
+        }));
+        
+        // Reset create package form
+        setPkgModalName(""); 
+        setPkgModalPrice(""); 
+        setPkgModalValidityInMonths("");
+        setPkgModalStartDate(new Date().toISOString().split('T')[0]);
+        setPkgModalEndDate("");
+        setPkgSelectedTreatments([]); 
+        setPkgTreatmentSearch("");
+        
+        setPkgPendingToCreate(null);
+        setShowPackagePaymentModal(false);
+        
+        // Show appropriate message based on flow
+        if (shouldAddToPatient) {
+          setPkgSuccess("Package added to patient! Click 'Save Changes' to save.");
+        } else {
+          setPkgSuccess("Package created! Click 'Save Changes' to save.");
+        }
+        setTimeout(() => setPkgSuccess(""), 3000);
+      } catch (err: any) {
+        console.error('Error handling package creation:', err);
+        setPkgError(err.response?.data?.message || err.message || "Failed to create package");
+        setPkgPendingToCreate(null);
+        setShowPackagePaymentModal(false);
+      }
+      return;
+    }
+    
+    // Case 2: Adding existing package to patient (original flow)
     if (!pkgPendingToAssign) return;
     
     // Dynamically calculate start and end dates based on current date
@@ -1084,24 +1077,85 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     setShowSaveConfirmModal(false);
     try {
       setPmSaving(true);
-      const headers = getAuthHeaders() || {};
-        
-      // Determine if we should use array data or individual fields
-      const hasMembershipsArray = Array.isArray(editFormData.memberships) && editFormData.memberships.length > 0;
-      const hasPackagesArray = Array.isArray(editFormData.packages) && editFormData.packages.length > 0;
-        
-      // Auto-sync: If individual membershipId exists but memberships array is empty, create the array entry
-      let finalMemberships = Array.isArray(editFormData.memberships) ? editFormData.memberships : [];
-      if (!hasMembershipsArray && editFormData.membershipId && !finalMemberships.some((m: any) => m.membershipId === editFormData.membershipId)) {
-        finalMemberships = [{
-          membershipId: editFormData.membershipId,
-          startDate: editFormData.membershipStartDate || new Date().toISOString(),
-          endDate: editFormData.membershipEndDate || new Date(new Date().setMonth(new Date().getMonth() + 6)).toISOString(),
-        }];
+      const headers = getAuthHeaders();
+      if (!headers) {
+        setPmToast({ message: 'Authentication required', type: 'error' });
+        setTimeout(() => setPmToast(null), 3000);
+        setPmSaving(false);
+        return;
       }
         
+      // Step 1: Create any new packages first
+      const packagesToSave = Array.isArray(editFormData.packages) ? [...editFormData.packages] : [];
+      const newPackages = packagesToSave.filter((p: any) => p.isNewPackage);
+      
+      if (newPackages.length > 0) {
+        console.log('Creating new packages:', newPackages);
+        
+        for (const newPkg of newPackages) {
+          try {
+            // Create the package
+            const createRes = await axios.post("/api/clinic/packages", {
+              name: newPkg.packageName,
+              totalPrice: newPkg.totalPrice,
+              validityInMonths: newPkg.validityInMonths,
+              startDate: newPkg.startDate,
+              endDate: newPkg.endDate,
+              treatments: newPkg.treatments,
+            }, { headers });
+            
+            if (createRes.data?.success) {
+              const realPackageId = createRes.data.package?._id || createRes.data.packageId;
+              
+              // Only assign to patient if addToPatient flag is true
+              if (newPkg.addToPatient) {
+                await axios.post("/api/clinic/assign-package-to-patient", {
+                  patientId: patientData._id,
+                  packageId: realPackageId,
+                  validityInMonths: newPkg.validityInMonths,
+                  startDate: newPkg.startDate,
+                  endDate: newPkg.endDate,
+                  totalPrice: newPkg.totalPrice,
+                  paidAmount: newPkg.paidAmount,
+                  paymentStatus: newPkg.paymentStatus,
+                  paymentMethod: newPkg.paymentMethod,
+                }, { headers });
+              }
+              
+              // Update the package in the array with real ID and remove isNewPackage flag
+              const pkgIndex = packagesToSave.findIndex((p: any) => p.packageId === newPkg.packageId);
+              if (pkgIndex !== -1) {
+                packagesToSave[pkgIndex] = {
+                  ...packagesToSave[pkgIndex],
+                  packageId: realPackageId,
+                  isNewPackage: false,
+                };
+              }
+              
+              console.log(`Package created: ${realPackageId}${newPkg.addToPatient ? ' and assigned to patient' : ''}`);
+            }
+          } catch (err: any) {
+            console.error('Error creating package:', err);
+            setPmToast({ 
+              message: `Failed to create package "${newPkg.packageName}": ${err.response?.data?.message || err.message}`, 
+              type: 'error' 
+            });
+            setTimeout(() => setPmToast(null), 4000);
+            setPmSaving(false);
+            return;
+          }
+        }
+      }
+        
+      // Step 2: Prepare final packages array (with real IDs now)
+      const hasPackagesArray = packagesToSave.length > 0;
+      let finalPackages = packagesToSave.map((p: any) => {
+        // Remove isNewPackage flag, packageName, treatments, and addToPatient from the saved data
+        const { isNewPackage, packageName, treatments, addToPatient, ...rest } = p;
+        return rest;
+      });
+        
       // Auto-sync: If individual packageId exists but packages array is empty, create the array entry
-      let finalPackages = Array.isArray(editFormData.packages) ? editFormData.packages : [];
       if (!hasPackagesArray && editFormData.packageId && !finalPackages.some((p: any) => p.packageId === editFormData.packageId)) {
         finalPackages = [{
           packageId: editFormData.packageId,
@@ -1113,23 +1167,19 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         }];
       }
         
-      console.log('🔍 Current editFormData:', {
-        membership: editFormData.membership,
-        membershipId: editFormData.membershipId,
-        memberships: editFormData.memberships,
-        package: editFormData.package,
-        packageId: editFormData.packageId,
-        packages: editFormData.packages,
-      });
-        
-      console.log('🔄 After auto-sync:', {
-        finalMemberships,
-        finalPackages,
-      });
+      // Determine memberships
+      const hasMembershipsArray = Array.isArray(editFormData.memberships) && editFormData.memberships.length > 0;
+      let finalMemberships = Array.isArray(editFormData.memberships) ? editFormData.memberships : [];
+      if (!hasMembershipsArray && editFormData.membershipId && !finalMemberships.some((m: any) => m.membershipId === editFormData.membershipId)) {
+        finalMemberships = [{
+          membershipId: editFormData.membershipId,
+          startDate: editFormData.membershipStartDate || new Date().toISOString(),
+          endDate: editFormData.membershipEndDate || new Date(new Date().setMonth(new Date().getMonth() + 6)).toISOString(),
+        }];
+      }
         
       const payload = {
         updateType: 'details',
-        // Use array data if available, otherwise use individual fields
         membership: finalMemberships.length > 0 ? 'Yes' : (editFormData.membership || 'No'),
         membershipId: finalMemberships.length > 0 ? finalMemberships[0]?.membershipId : (editFormData.membershipId || ''),
         membershipStartDate: finalMemberships.length > 0 ? finalMemberships[0]?.startDate : (editFormData.membershipStartDate || ''),
@@ -1156,7 +1206,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         
       console.log('🟢 Saving payload:', JSON.stringify(payload, null, 2));
         
-      // Make PUT request (same as PatientUpdateForm)
+      // Step 3: Save patient data
       const res = await axios.put(`/api/staff/get-patient-data/${patientData._id}`, payload, { headers });
       const result = res.data;
         
@@ -1166,23 +1216,14 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         setPmToast({ message: result.message || 'Patient updated successfully!', type: 'success' });
         setTimeout(() => setPmToast(null), 3000);
           
-        // Fetch fresh patient data to ensure we have the latest saved data
+        // Fetch fresh patient data
         let freshData: any = null;
         try {
           const patientRes = await axios.get(`/api/staff/get-patient-data/${patientData._id}`, { headers });
           if (patientRes.data) {
             freshData = patientRes.data;
-                    
-            console.log('✅ Fresh data from API:', {
-              membership: freshData.membership,
-              membershipId: freshData.membershipId,
-              memberships: freshData.memberships,
-              package: freshData.package,
-              packageId: freshData.packageId,
-              packages: freshData.packages,
-            });
-                    
-            // Update the main patient state via callback - this will trigger re-fetch of packages/memberships
+            
+            // Update the main patient state via callback
             if (onPatientUpdated) {
               onPatientUpdated({
                 ...patientData,
@@ -1196,7 +1237,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                 packages: Array.isArray(freshData?.packages) ? freshData.packages : [],
               });
             }
-                    
+            
             // Update editFormData with fresh saved data
             setEditFormData({
               membership: freshData?.membership || 'No',
@@ -1213,12 +1254,19 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           console.error('Error fetching fresh patient data:', fetchError);
         }
           
-        // Also refresh packages/memberships display for the lower section
-        // Pass fresh data to avoid stale closure issue
+        // Refresh packages/memberships display
         fetchPackagesAndMemberships({
           memberships: Array.isArray(freshData?.memberships) ? freshData.memberships : (patientData?.memberships || []),
           packages: Array.isArray(freshData?.packages) ? freshData.packages : (patientData?.packages || []),
         });
+        
+        // Refresh available packages list
+        try {
+          const pRes = await axios.get('/api/clinic/packages', { headers });
+          if (pRes.data.success) setAllAvailablePackages(pRes.data.packages || []);
+        } catch (err) {
+          console.error('Error refreshing packages:', err);
+        }
       } else {
         setPmToast({ message: result.message || 'Failed to update patient details', type: 'error' });
         setTimeout(() => setPmToast(null), 3000);
@@ -3590,9 +3638,15 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     </div>
 
                     {/* Package Payment Modal */}
-                    {showPackagePaymentModal && pkgPendingToAssign && (
+                    {showPackagePaymentModal && (pkgPendingToAssign || pkgPendingToCreate) && (
                       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                        <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-md" onClick={() => setShowPackagePaymentModal(false)} />
+                        <div 
+                          className="absolute inset-0 bg-gray-900/60 backdrop-blur-md" 
+                          onClick={() => {
+                            setShowPackagePaymentModal(false);
+                            setPkgPendingToCreate(null); // Clear pending create on backdrop click
+                          }} 
+                        />
                         <div className="relative bg-white rounded-3xl shadow-2xl max-w-lg w-full max-h-[95vh] overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col">
                           <div className="bg-gradient-to-r from-purple-600 to-indigo-700 px-6 py-4 flex items-center justify-between flex-shrink-0">
                             <div className="flex items-center gap-3">
@@ -3601,10 +3655,16 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               </div>
                               <div>
                                 <h3 className="text-lg font-bold text-white leading-tight">Pay for Package</h3>
-                                <p className="text-purple-100 text-[10px] font-medium opacity-80">{pkgPendingToAssign.name}</p>
+                                <p className="text-purple-100 text-[10px] font-medium opacity-80">{pkgPendingToCreate?.name || pkgPendingToAssign?.name}</p>
                               </div>
                             </div>
-                            <button onClick={() => setShowPackagePaymentModal(false)} className="p-2 hover:bg-white/10 rounded-xl text-white/80 hover:text-white transition-all">
+                            <button 
+                              onClick={() => {
+                                setShowPackagePaymentModal(false);
+                                setPkgPendingToCreate(null); // Clear pending create on cancel
+                              }} 
+                              className="p-2 hover:bg-white/10 rounded-xl text-white/80 hover:text-white transition-all"
+                            >
                               <X className="w-5 h-5" />
                             </button>
                           </div>
@@ -3687,7 +3747,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                             <div className="flex flex-wrap gap-2 pt-2">
                               <button
                                 type="button"
-                                onClick={() => setShowPackagePaymentModal(false)}
+                                onClick={() => {
+                                  setShowPackagePaymentModal(false);
+                                  setPkgPendingToCreate(null); // Clear pending create on cancel
+                                }}
                                 className="flex-1 min-w-[80px] py-3 bg-gray-100 text-gray-600 text-xs font-bold rounded-2xl hover:bg-gray-200 transition-all"
                               >
                                 Cancel

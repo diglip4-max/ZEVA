@@ -93,7 +93,7 @@ export const generateMockDailyStats = () => {
 /**
  * Generate mock appointment stats data (for charts)
  */
-export const generateMockAppointmentStats = (filter: string) => {
+export const generateMockAppointmentStats = (_filter: string) => {
   // Return status-wise data matching the real API structure
   return [
     { name: 'Booked', value: randomInt(8, 25), fill: '#3b82f6' },
@@ -231,7 +231,7 @@ export const generateMockDoctorPerformance = () => {
     appointmentCount: randomInt(15, 60),
   }));
   
-  const leaderboardData = doctors.slice(0, randomInt(3, 5)).map((doctor, index) => ({
+  const leaderboardData = doctors.slice(0, randomInt(3, 5)).map((doctor, _index) => ({
     doctorName: doctor,
     appointmentCount: randomInt(20, 70),
     completedAppointments: randomInt(15, 60),
@@ -460,7 +460,7 @@ export const generateMockServicePerformance = () => {
     conversionRate: randomInt(30, 60),
   }));
   
-  const serviceRevenueData = allServices.slice(0, 7).map((service, index) => {
+  const serviceRevenueData = allServices.slice(0, 7).map((service, _index) => {
     const bookings = randomInt(10, 60);
     const revenue = randomInt(3000, 25000);
     return {
@@ -513,7 +513,7 @@ export const generateMockMembershipPackageReports = () => {
     expiryDate: new Date(Date.now() + randomInt(30, 365) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
   }));
   
-  const expiredMemberships = memberships.slice(2, 4).map((name, index) => ({
+  const expiredMemberships = memberships.slice(2, 4).map((name,   _index) => ({
     name,
     count: randomInt(2, 8),
     revenue: randomInt(2000, 10000),

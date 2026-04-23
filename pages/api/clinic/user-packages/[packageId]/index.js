@@ -1,7 +1,7 @@
 import dbConnect from "../../../../../lib/database";
 import UserPackage from "../../../../../models/UserPackage";
 import { getAuthorizedStaffUser } from "../../../../../server/staff/authHelpers";
-import { getClinicIdFromUser } from "../../../../lead-ms/permissions-helper";
+import { getClinicIdFromUser } from "../../../lead-ms/permissions-helper";
 
 export default async function handler(req, res) {
   await dbConnect();
