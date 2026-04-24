@@ -7,7 +7,7 @@ import {
   Mail, Clock, Shield, X, CheckCircle, XCircle,
   ExternalLink,
   AlertTriangle, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck,
-  ChevronDown, Search, Loader2, Check,  Camera, Image as ImageIcon, Eye
+  ChevronDown, Search, Loader2, Check,  Camera, Image as ImageIcon, Eye, Edit2
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -574,6 +574,17 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     insuranceClaimsPending: 0,
   });
   const [loadingStats, setLoadingStats] = useState(false);
+
+  // Insurance Claims state
+  const [insuranceClaims, setInsuranceClaims] = useState<any[]>([]);
+  const [claimsLoading, setClaimsLoading] = useState(false);
+  const [claimViewModal, setClaimViewModal] = useState<any>(null);
+  const [claimEditModal, setClaimEditModal] = useState<any>(null);
+  const [claimEditData, setClaimEditData] = useState<any>({});
+  const [claimEditLoading, setClaimEditLoading] = useState(false);
+  const [claimDepartments, setClaimDepartments] = useState<any[]>([]);
+  const [claimServices, setClaimServices] = useState<any[]>([]);
+  const [claimDoctors, setClaimDoctors] = useState<any[]>([]);
   
   // Financial snapshot state - initialized from patientData.initialBalance if available
   const [financialData, setFinancialData] = useState({
@@ -1493,6 +1504,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       fetchPatientBalance(patientData._id).then((data) => {
         if (data) setBalance(data as typeof balance);
       }).finally(() => setBalanceLoading(false));
+    }
+    if (activeTab === 'insurance' && patientData?._id) {
+      fetchInsuranceClaims();
     }
   }, [activeTab]);
 
@@ -2476,6 +2490,89 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         pendingBalanceImages: [],
       };
     }
+  };
+
+  // Fetch insurance claims for this patient
+  const fetchInsuranceClaims = async () => {
+    if (!patientData?._id) return;
+    setClaimsLoading(true);
+    try {
+      const headers = getAuthHeaders();
+      if (!headers) return;
+      const res = await axios.get(`/api/clinic/insurance-claims?patientId=${patientData._id}`, { headers });
+      if (res.data.success) {
+        setInsuranceClaims(res.data.data || []);
+      }
+    } catch (err) {
+      console.error("Error fetching insurance claims:", err);
+    } finally {
+      setClaimsLoading(false);
+    }
+  };
+
+  // Fetch dropdown data for claim editing
+  const fetchClaimDropdowns = async () => {
+    try {
+      const headers = getAuthHeaders();
+      if (!headers) return;
+      const [deptRes, svcRes, docRes] = await Promise.all([
+        axios.get("/api/clinic/departments", { headers }),
+        axios.get("/api/clinic/services", { headers }),
+        axios.get("/api/admin/get-all-doctor-staff", { headers }),
+      ]);
+      if (deptRes.data.success) setClaimDepartments(deptRes.data.departments || []);
+      if (svcRes.data.success) setClaimServices(svcRes.data.services || []);
+      if (docRes.data.success) setClaimDoctors(docRes.data.data || []);
+    } catch (err) {
+      console.error("Error fetching claim dropdowns:", err);
+    }
+  };
+
+  // Handle claim edit save
+  const handleClaimEditSave = async () => {
+    if (!claimEditModal?._id) return;
+    setClaimEditLoading(true);
+    try {
+      const headers = getAuthHeaders();
+      if (!headers) { setClaimEditLoading(false); return; }
+      const res = await axios.patch(`/api/clinic/insurance-claims/${claimEditModal._id}`, claimEditData, { headers: headers });
+      if (res.data.success) {
+        setClaimEditModal(null);
+        fetchInsuranceClaims();
+      } else {
+        alert(res.data.message || "Failed to update claim");
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || "Failed to update claim");
+    } finally {
+      setClaimEditLoading(false);
+    }
+  };
+
+  // Open claim edit modal
+  const openClaimEditModal = (claim: any) => {
+    setClaimEditData({
+      insuranceProvider: claim.insuranceProvider || "",
+      policyNumber: claim.policyNumber || "",
+      expiryDate: claim.expiryDate ? new Date(claim.expiryDate).toISOString().split('T')[0] : "",
+      insuranceCardFile: claim.insuranceCardFile || "",
+      tableOfBenefitsFile: claim.tableOfBenefitsFile || "",
+      departmentId: claim.departmentId || "",
+      departmentName: claim.departmentName || "",
+      serviceId: claim.serviceId || "",
+      serviceName: claim.serviceName || "",
+      doctorId: claim.doctorId || "",
+      doctorName: claim.doctorName || "",
+      claimAmount: claim.claimAmount || "",
+      claimType: claim.claimType || "Paid",
+      coPayPercent: claim.coPayPercent || "",
+      coPayType: claim.coPayType || "Patient Pays",
+      notes: claim.notes || "",
+      documentFiles: claim.documentFiles || [],
+      advanceStatus: claim.advanceStatus || "Full Pay",
+    });
+    setClaimEditModal(claim);
+    fetchClaimDropdowns();
   };
 
   // Commented out - not currently used in the UI
@@ -5152,12 +5249,11 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
                 {/* Insurance Details Card */}
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                  {/* Card Header */}
                   <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
                     <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center">
                       <Shield className="w-4 h-4 text-teal-600" />
                     </div>
-                    <h3 className="text-base font-semibold text-gray-900">Insurance Details</h3>
+                    <h3 className="text-base font-semibold text-gray-900">Insurance & Claims</h3>
                     {patientData?.insurance === 'Yes' ? (
                       <span className="ml-auto px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Active</span>
                     ) : (
@@ -5166,43 +5262,123 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   </div>
 
                   {patientData?.insurance === 'Yes' ? (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-100">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Insurance Type</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Advance Given</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Co-Pay %</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Need to Pay</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white">
-                          <tr className="hover:bg-gray-50 transition-colors">
-                            <td className="px-6 py-5 whitespace-nowrap">
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800">
-                                <FileText className="w-3.5 h-3.5" />
-                                {patientData?.insuranceType || '-'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-5 whitespace-nowrap">
-                              <span className="text-base font-bold text-green-700">
-                                {patientData?.advanceGivenAmount != null ? `${getCurrencySymbol(patientData.currency)}${Number(patientData.advanceGivenAmount).toLocaleString()}` : '-'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-5 whitespace-nowrap">
-                              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold bg-purple-100 text-purple-800">
-                                <TrendingUp className="w-3.5 h-3.5" />
-                                {patientData?.coPayPercent != null ? `${patientData.coPayPercent}%` : '-'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-5 whitespace-nowrap">
-                              <span className="text-base font-bold text-orange-700">
-                                {patientData?.needToPay != null ? `${getCurrencySymbol(patientData.currency)}${Number(patientData.needToPay).toLocaleString()}` : '-'}
-                              </span>
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
+                    <div className="p-6">
+                      {/* Insurance Info */}
+                      {insuranceClaims.length > 0 && (
+                        <div className="mb-6">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                            <div className="bg-blue-50 rounded-lg p-3">
+                              <p className="text-xs text-blue-600">Provider</p>
+                              <p className="text-sm font-semibold text-blue-900">{insuranceClaims[0]?.insuranceProvider || patientData?.insuranceType || '-'}</p>
+                            </div>
+                            <div className="bg-green-50 rounded-lg p-3">
+                              <p className="text-xs text-green-600">Policy #</p>
+                              <p className="text-sm font-semibold text-green-900">{insuranceClaims[0]?.policyNumber || '-'}</p>
+                            </div>
+                            <div className="bg-purple-50 rounded-lg p-3">
+                              <p className="text-xs text-purple-600">Expiry</p>
+                              <p className="text-sm font-semibold text-purple-900">{insuranceClaims[0]?.expiryDate ? new Date(insuranceClaims[0].expiryDate).toLocaleDateString() : '-'}</p>
+                            </div>
+                            <div className="bg-orange-50 rounded-lg p-3">
+                              <p className="text-xs text-orange-600">Total Claims</p>
+                              <p className="text-sm font-semibold text-orange-900">{insuranceClaims.length}</p>
+                            </div>
+                          </div>
+                          {/* Uploaded files */}
+                          {(insuranceClaims[0]?.insuranceCardFile || insuranceClaims[0]?.tableOfBenefitsFile) && (
+                            <div className="flex flex-wrap gap-2 mb-4">
+                              {insuranceClaims[0]?.insuranceCardFile && (
+                                <a href={insuranceClaims[0].insuranceCardFile} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs font-medium text-blue-700 hover:bg-blue-100">
+                                  <FileText className="w-3.5 h-3.5" /> Insurance Card
+                                </a>
+                              )}
+                              {insuranceClaims[0]?.tableOfBenefitsFile && (
+                                <a href={insuranceClaims[0].tableOfBenefitsFile} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs font-medium text-blue-700 hover:bg-blue-100">
+                                  <FileText className="w-3.5 h-3.5" /> Table of Benefits
+                                </a>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Claims Table */}
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-800 mb-3">Claims</h4>
+                        {claimsLoading ? (
+                          <div className="flex justify-center py-8">
+                            <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-teal-600"></div>
+                          </div>
+                        ) : insuranceClaims.length === 0 ? (
+                          <div className="text-center py-8">
+                            <Shield className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                            <p className="text-gray-500 text-sm">No claims created yet</p>
+                          </div>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-100">
+                              <thead className="bg-gray-50">
+                                <tr>
+                                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Claim Type</th>
+                                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Department</th>
+                                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Doctor</th>
+                                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
+                                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Co-Pay</th>
+                                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created</th>
+                                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-100">
+                                {insuranceClaims.map((claim: any) => (
+                                  <tr key={claim._id} className="hover:bg-gray-50 transition-colors">
+                                    <td className="px-4 py-3 whitespace-nowrap">
+                                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${claim.claimType === 'Advance' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}>
+                                        {claim.claimType}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{claim.departmentName || '-'}</td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{claim.doctorName || '-'}</td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">{claim.claimAmount?.toLocaleString()}</td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{claim.coPayPercent}% ({claim.coPayType})</td>
+                                    <td className="px-4 py-3 whitespace-nowrap">
+                                      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                                        claim.status === 'Under Review' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
+                                        claim.status === 'Approved' ? 'bg-green-100 text-green-800 border-green-300' :
+                                        claim.status === 'Rejected' ? 'bg-red-100 text-red-800 border-red-300' :
+                                        'bg-blue-100 text-blue-800 border-blue-300'
+                                      }`}>
+                                        {claim.status}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{new Date(claim.createdAt).toLocaleDateString()}</td>
+                                    <td className="px-4 py-3 whitespace-nowrap">
+                                      <div className="flex items-center gap-1">
+                                        <button
+                                          onClick={() => setClaimViewModal(claim)}
+                                          className="p-1.5 text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
+                                          title="Review"
+                                        >
+                                          <Eye className="w-4 h-4" />
+                                        </button>
+                                        {['Under Review', 'Rejected'].includes(claim.status) && (
+                                          <button
+                                            onClick={() => openClaimEditModal(claim)}
+                                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                            title="Edit"
+                                          >
+                                            <Edit2 className="w-4 h-4" />
+                                          </button>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center py-14 text-center">
@@ -5214,6 +5390,225 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     </div>
                   )}
                 </div>
+
+                {/* Claim View Modal */}
+                {claimViewModal && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                      <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+                        <h2 className="text-lg font-bold text-gray-900">Claim Review</h2>
+                        <button onClick={() => setClaimViewModal(null)} className="p-2 hover:bg-gray-100 rounded-lg">
+                          <X className="w-5 h-5 text-gray-500" />
+                        </button>
+                      </div>
+                      <div className="p-6 space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-800 mb-2">Insurance Details</h3>
+                            <div className="space-y-1.5 text-sm">
+                              <p><span className="text-gray-500">Provider:</span> <span className="font-medium">{claimViewModal.insuranceProvider}</span></p>
+                              <p><span className="text-gray-500">Policy #:</span> <span className="font-medium">{claimViewModal.policyNumber}</span></p>
+                              <p><span className="text-gray-500">Expiry:</span> <span className="font-medium">{claimViewModal.expiryDate ? new Date(claimViewModal.expiryDate).toLocaleDateString() : '-'}</span></p>
+                            </div>
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-800 mb-2">Claim Details</h3>
+                            <div className="space-y-1.5 text-sm">
+                              <p><span className="text-gray-500">Type:</span> <span className="font-medium">{claimViewModal.claimType}</span></p>
+                              <p><span className="text-gray-500">Amount:</span> <span className="font-medium">{claimViewModal.claimAmount?.toLocaleString()}</span></p>
+                              <p><span className="text-gray-500">Department:</span> <span className="font-medium">{claimViewModal.departmentName || '-'}</span></p>
+                              <p><span className="text-gray-500">Service:</span> <span className="font-medium">{claimViewModal.serviceName || '-'}</span></p>
+                              <p><span className="text-gray-500">Doctor:</span> <span className="font-medium">{claimViewModal.doctorName || '-'}</span></p>
+                              <p><span className="text-gray-500">Co-Pay:</span> <span className="font-medium">{claimViewModal.coPayPercent}% ({claimViewModal.coPayType})</span></p>
+                              {claimViewModal.claimType === 'Advance' && (
+                                <>
+                                  <p><span className="text-gray-500">Advance Status:</span> <span className="font-medium">{claimViewModal.advanceStatus}</span></p>
+                                  <p><span className="text-gray-500">Advance Amount:</span> <span className="font-medium">{claimViewModal.advanceAmount?.toLocaleString()}</span></p>
+                                </>
+                              )}
+                              <p><span className="text-gray-500">Status:</span> <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                claimViewModal.status === 'Under Review' ? 'bg-yellow-100 text-yellow-800' :
+                                claimViewModal.status === 'Approved' ? 'bg-green-100 text-green-800' :
+                                claimViewModal.status === 'Rejected' ? 'bg-red-100 text-red-800' :
+                                'bg-blue-100 text-blue-800'
+                              }`}>{claimViewModal.status}</span></p>
+                            </div>
+                          </div>
+                        </div>
+                        {claimViewModal.notes && (
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-800 mb-1">Notes</h3>
+                            <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">{claimViewModal.notes}</p>
+                          </div>
+                        )}
+                        {claimViewModal.rejectionReason && (
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                            <h3 className="text-sm font-semibold text-red-800 mb-1">Rejection Reason</h3>
+                            <p className="text-sm text-red-700">{claimViewModal.rejectionReason}</p>
+                          </div>
+                        )}
+                        {(claimViewModal.insuranceCardFile || claimViewModal.tableOfBenefitsFile || (claimViewModal.documentFiles && claimViewModal.documentFiles.length > 0)) && (
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-800 mb-2">Files</h3>
+                            <div className="flex flex-wrap gap-2">
+                              {claimViewModal.insuranceCardFile && <a href={claimViewModal.insuranceCardFile} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs font-medium text-blue-700 hover:bg-blue-100"><FileText className="w-3.5 h-3.5" />Insurance Card</a>}
+                              {claimViewModal.tableOfBenefitsFile && <a href={claimViewModal.tableOfBenefitsFile} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs font-medium text-blue-700 hover:bg-blue-100"><FileText className="w-3.5 h-3.5" />Table of Benefits</a>}
+                              {claimViewModal.documentFiles?.map((f: string, i: number) => (
+                                <a key={i} href={f} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 border border-purple-200 rounded-lg text-xs font-medium text-purple-700 hover:bg-purple-100"><FileText className="w-3.5 h-3.5" />Document {i + 1}</a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <div className="text-xs text-gray-500 pt-2 border-t border-gray-100">
+                          Created: {new Date(claimViewModal.createdAt).toLocaleString()}
+                          {claimViewModal.reviewedAt && <> | Reviewed: {new Date(claimViewModal.reviewedAt).toLocaleString()}</>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Claim Edit Modal */}
+                {claimEditModal && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+                      <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+                        <h2 className="text-lg font-bold text-gray-900">Edit Claim</h2>
+                        <button onClick={() => setClaimEditModal(null)} className="p-2 hover:bg-gray-100 rounded-lg">
+                          <X className="w-5 h-5 text-gray-500" />
+                        </button>
+                      </div>
+                      <div className="p-6 space-y-4">
+                        {/* Insurance Details */}
+                        <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                          <h3 className="text-sm font-semibold text-blue-800 mb-3">Insurance Details</h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Insurance Provider <span className="text-red-500">*</span></label>
+                              <input type="text" value={claimEditData.insuranceProvider || ''} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, insuranceProvider: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Policy Number <span className="text-red-500">*</span></label>
+                              <input type="text" value={claimEditData.policyNumber || ''} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, policyNumber: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Expiry Date <span className="text-red-500">*</span></label>
+                              <input type="date" value={claimEditData.expiryDate || ''} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, expiryDate: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Claim Source */}
+                        <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                          <h3 className="text-sm font-semibold text-green-800 mb-3">Claim Source</h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Department</label>
+                              <select value={claimEditData.departmentId || ''} onChange={(e) => {
+                                const dept = claimDepartments.find((d: any) => d._id === e.target.value);
+                                setClaimEditData((prev: any) => ({ ...prev, departmentId: e.target.value, departmentName: dept?.name || '', serviceId: '', serviceName: '' }));
+                              }} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                                <option value="">Select Department</option>
+                                {claimDepartments.map((d: any) => <option key={d._id} value={d._id}>{d.name}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Service</label>
+                              <select value={claimEditData.serviceId || ''} onChange={(e) => {
+                                const svc = claimServices.find((s: any) => s._id === e.target.value);
+                                setClaimEditData((prev: any) => ({ ...prev, serviceId: e.target.value, serviceName: svc?.name || '' }));
+                              }} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                                <option value="">Select Service</option>
+                                {claimServices.filter((s: any) => !claimEditData.departmentId || String(s.departmentId) === String(claimEditData.departmentId)).map((s: any) => <option key={s._id} value={s._id}>{s.name}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Doctor <span className="text-red-500">*</span></label>
+                              <select value={claimEditData.doctorId || ''} onChange={(e) => {
+                                const doc = claimDoctors.find((d: any) => d._id === e.target.value);
+                                setClaimEditData((prev: any) => ({ ...prev, doctorId: e.target.value, doctorName: doc?.name || '' }));
+                              }} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                                <option value="">Select Doctor</option>
+                                {claimDoctors.map((d: any) => <option key={d._id} value={d._id}>{d.name}</option>)}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Claim Details */}
+                        <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                          <h3 className="text-sm font-semibold text-purple-800 mb-3">Claim Details</h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Claim Amount <span className="text-red-500">*</span></label>
+                              <input type="number" value={claimEditData.claimAmount || ''} onChange={(e) => {
+                                const amt = parseFloat(e.target.value) || 0;
+                                setClaimEditData((prev: any) => ({
+                                  ...prev,
+                                  claimAmount: amt,
+                                  advanceAmount: prev.claimType === 'Advance' ? (prev.advanceStatus === 'Full Pay' ? amt : amt * 0.5) : 0,
+                                }));
+                              }} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" min="0" step="0.01" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Claim Type <span className="text-red-500">*</span></label>
+                              <select value={claimEditData.claimType || 'Paid'} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, claimType: e.target.value, advanceStatus: e.target.value === 'Advance' ? 'Full Pay' : null, advanceAmount: 0 }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                <option value="Paid">Paid</option>
+                                <option value="Advance">Advance</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Co-Pay %</label>
+                              <input type="number" value={claimEditData.coPayPercent || ''} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, coPayPercent: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" min="0" max="100" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Co-Pay Type</label>
+                              <select value={claimEditData.coPayType || 'Patient Pays'} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, coPayType: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                <option value="Patient Pays">Patient Pays</option>
+                                <option value="Deduct from Claim">Deduct from Claim</option>
+                                <option value="Clinic Adjusts">Clinic Adjusts</option>
+                              </select>
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
+                              <input type="text" value={claimEditData.notes || ''} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, notes: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" />
+                            </div>
+                            {claimEditData.claimType === 'Advance' && (
+                              <>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-1">Advance Status</label>
+                                  <select value={claimEditData.advanceStatus || 'Full Pay'} onChange={(e) => {
+                                    const amt = parseFloat(claimEditData.claimAmount) || 0;
+                                    setClaimEditData((prev: any) => ({
+                                      ...prev,
+                                      advanceStatus: e.target.value,
+                                      advanceAmount: e.target.value === 'Full Pay' ? amt : amt * 0.5,
+                                    }));
+                                  }} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                    <option value="Full Pay">Full Pay</option>
+                                    <option value="Partial Pay">Partial Pay</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-1">Advance Amount (Auto)</label>
+                                  <input type="text" value={claimEditData.advanceAmount?.toFixed(2) || '0.00'} disabled className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg text-gray-900 font-semibold" />
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Save/Cancel buttons */}
+                        <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+                          <button onClick={() => setClaimEditModal(null)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">Cancel</button>
+                          <button onClick={handleClaimEditSave} disabled={claimEditLoading} className="px-6 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors disabled:opacity-50">
+                            {claimEditLoading ? 'Saving...' : 'Save Changes'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
               </div>
             ) : activeTab === 'media' ? (

@@ -1,0 +1,174 @@
+import dbConnect from "../../../../lib/database";
+import InsuranceClaim from "../../../../models/InsuranceClaim";
+import User from "../../../../models/Users";
+import { getUserFromReq } from "../../lead-ms/auth";
+import { getClinicIdFromUser } from "../../lead-ms/permissions-helper";
+
+export default async function handler(req, res) {
+  await dbConnect();
+
+  const { id } = req.query;
+  if (!id) {
+    return res.status(400).json({ success: false, message: "Claim ID is required" });
+  }
+
+  // Verify authentication
+  let user;
+  try {
+    user = await getUserFromReq(req);
+    if (!user) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+    if (!["clinic", "doctor", "agent", "doctorStaff", "staff", "admin"].includes(user.role)) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+  } catch (error) {
+    return res.status(401).json({ success: false, message: "Invalid token" });
+  }
+
+  // GET: Get single claim by ID
+  if (req.method === "GET") {
+    try {
+      const claim = await InsuranceClaim.findById(id).lean();
+      if (!claim) {
+        return res.status(404).json({ success: false, message: "Claim not found" });
+      }
+
+      // Get clinicId for access control
+      const { clinicId: userClinicId, isAdmin } = await getClinicIdFromUser(user);
+
+      // Clinic/agent/staff/doctorStaff can only see claims from their clinic
+      if (!isAdmin && userClinicId) {
+        if (claim.clinicId?.toString() !== userClinicId.toString()) {
+          return res.status(403).json({ success: false, message: "Access denied: claim belongs to another clinic" });
+        }
+      }
+
+      // Authorization check: doctorStaff can only see their own claims
+      if (user.role === "doctorStaff" && claim.doctorId.toString() !== user._id.toString()) {
+        return res.status(403).json({ success: false, message: "Access denied" });
+      }
+
+      return res.status(200).json({ success: true, data: claim });
+    } catch (error) {
+      console.error("Error fetching claim:", error);
+      return res.status(500).json({ success: false, message: "Failed to fetch claim" });
+    }
+  }
+
+  // PATCH: Update claim
+  if (req.method === "PATCH") {
+    try {
+      const claim = await InsuranceClaim.findById(id);
+      if (!claim) {
+        return res.status(404).json({ success: false, message: "Claim not found" });
+      }
+
+      // Get clinicId for access control
+      const { clinicId: userClinicId, isAdmin } = await getClinicIdFromUser(user);
+
+      // Clinic/agent/staff/doctorStaff can only edit claims from their clinic
+      if (!isAdmin && userClinicId) {
+        if (claim.clinicId?.toString() !== userClinicId.toString()) {
+          return res.status(403).json({ success: false, message: "Access denied: claim belongs to another clinic" });
+        }
+      }
+
+      // Authorization: doctorStaff can only update their own claims
+      if (user.role === "doctorStaff" && claim.doctorId.toString() !== user._id.toString()) {
+        return res.status(403).json({ success: false, message: "Access denied" });
+      }
+
+      // Only allow edit if status is "Under Review" or "Rejected"
+      if (!["Under Review", "Rejected"].includes(claim.status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot edit claim with status "${claim.status}". Only claims with "Under Review" or "Rejected" status can be edited.`,
+        });
+      }
+
+      const {
+        insuranceProvider,
+        policyNumber,
+        expiryDate,
+        insuranceCardFile,
+        tableOfBenefitsFile,
+        departmentId,
+        departmentName,
+        serviceId,
+        serviceName,
+        doctorId,
+        doctorName,
+        claimAmount,
+        claimType,
+        coPayPercent,
+        coPayType,
+        notes,
+        documentFiles,
+        advanceStatus,
+      } = req.body;
+
+      // Update fields if provided
+      if (insuranceProvider !== undefined) claim.insuranceProvider = insuranceProvider.trim();
+      if (policyNumber !== undefined) claim.policyNumber = policyNumber.trim();
+      if (expiryDate !== undefined) claim.expiryDate = new Date(expiryDate);
+      if (insuranceCardFile !== undefined) claim.insuranceCardFile = insuranceCardFile;
+      if (tableOfBenefitsFile !== undefined) claim.tableOfBenefitsFile = tableOfBenefitsFile;
+      if (departmentId !== undefined) claim.departmentId = departmentId || null;
+      if (departmentName !== undefined) claim.departmentName = departmentName;
+      if (serviceId !== undefined) claim.serviceId = serviceId || null;
+      if (serviceName !== undefined) claim.serviceName = serviceName;
+      if (doctorId !== undefined) {
+        // Validate new doctor
+        const doctor = await User.findById(doctorId);
+        if (!doctor || doctor.role !== "doctorStaff") {
+          return res.status(400).json({ success: false, message: "Selected doctor is not a valid doctor staff" });
+        }
+        claim.doctorId = doctorId;
+        claim.doctorName = doctorName || `${doctor.name || ''}`.trim() || doctor.email;
+      }
+      if (claimAmount !== undefined) claim.claimAmount = parseFloat(claimAmount);
+      if (claimType !== undefined) claim.claimType = claimType;
+      if (coPayPercent !== undefined) claim.coPayPercent = coPayPercent;
+      if (coPayType !== undefined) claim.coPayType = coPayType;
+      if (notes !== undefined) claim.notes = notes;
+      if (documentFiles !== undefined) claim.documentFiles = documentFiles;
+
+      // Handle advance-specific fields
+      if (claim.claimType === "Advance") {
+        if (advanceStatus !== undefined) {
+          claim.advanceStatus = advanceStatus;
+        }
+        // Recalculate advanceAmount
+        if (claim.advanceStatus === "Full Pay") {
+          claim.advanceAmount = claim.claimAmount;
+        } else if (claim.advanceStatus === "Partial Pay") {
+          claim.advanceAmount = claim.claimAmount * 0.5;
+        }
+      } else {
+        claim.advanceStatus = null;
+        claim.advanceAmount = 0;
+      }
+
+      // Reset status to Under Review when edited from Rejected
+      if (claim.status === "Rejected") {
+        claim.status = "Under Review";
+        claim.rejectionReason = "";
+      }
+
+      await claim.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Claim updated successfully",
+        data: claim,
+      });
+    } catch (error) {
+      console.error("Error updating claim:", error);
+      return res.status(500).json({ success: false, message: "Failed to update claim" });
+    }
+  }
+
+  res.setHeader("Allow", ["GET", "PATCH"]);
+  return res.status(405).json({ success: false, message: `Method ${req.method} Not Allowed` });
+}

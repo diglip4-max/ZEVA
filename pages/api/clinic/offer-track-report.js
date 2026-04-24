@@ -63,6 +63,7 @@ export default async function handler(req, res) {
       { cashbackWalletUsed: { $gt: 0 } },  // Patient used cashback wallet
       { offerDiscountAmount: { $gt: 0 } },  // Any offer discount applied
       { offerType: { $in: ['instant_discount', 'cashback', 'bundle'] } },
+      { usedFreeSessions: { $exists: true, $not: { $size: 0 } } },  // Free sessions were consumed
     ];
 
     if (Object.keys(dateFilter).length > 0) {
@@ -196,6 +197,16 @@ export default async function handler(req, res) {
         offerDetails.bundleSessionsAdded = billing.bundleSessionsAdded || 0;
       }
 
+      // Check for USED free sessions (consumed from previous billings)
+      const usedFreeSessions = billing.usedFreeSessions || [];
+      const usedFreeSessionCount = billing.usedFreeSessionCount || 0;
+      
+      // If billing only has usedFreeSessions but no offer, mark it for display
+      if (usedFreeSessions.length > 0 && !billing.offerApplied && !billing.isCashbackApplied && billing.offerType !== 'bundle') {
+        offerDetails.offerType = 'bundle';
+        offerDetails.offerName = 'Free Session Redemption';
+      }
+
       // Agent discount info
       const agentDiscount = billing.isAgentDiscountApplied
         ? {
@@ -273,6 +284,10 @@ export default async function handler(req, res) {
         refundedAt: billing.refundedAt,
         refundedBy: billing.refundedBy,
         refundedAmount: billing.refundedAmount,
+        // Used free sessions
+        usedFreeSessions: usedFreeSessions,
+        usedFreeSessionCount: usedFreeSessionCount,
+        usedFreeSessionNames: usedFreeSessions.join(', '),
       };
     });
 
