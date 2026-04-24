@@ -1234,40 +1234,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
   }, [isOpen, appointment, treatments, billingHistory, billingHistoryFetched, billedTreatmentInfos]);
 
-  // Helper function to validate offer eligibility based on all rules
-  const validateOfferEligibility = useCallback((offer: Offer, baseTotal: number, currentDoctorId: string, paidTreatments: any[]): boolean => {
-    // 1. Check offer is active and enabled (already filtered in activeOffers, but double-check)
-    if (offer.status !== 'active' || !offer.enabled) {
-      console.log(`[FlagLogic] Offer "${offer.title}" rejected: status=${offer.status}, enabled=${offer.enabled}`);
-      return false;
-    }
-    
-    // 2. Check date validity (startsAt/endsAt)
-    const now = new Date();
-    if (offer.startsAt && new Date(offer.startsAt) > now) {
-      console.log(`[FlagLogic] Offer "${offer.title}" rejected: starts in future`);
-      return false;
-    }
-    if (offer.endsAt && new Date(offer.endsAt) < now) {
-      console.log(`[FlagLogic] Offer "${offer.title}" rejected: already expired`);
-      return false;
-    }
-    
-    // 3. Check minimum bill amount
-    if (offer.minimumBillAmount > 0 && baseTotal < offer.minimumBillAmount) {
-      console.log(`[FlagLogic] Offer "${offer.title}" rejected: baseTotal ${baseTotal} < minimum ${offer.minimumBillAmount}`);
-      return false;
-    }
-    
-    // 4. Check margin threshold (marginThresholdPercent) - warning only
-    if (offer.marginThresholdPercent && offer.marginThresholdPercent > 0) {
-      console.log(`[FlagLogic] Offer "${offer.title}" has margin threshold ${offer.marginThresholdPercent}% - not validated (requires cost data)`);
-    }
-    
-    console.log(`[FlagLogic] Offer "${offer.title}" passed all eligibility checks`);
-    return true;
-  }, [billingHistory]);
-
   // Auto-select offer based on selected treatment
   useEffect(() => {
     const sameOfferIds = (a: Offer[], b: Offer[]) => {

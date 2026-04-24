@@ -31,6 +31,13 @@ export default function ClinicLogin() {
   useEffect(() => {
     if (router.query.trialExpired === 'true') {
       setShowTrialPopup(true);
+      // Set trial info for the popup
+      setTrialInfo({
+        isExpired: true,
+        daysRemaining: 0,
+        trialEndDate: new Date().toISOString(),
+        accountCreatedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      });
     }
   }, [router.query.trialExpired]);
 

@@ -1435,7 +1435,7 @@ function OffersPage() {
                   </div> */}
 
                   {/* TREATMENTS & SUBTREATMENTS */}
-                  <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
+                  {/* <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
                     <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
                       <h3 className="text-sm font-bold text-teal-900">Treatments</h3>
                     </div>
@@ -1469,7 +1469,7 @@ function OffersPage() {
                         )}
                       </div>
                     </div>
-                  </div>
+                  </div> */}
                 </div>
               </div>
             </div>
