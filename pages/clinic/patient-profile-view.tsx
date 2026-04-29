@@ -1954,6 +1954,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           setValidCashback({
             amount: availableCashbackAmount,
             expiryDate: nearestExpiry,
+            endsAt: nearestExpiry, // Use the same date as endsAt from the offer
             daysRemaining: Math.ceil((new Date(nearestExpiry).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
           });
         } else {
@@ -2823,11 +2824,11 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     {getCurrencySymbol(currency)}{validCashback.amount.toFixed(2)}
                   </div>
                   <div className="text-[9px] text-green-600 font-semibold">
-                    Expires: {new Date(validCashback.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    Ends At: {new Date(validCashback.endsAt || validCashback.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </div>
-                  <div className="text-[9px] text-green-500 mt-0.5">
+                  {/* <div className="text-[9px] text-green-500 mt-0.5">
                     {validCashback.daysRemaining} days remaining
-                  </div>
+                  </div> */}
                 </div>
               )}
 

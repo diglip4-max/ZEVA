@@ -4915,7 +4915,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             </label>
                             
                             <div className="text-[8px] text-green-600">
-                              Expires: {new Date(availableCashback.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ({availableCashback.daysRemaining} days)
+                              Expires: {new Date(availableCashback.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                             </div>
                           </div>
                         )}

@@ -526,14 +526,20 @@ export default async function handler(req, res) {
       const cashbackExpiryDays = cashbackOffer?.cashbackExpiryDays || 365; // Default to 1 year if not set
       
       cashbackStartDate = new Date(invoicedDate);
+      cashbackStartDate.setHours(0, 0, 0, 0); // Normalize to start of day
+      
       cashbackEndDate = new Date(invoicedDate);
-      cashbackEndDate.setDate(cashbackEndDate.getDate() + cashbackExpiryDays);
+      cashbackEndDate.setHours(0, 0, 0, 0); // Normalize to start of day
+      // Subtract 1 day because the offer starts counting from the same day it's applied
+      // e.g., 7-day offer applied on April 28 expires on May 3 (not May 4)
+      cashbackEndDate.setDate(cashbackEndDate.getDate() + cashbackExpiryDays - 1);
       
       console.log('[CashbackAPI] Cashback validity period:', {
         invoicedDate,
-        cashbackStartDate,
+        cashbackStartDate: cashbackStartDate.toISOString(),
         cashbackExpiryDays,
-        cashbackEndDate
+        cashbackEndDate: cashbackEndDate.toISOString(),
+        calculation: `Start Date + (${cashbackExpiryDays} - 1) days = End Date`
       });
     }
 
