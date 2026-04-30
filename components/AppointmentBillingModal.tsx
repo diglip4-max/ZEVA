@@ -302,6 +302,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [balances, setBalances] = useState<{
     advanceBalance: number;
     pendingBalance: number;
+    claimAmount: number;
     pastAdvanceBalance: number;
     pastAdvance50PercentBalance: number;
     pastAdvance54PercentBalance: number;
@@ -309,12 +310,16 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   }>({
     advanceBalance: 0,
     pendingBalance: 0,
+    claimAmount: 0,
     pastAdvanceBalance: 0,
     pastAdvance50PercentBalance: 0,
     pastAdvance54PercentBalance: 0,
     pastAdvance159FlatBalance: 0,
   });
   const [applyAdvance, setApplyAdvance] = useState(false);
+  const [applyClaimAmount, setApplyClaimAmount] = useState(false);
+  const [insuranceAdvanceClaims, setInsuranceAdvanceClaims] = useState<any[]>([]);
+  const [loadingInsuranceAdvance, setLoadingInsuranceAdvance] = useState(false);
   const [applyPastAdvance50Percent] = useState(false);
   const [applyPastAdvance54Percent] = useState(false);
   const [applyPastAdvance159Flat, setApplyPastAdvance159Flat] = useState(false);
@@ -438,6 +443,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       setBalances({
         advanceBalance: 0,
         pendingBalance: 0,
+        claimAmount: 0,
         pastAdvanceBalance: 0,
         pastAdvance50PercentBalance: 0,
         pastAdvance54PercentBalance: 0,
@@ -802,6 +808,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           setBalances({
             advanceBalance: res.data.balances.advanceBalance || 0,
             pendingBalance: res.data.balances.pendingBalance || 0,
+            claimAmount: res.data.balances.claimAmount || 0,
             pastAdvanceBalance: res.data.balances.pastAdvanceBalance || 0,
             pastAdvance50PercentBalance:
               res.data.balances.pastAdvance50PercentBalance || 0,
@@ -814,6 +821,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           setBalances({
             advanceBalance: 0,
             pendingBalance: 0,
+            claimAmount: 0,
             pastAdvanceBalance: 0,
             pastAdvance50PercentBalance: 0,
             pastAdvance54PercentBalance: 0,
@@ -824,6 +832,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         setBalances({
           advanceBalance: 0,
           pendingBalance: 0,
+          claimAmount: 0,
           pastAdvanceBalance: 0,
           pastAdvance50PercentBalance: 0,
           pastAdvance54PercentBalance: 0,
@@ -833,6 +842,24 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     };
     fetchBalances();
   }, [isOpen, appointment?.patientId, getAuthHeaders]);
+
+  // Fetch insurance advance claims for this patient
+  useEffect(() => {
+    if (!isOpen || !appointment?.patientId) return;
+    
+    // Use claimAmount from balances (calculated by patient-balance API)
+    if (balances.claimAmount > 0) {
+      setInsuranceAdvanceClaims([{ 
+        _id: 'combined', 
+        claimAmount: balances.claimAmount, 
+        insuranceProvider: 'Insurance', 
+        status: 'Active', 
+        advanceStatus: 'Active' 
+      }]);
+    } else {
+      setInsuranceAdvanceClaims([]);
+    }
+  }, [isOpen, appointment?.patientId, balances.claimAmount]);
 
   // Fetch consent forms
   useEffect(() => {
@@ -2672,14 +2699,24 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     const appliedAdvance = applyAdvance
       ? Math.min(balances.advanceBalance || 0, amountForCredits)
       : 0;
+    
+    // Insurance claim amount
+    let appliedClaimAmount = 0;
+    if (applyClaimAmount && insuranceAdvanceClaims.length > 0) {
+      const totalInsuranceAdvance = insuranceAdvanceClaims.reduce(
+        (sum: number, c: any) => sum + Number(c.claimAmount || 0), 0
+      );
+      appliedClaimAmount = Math.min(totalInsuranceAdvance, amountForCredits - appliedAdvance);
+    }
+    
     const appliedPastAdvance50Percent = applyPastAdvance50Percent
-      ? Math.min(balances.pastAdvance50PercentBalance || 0, amountForCredits - appliedAdvance)
+      ? Math.min(balances.pastAdvance50PercentBalance || 0, amountForCredits - appliedAdvance - appliedClaimAmount)
       : 0;
     const appliedPastAdvance54Percent = applyPastAdvance54Percent
-      ? Math.min(balances.pastAdvance54PercentBalance || 0, amountForCredits - appliedAdvance - appliedPastAdvance50Percent)
+      ? Math.min(balances.pastAdvance54PercentBalance || 0, amountForCredits - appliedAdvance - appliedClaimAmount - appliedPastAdvance50Percent)
       : 0;
     const appliedPastAdvance159Flat = applyPastAdvance159Flat
-      ? Math.min(balances.pastAdvance159FlatBalance || 0, amountForCredits - appliedAdvance - appliedPastAdvance50Percent - appliedPastAdvance54Percent)
+      ? Math.min(balances.pastAdvance159FlatBalance || 0, amountForCredits - appliedAdvance - appliedClaimAmount - appliedPastAdvance50Percent - appliedPastAdvance54Percent)
       : 0;
 
     const totalPastAdvanceUsed =
@@ -2690,7 +2727,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     // 2. Net Due (Remaining amount to be paid after credits)
     const netDue = Math.max(
       0,
-      amountForCredits - appliedAdvance - totalPastAdvanceUsed,
+      amountForCredits - appliedAdvance - appliedClaimAmount - totalPastAdvanceUsed,
     );
 
     // 3. Determine how much is actually being paid today (Cash/Card etc)
@@ -2776,6 +2813,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     formData.amount,
     formData.paid,
     applyAdvance,
+    applyClaimAmount,
     applyPastAdvance50Percent,
     applyPastAdvance54Percent,
     applyPastAdvance159Flat,
@@ -2786,6 +2824,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     balances.pastAdvance159FlatBalance,
     useMultiplePayments,
     multiplePayments,
+    insuranceAdvanceClaims,
   ]);
 
   // Close dropdowns when clicking outside
@@ -3463,6 +3502,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         cashbackWalletUsed: cashbackAmountToUse,  // Track how much cashback was used
         paid: parseFloat(formData.paid) || 0,
         advanceUsed: parseFloat(formData.advanceUsed) || 0,
+        // Calculate claim amount used
+        claimAmountUsed: applyClaimAmount && insuranceAdvanceClaims.length > 0
+          ? Math.min(
+              insuranceAdvanceClaims.reduce((sum: number, c: any) => sum + Number(c.claimAmount || 0), 0),
+              amountAfterCashback - (parseFloat(formData.advanceUsed) || 0)
+            )
+          : 0,
         pastAdvanceUsed: parseFloat(formData.pastAdvanceUsed) || 0,
         pastAdvanceUsed50Percent:
           parseFloat(formData.pastAdvanceUsed50Percent) || 0,
@@ -3619,6 +3665,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                   balanceResponse.data.balances.advanceBalance || 0,
                 pendingBalance:
                   balanceResponse.data.balances.pendingBalance || 0,
+                claimAmount:
+                  balanceResponse.data.balances.claimAmount || 0,
                 pastAdvanceBalance:
                   balanceResponse.data.balances.pastAdvanceBalance || 0,
                 pastAdvance50PercentBalance:
@@ -4818,17 +4866,26 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                               const appliedAdvance = applyAdvance 
                                 ? Math.min(balances.advanceBalance, amountForCredits) 
                                 : 0;
-                              const appliedPast50 = applyPastAdvance50Percent 
-                                ? Math.min(balances.pastAdvance50PercentBalance, amountForCredits - appliedAdvance) 
-                                : 0;
-                              const appliedPast54 = applyPastAdvance54Percent 
-                                ? Math.min(balances.pastAdvance54PercentBalance, amountForCredits - appliedAdvance - appliedPast50) 
-                                : 0;
-                              const appliedPast159 = applyPastAdvance159Flat 
-                                ? Math.min(balances.pastAdvance159FlatBalance, amountForCredits - appliedAdvance - appliedPast50 - appliedPast54) 
+                              
+                              // Insurance claim amount
+                              const appliedClaimAmount = applyClaimAmount && insuranceAdvanceClaims.length > 0
+                                ? Math.min(
+                                    insuranceAdvanceClaims.reduce((sum: number, c: any) => sum + Number(c.claimAmount || 0), 0),
+                                    amountForCredits - appliedAdvance
+                                  )
                                 : 0;
                               
-                              const netDue = Math.max(0, amountForCredits - appliedAdvance - appliedPast50 - appliedPast54 - appliedPast159);
+                              const appliedPast50 = applyPastAdvance50Percent 
+                                ? Math.min(balances.pastAdvance50PercentBalance, amountForCredits - appliedAdvance - appliedClaimAmount) 
+                                : 0;
+                              const appliedPast54 = applyPastAdvance54Percent 
+                                ? Math.min(balances.pastAdvance54PercentBalance, amountForCredits - appliedAdvance - appliedClaimAmount - appliedPast50) 
+                                : 0;
+                              const appliedPast159 = applyPastAdvance159Flat 
+                                ? Math.min(balances.pastAdvance159FlatBalance, amountForCredits - appliedAdvance - appliedClaimAmount - appliedPast50 - appliedPast54) 
+                                : 0;
+                              
+                              const netDue = Math.max(0, amountForCredits - appliedAdvance - appliedClaimAmount - appliedPast50 - appliedPast54 - appliedPast159);
                               return netDue.toFixed(2);
                             })()
                           }
@@ -4937,6 +4994,31 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             {getCurrencySymbol(currency)} {balances.advanceBalance.toFixed(2)}
                           </span>
                         </label>
+
+                        {/* Insurance Advance Claims */}
+                        {!loadingInsuranceAdvance && insuranceAdvanceClaims.length > 0 && (() => {
+                          const totalInsuranceAdvance = insuranceAdvanceClaims.reduce(
+                            (sum: number, c: any) => sum + Number(c.claimAmount || 0), 0
+                          );
+                          return (
+                            <label className="flex items-center justify-between cursor-pointer group">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={applyClaimAmount}
+                                  onChange={(e) => setApplyClaimAmount(e.target.checked)}
+                                  className="w-3.5 h-3.5 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
+                                />
+                                <span className="text-[10px] font-medium text-gray-700 group-hover:text-gray-900">
+                                  Use insurance advance claims
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
+                                {getCurrencySymbol(currency)} {totalInsuranceAdvance.toFixed(2)}
+                              </span>
+                            </label>
+                          );
+                        })()}
 
                         {/* 159 Flat Past Advance (if available) */}
                         {balances.pastAdvance159FlatBalance > 0 && (

@@ -135,17 +135,17 @@ export default async function handler(req, res) {
       if (documentFiles !== undefined) claim.documentFiles = documentFiles;
 
       // Handle advance-specific fields
-      if (claim.claimType === "Advance") {
+      if (claim.claimType === "Advance" || claim.claimType === "Paid") {
         if (advanceStatus !== undefined) {
           claim.advanceStatus = advanceStatus;
         }
-        // Recalculate advanceAmount and pendingClaim
-        if (claim.advanceStatus === "Full Pay") {
-          claim.advanceAmount = claim.claimAmount;
-          claim.pendingClaim = 0;
-        } else if (claim.advanceStatus === "Partial Pay") {
-          claim.advanceAmount = claim.claimAmount * 0.5;
-          claim.pendingClaim = claim.claimAmount * 0.5;
+        // Use manually entered advanceAmount from req.body
+        if (req.body.advanceAmount !== undefined) {
+          claim.advanceAmount = parseFloat(req.body.advanceAmount) || 0;
+        }
+        // Calculate pendingClaim for Partial Pay
+        if (claim.advanceStatus === "Partial Pay") {
+          claim.pendingClaim = claim.claimAmount - claim.advanceAmount;
         } else {
           claim.pendingClaim = 0;
         }

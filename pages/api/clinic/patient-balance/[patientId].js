@@ -62,7 +62,7 @@ export default async function handler(req, res) {
     // We track advance and pending separately (not net)
     const billings = await Billing.find(match)
       .select(
-        "pending advance advanceUsed pendingUsed pastAdvance pastAdvanceUsed pastAdvanceType pendingBalanceImage createdAt",
+        "pending advance advanceUsed pendingUsed pastAdvance pastAdvanceUsed pastAdvanceType pendingBalanceImage claimAmountUsed createdAt",
       )
       .sort({ createdAt: -1 }) // Sort by newest first
       .lean();
@@ -172,23 +172,46 @@ export default async function handler(req, res) {
       ),
     );
 
-    // Aggregate pendingClaim from insurance claims (Advance + Partial Pay)
+    // Aggregate insurance claim amounts
     const claimMatch = { patientId };
     if (clinicId) claimMatch.clinicId = clinicId;
     const claims = await InsuranceClaim.find(claimMatch)
-      .select("pendingClaim status")
+      .select("claimAmount advanceAmount claimType status")
       .lean();
-    let totalPendingClaim = 0;
+    
+    console.log(`[Patient Balance] Found ${claims.length} insurance claims for patient ${patientId}`);
+    console.log(`[Patient Balance] Claims data:`, JSON.stringify(claims));
+    
+    let totalClaimAmount = 0;
     for (const c of claims) {
-      totalPendingClaim += Number(c.pendingClaim || 0);
+      // For Advance type: use claimAmount, for Paid type: use advanceAmount
+      if (c.claimType === "Advance") {
+        totalClaimAmount += Number(c.claimAmount || 0);
+      } else if (c.claimType === "Paid") {
+        totalClaimAmount += Number(c.advanceAmount || 0);
+      }
     }
     
+    console.log(`[Patient Balance] Total original claim amount: ${totalClaimAmount}`);
+    
+    // Calculate total claimAmountUsed from all billings
+    const totalClaimAmountUsed = billings.reduce(
+      (sum, b) => sum + Number(b.claimAmountUsed || 0), 0
+    );
+    
+    console.log(`[Patient Balance] Total claim amount used: ${totalClaimAmountUsed}`);
+    console.log(`[Patient Balance] Individual billing claimAmountUsed values:`, billings.map(b => ({ _id: b._id, claimAmountUsed: b.claimAmountUsed })));
+    
+    // Calculate remaining claim amount
+    const claimAmount = Math.max(0, Number((totalClaimAmount - totalClaimAmountUsed).toFixed(2)));
+    console.log(`[Patient Balance] Final claim amount: ${claimAmount}`);
+
     return res.status(200).json({
       success: true,
       balances: {
         advanceBalance,
         pendingBalance,
-        pendingClaim: Math.max(0, Number(totalPendingClaim.toFixed(2))),
+        claimAmount,
         pastAdvanceBalance,
         pastAdvance50PercentBalance,
         pastAdvance54PercentBalance,

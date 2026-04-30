@@ -3,7 +3,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import ClinicLayout from "../../components/staffLayout";
 import withClinicAuth from "../../components/withStaffAuth";
-import { Search, Filter, CheckCircle, XCircle, Eye, FileText, Upload, X, AlertCircle, Clock, Shield } from "lucide-react";
+import { Search, Filter, CheckCircle, XCircle, Eye, FileText, Upload, X, AlertCircle, Clock, Shield, Calendar, Clock as ClockIcon, CheckSquare, Square } from "lucide-react";
 
 const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
 
@@ -40,6 +40,16 @@ function AllClaimsPage() {
   const [successMsg, setSuccessMsg] = useState("");
   const [rejectedNotifications, setRejectedNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [approvalModal, setApprovalModal] = useState(null);
+  const [approvalStep, setApprovalStep] = useState(1);
+  const [appointmentData, setAppointmentData] = useState({ startDate: "", endDate: "", fromTime: "", toTime: "" });
+  const [bookedAppointment, setBookedAppointment] = useState(null);
+  const [existingAppointments, setExistingAppointments] = useState([]);
+  const [loadingExistingAppointments, setLoadingExistingAppointments] = useState(false);
+  const [progressStatus, setProgressStatus] = useState(null);
+  const [consentStatus, setConsentStatus] = useState(null);
+  const [addTreatmentPlan, setAddTreatmentPlan] = useState(false);
+  const [treatmentPlanText, setTreatmentPlanText] = useState("");
 
   useEffect(() => {
     fetchClaims();
@@ -111,6 +121,212 @@ function AllClaimsPage() {
       );
       if (res.data.success) {
         setClaims((prev) => prev.map((c) => (c._id === res.data.data._id ? res.data.data : c)));
+        setSuccessMsg("Claim approved successfully!");
+        setTimeout(() => setSuccessMsg(""), 3000);
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to approve claim");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const openApprovalModal = async (claim) => {
+    setApprovalModal(claim);
+    setApprovalStep(1);
+    setAppointmentData({ startDate: "", endDate: "", fromTime: "", toTime: "" });
+    setBookedAppointment(null);
+    setProgressStatus(null);
+    setConsentStatus(null);
+    setAddTreatmentPlan(false);
+    setTreatmentPlanText("");
+
+    // Fetch existing appointments for this patient
+    setLoadingExistingAppointments(true);
+    try {
+      const headers = getAuthHeaders();
+      const res = await axios.get(`/api/clinic/patient-appointment-history/${claim.patientId}`, { headers });
+      if (res.data.success && res.data.appointments) {
+        // Sort by date descending and get the most recent one
+        const appointments = res.data.appointments
+          .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+        // Only store the most recent appointment
+        setExistingAppointments(appointments.length > 0 ? [appointments[0]] : []);
+      } else {
+        setExistingAppointments([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch existing appointments:", err);
+      setExistingAppointments([]);
+    } finally {
+      setLoadingExistingAppointments(false);
+    }
+  };
+
+  const handleBookAppointment = async () => {
+    if (!appointmentData.startDate || !appointmentData.endDate || !appointmentData.fromTime || !appointmentData.toTime) {
+      alert("Please fill in all appointment fields (start date, end date, from time, to time)");
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const headers = getAuthHeaders();
+      const res = await axios.post(
+        "/api/clinic/appointments",
+        {
+          patientId: approvalModal.patientId,
+          doctorId: approvalModal.doctorId, // Doctor from the insurance claim
+          status: "booked",
+          referralas: "direct",
+          emergency: "no",
+          followType: "follow up",
+          startDate: appointmentData.startDate,
+          endDate: appointmentData.endDate,
+          fromTime: appointmentData.fromTime,
+          toTime: appointmentData.toTime,
+        },
+        { headers }
+      );
+      if (res.data.success) {
+        console.log("New appointment booked:", res.data.data._id);
+        setBookedAppointment(res.data.data);
+        setApprovalStep(2);
+        // Check progress status for the newly booked appointment
+        await checkProgressStatus(approvalModal.patientId, res.data.data._id);
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to book appointment");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const checkProgressStatus = async (patientId, appointmentId) => {
+    try {
+      const headers = getAuthHeaders();
+      
+      // Always pass patientId so API checks all progress notes for the patient
+      // appointmentId is optional context (stored for reference)
+      let url = `/api/clinic/appointment-progress/check?patientId=${patientId}`;
+      if (appointmentId) {
+        url += `&appointmentId=${appointmentId}`;
+      }
+      console.log("Checking progress notes for patient:", patientId, "appointmentId context:", appointmentId);
+      
+      const res = await axios.get(url, { headers });
+      
+      console.log("Progress check response:", res.data);
+      
+      if (res.data.success) {
+        setProgressStatus({
+          hasProgress: res.data.data.hasProgress,
+          count: res.data.data.count,
+          notes: res.data.data.notes,
+          resolvedAppointmentId: res.data.data.resolvedAppointmentId,
+        });
+      } else {
+        console.error("Progress check failed:", res.data);
+        setProgressStatus({ hasProgress: false, count: 0, notes: [], resolvedAppointmentId: null });
+      }
+    } catch (err) {
+      console.error("Failed to check progress:", err);
+      console.error("Error response:", err.response?.data);
+      setProgressStatus({ hasProgress: false, count: 0, notes: [], resolvedAppointmentId: null });
+    }
+  };
+
+  const checkConsentStatus = async () => {
+    if (!bookedAppointment) {
+      alert("Please book an appointment first");
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const headers = getAuthHeaders();
+      const patientId = approvalModal.patientId;
+      
+      console.log("Checking consent for patient:", patientId);
+      
+      // Call both APIs in parallel:
+      // 1. consent-log: checks if consent was SENT (ConsentLog model)
+      // 2. consent-status: checks if consent was SIGNED (ConsentSignature model)
+      const [logRes, statusRes] = await Promise.all([
+        axios.get(`/api/clinic/consent-log?patientId=${patientId}`, { headers }),
+        axios.get(`/api/clinic/consent-status?patientId=${patientId}`, { headers }),
+      ]);
+      
+      console.log("Consent log response:", logRes.data);
+      console.log("Consent status response:", statusRes.data);
+      
+      const consentLogs = logRes.data.success ? (logRes.data.consentLogs || []) : [];
+      const consentStatuses = statusRes.data.success ? (statusRes.data.consentStatuses || []) : [];
+      
+      const hasSent = consentLogs.length > 0;
+      const hasSigned = consentStatuses.some(c => c.status === "signed" || c.hasSignature);
+      
+      if (hasSigned) {
+        setConsentStatus({
+          status: "signed",
+          count: consentStatuses.length,
+          details: consentStatuses,
+          logs: consentLogs,
+        });
+      } else if (hasSent) {
+        setConsentStatus({
+          status: "sent",
+          count: consentLogs.length,
+          details: [],
+          logs: consentLogs,
+        });
+      } else {
+        setConsentStatus({ status: "not_sent", count: 0, details: [], logs: [] });
+      }
+      
+      setApprovalStep(3);
+    } catch (err) {
+      console.error("Failed to check consent status:", err);
+      console.error("Error response:", err.response?.data);
+      setConsentStatus({ status: "not_sent", count: 0, details: [], logs: [] });
+      setApprovalStep(3);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleFinalApproval = async () => {
+    // Validate required steps
+    const missingItems = [];
+    if (!bookedAppointment) missingItems.push("Booked Appointment");
+    if (!progressStatus?.hasProgress) missingItems.push("Progress Bar");
+    if (!consentStatus || consentStatus.status !== "signed") missingItems.push("Signed Consent Form");
+
+    if (missingItems.length > 0) {
+      alert(`Cannot approve claim. The following items are missing:\n\n${missingItems.join("\n")}\n\nKindly clear these before approving.`);
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const headers = getAuthHeaders();
+      
+      // If treatment plan is added, save it to insurance claim
+      if (addTreatmentPlan && treatmentPlanText.trim()) {
+        await axios.patch(
+          `/api/clinic/insurance-claims/${approvalModal._id}`,
+          { treatmentPlan: treatmentPlanText },
+          { headers }
+        );
+      }
+
+      // Approve the claim
+      const res = await axios.patch(
+        "/api/clinic/insurance-claims/review",
+        { claimId: approvalModal._id, action: "approve" },
+        { headers }
+      );
+      if (res.data.success) {
+        setClaims((prev) => prev.map((c) => (c._id === res.data.data._id ? res.data.data : c)));
+        setApprovalModal(null);
         setSuccessMsg("Claim approved successfully!");
         setTimeout(() => setSuccessMsg(""), 3000);
       }
@@ -367,6 +583,12 @@ function AllClaimsPage() {
                       <p className="text-xs text-gray-500 mt-1">
                         {claim.rejectedAt ? new Date(claim.rejectedAt).toLocaleString() : ""}
                       </p>
+                      {claim.rejectionReason && (
+                        <div className="mt-2 pt-2 border-t border-red-200">
+                          <p className="text-xs text-red-600 font-semibold mb-0.5">Rejection Notes:</p>
+                          <p className="text-xs text-red-800 bg-red-100 rounded p-1.5">{claim.rejectionReason}</p>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -452,8 +674,7 @@ function AllClaimsPage() {
                     {claim.status === "Under Review" && (
                       <>
                         <button
-                          onClick={() => handleApprove(claim._id)}
-                          disabled={actionLoading}
+                          onClick={() => openApprovalModal(claim)}
                           className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-md hover:bg-green-700 transition-colors disabled:opacity-50"
                           title="Approve"
                         >
@@ -768,6 +989,374 @@ function AllClaimsPage() {
                 >
                   {actionLoading ? "Rejecting..." : "Reject Claim"}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Approval Modal with Multi-Step Progress */}
+        {approvalModal && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-8">
+              {/* Header */}
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+                <h2 className="text-lg font-bold text-gray-900">Approve Claim - Multi-Step Verification</h2>
+                <button onClick={() => setApprovalModal(null)} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                <div className="flex items-center justify-between mb-2">
+                  {["Book Appointment", "Check Progress", "Consent Form", "Final Approval"].map((step, idx) => (
+                    <div key={idx} className="flex items-center">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                        approvalStep > idx + 1 ? "bg-green-600 text-white" :
+                        approvalStep === idx + 1 ? "bg-blue-600 text-white" :
+                        "bg-gray-300 text-gray-600"
+                      }`}>
+                        {approvalStep > idx + 1 ? "✓" : idx + 1}
+                      </div>
+                      <span className={`ml-2 text-xs font-medium ${
+                        approvalStep >= idx + 1 ? "text-gray-900" : "text-gray-500"
+                      }`}>{step}</span>
+                      {idx < 3 && <div className={`w-8 h-0.5 mx-2 ${approvalStep > idx + 1 ? "bg-green-600" : "bg-gray-300"}`} />}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Step Content */}
+              <div className="p-6">
+                {/* Step 1: Book Appointment */}
+                {approvalStep === 1 && (
+                  <div className="space-y-4">
+                    <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                      <Calendar className="w-5 h-5 text-blue-600" />
+                      Step 1: Book Appointment
+                    </h3>
+
+                    {/* Existing Appointments Section */}
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                        <FileText className="w-4 h-4" />
+                        Recent Appointment
+                      </h4>
+                      {loadingExistingAppointments ? (
+                        <div className="flex justify-center py-4">
+                          <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-300 border-t-blue-600"></div>
+                        </div>
+                      ) : existingAppointments.length > 0 ? (
+                        <div className="space-y-2">
+                          <div className={`p-3 rounded-lg border ${
+                            bookedAppointment ? "bg-green-50 border-green-200" : "bg-blue-50 border-blue-200"
+                          }`}>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">
+                                  Latest Appointment Found
+                                </p>
+                                {existingAppointments[0] && (
+                                  <p className="text-xs text-gray-600 mt-1">
+                                    {new Date(existingAppointments[0].startDate).toLocaleDateString()} - {existingAppointments[0].status}
+                                  </p>
+                                )}
+                              </div>
+                              {bookedAppointment ? (
+                                <CheckCircle className="w-5 h-5 text-green-600" />
+                              ) : (
+                                <ClockIcon className="w-5 h-5 text-blue-600" />
+                              )}
+                            </div>
+                          </div>
+                          {/* Show latest appointment details */}
+                          {existingAppointments[0] && (
+                            <div className="bg-white rounded-lg p-3 border border-gray-200">
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                  <p className="text-gray-500">Date</p>
+                                  <p className="font-medium text-gray-900">{new Date(existingAppointments[0].startDate).toLocaleDateString()}</p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-500">Status</p>
+                                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                    existingAppointments[0].status === 'booked' ? 'bg-green-100 text-green-800' :
+                                    existingAppointments[0].status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                                    'bg-yellow-100 text-yellow-800'
+                                  }`}>
+                                    {existingAppointments[0].status}
+                                  </span>
+                                </div>
+                                {existingAppointments[0].fromTime && (
+                                  <div>
+                                    <p className="text-gray-500">Time</p>
+                                    <p className="font-medium text-gray-900">{existingAppointments[0].fromTime} - {existingAppointments[0].toTime}</p>
+                                  </div>
+                                )}
+                                {existingAppointments[0].followType && (
+                                  <div>
+                                    <p className="text-gray-500">Follow Type</p>
+                                    <p className="font-medium text-gray-900">{existingAppointments[0].followType}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 text-center py-2">No appointments found for this patient</p>
+                      )}
+                    </div>
+
+                    {/* Book New Appointment Form */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h4 className="text-sm font-semibold text-gray-800 mb-3">Book New Appointment</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                          <input
+                            type="date"
+                            value={appointmentData.startDate}
+                            onChange={(e) => setAppointmentData(prev => ({ ...prev, startDate: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                            min={new Date().toISOString().split('T')[0]}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                          <input
+                            type="date"
+                            value={appointmentData.endDate}
+                            onChange={(e) => setAppointmentData(prev => ({ ...prev, endDate: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                            min={appointmentData.startDate || new Date().toISOString().split('T')[0]}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">From Time</label>
+                          <input
+                            type="time"
+                            value={appointmentData.fromTime}
+                            onChange={(e) => setAppointmentData(prev => ({ ...prev, fromTime: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">To Time</label>
+                          <input
+                            type="time"
+                            value={appointmentData.toTime}
+                            onChange={(e) => setAppointmentData(prev => ({ ...prev, toTime: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleBookAppointment}
+                        disabled={actionLoading || !appointmentData.startDate || !appointmentData.endDate || !appointmentData.fromTime || !appointmentData.toTime}
+                        className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {actionLoading ? "Booking..." : "Book Appointment"}
+                      </button>
+                      {existingAppointments.length > 0 && (
+                        <button
+                          onClick={async () => {
+                            // Use the latest appointment for progress check
+                            if (existingAppointments[0]) {
+                              console.log("Using existing appointment:", existingAppointments[0]._id);
+                              setBookedAppointment(existingAppointments[0]);
+                              setApprovalStep(2);
+                              // Check progress for the existing appointment
+                              await checkProgressStatus(approvalModal.patientId, existingAppointments[0]._id);
+                            }
+                          }}
+                          className="flex-1 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-300 rounded-lg transition-colors"
+                        >
+                          Skip - Use Existing
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 2: Check Progress */}
+                {approvalStep === 2 && (
+                  <div className="space-y-4">
+                    <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                      <ClockIcon className="w-5 h-5 text-blue-600" />
+                      Step 2: Check Progress Bar
+                    </h3>
+                    {progressStatus !== null ? (
+                      <div className="space-y-3">
+                        <div className={`p-4 rounded-lg border ${
+                          progressStatus.hasProgress ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
+                        }`}>
+                          <div className="flex items-center gap-2">
+                            {progressStatus.hasProgress ? (
+                              <>
+                                <CheckCircle className="w-5 h-5 text-green-600" />
+                                <span className="text-sm font-medium text-green-900">
+                                  Progress notes found ({progressStatus.count || 0} note(s))
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <XCircle className="w-5 h-5 text-red-600" />
+                                <span className="text-sm font-medium text-red-900">
+                                  No progress notes recorded yet
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {progressStatus.hasProgress && progressStatus.notes && progressStatus.notes.length > 0 && (
+                          <div className="bg-gray-50 rounded-lg p-3 max-h-32 overflow-y-auto">
+                            <p className="text-xs font-medium text-gray-600 mb-1">Recent Notes:</p>
+                            {progressStatus.notes.slice(0, 2).map((note, idx) => (
+                              <p key={idx} className="text-xs text-gray-700 truncate">
+                                - {note.note}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-blue-600"></div>
+                      </div>
+                    )}
+                    <button
+                      onClick={checkConsentStatus}
+                      disabled={progressStatus === null}
+                      className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      Continue to Next Step
+                    </button>
+                  </div>
+                )}
+
+                {/* Step 3: Consent Form */}
+                {approvalStep === 3 && (
+                  <div className="space-y-4">
+                    <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-blue-600" />
+                      Step 3: Consent Form Status
+                    </h3>
+                    {consentStatus ? (
+                      <div className="space-y-3">
+                        <div className={`p-4 rounded-lg border ${
+                          consentStatus.status === "signed" ? "bg-green-50 border-green-200" :
+                          consentStatus.status === "sent" ? "bg-yellow-50 border-yellow-200" :
+                          "bg-red-50 border-red-200"
+                        }`}>
+                          <div className="flex items-center gap-2">
+                            {consentStatus.status === "signed" ? (
+                              <>
+                                <CheckCircle className="w-5 h-5 text-green-600" />
+                                <span className="text-sm font-medium text-green-900">
+                                  Consent form signed ({consentStatus.count || 0} form(s))
+                                </span>
+                              </>
+                            ) : consentStatus.status === "sent" ? (
+                              <>
+                                <ClockIcon className="w-5 h-5 text-yellow-600" />
+                                <span className="text-sm font-medium text-yellow-900">
+                                  Consent form sent, waiting for signature ({consentStatus.count || 0} form(s))
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <XCircle className="w-5 h-5 text-red-600" />
+                                <span className="text-sm font-medium text-red-900">
+                                  Consent form not sent
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {/* Show only the most recent sent consent form */}
+                        {(() => {
+                          const recentLog = consentStatus.logs && consentStatus.logs[0];
+                          const recentSigned = consentStatus.details && consentStatus.details[0];
+                          const displayRecord = recentSigned || recentLog;
+                          if (!displayRecord) return null;
+                          return (
+                            <div className="bg-white rounded-lg p-3 border border-gray-200">
+                              <p className="text-xs font-medium text-gray-600 mb-2">Most Recent Consent Form:</p>
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                  <p className="text-gray-500">Form Name</p>
+                                  <p className="font-medium text-gray-900">{displayRecord.consentFormName || "Consent Form"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-500">Status</p>
+                                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                    (displayRecord.status === "signed" || displayRecord.hasSignature)
+                                      ? "bg-green-100 text-green-800"
+                                      : "bg-yellow-100 text-yellow-800"
+                                  }`}>
+                                    {displayRecord.hasSignature ? "Signed" : displayRecord.status || "Sent"}
+                                  </span>
+                                </div>
+                                {displayRecord.sentVia && (
+                                  <div>
+                                    <p className="text-gray-500">Sent Via</p>
+                                    <p className="font-medium text-gray-900 capitalize">{displayRecord.sentVia}</p>
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="text-gray-500">Date</p>
+                                  <p className="font-medium text-gray-900">
+                                    {new Date(displayRecord.signedAt || displayRecord.createdAt).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    ) : (
+                      <div className="flex justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-blue-600"></div>
+                      </div>
+                    )}
+
+                    {/* Treatment Plan Checkbox */}
+                    <div className="border-t border-gray-200 pt-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={addTreatmentPlan}
+                          onChange={(e) => setAddTreatmentPlan(e.target.checked)}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Add Treatment Plan</span>
+                      </label>
+                      {addTreatmentPlan && (
+                        <textarea
+                          value={treatmentPlanText}
+                          onChange={(e) => setTreatmentPlanText(e.target.value)}
+                          rows={4}
+                          className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 font-mono"
+                          placeholder="Enter treatment plan details..."
+                        />
+                      )}
+                    </div>
+
+                    <button
+                      onClick={handleFinalApproval}
+                      disabled={actionLoading}
+                      className="w-full px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {actionLoading ? "Approving..." : "Approve Claim"}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

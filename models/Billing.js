@@ -127,6 +127,12 @@ const billingSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    // Amount of insurance claim used for this invoice
+    claimAmountUsed: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     // Amount of previous pending cleared in this invoice
     pendingUsed: {
       type: Number,
@@ -384,10 +390,12 @@ billingSchema.pre("save", function (next) {
   this.amount = Number(this.amount ?? 0);
   this.paid = Number(this.paid ?? 0);
   this.advanceUsed = Number(this.advanceUsed ?? 0);
+  this.claimAmountUsed = Number(this.claimAmountUsed ?? 0);
   this.pendingUsed = Number(this.pendingUsed ?? 0);
   this.advance = Number(this.advance ?? 0);
 
   if (this.advanceUsed < 0) this.advanceUsed = 0;
+  if (this.claimAmountUsed < 0) this.claimAmountUsed = 0;
   if (this.pendingUsed < 0) this.pendingUsed = 0;
 
   // If multiplePayments are present, sum them as total paid
@@ -398,8 +406,9 @@ billingSchema.pre("save", function (next) {
     );
   }
 
-  // Effective due after applying previous advance to this invoice
-  const effectiveDue = Math.max(0, this.amount - this.advanceUsed);
+  // Effective due after applying previous advance AND insurance claim to this invoice
+  const totalCreditsUsed = this.advanceUsed + this.claimAmountUsed;
+  const effectiveDue = Math.max(0, this.amount - totalCreditsUsed);
   // Pending is any remaining due after today's payment
   this.pending = Math.max(0, effectiveDue - this.paid);
   // New advance generated if paid exceeds effective due
