@@ -3014,7 +3014,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   <div className="flex items-center gap-1.5 min-w-0">
                     <Phone className="w-3 h-3 text-gray-400 flex-shrink-0" />
                     <span className="text-gray-500 font-medium flex-shrink-0">Mobile:</span>
-                    <span className="text-gray-800">{patientData.countryCode || '+91'} {patientData.mobileNumber || 'N/A'}</span>
+                    <span className="text-gray-800">{patientData.countryCode || ''} {patientData.mobileNumber || 'N/A'}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <User className="w-3 h-3 text-gray-400 flex-shrink-0" />
