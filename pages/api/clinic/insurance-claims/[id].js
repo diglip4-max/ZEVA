@@ -174,6 +174,46 @@ export default async function handler(req, res) {
     }
   }
 
-  res.setHeader("Allow", ["GET", "PATCH"]);
+  // DELETE: Delete a claim
+  if (req.method === "DELETE") {
+    try {
+      const claim = await InsuranceClaim.findById(id);
+      if (!claim) {
+        return res.status(404).json({ success: false, message: "Claim not found" });
+      }
+
+      // Get clinicId for access control
+      const { clinicId: userClinicId, isAdmin } = await getClinicIdFromUser(user);
+
+      // Clinic/agent/staff/doctorStaff can only delete claims from their clinic
+      if (!isAdmin && userClinicId) {
+        if (claim.clinicId?.toString() !== userClinicId.toString()) {
+          return res.status(403).json({ success: false, message: "Access denied: claim belongs to another clinic" });
+        }
+      }
+
+      // Authorization: doctorStaff can only delete their own claims
+      if (user.role === "doctorStaff" && claim.doctorId.toString() !== user._id.toString()) {
+        return res.status(403).json({ success: false, message: "Access denied" });
+      }
+
+      // Only allow delete if status is "Under Review" or "Rejected"
+      if (!["Under Review", "Rejected"].includes(claim.status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot delete claim with status "${claim.status}". Only claims with "Under Review" or "Rejected" status can be deleted.`,
+        });
+      }
+
+      await InsuranceClaim.findByIdAndDelete(id);
+
+      return res.status(200).json({ success: true, message: "Claim deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting claim:", error);
+      return res.status(500).json({ success: false, message: "Failed to delete claim" });
+    }
+  }
+
+  res.setHeader("Allow", ["GET", "PATCH", "DELETE"]);
   return res.status(405).json({ success: false, message: `Method ${req.method} Not Allowed` });
 }
