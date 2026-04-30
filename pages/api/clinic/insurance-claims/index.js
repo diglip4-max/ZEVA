@@ -131,15 +131,18 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, message: "Patient not found" });
       }
 
-      // Calculate advanceAmount and pendingClaim
+      // Calculate advanceAmount and pendingClaim based on manually entered amount
       let advanceAmount = 0;
       let pendingClaim = 0;
-      if (claimType === "Advance" && advanceStatus) {
-        if (advanceStatus === "Full Pay") {
-          advanceAmount = parseFloat(claimAmount);
-        } else if (advanceStatus === "Partial Pay") {
-          advanceAmount = parseFloat(claimAmount) * 0.5;
-          pendingClaim = parseFloat(claimAmount) * 0.5;
+      
+      if (claimType === "Advance" || claimType === "Paid") {
+        if (advanceStatus) {
+          // Use the manually entered advanceAmount from req.body
+          advanceAmount = parseFloat(req.body.advanceAmount) || 0;
+          
+          if (advanceStatus === "Partial Pay") {
+            pendingClaim = parseFloat(claimAmount) - advanceAmount;
+          }
         }
       }
 

@@ -428,6 +428,7 @@ const BillingHistoryPage = () => {
                   <th className="px-4 py-3 text-right font-semibold text-red-300">Pending</th>
                   <th className="px-4 py-3 text-right font-semibold">Advance</th>
                   <th className="px-4 py-3 text-right font-semibold">Advance Used</th>
+                  <th className="px-4 py-3 text-right font-semibold">Claim Amount Used</th>
                   <th className="px-4 py-3 text-right font-semibold">Past Advance</th>
                   <th className="px-4 py-3 text-right font-semibold">Past Advance Used</th>
                   <th className="px-4 py-3 text-center font-semibold">Qty</th>
@@ -438,7 +439,7 @@ const BillingHistoryPage = () => {
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan={15} className="px-4 py-12">
+                    <td colSpan={16} className="px-4 py-12">
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin text-teal-600" />
                         <span className="text-sm text-gray-500">Loading billing history...</span>
@@ -447,7 +448,7 @@ const BillingHistoryPage = () => {
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan={15} className="px-4 py-12">
+                    <td colSpan={16} className="px-4 py-12">
                       <div className="text-center">
                         <div className="text-sm text-red-600 font-medium mb-2">{error}</div>
                         <button
@@ -461,7 +462,7 @@ const BillingHistoryPage = () => {
                   </tr>
                 ) : billingHistory.length === 0 ? (
                   <tr>
-                    <td colSpan={15} className="px-4 py-12">
+                    <td colSpan={16} className="px-4 py-12">
                       <div className="text-center text-sm text-gray-500">
                         No billing history found for this appointment
                       </div>
@@ -704,6 +705,15 @@ const BillingHistoryPage = () => {
                         <div className="text-xs text-gray-700">
                           {formatCurrency(billing.advanceUsed || 0)}
                         </div>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {(billing.claimAmountUsed || 0) > 0 ? (
+                          <div className="text-xs font-semibold text-blue-700">
+                            {formatCurrency(billing.claimAmountUsed)}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-gray-400">—</div>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="text-xs text-gray-700">

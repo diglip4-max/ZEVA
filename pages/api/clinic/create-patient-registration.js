@@ -157,6 +157,7 @@ export default async function handler(req, res) {
         pending,
         advance,
         advanceUsed,
+        claimAmountUsed,
         pastAdvance,
         pastAdvanceUsed,
         applyPastAdvance,
@@ -443,6 +444,8 @@ export default async function handler(req, res) {
     const amountNum = parseFloat(amount) || 0;
     const advanceUsedNum =
       advanceUsed !== undefined ? Math.max(0, parseFloat(advanceUsed) || 0) : 0;
+    const claimAmountUsedNum =
+      claimAmountUsed !== undefined ? Math.max(0, parseFloat(claimAmountUsed) || 0) : 0;
     const pastAdvanceUsedNum =
       pastAdvanceUsed !== undefined
         ? Math.max(0, parseFloat(pastAdvanceUsed) || 0)
@@ -499,9 +502,9 @@ export default async function handler(req, res) {
 
     const netDue = Math.max(
       0,
-      amountNum - advanceUsedNum - totalPastAdvanceUsed,
+      amountNum - advanceUsedNum - claimAmountUsedNum - totalPastAdvanceUsed,
     );
-    console.log({ netDue, paidNum, advanceUsedNum, pastAdvanceUsedNum });
+    console.log({ netDue, paidNum, advanceUsedNum, claimAmountUsedNum, pastAdvanceUsedNum });
 
     if (paidNum > netDue) {
       finalAdvance = paidNum - netDue;
@@ -566,6 +569,7 @@ export default async function handler(req, res) {
       amount: amountNum,
       paid: paidNum, // ONLY store actual money received today (not credits)
       advanceUsed: advanceUsedNum, // Use the parsed number
+      claimAmountUsed: claimAmountUsedNum, // Use the parsed number
       pendingUsed: pendingUsedNum, // Use the parsed number
       pastAdvanceUsed: totalPastAdvanceUsed,
       pastAdvanceUsed50Percent: pastAdvanceUsed50PercentNum,

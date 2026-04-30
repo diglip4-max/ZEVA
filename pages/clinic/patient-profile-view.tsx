@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
 import {
@@ -625,6 +625,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   const [balance, setBalance] = useState({
     pendingBalance: Number(patientData?.initialBalance?.pendingBalance || 0),
     advanceBalance: Number(patientData?.initialBalance?.advanceBalance || 0),
+    claimAmount: Number(patientData?.initialBalance?.claimAmount || 0),
     pendingClaim: Number(patientData?.initialBalance?.pendingClaim || 0),
     pastAdvanceBalance: Number(patientData?.initialBalance?.pastAdvanceBalance || 0),
     pastAdvance50PercentBalance: Number(patientData?.initialBalance?.pastAdvance50PercentBalance || 0),
@@ -646,6 +647,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   const [showAddPastAdvancePayment54PercentModal, setShowAddPastAdvancePayment54PercentModal] = useState(false);
   const [showAddPastAdvancePayment159FlatModal, setShowAddPastAdvancePayment159FlatModal] = useState(false);
   const [showPayPendingModal, setShowPayPendingModal] = useState(false);
+    const [showPayPendingClaimModal, setShowPayPendingClaimModal] = useState(false);
+    const [payingPendingClaim, setPayingPendingClaim] = useState(false);
+    const [pendingClaimPayAmount, setPendingClaimPayAmount] = useState("");
+    const [pendingClaimPayMethod, setPendingClaimPayMethod] = useState("Cash");
   const [treatmentFilter, setTreatmentFilter] = useState<'all' | 'ongoing' | 'completed' | 'pending'>('all');
   
   // Track invoice numbers that have been paid but billing history hasn't updated yet
@@ -2550,6 +2555,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       return {
         pendingBalance: Number(data.pendingBalance || 0),
         advanceBalance: Number(data.advanceBalance || 0),
+        claimAmount: Number(data.claimAmount || 0),
         pendingClaim: Number(data.pendingClaim || 0),
         pastAdvanceBalance: Number(data.pastAdvanceBalance || 0),
         pastAdvance50PercentBalance: Number(data.pastAdvance50PercentBalance || 0),
@@ -2561,6 +2567,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       return {
         pendingBalance: 0,
         advanceBalance: 0,
+        claimAmount: 0,
         pendingClaim: 0,
         pastAdvanceBalance: 0,
         pastAdvance50PercentBalance: 0,
@@ -2677,20 +2684,17 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     const { name, value } = e.target;
     setNewClaimData((prev: any) => {
       const updated = { ...prev, [name]: value };
-      if (name === "claimAmount" || name === "advanceStatus") {
-        const amt = name === "claimAmount" ? parseFloat(value) || 0 : parseFloat(prev.claimAmount) || 0;
-        const status = name === "advanceStatus" ? value : prev.advanceStatus;
-        if (prev.claimType === "Advance") {
-          updated.advanceAmount = status === "Full Pay" ? amt : amt * 0.5;
-        }
+      // Handle direct advanceAmount input (for both Advance and Paid types)
+      if (name === "advanceAmount") {
+        updated.advanceAmount = parseFloat(value) || 0;
       }
       if (name === "claimType" && value !== "Advance") {
         updated.advanceStatus = "Full Pay";
         updated.advanceAmount = 0;
       }
       if (name === "claimType" && value === "Advance") {
-        const amt = parseFloat(prev.claimAmount) || 0;
-        updated.advanceAmount = prev.advanceStatus === "Full Pay" ? amt : amt * 0.5;
+        updated.advanceStatus = "Full Pay";
+        updated.advanceAmount = 0;
       }
       return updated;
     });
@@ -2820,6 +2824,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           notes: newClaimData.notes,
           documentFiles: newClaimData.documentFiles,
           advanceStatus: newClaimData.advanceStatus,
+          advanceAmount: newClaimData.advanceAmount,
         }),
       });
       const data = await res.json();
@@ -5546,8 +5551,24 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     )}
                     <button
                       onClick={() => {
-                        setShowNewClaimForm(v => !v);
-                        if (!showNewClaimForm) fetchNewClaimDropdowns();
+                        const opening = !showNewClaimForm;
+                        setShowNewClaimForm(opening);
+                        if (opening) {
+                          fetchNewClaimDropdowns();
+                          // Pre-fill insurance details from patient data or existing claims
+                          const provider = insuranceClaims[0]?.insuranceProvider || patientData?.insuranceType;
+                          const policy = insuranceClaims[0]?.policyNumber;
+                          const expiry = insuranceClaims[0]?.expiryDate ? new Date(insuranceClaims[0].expiryDate).toISOString().split('T')[0] : "";
+                          
+                          if (provider || policy || expiry) {
+                            setNewClaimData((prev: any) => ({
+                              ...prev,
+                              ...(provider && { insuranceProvider: provider }),
+                              ...(policy && { policyNumber: policy }),
+                              ...(expiry && { expiryDate: expiry })
+                            }));
+                          }
+                        }
                       }}
                       className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-semibold transition-colors"
                     >
@@ -5679,8 +5700,17 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               </select>
                             </div>
                             <div className="flex-1 min-w-[140px]">
-                              <label className="block text-xs mb-0.5 font-medium text-gray-700">Advance Amount (Auto)</label>
-                              <input type="text" value={newClaimData.advanceAmount.toFixed(2)} disabled className="w-full px-2 py-1 text-xs bg-gray-100 border border-gray-300 rounded-md text-gray-900 font-semibold" />
+                              <label className="block text-xs mb-0.5 font-medium text-gray-700">Advance Amount (Enter)</label>
+                              <input
+                                type="number"
+                                name="advanceAmount"
+                                value={newClaimData.advanceAmount}
+                                onChange={handleNewClaimChange}
+                                className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-purple-500 text-gray-900 font-semibold"
+                                placeholder="Enter advance amount"
+                                min="0"
+                                step="0.01"
+                              />
                             </div>
                             <div className="flex-1 min-w-[120px]">
                               <label className="block text-xs mb-0.5 font-medium text-gray-700">Status</label>
@@ -5689,8 +5719,29 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                           </div>
                         )}
 
+                        {/* Paid claim type - show advance status and amount */}
                         {newClaimData.claimType === 'Paid' && (
                           <div className="flex flex-wrap gap-2 items-end mt-2 pt-2 border-t border-purple-200">
+                            <div className="flex-1 min-w-[140px]">
+                              <label className="block text-xs mb-0.5 font-medium text-gray-700">Paid Status</label>
+                              <select name="advanceStatus" value={newClaimData.advanceStatus} onChange={handleNewClaimChange} className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-purple-500 text-gray-900">
+                                <option value="Full Pay">Full Pay</option>
+                                <option value="Partial Pay">Partial Pay</option>
+                              </select>
+                            </div>
+                            <div className="flex-1 min-w-[140px]">
+                              <label className="block text-xs mb-0.5 font-medium text-gray-700">Paid Amount (Enter)</label>
+                              <input
+                                type="number"
+                                name="advanceAmount"
+                                value={newClaimData.advanceAmount}
+                                onChange={handleNewClaimChange}
+                                className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-purple-500 text-gray-900 font-semibold"
+                                placeholder="Enter advance amount"
+                                min="0"
+                                step="0.01"
+                              />
+                            </div>
                             <div className="flex-1 min-w-[120px]">
                               <label className="block text-xs mb-0.5 font-medium text-gray-700">Status</label>
                               <div className="px-2 py-1 text-xs bg-yellow-50 border border-yellow-300 rounded-md text-yellow-800 font-semibold">Under Review</div>
@@ -7129,6 +7180,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                             <span className="text-xs font-bold text-orange-700">Pending Claim: {formatAED(balance.pendingClaim)}</span>
                           </div>
                         )}
+                        {/* Insurance Claim Balance */}
+                        {balance.claimAmount > 0 && (
+                          <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200">
+                            <span className="text-xs font-bold text-blue-700">Insurance Claim: {formatAED(balance.claimAmount)}</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -7228,6 +7285,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               <div className="text-lg font-bold text-orange-700">{formatAED(balance.pendingClaim)}</div>
                             </div>
                           </div>
+                          <button
+                            onClick={() => setShowPayPendingClaimModal(true)}
+                            className="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white text-[10px] font-bold rounded shadow-sm transition-all active:scale-95 flex items-center gap-1"
+                          >
+                            Pay
+                          </button>
                         </div>
                       )}
 
@@ -7346,6 +7409,23 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                           </div>
                         </div>
                       </div>
+
+                      {/* Claim Amount */}
+                      {balance.claimAmount > 0 && (
+                        <div className="flex items-center justify-between p-2 bg-blue-50 border border-blue-100 rounded-md">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
+                              <svg className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <div className="text-xs text-gray-700 font-medium">Insurance Claim Balance</div>
+                              <div className="text-lg font-bold text-blue-600">{formatAED(balance.claimAmount)}</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
               
@@ -7577,6 +7657,100 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
             }
           }}
         />
+
+        {/* Pay Pending Claim Modal */}
+        {showPayPendingClaimModal && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-md" onClick={() => { if (!payingPendingClaim) { setShowPayPendingClaimModal(false); setPendingClaimPayAmount(""); setPendingClaimPayMethod("Cash"); }}} />
+            <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+                <div>
+                  <h3 className="text-lg font-bold text-white">Pay Pending Claim</h3>
+                  <p className="text-orange-100 text-xs mt-0.5">Total pending: {formatAED(balance.pendingClaim)}</p>
+                </div>
+                <button onClick={() => { setShowPayPendingClaimModal(false); setPendingClaimPayAmount(""); setPendingClaimPayMethod("Cash"); }} className="text-white/80 hover:text-white">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                {/* Quick Select */}
+                <div className="flex gap-2">
+                  <button onClick={() => setPendingClaimPayAmount((balance.pendingClaim / 2).toFixed(2))} className="flex-1 py-1.5 text-xs font-semibold border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50">Half</button>
+                  <button onClick={() => setPendingClaimPayAmount(balance.pendingClaim.toFixed(2))} className="flex-1 py-1.5 text-xs font-semibold bg-orange-100 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-200">Full Amount</button>
+                </div>
+                {/* Amount */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                  <input
+                    type="number"
+                    value={pendingClaimPayAmount}
+                    onChange={(e) => setPendingClaimPayAmount(e.target.value)}
+                    placeholder={`Max: ${balance.pendingClaim}`}
+                    min="0"
+                    max={balance.pendingClaim}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  />
+                </div>
+                {/* Payment Method */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {["Cash", "Card", "BT"].map((m) => (
+                      <button key={m} onClick={() => setPendingClaimPayMethod(m)} className={`py-1.5 text-xs font-semibold rounded-lg border transition-all ${ pendingClaimPayMethod === m ? "bg-orange-600 text-white border-orange-600" : "bg-white text-gray-600 border-gray-300 hover:border-orange-400" }`}>{m}</button>
+                    ))}
+                  </div>
+                </div>
+                {/* Submit */}
+                <button
+                  disabled={payingPendingClaim || !pendingClaimPayAmount || Number(pendingClaimPayAmount) <= 0 || Number(pendingClaimPayAmount) > balance.pendingClaim}
+                  onClick={async () => {
+                    const payAmt = Number(pendingClaimPayAmount);
+                    if (!payAmt || payAmt <= 0 || payAmt > balance.pendingClaim) return;
+                    setPayingPendingClaim(true);
+                    try {
+                      const headers = getAuthHeaders();
+                      // Fetch insurance claims fresh (may not be loaded if not on insurance tab)
+                      let claimsToSearch = insuranceClaims;
+                      if (!claimsToSearch || claimsToSearch.length === 0) {
+                        const claimsRes = await axios.get(`/api/clinic/insurance-claims?patientId=${patientData._id}`, { headers });
+                        claimsToSearch = claimsRes.data.success ? (claimsRes.data.data || []) : [];
+                      }
+                      // Find the claim with highest pendingClaim to pay against
+                      const claimToPay = [...claimsToSearch]
+                        .filter((c: any) => (c.pendingClaim || 0) > 0)
+                        .sort((a: any, b: any) => b.pendingClaim - a.pendingClaim)[0];
+                      if (!claimToPay) { alert("No pending claim found"); setPayingPendingClaim(false); return; }
+                      const res = await axios.post("/api/clinic/insurance-claims/pay-pending-claim", {
+                        claimId: claimToPay._id,
+                        amount: payAmt,
+                        paymentMethod: pendingClaimPayMethod,
+                      }, { headers });
+                      if (res.data.success) {
+                        setShowPayPendingClaimModal(false);
+                        setPendingClaimPayAmount("");
+                        setPendingClaimPayMethod("Cash");
+                        // Refresh balance and insurance claims
+                        const updatedBalance = await fetchPatientBalance(patientData._id);
+                        if (updatedBalance) setBalance(updatedBalance as typeof balance);
+                        await fetchInsuranceClaims();
+                      } else {
+                        alert(res.data.message || "Payment failed");
+                      }
+                    } catch (err: any) {
+                      alert(err.response?.data?.message || "Payment failed");
+                    } finally {
+                      setPayingPendingClaim(false);
+                    }
+                  }}
+                  className="w-full py-2.5 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white font-bold rounded-lg transition-all"
+                >
+                  {payingPendingClaim ? "Processing..." : "Confirm Payment"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Upload Image Modal */}
         {showUploadImageModal && (
