@@ -29,6 +29,7 @@ interface AppointmentBookingModalProps {
   bookedFrom?: "doctor" | "room"; // Track which column the appointment is being booked from
   fromTime?: string; // For drag selection - start time
   toTime?: string; // For drag selection - end time
+  clinicEndTime?: string; // Global clinic closing time (e.g., "23:00")
   customTimeSlots?: { startTime: string; endTime: string }; // Custom time slot selection
   rooms: Array<{ _id: string; name: string }>;
   doctorStaff: Array<{ _id: string; name: string; email?: string }>;
@@ -81,6 +82,7 @@ export default function AppointmentBookingModal({
   defaultRoomId,
   bookedFrom, // No default - use the prop value directly
   customTimeSlots,
+  clinicEndTime,
   fromTime: propFromTime,
   toTime: propToTime,
   rooms,
@@ -125,6 +127,12 @@ export default function AppointmentBookingModal({
   );
   const [patientSearch, setPatientSearch] = useState<string>("");
   const [searchResults, setSearchResults] = useState<Patient[]>([]);
+
+  const timeStringToMinutes = (time24: string): number => {
+    if (!time24) return 0;
+    const [hourStr, minuteStr] = time24.split(":");
+    return parseInt(hourStr, 10) * 60 + parseInt(minuteStr, 10);
+  };
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [showAddPatient, setShowAddPatient] = useState(false);
   const [addPatientForm, setAddPatientForm] = useState<AddPatientForm>({
@@ -147,7 +155,17 @@ export default function AppointmentBookingModal({
   const calculateEndTime = (time: string) => {
     if (!time) return "";
     const [hour, min] = time.split(":").map(Number);
-    const totalMinutes = hour * 60 + min + SLOT_INTERVAL_MINUTES;
+    let totalMinutes = hour * 60 + min + SLOT_INTERVAL_MINUTES;
+    
+    // Cap at clinic closing time
+    const effectiveEndTime = customTimeSlots?.endTime || clinicEndTime;
+    if (effectiveEndTime) {
+      const closingMins = timeStringToMinutes(effectiveEndTime);
+      if (totalMinutes > closingMins) {
+        totalMinutes = closingMins;
+      }
+    }
+
     const newHour = Math.floor(totalMinutes / 60);
     const newMin = totalMinutes % 60;
     return `${String(newHour).padStart(2, "0")}:${String(newMin).padStart(
@@ -473,6 +491,24 @@ export default function AppointmentBookingModal({
     }
     if (!toTime) {
       clientErrors.toTime = "Please select a to time";
+    }
+
+    // Validate times against clinic closing time
+    const effectiveEndTime = customTimeSlots?.endTime || clinicEndTime;
+    if (effectiveEndTime && (fromTime || toTime)) {
+      const closingMins = timeStringToMinutes(effectiveEndTime);
+      if (fromTime) {
+        const fromMins = timeStringToMinutes(fromTime);
+        if (fromMins >= closingMins) {
+          clientErrors.fromTime = `Appointment cannot start after clinic closing time (${effectiveEndTime})`;
+        }
+      }
+      if (toTime) {
+        const toMins = timeStringToMinutes(toTime);
+        if (toMins > closingMins) {
+          clientErrors.toTime = `Appointment cannot end after clinic closing time (${effectiveEndTime})`;
+        }
+      }
     }
 
     if (Object.keys(clientErrors).length > 0) {
