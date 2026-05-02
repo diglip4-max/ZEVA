@@ -5840,7 +5840,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                          
                           <div className="flex-1 min-w-[200px] flex flex-col">
                             <label className="block text-xs mb-1 font-semibold text-gray-700">Services</label>
-                            <div className="mt-auto relative w-full flex items-center p-0.5 border border-gray-300 rounded-lg bg-white shadow-sm focus-within:ring-2 focus-within:ring-green-500 transition-all min-h-[38px] box-border">
+                            <div className="mt-auto relative w-full flex items-center p-0.5 border border-gray-300 rounded-lg bg-white shadow-sm focus-within:ring-2 focus-within:ring-green-500 transition-all min-h-[32px] box-border">
                               <div className="flex flex-wrap items-center gap-1 flex-1 px-1 py-0.5">
                                 {newClaimData.services.map((svc: any, idx: number) => (
                                   <span
@@ -6244,7 +6244,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                 {/* Claim View Modal */}
                 {claimViewModal && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
                       <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
                         <h2 className="text-lg font-bold text-gray-900">Claim Review</h2>
                         <button onClick={() => setClaimViewModal(null)} className="p-2 hover:bg-gray-100 rounded-lg">
@@ -6453,7 +6453,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         </div>
 
                         <div className="text-xs text-gray-500 pt-2 border-t border-gray-100">
-                          ID: {claimViewModal._id}
+                          ID: {claimViewModal.insuranceProvider}
                         </div>
                       </div>
                     </div>
