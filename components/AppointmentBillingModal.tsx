@@ -197,12 +197,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [matchedOffers, setMatchedOffers] = useState<Offer[]>([]);
   const [appliedOfferIds, setAppliedOfferIds] = useState<string[]>([]);
   const [unmatchedOffersDueToMinimum, setUnmatchedOffersDueToMinimum] = useState<Array<{offer: Offer, minimumAmount: number, currentAmount: number}>>([]);
- 
+  
   // Bundle offer tracking state
   const [matchedBundleOffer, setMatchedBundleOffer] = useState<Offer | null>(null);
   const [bundleFreeSessions, setBundleFreeSessions] = useState<string[]>([]);
   const [bundleFreeSessionCount, setBundleFreeSessionCount] = useState<number>(0);
- 
+  
   // Cashback offer tracking state
   const [matchedCashbackOffer, setMatchedCashbackOffer] = useState<Offer | null>(null);
   const [appliedCashbackAmount, setAppliedCashbackAmount] = useState<number>(0);
@@ -212,12 +212,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const matchedOffersRef = useRef<Offer[]>([]); // Track matchedOffers without causing re-renders
   const offersClearedRef = useRef<boolean>(false); // Prevent repeated clear loops when offers are empty
   const bundleClearedRef = useRef<boolean>(false); // Prevent repeated bundle-clear loops
- 
+  
   // New state variables for flag-based discount visibility control
   const [showMembershipDiscount, setShowMembershipDiscount] = useState(true);
   const [showAgentDiscount, setShowAgentDiscount] = useState(true);
   const [showDoctorDiscount, setShowDoctorDiscount] = useState(true);
- 
+  
   const [isMembershipApplied, setIsMembershipApplied] = useState(false);
   const [finalMembershipDiscount, setFinalMembershipDiscount] = useState(0);
   const [finalOfferDiscount, setFinalOfferDiscount] = useState(0);
@@ -303,6 +303,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     advanceBalance: number;
     pendingBalance: number;
     claimAmount: number;
+    pendingClaim: number;
     pastAdvanceBalance: number;
     pastAdvance50PercentBalance: number;
     pastAdvance54PercentBalance: number;
@@ -311,19 +312,19 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     advanceBalance: 0,
     pendingBalance: 0,
     claimAmount: 0,
+    pendingClaim: 0,
     pastAdvanceBalance: 0,
     pastAdvance50PercentBalance: 0,
     pastAdvance54PercentBalance: 0,
     pastAdvance159FlatBalance: 0,
   });
   const [applyAdvance, setApplyAdvance] = useState(false);
-  const [applyClaimAmount, setApplyClaimAmount] = useState(false);
-  const [insuranceAdvanceClaims, setInsuranceAdvanceClaims] = useState<any[]>([]);
-  const [loadingInsuranceAdvance, setLoadingInsuranceAdvance] = useState(false);
   const [applyPastAdvance50Percent] = useState(false);
   const [applyPastAdvance54Percent] = useState(false);
   const [applyPastAdvance159Flat, setApplyPastAdvance159Flat] = useState(false);
- 
+  const [applyClaimAmount, setApplyClaimAmount] = useState(false);
+  const [applyPendingClaim, setApplyPendingClaim] = useState(false);
+  
   // Cashback state
   const [availableCashback, setAvailableCashback] = useState<any>(null); // { amount, expiryDate, daysRemaining }
   const [useCashback, setUseCashback] = useState(false);
@@ -384,6 +385,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     pastAdvanceUsed54Percent: "0.00",
     pastAdvanceUsed159Flat: "0.00",
     pendingUsed: "0.00",
+    claimAmountUsed: "0.00",
+    pendingClaimUsed: "0.00",
   });
 
   const treatmentDropdownRef = useRef<HTMLDivElement>(null);
@@ -444,11 +447,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         advanceBalance: 0,
         pendingBalance: 0,
         claimAmount: 0,
+        pendingClaim: 0,
         pastAdvanceBalance: 0,
         pastAdvance50PercentBalance: 0,
         pastAdvance54PercentBalance: 0,
         pastAdvance159FlatBalance: 0,
       });
+      setApplyClaimAmount(false);
+      setApplyPendingClaim(false);
       setApplyAdvance(false);
       setApplyPastAdvance159Flat(false);
       setUseMultiplePayments(false);
@@ -470,7 +476,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       setVisitCount(null);
       setConsentStatuses([]);
       initializedAppointmentId.current = null;
-     
+      
       // Initialize basic form data from appointment
       const nameParts = (appointment.patientName || "").split(" ");
       setFormData({
@@ -511,6 +517,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         pastAdvanceUsed54Percent: "0.00",
         pastAdvanceUsed159Flat: "0.00",
         pendingUsed: "0.00",
+        claimAmountUsed: "0.00",
+        pendingClaimUsed: "0.00",
       });
 
       generateInvoiceNumber();
@@ -527,8 +535,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         if (res.data.success && res.data.clinic?.currency) {
           setCurrency(res.data.clinic.currency);
         }
-      } catch (e) {
-        console.error('Error fetching clinic currency:', e);
+      } catch (e) { 
+        console.error('Error fetching clinic currency:', e); 
       }
     };
     fetchClinicCurrency();
@@ -716,7 +724,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
              })));
              
              // Include only 'active' status offers
-             const applicableOnes = offersRes.data.offers.filter((o: any) =>
+             const applicableOnes = offersRes.data.offers.filter((o: any) => 
                o.status === "active" && o.enabled === true
              );
              console.log(`[OfferFetch] Successfully fetched ${applicableOnes.length} active and enabled offers.`);
@@ -728,8 +736,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
              })));
              setActiveOffers(applicableOnes);
            }
-         } catch (offerErr) {
+         } catch (offerErr: any) {
            console.error("Error fetching offers:", offerErr);
+           // Show user-friendly message for permission denied error
+           if (offerErr.response?.status === 403) {
+             const errorMessage = offerErr.response?.data?.message || "";
+             if (errorMessage.includes("Permission denied") || errorMessage.includes("not allowed")) {
+               setErrors({
+                 general: "You don't have permission to view billing discounts. Please contact your administrator to enable this feature."
+               });
+             }
+           }
          }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -809,6 +826,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             advanceBalance: res.data.balances.advanceBalance || 0,
             pendingBalance: res.data.balances.pendingBalance || 0,
             claimAmount: res.data.balances.claimAmount || 0,
+            pendingClaim: res.data.balances.pendingClaim || 0,
             pastAdvanceBalance: res.data.balances.pastAdvanceBalance || 0,
             pastAdvance50PercentBalance:
               res.data.balances.pastAdvance50PercentBalance || 0,
@@ -822,6 +840,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             advanceBalance: 0,
             pendingBalance: 0,
             claimAmount: 0,
+            pendingClaim: 0,
             pastAdvanceBalance: 0,
             pastAdvance50PercentBalance: 0,
             pastAdvance54PercentBalance: 0,
@@ -833,6 +852,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           advanceBalance: 0,
           pendingBalance: 0,
           claimAmount: 0,
+          pendingClaim: 0,
           pastAdvanceBalance: 0,
           pastAdvance50PercentBalance: 0,
           pastAdvance54PercentBalance: 0,
@@ -842,24 +862,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     };
     fetchBalances();
   }, [isOpen, appointment?.patientId, getAuthHeaders]);
-
-  // Fetch insurance advance claims for this patient
-  useEffect(() => {
-    if (!isOpen || !appointment?.patientId) return;
-   
-    // Use claimAmount from balances (calculated by patient-balance API)
-    if (balances.claimAmount > 0) {
-      setInsuranceAdvanceClaims([{
-        _id: 'combined',
-        claimAmount: balances.claimAmount,
-        insuranceProvider: 'Insurance',
-        status: 'Active',
-        advanceStatus: 'Active'
-      }]);
-    } else {
-      setInsuranceAdvanceClaims([]);
-    }
-  }, [isOpen, appointment?.patientId, balances.claimAmount]);
 
   // Fetch consent forms
   useEffect(() => {
@@ -886,14 +888,16 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         const headers = getAuthHeaders();
         if (!headers.Authorization) return;
        
+        // Consent APIs only accept patientId - no appointmentId
+        // Consent is scoped to the patient across all appointments
         const [signaturesRes, logsRes] = await Promise.all([
           axios.get("/api/clinic/consent-status", {
             headers,
-            params: { patientId: appointment.patientId, appointmentId: appointment._id },
+            params: { patientId: appointment.patientId },
           }),
           axios.get("/api/clinic/consent-log", {
             headers,
-            params: { patientId: appointment.patientId, appointmentId: appointment._id },
+            params: { patientId: appointment.patientId },
           }),
         ]);
 
@@ -915,6 +919,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           });
         });
 
+        // Override with signed status if signature exists
         signatures.forEach((sig: any) => {
           logMap.set(sig.consentFormId, {
             ...sig,
@@ -930,7 +935,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       }
     };
     fetchConsentStatuses();
-  }, [isOpen, appointment?.patientId, appointment?._id, getAuthHeaders]);
+  }, [isOpen, appointment?.patientId, getAuthHeaders]);
 
   // Send Consent Form on WhatsApp
   const handleSendConsentMsgOnWhatsapp = async () => {
@@ -1054,45 +1059,45 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         if (response.data.success) {
             const filteredBillings = (response.data.billings || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance");
             setBillingHistory(filteredBillings);
-           
+            
             // Calculate available cashback from billing history
             // Available = Earned (cashbackAmount) - Used (cashbackWalletUsed)
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-           
+            
             // Calculate total earned cashback (still valid)
             const cashbackEarnedBillings = (response.data.billings || []).filter((billing: any) => {
               if (!billing.isCashbackApplied || !billing.cashbackAmount || billing.cashbackAmount <= 0) {
                 return false;
               }
-             
+              
               if (billing.cashbackEndDate) {
                 const endDate = new Date(billing.cashbackEndDate);
                 endDate.setHours(0, 0, 0, 0);
                 return endDate >= today;
               }
-             
+              
               return false;
             });
-           
+            
             const totalCashbackEarned = cashbackEarnedBillings.reduce((sum: number, billing: any) => {
               return sum + (billing.cashbackAmount || 0);
             }, 0);
-           
+            
             // Calculate total used cashback
             const totalCashbackUsed = (response.data.billings || []).reduce((sum: number, billing: any) => {
               return sum + (billing.cashbackWalletUsed || 0);
             }, 0);
-           
+            
             // Available cashback = Earned - Used
             const availableCashbackAmount = Math.max(0, totalCashbackEarned - totalCashbackUsed);
-           
+            
             console.log('[CashbackModal] Cashback calculation:', {
               totalEarned: totalCashbackEarned,
               totalUsed: totalCashbackUsed,
               available: availableCashbackAmount
             });
-           
+            
             // Find nearest expiry from earned billings
             let nearestExpiry = null;
             if (cashbackEarnedBillings.length > 0) {
@@ -1101,7 +1106,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
               });
               nearestExpiry = sortedByExpiry[0].cashbackEndDate;
             }
-           
+            
             if (availableCashbackAmount > 0 && nearestExpiry) {
               setAvailableCashback({
                 amount: availableCashbackAmount,
@@ -1292,7 +1297,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
     offersClearedRef.current = false;
 
-    const currentTreatments = selectedService === "Treatment"
+    const currentTreatments = selectedService === "Treatment" 
       ? selectedTreatments.map(t => ({ slug: t.treatmentSlug, name: t.treatmentName, price: t.price, quantity: t.quantity }))
       : packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions }));
 
@@ -1315,7 +1320,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
     // Filter out free session treatments when calculating base total and matching offers
     const paidTreatments = currentTreatments.filter(t => t.price > 0);
-   
+    
     // If no paid treatments, skip offer matching
     if (paidTreatments.length === 0) {
       console.log("[OfferMatching] No paid treatments. Skipping offer matching.");
@@ -1326,17 +1331,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
 
     const baseTotal = paidTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
-   
+    
     // Appointment-level context for matching
     const currentDoctorId = typeof appointment?.doctorId === 'object'
       ? (appointment.doctorId as any)._id
       : appointment?.doctorId;
 
     billingDebugLog("[OfferMatching] Attempting to match offers for treatments:", currentTreatments, "Base Total:", baseTotal);
-   
+    
     // Track offers that don't match due to minimum bill amount
     const unmatchedMinimum: Array<{offer: Offer, minimumAmount: number, currentAmount: number}> = [];
-   
+    
     // Find applicable offers for the selected treatments
     const applicableOffers = activeOffers.filter(offer => {
       // 0. Check Minimum Bill Amount
@@ -1355,7 +1360,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         console.log(`[OfferMatching] Offer "${offer.title}" matches globally.`);
         return true;
       }
-     
+      
       // 2. Check Doctor-Specific Application
       if (offer.doctorIds && Array.isArray(offer.doctorIds) && currentDoctorId) {
         if (offer.doctorIds.some(id => String(id) === String(currentDoctorId))) {
@@ -1366,13 +1371,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
       // 3. Check Service-Specific Application (Slug or Name or ID)
        if (offer.serviceIds && Array.isArray(offer.serviceIds)) {
-         const matchesService = paidTreatments.some(t =>
+         const matchesService = paidTreatments.some(t => 
            offer.serviceIds.some(svc => {
              if (typeof svc === 'string') {
                return String(svc) === String(t.slug) || String(svc).toLowerCase() === String(t.name).toLowerCase();
              } else if (svc && typeof svc === 'object') {
                return (
-                 String(svc._id) === String(t.slug) ||
+                 String(svc._id) === String(t.slug) || 
                  (svc.serviceSlug && String(svc.serviceSlug) === String(t.slug)) ||
                  (svc.name && String(svc.name).toLowerCase() === String(t.name).toLowerCase())
                );
@@ -1459,7 +1464,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
 
     console.log('[FlagLogic] Matched offers found - applying flag-based visibility logic');
-   
+    
     // Evaluate flags from all matched offers
     // Strategy: Use the most restrictive flags across all matched offers
     const allowCombining = matchedOffers.every(o => o.allowCombiningWithOtherOffers);
@@ -1485,7 +1490,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       setShowAgentDiscount(false);
       setShowDoctorDiscount(true);
     }
-   
+    
     // ==========================================
     // CASE 2: allowCombining=true, allowReceptionistDiscount=true, autoApplyBestOffer=true
     // ==========================================
@@ -1497,7 +1502,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       setShowAgentDiscount(true);
       setShowDoctorDiscount(true);
     }
-   
+    
     // ==========================================
     // CASE 3: allowCombining=true, allowReceptionistDiscount=true, autoApplyBestOffer=false
     // ==========================================
@@ -1509,7 +1514,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       setShowAgentDiscount(true);
       setShowDoctorDiscount(true);
     }
-   
+    
     // ==========================================
     // CASE 4: allowCombining=false, allowReceptionistDiscount=true, autoApplyBestOffer=true
     // ==========================================
@@ -1522,7 +1527,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       setShowAgentDiscount(true);
       setShowDoctorDiscount(true);
     }
-   
+    
     // Default: fallback to current behavior (show all)
     else {
       console.log('[FlagLogic] Default case: showing all discount sources');
@@ -1540,7 +1545,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   useEffect(() => {
     // Skip if modal not open, no offers matched, or auto-apply is disabled
     if (!isOpen || matchedOffers.length === 0) return;
-   
+    
     // Check if ANY matched offer has autoApplyBestOffer enabled
     const hasAutoApply = matchedOffers.some(o => o.autoApplyBestOffer);
     if (!hasAutoApply) {
@@ -1549,12 +1554,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
 
     console.log('[AutoApply] Auto-apply enabled - calculating best discount');
-   
+    
     // Calculate base total from selected treatments
-    const currentTreatments = selectedService === "Treatment"
+    const currentTreatments = selectedService === "Treatment" 
       ? selectedTreatments.map(t => ({ price: t.price, quantity: t.quantity }))
       : packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ price: t.sessionPrice, quantity: t.usedSessions }));
-   
+    
     const baseTotal = currentTreatments.reduce((sum, t) => sum + (t.price || 0) * (t.quantity || 1), 0);
     if (baseTotal === 0) {
       console.log('[AutoApply] Base total is 0 - skipping auto-apply');
@@ -1581,13 +1586,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       } else {
         discountAmount = offer.discountValue || 0;
       }
-     
+      
       console.log(`[AutoApply] Offer "${offer.title}": ${offer.discountMode} ${offer.discountValue} = ${discountAmount}`);
-      eligibleDiscounts.push({
-        type: 'offer',
-        amount: discountAmount,
+      eligibleDiscounts.push({ 
+        type: 'offer', 
+        amount: discountAmount, 
         id: offer._id,
-        label: offer.title
+        label: offer.title 
       });
     });
 
@@ -1621,7 +1626,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
 
     // 4. Find highest discount
-    const bestDiscount = eligibleDiscounts.reduce((best, current) =>
+    const bestDiscount = eligibleDiscounts.reduce((best, current) => 
       current.amount > best.amount ? current : best
     , { type: '', amount: 0, label: '' });
 
@@ -1664,7 +1669,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
     bundleClearedRef.current = false;
 
-    const currentTreatments = selectedService === "Treatment"
+    const currentTreatments = selectedService === "Treatment" 
       ? selectedTreatments.map(t => ({ slug: t.treatmentSlug, name: t.treatmentName, price: t.price, quantity: t.quantity }))
       : packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions }));
 
@@ -1683,7 +1688,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
     // Filter out free session treatments when checking bundle eligibility
     const paidTreatments = currentTreatments.filter(t => t.price > 0);
-   
+    
     // If no paid treatments, skip bundle matching
     if (paidTreatments.length === 0) {
       console.log("[BundleMatching] No paid treatments. Skipping bundle matching.");
@@ -1692,12 +1697,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
 
     const baseTotal = paidTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
-   
+    
     billingDebugLog("[BundleMatching] Checking for bundle offers. Selected treatments:", currentTreatments, "Paid treatments:", paidTreatments);
 
     // Find bundle offers
     const bundleOffers = activeOffers.filter(offer => offer.offerType === "bundle");
-   
+    
     if (bundleOffers.length === 0) {
       billingDebugLog("[BundleMatching] No bundle offers found.");
       clearBundleStateOnce();
@@ -1724,18 +1729,18 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       // Check which selected treatments are in the bundle's serviceIds
       const eligibleTreatments: typeof currentTreatments = [];
       let allRequiredServicesSelected = false;
-     
+      
       if (offer.serviceIds && Array.isArray(offer.serviceIds) && offer.serviceIds.length > 0) {
         // Bundle has specific services - ALL must be selected
         // First, check if ALL services in serviceIds are present in SELECTED treatments (including free ones)
         const allServiceIdsMatched = offer.serviceIds.every(svc => {
           return currentTreatments.some(treatment => {
             if (typeof svc === 'string') {
-              return String(svc) === String(treatment.slug) ||
+              return String(svc) === String(treatment.slug) || 
                      String(svc).toLowerCase() === String(treatment.name).toLowerCase();
             } else if (svc && typeof svc === 'object') {
               return (
-                String(svc._id) === String(treatment.slug) ||
+                String(svc._id) === String(treatment.slug) || 
                 (svc.serviceSlug && String(svc.serviceSlug) === String(treatment.slug)) ||
                 (svc.name && String(svc.name).toLowerCase() === String(treatment.name).toLowerCase())
               );
@@ -1743,31 +1748,31 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             return false;
           });
         });
-       
+        
         // Only proceed if ALL required services are selected
         if (!allServiceIdsMatched) {
           console.log(`[BundleMatching] Bundle "${offer.title}" skipped: Not all required services selected (${offer.serviceIds.length} required)`);
           continue;
         }
-       
+        
         allRequiredServicesSelected = true;
-       
+        
         // Now collect eligible treatments from PAID treatments only (exclude free sessions)
         for (const treatment of paidTreatments) {
           const isEligible = offer.serviceIds.some(svc => {
             if (typeof svc === 'string') {
-              return String(svc) === String(treatment.slug) ||
+              return String(svc) === String(treatment.slug) || 
                      String(svc).toLowerCase() === String(treatment.name).toLowerCase();
             } else if (svc && typeof svc === 'object') {
               return (
-                String(svc._id) === String(treatment.slug) ||
+                String(svc._id) === String(treatment.slug) || 
                 (svc.serviceSlug && String(svc.serviceSlug) === String(treatment.slug)) ||
                 (svc.name && String(svc.name).toLowerCase() === String(treatment.name).toLowerCase())
               );
             }
             return false;
           });
-         
+          
           if (isEligible) {
             // Add treatment quantity times (if quantity > 1, count it multiple times)
             for (let i = 0; i < treatment.quantity; i++) {
@@ -1777,7 +1782,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         }
       } else if (offer.applyOnAllServices) {
         // Bundle applies to all services - but only paid ones
-        eligibleTreatments.push(...paidTreatments.flatMap(t =>
+        eligibleTreatments.push(...paidTreatments.flatMap(t => 
           Array(t.quantity).fill(t)
         ));
         allRequiredServicesSelected = true;
@@ -1789,7 +1794,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       if (allRequiredServicesSelected && eligibleTreatments.length >= offer.buyQty) {
         // Sort eligible treatments by price (ascending) to find lowest-priced ones for free sessions
         const sortedByPrice = [...eligibleTreatments].sort((a, b) => a.price - b.price);
-       
+        
         // The lowest-priced treatments become free
         const freeSessions = sortedByPrice.slice(0, offer.freeQty).map(t => t.name);
         const freeCount = Math.min(offer.freeQty, eligibleTreatments.length);
@@ -1817,7 +1822,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         return bestFreeSessions;
       });
       setBundleFreeSessionCount((prev) => (prev === bestFreeCount ? prev : bestFreeCount));
-     
+      
       // Auto-apply the bundle offer
       setAppliedOfferIds(prev => {
         if (!prev.includes(bestBundleOffer!._id)) {
@@ -1838,7 +1843,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     if (!isOpen) {
       return;
     }
-   
+    
     if (activeOffers.length === 0) {
       console.log('[CashbackMatching] Skipped: isOpen=', isOpen, 'activeOffers.length=', activeOffers?.length || 0);
       setMatchedCashbackOffer(null);
@@ -1846,7 +1851,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       return;
     }
 
-    const currentTreatments = selectedService === "Treatment"
+    const currentTreatments = selectedService === "Treatment" 
       ? selectedTreatments.map(t => ({ slug: t.treatmentSlug, name: t.treatmentName, price: t.price, quantity: t.quantity }))
       : packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions }));
 
@@ -1858,11 +1863,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
 
     const baseTotal = currentTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
-   
+    
     billingDebugLog('[CashbackMatching] Checking for cashback offers. Selected treatments:', currentTreatments);
     billingDebugLog('[CashbackMatching] Base total:', baseTotal);
     billingDebugLog('[CashbackMatching] Total active offers:', activeOffers.length);
-   
+    
     // Find cashback offers
     const cashbackOffers = activeOffers.filter(offer => offer.offerType === "cashback");
     billingDebugLog('[CashbackMatching] All active offers with types:', activeOffers.map(o => ({
@@ -1880,7 +1885,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         discountValue: o.discountValue
       })));
     }
-   
+    
     if (cashbackOffers.length === 0) {
       billingDebugLog("[CashbackMatching] No cashback offers found.");
       setMatchedCashbackOffer(null);
@@ -1900,7 +1905,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         minimumBillAmount: offer.minimumBillAmount,
         baseTotal: baseTotal
       });
-     
+      
       // Skip if no cashback amount
       if (!offer.cashbackAmount || offer.cashbackAmount <= 0) {
         console.log(`[CashbackMatching] Skip: No cashback amount`);
@@ -1919,7 +1924,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         serviceIds: offer.serviceIds,
         currentTreatments: currentTreatments
       });
-     
+      
       if (offer.serviceIds && Array.isArray(offer.serviceIds) && offer.serviceIds.length > 0) {
         // Offer has specific services - check matches
         for (const treatment of currentTreatments) {
@@ -1944,7 +1949,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       // For cashback offers, use the fixed cashbackAmount
       // (NOT discountValue - that's for instant_discount offers)
       let cashbackAmount = offer.cashbackAmount || 0;
-     
+      
       console.log(`[CashbackMatching] Cashback "${offer.title}": ${cashbackAmount} (fixed amount from cashbackAmount field)`);
 
       if (cashbackAmount > bestCashbackAmount) {
@@ -1956,10 +1961,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     if (bestCashbackOffer) {
       console.log(`[CashbackMatching] Best cashback offer: ${bestCashbackOffer.title}, Cashback: ${bestCashbackAmount}`);
       setMatchedCashbackOffer(bestCashbackOffer);
-     
+      
       // Check if this is the same offer that was already applied (using ref to avoid stale closure)
       const isSameOffer = appliedCashbackRef.current && appliedCashbackRef.current.offerId === bestCashbackOffer._id;
-     
+      
       if (isSameOffer) {
         // Restore the applied amount from ref
         const refData = appliedCashbackRef.current;
@@ -2119,7 +2124,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           // Check if any matched offer has allowReceptionistDiscount = false
           // Use ref to avoid infinite loop
           const currentMatchedOffers = matchedOffersRef.current;
-          const hasOffersWithReceptionistDiscountFalse = currentMatchedOffers.length > 0 &&
+          const hasOffersWithReceptionistDiscountFalse = currentMatchedOffers.length > 0 && 
             currentMatchedOffers.some(o => o.allowReceptionistDiscount === false);
 
           // If offers with allowReceptionistDiscount: false are matched, remove agent discount if it was auto-applied
@@ -2166,10 +2171,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   // Watch matchedOffers and remove agent discount if allowReceptionistDiscount is false
   useEffect(() => {
     if (!isOpen || matchedOffers.length === 0) return;
-   
+    
     // Check if any matched offer has allowReceptionistDiscount: false
     const hasOffersWithReceptionistDiscountFalse = matchedOffers.some(o => o.allowReceptionistDiscount === false);
-   
+    
     if (hasOffersWithReceptionistDiscountFalse && isAgentDiscountApplied) {
       console.log(`[OfferWatch] Matched offers have allowReceptionistDiscount: false. Removing auto-applied agent discount.`);
       setIsAgentDiscountApplied(false);
@@ -2250,9 +2255,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         if (response.data.success && response.data.billings) {
           // Extract bundle offers with free sessions
           const freeSessions = response.data.billings
-            .filter((billing: any) =>
-              billing.offerType === 'bundle' &&
-              billing.offerFreeSession &&
+            .filter((billing: any) => 
+              billing.offerType === 'bundle' && 
+              billing.offerFreeSession && 
               billing.offerFreeSession.length > 0 &&
               billing.freeOfferSessionCount > 0
             )
@@ -2266,7 +2271,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
               purchasedTreatment: billing.treatment,
               amount: billing.amount
             }));
-         
+          
           setAvailableFreeSessions(freeSessions);
           console.log('[FreeSessions] Available free sessions:', freeSessions);
         } else {
@@ -2293,7 +2298,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       // Package Payment Handling (New Requirement)
       const paidAmount = selectedPackage.paidAmount || 0;
       const paymentStatus = selectedPackage.paymentStatus || "Unpaid";
-     
+      
       // Calculate how much has already been consumed from the paidAmount
       // by looking at activePackageUsage.billingHistory
       let consumedPrepaidAmount = 0;
@@ -2316,16 +2321,16 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       }
 
       let availablePrepaidAmount = Math.max(0, paidAmount - consumedPrepaidAmount);
-     
+      
       // Calculate total based on each treatment's sessionPrice × usedSessions
       let computedTotal = 0;
-     
+      
       // We process selected treatments to see how many sessions are free
       packageTreatmentSessions.forEach((t) => {
         if (!t.isSelected || (t.usedSessions || 0) === 0) {
           return;
         }
-       
+        
         let sessionCost = t.sessionPrice * (t.usedSessions || 0);
         let billableForThisTreatment = 0;
 
@@ -2347,7 +2352,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       // Update packageTreatmentSessions state if needed to show "Free Session" tag
       // Use a ref or a separate effect to avoid infinite loops
       // For now, let's just use the computedTotal for baseTotal
-     
+      
       // Round to 2 decimal places
       let finalTotal = Number(computedTotal.toFixed(2));
 
@@ -2522,7 +2527,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       appliedOffers.forEach(offer => {
         if (offer.minimumBillAmount === 0 || baseTotal >= offer.minimumBillAmount) {
           let currentOfferDiscount = 0;
-         
+          
           // Handle bundle offers differently
           if (offer.offerType === "bundle" && matchedBundleOffer && matchedBundleOffer._id === offer._id) {
             // For bundle offers, NO discount is applied in current billing
@@ -2558,7 +2563,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
               currentOfferDiscount = offer.discountValue;
             }
           }
-         
+          
           offerDiscountAmount += currentOfferDiscount;
         }
       });
@@ -2606,11 +2611,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         { type: 'Receptionist', amount: receptionistDiscountAmount }
       ];
       const highest = discounts.reduce((prev, current) => (prev.amount >= current.amount) ? prev : current);
-     
+      
       calcMembershipDiscount = highest.type === 'Membership' ? highest.amount : 0;
       calcOfferDiscount = highest.type === 'Offer' ? highest.amount : 0;
       calcReceptionistDiscount = highest.type === 'Receptionist' ? highest.amount : 0;
-     
+      
       finalTotal = Math.max(0, baseTotal - highest.amount);
     }
 
@@ -2647,13 +2652,15 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     const discountedTotal = parseFloat(formData.discountedAmount || "0") || 0;
    
     // Always ensure amount has a value - either with previous pending or just the discounted total
+    // Include pending balance AND pending claim in the total
     const invoiceTotal = Number(
-      (discountedTotal + (balances.pendingBalance || 0)).toFixed(2),
+      (discountedTotal + (balances.pendingBalance || 0) + (balances.pendingClaim || 0)).toFixed(2),
     );
    
     console.log("Adding previous pending:", {
       discountedTotal,
       previousPending: balances.pendingBalance,
+      pendingClaim: balances.pendingClaim,
       invoiceTotal,
       currentAmount: formData.amount
     });
@@ -2665,27 +2672,35 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         amount: invoiceTotal.toFixed(2),
       }));
     }
-  }, [balances.pendingBalance, formData.discountedAmount]);
+  }, [balances.pendingBalance, balances.pendingClaim, formData.discountedAmount]);
 
   // Auto-calc pending/advance considering applied advance balances
   useEffect(() => {
     const discountedAmount = parseFloat(formData.discountedAmount || "0") || 0;
     const originalAmountNum = parseFloat(formData.amount) || 0;
-   
+    
     // Calculate cashback deduction based on discounted amount
-    const cashbackDeduction = (useCashback && availableCashback)
-      ? Math.min(availableCashback.amount, discountedAmount)
+    const cashbackDeduction = (useCashback && availableCashback) 
+      ? Math.min(availableCashback.amount, discountedAmount) 
       : 0;
-   
+    
     // Final amount after all discounts AND cashback
     const finalAmountAfterCashback = Math.max(0, discountedAmount - cashbackDeduction);
-   
+    
     // Calculate how much previous pending is being rolled into this billing
-    const pendingBeingRolledIn = Math.max(0, originalAmountNum - discountedAmount);
+    // pendingUsed is for pending balance from billings only
+    const pendingUsed = balances.pendingBalance || 0;
+    // pendingClaimUsed is for pending claim from insurance claims only
+    const pendingClaimUsed = balances.pendingClaim || 0;
+    // Total pending being rolled in (for amountForCredits calculation)
+    const pendingBeingRolledIn = pendingUsed + pendingClaimUsed;
+    
+    // Amount for credits = discounted amount + all pending (balance + claim)
+    // This equals invoiceTotal which includes: discountedAmount + pendingBalance + pendingClaim
 
     // Amount available for applying credits = final amount after cashback + pending rolled in
     const amountForCredits = finalAmountAfterCashback + pendingBeingRolledIn;
-   
+    
     console.log('[PendingCalculation] Calculation breakdown:', {
       originalAmount: originalAmountNum,
       discountedAmount,
@@ -2699,35 +2714,30 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     const appliedAdvance = applyAdvance
       ? Math.min(balances.advanceBalance || 0, amountForCredits)
       : 0;
-   
-    // Insurance claim amount
-    let appliedClaimAmount = 0;
-    if (applyClaimAmount && insuranceAdvanceClaims.length > 0) {
-      const totalInsuranceAdvance = insuranceAdvanceClaims.reduce(
-        (sum: number, c: any) => sum + Number(c.claimAmount || 0), 0
-      );
-      appliedClaimAmount = Math.min(totalInsuranceAdvance, amountForCredits - appliedAdvance);
-    }
-   
     const appliedPastAdvance50Percent = applyPastAdvance50Percent
-      ? Math.min(balances.pastAdvance50PercentBalance || 0, amountForCredits - appliedAdvance - appliedClaimAmount)
+      ? Math.min(balances.pastAdvance50PercentBalance || 0, amountForCredits - appliedAdvance)
       : 0;
     const appliedPastAdvance54Percent = applyPastAdvance54Percent
-      ? Math.min(balances.pastAdvance54PercentBalance || 0, amountForCredits - appliedAdvance - appliedClaimAmount - appliedPastAdvance50Percent)
+      ? Math.min(balances.pastAdvance54PercentBalance || 0, amountForCredits - appliedAdvance - appliedPastAdvance50Percent)
       : 0;
     const appliedPastAdvance159Flat = applyPastAdvance159Flat
-      ? Math.min(balances.pastAdvance159FlatBalance || 0, amountForCredits - appliedAdvance - appliedClaimAmount - appliedPastAdvance50Percent - appliedPastAdvance54Percent)
+      ? Math.min(balances.pastAdvance159FlatBalance || 0, amountForCredits - appliedAdvance - appliedPastAdvance50Percent - appliedPastAdvance54Percent)
       : 0;
-
     const totalPastAdvanceUsed =
       appliedPastAdvance50Percent +
       appliedPastAdvance54Percent +
       appliedPastAdvance159Flat;
+    const appliedClaimAmount = applyClaimAmount
+      ? Math.min(balances.claimAmount || 0, amountForCredits - appliedAdvance - totalPastAdvanceUsed)
+      : 0;
+    // Pending claim is automatically added to total, no separate deduction needed
+    // The amountForCredits already includes pending claim, so it affects net due automatically
+    const totalClaimUsed = appliedClaimAmount;
 
     // 2. Net Due (Remaining amount to be paid after credits)
     const netDue = Math.max(
       0,
-      amountForCredits - appliedAdvance - appliedClaimAmount - totalPastAdvanceUsed,
+      amountForCredits - appliedAdvance - totalPastAdvanceUsed - totalClaimUsed,
     );
 
     // 3. Determine how much is actually being paid today (Cash/Card etc)
@@ -2765,8 +2775,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         pastAdvanceUsed50Percent: appliedPastAdvance50Percent.toFixed(2),
         pastAdvanceUsed54Percent: appliedPastAdvance54Percent.toFixed(2),
         pastAdvanceUsed159Flat: appliedPastAdvance159Flat.toFixed(2),
-        // Track previous pending being rolled into this billing
-        pendingUsed: pendingBeingRolledIn.toFixed(2),
+        // Track pending balance being rolled into this billing
+        pendingUsed: pendingUsed.toFixed(2),
+        claimAmountUsed: appliedClaimAmount.toFixed(2),
+        // Track pending claim being rolled into this billing
+        pendingClaimUsed: pendingClaimUsed.toFixed(2),
       };
 
       // Auto-set paid when advance is applied
@@ -2774,7 +2787,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         applyAdvance ||
         applyPastAdvance50Percent ||
         applyPastAdvance54Percent ||
-        applyPastAdvance159Flat
+        applyPastAdvance159Flat ||
+        applyClaimAmount
       ) {
         const currentPaid = parseFloat(prev.paid) || 0;
         const currentAmount = parseFloat(prev.amount) || 0;
@@ -2803,6 +2817,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         updates.pastAdvanceUsed50Percent !== prev.pastAdvanceUsed50Percent ||
         updates.pastAdvanceUsed54Percent !== prev.pastAdvanceUsed54Percent ||
         updates.pastAdvanceUsed159Flat !== prev.pastAdvanceUsed159Flat ||
+        updates.claimAmountUsed !== prev.claimAmountUsed ||
+        updates.pendingClaimUsed !== prev.pendingClaimUsed ||
         (updates.paid !== undefined && updates.paid !== prev.paid);
 
       if (!hasChanges) return prev;
@@ -2813,18 +2829,20 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     formData.amount,
     formData.paid,
     applyAdvance,
-    applyClaimAmount,
     applyPastAdvance50Percent,
     applyPastAdvance54Percent,
     applyPastAdvance159Flat,
+    applyClaimAmount,
+    applyPendingClaim,
     balances.advanceBalance,
     balances.pastAdvanceBalance,
     balances.pastAdvance50PercentBalance,
     balances.pastAdvance54PercentBalance,
     balances.pastAdvance159FlatBalance,
+    balances.claimAmount,
+    balances.pendingClaim,
     useMultiplePayments,
     multiplePayments,
-    insuranceAdvanceClaims,
   ]);
 
   // Close dropdowns when clicking outside
@@ -2861,8 +2879,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       );
     } else {
       // Check if this treatment is available as a free session
-      const isFreeSession = availableFreeSessions.some((session: any) =>
-        session.offerFreeSession.some((freeTreatment: string) =>
+      const isFreeSession = availableFreeSessions.some((session: any) => 
+        session.offerFreeSession.some((freeTreatment: string) => 
           freeTreatment.toLowerCase() === treatment.name.toLowerCase()
         )
       );
@@ -2870,7 +2888,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       // Add treatment with quantity 1
       // If it's a free session, price = 0, otherwise use original price
       const treatmentPrice = isFreeSession ? 0 : treatment.price;
-     
+      
       const newTreatment: SelectedTreatment = {
         treatmentName: treatment.name,
         treatmentSlug: treatment.slug,
@@ -2880,7 +2898,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         isFreeSession: isFreeSession,
       };
       setSelectedTreatments((prev) => [...prev, newTreatment]);
-     
+      
       if (isFreeSession) {
         console.log(`[FreeSession] Treatment "${treatment.name}" added as FREE session`);
       }
@@ -2925,11 +2943,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const handlePackageSelect = async (pkg: Package) => {
     // Check if this package is assigned to the patient and get its payment info
     const assignedPkg = (patientDetails?.packages || []).find((p: any) => String(p.packageId) === String(pkg._id));
-   
+    
     // Check main fields as well if array doesn't have it
     const mainPackageId = patientDetails?.packageId;
     const isMainPackage = String(mainPackageId) === String(pkg._id);
-   
+    
     const pkgWithPaymentInfo = {
       ...pkg,
       paidAmount: assignedPkg?.paidAmount || (isMainPackage ? patientDetails?.packagePaidAmount : 0) || 0,
@@ -3467,7 +3485,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           { type: 'Receptionist', amount: calcReceptionistDiscount }
         ];
         const highest = discounts.reduce((prev, current) => (prev.amount > current.amount) ? prev : current);
-       
+        
         calcMembershipDiscount = highest.type === 'Membership' ? highest.amount : 0;
         calcOfferDiscount = highest.type === 'Offer' ? highest.amount : 0;
         calcReceptionistDiscount = highest.type === 'Receptionist' ? highest.amount : 0;
@@ -3476,7 +3494,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       // Calculate cashback deduction
       const cashbackAmountToUse = useCashback && availableCashback ? Math.min(availableCashback.amount, finalAmount) : 0;
       const amountAfterCashback = finalAmount - cashbackAmountToUse;
-     
+      
       console.log('[CashbackModal] Cashback calculation:', {
         finalAmount,
         availableCashback: availableCashback?.amount || 0,
@@ -3502,13 +3520,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         cashbackWalletUsed: cashbackAmountToUse,  // Track how much cashback was used
         paid: parseFloat(formData.paid) || 0,
         advanceUsed: parseFloat(formData.advanceUsed) || 0,
-        // Calculate claim amount used
-        claimAmountUsed: applyClaimAmount && insuranceAdvanceClaims.length > 0
-          ? Math.min(
-              insuranceAdvanceClaims.reduce((sum: number, c: any) => sum + Number(c.claimAmount || 0), 0),
-              amountAfterCashback - (parseFloat(formData.advanceUsed) || 0)
-            )
-          : 0,
         pastAdvanceUsed: parseFloat(formData.pastAdvanceUsed) || 0,
         pastAdvanceUsed50Percent:
           parseFloat(formData.pastAdvanceUsed50Percent) || 0,
@@ -3517,6 +3528,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         pastAdvanceUsed159Flat:
           parseFloat(formData.pastAdvanceUsed159Flat) || 0,
         pendingUsed: parseFloat(formData.pendingUsed || "0") || 0,
+        claimAmountUsed: parseFloat(formData.claimAmountUsed || "0") || 0,
+        pendingClaimUsed: parseFloat(formData.pendingClaimUsed || "0") || 0,
         pending: parseFloat(formData.pending || "0") || 0,
         advance: parseFloat(formData.advance) || 0,
         pastAdvance: parseFloat(formData.pastAdvance) || 0,
@@ -3667,6 +3680,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                   balanceResponse.data.balances.pendingBalance || 0,
                 claimAmount:
                   balanceResponse.data.balances.claimAmount || 0,
+                pendingClaim:
+                  balanceResponse.data.balances.pendingClaim || 0,
                 pastAdvanceBalance:
                   balanceResponse.data.balances.pastAdvanceBalance || 0,
                 pastAdvance50PercentBalance:
@@ -3679,7 +3694,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                   balanceResponse.data.balances.pastAdvance159FlatBalance || 0,
               });
             }
-           
+            
             // ✅ IMPORTANT: Refresh available free sessions after billing
             // This updates the list when free sessions are consumed
             try {
@@ -3687,12 +3702,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                 `/api/clinic/billing-history/${appointment.patientId}`,
                 { headers }
               );
-             
+              
               if (freeSessionsResponse.data.success && freeSessionsResponse.data.billings) {
                 const freeSessions = freeSessionsResponse.data.billings
-                  .filter((billing: any) =>
-                    billing.offerType === 'bundle' &&
-                    billing.offerFreeSession &&
+                  .filter((billing: any) => 
+                    billing.offerType === 'bundle' && 
+                    billing.offerFreeSession && 
                     billing.offerFreeSession.length > 0 &&
                     billing.freeOfferSessionCount > 0
                   )
@@ -3706,7 +3721,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                     purchasedTreatment: billing.treatment,
                     amount: billing.amount
                   }));
-               
+                
                 setAvailableFreeSessions(freeSessions);
                 console.log('[FreeSessions] Refreshed available free sessions after billing:', freeSessions);
               } else {
@@ -3761,10 +3776,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
   const filteredTreatments = treatments.filter((t) => {
     const isBilled = isTreatmentBilledRecently(t.name);
-   
+    
     // Check if this treatment is available as a free session
-    const isFreeSession = availableFreeSessions.some((session: any) =>
-      session.offerFreeSession.some((freeTreatment: string) =>
+    const isFreeSession = availableFreeSessions.some((session: any) => 
+      session.offerFreeSession.some((freeTreatment: string) => 
         freeTreatment.toLowerCase() === t.name.toLowerCase()
       )
     );
@@ -3976,7 +3991,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                   <div className="flex-1">
                     <p className="text-xs font-bold">{canRebill ? "Additional Billing Available" : "Appointment Already Billed"}</p>
                     <p className="text-[10px]">
-                      {canRebill
+                      {canRebill 
                         ? "A billing record exists for this appointment. You can add more treatments or packages.."
                         : "A billing record already exists for this appointment. Please verify before creating another one."}
                     </p>
@@ -4311,7 +4326,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                       const remainingSessions = treatment.maxSessions - treatment.previouslyUsedSessions;
                                       const isFullyUsed = remainingSessions <= 0;
                                       const isBilledToday = treatment.isAlreadyBilledForThisAppointment;
-                                     
+                                      
                                       // Determine if this specific treatment session is prepaid
                                       let isPrepaid = false;
                                       if (treatment.isSelected && treatment.usedSessions > 0) {
@@ -4356,7 +4371,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                                   isFullyUsed || isBilledToday ? "text-red-600" : treatment.isSelected ? "text-gray-900" : "text-gray-700"
                                                 }`}>{treatment.treatmentName}</div>
                                                 <div className="text-[10px] text-teal-600 font-medium">{getCurrencySymbol(currency)} {treatment.sessionPrice.toFixed(2)}/session</div>
-                                               
+                                                
                                                 {isBilledToday && (
                                                   <div className="flex items-center gap-1 mt-0.5">
                                                     <span className="text-[9px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-semibold flex items-center gap-1">
@@ -4514,8 +4529,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                               <span className={`text-[10px] font-bold ${isMembershipApplied ? "text-blue-700" : "text-gray-500"}`}>MEMBERSHIP</span>
                               <div className="flex items-center gap-2">
                                 <span className="text-[10px] text-gray-600 font-medium">
-                                  {membershipUsage.remainingFreeConsultations > 0
-                                    ? "Free Session"
+                                  {membershipUsage.remainingFreeConsultations > 0 
+                                    ? "Free Session" 
                                     : `${membershipUsage.discountPercentage}% Off`}
                                 </span>
                               </div>
@@ -4526,7 +4541,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             onClick={() => {
                               const newStatus = !isMembershipApplied;
                               setIsMembershipApplied(newStatus);
-                             
+                              
                               if (newStatus) {
                                 // If any applied offer doesn't allow combining, deselect all offers
                                 const anyRestricted = matchedOffers.some(o => appliedOfferIds.includes(o._id) && !o.allowCombiningWithOtherOffers);
@@ -4555,7 +4570,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         // For cashback offers, check isCashbackApplied state instead of appliedOfferIds
                         const isCashbackAppliedState = isCashbackOffer && isCashbackApplied && matchedCashbackOffer?._id === offer._id;
                         const effectiveIsApplied = isCashbackOffer ? isCashbackAppliedState : isApplied;
-                       
+                        
                         return (
                           <div key={offer._id} className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
                             effectiveIsApplied ? "bg-teal-50 border-teal-200 shadow-sm" : "bg-gray-50 border-gray-100"
@@ -4568,7 +4583,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                 <span className={`text-[10px] font-bold ${effectiveIsApplied ? "text-teal-700" : "text-gray-500"}`}>
                                   {isBundleOffer ? 'BUNDLE' : isCashbackOffer ? 'CASHBACK' : 'OFFER'}
                                 </span>
-                               
+                                
                                 {/* Bundle Offer Display: Show "Buy X Get Y" */}
                                 {isBundleOffer ? (
                                   <div className="flex flex-col gap-0.5 mt-0.5">
@@ -4612,7 +4627,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                     )}
                                   </div>
                                 )}
-                               
+                                
                                 {isAutoApplied && (
                                   <span className="text-[8px] text-emerald-600 font-bold mt-0.5">✓ Auto-Applied (Best Offer)</span>
                                 )}
@@ -4645,7 +4660,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                     }
                                     return;
                                   }
-                                 
+                                  
                                   // Regular offer logic (instant_discount, bundle)
                                   if (isApplied) {
                                     setAppliedOfferIds(prev => prev.filter(id => id !== offer._id));
@@ -4678,7 +4693,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           </div>
                         );
                       })}
-                     
+                      
                       {/* Warning for offers not matched due to minimum bill amount */}
                       {unmatchedOffersDueToMinimum.length > 0 && (
                         <div className="mt-3 space-y-2">
@@ -4750,8 +4765,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       )}
 
                       {/* Hide agent discount if any matched offer has allowReceptionistDiscount: false */}
-                      {showAgentDiscount && agentDiscount &&
-                       ((userRole === "agent") || !doctorAppliedDiscount) &&
+                      {showAgentDiscount && agentDiscount && 
+                       ((userRole === "agent") || !doctorAppliedDiscount) && 
                        (appliedOfferIds.length === 0 || matchedOffers.filter(o => appliedOfferIds.includes(o._id)).every(o => o.allowReceptionistDiscount)) &&
                        !matchedOffers.some(o => o.allowReceptionistDiscount === false) && (
                         <div className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
@@ -4809,12 +4824,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             + Pending Amount Added
                           </div>
                         )}
+                        {balances.pendingClaim > 0 && (
+                          <div className="text-[9px] text-purple-600 mt-0.5 font-bold uppercase tracking-wider">
+                            + Pending Claim Added
+                          </div>
+                        )}
                         {(isDoctorDiscountApplied || isAgentDiscountApplied) && (
                           <div className="text-[9px] text-red-500 mt-0.5 font-medium italic">
                             Discounted from {getCurrencySymbol(currency)} {parseFloat(formData.originalAmount || "0").toFixed(2)}
                           </div>
                         )}
-                       
+                        
                         {/* Cashback Deduction */}
                         {useCashback && availableCashback && availableCashback.amount > 0 && (
                           <div className="mt-2 space-y-1">
@@ -4856,36 +4876,33 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           Net due: {getCurrencySymbol(currency)} {
                             (() => {
                               const discountedAmount = parseFloat(formData.discountedAmount || "0") || 0;
-                              const cashbackDeduction = (useCashback && availableCashback)
-                                ? Math.min(availableCashback.amount, discountedAmount)
+                              const cashbackDeduction = (useCashback && availableCashback) 
+                                ? Math.min(availableCashback.amount, discountedAmount) 
                                 : 0;
                               const finalAmountAfterCashback = Math.max(0, discountedAmount - cashbackDeduction);
-                              const pendingBeingRolledIn = Math.max(0, (parseFloat(formData.amount) || 0) - discountedAmount);
+                              // pendingUsed = pendingBalance, pendingClaimUsed = pendingClaim
+                              const pendingUsed = balances.pendingBalance || 0;
+                              const pendingClaimUsed = balances.pendingClaim || 0;
+                              const pendingBeingRolledIn = pendingUsed + pendingClaimUsed;
                               const amountForCredits = finalAmountAfterCashback + pendingBeingRolledIn;
-                             
-                              const appliedAdvance = applyAdvance
-                                ? Math.min(balances.advanceBalance, amountForCredits)
+                              
+                              const appliedAdvance = applyAdvance 
+                                ? Math.min(balances.advanceBalance, amountForCredits) 
                                 : 0;
-                             
-                              // Insurance claim amount
-                              const appliedClaimAmount = applyClaimAmount && insuranceAdvanceClaims.length > 0
-                                ? Math.min(
-                                    insuranceAdvanceClaims.reduce((sum: number, c: any) => sum + Number(c.claimAmount || 0), 0),
-                                    amountForCredits - appliedAdvance
-                                  )
+                              const appliedPast50 = applyPastAdvance50Percent 
+                                ? Math.min(balances.pastAdvance50PercentBalance, amountForCredits - appliedAdvance) 
                                 : 0;
-                             
-                              const appliedPast50 = applyPastAdvance50Percent
-                                ? Math.min(balances.pastAdvance50PercentBalance, amountForCredits - appliedAdvance - appliedClaimAmount)
+                              const appliedPast54 = applyPastAdvance54Percent 
+                                ? Math.min(balances.pastAdvance54PercentBalance, amountForCredits - appliedAdvance - appliedPast50) 
                                 : 0;
-                              const appliedPast54 = applyPastAdvance54Percent
-                                ? Math.min(balances.pastAdvance54PercentBalance, amountForCredits - appliedAdvance - appliedClaimAmount - appliedPast50)
+                              const appliedPast159 = applyPastAdvance159Flat 
+                                ? Math.min(balances.pastAdvance159FlatBalance, amountForCredits - appliedAdvance - appliedPast50 - appliedPast54) 
                                 : 0;
-                              const appliedPast159 = applyPastAdvance159Flat
-                                ? Math.min(balances.pastAdvance159FlatBalance, amountForCredits - appliedAdvance - appliedClaimAmount - appliedPast50 - appliedPast54)
+                              const appliedClaimAmt = applyClaimAmount
+                                ? Math.min(balances.claimAmount || 0, amountForCredits - appliedAdvance - appliedPast50 - appliedPast54 - appliedPast159)
                                 : 0;
-                             
-                              const netDue = Math.max(0, amountForCredits - appliedAdvance - appliedClaimAmount - appliedPast50 - appliedPast54 - appliedPast159);
+                              
+                              const netDue = Math.max(0, amountForCredits - appliedAdvance - appliedPast50 - appliedPast54 - appliedPast159 - appliedClaimAmt);
                               return netDue.toFixed(2);
                             })()
                           }
@@ -4960,7 +4977,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                               {getCurrencySymbol(currency)} {availableCashback.amount.toFixed(2)}
                             </span>
                           </label>
-                         
+                          
                           <div className="text-[9px] text-green-600 mt-1">
                             Expires: {new Date(availableCashback.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ({availableCashback.daysRemaining} days remaining)
                           </div>
@@ -4995,30 +5012,24 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           </span>
                         </label>
 
-                        {/* Insurance Advance Claims */}
-                        {!loadingInsuranceAdvance && insuranceAdvanceClaims.length > 0 && (() => {
-                          const totalInsuranceAdvance = insuranceAdvanceClaims.reduce(
-                            (sum: number, c: any) => sum + Number(c.claimAmount || 0), 0
-                          );
-                          return (
-                            <label className="flex items-center justify-between cursor-pointer group">
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="checkbox"
-                                  checked={applyClaimAmount}
-                                  onChange={(e) => setApplyClaimAmount(e.target.checked)}
-                                  className="w-3.5 h-3.5 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
-                                />
-                                <span className="text-[10px] font-medium text-gray-700 group-hover:text-gray-900">
-                                  Use insurance advance claims
-                                </span>
-                              </div>
-                              <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
-                                {getCurrencySymbol(currency)} {totalInsuranceAdvance.toFixed(2)}
-                              </span>
-                            </label>
-                          );
-                        })()}
+                        {/* Insurance Claim Amount */}
+                        {balances.claimAmount > 0 && (
+                          <label className="flex items-center justify-between cursor-pointer group">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={applyClaimAmount}
+                                onChange={(e) => setApplyClaimAmount(e.target.checked)}
+                                className="w-3.5 h-3.5 text-green-600 rounded focus:ring-green-500 border-gray-300"
+                              />
+                              <span className="text-[10px] font-medium text-gray-700 group-hover:text-gray-900">Use Insurance Claim Amount</span>
+                            </div>
+                            <span className="text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                              {getCurrencySymbol(currency)} {balances.claimAmount.toFixed(2)}
+                            </span>
+                          </label>
+                        )}
+
 
                         {/* 159 Flat Past Advance (if available) */}
                         {balances.pastAdvance159FlatBalance > 0 && (
@@ -5039,7 +5050,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         )}
 
                         {/* Summary of applied advances */}
-                        {(applyAdvance || applyPastAdvance50Percent || applyPastAdvance54Percent || applyPastAdvance159Flat) && (
+                        {(applyAdvance || applyPastAdvance50Percent || applyPastAdvance54Percent || applyPastAdvance159Flat || applyClaimAmount) && (
                           <div className="mt-2 pt-2 border-t border-teal-200">
                             <div className="flex items-center justify-between text-[10px]">
                               <span className="font-semibold text-gray-700">Total Applied:</span>
@@ -5048,7 +5059,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                   (applyAdvance ? Math.min(balances.advanceBalance, parseFloat(formData.amount) || 0) : 0) +
                                   (applyPastAdvance50Percent ? Math.min(balances.pastAdvance50PercentBalance, parseFloat(formData.amount) || 0) : 0) +
                                   (applyPastAdvance54Percent ? Math.min(balances.pastAdvance54PercentBalance, parseFloat(formData.amount) || 0) : 0) +
-                                  (applyPastAdvance159Flat ? Math.min(balances.pastAdvance159FlatBalance, parseFloat(formData.amount) || 0) : 0)
+                                  (applyPastAdvance159Flat ? Math.min(balances.pastAdvance159FlatBalance, parseFloat(formData.amount) || 0) : 0) +
+                                  (applyClaimAmount ? Math.min(balances.claimAmount, parseFloat(formData.amount) || 0) : 0)
                                 ).toFixed(2)}
                               </span>
                             </div>
@@ -5188,11 +5200,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                               <div className="text-[9px] text-green-600 mt-1">
                                 Buy {matchedBundleOffer.buyQty} Get {matchedBundleOffer.freeQty} Free - Redeem on your next visit!
                               </div>
-                              {matchedBundleOffer.discountValue && matchedBundleOffer.discountValue > 0 && (
+                              {/* {matchedBundleOffer.discountValue && matchedBundleOffer.discountValue > 0 && (
                                 <div className="text-[9px] text-green-800 mt-1 font-semibold">
                                   Additional Discount Applied: {matchedBundleOffer.discountMode === "percentage" ? `${matchedBundleOffer.discountValue}%` : `${getCurrencySymbol(currency)}${matchedBundleOffer.discountValue}`}
                                 </div>
-                              )}
+                              )} */}
                               <div className="text-[9px] text-green-700 mt-1 italic">
                                 💡 This free session has been saved to your account for future use
                               </div>
@@ -5246,6 +5258,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           {parseFloat(formData.pendingUsed || "0") > 0 && (
                             <span className="px-1.5 py-0.5 text-[8px] font-bold bg-amber-100 text-amber-700 rounded border border-amber-200 uppercase">
                               + Pending Amount Added
+                            </span>
+                          )}
+                          {balances.pendingClaim > 0 && (
+                            <span className="px-1.5 py-0.5 text-[8px] font-bold bg-purple-100 text-purple-700 rounded border border-purple-200 uppercase">
+                              + Pending Claim Added
                             </span>
                           )}
                         </div>
@@ -5505,7 +5522,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       )}
                     </div>
                   )}
-                 
+                  
                   {/* Active Packages (Financial Profile-style) */}
                   <div className="bg-white rounded-xl border border-gray-200 p-4">
                     <div className="flex items-center gap-2 mb-3">
