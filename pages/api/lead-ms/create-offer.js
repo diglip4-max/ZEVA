@@ -82,7 +82,11 @@ export default async function handler(req, res) {
     // ✅ Resolve serviceIds from direct selection
     let serviceIds = [];
 
-    if (Array.isArray(data.serviceIds) && data.serviceIds.length > 0) {
+    // When applyOnAllServices is true, fetch all services for the clinic
+    if (data.applyOnAllServices === true) {
+      const allServices = await Service.find({ clinicId: resolvedClinicId }).select('_id');
+      serviceIds = allServices.map(s => s._id);
+    } else if (Array.isArray(data.serviceIds) && data.serviceIds.length > 0) {
       for (const idOrSlug of data.serviceIds) {
         if (mongoose.Types.ObjectId.isValid(idOrSlug)) {
           // If it's already a valid ObjectId, we trust it and add it

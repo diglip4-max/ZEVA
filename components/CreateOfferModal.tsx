@@ -524,9 +524,15 @@ export default function CreateOfferModal({
       // Final adjustments based on applyOnType
       const finalForm = { ...form };
       finalForm.applyOnAllServices = form.applyOnType === "all_services";
-      if (form.applyOnType !== "selected_services") finalForm.serviceIds = [];
-      if (form.applyOnType !== "selected_departments") finalForm.departmentIds = [];
-      if (form.applyOnType !== "selected_doctors") finalForm.doctorIds = [];
+      
+      // When applyOnAllServices is true, populate serviceIds with all clinic services
+      if (form.applyOnType === "all_services") {
+        finalForm.serviceIds = allServices.map(s => s._id);
+      } else {
+        if (form.applyOnType !== "selected_services") finalForm.serviceIds = [];
+        if (form.applyOnType !== "selected_departments") finalForm.departmentIds = [];
+        if (form.applyOnType !== "selected_doctors") finalForm.doctorIds = [];
+      }
 
       const res = await fetch(url, {
         method,
@@ -609,9 +615,15 @@ export default function CreateOfferModal({
       // Final adjustments based on applyOnType
       const finalForm = { ...form };
       finalForm.applyOnAllServices = form.applyOnType === "all_services";
-      if (form.applyOnType !== "selected_services") finalForm.serviceIds = [];
-      if (form.applyOnType !== "selected_departments") finalForm.departmentIds = [];
-      if (form.applyOnType !== "selected_doctors") finalForm.doctorIds = [];
+      
+      // When applyOnAllServices is true, populate serviceIds with all clinic services
+      if (form.applyOnType === "all_services") {
+        finalForm.serviceIds = allServices.map(s => s._id);
+      } else {
+        if (form.applyOnType !== "selected_services") finalForm.serviceIds = [];
+        if (form.applyOnType !== "selected_departments") finalForm.departmentIds = [];
+        if (form.applyOnType !== "selected_doctors") finalForm.doctorIds = [];
+      }
 
       const res = await fetch(url, {
         method,
@@ -1089,7 +1101,7 @@ export default function CreateOfferModal({
 
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-[10px] font-medium text-teal-700 mb-1">Max Total Benefit Cap (%) *</label>
+                    <label className="block text-[10px] font-medium text-teal-700 mb-1">Max Total Benefit Cap *</label>
                     <input
                       type="number"
                       name="maxBenefitCap"

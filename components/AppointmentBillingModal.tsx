@@ -2585,6 +2585,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     // 2. Calculate Offer Discount
     const appliedOffers = matchedOffers.filter(o => appliedOfferIds.includes(o._id));
     if (appliedOffers.length > 0 && baseTotal > 0) {
+      console.log('[OfferDiscountCalc] baseTotal:', baseTotal, 'appliedOffers:', appliedOffers.map(o => ({ title: o.title, discountMode: o.discountMode, discountValue: o.discountValue, maxBenefitCap: o.maxBenefitCap })));
       appliedOffers.forEach(offer => {
         if (offer.minimumBillAmount === 0 || baseTotal >= offer.minimumBillAmount) {
           let currentOfferDiscount = 0;
@@ -2617,8 +2618,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             // Regular instant discount
             if (offer.discountMode === "percentage") {
               currentOfferDiscount = (baseTotal * offer.discountValue) / 100;
+              console.log(`[OfferDiscountCalc] Before cap: baseTotal=${baseTotal}, discountValue=${offer.discountValue}, calculated=${currentOfferDiscount}, maxBenefitCap=${offer.maxBenefitCap}`);
               if (offer.maxBenefitCap > 0) {
                 currentOfferDiscount = Math.min(currentOfferDiscount, offer.maxBenefitCap);
+                console.log(`[OfferDiscountCalc] After cap applied: ${currentOfferDiscount}`);
               }
             } else {
               currentOfferDiscount = offer.discountValue;
@@ -2626,6 +2629,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           }
           
           offerDiscountAmount += currentOfferDiscount;
+          console.log(`[OfferDiscountCalc] Offer "${offer.title}" discount: ${currentOfferDiscount}, Total offerDiscountAmount: ${offerDiscountAmount}`);
         }
       });
     }
