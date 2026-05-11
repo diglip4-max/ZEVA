@@ -1538,13 +1538,13 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         }
       }
        
-      // Step 1.5: Create billing records for existing packages with balance usage
-      const existingPackagesWithBalance = packagesToSave.filter((p: any) => 
-        !p.isNewPackage && (p.advanceBalanceUsed > 0 || p.claimAmountUsed > 0)
+      // Step 1.5: Create billing records for existing packages with balance usage OR paid amount
+      const existingPackagesToBill = packagesToSave.filter((p: any) => 
+        !p.isNewPackage && (p.advanceBalanceUsed > 0 || p.claimAmountUsed > 0 || p.paidAmount > 0)
       );
       
-      if (existingPackagesWithBalance.length > 0) {
-        for (const existingPkg of existingPackagesWithBalance) {
+      if (existingPackagesToBill.length > 0) {
+        for (const existingPkg of existingPackagesToBill) {
           try {
             // Find the package details to get the name
             const pkgDetails = allAvailablePackages.find((pkg: any) => pkg._id === existingPkg.packageId);
@@ -1562,7 +1562,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
               claimAmountUsed: existingPkg.claimAmountUsed || 0,
               treatments: pkgDetails?.treatments || [],
             }, { headers });
-            console.log('Billing created for existing package with balance usage:', existingPkg.packageId);
+            console.log('Billing created for existing package:', existingPkg.packageId);
           } catch (billingErr: any) {
             console.error('Error creating billing for existing package:', billingErr);
             // Don't fail the whole operation, just log the error
