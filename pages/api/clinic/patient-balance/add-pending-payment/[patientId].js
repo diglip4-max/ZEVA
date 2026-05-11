@@ -98,7 +98,7 @@ export default async function handler(req, res) {
       amount: Number(amount), // Set amount to payment so that effectiveDue = paid and advance becomes 0
       paid: Number(amount),
       pendingUsed: Number(amount), // This reduces the historical pending balance
-      isAdvanceOnly: true, // Use this flag to hide from service invoices list
+      isAdvanceOnly: false, // Set to false so pendingUsed is included in balance calculation
       pending: 0, // Explicitly set to 0 to satisfy schema requirements
       paymentMethod: paymentMethod || initialMultiplePayments[0].paymentMethod,
       status: "Completed",

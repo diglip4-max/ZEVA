@@ -59,8 +59,7 @@ export default async function handler(req, res) {
     const match = { 
       patientId: patientId,
       clinicId: clinicId,
-      isAdvanceOnly: { $ne: true },
-      treatment: { $nin: ["Advance Payment", "Historical Advance Balance"] }
+      isAdvanceOnly: { $ne: true }
     };
 
     // We track advance and pending separately (not net)
@@ -79,6 +78,16 @@ export default async function handler(req, res) {
     if (billings.length > 0) {
       const pendingAmounts = billings.map(b => ({ invoice: b.invoiceNumber, pending: b.pending, pendingUsed: b.pendingUsed }));
       console.log(`[Patient Balance] All billing records pending amounts:`, JSON.stringify(pendingAmounts, null, 2));
+      
+      // Log advance amounts
+      const advanceAmounts = billings.map(b => ({ 
+        invoice: b.invoiceNumber, 
+        treatment: b.treatment,
+        isAdvanceOnly: b.isAdvanceOnly,
+        advance: b.advance, 
+        advanceUsed: b.advanceUsed 
+      }));
+      console.log(`[Patient Balance] All billing records advance amounts:`, JSON.stringify(advanceAmounts, null, 2));
     }
     const recordsWithImages = billings.filter(b => b.pendingBalanceImage && b.pendingBalanceImage.length > 0);
     console.log(`[Patient Balance] Records with images: ${recordsWithImages.length}`);
@@ -139,6 +148,15 @@ export default async function handler(req, res) {
         allPendingBalanceImages.push(...b.pendingBalanceImage);
       }
     }
+
+    console.log(`[Patient Balance] Totals calculated:`, {
+      totalPending,
+      totalPendingUsed,
+      totalAdvanceGenerated,
+      totalAdvanceUsed,
+      totalPastAdvanceGenerated,
+      totalPastAdvanceUsed
+    });
 
     const pendingBalance = Math.max(
       0,
