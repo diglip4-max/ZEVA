@@ -10170,7 +10170,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
               {/* Invoice Summary Card */}
               <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-slate-50 border-b border-gray-200">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {/* <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="text-center">
                     <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Total Amount</p>
                     <p className="text-lg font-bold text-gray-900">{getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.amount || 0).toLocaleString()}</p>
@@ -10195,7 +10195,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                       {selectedPaymentHistoryBilling.pending === 0 ? 'Completed' : selectedPaymentHistoryBilling.paid > 0 ? 'Partial' : 'Unpaid'}
                     </span>
                   </div>
-                </div>
+                </div> */}
 
                 {/* Invoice Details */}
                 <div className="mt-4 grid grid-cols-3 gap-4 text-xs">
@@ -10423,7 +10423,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                 <p className="text-[9px] text-gray-400 uppercase">Total</p>
                                 <p className="text-xs font-bold text-gray-700">{getCurrencySymbol(currency)}{Number(history.amount || 0).toLocaleString()}</p>
                               </div>
-                              <div className="bg-white/50 rounded-lg p-2 text-center">
+                              {/* <div className="bg-white/50 rounded-lg p-2 text-center">
                                 <p className="text-[9px] text-gray-400 uppercase">Paid</p>
                                 <p className="text-xs font-bold text-green-600">{getCurrencySymbol(currency)}{Number(history.paid || 0).toLocaleString()}</p>
                               </div>
@@ -10434,7 +10434,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               <div className="bg-white/50 rounded-lg p-2 text-center">
                                 <p className="text-[9px] text-gray-400 uppercase">Remaining</p>
                                 <p className="text-xs font-bold text-amber-600">{getCurrencySymbol(currency)}{Number(history.remainingPending || 0).toLocaleString()}</p>
-                              </div>
+                              </div> */}
                             </div>
 
                             {/* Payment Methods in this history */}
