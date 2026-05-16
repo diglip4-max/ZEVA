@@ -29,6 +29,7 @@ import {
   Send,
   TrendingUp,
   Pill,
+   Edit2,
   NotebookPen,
   CheckCircle,
   XCircle,
@@ -39,6 +40,8 @@ import {
   Venus,
   Mars,
   AlertCircle,
+  Wrench,
+  Camera,
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import useStockItems from "@/hooks/useStockItems";
@@ -199,12 +202,12 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   // Patient EMR stats — total spend from Billing, visits from Appointment
   interface PatientEMRStats {
     totalSpend: number; totalBilled: number; totalPending: number;
-    totalVisits: number; completedVisits: number; cancelledNoShow: number; billingCount: number;
+    totalVisits: number; billingCount: number;
     recentBillings: Array<{ service: string; label: string; amount: number; paid: number; pending: number; date: string }>;
   }
   const [patientStats, setPatientStats] = useState<PatientEMRStats | null>(null);
   const [loadingPatientStats, setLoadingPatientStats] = useState(false);
-  const [patientBalance, setPatientBalance] = useState({ pendingBalance: 0, advanceBalance: 0 });
+  const [patientBalance, setPatientBalance] = useState({ pendingBalance: 0, advanceBalance: 0, pendingClaim: 0 });
   // Ref to scroll to Previous Complaints when History is clicked
   const previousComplaintsRef = useRef<HTMLDivElement | null>(null);
   const [expandedComplaints, setExpandedComplaints] = useState<
@@ -315,6 +318,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [bookingNextSession, setBookingNextSession] = useState(false);
   const [nextSessionBooked, setNextSessionBooked] = useState(false);
   const [nextSessionError, setNextSessionError] = useState<string>("");
+  // Rooms state
+  interface Room { _id: string; name: string; }
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [nextSessionRoom, setNextSessionRoom] = useState<string>("");
+  const [loadingRooms, setLoadingRooms] = useState(false);
 
   // Upcoming appointments state
   interface UpcomingAppointment { _id: string; startDate: string; fromTime: string; toTime: string; status: string; followType: string; }
@@ -388,6 +396,17 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [servicesSaved, setServicesSaved] = useState(false);
   const [servicesError, setServicesError] = useState("");
   const [loadingServices, setLoadingServices] = useState(false);
+
+  // Custom Service Add state
+  const [showAddCustomService, setShowAddCustomService] = useState(false);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(false);
+  const [customServiceName, setCustomServiceName] = useState("");
+  const [customServicePrice, setCustomServicePrice] = useState("");
+  const [customServiceClinicPrice, setCustomServiceClinicPrice] = useState("");
+  const [customServiceDuration, setCustomServiceDuration] = useState("");
+  const [customServiceDepartment, setCustomServiceDepartment] = useState("");
+  const [addingCustomService, setAddingCustomService] = useState(false);
 
   // Create Package state
   const [showCreatePackage, setShowCreatePackage] = useState(false);
@@ -494,20 +513,20 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   }, [isAllocatedDropdownOpen]);
 
   // Fetch consent statuses function - defined outside useEffect for access throughout component
-  const fetchConsentStatuses = async (patientId: string, appointmentId: string) => {
+  const fetchConsentStatuses = async (patientId: string) => {
     setLoadingConsentStatus(true);
     try {
-      console.log("Fetching consent statuses for patient:", patientId, "appointment:", appointmentId);
+      console.log("Fetching consent statuses for patient:", patientId);
       const headers = getAuthHeaders();
      
       const [signaturesResponse, logsResponse] = await Promise.all([
         axios.get("/api/clinic/consent-status", {
           headers,
-          params: { patientId, appointmentId },
+          params: { patientId },
         }),
         axios.get("/api/clinic/consent-log", {
           headers,
-          params: { patientId, appointmentId },
+          params: { patientId },
         }),
       ]);
      
@@ -583,7 +602,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       setExpandedComplaints({});
       setPatientStats(null);
       setLoadingPatientStats(false);
-      setPatientBalance({ pendingBalance: 0, advanceBalance: 0 });
+      setPatientBalance({ pendingBalance: 0, advanceBalance: 0, pendingClaim: 0 });
       setItems([]);
       setCurrentItem({
         itemId: "",
@@ -617,10 +636,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       setNextSessionTime("09:00");
       setNextSessionBooked(false);
       setNextSessionError("");
-      setNextSessionDate(new Date().toISOString().slice(0, 10));
-      setNextSessionTime("09:00");
-      setNextSessionBooked(false);
-      setNextSessionError("");
+      setRooms([]);
+      setNextSessionRoom("");
       setUpcomingAppointments([]);
       setLoadingUpcoming(false);
       setConsentStatus(null);
@@ -644,6 +661,13 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       setServicesSaved(false);
       setServicesError("");
       setLoadingServices(false);
+      setShowAddCustomService(false);
+      setDepartments([]);
+      setCustomServiceName("");
+      setCustomServicePrice("");
+      setCustomServiceClinicPrice("");
+      setCustomServiceDuration("");
+      setCustomServiceDepartment("");
       setShowCreatePackage(false);
       setCreatedPackage(null);
       setPkgModalName("");
@@ -673,7 +697,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     setAfterImage("");
     setPreviousComplaints([]);
     setPatientStats(null);
-    setPatientBalance({ pendingBalance: 0, advanceBalance: 0 });
+    setPatientBalance({ pendingBalance: 0, advanceBalance: 0, pendingClaim: 0 });
     setProgressNotes([]);
     setPrescriptionHistory([]);
     setUpcomingAppointments([]);
@@ -706,6 +730,13 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     setServicesSaved(false);
     setServicesError("");
     setLoadingServices(false);
+    setShowAddCustomService(false);
+    setDepartments([]);
+    setCustomServiceName("");
+    setCustomServicePrice("");
+    setCustomServiceClinicPrice("");
+    setCustomServiceDuration("");
+    setCustomServiceDepartment("");
     setShowCreatePackage(false);
     setCreatedPackage(null);
     setPkgModalName("");
@@ -735,6 +766,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       }
     };
     fetchConsentForms();
+    fetchRooms();
 
     const fetchDetails = async () => {
       setLoading(true);
@@ -797,16 +829,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           fetchUpcomingAppointments(response.data.appointment.patientId);
          
           // Fetch consent form statuses
-          const appointmentId = response.data.appointment._id || response.data.appointment.appointmentId;
-          if (appointmentId) {
-            console.log("Appointment ID exists, fetching consent statuses");
-            fetchConsentStatuses(
-              response.data.appointment.patientId,
-              appointmentId
-            );
-          } else {
-            console.log("No appointment ID found");
-          }
+          fetchConsentStatuses(response.data.appointment.patientId);
         } else {
           console.log("No patient ID in appointment data");
         }
@@ -828,110 +851,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         );
       } finally {
         setLoading(false);
-      }
-    };
-
-    const fetchPreviousComplaints = async (patientId: string) => {
-      setLoadingComplaints(true);
-      try {
-        const headers = getAuthHeaders();
-        const complaintsResponse = await axios.get(
-          "/api/clinic/patient-complaints",
-          {
-            headers,
-            params: { patientId },
-          },
-        );
-
-        if (complaintsResponse.data?.success) {
-          setPreviousComplaints(complaintsResponse.data.complaints || []);
-        }
-      } catch (err: any) {
-        console.error("Failed to fetch previous complaints:", err);
-        // Don't show error for complaints, just log it
-      } finally {
-        setLoadingComplaints(false);
-      }
-    };
-
-    const fetchPatientStats = async (patientId: string) => {
-      setLoadingPatientStats(true);
-      try {
-        const headers = getAuthHeaders();
-        if (!headers) return;
-
-        // Fetch appointments for the past year to calculate total visits
-        const today = new Date().toISOString().split('T')[0];
-        const oneYearAgo = new Date();
-        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-       
-        const [appointmentsRes, balanceRes] = await Promise.all([
-          axios.get(
-            `/api/clinic/all-appointments?page=1&limit=1000&fromDate=${oneYearAgo.toISOString().split('T')[0]}&toDate=${today}`,
-            { headers }
-          ),
-          axios.get(`/api/clinic/patient-balance/${patientId}`, { headers }).catch(() => ({ data: { success: false } }))
-        ]);
-
-        let totalVisits = 0;
-        let completedVisits = 0;
-        let cancelledNoShow = 0;
-        let totalSpend = 0;
-
-        if (appointmentsRes.data.success) {
-          const patientAppointments = appointmentsRes.data.appointments?.filter(
-            (apt: any) => apt.patientId === patientId
-          ) || [];
-         
-          // Count total visits based on specific statuses
-          const visitStatuses = ['arrived', 'waiting', 'consultation', 'approved', 'rescheduled', 'completed', 'discharge', 'invoice'];
-          totalVisits = patientAppointments.filter((apt: any) => {
-            const status = (apt.status || '').toLowerCase();
-            return visitStatuses.includes(status);
-          }).length;
-         
-          patientAppointments.forEach((apt: any) => {
-            const status = (apt.status || apt.appointmentStatus || '').toLowerCase();
-            if (['cancelled', 'rejected', 'no show', 'no-show'].includes(status)) {
-              cancelledNoShow += 1;
-            }
-            if (['completed', 'discharge', 'approved'].includes(status)) {
-              completedVisits += 1;
-            }
-          });
-        }
-
-        // Get total spend from patient balance API
-        if (balanceRes.data?.success && balanceRes.data.balances) {
-          totalSpend = Number(balanceRes.data.balances.totalSpent) || 0;
-        }
-
-        setPatientStats({
-          totalSpend,
-          totalVisits,
-          completedVisits,
-          cancelledNoShow,
-          totalBilled: 0,
-          totalPending: 0,
-          billingCount: 0,
-          recentBillings: [],
-        });
-      } catch (error) {
-        console.error('Error fetching patient stats:', error);
-      } finally {
-        setLoadingPatientStats(false);
-      }
-    };
-
-    const fetchPatientBalance = async (patientId: string) => {
-      try {
-        const headers = getAuthHeaders();
-        const res = await axios.get(`/api/clinic/patient-balance/${patientId}`, { headers });
-        if (res.data?.success && res.data.balances) {
-          setPatientBalance(res.data.balances);
-        }
-      } catch {
-        // silent
       }
     };
 
@@ -1024,7 +943,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       const toDate = new Date(0, 0, 0, hh, mm + 30);
       const toTime = `${String(toDate.getHours()).padStart(2, "0")}:${String(toDate.getMinutes()).padStart(2, "0")}`;
 
-      await axios.post("/api/clinic/appointments", {
+      const appointmentData: any = {
         patientId: details.patientId,
         doctorId: details.doctorId,
         startDate: nextSessionDate,
@@ -1035,7 +954,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         bookedFrom: "doctor",
         referral: "direct",
         emergency: "no",
-      }, { headers });
+      };
+
+      // Add roomId if selected
+      if (nextSessionRoom) {
+        appointmentData.roomId = nextSessionRoom;
+      }
+
+      await axios.post("/api/clinic/appointments", appointmentData, { headers });
       setNextSessionBooked(true);
       // Refresh upcoming list
       if (details?.patientId) fetchUpcomingAppointments(details.patientId);
@@ -1043,6 +969,30 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       setNextSessionError(err.response?.data?.message || "Failed to book next session.");
     } finally {
       setBookingNextSession(false);
+    }
+  };
+
+  // Fetch previous complaints
+  const fetchPreviousComplaints = async (patientId: string) => {
+    setLoadingComplaints(true);
+    try {
+      const headers = getAuthHeaders();
+      const complaintsResponse = await axios.get(
+        "/api/clinic/patient-complaints",
+        {
+          headers,
+          params: { patientId },
+        },
+      );
+
+      if (complaintsResponse.data?.success) {
+        setPreviousComplaints(complaintsResponse.data.complaints || []);
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch previous complaints:", err);
+      // Don't show error for complaints, just log it
+    } finally {
+      setLoadingComplaints(false);
     }
   };
 
@@ -1065,6 +1015,45 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     }
   };
 
+  // Fetch patient EMR stats
+  const fetchPatientStats = async (patientId: string) => {
+    setLoadingPatientStats(true);
+    try {
+      const headers = getAuthHeaders();
+      if (!headers) return;
+
+      const response = await axios.get(`/api/clinic/patient-emr-stats/${patientId}`, { headers });
+      if (response.data?.success) {
+        const s = response.data;
+        setPatientStats({
+          totalSpend: s.totalSpend || 0,
+          totalBilled: s.totalBilled || 0,
+          totalPending: s.totalPending || 0,
+          totalVisits: s.totalVisits || 0,
+          billingCount: s.billingCount || 0,
+          recentBillings: s.recentBillings || [],
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching patient stats:', error);
+    } finally {
+      setLoadingPatientStats(false);
+    }
+  };
+
+  // Fetch patient balance
+  const fetchPatientBalance = async (patientId: string) => {
+    try {
+      const headers = getAuthHeaders();
+      const res = await axios.get(`/api/clinic/patient-balance/${patientId}`, { headers });
+      if (res.data?.success && res.data.balances) {
+        setPatientBalance(res.data.balances);
+      }
+    } catch {
+      // silent
+    }
+  };
+
   // Fetch all clinic services
   const fetchAllServices = async () => {
     setLoadingServices(true);
@@ -1081,6 +1070,83 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     }
   };
 
+  // Fetch departments for custom service
+  const fetchDepartments = async () => {
+    setDepartmentsLoading(true);
+    try {
+      const headers = getAuthHeaders();
+      const res = await axios.get("/api/clinic/departments", { headers });
+      if (res.data?.success) {
+        setDepartments(res.data.departments || []);
+      }
+    } catch {
+      // silently ignore
+    } finally {
+      setDepartmentsLoading(false);
+    }
+  };
+
+  // Add custom service
+  const addCustomService = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customServiceName.trim()) return;
+    if (!customServicePrice) return;
+    if (!customServiceDepartment) return;
+
+    setAddingCustomService(true);
+    try {
+      const headers = getAuthHeaders();
+      const res = await axios.post(
+        "/api/clinic/services",
+        {
+          departmentId: customServiceDepartment,
+          items: [
+            {
+              name: customServiceName.trim(),
+              price: parseFloat(customServicePrice),
+              durationMinutes: customServiceDuration ? parseInt(customServiceDuration) : 0,
+              clinicPrice: customServiceClinicPrice ? parseFloat(customServiceClinicPrice) : null,
+            },
+          ],
+        },
+        { headers }
+      );
+      if (res.data?.success) {
+        // Reset form
+        setCustomServiceName("");
+        setCustomServicePrice("");
+        setCustomServiceClinicPrice("");
+        setCustomServiceDuration("");
+        setCustomServiceDepartment("");
+        setShowAddCustomService(false);
+        // Refresh services list
+        await fetchAllServices();
+        toast.success("Service added successfully!");
+      }
+    } catch (error) {
+      console.error("Error adding custom service:", error);
+      toast.error("Failed to add service");
+    } finally {
+      setAddingCustomService(false);
+    }
+  };
+
+  // Fetch all clinic rooms
+  const fetchRooms = async () => {
+    setLoadingRooms(true);
+    try {
+      const headers = getAuthHeaders();
+      const res = await axios.get("/api/clinic/rooms", { headers });
+      if (res.data?.success) {
+        setRooms(res.data.rooms || []);
+      }
+    } catch {
+      // silently ignore
+    } finally {
+      setLoadingRooms(false);
+    }
+  };
+
   // Save selected services to appointment
   const saveServicesToAppointment = async () => {
     if (!details?.appointmentId || selectedServices.length === 0) return;
@@ -1093,6 +1159,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       await axios.patch(`/api/clinic/appointment-services/${details.appointmentId}`, { serviceIds }, { headers });
       setServicesSaved(true);
       setShowAddServiceDropdown(false);
+      if (onSuccess) onSuccess();
     } catch (err: any) {
       setServicesError(err.response?.data?.message || "Failed to save services.");
     } finally {
@@ -1151,7 +1218,35 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
               validityInMonths: parseInt(pkgModalValidityInMonths) || 0,
               startDate: pkgModalStartDate,
               endDate: pkgModalEndDate,
+              totalPrice: packagePrice,
+              paidAmount: 0,
+              paymentStatus: "Unpaid",
+              paymentMethod: "Cash",
             }, { headers });
+
+            // Create a package billing record so it gets added to the patient's pending balance
+            try {
+              await axios.post("/api/clinic/package-billing", {
+                patientId: details.patientId,
+                packageName: pkgModalName.trim(),
+                packageId: newPkgId,
+                totalAmount: packagePrice,
+                paidAmount: 0,
+                paymentMethod: "Cash",
+                paymentStatus: "Unpaid",
+                advanceBalanceUsed: 0,
+                claimAmountUsed: 0,
+                treatments: pkgSelectedTreatments,
+              }, { headers });
+              console.log('Package billing created for pending balance');
+              
+              // Refresh patient balance to show updated pending balance
+              fetchPatientBalance(details.patientId);
+              fetchPatientStats(details.patientId);
+            } catch (billingErr: any) {
+              console.error('Error creating package billing:', billingErr);
+            }
+            
             setPkgSuccess("Package created and added to patient profile!");
             setCreatedPackage(createdPkgData);
           } catch {
@@ -1649,9 +1744,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
            
             // Force re-fetch of consent statuses by clearing and setting state
             setConsentStatuses([]);
-            if (details?.patientId && details?.appointmentId) {
+            if (details?.patientId) {
               setTimeout(() => {
-                fetchConsentStatuses(details.patientId, details.appointmentId);
+                fetchConsentStatuses(details.patientId);
               }, 100);
             }
           } catch (logError) {
@@ -1936,48 +2031,66 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                 )}
 
                 {/* Consent Status Section */}
-                {selectedConsentId && (
-                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-100">
-                      <h3 className="text-sm font-semibold text-gray-800">Consent Status</h3>
-                    </div>
-                    <div className="p-4 space-y-3">
-                      {/* Status Banner */}
-                      {consentStatus ? (
-                        <div className={`rounded-xl border px-4 py-3 ${
-                          consentStatus.status === "signed" ? "border-green-200 bg-green-50/40" :
-                          consentStatus.status === "viewed" ? "border-blue-200 bg-blue-50/40" :
-                          consentStatus.status === "sent" ? "border-indigo-200 bg-indigo-50/40" :
-                          "border-gray-200 bg-gray-50"
-                        }`}>
-                          <div className="flex items-center gap-2">
-                            {consentStatus.status === "signed" ? (
-                              <><CheckCircle className="w-4 h-4 text-green-600" /><span className="text-sm font-semibold text-green-700">Signed</span></>
-                            ) : consentStatus.status === "viewed" ? (
-                              <><Eye className="w-4 h-4 text-blue-600" /><span className="text-sm font-semibold text-blue-700">Viewed</span></>
-                            ) : consentStatus.status === "sent" ? (
-                              <><Send className="w-4 h-4 text-indigo-600" /><span className="text-sm font-semibold text-indigo-700">Sent</span></>
-                            ) : (
-                              <><XCircle className="w-4 h-4 text-gray-500" /><span className="text-sm font-medium text-gray-600">Not Sent</span></>
-                            )}
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <h3 className="text-sm font-semibold text-gray-800">Consent Status</h3>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {/* Show all consent forms that have been sent/signed */}
+                    {consentStatuses.length > 0 ? (
+                      <div className="space-y-2">
+                        {consentStatuses.map((consent) => (
+                          <div
+                            key={consent._id}
+                            className={`flex items-center justify-between p-3 rounded-lg border ${
+                              consent.status === "signed"
+                                ? "border-green-200 bg-green-50"
+                                : "border-blue-200 bg-blue-50"
+                            }`}
+                          >
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs font-semibold text-gray-800">
+                                  {consent.consentFormName}
+                                </p>
+                                {consent.status === "signed" && (
+                                  <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                                )}
+                                {consent.status === "sent" && (
+                                  <Send className="w-3.5 h-3.5 text-blue-600" />
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                {consent.description || "Consent form"}
+                              </p>
+                              <div className="flex items-center gap-3 mt-1">
+                                <span className="text-[10px] text-gray-400">
+                                  Patient: {consent.patientName}
+                                </span>
+                                <span className="text-[10px] text-gray-400">
+                                  Date: {consent.date}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${
+                                  consent.status === "signed"
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-blue-100 text-blue-700"
+                                }`}
+                              >
+                                {consent.status === "signed" ? "SIGNED" : "SENT"}
+                              </span>
+                            </div>
                           </div>
-                          {consentStatus.sentVia && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              Sent via {consentStatus.sentVia} {consentStatus.sentAt && `• ${formatDate(consentStatus.sentAt)}`}
-                            </p>
-                          )}
-                          {consentStatus.viewedAt && (
-                            <p className="text-xs text-gray-500 mt-1">Viewed on {formatDate(consentStatus.viewedAt)}</p>
-                          )}
-                          {consentStatus.signedAt && (
-                            <p className="text-xs text-gray-500 mt-1">Signed on {formatDate(consentStatus.signedAt)}</p>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="rounded-xl border border-dashed border-gray-200 px-4 py-3 text-center">
-                          <p className="text-sm text-gray-500">Select a consent form and click "Send Consent" to track status</p>
-                        </div>
-                      )}
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-gray-200 px-4 py-3 text-center">
+                        <p className="text-sm text-gray-500">Select a consent form and click "Send Consent" to track status</p>
+                      </div>
+                    )}
 
                       {/* Send via buttons */}
                       {consentStatus && consentStatus.status !== "signed" && (
@@ -2044,30 +2157,74 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         </div>
                       )}
 
-                      {/* Status Timeline */}
-                      {consentStatus && (
-                        <div className="space-y-2 pt-2 border-t border-gray-100">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${!consentStatus.sentAt ? "bg-gray-300" : "bg-green-500"}`} />
-                            <span className="text-xs text-gray-600">Not Sent</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${consentStatus.status === "sent" || consentStatus.status === "viewed" || consentStatus.status === "signed" ? "bg-blue-500" : "bg-gray-300"}`} />
-                            <span className="text-xs text-gray-600">Sent</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${consentStatus.status === "viewed" || consentStatus.status === "signed" ? "bg-purple-500" : "bg-gray-300"}`} />
-                            <span className="text-xs text-gray-600">Viewed</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${consentStatus.status === "signed" ? "bg-green-500" : "bg-gray-300"}`} />
-                            <span className="text-xs text-gray-600">Signed</span>
-                          </div>
+                    {/* Send via buttons - only show when a specific consent is selected */}
+                    {selectedConsentId && consentStatus && consentStatus.status !== "signed" && (
+                      <div className="mt-4 pt-4 border-t border-gray-100">
+                        <p className="text-xs font-medium text-gray-600 mb-2">Send consent via:</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            disabled={sendingVia === "WhatsApp"}
+                            onClick={async () => {
+                              setSendingVia("WhatsApp");
+                              try {
+                                const headers = getAuthHeaders();
+                                await axios.post(`/api/clinic/consent/send`, {
+                                  consentFormId: selectedConsentId,
+                                  appointmentId: details.appointmentId,
+                                  patientId: details.patientId,
+                                  via: "WhatsApp",
+                                }, { headers });
+                                setConsentStatus({ status: "sent", sentVia: "WhatsApp", sentAt: new Date().toISOString() });
+                                await fetchConsentStatuses(details.patientId);
+                              } catch (err) {
+                                console.error("Failed to send via WhatsApp:", err);
+                              } finally {
+                                setSendingVia(null);
+                              }
+                            }}
+                            className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all ${
+                              consentStatus.sentVia === "WhatsApp" ? "bg-green-600 text-white" :
+                              sendingVia === "WhatsApp" ? "bg-green-400 text-white" :
+                              "bg-green-600 text-white hover:bg-green-700"
+                            }`}
+                          >
+                            {sendingVia === "WhatsApp" ? <><RefreshCw size={12} className="animate-spin" /> Sending...</> : <><MessageCircle size={12} /> WhatsApp</>}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={sendingVia === "SMS"}
+                            onClick={async () => {
+                              setSendingVia("SMS");
+                              try {
+                                const headers = getAuthHeaders();
+                                await axios.post(`/api/clinic/consent/send`, {
+                                  consentFormId: selectedConsentId,
+                                  appointmentId: details.appointmentId,
+                                  patientId: details.patientId,
+                                  via: "SMS",
+                                }, { headers });
+                                setConsentStatus({ status: "sent", sentVia: "SMS", sentAt: new Date().toISOString() });
+                                await fetchConsentStatuses(details.patientId);
+                              } catch (err) {
+                                console.error("Failed to send via SMS:", err);
+                              } finally {
+                                setSendingVia(null);
+                              }
+                            }}
+                            className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all ${
+                              consentStatus.sentVia === "SMS" ? "bg-blue-600 text-white" :
+                              sendingVia === "SMS" ? "bg-blue-400 text-white" :
+                              "bg-blue-600 text-white hover:bg-blue-700"
+                            }`}
+                          >
+                            {sendingVia === "SMS" ? <><RefreshCw size={12} className="animate-spin" /> Sending...</> : <><Send size={12} /> SMS</>}
+                          </button>
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
             ) : !loading ? (
               <div className="flex items-center justify-between">
@@ -2240,6 +2397,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               type="button"
                               onClick={() => {
                                 setShowAddServiceDropdown(true);
+                                setShowAddCustomService(false);
                                 setShowCreatePackage(false);
                                 setServicesSaved(false);
                                 setServicesError("");
@@ -2252,8 +2410,21 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             <button
                               type="button"
                               onClick={() => {
+                                setShowAddCustomService(true);
+                                setShowAddServiceDropdown(false);
+                                setShowCreatePackage(false);
+                                if (departments.length === 0) fetchDepartments();
+                              }}
+                              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-all shadow-md hover:shadow-lg"
+                            >
+                              <Wrench size={16} /> Add Custom Service
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
                                 setShowCreatePackage(true);
                                 setShowAddServiceDropdown(false);
+                                setShowAddCustomService(false);
                                 setPkgError("");
                                 setPkgSuccess("");
                                 if (allServices.length === 0) fetchAllServices(); // Load clinic services
@@ -2373,6 +2544,127 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 </>
                               )}
                             </button>
+                          </div>
+                        )}
+
+                        {/* Custom Service Add Panel */}
+                        {showAddCustomService && (
+                          <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-br from-emerald-50/50 to-teal-50/50">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                                  <Wrench className="w-4 h-4 text-emerald-600" />
+                                </div>
+                                <span className="text-sm font-bold text-emerald-800">Add Custom Service</span>
+                              </div>
+                              <button type="button" onClick={() => {
+                                setShowAddCustomService(false);
+                                setCustomServiceName("");
+                                setCustomServicePrice("");
+                                setCustomServiceClinicPrice("");
+                                setCustomServiceDuration("");
+                                setCustomServiceDepartment("");
+                              }} className="text-gray-400 hover:text-gray-600 transition-colors">
+                                <XIcon size={16} />
+                              </button>
+                            </div>
+
+                            <form onSubmit={addCustomService} className="space-y-3">
+                              <div>
+                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Department <span className="text-red-500">*</span></label>
+                                <select
+                                  value={customServiceDepartment}
+                                  onChange={(e) => setCustomServiceDepartment(e.target.value)}
+                                  className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
+                                  disabled={departmentsLoading}
+                                  required
+                                >
+                                  <option value="" disabled>Select department</option>
+                                  {departments.map((dept) => (
+                                    <option key={dept._id} value={dept._id}>
+                                      {dept.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Service Name <span className="text-red-500">*</span></label>
+                                <input
+                                  type="text"
+                                  value={customServiceName}
+                                  onChange={(e) => setCustomServiceName(e.target.value)}
+                                  placeholder="Enter service name"
+                                  className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
+                                  required
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Price <span className="text-red-500">*</span></label>
+                                  <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={customServicePrice}
+                                      onChange={(e) => setCustomServicePrice(e.target.value)}
+                                      placeholder="0.00"
+                                      className="w-full pl-10 pr-4 py-2 text-sm font-semibold border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
+                                      required
+                                    />
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Clinic Price (Optional)</label>
+                                  <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={customServiceClinicPrice}
+                                      onChange={(e) => setCustomServiceClinicPrice(e.target.value)}
+                                      placeholder="0.00"
+                                      className="w-full pl-10 pr-4 py-2 text-sm font-semibold border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Duration (Minutes)</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={customServiceDuration}
+                                    onChange={(e) => setCustomServiceDuration(e.target.value)}
+                                    placeholder="30"
+                                    className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
+                                  />
+                                </div>
+                              </div>
+
+                              <button
+                                type="submit"
+                                disabled={addingCustomService}
+                                className="w-full flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+                              >
+                                {addingCustomService ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Adding...
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="w-4 h-4" />
+                                    Add Custom Service
+                                  </>
+                                )}
+                              </button>
+                            </form>
                           </div>
                         )}
 
@@ -2818,17 +3110,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                               min="0"
                                               step="0.01"
                                               value={(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
-                                              onChange={(e) => {
-                                                const newPrice = parseFloat(e.target.value) || 0;
-                                                setSelectedServices((prev) =>
-                                                  prev.map((s) =>
-                                                    s._id === svc._id
-                                                      ? { ...s, clinicPrice: newPrice, price: newPrice }
-                                                      : s
-                                                  )
-                                                );
-                                              }}
-                                              className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white hover:border-gray-400 transition-all"
+                                              readOnly
+                                              className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-gray-50 transition-all"
                                             />
                                           </div>
                                         </div>
@@ -2923,6 +3206,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                             try {
                                               await axios.patch(`/api/clinic/appointment-services/${details.appointmentId}`, { serviceIds: [svc._id] }, { headers: getAuthHeaders() });
                                               setAddedRecServices((p) => ({ ...p, [patientServiceKey]: true }));
+                                              if (onSuccess) onSuccess();
                                             } catch (err: any) {
                                               // If API fails, remove from selectedServices
                                               setSelectedServices((prev) => prev.filter((s) => s._id !== svc._id));
@@ -3258,8 +3542,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         <p className="text-sm text-gray-700 whitespace-pre-wrap break-words line-clamp-3">{complaint.complaints}</p>
                                         {(complaint.beforeImage || complaint.afterImage) && (
                                           <div className="flex gap-2 mt-2">
-                                            {complaint.beforeImage && <a href={complaint.beforeImage} target="_blank" rel="noopener noreferrer" className="block w-10 h-10 rounded border border-gray-200 overflow-hidden hover:opacity-80"><img src={complaint.beforeImage} alt="Before" className="w-full h-full object-cover" /></a>}
-                                            {complaint.afterImage && <a href={complaint.afterImage} target="_blank" rel="noopener noreferrer" className="block w-10 h-10 rounded border border-gray-200 overflow-hidden hover:opacity-80"><img src={complaint.afterImage} alt="After" className="w-full h-full object-cover" /></a>}
+                                            {complaint.beforeImage && (() => {
+                                              const cleanUrl = complaint.beforeImage.trim().replace(/^`|`$/g, "");
+                                              return <a href={cleanUrl} target="_blank" rel="noopener noreferrer" className="block w-10 h-10 rounded border border-gray-200 overflow-hidden hover:opacity-80"><img src={cleanUrl} alt="Before" className="w-full h-full object-cover" /></a>
+                                            })()}
+                                            {complaint.afterImage && (() => {
+                                              const cleanUrl = complaint.afterImage.trim().replace(/^`|`$/g, "");
+                                              return <a href={cleanUrl} target="_blank" rel="noopener noreferrer" className="block w-10 h-10 rounded border border-gray-200 overflow-hidden hover:opacity-80"><img src={cleanUrl} alt="After" className="w-full h-full object-cover" /></a>
+                                            })()}
                                           </div>
                                         )}
                                         <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-400">
@@ -3275,11 +3565,12 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                             Items
                                           </button>
                                         )}
+                                        {/* Always visible: View and Delete buttons */}
+                                        <button type="button" onClick={() => { setSelectedComplaint(complaint); setIsOpenViewComplaintModal(true); }} className="p-1 text-blue-400 hover:text-blue-600"><Eye size={13} /></button>
+                                        <button type="button" onClick={() => { setDeletedComplaint(complaint); setIsOpenDeleteComplaintModal(true); }} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={13} /></button>
+                                        {/* Only within 24 hours: Edit button */}
                                         {new Date(complaint.createdAt) > new Date(Date.now() - 24 * 60 * 60 * 1000) && (
-                                          <>
-                                            <button type="button" onClick={() => { setSelectedComplaint(complaint); setIsOpenViewComplaintModal(true); }} className="p-1 text-blue-400 hover:text-blue-600"><Eye size={13} /></button>
-                                            <button type="button" onClick={() => { setDeletedComplaint(complaint); setIsOpenDeleteComplaintModal(true); }} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={13} /></button>
-                                          </>
+                                          <button type="button" onClick={() => { setEditingComplaint(complaint); setIsEditModalOpen(true); }} className="p-1 text-amber-400 hover:text-amber-600"><Edit2 size={13} /></button>
                                         )}
                                       </div>
                                     </div>
@@ -3421,6 +3712,23 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 const h12 = h % 12 || 12;
                                 return <option key={t} value={t}>{`${h12}:${String(m).padStart(2, "0")} ${ampm}`}</option>;
                               })}
+                            </select>
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-xs text-gray-500 mb-1.5">Select Room</label>
+                            <select
+                              value={nextSessionRoom}
+                              onChange={(e) => { setNextSessionRoom(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                            >
+                              <option value="">Select a room...</option>
+                              {loadingRooms ? (
+                                <option disabled>Loading rooms...</option>
+                              ) : (
+                                rooms.map((room) => (
+                                  <option key={room._id} value={room._id}>{room.name}</option>
+                                ))
+                              )}
                             </select>
                           </div>
                         </div>
@@ -3584,6 +3892,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                             try {
                                               await axios.patch(`/api/clinic/appointment-services/${details.appointmentId}`, { serviceIds: [svc._id] }, { headers: getAuthHeaders() });
                                               setAddedRecServices((p) => ({ ...p, [patientServiceKey]: true }));
+                                              if (onSuccess) onSuccess();
                                             } catch (err: any) {
                                               // If API fails, remove from selectedServices
                                               setSelectedServices((prev) => prev.filter((s) => s._id !== svc._id));
@@ -4054,8 +4363,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                           <div className="relative">
                                             <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
                                             <input type="number" min="0" step="0.01" value={(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
-                                              onChange={(e) => { const newPrice = parseFloat(e.target.value) || 0; setSelectedServices((prev) => prev.map((s) => s._id === svc._id ? { ...s, clinicPrice: newPrice, price: newPrice } : s)); }}
-                                              className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white hover:border-gray-400 transition-all"
+                                              readOnly
+                                              className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-gray-50 transition-all"
                                             />
                                           </div>
                                         </div>
@@ -4597,6 +4906,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                             try {
                                               await axios.patch(`/api/clinic/appointment-services/${details.appointmentId}`, { serviceIds: [svc._id] }, { headers: getAuthHeaders() });
                                               setAddedRecServices((p) => ({ ...p, [patientServiceKey]: true }));
+                                              if (onSuccess) onSuccess();
                                             } catch (err: any) {
                                               // If API fails, remove from selectedServices
                                               setSelectedServices((prev) => prev.filter((s) => s._id !== svc._id));
@@ -5033,8 +5343,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                           <div className="relative">
                                             <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
                                             <input type="number" min="0" step="0.01" value={(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
-                                              onChange={(e) => { const newPrice = parseFloat(e.target.value) || 0; setSelectedServices((prev) => prev.map((s) => s._id === svc._id ? { ...s, clinicPrice: newPrice, price: newPrice } : s)); }}
-                                              className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white hover:border-gray-400 transition-all"
+                                              readOnly
+                                              className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-gray-50 transition-all"
                                             />
                                           </div>
                                         </div>
@@ -5198,14 +5508,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           <span className="text-xs text-gray-500">Total Paid (All-Time)</span>
                           <span className="text-base font-bold text-gray-900">{getCurrencySymbol(currency)} {patientStats.totalSpend.toLocaleString()}</span>
                         </div>
-                        <div className="flex items-center justify-between">
+                        {/* <div className="flex items-center justify-between">
                           <span className="text-xs text-gray-500">Total Billed</span>
                           <span className="text-xs font-semibold text-gray-700">{getCurrencySymbol(currency)} {patientStats.totalBilled.toLocaleString()}</span>
-                        </div>
-                        {patientStats.totalPending > 0 && (
+                        </div> */}
+                        {(patientBalance.pendingBalance > 0 || patientBalance.pendingClaim > 0) && (
                           <div className="flex items-center justify-between">
                             <span className="text-xs text-gray-500">Outstanding</span>
-                            <span className="text-xs font-semibold text-red-500">{getCurrencySymbol(currency)} {patientBalance.pendingBalance.toLocaleString()}</span>
+                            <span className="text-xs font-semibold text-red-500">{getCurrencySymbol(currency)} {(patientBalance.pendingBalance + patientBalance.pendingClaim).toLocaleString()}</span>
                           </div>
                         )}
                         <div className="flex items-center justify-between border-t border-gray-100 pt-2">
@@ -5529,7 +5839,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
               complaint={editingComplaint}
               onClose={() => { setIsEditModalOpen(false); setEditingComplaint(null); }}
               onSaved={(updated) => {
-                setPreviousComplaints((prev) => prev.map((pc) => pc._id === updated._id ? { ...pc, complaints: updated.complaints, items: updated.items || [], createdAt: (updated as any).createdAt || pc.createdAt } : pc));
+                setPreviousComplaints((prev) => prev.map((pc) => pc._id === updated._id ? { 
+                  ...pc, 
+                  complaints: updated.complaints, 
+                  items: updated.items || [], 
+                  createdAt: (updated as any).createdAt || pc.createdAt,
+                  beforeImage: (updated.beforeImage || "").trim().replace(/^`|`$/g, ""), // Trim and remove backticks
+                  afterImage: (updated.afterImage || "").trim().replace(/^`|`$/g, "") // Trim and remove backticks
+                } : pc));
                 setIsEditModalOpen(false); setEditingComplaint(null);
               }}
               getAuthHeaders={getAuthHeaders}
@@ -5581,6 +5898,10 @@ const EditComplaintModal: React.FC<{
   const [items, setItems] = useState<StockRow[]>(
     Array.isArray(complaint.items) ? (complaint.items as any) : [],
   );
+  const [beforeImage, setBeforeImage] = useState<string>(complaint.beforeImage || "");
+  const [afterImage, setAfterImage] = useState<string>(complaint.afterImage || "");
+  const [uploadingBefore, setUploadingBefore] = useState<boolean>(false);
+  const [uploadingAfter, setUploadingAfter] = useState<boolean>(false);
   const [currentItem, setCurrentItem] = useState<StockRow>({
     itemId: "",
     code: "",
@@ -5726,6 +6047,8 @@ const EditComplaintModal: React.FC<{
           complaintId: complaint._id,
           complaints: note.trim(),
           items,
+          beforeImage,
+          afterImage,
         },
         { headers },
       );
@@ -5772,6 +6095,85 @@ const EditComplaintModal: React.FC<{
               onChange={(e) => setNote(e.target.value)}
               className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
             />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-bold text-gray-900">
+              Before/After Images
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Before Image</p>
+                <div className="relative flex items-center gap-2">
+                  <div className="w-full sm:w-32 h-32 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
+                    {beforeImage && (
+                      <button
+                        onClick={() => setBeforeImage("")}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-10"
+                        title="Remove image"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                    {beforeImage ? (
+                      <img src={beforeImage} alt="Before" className="w-full h-full object-cover" />
+                    ) : (
+                      <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-gray-300" />
+                    )}
+                    {uploadingBefore && (
+                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                        <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-spin" />
+                      </div>
+                    )}
+                    <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setUploadingBefore(true);
+                        const res = await handleUpload(file);
+                        if (res?.success) setBeforeImage(res.url);
+                        setUploadingBefore(false);
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">After Image</p>
+                <div className="relative flex items-center gap-2">
+                  <div className="w-full sm:w-32 h-32 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
+                    {afterImage && (
+                      <button
+                        onClick={() => setAfterImage("")}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-10"
+                        title="Remove image"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                    {afterImage ? (
+                      <img src={afterImage} alt="After" className="w-full h-full object-cover" />
+                    ) : (
+                      <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-gray-300" />
+                    )}
+                    {uploadingAfter && (
+                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                        <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-spin" />
+                      </div>
+                    )}
+                    <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setUploadingAfter(true);
+                        const res = await handleUpload(file);
+                        if (res?.success) setAfterImage(res.url);
+                        setUploadingAfter(false);
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -6309,6 +6711,42 @@ const ComplaintDetailModal: React.FC<{
               </div>
             </div>
           </div>
+
+          {/* Before/After Images */}
+          {(complaint.beforeImage || complaint.afterImage) && (
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-full bg-pink-500 flex items-center justify-center">
+                  <Camera className="w-4 h-4 text-white" />
+                </div>
+                <h3 className="font-semibold text-gray-900">Before/After Images</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {complaint.beforeImage && (() => {
+                  const cleanUrl = complaint.beforeImage.trim().replace(/^`|`$/g, "");
+                  return (
+                    <div className="bg-white rounded-xl border border-gray-200 p-4">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Before</p>
+                      <a href={cleanUrl} target="_blank" rel="noopener noreferrer" className="block">
+                        <img src={cleanUrl} alt="Before" className="w-full h-64 object-cover rounded-lg" />
+                      </a>
+                    </div>
+                  );
+                })()}
+                {complaint.afterImage && (() => {
+                  const cleanUrl = complaint.afterImage.trim().replace(/^`|`$/g, "");
+                  return (
+                    <div className="bg-white rounded-xl border border-gray-200 p-4">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">After</p>
+                      <a href={cleanUrl} target="_blank" rel="noopener noreferrer" className="block">
+                        <img src={cleanUrl} alt="After" className="w-full h-64 object-cover rounded-lg" />
+                      </a>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
 
           {/* Items Table */}
           <div>

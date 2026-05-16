@@ -54,6 +54,20 @@ const getUserRole = () => {
   }
 };
 
+const getCurrentUserName = () => {
+  try {
+    const token = getStoredToken();
+    if (!token) return null;
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const payload = JSON.parse(atob(parts[1]));
+    return payload.name || payload.firstName || payload.userName || null;
+  } catch (error) {
+    console.error('Error getting user name:', error);
+    return null;
+  }
+};
+
 // Transfer Section Component - Updated to use parent patientData and trigger refresh
 const TransferSection = ({ patientId, patientData, onTransferComplete }: { patientId: string; patientData: any; onTransferComplete?: () => void }) => {
   const [showTransfer, setShowTransfer] = useState(false);
@@ -542,6 +556,45 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { p
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
   const [appointmentFilter, setAppointmentFilter] = useState('all');
   const [loadingAppointments, setLoadingAppointments] = useState(false);
+  
+  // Drag and drop for status filter tabs
+  const [draggedStatusKey, setDraggedStatusKey] = useState<string | null>(null);
+  const [statusTabOrder, setStatusTabOrder] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("appointmentStatusTabOrder");
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          // Swallow parse errors silently
+        }
+      }
+    }
+    return [
+      'all', 'booked', 'upcoming', 'enquiry', 'Arrived', 'Waiting', 
+      'Consultation', 'Approved', 'Rescheduled', 'Completed', 
+      'Discharge', 'invoice', 'Cancelled', 'Rejected', 'No Show'
+    ];
+  });
+  
+  // Default status tabs configuration
+  const statusTabsConfig = [
+    { key: 'all',          label: 'All' },
+    { key: 'booked',       label: 'Booked' },
+    { key: 'upcoming',     label: 'Upcoming' },
+    { key: 'enquiry',      label: 'Enquiry' },
+    { key: 'Arrived',      label: 'Arrived' },
+    { key: 'Waiting',      label: 'Waiting' },
+    { key: 'Consultation', label: 'Consultation' },
+    { key: 'Approved',     label: 'Approved' },
+    { key: 'Rescheduled',  label: 'Rescheduled' },
+    { key: 'Completed',    label: 'Completed' },
+    { key: 'Discharge',    label: 'Discharge' },
+    { key: 'invoice',      label: 'Invoice' },
+    { key: 'Cancelled',    label: 'Cancelled' },
+    { key: 'Rejected',     label: 'Rejected' },
+    { key: 'No Show',      label: 'No Show' },
+  ];
     const [packages, setPackages] = useState([]);
   const [userPackages, setUserPackages] = useState<any[]>([]);
   const [memberships, setMemberships] = useState([]);
@@ -554,6 +607,49 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { p
   const [loadingBilling, setLoadingBilling] = useState(false);
   const [billingSearchQuery, setBillingSearchQuery] = useState('');
   const [billingSearchType, setBillingSearchType] = useState<'all' | 'invoice' | 'treatment'>('all');
+  const [expandedTreatments, setExpandedTreatments] = useState<Record<string, boolean>>({});
+  
+  // Cache for package names to avoid repeated API calls
+  const [packageNameCache, setPackageNameCache] = useState<Record<string, string>>({});
+  const [allPackagesLoaded, setAllPackagesLoaded] = useState(false);
+
+  // Function to fetch package name by ID
+  const fetchPackageName = async (packageId: string): Promise<string> => {
+    // Return from cache if available
+    if (packageNameCache[packageId]) {
+      return packageNameCache[packageId];
+    }
+
+    // If we haven't loaded all packages yet, load them now
+    if (!allPackagesLoaded) {
+      try {
+        const headers = getAuthHeaders();
+        if (!headers) return 'Package';
+        
+        const res = await axios.get('/api/clinic/packages', { headers });
+        if (res.data?.success && res.data?.packages) {
+          // Build cache from all packages
+          const newCache: Record<string, string> = { ...packageNameCache };
+          res.data.packages.forEach((pkg: any) => {
+            if (pkg._id && pkg.name) {
+              newCache[pkg._id] = pkg.name;
+            }
+          });
+          setPackageNameCache(newCache);
+          setAllPackagesLoaded(true);
+          
+          // Return the package name if found
+          if (newCache[packageId]) {
+            return newCache[packageId];
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching packages:', error);
+      }
+    }
+    
+    return 'Package';
+  };
 
   // Cashback state
   const [validCashback, setValidCashback] = useState<any>(null);
@@ -684,9 +780,20 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   const [showAddPastAdvancePayment159FlatModal, setShowAddPastAdvancePayment159FlatModal] = useState(false);
   const [showPayPendingModal, setShowPayPendingModal] = useState(false);
     const [showPayPendingClaimModal, setShowPayPendingClaimModal] = useState(false);
+  const [selectedPaymentHistoryBilling, setSelectedPaymentHistoryBilling] = useState<any>(null);
+  const [showPaymentHistoryModal, setShowPaymentHistoryModal] = useState(false);
     const [payingPendingClaim, setPayingPendingClaim] = useState(false);
     const [pendingClaimPayAmount, setPendingClaimPayAmount] = useState("");
     const [pendingClaimPayMethod, setPendingClaimPayMethod] = useState("Cash");
+    // Invoice-specific payment modal states
+    const [showInvoicePayModal, setShowInvoicePayModal] = useState(false);
+    const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<any>(null);
+    const [invoicePayAmount, setInvoicePayAmount] = useState("");
+    const [invoicePayMethod, setInvoicePayMethod] = useState("Cash");
+    const [payingInvoicePending, setPayingInvoicePending] = useState(false);
+    const [invoiceUseAdvanceBalance, setInvoiceUseAdvanceBalance] = useState(false);
+    const [invoiceAdvanceUsed, setInvoiceAdvanceUsed] = useState(0);
+    const [invoiceAvailableBalance, setInvoiceAvailableBalance] = useState({ advanceBalance: 0 });
   // Treatment Filter Type - Extended with Invoice and Cancelled sections
   const [treatmentFilter, setTreatmentFilter] = useState<'all' | 'ongoing' | 'completed' | 'pending' | 'invoice' | 'cancelled'>('all');
   
@@ -711,6 +818,23 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         }
       } catch (e) {
         console.error('Error loading manually paid invoices:', e);
+      }
+    }
+    return new Set<string>();
+  });
+
+  // Track package billing IDs that have already been billed in current session (prevent duplicates)
+  const [billedPackageIds, setBilledPackageIds] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = sessionStorage.getItem(`billedPackageIds_${patientData._id}`);
+        if (stored) {
+          const parsed = new Set<string>(JSON.parse(stored));
+          console.log('📦 Loaded billedPackageIds from sessionStorage:', parsed.size, 'packages');
+          return parsed;
+        }
+      } catch (e) {
+        console.error('Error loading billed package IDs:', e);
       }
     }
     return new Set<string>();
@@ -760,6 +884,21 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       }
     }
   }, [manuallyPaidInvoices, patientData._id]);
+  
+  // Persist billed package IDs to sessionStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined' && patientData._id) {
+      try {
+        sessionStorage.setItem(
+          `billedPackageIds_${patientData._id}`,
+          JSON.stringify(Array.from(billedPackageIds))
+        );
+        console.log('💾 Saved billedPackageIds to sessionStorage:', billedPackageIds.size, 'packages');
+      } catch (e) {
+        console.error('Error saving billed package IDs:', e);
+      }
+    }
+  }, [billedPackageIds, patientData._id]);
 
   // Fetch all clinic services
   const fetchAllServices = async () => {
@@ -1142,19 +1281,32 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           // Step 3: Create billing record if balance was used or payment was made
           if (pkgAdvanceUsedAmount > 0 || pkgClaimUsedAmount > 0 || paidAmount > 0) {
             try {
-              await axios.post("/api/clinic/package-billing", {
-                patientId: patientData._id,
-                packageName: pkgPendingToCreate.name,
-                packageId: realPackageId,
-                totalAmount: pkgPendingToCreate.totalPrice,
-                paidAmount: paidAmount,
-                paymentMethod: paymentMethod,
-                paymentStatus: actualPaymentStatus,
-                advanceBalanceUsed: pkgAdvanceUsedAmount || 0,
-                claimAmountUsed: pkgClaimUsedAmount || 0,
-                treatments: pkgPendingToCreate.treatments,
-              }, { headers });
-              console.log('Package billing created with balance usage');
+              // Check if this package has already been billed in current session
+              const packageBillingKey = `${pkgPendingToCreate.name}-${pkgPendingToCreate.totalPrice}-${patientData._id}`;
+              if (billedPackageIds.has(packageBillingKey)) {
+                console.log('[Package Billing] Skipping - already billed in current session:', packageBillingKey);
+              } else {
+                await axios.post("/api/clinic/package-billing", {
+                  patientId: patientData._id,
+                  packageName: pkgPendingToCreate.name,
+                  packageId: realPackageId,
+                  totalAmount: pkgPendingToCreate.totalPrice,
+                  paidAmount: paidAmount,
+                  paymentMethod: paymentMethod,
+                  paymentStatus: actualPaymentStatus,
+                  advanceBalanceUsed: pkgAdvanceUsedAmount || 0,
+                  claimAmountUsed: pkgClaimUsedAmount || 0,
+                  treatments: pkgPendingToCreate.treatments,
+                }, { headers });
+                console.log('Package billing created with balance usage');
+                
+                // Mark as billed to prevent duplicates
+                setBilledPackageIds(prev => {
+                  const updated = new Set(prev);
+                  updated.add(packageBillingKey);
+                  return updated;
+                });
+              }
             } catch (billingErr: any) {
               console.error('Error creating package billing:', billingErr);
               // Don't fail the whole operation, just log the error
@@ -1164,6 +1316,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           // Add to editFormData.packages to show in "Added Packages" section
           const newPkgData = {
             packageId: realPackageId,
+            packageSoldBy: getCurrentUserName(),
             assignedDate: new Date().toISOString(),
             validityInMonths: pkgPendingToCreate.validityInMonths,
             startDate: pkgPendingToCreate.startDate,
@@ -1235,6 +1388,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
             packageId: `temp_${Date.now()}`, // Temporary ID, will be replaced after save
             isNewPackage: true, // Flag to indicate this needs to be created
             packageName: pkgPendingToCreate.name,
+            packageSoldBy: getCurrentUserName(),
             totalPrice: pkgPendingToCreate.totalPrice,
             validityInMonths: pkgPendingToCreate.validityInMonths,
             startDate: pkgPendingToCreate.startDate,
@@ -1310,6 +1464,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         ...(prev.packages || []),
         {
           packageId: pkgPendingToAssign._id,
+          packageSoldBy: getCurrentUserName(),
           assignedDate: new Date().toISOString(),
           validityInMonths: validity,
           startDate: startDate,
@@ -1461,19 +1616,32 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                 // Create billing record if balance was used or payment was made
                 if (newPkg.advanceBalanceUsed > 0 || newPkg.claimAmountUsed > 0 || newPkg.paidAmount > 0) {
                   try {
-                    await axios.post("/api/clinic/package-billing", {
-                      patientId: patientData._id,
-                      packageName: newPkg.packageName,
-                      packageId: realPackageId,
-                      totalAmount: newPkg.totalPrice,
-                      paidAmount: newPkg.paidAmount,
-                      paymentMethod: newPkg.paymentMethod,
-                      paymentStatus: newPkg.paymentStatus,
-                      advanceBalanceUsed: newPkg.advanceBalanceUsed || 0,
-                      claimAmountUsed: newPkg.claimAmountUsed || 0,
-                      treatments: newPkg.treatments,
-                    }, { headers });
-                    console.log('Package billing created with balance usage');
+                    // Check if this package has already been billed in current session
+                    const packageBillingKey = `${newPkg.packageName}-${newPkg.totalPrice}-${patientData._id}`;
+                    if (billedPackageIds.has(packageBillingKey)) {
+                      console.log('[Package Billing] Skipping - already billed in current session:', packageBillingKey);
+                    } else {
+                      await axios.post("/api/clinic/package-billing", {
+                        patientId: patientData._id,
+                        packageName: newPkg.packageName,
+                        packageId: realPackageId,
+                        totalAmount: newPkg.totalPrice,
+                        paidAmount: newPkg.paidAmount,
+                        paymentMethod: newPkg.paymentMethod,
+                        paymentStatus: newPkg.paymentStatus,
+                        advanceBalanceUsed: newPkg.advanceBalanceUsed || 0,
+                        claimAmountUsed: newPkg.claimAmountUsed || 0,
+                        treatments: newPkg.treatments,
+                      }, { headers });
+                      console.log('Package billing created with balance usage');
+                      
+                      // Mark as billed to prevent duplicates
+                      setBilledPackageIds(prev => {
+                        const updated = new Set(prev);
+                        updated.add(packageBillingKey);
+                        return updated;
+                      });
+                    }
                   } catch (billingErr: any) {
                     console.error('Error creating package billing:', billingErr);
                     // Don't fail the whole operation, just log the error
@@ -1506,31 +1674,44 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         }
       }
        
-      // Step 1.5: Create billing records for existing packages with balance usage
-      const existingPackagesWithBalance = packagesToSave.filter((p: any) => 
-        !p.isNewPackage && (p.advanceBalanceUsed > 0 || p.claimAmountUsed > 0)
+      // Step 1.5: Create billing records for existing packages with balance usage OR paid amount
+      const existingPackagesToBill = packagesToSave.filter((p: any) => 
+        !p.isNewPackage && (p.advanceBalanceUsed > 0 || p.claimAmountUsed > 0 || p.paidAmount > 0)
       );
       
-      if (existingPackagesWithBalance.length > 0) {
-        for (const existingPkg of existingPackagesWithBalance) {
+      if (existingPackagesToBill.length > 0) {
+        for (const existingPkg of existingPackagesToBill) {
           try {
             // Find the package details to get the name
             const pkgDetails = allAvailablePackages.find((pkg: any) => pkg._id === existingPkg.packageId);
             const packageName = pkgDetails?.name || existingPkg.packageName || 'Package';
             
-            await axios.post("/api/clinic/package-billing", {
-              patientId: patientData._id,
-              packageName: packageName,
-              packageId: existingPkg.packageId,
-              totalAmount: existingPkg.totalPrice || 0,
-              paidAmount: existingPkg.paidAmount || 0,
-              paymentMethod: existingPkg.paymentMethod || 'Cash',
-              paymentStatus: existingPkg.paymentStatus || 'Unpaid',
-              advanceBalanceUsed: existingPkg.advanceBalanceUsed || 0,
-              claimAmountUsed: existingPkg.claimAmountUsed || 0,
-              treatments: pkgDetails?.treatments || [],
-            }, { headers });
-            console.log('Billing created for existing package with balance usage:', existingPkg.packageId);
+            // Check if this package has already been billed in current session
+            const packageBillingKey = `${packageName}-${existingPkg.totalPrice || 0}-${patientData._id}`;
+            if (billedPackageIds.has(packageBillingKey)) {
+              console.log('[Package Billing] Skipping existing package - already billed in current session:', packageBillingKey);
+            } else {
+              await axios.post("/api/clinic/package-billing", {
+                patientId: patientData._id,
+                packageName: packageName,
+                packageId: existingPkg.packageId,
+                totalAmount: existingPkg.totalPrice || 0,
+                paidAmount: existingPkg.paidAmount || 0,
+                paymentMethod: existingPkg.paymentMethod || 'Cash',
+                paymentStatus: existingPkg.paymentStatus || 'Unpaid',
+                advanceBalanceUsed: existingPkg.advanceBalanceUsed || 0,
+                claimAmountUsed: existingPkg.claimAmountUsed || 0,
+                treatments: pkgDetails?.treatments || [],
+              }, { headers });
+              console.log('Billing created for existing package:', existingPkg.packageId);
+              
+              // Mark as billed to prevent duplicates
+              setBilledPackageIds(prev => {
+                const updated = new Set(prev);
+                updated.add(packageBillingKey);
+                return updated;
+              });
+            }
           } catch (billingErr: any) {
             console.error('Error creating billing for existing package:', billingErr);
             // Don't fail the whole operation, just log the error
@@ -1926,10 +2107,18 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   }, [activeTab]);
 
   useEffect(() => {
-    if (activeTab === 'advance' && patientData?._id) {
+    if ((activeTab === 'overview' || activeTab === 'advance') && patientData?._id) {
       setBalanceLoading(true);
       fetchPatientBalance(patientData._id).then((data) => {
-        if (data) setBalance(data as typeof balance);
+        if (data) {
+          setBalance(data as typeof balance);
+          // Also update financialData to reflect latest balance in overview
+          setFinancialData((prev: any) => ({
+            ...prev,
+            advanceBalance: data.advanceBalance || 0,
+            pendingPayment: data.pendingBalance || prev.pendingPayment,
+          }));
+        }
       }).finally(() => setBalanceLoading(false));
     }
     if (activeTab === 'insurance' && patientData?._id) {
@@ -1999,14 +2188,16 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       const headers = getAuthHeaders();
       if (!headers || !patientData?._id) return;
 
-      // Fetch all clinic packages and memberships first
-      const [mRes, pRes] = await Promise.all([
+      // Fetch all clinic packages and memberships first, plus billing history!
+      const [mRes, pRes, billingRes] = await Promise.all([
         axios.get('/api/clinic/memberships', { headers }),
-        axios.get('/api/clinic/packages', { headers })
+        axios.get('/api/clinic/packages', { headers }),
+        axios.get(`/api/clinic/billing-history/${patientData._id}`, { headers })
       ]);
      
       const allMemberships = mRes.data?.memberships || [];
       const allPackages = pRes.data?.packages || [];
+      const billings = billingRes.data?.success ? billingRes.data.billings || [] : [];
      
       // Get patient's assigned package IDs and membership IDs
       // Use freshPatientData if provided (avoids stale closure after save)
@@ -2078,7 +2269,28 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
             };
           });
         }
-       
+
+        // Calculate total paid including both cash/card and advance balance from billing history
+        // This ensures packages paid entirely with advance balance are marked as "Full" paid
+        const packageBillingsForPkg = billings.filter((billing: any) => 
+          billing.service === "Package" && billing.package === pkg.name
+        );
+        const totalAdvanceUsedFromBillings = packageBillingsForPkg.reduce(
+          (sum: number, billing: any) => sum + (Number(billing.advanceUsed) || 0), 0
+        );
+        const totalCashPaidFromBillings = packageBillingsForPkg.reduce(
+          (sum: number, billing: any) => sum + (Number(billing.paid) || 0), 0
+        );
+        const totalPaidIncludingAdvance = (usage?.paidAmount || patientPackage?.paidAmount || pkg.paidAmount || 0) + totalAdvanceUsedFromBillings;
+        const packagePrice = pkg.totalPrice || 0;
+        // Determine payment status based on total paid (cash/card + advance)
+        let calculatedPaymentStatus = usage?.paymentStatus || patientPackage?.paymentStatus || pkg.paymentStatus || 'Unpaid';
+        if (packagePrice > 0 && totalPaidIncludingAdvance >= packagePrice) {
+          calculatedPaymentStatus = 'Full';
+        } else if (totalPaidIncludingAdvance > 0) {
+          calculatedPaymentStatus = 'Partial';
+        }
+        
         return {
           ...pkg,
           validityInMonths: patientPackage?.validityInMonths || pkg.validityInMonths || 0,
@@ -2088,8 +2300,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           usedSessions: usedSessions,
           status: 'active',
           assignedDate: patientPackage?.assignedDate || pkg.createdAt,
-          paymentStatus: usage?.paymentStatus || patientPackage?.paymentStatus || pkg.paymentStatus || 'Unpaid',
-          paidAmount: usage?.paidAmount || patientPackage?.paidAmount || pkg.paidAmount || 0,
+          paymentStatus: calculatedPaymentStatus, // Use calculated status including advance balance
+          paidAmount: totalCashPaidFromBillings || usage?.paidAmount || patientPackage?.paidAmount || pkg.paidAmount || 0, // Total cash/card paid
+          advanceUsed: totalAdvanceUsedFromBillings, // This is the total advance used!
+          totalPaid: totalPaidIncludingAdvance, // Total paid (cash + advance) for display purposes
           paymentMethod: usage?.paymentMethod || patientPackage?.paymentMethod || pkg.paymentMethod || '',
           treatments: treatmentsWithUsage,
           billingHistory: usage?.billingHistory || [],
@@ -2098,7 +2312,8 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           transferredFromName: usage?.transferredFromName || null,
           transferredPackageName: usage?.transferredPackageName || (usage?.isTransferred ? usage?.packageName : null) || null,
           totalAllowedSessions: usage?.totalAllowedSessions || null,
-          remainingSessions: usage?.remainingSessions || null
+          remainingSessions: usage?.remainingSessions || null,
+          packageSoldBy: patientPackage?.packageSoldBy // <-- Include packageSoldBy!
         };
       });
      
@@ -2171,6 +2386,28 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       }] : [];
      
       setPackages(patientPackages);
+      
+      // Update editFormData.packages with fresh data (like paymentStatus, paidAmount) from patientPackages
+      setEditFormData((prev: any) => {
+        const updatedPackages = (prev.packages || []).map((pkg: any) => {
+          const freshPkg = patientPackages.find((p: any) => p._id === pkg.packageId);
+          if (freshPkg) {
+            return {
+              ...pkg,
+              paymentStatus: freshPkg.paymentStatus || pkg.paymentStatus,
+              paidAmount: freshPkg.paidAmount || pkg.paidAmount,
+              paymentMethod: freshPkg.paymentMethod || pkg.paymentMethod,
+              packageSoldBy: freshPkg.packageSoldBy || pkg.packageSoldBy, // <-- Update packageSoldBy too!
+              // Update any other fields you need from freshPkg
+            };
+          }
+          return pkg;
+        });
+        return {
+          ...prev,
+          packages: updatedPackages,
+        };
+      });
       // Fetch user packages (created via public form)
       try {
         const patientRegRes = await axios.get(`/api/clinic/patient-registration?id=${patientData._id}`, { headers });
@@ -2216,22 +2453,44 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     };
                   });
                 }
-               
+
+                // Calculate total advance used from billing history for user packages!
+                const packageBillingsForUserPkg = billings.filter((billing: any) => 
+                  billing.service === "Package" && billing.package === fullPkg.packageName
+                );
+                const totalAdvanceUsedFromBillingsForUserPkg = packageBillingsForUserPkg.reduce(
+                  (sum: number, billing: any) => sum + (Number(billing.advanceUsed) || 0), 0
+                );
+                const totalCashPaidFromBillingsForUserPkg = packageBillingsForUserPkg.reduce(
+                  (sum: number, billing: any) => sum + (Number(billing.paid) || 0), 0
+                );
+                const totalPaidIncludingAdvanceForUserPkg = (userPkg.paidAmount || fullPkg.paidAmount || 0) + totalAdvanceUsedFromBillingsForUserPkg;
+                const userPkgPrice = fullPkg.totalPrice || 0;
+                // Determine payment status based on total paid (cash/card + advance)
+                let calculatedPaymentStatusForUserPkg = userPkg.paymentStatus || fullPkg.paymentStatus || 'Unpaid';
+                if (userPkgPrice > 0 && totalPaidIncludingAdvanceForUserPkg >= userPkgPrice) {
+                  calculatedPaymentStatusForUserPkg = 'Full';
+                } else if (totalPaidIncludingAdvanceForUserPkg > 0) {
+                  calculatedPaymentStatusForUserPkg = 'Partial';
+                }
+                
                 return {
                   ...fullPkg,
                   validityInMonths: fullPkg.validityInMonths || 0,
                   startDate: fullPkg.startDate || userPkg.assignedDate,
                   endDate: fullPkg.endDate || null,
-                  paymentStatus: userPkg.paymentStatus || fullPkg.paymentStatus || 'Unpaid',
-                  paidAmount: userPkg.paidAmount || fullPkg.paidAmount || 0,
+                  paymentStatus: calculatedPaymentStatusForUserPkg, // Use calculated status including advance balance
+                  paidAmount: totalCashPaidFromBillingsForUserPkg || userPkg.paidAmount || fullPkg.paidAmount || 0, // Total cash/card paid
+                  advanceUsed: totalAdvanceUsedFromBillingsForUserPkg, // This is the total advance used!
+                  totalPaid: totalPaidIncludingAdvanceForUserPkg, // Total paid (cash + advance) for display
                   paymentMethod: userPkg.paymentMethod || fullPkg.paymentMethod || '',
                   usedSessions: usedSessions,
                   remainingSessions: usage?.remainingSessions ?? (fullPkg.totalSessions - usedSessions),
                   assignedDate: userPkg.assignedDate,
-                  treatments: treatmentsWithUsage
+                  treatments: treatmentsWithUsage,
+                  packageSoldBy: userPkg.packageSoldBy // <-- Include packageSoldBy for user packages!
                 };
               }
-             
               return userPkg;
             });
             setUserPackages(fullUserPackages);
@@ -2264,9 +2523,51 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       const response = await axios.get(`/api/clinic/billing-history/${patientData._id}`, { headers });
      
       if (response.data.success) {
-        const billings = response.data.billings || [];
-        setBillingHistory(billings);
-        calculateFinancialSnapshot(billings);
+        let billings = response.data.billings || [];
+        
+        // CRITICAL: Load already-billed package IDs from billing history to prevent duplicates
+        // This ensures packages that were already billed in previous sessions are tracked
+        const packageBillings = billings.filter((b: any) => b.service === "Package" && b.package);
+        if (packageBillings.length > 0) {
+          setBilledPackageIds(prev => {
+            const updated = new Set(prev);
+            packageBillings.forEach((billing: any) => {
+              const key = `${billing.package}-${billing.amount}-${patientData._id}`;
+              updated.add(key);
+            });
+            console.log('📦 Loaded', packageBillings.length, 'package billings from history to prevent duplicates');
+            return updated;
+          });
+        }
+        
+        // Resolve package names for unpaidPackagesPaid
+        const billingsWithPackageNames = await Promise.all(
+          billings.map(async (billing: any) => {
+            if (billing.unpaidPackagesPaid && billing.unpaidPackagesPaid.length > 0) {
+              const updatedPackages = await Promise.all(
+                billing.unpaidPackagesPaid.map(async (pkg: any) => {
+                  // If packageName already exists, use it
+                  if (pkg.packageName) {
+                    return pkg;
+                  }
+                  
+                  // Otherwise fetch it from packageId
+                  if (pkg.packageId) {
+                    const packageName = await fetchPackageName(pkg.packageId);
+                    return { ...pkg, packageName };
+                  }
+                  
+                  return pkg;
+                })
+              );
+              return { ...billing, unpaidPackagesPaid: updatedPackages };
+            }
+            return billing;
+          })
+        );
+        
+        setBillingHistory(billingsWithPackageNames);
+        calculateFinancialSnapshot(billingsWithPackageNames);
        
         // Calculate valid cashback from billing history
         const today = new Date();
@@ -3386,6 +3687,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { bg: string; text: string; label: string }> = {
       'booked':        { bg: 'bg-blue-100',   text: 'text-blue-700',   label: 'Booked' },
+      'upcoming':      { bg: 'bg-amber-100',  text: 'text-amber-700',  label: 'Upcoming' },
       'enquiry':       { bg: 'bg-gray-100',   text: 'text-gray-700',   label: 'Enquiry' },
       'scheduled':     { bg: 'bg-blue-100',   text: 'text-blue-700',   label: 'Scheduled' },
       'confirmed':     { bg: 'bg-blue-100',   text: 'text-blue-700',   label: 'Confirmed' },
@@ -3410,6 +3712,68 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       </span>
     );
   };
+
+  // Drag and drop handlers for status filter tabs
+  const handleStatusTabDragStart = (e: React.DragEvent, statusKey: string) => {
+    setDraggedStatusKey(statusKey);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", statusKey);
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = "0.5";
+    }
+  };
+
+  const handleStatusTabDragEnd = (e: React.DragEvent) => {
+    setDraggedStatusKey(null);
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = "1";
+    }
+  };
+
+  const handleStatusTabDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.classList.add("ring-2", "ring-blue-400", "ring-offset-2");
+    }
+  };
+
+  const handleStatusTabDragLeave = (e: React.DragEvent) => {
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.classList.remove("ring-2", "ring-blue-400", "ring-offset-2");
+    }
+  };
+
+  const handleStatusTabDrop = (e: React.DragEvent, targetStatusKey: string) => {
+    e.preventDefault();
+    
+    if (!draggedStatusKey || draggedStatusKey === targetStatusKey) return;
+
+    setStatusTabOrder((prevOrder) => {
+      const newOrder = [...prevOrder];
+      const draggedIndex = newOrder.indexOf(draggedStatusKey);
+      const targetIndex = newOrder.indexOf(targetStatusKey);
+      
+      if (draggedIndex === -1 || targetIndex === -1) return prevOrder;
+      
+      newOrder.splice(draggedIndex, 1);
+      newOrder.splice(targetIndex, 0, draggedStatusKey);
+      
+      // Save to localStorage
+      if (typeof window !== "undefined") {
+        localStorage.setItem("appointmentStatusTabOrder", JSON.stringify(newOrder));
+      }
+      
+      return newOrder;
+    });
+    
+    setDraggedStatusKey(null);
+  };
+
+  // Sort status tabs by custom order
+  const sortedStatusTabs = statusTabOrder
+    .map((key) => statusTabsConfig.find((tab) => tab.key === key))
+    .filter((tab): tab is { key: string; label: string } => tab !== undefined);
 
   const filteredAppointments = appointmentFilter === 'upcoming'
     ? filterAppointments(upcomingAppointments, appointmentFilter)
@@ -3572,31 +3936,21 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
               <div className="space-y-4">
                 {/* Filter Tabs */}
                 <div className="flex items-center gap-2 overflow-x-auto pb-2">
-                  {[
-                    { key: 'all',          label: 'All' },
-                    { key: 'booked',       label: 'Booked' },
-                    { key: 'upcoming',     label: 'Upcoming' },
-                    { key: 'enquiry',      label: 'Enquiry' },
-                    { key: 'Arrived',      label: 'Arrived' },
-                    { key: 'Waiting',      label: 'Waiting' },
-                    { key: 'Consultation', label: 'Consultation' },
-                    { key: 'Approved',     label: 'Approved' },
-                    { key: 'Rescheduled',  label: 'Rescheduled' },
-                    { key: 'Completed',    label: 'Completed' },
-                    { key: 'Discharge',    label: 'Discharge' },
-                    { key: 'invoice',      label: 'Invoice' },
-                    { key: 'Cancelled',    label: 'Cancelled' },
-                    { key: 'Rejected',     label: 'Rejected' },
-                    { key: 'No Show',      label: 'No Show' },
-                  ].map((filter) => (
+                  {sortedStatusTabs.map((filter) => (
                     <button
                       key={filter.key}
                       onClick={() => setAppointmentFilter(filter.key)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap cursor-move ${
                         appointmentFilter === filter.key
                           ? 'bg-green-600 text-white shadow-md'
-                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                          : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
                       }`}
+                      draggable
+                      onDragStart={(e) => handleStatusTabDragStart(e, filter.key)}
+                      onDragEnd={handleStatusTabDragEnd}
+                      onDragOver={handleStatusTabDragOver}
+                      onDragLeave={handleStatusTabDragLeave}
+                      onDrop={(e) => handleStatusTabDrop(e, filter.key)}
                     >
                       {filter.label}
                     </button>
@@ -3645,19 +3999,28 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                         : appointment.treatmentName
                                         ? [appointment.treatmentName]
                                         : [];
-                                      if (names.length === 0) {
+                                      const isUpcomingAppointment = upcomingAppointments.some((apt: any) => apt._id === appointment._id);
+                                      if (names.length === 0 && !isUpcomingAppointment) {
                                         return <div className="font-semibold text-gray-400 text-sm">-</div>;
                                       }
                                       return (
-                                        <div className="flex flex-wrap gap-1">
-                                          {names.map((name, i) => (
-                                            <span
-                                              key={i}
-                                              className="inline-block px-2 py-0.5 rounded-full bg-teal-50 border border-teal-200 text-teal-700 text-xs font-medium"
-                                            >
-                                              {name}
+                                        <div className="flex flex-col gap-1">
+                                          {isUpcomingAppointment && (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-800 text-[10px] font-bold w-fit">
+                                              <Clock size={9} />
+                                              Upcoming
                                             </span>
-                                          ))}
+                                          )}
+                                          <div className="flex flex-wrap gap-1">
+                                            {names.map((name, i) => (
+                                              <span
+                                                key={i}
+                                                className="inline-block px-2 py-0.5 rounded-full bg-teal-50 border border-teal-200 text-teal-700 text-xs font-medium"
+                                              >
+                                                {name}
+                                              </span>
+                                            ))}
+                                          </div>
                                         </div>
                                       );
                                     })()}
@@ -4314,6 +4677,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                           {pkg?.name || p.packageId} • {getCurrencySymbol(currency)}{pkg?.totalPrice}
                                           {paymentStatus === 'Full' && <span className="px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[7px] font-black uppercase">Full Paid</span>}
                                           {paymentStatus === 'Partial' && <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[7px] font-black uppercase">Partial ({getCurrencySymbol(currency)}{p.paidAmount})</span>}
+                                          {paymentStatus === 'Unpaid' && <span className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-[7px] font-black uppercase">Unpaid</span>}
                                         </div>
                                         <button
                                           type="button"
@@ -4331,6 +4695,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                           <span className="px-1.5 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 font-bold uppercase text-[7px] border border-indigo-100 flex items-center gap-1 shadow-sm">
                                             <Wallet className="w-2 h-2" />
                                             {paymentMethod}
+                                          </span>
+                                        )}
+                                        {p.packageSoldBy && (
+                                          <span className="px-1.5 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 font-bold uppercase text-[7px] border border-emerald-100 flex items-center gap-1 shadow-sm">
+                                            <User className="w-2 h-2" />
+                                            Sold by: {p.packageSoldBy}
                                           </span>
                                         )}
                                       </div>
@@ -4801,7 +5171,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         <p className="text-gray-600 font-medium">No packages assigned to this patient</p>
                       </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       {[...packages, ...userPackages].map((pkg: any, index: number) => {
                       const packageId = pkg.packageId || pkg._id;
                       const packageName = pkg.packageName || pkg.name || 'Package';
@@ -4816,67 +5186,84 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                       const progressPercent = totalSessions > 0 ? Math.min(100, Math.round((usedSessions / totalSessions) * 100)) : 0;
                      
                       // Price calculation
-                      const price = pkg.price || pkg.totalPrice || 0;
-                      const formattedPrice = typeof price === 'number' ? `${getCurrencySymbol(currency)}${price.toFixed(2)}` : `${getCurrencySymbol(currency)}${price || 0}`;
+                      const totalPrice = pkg.totalPrice || pkg.price || 0;
+                      const paidAmount = pkg.paidAmount || 0;
+                      const advanceUsed = pkg.advanceUsed || 0;
+                      const formattedTotalPrice = typeof totalPrice === 'number' ? `${getCurrencySymbol(currency)}${totalPrice.toFixed(2)}` : `${getCurrencySymbol(currency)}${totalPrice || 0}`;
 
                       return (
-                        <div key={pkg._id || packageId || index} className={`bg-white rounded-xl border ${isExpired ? 'border-red-200 shadow-sm' : 'border-gray-200 shadow-lg'} overflow-hidden hover:shadow-xl transition-all duration-300 relative`}>
+                        <div key={pkg._id || packageId || index} className={`bg-white rounded-lg border ${isExpired ? 'border-red-200 shadow-sm' : 'border-gray-200 shadow-md'} overflow-hidden hover:shadow-lg transition-all duration-300 relative`}>
                           {isExpired && (
                             <div className="absolute top-0 right-0 z-10">
-                              <div className="bg-red-600 text-white text-[10px] font-black uppercase tracking-widest px-4 py-1.5 shadow-md transform translate-x-1 translate-y-0 rounded-bl-xl border-l border-b border-red-700 animate-pulse">
+                              <div className="bg-red-600 text-white text-[8px] font-black uppercase tracking-widest px-2 py-0.5 shadow-md transform translate-x-1 translate-y-0 rounded-bl-lg border-l border-b border-red-700">
                                 Expired
                               </div>
                             </div>
                           )}
                           {/* Header Section */}
-                          <div className={`px-5 py-4 border-b border-gray-200 ${isExpired ? 'bg-red-50/50' : `bg-gradient-to-r ${isUserPackage ? 'from-indigo-50 to-purple-50' : 'from-teal-50 to-cyan-50'}`}`}>
+                          <div className={`px-3 py-2 border-b border-gray-200 ${isExpired ? 'bg-red-50/50' : `bg-gradient-to-r ${isUserPackage ? 'from-indigo-50 to-purple-50' : 'from-teal-50 to-cyan-50'}`}`}>
                             <div className="flex items-start justify-between">
-                              <div className="flex items-start gap-3 flex-1">
+                              <div className="flex items-start gap-2 flex-1">
                                 {/* Package Icon */}
-                                <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${isExpired ? 'from-red-100 to-rose-100' : (isUserPackage ? 'from-indigo-100 to-purple-100' : 'from-teal-100 to-cyan-100')} flex items-center justify-center flex-shrink-0 shadow-sm`}>
-                                  <Package className={`w-7 h-7 ${isExpired ? 'text-red-600' : (isUserPackage ? 'text-indigo-600' : 'text-teal-600')}`} />
+                                <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${isExpired ? 'from-red-100 to-rose-100' : (isUserPackage ? 'from-indigo-100 to-purple-100' : 'from-teal-100 to-cyan-100')} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                                  <Package className={`w-3.5 h-3.5 ${isExpired ? 'text-red-600' : (isUserPackage ? 'text-indigo-600' : 'text-teal-600')}`} />
                                 </div>
                                
                                 {/* Package Info */}
                                 <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <h3 className={`text-lg font-bold ${isExpired ? 'text-red-900 line-through' : 'text-gray-900'}`}>{packageName}</h3>
-                                    {isUserPackage && !isExpired && (
-                                      <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold">
-                                        User Package
-                                      </span>
-                                    )}
+                                  <div className="flex items-center justify-between gap-2 mb-1">
+                                    <h3 className={`text-sm font-bold ${isExpired ? 'text-red-900 line-through' : 'text-gray-900'}`}>{packageName}</h3>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-gray-600 font-medium">({formattedTotalPrice})</span>
+                                      {isUserPackage && !isExpired && (
+                                        <span className="px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[8px] font-bold">
+                                          User Package
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
-                                  <div className="flex flex-wrap items-center gap-3 text-sm">
-                                    <span className={`font-bold ${isExpired ? 'text-red-700' : 'text-gray-900'}`}>{formattedPrice}</span>
-                                   
+                                  <div className="flex flex-wrap items-center gap-2 text-[10px]">
                                     {/* Payment Status & Method Tags */}
                                     {pkg.paymentStatus === 'Full' && (
-                                      <span className="px-2 py-0.5 rounded-lg bg-green-100 text-green-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
-                                        <CheckCircle className="w-2.5 h-2.5" />
+                                      <span className="px-2 py-0.5 rounded-lg bg-green-100 text-green-700 font-black uppercase text-[7px] shadow-sm flex items-center gap-1">
+                                        <CheckCircle className="w-2 h-2" />
                                         Full Paid
                                       </span>
                                     )}
                                     {pkg.paymentStatus === 'Partial' && (
-                                      <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
-                                        <Activity className="w-2.5 h-2.5" />
-                                        Partial ({getCurrencySymbol(currency)}{pkg.paidAmount})
+                                      <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 font-black uppercase text-[7px] shadow-sm flex items-center gap-1">
+                                        <Activity className="w-2 h-2" />
+                                        Partial
+                                      </span>
+                                    )}
+                                    {pkg.paymentStatus === 'Unpaid' && (
+                                      <span className="px-2 py-0.5 rounded-lg bg-red-100 text-red-700 font-black uppercase text-[7px] shadow-sm flex items-center gap-1">
+                                        <XCircle className="w-2 h-2" />
+                                        Unpaid
                                       </span>
                                     )}
                                     {pkg.paymentMethod && (
-                                      <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 font-bold uppercase text-[9px] border border-indigo-100 flex items-center gap-1 shadow-sm">
-                                        <Wallet className="w-2.5 h-2.5" />
+                                      <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 font-bold uppercase text-[7px] border border-indigo-100 flex items-center gap-1 shadow-sm">
+                                        <Wallet className="w-2 h-2" />
                                         {pkg.paymentMethod}
                                       </span>
                                     )}
-
-                                    {pkg.sessionPrice > 0 && !isExpired && (
-                                      <span className="text-gray-500 font-medium">({getCurrencySymbol(currency)}{pkg.sessionPrice.toFixed(2)}/session)</span>
+                                    {pkg.advanceUsed > 0 && (
+                                      <span className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 font-bold uppercase text-[7px] border border-emerald-100 flex items-center gap-1 shadow-sm">
+                                        <Wallet className="w-2 h-2" />
+                                        Advance Used
+                                      </span>
                                     )}
                                     {assignedDate && (
-                                      <div className={`flex items-center gap-1.5 ${isExpired ? 'text-red-500' : 'text-gray-600'}`}>
-                                        <Calendar className="w-3.5 h-3.5" />
-                                        <span>Purchased: {new Date(assignedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                      <div className={`flex items-center gap-1 ${isExpired ? 'text-red-500' : 'text-gray-600'}`}>
+                                        <Calendar className="w-2.5 h-2.5" />
+                                        <span className="text-[9px]">Purchased: {new Date(assignedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                      </div>
+                                    )}
+                                    {pkg.packageSoldBy && (
+                                      <div className="flex items-center gap-1 text-gray-600">
+                                        <User className="w-2.5 h-2.5" />
+                                        <span className="text-[9px]">Sold by: {pkg.packageSoldBy}</span>
                                       </div>
                                     )}
                                   </div>
@@ -4885,15 +5272,57 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                             </div>
                           </div>
 
-                          {/* Sessions Progress Section */}
-                          <div className={`px-5 py-4 ${isExpired ? 'opacity-60 bg-red-50/20 grayscale-[0.5]' : ''}`}>
-                            <div className="mb-4">
-                              <div className="flex items-center justify-between text-sm mb-2">
+                          {/* Billing Details Section */}
+                          <div className={`px-3 py-2 ${isExpired ? 'opacity-60 bg-red-50/20 grayscale-[0.5]' : ''}`}>
+                            <div className="bg-gray-50 rounded-lg border border-gray-200 p-2 mb-2">
+                              <h5 className="text-[9px] font-bold text-gray-700 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                                <CreditCard className="w-2.5 h-2.5 text-gray-600" />
+                                Billing Details
+                              </h5>
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[9px] text-gray-600 font-medium">Cash/Card Paid:</span>
+                                  <span className="text-[10px] font-bold text-green-700">{getCurrencySymbol(currency)}{paidAmount.toFixed(2)}</span>
+                                </div>
+                                {(pkg.totalPaid || 0) > paidAmount && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[9px] text-gray-600 font-medium">Advance Used:</span>
+                                    <span className="text-[10px] font-bold text-emerald-700">{getCurrencySymbol(currency)}{((pkg.totalPaid || 0) - paidAmount).toFixed(2)}</span>
+                                  </div>
+                                )}
+                                {(pkg.totalPaid || 0) > 0 && (
+                                  <div className="flex items-center justify-between bg-green-50 px-1.5 py-0.5 rounded">
+                                    <span className="text-[9px] text-green-700 font-medium">Total Paid:</span>
+                                    <span className="text-[10px] font-bold text-green-800">{getCurrencySymbol(currency)}{(pkg.totalPaid || 0).toFixed(2)}</span>
+                                  </div>
+                                )}
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[9px] text-gray-600 font-medium">Status:</span>
+                                  <span className={`text-[9px] font-bold ${pkg.paymentStatus === 'Full' ? 'text-green-700' : pkg.paymentStatus === 'Partial' ? 'text-amber-700' : 'text-gray-600'}`}>
+                                    {pkg.paymentStatus === 'Full' ? 'Full' : pkg.paymentStatus === 'Partial' ? 'Partial' : 'Unpaid'}
+                                  </span>
+                                </div>
+                                {advanceUsed > 0 && (
+                                  <div className="pt-1.5 border-t border-gray-200 mt-1.5">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-[9px] text-gray-600 font-medium">Advance Used:</span>
+                                      </div>
+                                      <span className="text-[10px] font-bold text-emerald-700">{getCurrencySymbol(currency)}{advanceUsed.toFixed(2)}</span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Sessions Progress Section */}
+                            <div className="mb-2">
+                              <div className="flex items-center justify-between text-[10px] mb-1">
                                 <span className="font-medium text-gray-700">Sessions Progress</span>
                                 <span className="font-bold text-gray-900">{usedSessions} / {totalSessions} used</span>
                               </div>
                               {/* Progress Bar */}
-                              <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                              <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
                                 <div
                                   className={`h-full bg-gradient-to-r ${isExpired ? 'from-red-400 to-rose-400' : (isUserPackage ? 'from-indigo-500 to-purple-500' : 'from-teal-500 to-cyan-500')} rounded-full transition-all duration-500 ease-out`}
                                   style={{ width: `${progressPercent}%` }}
@@ -4903,91 +5332,84 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
                             {/* Validity & Dates Display */}
                             {(pkg.validityInMonths || pkg.startDate || pkg.endDate) && (
-                              <div className={`mb-4 border rounded-xl p-4 ${isExpired ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
-                                <div className="flex items-center justify-between mb-3">
-                                  <div className="flex items-center gap-2">
-                                    <Clock className={`w-4 h-4 ${isExpired ? 'text-red-600' : 'text-purple-600'}`} />
-                                    <span className={`text-sm font-bold ${isExpired ? 'text-red-900' : 'text-gray-900'}`}>Package Validity</span>
+                              <div className={`mb-2 border rounded-lg p-2 ${isExpired ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <div className="flex items-center gap-1">
+                                    <Clock className={`w-3 h-3 ${isExpired ? 'text-red-600' : 'text-purple-600'}`} />
+                                    <span className={`text-[10px] font-bold ${isExpired ? 'text-red-900' : 'text-gray-900'}`}>Package Validity</span>
                                   </div>
-                                  <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${isExpired ? 'bg-red-200 text-red-800' : 'bg-purple-100 text-purple-700'}`}>
-                                    {pkg.validityInMonths || 0} Months Duration
+                                  <span className={`px-2 py-0.5 rounded-lg text-[8px] font-bold ${isExpired ? 'bg-red-200 text-red-800' : 'bg-purple-100 text-purple-700'}`}>
+                                    {pkg.validityInMonths || 0} Months
                                   </span>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div className="bg-white p-2.5 rounded-lg border border-gray-100 shadow-sm">
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">Start Date</p>
-                                    <div className="flex items-center gap-2">
-                                      <Calendar className="w-3.5 h-3.5 text-blue-500" />
-                                      <span className={`text-sm font-bold ${isExpired ? 'text-red-900' : 'text-gray-800'}`}>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="bg-white p-1.5 rounded-lg border border-gray-100 shadow-sm">
+                                    <p className="text-[8px] text-gray-500 font-bold uppercase mb-0.5">Start Date</p>
+                                    <div className="flex items-center gap-1">
+                                      <Calendar className="w-2.5 h-2.5 text-blue-500" />
+                                      <span className={`text-[9px] font-bold ${isExpired ? 'text-red-900' : 'text-gray-800'}`}>
                                         {pkg.startDate ? new Date(pkg.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
                                       </span>
                                     </div>
                                   </div>
-                                  <div className={`p-2.5 rounded-lg border shadow-sm ${isExpired ? 'bg-red-50 border-red-200' : 'bg-white border-gray-100'}`}>
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">End Date (Expired)</p>
-                                    <div className="flex items-center gap-2">
-                                      <Calendar className={`w-3.5 h-3.5 ${isExpired ? 'text-red-600' : 'text-rose-500'}`} />
-                                      <span className={`text-sm font-bold ${isExpired ? 'text-red-700 underline decoration-double decoration-red-400' : 'text-gray-800'}`}>
+                                  <div className={`p-1.5 rounded-lg border shadow-sm ${isExpired ? 'bg-red-50 border-red-200' : 'bg-white border-gray-100'}`}>
+                                    <p className="text-[8px] text-gray-500 font-bold uppercase mb-0.5">End Date</p>
+                                    <div className="flex items-center gap-1">
+                                      <Calendar className={`w-2.5 h-2.5 ${isExpired ? 'text-red-600' : 'text-rose-500'}`} />
+                                      <span className={`text-[9px] font-bold ${isExpired ? 'text-red-700 underline decoration-double decoration-red-400' : 'text-gray-800'}`}>
                                         {pkg.endDate ? new Date(pkg.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
                                       </span>
                                     </div>
                                   </div>
                                 </div>
                                 {isExpired && (
-                                  <div className="mt-3 text-[10px] text-red-600 font-bold flex items-center gap-1 bg-white/50 p-1.5 rounded border border-red-100">
-                                    <AlertCircle className="w-3 h-3" />
-                                    THIS PACKAGE HAS EXPIRED. SESSIONS CAN NO LONGER BE ACCESSED.
+                                  <div className="mt-1.5 text-[8px] text-red-600 font-bold flex items-center gap-1 bg-white/50 p-1 rounded border border-red-100">
+                                    <AlertCircle className="w-2.5 h-2.5" />
+                                    THIS PACKAGE HAS EXPIRED
                                   </div>
                                 )}
                               </div>
                             )}
 
                             {/* Three Info Boxes */}
-                            <div className="grid grid-cols-3 gap-3 mb-4">
+                            <div className="grid grid-cols-3 gap-1.5 mb-2">
                               {/* Total Sessions */}
-                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-                                <div className="text-2xl font-bold text-blue-700">{totalSessions}</div>
-                                <div className="text-xs text-blue-600 mt-1 font-medium">Total Sessions</div>
+                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-1.5 text-center">
+                                <div className="text-sm font-bold text-blue-700">{totalSessions}</div>
+                                <div className="text-[8px] text-blue-600 mt-0.5 font-medium">Total</div>
                               </div>
                              
                               {/* Used Sessions */}
-                              <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-                                <div className="text-2xl font-bold text-green-700">{usedSessions}</div>
-                                <div className="text-xs text-green-600 mt-1 font-medium">Used Sessions</div>
+                              <div className="bg-green-50 border border-green-200 rounded-lg p-1.5 text-center">
+                                <div className="text-sm font-bold text-green-700">{usedSessions}</div>
+                                <div className="text-[8px] text-green-600 mt-0.5 font-medium">Used</div>
                               </div>
                              
                               {/* Remaining Sessions */}
-                              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-center">
-                                <div className="text-2xl font-bold text-orange-700">{remainingSessions}</div>
-                                <div className="text-xs text-orange-600 mt-1 font-medium">Remaining</div>
+                              <div className="bg-orange-50 border border-orange-200 rounded-lg p-1.5 text-center">
+                                <div className="text-sm font-bold text-orange-700">{remainingSessions}</div>
+                                <div className="text-[8px] text-orange-600 mt-0.5 font-medium">Remaining</div>
                               </div>
                             </div>
 
                             {/* User Package Specific Details */}
                             {isUserPackage && (
-                              <div className="grid grid-cols-2 gap-3 mb-4">
-                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                                  <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">Status & Payment</div>
-                                  <div className="flex flex-wrap gap-2">
-                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                              <div className="grid grid-cols-2 gap-2 mb-3">
+                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-2">
+                                  <div className="text-[9px] text-gray-500 uppercase font-bold mb-0.5">Status</div>
+                                  <div className="flex flex-wrap gap-1">
+                                    <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase ${
                                       pkg.status === 'active' ? 'bg-green-100 text-green-700' :
                                       pkg.status === 'completed' ? 'bg-blue-100 text-blue-700' :
                                       'bg-gray-100 text-gray-700'
                                     }`}>
                                       {pkg.status || 'Active'}
                                     </span>
-                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                      pkg.paymentStatus === 'paid' ? 'bg-emerald-100 text-emerald-700' :
-                                      pkg.paymentStatus === 'partial' ? 'bg-amber-100 text-amber-700' :
-                                      'bg-rose-100 text-rose-700'
-                                    }`}>
-                                      {pkg.paymentStatus || 'Paid'}
-                                    </span>
                                   </div>
                                 </div>
-                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                                  <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">Validity Period</div>
-                                  <div className="text-xs font-medium text-gray-700">
+                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-2">
+                                  <div className="text-[9px] text-gray-500 uppercase font-bold mb-0.5">Validity</div>
+                                  <div className="text-[10px] font-medium text-gray-700">
                                     {pkg.startDate && new Date(pkg.startDate).toLocaleDateString()} - {pkg.endDate && new Date(pkg.endDate).toLocaleDateString()}
                                   </div>
                                 </div>
@@ -4996,35 +5418,58 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                            
                             {/* Treatment Breakdown */}
                             {pkg.treatments && pkg.treatments.length > 0 && (
-                              <div className="bg-white rounded-lg border border-gray-200 p-3">
-                                <h5 className="text-xs font-bold text-gray-800 mb-2.5 flex items-center gap-1.5">
-                                  <Activity className="w-3.5 h-3.5 text-teal-600" />
+                              <div className="bg-white rounded-lg border border-gray-200 p-2">
+                                <h5 className="text-[10px] font-bold text-gray-800 mb-2 flex items-center gap-1.5">
+                                  <Activity className="w-3 h-3 text-teal-600" />
                                   Treatment Sessions
                                 </h5>
-                                <div className="space-y-2">
+                                <div className="space-y-1.5">
                                   {pkg.treatments.map((treatment: any, tIdx: number) => {
                                     const used = treatment.usedSessions || 0;
                                     const max = treatment.maxSessions || treatment.sessions || 0;
                                     const percent = max > 0 ? Math.min(100, Math.round((used / max) * 100)) : 0;
                                     const remaining = max - used;
                                     const isComplete = used >= max;
+                                    const treatmentKey = `${pkg._id || pkg.packageId}-${tIdx}`;
+                                    const isExpanded = expandedTreatments[treatmentKey] || false;
                                    
                                     return (
-                                      <div key={tIdx} className="bg-gray-50 rounded-lg px-3 py-2.5">
-                                        <div className="flex items-center justify-between mb-1.5">
-                                          <span className="text-xs font-medium text-gray-700 truncate max-w-[180px]">{treatment.treatmentName || treatment.name}</span>
-                                          <div className="flex items-center gap-1.5">
-                                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+                                      <div key={tIdx} className="bg-gray-50 rounded-lg px-2.5 py-2">
+                                        <div className="flex items-center justify-between mb-1">
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-medium text-gray-700 truncate max-w-[150px]">{treatment.treatmentName || treatment.name}</span>
+                                            {treatment.allocatedPrice && (
+                                              <span className="text-[9px] text-indigo-700 font-semibold">
+                                                {getCurrencySymbol(currency)}{Number(treatment.allocatedPrice).toLocaleString()}/session
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="flex items-center gap-1">
+                                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold ${
                                               isComplete ? 'bg-green-100 text-green-700' :
                                               used > 0 ? 'bg-blue-100 text-blue-700' :
                                               'bg-gray-100 text-gray-600'
                                             }`}>
-                                              {used}/{max} used
+                                              {used}/{max}
                                             </span>
+                                            {treatment.usageDetails && treatment.usageDetails.length > 0 && (
+                                              <button 
+                                                type="button" 
+                                                onClick={() => setExpandedTreatments(prev => ({
+                                                  ...prev,
+                                                  [treatmentKey]: !prev[treatmentKey]
+                                                }))}
+                                                className="p-1 hover:bg-gray-200 rounded"
+                                              >
+                                                <ChevronDown 
+                                                  className={`w-3 h-3 text-gray-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                                />
+                                              </button>
+                                            )}
                                           </div>
                                         </div>
                                         {/* Progress Bar */}
-                                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden mb-1">
+                                        <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden mb-0.5">
                                           <div
                                             className={`h-full rounded-full transition-all duration-500 ${
                                               isComplete ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
@@ -5034,110 +5479,47 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                             style={{ width: `${percent}%` }}
                                           />
                                         </div>
-                                        <div className="flex items-center justify-between text-[9px] text-gray-600">
+                                        <div className="flex items-center justify-between text-[8px] text-gray-600">
                                           <span>Remaining: {remaining} sessions</span>
-                                          {treatment.sessionPrice > 0 && <span>{getCurrencySymbol(currency)}{treatment.sessionPrice.toFixed(2)} / session</span>}
-                                          <span>{percent}% complete</span>
+                                          {percent}% complete
                                         </div>
                                        
-                                        {/* Billing Records Table - per treatment */}
-                                        {treatment.usageDetails && treatment.usageDetails.length > 0 && (
-                                          <div className="mt-3 pt-3 border-t border-gray-200">
-                                            <h6 className="text-xs font-bold text-gray-700 mb-2.5 flex items-center gap-1.5">
-                                              <ClipboardList className="w-3.5 h-3.5 text-cyan-600" />
+                                        {/* Billing Records Table - per treatment (Dropdown) */}
+                                        {isExpanded && treatment.usageDetails && treatment.usageDetails.length > 0 && (
+                                          <div className="mt-2 pt-2 border-t border-gray-200">
+                                            <h6 className="text-[9px] font-bold text-gray-700 mb-1.5 flex items-center gap-1">
+                                              <ClipboardList className="w-3 h-3 text-cyan-600" />
                                               Billing Records ({treatment.usageDetails.length})
                                             </h6>
                                             <div className="overflow-x-auto">
-                                              <table className="w-full text-xs">
+                                              <table className="w-full text-[9px]">
                                                 <thead>
                                                   <tr className="border-b-2 border-gray-200 bg-gray-50">
-                                                    <th className="text-left py-2 px-2.5 font-semibold text-gray-700 rounded-tl-lg">Invoice</th>
-                                                    <th className="text-left py-2 px-2.5 font-semibold text-gray-700">Date</th>
-                                                    <th className="text-center py-2 px-2.5 font-semibold text-gray-700">Sessions</th>
-                                                    <th className="text-left py-2 px-2.5 font-semibold text-gray-700">Method</th>
-                                                    <th className="text-center py-2 px-2.5 font-semibold text-gray-700">Discount</th>
-                                                    <th className="text-right py-2 px-2.5 font-semibold text-gray-700">Original Amount</th>
-                                                    <th className="text-right py-2 px-2.5 font-semibold text-gray-700">Total</th>
-                                                    <th className="text-right py-2 px-2.5 font-semibold text-gray-700 rounded-tr-lg">Paid</th>
+                                                    <th className="text-left py-1.5 px-1.5 font-semibold text-gray-700 rounded-tl-lg">Invoice</th>
+                                                    <th className="text-left py-1.5 px-1.5 font-semibold text-gray-700">Date</th>
+                                                    <th className="text-center py-1.5 px-1.5 font-semibold text-gray-700">Sessions</th>
+                                                    <th className="text-left py-1.5 px-1.5 font-semibold text-gray-700">Payment Method</th>
+                                                    <th className="text-right py-1.5 px-1.5 font-semibold text-gray-700 rounded-tr-lg">Paid</th>
                                                   </tr>
                                                 </thead>
                                                 <tbody>
                                                   {treatment.usageDetails.map((detail: any, dIdx: number) => (
                                                     <tr key={dIdx} className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
-                                                      <td className="py-2.5 px-2.5">
+                                                      <td className="py-1.5 px-1.5">
                                                         <span className="font-bold text-gray-900">{detail.invoiceNumber}</span>
                                                       </td>
-                                                      <td className="py-2.5 px-2.5">
+                                                      <td className="py-1.5 px-1.5">
                                                         <span className="text-gray-600">{new Date(detail.date).toLocaleDateString()}</span>
                                                       </td>
-                                                      <td className="py-2.5 px-2.5 text-center">
-                                                        <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-teal-100 text-teal-700 font-bold text-[10px] shadow-sm">
-                                                          {detail.sessions} Session{detail.sessions !== 1 ? 's' : ''}
+                                                      <td className="py-1.5 px-1.5 text-center">
+                                                        <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full bg-teal-100 text-teal-700 font-bold text-[8px]">
+                                                          {detail.sessions}
                                                         </span>
                                                       </td>
-                                                      <td className="py-2.5 px-2.5 text-left">
-                                                        <span className="text-[10px] text-gray-700 font-medium">
-                                                          {detail.multiplePayments && detail.multiplePayments.length > 0
-                                                            ? detail.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ")
-                                                            : (detail.paymentMethod || "–")}
-                                                        </span>
+                                                      <td className="py-1.5 px-1.5">
+                                                        <span className="text-gray-700">{detail.paymentMethod || '-'}</span>
                                                       </td>
-                                                      <td className="py-2.5 px-2.5 text-center">
-                                                        {(() => {
-                                                          const isDoctorDiscount = detail.isDoctorDiscountApplied;
-                                                          const isAgentDiscount = detail.isAgentDiscountApplied;
-                                                          const membershipDiscountAmount = detail.membershipDiscountApplied || 0;
-                                                          const isMembershipDiscount = membershipDiscountAmount > 0;
-                                                         
-                                                          const originalAmount = detail.originalAmount || 0;
-                                                          const finalAmount = detail.amount || 0;
-                                                          const totalDiscountAmount = originalAmount > finalAmount ? (originalAmount - finalAmount) : 0;
-                                                          const totalPercent = totalDiscountAmount > 0 && originalAmount > 0 ? (totalDiscountAmount / originalAmount * 100) : 0;
-                                                          const membershipPercent = isMembershipDiscount && originalAmount > 0 ? (membershipDiscountAmount / originalAmount * 100) : 0;
-
-                                                          if (!isDoctorDiscount && !isAgentDiscount && !isMembershipDiscount && totalPercent <= 0) {
-                                                            return <div className="text-xs text-gray-400">—</div>;
-                                                          }
-
-                                                          return (
-                                                            <div className="flex flex-col items-center gap-1">
-                                                              {totalPercent > 0 && (
-                                                                <div className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-200 shadow-sm">
-                                                                  {Number(totalPercent).toFixed(1)}% OFF
-                                                                </div>
-                                                              )}
-                                                              <div className="flex flex-wrap justify-center gap-1 mt-0.5">
-                                                                {isMembershipDiscount && (
-                                                                  <div className="text-[7px] uppercase tracking-wider text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded font-bold border border-emerald-100">
-                                                                    Memb {membershipPercent > 0 ? `(${membershipPercent.toFixed(0)}%)` : 'Disc.'}
-                                                                  </div>
-                                                                )}
-                                                                {isDoctorDiscount && (
-                                                                  <div className="text-[7px] uppercase tracking-wider text-orange-600 bg-orange-50 px-1 py-0.5 rounded font-bold border border-orange-100">
-                                                                    Dr Disc.
-                                                                  </div>
-                                                                )}
-                                                                {isAgentDiscount && (
-                                                                  <div className="text-[7px] uppercase tracking-wider text-blue-600 bg-blue-50 px-1 py-0.5 rounded font-bold border border-blue-100">
-                                                                    Ag Disc.
-                                                                  </div>
-                                                                )}
-                                                              </div>
-                                                            </div>
-                                                          );
-                                                        })()}
-                                                      </td>
-                                                      <td className="py-2.5 px-2.5 text-right">
-                                                        <span className="font-medium text-gray-600">{getCurrencySymbol(currency)}{(detail.originalAmount || detail.amount || 0).toLocaleString()}</span>
-                                                      </td>
-                                                      <td className="py-2.5 px-2.5 text-right">
-                                                        {detail.amount !== undefined && detail.amount !== null ? (
-                                                          <span className="font-semibold text-gray-800">{getCurrencySymbol(currency)}{Number(detail.amount).toLocaleString()}</span>
-                                                        ) : (
-                                                          <span className="text-gray-400">-</span>
-                                                        )}
-                                                      </td>
-                                                      <td className="py-2.5 px-2.5 text-right">
+                                                      <td className="py-1.5 px-1.5 text-right">
                                                         {detail.paid !== undefined && detail.paid !== null ? (
                                                           <span className="font-bold text-green-600">{getCurrencySymbol(currency)}{Number(detail.paid).toLocaleString()}</span>
                                                         ) : (
@@ -5149,16 +5531,6 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                                 </tbody>
                                               </table>
                                             </div>
-                                            {pkg.isTransferred && treatment.usageDetails.some((d: any) => d.isFromSourcePatient) && (
-                                              <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
-                                                <div className="flex items-center gap-1.5">
-                                                  <CheckCircle className="w-3 h-3 text-green-600" />
-                                                  <span className="text-[9px] font-medium text-green-800">
-                                                    From transferred package (Source: {pkg.transferredFromName || 'Unknown Patient'})
-                                                  </span>
-                                                </div>
-                                              </div>
-                                            )}
                                           </div>
                                         )}
                                       </div>
@@ -5170,12 +5542,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                            
                             {/* Transfer Information */}
                             {pkg.isTransferred && (
-                              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-3 mt-3">
-                                <div className="flex items-center gap-1.5 mb-2">
-                                  <CheckCircle className="w-3.5 h-3.5 text-green-600" />
-                                  <h5 className="text-xs font-bold text-green-800">Transferred Package</h5>
+                              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-2 mt-2">
+                                <div className="flex items-center gap-1 mb-1">
+                                  <CheckCircle className="w-3 h-3 text-green-600" />
+                                  <h5 className="text-[9px] font-bold text-green-800">Transferred Package</h5>
                                 </div>
-                                <div className="space-y-1.5 text-[10px]">
+                                <div className="space-y-1 text-[9px]">
                                   {pkg.transferredPackageName && (
                                     <div className="flex justify-between items-center">
                                       <span className="text-gray-700">Package Name:</span>
@@ -5186,49 +5558,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     <span className="text-gray-700">Transferred From:</span>
                                     <span className="font-semibold text-green-900">{pkg.transferredFromName || 'Unknown Patient'}</span>
                                   </div>
-
-                                  {/* Payment Info in Transfer Section */}
-                                  {(pkg.paymentStatus || pkg.paidAmount > 0 || pkg.paymentMethod) && (
-                                    <div className="flex flex-wrap gap-2 pt-1.5 border-t border-green-200 mt-1.5">
-                                      {/* {pkg.paymentStatus && (
-                                        <div className="flex items-center gap-1 bg-white/60 px-2 py-0.5 rounded border border-green-100">
-                                          <span className="text-gray-600">Status:</span>
-                                           <span className={`font-bold ${pkg.paymentStatus === 'Full' ? 'text-green-700' : 'text-amber-700'}`}>
-                                             {pkg.paymentStatus === 'Full' ? 'Full Paid' : `Partial (د.إ${pkg.paidAmount})`}
-                                           </span>
-                                         </div>
-                                      )} */}
-                                      {pkg.paymentMethod && (
-                                        <div className="flex items-center gap-1 bg-white/60 px-2 py-0.5 rounded border border-green-100">
-                                          <Wallet className="w-2.5 h-2.5 text-green-600" />
-                                          <span className="font-bold text-green-800">{pkg.paymentMethod}</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  {pkg.totalAllowedSessions && (
-                                    <div className="flex justify-between items-center pt-1.5 border-t border-green-200">
-                                      <span className="text-gray-700">Total Allowed Sessions:</span>
-                                      <span className="font-bold text-green-900">{pkg.totalAllowedSessions}</span>
-                                    </div>
-                                  )}
-                                  {typeof pkg.remainingSessions === 'number' && (
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-gray-700">Remaining Sessions:</span>
-                                      <span className="font-bold text-green-900">{pkg.remainingSessions}</span>
-                                    </div>
-                                  )}
                                 </div>
                               </div>
                             )}
-                          </div>
-
-                          {/* Footer with Expiry and Action Button */}
-                          <div className="px-5 py-4 bg-gray-50 border-t border-gray-200">
-                            <div className="flex items-center justify-between">
-                             
-                            </div>
                           </div>
                         </div>
                       );
@@ -5572,6 +5904,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     <Activity className="w-2 h-2" /> Partial ({getCurrencySymbol(currency)}{pkg.paidAmount})
                                   </span>
                                 )}
+                                {pkg.paymentStatus === 'Unpaid' && (
+                                  <span className="px-2 py-0.5 rounded-lg bg-red-100 text-red-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
+                                    <XCircle className="w-2.5 h-2.5" />
+                                    Unpaid
+                                  </span>
+                                )}
                                 {pkg.paymentMethod && (
                                   <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold uppercase text-[8px] border border-indigo-100 flex items-center gap-1 shadow-sm">
                                     <Wallet className="w-2 h-2" /> {pkg.paymentMethod}
@@ -5648,6 +5986,31 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                 <span className="px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[8px] font-bold uppercase tracking-wider">
                                   Out
                                 </span>
+                                {/* Payment Status & Method Tags for Transferred Out Packages */}
+                                {pkg.paymentStatus === 'Full' && (
+                                  <span className="px-2 py-0.5 rounded-lg bg-green-100 text-green-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
+                                    <CheckCircle className="w-2.5 h-2.5" />
+                                    Full Paid
+                                  </span>
+                                )}
+                                {pkg.paymentStatus === 'Partial' && (
+                                  <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
+                                    <Activity className="w-2.5 h-2.5" />
+                                    Partial ({getCurrencySymbol(currency)}{pkg.paidAmount})
+                                  </span>
+                                )}
+                                {pkg.paymentStatus === 'Unpaid' && (
+                                  <span className="px-2 py-0.5 rounded-lg bg-red-100 text-red-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
+                                    <XCircle className="w-2.5 h-2.5" />
+                                    Unpaid
+                                  </span>
+                                )}
+                                {pkg.paymentMethod && (
+                                  <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 font-bold uppercase text-[9px] border border-indigo-100 flex items-center gap-1 shadow-sm">
+                                    <Wallet className="w-2.5 h-2.5" />
+                                    {pkg.paymentMethod}
+                                  </span>
+                                )}
                               </div>
                               <p className="text-[10px] text-amber-700 mb-2">
                                 Transferred to another patient.
@@ -5703,6 +6066,31 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                 <span className="px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[8px] font-bold uppercase tracking-wider">
                                   Out
                                 </span>
+                                {/* Payment Status & Method Tags for Transferred Out Memberships */}
+                                {membership.paymentStatus === 'Full' && (
+                                  <span className="px-2 py-0.5 rounded-lg bg-green-100 text-green-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
+                                    <CheckCircle className="w-2.5 h-2.5" />
+                                    Full Paid
+                                  </span>
+                                )}
+                                {membership.paymentStatus === 'Partial' && (
+                                  <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
+                                    <Activity className="w-2.5 h-2.5" />
+                                    Partial ({getCurrencySymbol(currency)}{membership.paidAmount})
+                                  </span>
+                                )}
+                                {membership.paymentStatus === 'Unpaid' && (
+                                  <span className="px-2 py-0.5 rounded-lg bg-red-100 text-red-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
+                                    <XCircle className="w-2.5 h-2.5" />
+                                    Unpaid
+                                  </span>
+                                )}
+                                {membership.paymentMethod && (
+                                  <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 font-bold uppercase text-[9px] border border-indigo-100 flex items-center gap-1 shadow-sm">
+                                    <Wallet className="w-2.5 h-2.5" />
+                                    {membership.paymentMethod}
+                                  </span>
+                                )}
                               </div>
                               <p className="text-[10px] text-amber-700 mb-2">
                                 Transferred to another patient.
@@ -5768,6 +6156,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                 {membership.paymentStatus === 'Partial' && (
                                   <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-bold uppercase text-[8px] border border-amber-200 shadow-sm flex items-center gap-1">
                                     <Activity className="w-2.5 h-2.5" /> Partial ({getCurrencySymbol(currency)}{membership.paidAmount})
+                                  </span>
+                                )}
+                                {membership.paymentStatus === 'Unpaid' && (
+                                  <span className="px-2 py-0.5 rounded-lg bg-red-100 text-red-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
+                                    <XCircle className="w-2.5 h-2.5" />
+                                    Unpaid
                                   </span>
                                 )}
                                 {membership.paymentMethod && (
@@ -5983,6 +6377,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   <th className="px-3 py-3 text-center text-[10px] font-bold text-gray-600 uppercase tracking-wider">Qty</th>
                                   <th className="px-3 py-3 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">Method</th>
                                   <th className="px-3 py-3 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">Refund</th>
+                                  <th className="px-3 py-3 text-center text-[10px] font-bold text-gray-600 uppercase tracking-wider">View</th>
                                 </tr>
                               </thead>
                               <tbody className="bg-white divide-y divide-gray-100">
@@ -6061,7 +6456,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                         </td>
                                         {/* Treatment / Package */}
                                         <td className="px-3 py-3">
-                                          <div className="text-xs text-gray-700 max-w-[150px] truncate" title={billing.package || billing.treatment}>
+                                          <div className="text-xs text-gray-700 max-w-[150px]" title={billing.package || billing.treatment}>
                                             {billing.package ? (
                                               <div className="flex flex-col">
                                                 <span className="font-semibold text-indigo-700 flex items-center gap-1">
@@ -6076,6 +6471,19 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                               </div>
                                             ) : (
                                               billing.treatment || '-'
+                                            )}
+                                            {/* Show unpaid packages that were paid in this billing */}
+                                            {billing.unpaidPackagesPaid && billing.unpaidPackagesPaid.length > 0 && (
+                                              <div className="mt-1 space-y-0.5">
+                                                {billing.unpaidPackagesPaid.map((pkg: any, idx: number) => (
+                                                  <div key={idx} className="text-[9px] text-blue-700 flex items-center gap-1 bg-blue-50 px-1.5 py-0.5 rounded">
+                                                    <Check className="w-2.5 h-2.5 text-blue-600" strokeWidth={3} />
+                                                    <span className="truncate">
+                                                      Pkg: {pkg.packageName || 'Package'} ({getCurrencySymbol(currency)}{pkg.amount?.toFixed(2)})
+                                                    </span>
+                                                  </div>
+                                                ))}
+                                              </div>
                                             )}
                                           </div>
                                         </td>
@@ -6317,6 +6725,19 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                             <span className="text-xs text-gray-400">—</span>
                                           )}
                                         </td>
+                                        {/* View Button */}
+                                        <td className="px-3 py-3 text-center">
+                                          <button
+                                            onClick={() => {
+                                              setSelectedPaymentHistoryBilling(billing);
+                                              setShowPaymentHistoryModal(true);
+                                            }}
+                                            className="inline-flex items-center justify-center px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white text-[10px] font-bold shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                                          >
+                                            <Eye className="w-3 h-3 mr-1" />
+                                            View
+                                          </button>
+                                        </td>
                                       </tr>
                                     );
                                   })}
@@ -6371,11 +6792,24 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                           <div className="text-[9px] text-gray-400">{billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}</div>
                                         </td>
                                         <td className="px-3 py-3">
-                                          <div className="text-xs text-gray-700 max-w-[120px] truncate" title={billing.treatment || billing.package}>
+                                          <div className="text-xs text-gray-700 max-w-[120px]" title={billing.treatment || billing.package}>
                                             {billing.package ? (
                                               <span className="font-semibold text-indigo-700">{billing.package}</span>
                                             ) : (billing.treatment || '-')}
                                           </div>
+                                          {/* Show unpaid packages that were paid in this billing */}
+                                          {billing.unpaidPackagesPaid && billing.unpaidPackagesPaid.length > 0 && (
+                                            <div className="mt-1 space-y-0.5">
+                                              {billing.unpaidPackagesPaid.map((pkg: any, idx: number) => (
+                                                <div key={idx} className="text-[9px] text-blue-700 flex items-center gap-1 bg-blue-50 px-1.5 py-0.5 rounded">
+                                                  <Check className="w-2.5 h-2.5 text-blue-600" strokeWidth={3} />
+                                                  <span className="truncate">
+                                                    Pkg: {pkg.packageName || 'Package'} ({getCurrencySymbol(currency)}{pkg.amount?.toFixed(2)})
+                                                  </span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
                                           {isBundleOffer && earnedFreeSessionNames.length > 0 && (
                                             <div className="text-[8px] text-pink-600 truncate mt-0.5" title={earnedFreeSessionNames.join(', ')}>
                                               Free: {earnedFreeSessionNames.slice(0, 1).join(', ')}{earnedFreeSessionNames.length > 1 ? '...' : ''}
@@ -6479,7 +6913,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                         </div>
                                       </div>
                                       
-                                      {/* Treatment */}
+                                      {/* Treatment / Package */}
                                       <div className="mb-3">
                                         <div className="text-xs text-gray-700">
                                           {billing.package ? (
@@ -6490,6 +6924,19 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                         </div>
                                         {billing.treatment && billing.package && (
                                           <div className="text-[10px] text-gray-500 truncate">{billing.treatment}</div>
+                                        )}
+                                        {/* Show unpaid packages that were paid in this billing */}
+                                        {billing.unpaidPackagesPaid && billing.unpaidPackagesPaid.length > 0 && (
+                                          <div className="mt-1 space-y-0.5">
+                                            {billing.unpaidPackagesPaid.map((pkg: any, idx: number) => (
+                                              <div key={idx} className="text-[9px] text-blue-700 flex items-center gap-1 bg-blue-50 px-1.5 py-0.5 rounded">
+                                                <Check className="w-2.5 h-2.5 text-blue-600" strokeWidth={3} />
+                                                <span className="truncate">
+                                                  Pkg: {pkg.packageName || 'Package'} ({getCurrencySymbol(currency)}{pkg.amount?.toFixed(2)})
+                                                </span>
+                                              </div>
+                                            ))}
+                                          </div>
                                         )}
                                       </div>
                                       
@@ -8296,29 +8743,17 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     const invoiceNumber = billing.invoiceNumber || billing.invoiceNo || billing._id?.slice(-8).toUpperCase() || '';
                     const billingDate = billing.createdAt ? new Date(billing.createdAt).getTime() : 0;
                    
-                    // Calculate pending amount based on original amount
-                    // const pendingAmount = originalAmount - paid;
-                   
-                    // Check if this invoice's pending was cleared by a newer invoice
-                    // Look for any newer invoice that has pendingUsed > 0
-                    const hasNewerInvoiceWithPendingUsed = (billingHistory || []).some((otherBilling: any) => {
-                      const otherDate = otherBilling.createdAt ? new Date(otherBilling.createdAt).getTime() : 0;
-                      const otherPendingUsed = parseFloat(otherBilling.pendingUsed || 0) || 0;
-                      // Check if this is a newer invoice (created after current billing) with pendingUsed > 0
-                      return otherDate > billingDate && otherPendingUsed > 0;
-                    });
-                   
-                    // Check if pending was cleared separately (pendingUsed > 0 means THIS invoice cleared previous pending)
-                    const pendingClearedSeparately = pendingUsed > 0;
-                   
-                    // Check if fully paid based on ACTUAL pending field from backend
-                    // If billing.pending = 0, it's completed. If billing.pending > 0, it's pending.
-                    // Use billing.pending field as the authoritative source
-                    const hasPendingAmount = pending > 0;
+                    // CRITICAL FIX: Use pending field directly from backend
+                    // The pending field is already calculated by the pre-save hook as: pending = amount - paid
+                    // pendingUsed is for tracking when THIS invoice cleared a PREVIOUS invoice's pending
+                    // It should NOT be subtracted from this invoice's own pending amount
+                    let remainingPending = pending;
+                    
+                    // Check if fully paid based on pending field directly
+                    const hasPendingAmount = remainingPending > 0;
                     const isFullyPaid = !hasPendingAmount;
                     
-                    // Status based on ACTUAL pending field from billing model
-                    // If billing.pending > 0 -> pending, otherwise -> completed
+                    // Status based on remaining pending amount
                     const treatmentStatus = hasPendingAmount ? 'pending' : 'completed';
                    
                     // Debug logging for invoice status calculation
@@ -8330,15 +8765,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                       paid,
                       pending,
                       pendingUsed,
+                      remainingPending,
                       billingDate: new Date(billingDate).toLocaleString(),
-                      hasNewerInvoiceWithPendingUsed,
                       hasPendingAmount,
-                      pendingClearedSeparately,
                       isFullyPaid,
                       reason: manuallyPaidInvoices.has(invoiceNumber) ? 'manuallyPaidInvoices' :
-                              (hasPendingAmount && hasNewerInvoiceWithPendingUsed) ? 'PENDING_CLEARED_BY_NEWER_INVOICE' :
                               hasPendingAmount ? 'HAS_PENDING_FROM_BACKEND' :
-                              pendingClearedSeparately ? 'pendingClearedSeparately' :
                               paid >= amount ? 'paid_equals_or_exceeds_amount' : 'NOT_FULLY_PAID'
                     });
                    
@@ -8365,7 +8797,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                       treatmentStatus,
                       amount,
                       paid,
-                      pendingAmount: pending,
+                      pendingAmount: remainingPending, // Use remaining pending after pendingUsed deduction
                       isFullyPaid,
                       invoiceNumber,
                       hasInvoice: true
@@ -8742,6 +9174,26 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-100">
                                       <span className="text-gray-500">Pending:</span>
                                       <span className="font-bold text-red-600">{getCurrencySymbol(currency)} {pendingAmount.toFixed(2)}</span>
+                                    </div>
+                                  )}
+                                  {/* Pay Button for Pending Treatments */}
+                                  {isPending && hasPendingAmount && (
+                                    <div className="pt-2 border-t border-gray-100">
+                                      <button
+                                        onClick={() => {
+                                          setSelectedInvoiceForPayment(item);
+                                          setInvoicePayAmount(pendingAmount.toFixed(2));
+                                          setInvoicePayMethod("Cash");
+                                          setInvoiceUseAdvanceBalance(false);
+                                          setInvoiceAdvanceUsed(0);
+                                          setInvoiceAvailableBalance({ advanceBalance: balance?.advanceBalance || 0 });
+                                          setShowInvoicePayModal(true);
+                                        }}
+                                        className="w-full px-3 py-2 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white text-xs font-bold rounded-lg transition-all shadow-sm flex items-center justify-center gap-1.5"
+                                      >
+                                        <DollarSign className="w-3.5 h-3.5" />
+                                        Pay Pending
+                                      </button>
                                     </div>
                                   )}
                                 </div>
@@ -9706,6 +10158,438 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           }}
         />
 
+        {/* Payment History Modal */}
+        {showPaymentHistoryModal && selectedPaymentHistoryBilling && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-md" onClick={() => setShowPaymentHistoryModal(false)} />
+            <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-white">Payment History</h3>
+                  <p className="text-xs text-indigo-200">{selectedPaymentHistoryBilling.invoiceNumber || 'Invoice Details'}</p>
+                </div>
+                <button
+                  onClick={() => setShowPaymentHistoryModal(false)}
+                  className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              </div>
+
+              {/* Invoice Summary Card */}
+              <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-slate-50 border-b border-gray-200">
+                {/* <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center">
+                    <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Total Amount</p>
+                    <p className="text-lg font-bold text-gray-900">{getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.amount || 0).toLocaleString()}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Paid</p>
+                    <p className="text-lg font-bold text-green-600">{getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.paid || 0).toLocaleString()}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Pending</p>
+                    <p className="text-lg font-bold text-red-600">{getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.pending || 0).toLocaleString()}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Payment Status</p>
+                    <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold ${
+                      selectedPaymentHistoryBilling.pending === 0 
+                        ? 'bg-green-100 text-green-700' 
+                        : selectedPaymentHistoryBilling.paid > 0 
+                          ? 'bg-amber-100 text-amber-700' 
+                          : 'bg-red-100 text-red-700'
+                    }`}>
+                      {selectedPaymentHistoryBilling.pending === 0 ? 'Completed' : selectedPaymentHistoryBilling.paid > 0 ? 'Partial' : 'Unpaid'}
+                    </span>
+                  </div>
+                </div> */}
+
+                {/* Invoice Details */}
+                <div className="mt-4 grid grid-cols-3 gap-4 text-xs">
+                  <div>
+                    <p className="text-[10px] text-gray-500 uppercase">Service</p>
+                    <p className="font-semibold text-gray-700">{selectedPaymentHistoryBilling.service || 'Treatment'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-gray-500 uppercase">Invoiced Date</p>
+                    <p className="font-semibold text-gray-700">
+                      {selectedPaymentHistoryBilling.invoicedDate 
+                        ? new Date(selectedPaymentHistoryBilling.invoicedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) 
+                        : 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-gray-500 uppercase">Invoiced By</p>
+                    <p className="font-semibold text-gray-700">{selectedPaymentHistoryBilling.invoicedBy || 'N/A'}</p>
+                  </div>
+                </div>
+
+                {/* Package/Treatment Info */}
+                {(selectedPaymentHistoryBilling.package || selectedPaymentHistoryBilling.treatment) && (
+                  <div className="mt-3 p-3 bg-white rounded-lg border border-gray-200">
+                    <p className="text-[10px] text-gray-500 uppercase mb-1">{selectedPaymentHistoryBilling.service === 'Package' ? 'Package' : 'Treatment'}</p>
+                    <p className="text-sm font-bold text-indigo-700">{selectedPaymentHistoryBilling.package || selectedPaymentHistoryBilling.treatment}</p>
+                    {selectedPaymentHistoryBilling.selectedPackageTreatments && selectedPaymentHistoryBilling.selectedPackageTreatments.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {selectedPaymentHistoryBilling.selectedPackageTreatments.map((treatment: any, idx: number) => (
+                          <span key={idx} className="inline-block px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[9px] rounded-full">
+                            {treatment.treatmentName}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Discount & Offer Info */}
+                {(selectedPaymentHistoryBilling.discountPercent > 0 || selectedPaymentHistoryBilling.membershipDiscountApplied > 0 || selectedPaymentHistoryBilling.doctorDiscountAmount > 0 || selectedPaymentHistoryBilling.agentDiscountAmount > 0) && (
+                  <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {selectedPaymentHistoryBilling.discountPercent > 0 && (
+                      <div className="p-2 bg-amber-50 rounded-lg">
+                        <p className="text-[9px] text-amber-600 uppercase font-bold">Offer Discount</p>
+                        <p className="text-sm font-bold text-amber-700">{selectedPaymentHistoryBilling.discountPercent}%</p>
+                      </div>
+                    )}
+                    {selectedPaymentHistoryBilling.membershipDiscountApplied > 0 && (
+                      <div className="p-2 bg-blue-50 rounded-lg">
+                        <p className="text-[9px] text-blue-600 uppercase font-bold">Membership</p>
+                        <p className="text-sm font-bold text-blue-700">{getCurrencySymbol(currency)}{selectedPaymentHistoryBilling.membershipDiscountApplied}</p>
+                      </div>
+                    )}
+                    {selectedPaymentHistoryBilling.doctorDiscountAmount > 0 && (
+                      <div className="p-2 bg-purple-50 rounded-lg">
+                        <p className="text-[9px] text-purple-600 uppercase font-bold">Doctor Disc.</p>
+                        <p className="text-sm font-bold text-purple-700">{getCurrencySymbol(currency)}{selectedPaymentHistoryBilling.doctorDiscountAmount}</p>
+                      </div>
+                    )}
+                    {selectedPaymentHistoryBilling.agentDiscountAmount > 0 && (
+                      <div className="p-2 bg-teal-50 rounded-lg">
+                        <p className="text-[9px] text-teal-600 uppercase font-bold">Agent Disc.</p>
+                        <p className="text-sm font-bold text-teal-700">{getCurrencySymbol(currency)}{selectedPaymentHistoryBilling.agentDiscountAmount}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Cashback Info */}
+                {selectedPaymentHistoryBilling.cashbackEarned > 0 && (
+                  <div className="mt-3 flex items-center gap-2 p-2 bg-emerald-50 rounded-lg">
+                    <div className="p-1.5 bg-emerald-100 rounded-full">
+                      <Wallet className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-emerald-600 uppercase font-bold">Cashback Earned</p>
+                      <p className="text-sm font-bold text-emerald-700">{getCurrencySymbol(currency)}{selectedPaymentHistoryBilling.cashbackEarned}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Payment Details Section */}
+              <div className="px-6 py-4 overflow-y-auto max-h-[calc(90vh-300px)]">
+                {/* All Payments from multiplePayments array */}
+                {selectedPaymentHistoryBilling.multiplePayments && selectedPaymentHistoryBilling.multiplePayments.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                      <div className="p-1.5 bg-indigo-100 rounded-full">
+                        <CreditCard className="w-4 h-4 text-indigo-600" />
+                      </div>
+                      All Payments ({selectedPaymentHistoryBilling.multiplePayments.length})
+                    </h4>
+                    <div className="space-y-3">
+                      {selectedPaymentHistoryBilling.multiplePayments.map((payment: any, idx: number) => (
+                        <div key={idx} className="relative">
+                          {/* Payment Card */}
+                          <div className={`p-4 rounded-xl border-2 ${
+                            payment.transactionType === 'ADVANCE_USAGE' 
+                              ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200' 
+                              : payment.transactionType === 'CLAIM_USAGE'
+                                ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
+                                : payment.transactionType === 'PENDING_CLEARANCE'
+                                  ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
+                                  : 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200'
+                          }`}>
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-center gap-3">
+                                {/* Payment Method Icon */}
+                                <div className={`p-2.5 rounded-xl ${
+                                  payment.paymentMethod === 'Cash' ? 'bg-green-100' :
+                                  payment.paymentMethod === 'Card' ? 'bg-blue-100' :
+                                  payment.paymentMethod === 'Advance Balance' ? 'bg-amber-100' :
+                                  payment.paymentMethod === 'Insurance' || payment.paymentMethod === 'Claim' ? 'bg-purple-100' :
+                                  'bg-gray-100'
+                                }`}>
+                                  {payment.paymentMethod === 'Cash' && <span className="text-lg">💵</span>}
+                                  {payment.paymentMethod === 'Card' && <span className="text-lg">💳</span>}
+                                  {payment.paymentMethod === 'Advance Balance' && <Wallet className="w-5 h-5 text-amber-600" />}
+                                  {(payment.paymentMethod === 'Insurance' || payment.paymentMethod === 'Claim') && <span className="text-lg">🏥</span>}
+                                  {!['Cash', 'Card', 'Advance Balance', 'Insurance', 'Claim'].includes(payment.paymentMethod) && <CreditCard className="w-5 h-5 text-gray-600" />}
+                                </div>
+                                <div>
+                                  <p className="text-sm font-bold text-gray-800">{payment.paymentMethod}</p>
+                                  <p className="text-[10px] text-gray-500">
+                                    {payment.paidAt ? new Date(payment.paidAt).toLocaleString('en-US', { 
+                                      month: 'short', day: 'numeric', year: 'numeric', 
+                                      hour: '2-digit', minute: '2-digit' 
+                                    }) : 'N/A'}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xl font-bold text-gray-900">{getCurrencySymbol(currency)}{Number(payment.amount || 0).toLocaleString()}</p>
+                                <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                  payment.transactionType === 'ADVANCE_USAGE' ? 'bg-amber-100 text-amber-700' :
+                                  payment.transactionType === 'CLAIM_USAGE' ? 'bg-blue-100 text-blue-700' :
+                                  payment.transactionType === 'PENDING_CLEARANCE' ? 'bg-green-100 text-green-700' :
+                                  'bg-gray-100 text-gray-600'
+                                }`}>
+                                  {payment.transactionType === 'ADVANCE_USAGE' ? 'Advance' :
+                                   payment.transactionType === 'CLAIM_USAGE' ? 'Claim' :
+                                   payment.transactionType === 'PENDING_CLEARANCE' ? 'Pending Clear' :
+                                   'Payment'}
+                                </span>
+                              </div>
+                            </div>
+                            {/* Transaction Details */}
+                            <div className="mt-3 pt-3 border-t border-gray-200/50 grid grid-cols-3 gap-2">
+                              <div>
+                                <p className="text-[9px] text-gray-400 uppercase">Transaction Type</p>
+                                <p className="text-xs font-semibold text-gray-600">{payment.transactionType || 'PAYMENT'}</p>
+                              </div>
+                              <div>
+                                <p className="text-[9px] text-gray-400 uppercase">Paid By</p>
+                                <p className="text-xs font-semibold text-gray-600">{payment.paidByName || 'N/A'}</p>
+                              </div>
+                              <div>
+                                <p className="text-[9px] text-gray-400 uppercase">Method Index</p>
+                                <p className="text-xs font-semibold text-gray-600">#{idx + 1}</p>
+                              </div>
+                            </div>
+                          </div>
+                          {/* Timeline connector */}
+                          {idx < selectedPaymentHistoryBilling.multiplePayments.length - 1 && (
+                            <div className="absolute left-1/2 -bottom-3 w-0.5 h-3 bg-gray-300"></div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Payment History from billing records */}
+                {selectedPaymentHistoryBilling.paymentHistory && selectedPaymentHistoryBilling.paymentHistory.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                      <div className="p-1.5 bg-purple-100 rounded-full">
+                        <ClipboardList className="w-4 h-4 text-purple-600" />
+                      </div>
+                      Payment History Timeline ({selectedPaymentHistoryBilling.paymentHistory.length})
+                    </h4>
+                    <div className="relative pl-6 space-y-4 border-l-2 border-purple-200">
+                      {selectedPaymentHistoryBilling.paymentHistory.map((history: any, hIdx: number) => (
+                        <div key={hIdx} className="relative">
+                          {/* Timeline dot */}
+                          <div className={`absolute -left-[25px] w-4 h-4 rounded-full border-2 ${
+                            history.status === 'Completed' ? 'bg-green-500 border-green-500' :
+                            history.status === 'Active' ? 'bg-amber-500 border-amber-500' :
+                            'bg-gray-400 border-gray-400'
+                          }`}>
+                            {history.status === 'Completed' && (
+                              <Check className="w-3 h-3 text-white absolute top-0.5 left-0.5" />
+                            )}
+                          </div>
+                          
+                          {/* History Card */}
+                          <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100">
+                            <div className="flex items-center justify-between mb-3">
+                              <div>
+                                <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                                  history.transactionType === 'PENDING_CLEARANCE' ? 'bg-green-100 text-green-700' :
+                                  history.transactionType === 'PARTIAL_PAYMENT' ? 'bg-amber-100 text-amber-700' :
+                                  'bg-gray-100 text-gray-600'
+                                }`}>
+                                  {history.transactionType === 'PENDING_CLEARANCE' ? '✓ Completed' :
+                                   history.transactionType === 'PARTIAL_PAYMENT' ? '⏳ Partial' :
+                                   history.transactionType || 'Payment'}
+                                </span>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-lg font-bold text-gray-900">{getCurrencySymbol(currency)}{Number(history.amountPaid || history.paid || 0).toLocaleString()}</p>
+                                <p className="text-[9px] text-gray-400">
+                                  {history.updatedAt ? new Date(history.updatedAt).toLocaleString('en-US', {
+                                    month: 'short', day: 'numeric', year: 'numeric',
+                                    hour: '2-digit', minute: '2-digit'
+                                  }) : 'N/A'}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Payment Summary */}
+                            <div className="grid grid-cols-4 gap-2 mb-3">
+                              <div className="bg-white/50 rounded-lg p-2 text-center">
+                                <p className="text-[9px] text-gray-400 uppercase">Total</p>
+                                <p className="text-xs font-bold text-gray-700">{getCurrencySymbol(currency)}{Number(history.amount || 0).toLocaleString()}</p>
+                              </div>
+                              {/* <div className="bg-white/50 rounded-lg p-2 text-center">
+                                <p className="text-[9px] text-gray-400 uppercase">Paid</p>
+                                <p className="text-xs font-bold text-green-600">{getCurrencySymbol(currency)}{Number(history.paid || 0).toLocaleString()}</p>
+                              </div>
+                              <div className="bg-white/50 rounded-lg p-2 text-center">
+                                <p className="text-[9px] text-gray-400 uppercase">Pending</p>
+                                <p className="text-xs font-bold text-red-600">{getCurrencySymbol(currency)}{Number(history.pending || 0).toLocaleString()}</p>
+                              </div>
+                              <div className="bg-white/50 rounded-lg p-2 text-center">
+                                <p className="text-[9px] text-gray-400 uppercase">Remaining</p>
+                                <p className="text-xs font-bold text-amber-600">{getCurrencySymbol(currency)}{Number(history.remainingPending || 0).toLocaleString()}</p>
+                              </div> */}
+                            </div>
+
+                            {/* Payment Methods in this history */}
+                            {history.multiplePayments && history.multiplePayments.length > 0 && (
+                              <div className="mt-3 pt-3 border-t border-purple-100">
+                                <p className="text-[10px] text-purple-600 font-bold mb-2">Payment Breakdown:</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {history.multiplePayments.map((mp: any, mpIdx: number) => (
+                                    <div key={mpIdx} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs ${
+                                      mp.transactionType === 'ADVANCE_USAGE' ? 'bg-amber-100 text-amber-700' :
+                                      mp.transactionType === 'CLAIM_USAGE' ? 'bg-blue-100 text-blue-700' :
+                                      'bg-green-100 text-green-700'
+                                    }`}>
+                                      {mp.paymentMethod}
+                                      <span className="font-bold">{getCurrencySymbol(currency)}{Number(mp.amount || 0).toLocaleString()}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                                {history.advanceAmountUsed > 0 && (
+                                  <div className="mt-2 flex items-center gap-1 text-[9px] text-amber-600">
+                                    <Wallet className="w-3 h-3" />
+                                    <span>Advance Used: {getCurrencySymbol(currency)}{history.advanceAmountUsed}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Paid By Info */}
+                            <div className="mt-3 pt-3 border-t border-purple-100/50 flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-purple-200 flex items-center justify-center">
+                                  <span className="text-[10px] font-bold text-purple-700">
+                                    {(history.paidByName || 'U').charAt(0).toUpperCase()}
+                                  </span>
+                                </div>
+                                <span className="text-xs text-gray-600">{history.paidByName || 'Unknown'}</span>
+                              </div>
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                history.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                              }`}>
+                                {history.status || 'Active'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Additional Billing Info */}
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h4 className="text-sm font-bold text-gray-800 mb-3">Additional Information</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-[10px] text-gray-500 uppercase mb-1">Advance Balance Used</p>
+                      <p className="text-sm font-bold text-gray-700">{getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.advanceUsed || 0).toLocaleString()}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-[10px] text-gray-500 uppercase mb-1">Claim Amount Used</p>
+                      <p className="text-sm font-bold text-gray-700">{getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.claimAmountUsed || 0).toLocaleString()}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-[10px] text-gray-500 uppercase mb-1">Pending Used</p>
+                      <p className="text-sm font-bold text-gray-700">{getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.pendingUsed || 0).toLocaleString()}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-[10px] text-gray-500 uppercase mb-1">Cashback Wallet Used</p>
+                      <p className="text-sm font-bold text-gray-700">{getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.cashbackWalletUsed || 0).toLocaleString()}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Notes */}
+                  {selectedPaymentHistoryBilling.notes && (
+                    <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-100">
+                      <p className="text-[10px] text-amber-600 uppercase font-bold mb-1">Notes</p>
+                      <p className="text-sm text-gray-700">{selectedPaymentHistoryBilling.notes}</p>
+                    </div>
+                  )}
+
+                  {/* Offer Applied */}
+                  {selectedPaymentHistoryBilling.offerApplied && (
+                    <div className="mt-3 p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+                      <p className="text-[10px] text-indigo-600 uppercase font-bold mb-1">Offer Applied</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-indigo-700">{selectedPaymentHistoryBilling.offerName || selectedPaymentHistoryBilling.offerType || 'Special Offer'}</span>
+                        {selectedPaymentHistoryBilling.offerDiscountAmount > 0 && (
+                          <span className="text-xs text-indigo-600">({getCurrencySymbol(currency)}{selectedPaymentHistoryBilling.offerDiscountAmount} off)</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bundle Sessions */}
+                  {selectedPaymentHistoryBilling.bundleSessionsAdded > 0 && (
+                    <div className="mt-3 p-3 bg-teal-50 rounded-lg border border-teal-100">
+                      <p className="text-[10px] text-teal-600 uppercase font-bold mb-1">Bundle Sessions Added</p>
+                      <p className="text-lg font-bold text-teal-700">{selectedPaymentHistoryBilling.bundleSessionsAdded} Free Sessions</p>
+                    </div>
+                  )}
+
+                  {/* Refund Info */}
+                  {selectedPaymentHistoryBilling.isOfferRefunded && (
+                    <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <XCircle className="w-4 h-4 text-red-600" />
+                        <span className="text-sm font-bold text-red-700">Offer Refunded</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <p className="text-[9px] text-red-400">Refunded Amount</p>
+                          <p className="font-bold text-red-700">{getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.refundedAmount || 0).toLocaleString()}</p>
+                        </div>
+                        {selectedPaymentHistoryBilling.refundedAt && (
+                          <div>
+                            <p className="text-[9px] text-red-400">Refunded Date</p>
+                            <p className="font-bold text-red-700">
+                              {new Date(selectedPaymentHistoryBilling.refundedAt).toLocaleDateString('en-US', {
+                                month: 'short', day: 'numeric', year: 'numeric'
+                              })}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                <div className="text-xs text-gray-500">
+                  <p>Invoice: {selectedPaymentHistoryBilling.invoiceNumber}</p>
+                  <p>Created: {selectedPaymentHistoryBilling.createdAt ? new Date(selectedPaymentHistoryBilling.createdAt).toLocaleString() : 'N/A'}</p>
+                </div>
+                <button
+                  onClick={() => setShowPaymentHistoryModal(false)}
+                  className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-xs font-bold text-gray-700 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Pay Pending Claim Modal */}
         {showPayPendingClaimModal && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
@@ -9794,6 +10678,255 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   className="w-full py-2.5 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white font-bold rounded-lg transition-all"
                 >
                   {payingPendingClaim ? "Processing..." : "Confirm Payment"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Pay Invoice Pending Modal */}
+        {showInvoicePayModal && selectedInvoiceForPayment && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <div 
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-md" 
+              onClick={() => { 
+                if (!payingInvoicePending) { 
+                  setShowInvoicePayModal(false); 
+                  setSelectedInvoiceForPayment(null); 
+                  setInvoicePayAmount(""); 
+                  setInvoicePayMethod("Cash");
+                  setInvoiceUseAdvanceBalance(false);
+                  setInvoiceAdvanceUsed(0);
+                }
+              }} 
+            />
+            <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-red-600 to-orange-600 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+                <div>
+                  <h3 className="text-lg font-bold text-white">Pay Invoice Pending</h3>
+                  <p className="text-red-100 text-xs mt-0.5">Invoice: {selectedInvoiceForPayment.invoiceNumber}</p>
+                </div>
+                <button 
+                  onClick={() => { 
+                    setShowInvoicePayModal(false); 
+                    setSelectedInvoiceForPayment(null); 
+                    setInvoicePayAmount(""); 
+                    setInvoicePayMethod("Cash");
+                    setInvoiceUseAdvanceBalance(false);
+                    setInvoiceAdvanceUsed(0);
+                  }} 
+                  className="text-white/80 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                {/* Invoice Info */}
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs text-amber-700 font-semibold">Treatment:</span>
+                    <span className="text-sm font-bold text-amber-900">{selectedInvoiceForPayment.treatmentName}</span>
+                  </div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs text-amber-700 font-semibold">Total Amount:</span>
+                    <span className="text-sm font-bold text-amber-900">{getCurrencySymbol(currency)} {selectedInvoiceForPayment.amount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs text-amber-700 font-semibold">Paid:</span>
+                    <span className="text-sm font-bold text-green-700">{getCurrencySymbol(currency)} {(selectedInvoiceForPayment.paid || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-amber-200">
+                    <span className="text-xs text-red-700 font-bold">Pending:</span>
+                    <span className="text-lg font-bold text-red-700">{getCurrencySymbol(currency)} {(selectedInvoiceForPayment.pendingAmount || 0).toFixed(2)}</span>
+                  </div>
+                </div>
+
+                {/* Quick Select */}
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      const halfAmount = ((selectedInvoiceForPayment.pendingAmount || 0) / 2).toFixed(2);
+                      setInvoicePayAmount(halfAmount);
+                      // Recalculate with advance balance if enabled
+                      if (invoiceUseAdvanceBalance && invoiceAvailableBalance.advanceBalance > 0) {
+                        const advanceToUse = Math.min(invoiceAvailableBalance.advanceBalance, Number(halfAmount));
+                        setInvoiceAdvanceUsed(advanceToUse);
+                        setInvoicePayAmount((Number(halfAmount) - advanceToUse).toFixed(2));
+                      }
+                    }} 
+                    className="flex-1 py-1.5 text-xs font-semibold border border-red-300 text-red-700 rounded-lg hover:bg-red-50"
+                  >
+                    Half
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const fullAmount = (selectedInvoiceForPayment.pendingAmount || 0).toFixed(2);
+                      setInvoicePayAmount(fullAmount);
+                      // Recalculate with advance balance if enabled
+                      if (invoiceUseAdvanceBalance && invoiceAvailableBalance.advanceBalance > 0) {
+                        const advanceToUse = Math.min(invoiceAvailableBalance.advanceBalance, Number(fullAmount));
+                        setInvoiceAdvanceUsed(advanceToUse);
+                        setInvoicePayAmount((Number(fullAmount) - advanceToUse).toFixed(2));
+                      }
+                    }} 
+                    className="flex-1 py-1.5 text-xs font-semibold bg-red-100 border border-red-300 text-red-700 rounded-lg hover:bg-red-200"
+                  >
+                    Full Amount
+                  </button>
+                </div>
+
+                {/* Advance Balance Option */}
+                {invoiceAvailableBalance.advanceBalance > 0 && (
+                  <label className="flex items-center justify-between cursor-pointer p-4 bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-200 rounded-xl hover:border-emerald-400 transition-all shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={invoiceUseAdvanceBalance}
+                        onChange={(e) => {
+                          setInvoiceUseAdvanceBalance(e.target.checked);
+                          // Recalculate amount to pay based on entered amount and whether advance is enabled
+                          if (e.target.checked && invoicePayAmount) {
+                            const enteredAmt = Number(invoicePayAmount) + invoiceAdvanceUsed;
+                            const advanceToUse = Math.min(invoiceAvailableBalance.advanceBalance, enteredAmt);
+                            setInvoiceAdvanceUsed(advanceToUse);
+                            setInvoicePayAmount((enteredAmt - advanceToUse).toFixed(2));
+                          } else {
+                            setInvoiceAdvanceUsed(0);
+                            // Restore the original amount
+                            const currentPayAmount = Number(invoicePayAmount);
+                            setInvoicePayAmount((currentPayAmount + invoiceAdvanceUsed).toFixed(2));
+                          }
+                        }}
+                        className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 border-gray-300"
+                      />
+                      <div>
+                        <div className="text-sm font-bold text-gray-700">Use Advance Balance</div>
+                        <div className="text-xs text-gray-500">Available: {getCurrencySymbol(currency)}{invoiceAvailableBalance.advanceBalance.toFixed(2)}</div>
+                      </div>
+                    </div>
+                    <span className="text-sm font-bold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full">
+                      {getCurrencySymbol(currency)} {invoiceAvailableBalance.advanceBalance.toFixed(2)}
+                    </span>
+                  </label>
+                )}
+
+                {/* Advance Balance Summary */}
+                {invoiceUseAdvanceBalance && invoiceAdvanceUsed > 0 && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                    <div className="text-xs font-bold text-gray-600 uppercase mb-2">Payment Breakdown</div>
+                    <div className="space-y-1.5 text-sm">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Original Pending:</span>
+                        <span className="font-bold text-gray-800">{getCurrencySymbol(currency)}{(Number(invoicePayAmount) + invoiceAdvanceUsed).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-emerald-700">Advance Used:</span>
+                        <span className="font-bold text-emerald-700">- {getCurrencySymbol(currency)}{invoiceAdvanceUsed.toFixed(2)}</span>
+                      </div>
+                      <div className="border-t border-emerald-200 pt-1.5 mt-1.5 flex justify-between items-center">
+                        <span className="font-bold text-gray-800">Amount to Pay:</span>
+                        <span className="font-bold text-lg text-red-700">{getCurrencySymbol(currency)}{Number(invoicePayAmount).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Amount */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount to Pay</label>
+                  <input
+                    type="number"
+                    value={invoicePayAmount}
+                    onChange={(e) => {
+                      const enteredValue = e.target.value;
+                      if (invoiceUseAdvanceBalance && invoiceAvailableBalance.advanceBalance > 0) {
+                        // Calculate the total pending amount (current input + advance already used)
+                        const totalPending = Number(enteredValue) + invoiceAdvanceUsed;
+                        const advanceToUse = Math.min(invoiceAvailableBalance.advanceBalance, totalPending);
+                        setInvoiceAdvanceUsed(advanceToUse);
+                        setInvoicePayAmount((totalPending - advanceToUse).toFixed(2));
+                      } else {
+                        setInvoicePayAmount(enteredValue);
+                      }
+                    }}
+                    placeholder={`Max: ${(selectedInvoiceForPayment.pendingAmount || 0).toFixed(2)}`}
+                    min="0"
+                    max={selectedInvoiceForPayment.pendingAmount || 0}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  />
+                </div>
+
+                {/* Payment Method */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {["Cash", "Card", "BT"].map((m) => (
+                      <button 
+                        key={m} 
+                        onClick={() => setInvoicePayMethod(m)} 
+                        className={`py-1.5 text-xs font-semibold rounded-lg border transition-all ${ 
+                          invoicePayMethod === m 
+                            ? "bg-red-600 text-white border-red-600" 
+                            : "bg-white text-gray-600 border-gray-300 hover:border-red-400" 
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Submit */}
+                <button
+                  disabled={payingInvoicePending || !invoicePayAmount || Number(invoicePayAmount) < 0 || (Number(invoicePayAmount) + invoiceAdvanceUsed) > (selectedInvoiceForPayment.pendingAmount || 0)}
+                  onClick={async () => {
+                    const payAmt = Number(invoicePayAmount);
+                    const advanceUsed = invoiceAdvanceUsed;
+                    const maxPending = selectedInvoiceForPayment.pendingAmount || 0;
+                    if (payAmt < 0 || (payAmt + advanceUsed) > maxPending) return;
+                    
+                    setPayingInvoicePending(true);
+                    try {
+                      const headers = getAuthHeaders();
+                      const res = await axios.post(
+                        `/api/clinic/billing/pay-invoice-pending/${selectedInvoiceForPayment.data._id}`,
+                        {
+                          amount: payAmt,
+                          paymentMethod: invoicePayMethod,
+                          advanceBalanceUsed: advanceUsed,
+                          notes: `Payment towards pending balance for invoice ${selectedInvoiceForPayment.invoiceNumber}${advanceUsed > 0 ? `, Advance used: ${advanceUsed}` : ''}`,
+                        },
+                        { headers }
+                      );
+                      
+                      if (res.data.success) {
+                        setShowInvoicePayModal(false);
+                        setSelectedInvoiceForPayment(null);
+                        setInvoicePayAmount("");
+                        setInvoicePayMethod("Cash");
+                        setInvoiceUseAdvanceBalance(false);
+                        setInvoiceAdvanceUsed(0);
+                        
+                        // Refresh balance and billing history
+                        const updatedBalance = await fetchPatientBalance(patientData._id);
+                        if (updatedBalance) setBalance(updatedBalance as typeof balance);
+                        await fetchBillingHistory();
+                        
+                        alert("Payment recorded successfully!");
+                      } else {
+                        alert(res.data.message || "Payment failed");
+                      }
+                    } catch (err: any) {
+                      console.error("Error paying invoice pending:", err);
+                      alert(err.response?.data?.message || "Payment failed");
+                    } finally {
+                      setPayingInvoicePending(false);
+                    }
+                  }}
+                  className="w-full py-2.5 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 disabled:opacity-50 text-white font-bold rounded-lg transition-all"
+                >
+                  {payingInvoicePending ? "Processing..." : "Confirm Payment"}
                 </button>
               </div>
             </div>

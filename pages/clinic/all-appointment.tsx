@@ -395,10 +395,12 @@
                     canDelete: true,
                   });
                 } else {
-                  // Admin has set permissions - check the clinic_ScheduledAppointment module
+                  // Admin has set permissions - check the clinic_Appointment module
                   const modulePermission = res.data.permissions.find((p: any) => {
                     if (!p?.module) return false;
-                    // Check for clinic_ScheduledAppointment module variations
+                    // Check for clinic_Appointment module variations (including backward compatibility with clinic_ScheduledAppointment)
+                    if (p.module === "clinic_Appointment") return true;
+                    if (p.module === "clinic_appointment") return true;
                     if (p.module === "clinic_ScheduledAppointment") return true;
                     if (p.module === "clinic_scheduled_appointment") return true;
                     if (p.module === "scheduled_appointment") return true;
@@ -473,7 +475,7 @@
 
         try {
           const res = await axios.get(
-            "/api/agent/get-module-permissions?moduleKey=clinic_ScheduledAppointment",
+            "/api/agent/get-module-permissions?moduleKey=clinic_Appointment",
             { headers }
           );
           if (res.data?.success && res.data.permissions) {
@@ -566,7 +568,21 @@
         });
 
         if (response.data.success) {
-          setAppointments(response.data.appointments || []);
+          const newAppointments = response.data.appointments || [];
+          setAppointments(newAppointments);
+          
+          // Update selectedAppointment if it matches any in the new list
+          if (selectedAppointment) {
+            const updated = newAppointments.find((a: Appointment) => a._id === selectedAppointment._id);
+            if (updated) setSelectedAppointment(updated);
+          }
+          
+          // Update complaintAppointment if it matches any in the new list
+          if (complaintAppointment) {
+            const updated = newAppointments.find((a: Appointment) => a._id === complaintAppointment._id);
+            if (updated) setComplaintAppointment(updated);
+          }
+
           setTotal(response.data.total || 0);
           setTotalPages(response.data.totalPages || 1);
         } else {
