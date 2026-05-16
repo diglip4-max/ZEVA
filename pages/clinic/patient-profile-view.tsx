@@ -1918,7 +1918,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
     // From billing — add payment entries
     const billings = Array.isArray(billingHistory)
-      ? billingHistory.filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
+      ? billingHistory.filter((b: any) => !b.isAdvanceOnly)
       : [];
     billings.slice(0, 3).forEach((b: any) => {
       if (b.paid > 0) {
@@ -6214,7 +6214,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
               /* Billing Tab Content - Modern Two-Column Dashboard */
               <div className="space-y-4">
                 {/* Billing Overview Stats - Top Row for Mobile */}
-                {!loadingBilling && billingHistory && (billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length > 0 && (
+                {!loadingBilling && billingHistory && (billingHistory || []).filter((b: any) => !b.isAdvanceOnly).length > 0 && (
                   <div className="grid grid-cols-2 lg:hidden gap-3">
                     <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
                       <div className="text-[10px] text-blue-600 font-bold uppercase tracking-wider mb-1">Total Billed</div>
@@ -6239,7 +6239,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     <div className="col-span-1 lg:col-span-3 flex items-center justify-center py-12">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
                     </div>
-                  ) : !billingHistory || (billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length === 0 ? (
+                  ) : !billingHistory || (billingHistory || []).filter((b: any) => !b.isAdvanceOnly).length === 0 ? (
                     <div className="col-span-1 lg:col-span-3">
                       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                         {/* Top gradient banner */}
@@ -6374,7 +6374,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               </thead>
                               <tbody className="bg-white divide-y divide-gray-100">
                                 {(billingHistory || [])
-                                  .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
+                                  .filter((b: any) => !b.isAdvanceOnly)
                                   .filter((b: any) => {
                                     if (!billingSearchQuery.trim()) return true;
                                     const query = billingSearchQuery.toLowerCase();
@@ -6449,6 +6449,21 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                         {/* Treatment / Package */}
                                         <td className="px-3 py-3">
                                           <div className="text-xs text-gray-700 max-w-[150px]" title={billing.package || billing.treatment}>
+                                            {/* Advance Payment Badge */}
+                                            {billing.treatment === "Advance Payment" && (
+                                              <div className="flex items-center gap-1 mb-1">
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                                  💰 Advance Added
+                                                </span>
+                                              </div>
+                                            )}
+                                            {billing.pastAdvance > 0 && billing.treatment !== "Advance Payment" && (
+                                              <div className="flex items-center gap-1 mb-1">
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                                                  📜 Past Advance ({billing.pastAdvanceType || 'Historical'})
+                                                </span>
+                                              </div>
+                                            )}
                                             {billing.package ? (
                                               <div className="flex flex-col">
                                                 <span className="font-semibold text-indigo-700 flex items-center gap-1">
@@ -6630,11 +6645,19 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                         </td>
                                         {/* Total */}
                                         <td className="px-3 py-3 text-right">
-                                          <span className="text-xs font-bold text-gray-900">{formatAED(billing.amount || 0)}</span>
+                                          <span className="text-xs font-bold text-gray-900">
+                                            {billing.treatment === "Advance Payment" || billing.pastAdvance > 0 
+                                              ? formatAED(billing.advance > 0 ? billing.advance : billing.pastAdvance || 0)
+                                              : formatAED(billing.amount || 0)}
+                                          </span>
                                         </td>
                                         {/* Paid */}
                                         <td className="px-3 py-3 text-right">
-                                          <span className="text-xs font-semibold text-green-600">{formatAED(billing.paid || 0)}</span>
+                                          <span className="text-xs font-semibold text-green-600">
+                                            {billing.treatment === "Advance Payment" || billing.pastAdvance > 0
+                                              ? formatAED(billing.paid || billing.advance || billing.pastAdvance || 0)
+                                              : formatAED(billing.paid || 0)}
+                                          </span>
                                         </td>
                                         {/* Pending */}
                                         <td className="px-3 py-3 text-right">
@@ -6753,7 +6776,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               </thead>
                               <tbody className="bg-white divide-y divide-gray-100">
                                 {(billingHistory || [])
-                                  .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
+                                  .filter((b: any) => !b.isAdvanceOnly)
                                   .filter((b: any) => {
                                     if (!billingSearchQuery.trim()) return true;
                                     const query = billingSearchQuery.toLowerCase();
@@ -6861,7 +6884,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                             {/* Mobile List View */}
                             <div className="md:hidden divide-y divide-gray-100">
                               {(billingHistory || [])
-                                .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
+                                .filter((b: any) => !b.isAdvanceOnly)
                                 .filter((b: any) => {
                                   if (!billingSearchQuery.trim()) return true;
                                   const query = billingSearchQuery.toLowerCase();
@@ -6900,13 +6923,32 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                           <div className="text-[10px] text-gray-500">{billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString() : ''}</div>
                                         </div>
                                         <div className="text-right">
-                                          <div className="text-lg font-bold text-gray-900">{formatAED(billing.amount || 0)}</div>
+                                          <div className="text-lg font-bold text-gray-900">
+                                            {billing.treatment === "Advance Payment" || billing.pastAdvance > 0
+                                              ? formatAED(billing.advance > 0 ? billing.advance : billing.pastAdvance || 0)
+                                              : formatAED(billing.amount || 0)}
+                                          </div>
                                           <div className="text-[10px] text-gray-400">Qty: {billing.quantity || 1}</div>
                                         </div>
                                       </div>
                                      
                                       {/* Treatment / Package */}
                                       <div className="mb-3">
+                                        {/* Advance Payment Badge */}
+                                        {billing.treatment === "Advance Payment" && (
+                                          <div className="flex items-center gap-1 mb-1">
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                              💰 Advance Added
+                                            </span>
+                                          </div>
+                                        )}
+                                        {billing.pastAdvance > 0 && billing.treatment !== "Advance Payment" && (
+                                          <div className="flex items-center gap-1 mb-1">
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                                              📜 Past Advance ({billing.pastAdvanceType || 'Historical'})
+                                            </span>
+                                          </div>
+                                        )}
                                         <div className="text-xs text-gray-700">
                                           {billing.package ? (
                                             <span className="font-semibold text-indigo-700 flex items-center gap-1">
@@ -7047,7 +7089,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         </div>
 
                         {/* Summary Section - Total Billed, Total Paid, Outstanding */}
-                        {(billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length > 0 && (
+                        {(billingHistory || []).filter((b: any) => !b.isAdvanceOnly).length > 0 && (
                           <div className="px-5 py-4 border-t border-gray-200 bg-gray-50">
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                               {/* Total Billed */}
