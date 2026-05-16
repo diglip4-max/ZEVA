@@ -266,10 +266,10 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
   };
 
   return (
-    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 border border-emerald-200 shadow-md">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-[14px] font-bold text-emerald-700">Transfer</h2>
-        <label className="inline-flex items-center gap-2">
+    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-2.5 border border-emerald-200 shadow-md">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-[12px] font-bold text-emerald-700 uppercase tracking-tight">Transfer</h2>
+        <label className="inline-flex items-center gap-1.5 cursor-pointer">
           <input
             type="checkbox"
             checked={showTransfer}
@@ -286,14 +286,15 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                 // Keep searchQuery and searchResults to preserve user's search
               }
             }}
+            className="w-3.5 h-3.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
           />
-          <span className="text-[11px] text-gray-700">Enable</span>
+          <span className="text-[10px] font-semibold text-gray-700">Enable</span>
         </label>
       </div>
       {showTransfer && (
-        <div className="space-y-3">
-          <div className="flex gap-3">
-            <label className="inline-flex items-center gap-2">
+        <div className="space-y-2">
+          <div className="flex gap-2.5 px-0.5">
+            <label className="inline-flex items-center gap-1.5 cursor-pointer group">
               <input
                 type="radio"
                 name="transferType"
@@ -312,10 +313,11 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                     setSelectedMembershipId("");
                   }
                 }}
+                className="w-3 h-3 text-emerald-600 focus:ring-emerald-500"
               />
-              <span className="text-[11px]">Transfer Membership</span>
+              <span className="text-[10px] text-gray-700 group-hover:text-emerald-700 transition-colors">Membership</span>
             </label>
-            <label className="inline-flex items-center gap-2">
+            <label className="inline-flex items-center gap-1.5 cursor-pointer group">
               <input
                 type="radio"
                 name="transferType"
@@ -325,18 +327,19 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                   setTransferType(e.target.value);
                   setMembershipUsage(null);
                 }}
+                className="w-3 h-3 text-emerald-600 focus:ring-emerald-500"
               />
-              <span className="text-[11px]">Transfer Package</span>
+              <span className="text-[10px] text-gray-700 group-hover:text-emerald-700 transition-colors">Package</span>
             </label>
           </div>
           {transferType === "membership" && (
-            <div className="rounded-lg border border-emerald-200 bg-white p-3">
+            <div className="rounded-lg border border-emerald-100 bg-white/80 p-2 shadow-sm">
               <div className="mb-2">
-                <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Select Membership</label>
+                <label className="block text-[9px] mb-0.5 font-bold text-gray-600 uppercase">Select Membership</label>
                 <select
                   value={selectedMembershipId}
                   onChange={(e) => setSelectedMembershipId(e.target.value)}
-                  className="text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 border-gray-300 hover:border-indigo-400"
+                  className="text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 border-gray-200 bg-white"
                 >
                   <option value="">Select membership</option>
                   {(Array.isArray(patientData?.memberships) ? patientData.memberships : []).map((m: any, idx: number) => {
@@ -364,38 +367,38 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                 const remainingConsultations = Math.max(0, totalConsultations - usedConsultations);
                
                 return (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="text-[11px]">
-                      <div className="font-semibold text-gray-700">Total Free Consultations</div>
-                      <div className="text-gray-900">{totalConsultations}</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-t border-emerald-50 pt-2">
+                    <div className="text-[9px]">
+                      <div className="font-bold text-gray-500 uppercase leading-tight">Total</div>
+                      <div className="text-gray-900 font-semibold">{totalConsultations}</div>
                     </div>
-                    <div className="text-[11px]">
-                      <div className="font-semibold text-gray-700">Used Free Consultations</div>
-                      <div className="text-gray-900">{usedConsultations}</div>
+                    <div className="text-[9px]">
+                      <div className="font-bold text-gray-500 uppercase leading-tight">Used</div>
+                      <div className="text-gray-900 font-semibold">{usedConsultations}</div>
                     </div>
-                    <div className="text-[11px]">
-                      <div className="font-semibold text-gray-700">Remaining</div>
-                      <div className="text-gray-900">{remainingConsultations}</div>
+                    <div className="text-[9px]">
+                      <div className="font-bold text-emerald-600 uppercase leading-tight">Rem.</div>
+                      <div className="text-emerald-700 font-bold">{remainingConsultations}</div>
                     </div>
-                    <div className="text-[11px]">
-                      <div className="font-semibold text-gray-700">Discount %</div>
-                      <div className="text-gray-900">{membershipUsage.discountPercentage || 0}</div>
+                    <div className="text-[9px]">
+                      <div className="font-bold text-gray-500 uppercase leading-tight">Disc.</div>
+                      <div className="text-gray-900 font-semibold">{membershipUsage.discountPercentage || 0}%</div>
                     </div>
                   </div>
                 );
               })() : (
-                <div className="text-[11px] text-gray-600">Loading membership usage...</div>
+                <div className="text-[9px] text-gray-400 italic">Loading usage details...</div>
               )}
             </div>
           )}
           {transferType === "package" && (
-            <div className="rounded-lg border border-emerald-200 bg-white p-3 space-y-2">
+            <div className="rounded-lg border border-emerald-100 bg-white/80 p-2 shadow-sm space-y-2">
               <div>
-                <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Select Package</label>
+                <label className="block text-[9px] mb-0.5 font-bold text-gray-600 uppercase">Select Package</label>
                 <select
                   value={selectedPackageId}
                   onChange={(e) => setSelectedPackageId(e.target.value)}
-                  className="text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 border-gray-300 hover:border-indigo-400"
+                  className="text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 border-gray-200 bg-white"
                 >
                   <option value="">Select package</option>
                   {/* Patient's existing packages */}
@@ -403,16 +406,10 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                     const pkg = localPackages.find(x => x._id === p.packageId);
                     return pkg ? (
                       <option key={pkg._id} value={pkg._id}>
-                        {pkg.name} - Patient Package
+                        {pkg.name}
                       </option>
                     ) : null;
                   })}
-                  {/* Public packages - COMMENTED OUT: Only show patient packages */}
-                  {/* publicPackages.map((pkg: any) => (
-                    <option key={pkg._id} value={pkg._id}>
-                      {pkg.packageName || pkg.name} - Public Package
-                    </option>
-                  )) */}
                 </select>
               </div>
               {selectedPackageId && (() => {
@@ -423,69 +420,84 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                 const remainingSess = Math.max(0, totalSess - usedSess);
                
                 return (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="text-[11px]">
-                      <div className="font-semibold text-gray-700">Total Sessions</div>
-                      <div className="text-gray-900">{totalSess}</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-t border-emerald-50 pt-2">
+                    <div className="text-[9px]">
+                      <div className="font-bold text-gray-500 uppercase leading-tight">Sessions</div>
+                      <div className="text-gray-900 font-semibold">{totalSess}</div>
                     </div>
-                    <div className="text-[11px]">
-                      <div className="font-semibold text-gray-700">Used Sessions</div>
-                      <div className="text-gray-900">{usedSess}</div>
+                    <div className="text-[9px]">
+                      <div className="font-bold text-gray-500 uppercase leading-tight">Used</div>
+                      <div className="text-gray-900 font-semibold">{usedSess}</div>
                     </div>
-                    <div className="text-[11px]">
-                      <div className="font-semibold text-gray-700">Remaining</div>
-                      <div className="text-gray-900">{remainingSess}</div>
+                    <div className="text-[9px]">
+                      <div className="font-bold text-emerald-600 uppercase leading-tight">Rem.</div>
+                      <div className="text-emerald-700 font-bold">{remainingSess}</div>
                     </div>
-                    <div className="text-[11px]">
-                      <div className="font-semibold text-gray-700">Package</div>
-                      <div className="text-gray-900">{pkg ? pkg.name : "-"}</div>
+                    <div className="text-[9px]">
+                      <div className="font-bold text-gray-500 uppercase leading-tight">Name</div>
+                      <div className="text-gray-900 font-semibold truncate" title={pkg?.name}>{pkg ? pkg.name : "-"}</div>
                     </div>
                   </div>
                 );
               })()}
             </div>
           )}
-          <div className="rounded-lg border border-emerald-200 bg-white p-3 space-y-2">
+          <div className="rounded-lg border border-emerald-100 bg-white/80 p-2 shadow-sm space-y-2">
             <div>
-              <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Search Target Patient</label>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  e.preventDefault();
-                  setSearchQuery(e.target.value);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+              <label className="block text-[9px] mb-0.5 font-bold text-gray-600 uppercase">Target Patient</label>
+              <div className="relative">
+                <Search className="absolute left-2 top-1.5 w-3 h-3 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
                     e.preventDefault();
-                  }
-                }}
-                placeholder="Type name, mobile, or EMR"
-                className="w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 border-gray-300 hover:border-indigo-400"
-              />
+                    setSearchQuery(e.target.value);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                    }
+                  }}
+                  placeholder="Name, Mobile, or EMR"
+                  className="w-full pl-7 pr-2 py-1.5 text-[10px] border rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 border-gray-200 bg-white"
+                />
+              </div>
             </div>
-            <div className="max-h-48 overflow-auto border border-gray-200 rounded">
+            <div className="max-h-32 overflow-auto border border-gray-100 rounded-md bg-gray-50/50">
               {searchLoading ? (
-                <div className="p-2 text-[10px] text-gray-600">Searching...</div>
+                <div className="p-2 text-[9px] text-gray-500 flex items-center gap-1.5">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Searching...
+                </div>
               ) : (searchResults || []).length === 0 ? (
-                <div className="p-2 text-[10px] text-gray-600">No results</div>
+                searchQuery.length >= 2 && <div className="p-2 text-[9px] text-gray-400 italic">No patients found</div>
               ) : (
-                <ul className="divide-y divide-gray-200">
+                <ul className="divide-y divide-gray-100">
                   {searchResults.map((p: any) => (
-                    <li key={p._id} className="p-2 hover:bg-gray-50 cursor-pointer text-[11px]" onClick={() => setSelectedTargetPatient(p)}>
-                      <div className="font-medium text-gray-900">{p.fullName || `${p.firstName} ${p.lastName}`}</div>
-                      <div className="text-gray-600">{p.emrNumber} • {p.mobileNumber}</div>
+                    <li 
+                      key={p._id} 
+                      className={`p-1.5 hover:bg-emerald-50 cursor-pointer transition-colors ${selectedTargetPatient?._id === p._id ? 'bg-emerald-50' : ''}`} 
+                      onClick={() => setSelectedTargetPatient(p)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-gray-800 text-[10px]">{p.fullName || `${p.firstName} ${p.lastName}`}</span>
+                        <span className="text-[8px] px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded-full font-medium">{p.emrNumber}</span>
+                      </div>
+                      <div className="text-[9px] text-gray-500">{p.mobileNumber}</div>
                     </li>
                   ))}
                 </ul>
               )}
             </div>
             {selectedTargetPatient && (
-              <div className="text-[11px] text-gray-800">
-                Selected: {selectedTargetPatient.fullName || `${selectedTargetPatient.firstName} ${selectedTargetPatient.lastName}`} ({selectedTargetPatient.emrNumber})
+              <div className="flex items-center gap-1.5 px-2 py-1.5 bg-emerald-50 border border-emerald-100 rounded-md">
+                <CheckCircle className="w-3 h-3 text-emerald-600" />
+                <span className="text-[9px] text-emerald-800 font-bold truncate">
+                  Target: {selectedTargetPatient.fullName || `${selectedTargetPatient.firstName} ${selectedTargetPatient.lastName}`}
+                </span>
               </div>
             )}
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-1">
               <button
                 type="button"
                 onClick={(e) => {
@@ -498,9 +510,13 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                   (transferType === "membership" && (!selectedMembershipId)) ||
                   (transferType === "package" && (!selectedPackageId))
                 }
-                className="px-4 py-2 text-[11px] bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 transition-all duration-300 font-bold shadow-lg"
+                className="px-3 py-1.5 text-[10px] bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-md hover:from-emerald-700 hover:to-teal-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all duration-300 font-bold shadow-md uppercase tracking-wider flex items-center gap-1.5"
               >
-                {transferSubmitting ? "Transferring..." : "Confirm Transfer"}
+                {transferSubmitting ? (
+                  <><Loader2 className="w-3 h-3 animate-spin" /> Processing</>
+                ) : (
+                  <><Send className="w-3 h-3" /> Confirm</>
+                )}
               </button>
             </div>
           </div>
@@ -5445,37 +5461,36 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   </div>
                                 </div>
                               )}
-                             
                               {/* Transfer Information */}
                               {(membership as any).usageData?.isTransferred && (
-                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4">
-                                  <div className="flex items-center gap-2 mb-3">
-                                    <CheckCircle className="w-4 h-4 text-green-600" />
-                                    <h5 className="text-sm font-bold text-green-800">Transferred Membership Details</h5>
+                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-lg p-3">
+                                  <div className="flex items-center gap-1.5 mb-2">
+                                    <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                                    <h5 className="text-[11px] font-bold text-green-800 uppercase tracking-tight">Transferred Membership Details</h5>
                                   </div>
-                                  <div className="space-y-2.5">
-                                    <div className="flex justify-between items-center bg-white rounded-lg px-3 py-2.5 border border-green-200 shadow-sm">
-                                      <div className="flex items-center gap-2">
-                                        <User className="w-3.5 h-3.5 text-green-600" />
-                                        <span className="text-xs font-semibold text-gray-700">Transferred From:</span>
+                                  <div className="space-y-1.5">
+                                    <div className="flex justify-between items-center bg-white/80 rounded px-2.5 py-2 border border-green-100 shadow-sm">
+                                      <div className="flex items-center gap-1.5">
+                                        <User className="w-3 h-3 text-green-600" />
+                                        <span className="text-[10px] font-semibold text-gray-600">From:</span>
                                       </div>
-                                      <span className="text-base font-bold text-green-900">{(membership as any).usageData.transferredFromName || 'Unknown Patient'}</span>
+                                      <span className="text-[11px] font-bold text-green-900">{(membership as any).usageData.transferredFromName || 'Unknown Patient'}</span>
                                     </div>
                                     {(membership as any).usageData.transferredFreeConsultations !== null && (
-                                      <div className="flex justify-between items-center bg-white rounded-lg px-3 py-2.5 border border-green-200 shadow-sm">
-                                        <div className="flex items-center gap-2">
-                                          <Activity className="w-3.5 h-3.5 text-green-600" />
-                                          <span className="text-xs font-semibold text-gray-700">Transferred Consultations:</span>
+                                      <div className="flex justify-between items-center bg-white/80 rounded px-2.5 py-2 border border-green-100 shadow-sm">
+                                        <div className="flex items-center gap-1.5">
+                                          <Activity className="w-3 h-3 text-green-600" />
+                                          <span className="text-[10px] font-semibold text-gray-600">Consultations:</span>
                                         </div>
-                                        <span className="text-base font-bold text-green-700">{(membership as any).usageData.transferredFreeConsultations}</span>
+                                        <span className="text-[11px] font-bold text-green-700">{(membership as any).usageData.transferredFreeConsultations}</span>
                                       </div>
                                     )}
-                                    <div className="flex justify-between items-center bg-white rounded-lg px-3 py-2.5 border border-green-200 shadow-sm">
-                                      <div className="flex items-center gap-2">
-                                        <Shield className="w-3.5 h-3.5 text-green-600" />
-                                        <span className="text-xs font-semibold text-gray-700">Total Available Consultations:</span>
+                                    <div className="flex justify-between items-center bg-white/80 rounded px-2.5 py-2 border border-green-100 shadow-sm">
+                                      <div className="flex items-center gap-1.5">
+                                        <Shield className="w-3 h-3 text-green-600" />
+                                        <span className="text-[10px] font-semibold text-gray-600">Total Available:</span>
                                       </div>
-                                      <span className="text-base font-bold text-blue-700">{(membership as any).usageData.totalFreeConsultations || 0}</span>
+                                      <span className="text-[11px] font-bold text-blue-700">{(membership as any).usageData.totalFreeConsultations || 0}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -5525,82 +5540,79 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
                 {/* Transferred In Packages Section */}
                 {transferredInPackages && transferredInPackages.length > 0 && (
-                  <div className="mt-6">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <Package className="w-5 h-5 text-green-600" />
+                  <div className="mt-4">
+                    <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2 uppercase tracking-tight">
+                      <Package className="w-4 h-4 text-green-600" />
                       Transferred In Packages
                     </h3>
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       {transferredInPackages.map((pkg: any, idx: number) => (
-                        <div key={idx} className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4">
-                          <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
-                              <Package className="w-5 h-5 text-green-600" />
+                        <div key={idx} className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-3 shadow-sm">
+                          <div className="flex items-start gap-2.5">
+                            <div className="w-8 h-8 rounded bg-green-100 flex items-center justify-center flex-shrink-0">
+                              <Package className="w-4 h-4 text-green-600" />
                             </div>
                             <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="text-base font-bold text-green-900">
+                              <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                                <h3 className="text-xs font-bold text-green-900">
                                   {pkg.packageName || 'Package'}
                                 </h3>
-                                <span className="px-2 py-0.5 rounded-full bg-green-200 text-green-800 text-[10px] font-bold">
-                                  Transferred In
+                                <span className="px-1.5 py-0.5 rounded-full bg-green-200 text-green-800 text-[8px] font-bold uppercase tracking-wider">
+                                  In
                                 </span>
                                
-                                {/* Payment Status & Method Tags for Transferred Packages */}
+                                {/* Payment Status & Method Tags */}
                                 {pkg.paymentStatus === 'Full' && (
-                                  <span className="px-2 py-0.5 rounded-lg bg-green-100 text-green-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
-                                    <CheckCircle className="w-2.5 h-2.5" />
-                                    Full Paid
+                                  <span className="px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-bold uppercase text-[8px] border border-green-200 shadow-sm flex items-center gap-1">
+                                    <CheckCircle className="w-2 h-2" /> Paid
                                   </span>
                                 )}
                                 {pkg.paymentStatus === 'Partial' && (
-                                  <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
-                                    <Activity className="w-2.5 h-2.5" />
-                                    Partial ({getCurrencySymbol(currency)}{pkg.paidAmount})
+                                  <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-bold uppercase text-[8px] border border-amber-200 shadow-sm flex items-center gap-1">
+                                    <Activity className="w-2 h-2" /> Partial ({getCurrencySymbol(currency)}{pkg.paidAmount})
                                   </span>
                                 )}
                                 {pkg.paymentMethod && (
-                                  <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 font-bold uppercase text-[9px] border border-indigo-100 flex items-center gap-1 shadow-sm">
-                                    <Wallet className="w-2.5 h-2.5" />
-                                    {pkg.paymentMethod}
+                                  <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold uppercase text-[8px] border border-indigo-100 flex items-center gap-1 shadow-sm">
+                                    <Wallet className="w-2 h-2" /> {pkg.paymentMethod}
                                   </span>
                                 )}
                               </div>
-                              <p className="text-xs text-green-700 mb-3">
-                                This package was transferred from another patient.
+                              <p className="text-[10px] text-green-700 mb-2">
+                                Transferred from another patient.
                               </p>
                               <div className="grid grid-cols-2 gap-2">
                                 {pkg.transferredFromName && (
-                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
-                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred From</div>
-                                    <div className="flex items-center gap-1.5">
-                                      <User className="w-3.5 h-3.5 text-green-600" />
-                                      <span className="text-xs font-bold text-green-900">
+                                  <div className="bg-white/80 border border-green-100 rounded p-2">
+                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">From</div>
+                                    <div className="flex items-center gap-1">
+                                      <User className="w-3 h-3 text-green-600" />
+                                      <span className="text-[10px] font-bold text-green-900 truncate">
                                         {pkg.transferredFromName}
                                       </span>
                                     </div>
                                   </div>
                                 )}
                                 {pkg.transferredSessions > 0 && (
-                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
-                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred Sessions</div>
-                                    <span className="text-xs font-bold text-green-900">
+                                  <div className="bg-white/80 border border-green-100 rounded p-2">
+                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">Transferred</div>
+                                    <span className="text-[10px] font-bold text-green-900">
                                       {pkg.transferredSessions}
                                     </span>
                                   </div>
                                 )}
                                 {pkg.totalAllowedSessions && (
-                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
-                                    <div className="text-[10px] text-gray-500 mb-0.5">Total Allowed Sessions</div>
-                                    <span className="text-xs font-bold text-green-900">
+                                  <div className="bg-white/80 border border-green-100 rounded p-2">
+                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">Total</div>
+                                    <span className="text-[10px] font-bold text-green-900">
                                       {pkg.totalAllowedSessions}
                                     </span>
                                   </div>
                                 )}
                                 {typeof pkg.remainingSessions === 'number' && (
-                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
-                                    <div className="text-[10px] text-gray-500 mb-0.5">Remaining Sessions</div>
-                                    <span className="text-xs font-bold text-green-900">
+                                  <div className="bg-white/80 border border-green-100 rounded p-2">
+                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">Remaining</div>
+                                    <span className="text-[10px] font-bold text-green-900">
                                       {pkg.remainingSessions}
                                     </span>
                                   </div>
@@ -5616,46 +5628,46 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
                 {/* Transferred Out Packages Section */}
                 {transferredOutPackages && transferredOutPackages.length > 0 && (
-                  <div className="mt-6">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <Package className="w-5 h-5 text-amber-600" />
+                  <div className="mt-4">
+                    <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2 uppercase tracking-tight">
+                      <Package className="w-4 h-4 text-amber-600" />
                       Transferred Out Packages
                     </h3>
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       {transferredOutPackages.map((pkg: any, idx: number) => (
-                        <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
-                          <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
-                              <Package className="w-5 h-5 text-amber-600" />
+                        <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-3 shadow-sm">
+                          <div className="flex items-start gap-2.5">
+                            <div className="w-8 h-8 rounded bg-amber-100 flex items-center justify-center flex-shrink-0">
+                              <Package className="w-4 h-4 text-amber-600" />
                             </div>
                             <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="text-base font-bold text-amber-900">
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <h3 className="text-xs font-bold text-amber-900">
                                   {pkg.packageName || 'Package'}
                                 </h3>
-                                <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[10px] font-bold">
-                                  Transferred Out
+                                <span className="px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[8px] font-bold uppercase tracking-wider">
+                                  Out
                                 </span>
                               </div>
-                              <p className="text-xs text-amber-700 mb-3">
-                                This package was transferred to another patient.
+                              <p className="text-[10px] text-amber-700 mb-2">
+                                Transferred to another patient.
                               </p>
                               <div className="grid grid-cols-2 gap-2">
                                 {pkg.transferredToName && (
-                                  <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
-                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred To</div>
-                                    <div className="flex items-center gap-1.5">
-                                      <User className="w-3.5 h-3.5 text-amber-600" />
-                                      <span className="text-xs font-bold text-amber-900">
+                                  <div className="bg-white/80 border border-amber-100 rounded p-2">
+                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">To</div>
+                                    <div className="flex items-center gap-1">
+                                      <User className="w-3 h-3 text-amber-600" />
+                                      <span className="text-[10px] font-bold text-amber-900 truncate">
                                         {pkg.transferredToName}
                                       </span>
                                     </div>
                                   </div>
                                 )}
                                 {pkg.transferredSessions > 0 && (
-                                  <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
-                                    <div className="text-[10px] text-gray-500 mb-0.5">Sessions Transferred</div>
-                                    <span className="text-xs font-bold text-amber-900">
+                                  <div className="bg-white/80 border border-amber-100 rounded p-2">
+                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">Transferred</div>
+                                    <span className="text-[10px] font-bold text-amber-900">
                                       {pkg.transferredSessions}
                                     </span>
                                   </div>
@@ -5671,46 +5683,46 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
                 {/* Transferred Out Memberships Section */}
                 {transferredOutMemberships && transferredOutMemberships.length > 0 && (
-                  <div className="mt-6">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <Shield className="w-5 h-5 text-amber-600" />
+                  <div className="mt-4">
+                    <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2 uppercase tracking-tight">
+                      <Shield className="w-4 h-4 text-amber-600" />
                       Transferred Out Memberships
                     </h3>
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       {transferredOutMemberships.map((membership: any, idx: number) => (
-                        <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
-                          <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
-                              <Shield className="w-5 h-5 text-amber-600" />
+                        <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-3 shadow-sm">
+                          <div className="flex items-start gap-2.5">
+                            <div className="w-8 h-8 rounded bg-amber-100 flex items-center justify-center flex-shrink-0">
+                              <Shield className="w-4 h-4 text-amber-600" />
                             </div>
                             <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="text-base font-bold text-amber-900">
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <h3 className="text-xs font-bold text-amber-900">
                                   {membership.membershipName || 'Membership'}
                                 </h3>
-                                <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[10px] font-bold">
-                                  Transferred Out
+                                <span className="px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[8px] font-bold uppercase tracking-wider">
+                                  Out
                                 </span>
                               </div>
-                              <p className="text-xs text-amber-700 mb-3">
-                                This membership was transferred to another patient.
+                              <p className="text-[10px] text-amber-700 mb-2">
+                                Transferred to another patient.
                               </p>
                               <div className="grid grid-cols-2 gap-2">
                                 {membership.transferredToName && (
-                                  <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
-                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred To</div>
-                                    <div className="flex items-center gap-1.5">
-                                      <User className="w-3.5 h-3.5 text-amber-600" />
-                                      <span className="text-xs font-bold text-amber-900">
+                                  <div className="bg-white/80 border border-amber-100 rounded p-2">
+                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">To</div>
+                                    <div className="flex items-center gap-1">
+                                      <User className="w-3 h-3 text-amber-600" />
+                                      <span className="text-[10px] font-bold text-amber-900 truncate">
                                         {membership.transferredToName}
                                       </span>
                                     </div>
                                   </div>
                                 )}
                                 {membership.transferredFreeConsultations > 0 && (
-                                  <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
-                                    <div className="text-[10px] text-gray-500 mb-0.5">Consultations Transferred</div>
-                                    <span className="text-xs font-bold text-amber-900">
+                                  <div className="bg-white/80 border border-amber-100 rounded p-2">
+                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">Consultations</div>
+                                    <span className="text-[10px] font-bold text-amber-900">
                                       {membership.transferredFreeConsultations}
                                     </span>
                                   </div>
@@ -5726,82 +5738,79 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
                 {/* Transferred In Memberships Section */}
                 {transferredInMemberships && transferredInMemberships.length > 0 && (
-                  <div className="mt-6">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <Shield className="w-5 h-5 text-green-600" />
+                  <div className="mt-4">
+                    <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2 uppercase tracking-tight">
+                      <Shield className="w-4 h-4 text-green-600" />
                       Transferred In Memberships
                     </h3>
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       {transferredInMemberships.map((membership: any, idx: number) => (
-                        <div key={idx} className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4">
-                          <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
-                              <Shield className="w-5 h-5 text-green-600" />
+                        <div key={idx} className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-3 shadow-sm">
+                          <div className="flex items-start gap-2.5">
+                            <div className="w-8 h-8 rounded bg-green-100 flex items-center justify-center flex-shrink-0">
+                              <Shield className="w-4 h-4 text-green-600" />
                             </div>
                             <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="text-base font-bold text-green-900">
+                              <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                                <h3 className="text-xs font-bold text-green-900">
                                   {membership.membershipName || 'Membership'}
                                 </h3>
-                                <span className="px-2 py-0.5 rounded-full bg-green-200 text-green-800 text-[10px] font-bold">
-                                  Transferred In
+                                <span className="px-1.5 py-0.5 rounded-full bg-green-200 text-green-800 text-[8px] font-bold uppercase tracking-wider">
+                                  In
                                 </span>
 
-                                {/* Payment Status & Method Tags for Transferred Memberships */}
+                                {/* Payment Status & Method Tags */}
                                 {membership.paymentStatus === 'Full' && (
-                                  <span className="px-2 py-0.5 rounded-lg bg-green-100 text-green-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
-                                    <CheckCircle className="w-2.5 h-2.5" />
-                                    Full Paid
+                                  <span className="px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-bold uppercase text-[8px] border border-green-200 shadow-sm flex items-center gap-1">
+                                    <CheckCircle className="w-2 h-2" /> Paid
                                   </span>
                                 )}
                                 {membership.paymentStatus === 'Partial' && (
-                                  <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
-                                    <Activity className="w-2.5 h-2.5" />
-                                    Partial ({getCurrencySymbol(currency)}{membership.paidAmount})
+                                  <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-bold uppercase text-[8px] border border-amber-200 shadow-sm flex items-center gap-1">
+                                    <Activity className="w-2.5 h-2.5" /> Partial ({getCurrencySymbol(currency)}{membership.paidAmount})
                                   </span>
                                 )}
                                 {membership.paymentMethod && (
-                                  <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 font-bold uppercase text-[9px] border border-indigo-100 flex items-center gap-1 shadow-sm">
-                                    <Wallet className="w-2.5 h-2.5" />
-                                    {membership.paymentMethod}
+                                  <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold uppercase text-[8px] border border-indigo-100 flex items-center gap-1 shadow-sm">
+                                    <Wallet className="w-2.5 h-2.5" /> {membership.paymentMethod}
                                   </span>
                                 )}
                               </div>
-                              <p className="text-xs text-green-700 mb-3">
-                                This membership was transferred from another patient.
+                              <p className="text-[10px] text-green-700 mb-2">
+                                Transferred from another patient.
                               </p>
                               <div className="grid grid-cols-2 gap-2">
                                 {membership.transferredFromName && (
-                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
-                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred From</div>
-                                    <div className="flex items-center gap-1.5">
-                                      <User className="w-3.5 h-3.5 text-green-600" />
-                                      <span className="text-xs font-bold text-green-900">
+                                  <div className="bg-white/80 border border-green-100 rounded p-2">
+                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">From</div>
+                                    <div className="flex items-center gap-1">
+                                      <User className="w-3 h-3 text-green-600" />
+                                      <span className="text-[10px] font-bold text-green-900 truncate">
                                         {membership.transferredFromName}
                                       </span>
                                     </div>
                                   </div>
                                 )}
                                 {membership.transferredFreeConsultations !== null && (
-                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
-                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred Consultations</div>
-                                    <span className="text-xs font-bold text-green-900">
+                                  <div className="bg-white/80 border border-green-100 rounded p-2">
+                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">Transferred</div>
+                                    <span className="text-[10px] font-bold text-green-900">
                                       {membership.transferredFreeConsultations}
                                     </span>
                                   </div>
                                 )}
                                 {membership.totalFreeConsultations && (
-                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
-                                    <div className="text-[10px] text-gray-500 mb-0.5">Total Available Consultations</div>
-                                    <span className="text-xs font-bold text-green-900">
+                                  <div className="bg-white/80 border border-green-100 rounded p-2">
+                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">Total</div>
+                                    <span className="text-[10px] font-bold text-green-900">
                                       {membership.totalFreeConsultations}
                                     </span>
                                   </div>
                                 )}
                                 {membership.remainingFreeConsultations !== null && (
-                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
-                                    <div className="text-[10px] text-gray-500 mb-0.5">Remaining Consultations</div>
-                                    <span className="text-xs font-bold text-green-900">
+                                  <div className="bg-white/80 border border-green-100 rounded p-2">
+                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">Remaining</div>
+                                    <span className="text-[10px] font-bold text-green-900">
                                       {membership.remainingFreeConsultations}
                                     </span>
                                   </div>
