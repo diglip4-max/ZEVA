@@ -280,10 +280,10 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
   };
 
   return (
-    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-2.5 border border-emerald-200 shadow-md">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-[12px] font-bold text-emerald-700 uppercase tracking-tight">Transfer</h2>
-        <label className="inline-flex items-center gap-1.5 cursor-pointer">
+    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 border border-emerald-200 shadow-md">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-[14px] font-bold text-emerald-700">Transfer</h2>
+        <label className="inline-flex items-center gap-2">
           <input
             type="checkbox"
             checked={showTransfer}
@@ -300,15 +300,14 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                 // Keep searchQuery and searchResults to preserve user's search
               }
             }}
-            className="w-3.5 h-3.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
           />
-          <span className="text-[10px] font-semibold text-gray-700">Enable</span>
+          <span className="text-[11px] text-gray-700">Enable</span>
         </label>
       </div>
       {showTransfer && (
-        <div className="space-y-2">
-          <div className="flex gap-2.5 px-0.5">
-            <label className="inline-flex items-center gap-1.5 cursor-pointer group">
+        <div className="space-y-3">
+          <div className="flex gap-3">
+            <label className="inline-flex items-center gap-2">
               <input
                 type="radio"
                 name="transferType"
@@ -327,11 +326,10 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                     setSelectedMembershipId("");
                   }
                 }}
-                className="w-3 h-3 text-emerald-600 focus:ring-emerald-500"
               />
-              <span className="text-[10px] text-gray-700 group-hover:text-emerald-700 transition-colors">Membership</span>
+              <span className="text-[11px]">Transfer Membership</span>
             </label>
-            <label className="inline-flex items-center gap-1.5 cursor-pointer group">
+            <label className="inline-flex items-center gap-2">
               <input
                 type="radio"
                 name="transferType"
@@ -341,19 +339,18 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                   setTransferType(e.target.value);
                   setMembershipUsage(null);
                 }}
-                className="w-3 h-3 text-emerald-600 focus:ring-emerald-500"
               />
-              <span className="text-[10px] text-gray-700 group-hover:text-emerald-700 transition-colors">Package</span>
+              <span className="text-[11px]">Transfer Package</span>
             </label>
           </div>
           {transferType === "membership" && (
-            <div className="rounded-lg border border-emerald-100 bg-white/80 p-2 shadow-sm">
+            <div className="rounded-lg border border-emerald-200 bg-white p-3">
               <div className="mb-2">
-                <label className="block text-[9px] mb-0.5 font-bold text-gray-600 uppercase">Select Membership</label>
+                <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Select Membership</label>
                 <select
                   value={selectedMembershipId}
                   onChange={(e) => setSelectedMembershipId(e.target.value)}
-                  className="text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 border-gray-200 bg-white"
+                  className="text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 border-gray-300 hover:border-indigo-400"
                 >
                   <option value="">Select membership</option>
                   {(Array.isArray(patientData?.memberships) ? patientData.memberships : []).map((m: any, idx: number) => {
@@ -381,38 +378,38 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                 const remainingConsultations = Math.max(0, totalConsultations - usedConsultations);
                
                 return (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-t border-emerald-50 pt-2">
-                    <div className="text-[9px]">
-                      <div className="font-bold text-gray-500 uppercase leading-tight">Total</div>
-                      <div className="text-gray-900 font-semibold">{totalConsultations}</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="text-[11px]">
+                      <div className="font-semibold text-gray-700">Total Free Consultations</div>
+                      <div className="text-gray-900">{totalConsultations}</div>
                     </div>
-                    <div className="text-[9px]">
-                      <div className="font-bold text-gray-500 uppercase leading-tight">Used</div>
-                      <div className="text-gray-900 font-semibold">{usedConsultations}</div>
+                    <div className="text-[11px]">
+                      <div className="font-semibold text-gray-700">Used Free Consultations</div>
+                      <div className="text-gray-900">{usedConsultations}</div>
                     </div>
-                    <div className="text-[9px]">
-                      <div className="font-bold text-emerald-600 uppercase leading-tight">Rem.</div>
-                      <div className="text-emerald-700 font-bold">{remainingConsultations}</div>
+                    <div className="text-[11px]">
+                      <div className="font-semibold text-gray-700">Remaining</div>
+                      <div className="text-gray-900">{remainingConsultations}</div>
                     </div>
-                    <div className="text-[9px]">
-                      <div className="font-bold text-gray-500 uppercase leading-tight">Disc.</div>
-                      <div className="text-gray-900 font-semibold">{membershipUsage.discountPercentage || 0}%</div>
+                    <div className="text-[11px]">
+                      <div className="font-semibold text-gray-700">Discount %</div>
+                      <div className="text-gray-900">{membershipUsage.discountPercentage || 0}</div>
                     </div>
                   </div>
                 );
               })() : (
-                <div className="text-[9px] text-gray-400 italic">Loading usage details...</div>
+                <div className="text-[11px] text-gray-600">Loading membership usage...</div>
               )}
             </div>
           )}
           {transferType === "package" && (
-            <div className="rounded-lg border border-emerald-100 bg-white/80 p-2 shadow-sm space-y-2">
+            <div className="rounded-lg border border-emerald-200 bg-white p-3 space-y-2">
               <div>
-                <label className="block text-[9px] mb-0.5 font-bold text-gray-600 uppercase">Select Package</label>
+                <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Select Package</label>
                 <select
                   value={selectedPackageId}
                   onChange={(e) => setSelectedPackageId(e.target.value)}
-                  className="text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 border-gray-200 bg-white"
+                  className="text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 border-gray-300 hover:border-indigo-400"
                 >
                   <option value="">Select package</option>
                   {/* Patient's existing packages */}
@@ -420,10 +417,16 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                     const pkg = localPackages.find(x => x._id === p.packageId);
                     return pkg ? (
                       <option key={pkg._id} value={pkg._id}>
-                        {pkg.name}
+                        {pkg.name} - Patient Package
                       </option>
                     ) : null;
                   })}
+                  {/* Public packages - COMMENTED OUT: Only show patient packages */}
+                  {/* publicPackages.map((pkg: any) => (
+                    <option key={pkg._id} value={pkg._id}>
+                      {pkg.packageName || pkg.name} - Public Package
+                    </option>
+                  )) */}
                 </select>
               </div>
               {selectedPackageId && (() => {
@@ -434,84 +437,69 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                 const remainingSess = Math.max(0, totalSess - usedSess);
                
                 return (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-t border-emerald-50 pt-2">
-                    <div className="text-[9px]">
-                      <div className="font-bold text-gray-500 uppercase leading-tight">Sessions</div>
-                      <div className="text-gray-900 font-semibold">{totalSess}</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="text-[11px]">
+                      <div className="font-semibold text-gray-700">Total Sessions</div>
+                      <div className="text-gray-900">{totalSess}</div>
                     </div>
-                    <div className="text-[9px]">
-                      <div className="font-bold text-gray-500 uppercase leading-tight">Used</div>
-                      <div className="text-gray-900 font-semibold">{usedSess}</div>
+                    <div className="text-[11px]">
+                      <div className="font-semibold text-gray-700">Used Sessions</div>
+                      <div className="text-gray-900">{usedSess}</div>
                     </div>
-                    <div className="text-[9px]">
-                      <div className="font-bold text-emerald-600 uppercase leading-tight">Rem.</div>
-                      <div className="text-emerald-700 font-bold">{remainingSess}</div>
+                    <div className="text-[11px]">
+                      <div className="font-semibold text-gray-700">Remaining</div>
+                      <div className="text-gray-900">{remainingSess}</div>
                     </div>
-                    <div className="text-[9px]">
-                      <div className="font-bold text-gray-500 uppercase leading-tight">Name</div>
-                      <div className="text-gray-900 font-semibold truncate" title={pkg?.name}>{pkg ? pkg.name : "-"}</div>
+                    <div className="text-[11px]">
+                      <div className="font-semibold text-gray-700">Package</div>
+                      <div className="text-gray-900">{pkg ? pkg.name : "-"}</div>
                     </div>
                   </div>
                 );
               })()}
             </div>
           )}
-          <div className="rounded-lg border border-emerald-100 bg-white/80 p-2 shadow-sm space-y-2">
+          <div className="rounded-lg border border-emerald-200 bg-white p-3 space-y-2">
             <div>
-              <label className="block text-[9px] mb-0.5 font-bold text-gray-600 uppercase">Target Patient</label>
-              <div className="relative">
-                <Search className="absolute left-2 top-1.5 w-3 h-3 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => {
+              <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Search Target Patient</label>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  e.preventDefault();
+                  setSearchQuery(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
                     e.preventDefault();
-                    setSearchQuery(e.target.value);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                    }
-                  }}
-                  placeholder="Name, Mobile, or EMR"
-                  className="w-full pl-7 pr-2 py-1.5 text-[10px] border rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 border-gray-200 bg-white"
-                />
-              </div>
+                  }
+                }}
+                placeholder="Type name, mobile, or EMR"
+                className="w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 border-gray-300 hover:border-indigo-400"
+              />
             </div>
-            <div className="max-h-32 overflow-auto border border-gray-100 rounded-md bg-gray-50/50">
+            <div className="max-h-48 overflow-auto border border-gray-200 rounded">
               {searchLoading ? (
-                <div className="p-2 text-[9px] text-gray-500 flex items-center gap-1.5">
-                  <Loader2 className="w-3 h-3 animate-spin" /> Searching...
-                </div>
+                <div className="p-2 text-[10px] text-gray-600">Searching...</div>
               ) : (searchResults || []).length === 0 ? (
-                searchQuery.length >= 2 && <div className="p-2 text-[9px] text-gray-400 italic">No patients found</div>
+                <div className="p-2 text-[10px] text-gray-600">No results</div>
               ) : (
-                <ul className="divide-y divide-gray-100">
+                <ul className="divide-y divide-gray-200">
                   {searchResults.map((p: any) => (
-                    <li 
-                      key={p._id} 
-                      className={`p-1.5 hover:bg-emerald-50 cursor-pointer transition-colors ${selectedTargetPatient?._id === p._id ? 'bg-emerald-50' : ''}`} 
-                      onClick={() => setSelectedTargetPatient(p)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-gray-800 text-[10px]">{p.fullName || `${p.firstName} ${p.lastName}`}</span>
-                        <span className="text-[8px] px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded-full font-medium">{p.emrNumber}</span>
-                      </div>
-                      <div className="text-[9px] text-gray-500">{p.mobileNumber}</div>
+                    <li key={p._id} className="p-2 hover:bg-gray-50 cursor-pointer text-[11px]" onClick={() => setSelectedTargetPatient(p)}>
+                      <div className="font-medium text-gray-900">{p.fullName || `${p.firstName} ${p.lastName}`}</div>
+                      <div className="text-gray-600">{p.emrNumber} • {p.mobileNumber}</div>
                     </li>
                   ))}
                 </ul>
               )}
             </div>
             {selectedTargetPatient && (
-              <div className="flex items-center gap-1.5 px-2 py-1.5 bg-emerald-50 border border-emerald-100 rounded-md">
-                <CheckCircle className="w-3 h-3 text-emerald-600" />
-                <span className="text-[9px] text-emerald-800 font-bold truncate">
-                  Target: {selectedTargetPatient.fullName || `${selectedTargetPatient.firstName} ${selectedTargetPatient.lastName}`}
-                </span>
+              <div className="text-[11px] text-gray-800">
+                Selected: {selectedTargetPatient.fullName || `${selectedTargetPatient.firstName} ${selectedTargetPatient.lastName}`} ({selectedTargetPatient.emrNumber})
               </div>
             )}
-            <div className="flex justify-end pt-1">
+            <div className="flex justify-end">
               <button
                 type="button"
                 onClick={(e) => {
@@ -524,13 +512,9 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                   (transferType === "membership" && (!selectedMembershipId)) ||
                   (transferType === "package" && (!selectedPackageId))
                 }
-                className="px-3 py-1.5 text-[10px] bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-md hover:from-emerald-700 hover:to-teal-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all duration-300 font-bold shadow-md uppercase tracking-wider flex items-center gap-1.5"
+                className="px-4 py-2 text-[11px] bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 transition-all duration-300 font-bold shadow-lg"
               >
-                {transferSubmitting ? (
-                  <><Loader2 className="w-3 h-3 animate-spin" /> Processing</>
-                ) : (
-                  <><Send className="w-3 h-3" /> Confirm</>
-                )}
+                {transferSubmitting ? "Transferring..." : "Confirm Transfer"}
               </button>
             </div>
           </div>
@@ -556,7 +540,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { p
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
   const [appointmentFilter, setAppointmentFilter] = useState('all');
   const [loadingAppointments, setLoadingAppointments] = useState(false);
-  
+ 
   // Drag and drop for status filter tabs
   const [draggedStatusKey, setDraggedStatusKey] = useState<string | null>(null);
   const [statusTabOrder, setStatusTabOrder] = useState<string[]>(() => {
@@ -571,17 +555,17 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { p
       }
     }
     return [
-      'all', 'booked', 'upcoming', 'enquiry', 'Arrived', 'Waiting', 
-      'Consultation', 'Approved', 'Rescheduled', 'Completed', 
+      'all', 'booked', 'upcoming', 'enquiry', 'Arrived', 'Waiting',
+      'Consultation', 'Approved', 'Rescheduled', 'Completed',
       'Discharge', 'invoice', 'Cancelled', 'Rejected', 'No Show'
     ];
   });
-  
+ 
   // Default status tabs configuration
   const statusTabsConfig = [
     { key: 'all',          label: 'All' },
     { key: 'booked',       label: 'Booked' },
-    { key: 'upcoming',     label: 'Upcoming' },
+    { key: 'upcoming',     label: 'Follow-Up' },
     { key: 'enquiry',      label: 'Enquiry' },
     { key: 'Arrived',      label: 'Arrived' },
     { key: 'Waiting',      label: 'Waiting' },
@@ -608,7 +592,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { p
   const [billingSearchQuery, setBillingSearchQuery] = useState('');
   const [billingSearchType, setBillingSearchType] = useState<'all' | 'invoice' | 'treatment'>('all');
   const [expandedTreatments, setExpandedTreatments] = useState<Record<string, boolean>>({});
-  
+ 
   // Cache for package names to avoid repeated API calls
   const [packageNameCache, setPackageNameCache] = useState<Record<string, string>>({});
   const [allPackagesLoaded, setAllPackagesLoaded] = useState(false);
@@ -625,7 +609,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { p
       try {
         const headers = getAuthHeaders();
         if (!headers) return 'Package';
-        
+       
         const res = await axios.get('/api/clinic/packages', { headers });
         if (res.data?.success && res.data?.packages) {
           // Build cache from all packages
@@ -637,7 +621,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { p
           });
           setPackageNameCache(newCache);
           setAllPackagesLoaded(true);
-          
+         
           // Return the package name if found
           if (newCache[packageId]) {
             return newCache[packageId];
@@ -647,7 +631,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { p
         console.error('Error fetching packages:', error);
       }
     }
-    
+   
     return 'Package';
   };
 
@@ -796,7 +780,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     const [invoiceAvailableBalance, setInvoiceAvailableBalance] = useState({ advanceBalance: 0 });
   // Treatment Filter Type - Extended with Invoice and Cancelled sections
   const [treatmentFilter, setTreatmentFilter] = useState<'all' | 'ongoing' | 'completed' | 'pending' | 'invoice' | 'cancelled'>('all');
-  
+ 
   // Advanced Treatment Filters
   const [treatmentDateRange, setTreatmentDateRange] = useState<{ from: string; to: string }>({ from: '', to: '' });
   const [treatmentDoctorFilter, setTreatmentDoctorFilter] = useState<string>('');
@@ -884,7 +868,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       }
     }
   }, [manuallyPaidInvoices, patientData._id]);
-  
+ 
   // Persist billed package IDs to sessionStorage
   useEffect(() => {
     if (typeof window !== 'undefined' && patientData._id) {
@@ -972,7 +956,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         if (response.data.success) {
           setPkgSuccess("Package created successfully!");
           setPkgError("");
-          
+         
           // Reset form after success
           setTimeout(() => {
             setShowCreatePackage(false);
@@ -1203,7 +1187,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   // Helper function to calculate amount to pay based on entered amount and balance usage
   const calculatePkgAmountToPay = (enteredAmt: number) => {
     let totalBalanceUsed = 0;
-    
+   
     // Calculate advance used
     if (pkgUseAdvanceBalance) {
       const advanceToUse = Math.min(pkgAvailableBalance.advanceBalance, enteredAmt);
@@ -1212,7 +1196,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     } else {
       setPkgAdvanceUsedAmount(0);
     }
-    
+   
     // Calculate claim used on remaining after advance
     if (pkgUseClaimBalance) {
       const remainingAfterAdvance = Math.max(0, enteredAmt - totalBalanceUsed);
@@ -1222,7 +1206,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     } else {
       setPkgClaimUsedAmount(0);
     }
-    
+   
     // Calculate final amount to pay
     const amountToPay = Math.max(0, enteredAmt - totalBalanceUsed);
     setPkgPaidAmount(amountToPay);
@@ -1233,7 +1217,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     if (pkgPendingToCreate) {
       try {
         const shouldAddToPatient = pkgPendingToCreate.addToPatient;
-        
+       
         // Use the paymentStatus passed from the button click (respects user's Full/Partial choice)
         // Don't recalculate - the button already determined the correct status
         const actualPaymentStatus = paymentStatus;
@@ -1241,7 +1225,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         // If "Create & Add to Patient" was clicked, immediately create the package and assign to patient
         if (shouldAddToPatient) {
           setPkgSubmitting(true);
-          
+         
           // Step 1: Create the package via API
           const headers = getAuthHeaders();
           if (!headers) {
@@ -1264,7 +1248,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           }
 
           const realPackageId = createRes.data.package?._id || createRes.data.packageId;
-          
+         
           // Step 2: Assign the package to patient
           await axios.post("/api/clinic/assign-package-to-patient", {
             patientId: patientData._id,
@@ -1299,7 +1283,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   treatments: pkgPendingToCreate.treatments,
                 }, { headers });
                 console.log('Package billing created with balance usage');
-                
+               
                 // Mark as billed to prevent duplicates
                 setBilledPackageIds(prev => {
                   const updated = new Set(prev);
@@ -1328,7 +1312,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
             advanceBalanceUsed: pkgAdvanceUsedAmount,
             claimAmountUsed: pkgClaimUsedAmount,
           };
-          
+         
           setEditFormData((prev: any) => ({
             ...prev,
             package: 'Yes',
@@ -1358,24 +1342,24 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
          
           setPkgSuccess("Package created and added to patient successfully!");
           setTimeout(() => setPkgSuccess(""), 3000);
-          
+         
           // Refresh the packages list and patient data to show the newly added package
           try {
             const headers = getAuthHeaders();
-            
+           
             // Fetch updated patient data from API
             const patientRes = await axios.get(`/api/clinic/patient-registration?id=${patientData._id}`, { headers });
             if (patientRes.data.success && patientRes.data.patient) {
               // Update patient data with fresh packages
               onPatientUpdated?.(patientRes.data.patient);
-              
+             
               // Call fetchPackagesAndMemberships with the fresh patient data to update the UI
               await fetchPackagesAndMemberships({
                 packages: patientRes.data.patient.packages || [],
                 memberships: patientRes.data.patient.memberships || []
               });
             }
-            
+           
             // Also refresh the available packages list
             const pRes = await axios.get('/api/clinic/packages', { headers });
             if (pRes.data.success) setAllAvailablePackages(pRes.data.packages || []);
@@ -1634,7 +1618,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         treatments: newPkg.treatments,
                       }, { headers });
                       console.log('Package billing created with balance usage');
-                      
+                     
                       // Mark as billed to prevent duplicates
                       setBilledPackageIds(prev => {
                         const updated = new Set(prev);
@@ -1675,17 +1659,17 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       }
        
       // Step 1.5: Create billing records for existing packages with balance usage OR paid amount
-      const existingPackagesToBill = packagesToSave.filter((p: any) => 
+      const existingPackagesToBill = packagesToSave.filter((p: any) =>
         !p.isNewPackage && (p.advanceBalanceUsed > 0 || p.claimAmountUsed > 0 || p.paidAmount > 0)
       );
-      
+     
       if (existingPackagesToBill.length > 0) {
         for (const existingPkg of existingPackagesToBill) {
           try {
             // Find the package details to get the name
             const pkgDetails = allAvailablePackages.find((pkg: any) => pkg._id === existingPkg.packageId);
             const packageName = pkgDetails?.name || existingPkg.packageName || 'Package';
-            
+           
             // Check if this package has already been billed in current session
             const packageBillingKey = `${packageName}-${existingPkg.totalPrice || 0}-${patientData._id}`;
             if (billedPackageIds.has(packageBillingKey)) {
@@ -1704,7 +1688,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                 treatments: pkgDetails?.treatments || [],
               }, { headers });
               console.log('Billing created for existing package:', existingPkg.packageId);
-              
+             
               // Mark as billed to prevent duplicates
               setBilledPackageIds(prev => {
                 const updated = new Set(prev);
@@ -2063,11 +2047,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   // Tab-specific refreshes (optional: keeps current behavior if tab changes)
   useEffect(() => {
     if (activeTab === 'appointments' && patientData?._id) {
-      // Fetch upcoming appointments when filter is 'upcoming', otherwise fetch all
+      // Fetch upcoming appointments when filter is 'upcoming', otherwise fetch all AND also fetch upcoming
       if (appointmentFilter === 'upcoming') {
         fetchUpcomingAppointments();
       } else {
         fetchAppointments();
+        fetchUpcomingAppointments();
       }
     }
   }, [activeTab, appointmentFilter]);
@@ -2272,7 +2257,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
         // Calculate total paid including both cash/card and advance balance from billing history
         // This ensures packages paid entirely with advance balance are marked as "Full" paid
-        const packageBillingsForPkg = billings.filter((billing: any) => 
+        const packageBillingsForPkg = billings.filter((billing: any) =>
           billing.service === "Package" && billing.package === pkg.name
         );
         const totalAdvanceUsedFromBillings = packageBillingsForPkg.reduce(
@@ -2290,7 +2275,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         } else if (totalPaidIncludingAdvance > 0) {
           calculatedPaymentStatus = 'Partial';
         }
-        
+       
         return {
           ...pkg,
           validityInMonths: patientPackage?.validityInMonths || pkg.validityInMonths || 0,
@@ -2386,7 +2371,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       }] : [];
      
       setPackages(patientPackages);
-      
+     
       // Update editFormData.packages with fresh data (like paymentStatus, paidAmount) from patientPackages
       setEditFormData((prev: any) => {
         const updatedPackages = (prev.packages || []).map((pkg: any) => {
@@ -2455,7 +2440,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                 }
 
                 // Calculate total advance used from billing history for user packages!
-                const packageBillingsForUserPkg = billings.filter((billing: any) => 
+                const packageBillingsForUserPkg = billings.filter((billing: any) =>
                   billing.service === "Package" && billing.package === fullPkg.packageName
                 );
                 const totalAdvanceUsedFromBillingsForUserPkg = packageBillingsForUserPkg.reduce(
@@ -2473,7 +2458,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                 } else if (totalPaidIncludingAdvanceForUserPkg > 0) {
                   calculatedPaymentStatusForUserPkg = 'Partial';
                 }
-                
+               
                 return {
                   ...fullPkg,
                   validityInMonths: fullPkg.validityInMonths || 0,
@@ -2524,7 +2509,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
      
       if (response.data.success) {
         let billings = response.data.billings || [];
-        
+       
         // CRITICAL: Load already-billed package IDs from billing history to prevent duplicates
         // This ensures packages that were already billed in previous sessions are tracked
         const packageBillings = billings.filter((b: any) => b.service === "Package" && b.package);
@@ -2539,7 +2524,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
             return updated;
           });
         }
-        
+       
         // Resolve package names for unpaidPackagesPaid
         const billingsWithPackageNames = await Promise.all(
           billings.map(async (billing: any) => {
@@ -2550,13 +2535,13 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   if (pkg.packageName) {
                     return pkg;
                   }
-                  
+                 
                   // Otherwise fetch it from packageId
                   if (pkg.packageId) {
                     const packageName = await fetchPackageName(pkg.packageId);
                     return { ...pkg, packageName };
                   }
-                  
+                 
                   return pkg;
                 })
               );
@@ -2565,7 +2550,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
             return billing;
           })
         );
-        
+       
         setBillingHistory(billingsWithPackageNames);
         calculateFinancialSnapshot(billingsWithPackageNames);
        
@@ -2585,7 +2570,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
             console.log('[CashbackProfile] Skipping refunded billing:', billing.invoiceNumber);
             return false;
           }
-          
+         
           if (!billing.isCashbackApplied || !billing.cashbackAmount || billing.cashbackAmount <= 0) {
             return false;
           }
@@ -3746,27 +3731,27 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
   const handleStatusTabDrop = (e: React.DragEvent, targetStatusKey: string) => {
     e.preventDefault();
-    
+   
     if (!draggedStatusKey || draggedStatusKey === targetStatusKey) return;
 
     setStatusTabOrder((prevOrder) => {
       const newOrder = [...prevOrder];
       const draggedIndex = newOrder.indexOf(draggedStatusKey);
       const targetIndex = newOrder.indexOf(targetStatusKey);
-      
+     
       if (draggedIndex === -1 || targetIndex === -1) return prevOrder;
-      
+     
       newOrder.splice(draggedIndex, 1);
       newOrder.splice(targetIndex, 0, draggedStatusKey);
-      
+     
       // Save to localStorage
       if (typeof window !== "undefined") {
         localStorage.setItem("appointmentStatusTabOrder", JSON.stringify(newOrder));
       }
-      
+     
       return newOrder;
     });
-    
+   
     setDraggedStatusKey(null);
   };
 
@@ -4008,7 +3993,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                           {isUpcomingAppointment && (
                                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-800 text-[10px] font-bold w-fit">
                                               <Clock size={9} />
-                                              Upcoming
+                                              Follow-Up
                                             </span>
                                           )}
                                           <div className="flex flex-wrap gap-1">
@@ -4823,7 +4808,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               }
                               return null;
                             })()}
-                            
+                           
                             <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between shadow-sm">
                               <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
@@ -4876,7 +4861,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   <Wallet className="w-4 h-4 text-blue-600" />
                                   <span className="text-[11px] font-bold text-blue-800 uppercase tracking-wider">Use Available Balances</span>
                                 </div>
-                                
+                               
                                 {/* Advance Balance Option */}
                                 {pkgAvailableBalance.advanceBalance > 0 && (
                                   <label className="flex items-center justify-between cursor-pointer p-3 bg-white rounded-xl border-2 border-emerald-200 hover:border-emerald-400 transition-all shadow-sm">
@@ -5058,7 +5043,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   // Respect the user's payment type selection (Full or Partial)
                                   // The pkgPaymentType state holds what user selected
                                   const status = pkgPaymentType === 'Partial' ? 'Partial' : (pkgPaidAmount > 0 ? 'Full' : 'Unpaid');
-                                  
+                                 
                                   finalizePmAddPackage(pkgPaidAmount, status, pkgPaymentMethod);
                                 }}
                                 className="flex-[2] min-w-[120px] py-3 bg-gradient-to-r from-purple-600 to-indigo-700 text-white text-xs font-bold rounded-2xl hover:shadow-lg hover:shadow-purple-200 transition-all"
@@ -5453,15 +5438,15 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                               {used}/{max}
                                             </span>
                                             {treatment.usageDetails && treatment.usageDetails.length > 0 && (
-                                              <button 
-                                                type="button" 
+                                              <button
+                                                type="button"
                                                 onClick={() => setExpandedTreatments(prev => ({
                                                   ...prev,
                                                   [treatmentKey]: !prev[treatmentKey]
                                                 }))}
                                                 className="p-1 hover:bg-gray-200 rounded"
                                               >
-                                                <ChevronDown 
+                                                <ChevronDown
                                                   className={`w-3 h-3 text-gray-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                                                 />
                                               </button>
@@ -5793,36 +5778,37 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   </div>
                                 </div>
                               )}
+                             
                               {/* Transfer Information */}
                               {(membership as any).usageData?.isTransferred && (
-                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-lg p-3">
-                                  <div className="flex items-center gap-1.5 mb-2">
-                                    <CheckCircle className="w-3.5 h-3.5 text-green-600" />
-                                    <h5 className="text-[11px] font-bold text-green-800 uppercase tracking-tight">Transferred Membership Details</h5>
+                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <CheckCircle className="w-4 h-4 text-green-600" />
+                                    <h5 className="text-sm font-bold text-green-800">Transferred Membership Details</h5>
                                   </div>
-                                  <div className="space-y-1.5">
-                                    <div className="flex justify-between items-center bg-white/80 rounded px-2.5 py-2 border border-green-100 shadow-sm">
-                                      <div className="flex items-center gap-1.5">
-                                        <User className="w-3 h-3 text-green-600" />
-                                        <span className="text-[10px] font-semibold text-gray-600">From:</span>
+                                  <div className="space-y-2.5">
+                                    <div className="flex justify-between items-center bg-white rounded-lg px-3 py-2.5 border border-green-200 shadow-sm">
+                                      <div className="flex items-center gap-2">
+                                        <User className="w-3.5 h-3.5 text-green-600" />
+                                        <span className="text-xs font-semibold text-gray-700">Transferred From:</span>
                                       </div>
-                                      <span className="text-[11px] font-bold text-green-900">{(membership as any).usageData.transferredFromName || 'Unknown Patient'}</span>
+                                      <span className="text-base font-bold text-green-900">{(membership as any).usageData.transferredFromName || 'Unknown Patient'}</span>
                                     </div>
                                     {(membership as any).usageData.transferredFreeConsultations !== null && (
-                                      <div className="flex justify-between items-center bg-white/80 rounded px-2.5 py-2 border border-green-100 shadow-sm">
-                                        <div className="flex items-center gap-1.5">
-                                          <Activity className="w-3 h-3 text-green-600" />
-                                          <span className="text-[10px] font-semibold text-gray-600">Consultations:</span>
+                                      <div className="flex justify-between items-center bg-white rounded-lg px-3 py-2.5 border border-green-200 shadow-sm">
+                                        <div className="flex items-center gap-2">
+                                          <Activity className="w-3.5 h-3.5 text-green-600" />
+                                          <span className="text-xs font-semibold text-gray-700">Transferred Consultations:</span>
                                         </div>
-                                        <span className="text-[11px] font-bold text-green-700">{(membership as any).usageData.transferredFreeConsultations}</span>
+                                        <span className="text-base font-bold text-green-700">{(membership as any).usageData.transferredFreeConsultations}</span>
                                       </div>
                                     )}
-                                    <div className="flex justify-between items-center bg-white/80 rounded px-2.5 py-2 border border-green-100 shadow-sm">
-                                      <div className="flex items-center gap-1.5">
-                                        <Shield className="w-3 h-3 text-green-600" />
-                                        <span className="text-[10px] font-semibold text-gray-600">Total Available:</span>
+                                    <div className="flex justify-between items-center bg-white rounded-lg px-3 py-2.5 border border-green-200 shadow-sm">
+                                      <div className="flex items-center gap-2">
+                                        <Shield className="w-3.5 h-3.5 text-green-600" />
+                                        <span className="text-xs font-semibold text-gray-700">Total Available Consultations:</span>
                                       </div>
-                                      <span className="text-[11px] font-bold text-blue-700">{(membership as any).usageData.totalFreeConsultations || 0}</span>
+                                      <span className="text-base font-bold text-blue-700">{(membership as any).usageData.totalFreeConsultations || 0}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -5872,36 +5858,38 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
                 {/* Transferred In Packages Section */}
                 {transferredInPackages && transferredInPackages.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2 uppercase tracking-tight">
-                      <Package className="w-4 h-4 text-green-600" />
+                  <div className="mt-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <Package className="w-5 h-5 text-green-600" />
                       Transferred In Packages
                     </h3>
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       {transferredInPackages.map((pkg: any, idx: number) => (
-                        <div key={idx} className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-3 shadow-sm">
-                          <div className="flex items-start gap-2.5">
-                            <div className="w-8 h-8 rounded bg-green-100 flex items-center justify-center flex-shrink-0">
-                              <Package className="w-4 h-4 text-green-600" />
+                        <div key={idx} className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+                              <Package className="w-5 h-5 text-green-600" />
                             </div>
                             <div className="flex-1">
-                              <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                                <h3 className="text-xs font-bold text-green-900">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-base font-bold text-green-900">
                                   {pkg.packageName || 'Package'}
                                 </h3>
-                                <span className="px-1.5 py-0.5 rounded-full bg-green-200 text-green-800 text-[8px] font-bold uppercase tracking-wider">
-                                  In
+                                <span className="px-2 py-0.5 rounded-full bg-green-200 text-green-800 text-[10px] font-bold">
+                                  Transferred In
                                 </span>
                                
-                                {/* Payment Status & Method Tags */}
+                                {/* Payment Status & Method Tags for Transferred Packages */}
                                 {pkg.paymentStatus === 'Full' && (
-                                  <span className="px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-bold uppercase text-[8px] border border-green-200 shadow-sm flex items-center gap-1">
-                                    <CheckCircle className="w-2 h-2" /> Paid
+                                  <span className="px-2 py-0.5 rounded-lg bg-green-100 text-green-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
+                                    <CheckCircle className="w-2.5 h-2.5" />
+                                    Full Paid
                                   </span>
                                 )}
                                 {pkg.paymentStatus === 'Partial' && (
-                                  <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-bold uppercase text-[8px] border border-amber-200 shadow-sm flex items-center gap-1">
-                                    <Activity className="w-2 h-2" /> Partial ({getCurrencySymbol(currency)}{pkg.paidAmount})
+                                  <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
+                                    <Activity className="w-2.5 h-2.5" />
+                                    Partial ({getCurrencySymbol(currency)}{pkg.paidAmount})
                                   </span>
                                 )}
                                 {pkg.paymentStatus === 'Unpaid' && (
@@ -5911,46 +5899,47 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   </span>
                                 )}
                                 {pkg.paymentMethod && (
-                                  <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold uppercase text-[8px] border border-indigo-100 flex items-center gap-1 shadow-sm">
-                                    <Wallet className="w-2 h-2" /> {pkg.paymentMethod}
+                                  <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 font-bold uppercase text-[9px] border border-indigo-100 flex items-center gap-1 shadow-sm">
+                                    <Wallet className="w-2.5 h-2.5" />
+                                    {pkg.paymentMethod}
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[10px] text-green-700 mb-2">
-                                Transferred from another patient.
+                              <p className="text-xs text-green-700 mb-3">
+                                This package was transferred from another patient.
                               </p>
                               <div className="grid grid-cols-2 gap-2">
                                 {pkg.transferredFromName && (
-                                  <div className="bg-white/80 border border-green-100 rounded p-2">
-                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">From</div>
-                                    <div className="flex items-center gap-1">
-                                      <User className="w-3 h-3 text-green-600" />
-                                      <span className="text-[10px] font-bold text-green-900 truncate">
+                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred From</div>
+                                    <div className="flex items-center gap-1.5">
+                                      <User className="w-3.5 h-3.5 text-green-600" />
+                                      <span className="text-xs font-bold text-green-900">
                                         {pkg.transferredFromName}
                                       </span>
                                     </div>
                                   </div>
                                 )}
                                 {pkg.transferredSessions > 0 && (
-                                  <div className="bg-white/80 border border-green-100 rounded p-2">
-                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">Transferred</div>
-                                    <span className="text-[10px] font-bold text-green-900">
+                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred Sessions</div>
+                                    <span className="text-xs font-bold text-green-900">
                                       {pkg.transferredSessions}
                                     </span>
                                   </div>
                                 )}
                                 {pkg.totalAllowedSessions && (
-                                  <div className="bg-white/80 border border-green-100 rounded p-2">
-                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">Total</div>
-                                    <span className="text-[10px] font-bold text-green-900">
+                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Total Allowed Sessions</div>
+                                    <span className="text-xs font-bold text-green-900">
                                       {pkg.totalAllowedSessions}
                                     </span>
                                   </div>
                                 )}
                                 {typeof pkg.remainingSessions === 'number' && (
-                                  <div className="bg-white/80 border border-green-100 rounded p-2">
-                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">Remaining</div>
-                                    <span className="text-[10px] font-bold text-green-900">
+                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Remaining Sessions</div>
+                                    <span className="text-xs font-bold text-green-900">
                                       {pkg.remainingSessions}
                                     </span>
                                   </div>
@@ -5966,25 +5955,25 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
                 {/* Transferred Out Packages Section */}
                 {transferredOutPackages && transferredOutPackages.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2 uppercase tracking-tight">
-                      <Package className="w-4 h-4 text-amber-600" />
+                  <div className="mt-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <Package className="w-5 h-5 text-amber-600" />
                       Transferred Out Packages
                     </h3>
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       {transferredOutPackages.map((pkg: any, idx: number) => (
-                        <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-3 shadow-sm">
-                          <div className="flex items-start gap-2.5">
-                            <div className="w-8 h-8 rounded bg-amber-100 flex items-center justify-center flex-shrink-0">
-                              <Package className="w-4 h-4 text-amber-600" />
+                        <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                              <Package className="w-5 h-5 text-amber-600" />
                             </div>
                             <div className="flex-1">
-                              <div className="flex items-center gap-1.5 mb-1">
-                                <h3 className="text-xs font-bold text-amber-900">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-base font-bold text-amber-900">
                                   {pkg.packageName || 'Package'}
                                 </h3>
-                                <span className="px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[8px] font-bold uppercase tracking-wider">
-                                  Out
+                                <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[10px] font-bold">
+                                  Transferred Out
                                 </span>
                                 {/* Payment Status & Method Tags for Transferred Out Packages */}
                                 {pkg.paymentStatus === 'Full' && (
@@ -6012,25 +6001,25 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[10px] text-amber-700 mb-2">
-                                Transferred to another patient.
+                              <p className="text-xs text-amber-700 mb-3">
+                                This package was transferred to another patient.
                               </p>
                               <div className="grid grid-cols-2 gap-2">
                                 {pkg.transferredToName && (
-                                  <div className="bg-white/80 border border-amber-100 rounded p-2">
-                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">To</div>
-                                    <div className="flex items-center gap-1">
-                                      <User className="w-3 h-3 text-amber-600" />
-                                      <span className="text-[10px] font-bold text-amber-900 truncate">
+                                  <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred To</div>
+                                    <div className="flex items-center gap-1.5">
+                                      <User className="w-3.5 h-3.5 text-amber-600" />
+                                      <span className="text-xs font-bold text-amber-900">
                                         {pkg.transferredToName}
                                       </span>
                                     </div>
                                   </div>
                                 )}
                                 {pkg.transferredSessions > 0 && (
-                                  <div className="bg-white/80 border border-amber-100 rounded p-2">
-                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">Transferred</div>
-                                    <span className="text-[10px] font-bold text-amber-900">
+                                  <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Sessions Transferred</div>
+                                    <span className="text-xs font-bold text-amber-900">
                                       {pkg.transferredSessions}
                                     </span>
                                   </div>
@@ -6046,25 +6035,25 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
                 {/* Transferred Out Memberships Section */}
                 {transferredOutMemberships && transferredOutMemberships.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2 uppercase tracking-tight">
-                      <Shield className="w-4 h-4 text-amber-600" />
+                  <div className="mt-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-amber-600" />
                       Transferred Out Memberships
                     </h3>
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       {transferredOutMemberships.map((membership: any, idx: number) => (
-                        <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-3 shadow-sm">
-                          <div className="flex items-start gap-2.5">
-                            <div className="w-8 h-8 rounded bg-amber-100 flex items-center justify-center flex-shrink-0">
-                              <Shield className="w-4 h-4 text-amber-600" />
+                        <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                              <Shield className="w-5 h-5 text-amber-600" />
                             </div>
                             <div className="flex-1">
-                              <div className="flex items-center gap-1.5 mb-1">
-                                <h3 className="text-xs font-bold text-amber-900">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-base font-bold text-amber-900">
                                   {membership.membershipName || 'Membership'}
                                 </h3>
-                                <span className="px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[8px] font-bold uppercase tracking-wider">
-                                  Out
+                                <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[10px] font-bold">
+                                  Transferred Out
                                 </span>
                                 {/* Payment Status & Method Tags for Transferred Out Memberships */}
                                 {membership.paymentStatus === 'Full' && (
@@ -6092,25 +6081,25 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[10px] text-amber-700 mb-2">
-                                Transferred to another patient.
+                              <p className="text-xs text-amber-700 mb-3">
+                                This membership was transferred to another patient.
                               </p>
                               <div className="grid grid-cols-2 gap-2">
                                 {membership.transferredToName && (
-                                  <div className="bg-white/80 border border-amber-100 rounded p-2">
-                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">To</div>
-                                    <div className="flex items-center gap-1">
-                                      <User className="w-3 h-3 text-amber-600" />
-                                      <span className="text-[10px] font-bold text-amber-900 truncate">
+                                  <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred To</div>
+                                    <div className="flex items-center gap-1.5">
+                                      <User className="w-3.5 h-3.5 text-amber-600" />
+                                      <span className="text-xs font-bold text-amber-900">
                                         {membership.transferredToName}
                                       </span>
                                     </div>
                                   </div>
                                 )}
                                 {membership.transferredFreeConsultations > 0 && (
-                                  <div className="bg-white/80 border border-amber-100 rounded p-2">
-                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">Consultations</div>
-                                    <span className="text-[10px] font-bold text-amber-900">
+                                  <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Consultations Transferred</div>
+                                    <span className="text-xs font-bold text-amber-900">
                                       {membership.transferredFreeConsultations}
                                     </span>
                                   </div>
@@ -6126,36 +6115,38 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
                 {/* Transferred In Memberships Section */}
                 {transferredInMemberships && transferredInMemberships.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2 uppercase tracking-tight">
-                      <Shield className="w-4 h-4 text-green-600" />
+                  <div className="mt-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-green-600" />
                       Transferred In Memberships
                     </h3>
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       {transferredInMemberships.map((membership: any, idx: number) => (
-                        <div key={idx} className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-3 shadow-sm">
-                          <div className="flex items-start gap-2.5">
-                            <div className="w-8 h-8 rounded bg-green-100 flex items-center justify-center flex-shrink-0">
-                              <Shield className="w-4 h-4 text-green-600" />
+                        <div key={idx} className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+                              <Shield className="w-5 h-5 text-green-600" />
                             </div>
                             <div className="flex-1">
-                              <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                                <h3 className="text-xs font-bold text-green-900">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-base font-bold text-green-900">
                                   {membership.membershipName || 'Membership'}
                                 </h3>
-                                <span className="px-1.5 py-0.5 rounded-full bg-green-200 text-green-800 text-[8px] font-bold uppercase tracking-wider">
-                                  In
+                                <span className="px-2 py-0.5 rounded-full bg-green-200 text-green-800 text-[10px] font-bold">
+                                  Transferred In
                                 </span>
 
-                                {/* Payment Status & Method Tags */}
+                                {/* Payment Status & Method Tags for Transferred Memberships */}
                                 {membership.paymentStatus === 'Full' && (
-                                  <span className="px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-bold uppercase text-[8px] border border-green-200 shadow-sm flex items-center gap-1">
-                                    <CheckCircle className="w-2 h-2" /> Paid
+                                  <span className="px-2 py-0.5 rounded-lg bg-green-100 text-green-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
+                                    <CheckCircle className="w-2.5 h-2.5" />
+                                    Full Paid
                                   </span>
                                 )}
                                 {membership.paymentStatus === 'Partial' && (
-                                  <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-bold uppercase text-[8px] border border-amber-200 shadow-sm flex items-center gap-1">
-                                    <Activity className="w-2.5 h-2.5" /> Partial ({getCurrencySymbol(currency)}{membership.paidAmount})
+                                  <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
+                                    <Activity className="w-2.5 h-2.5" />
+                                    Partial ({getCurrencySymbol(currency)}{membership.paidAmount})
                                   </span>
                                 )}
                                 {membership.paymentStatus === 'Unpaid' && (
@@ -6165,46 +6156,47 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   </span>
                                 )}
                                 {membership.paymentMethod && (
-                                  <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold uppercase text-[8px] border border-indigo-100 flex items-center gap-1 shadow-sm">
-                                    <Wallet className="w-2.5 h-2.5" /> {membership.paymentMethod}
+                                  <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 font-bold uppercase text-[9px] border border-indigo-100 flex items-center gap-1 shadow-sm">
+                                    <Wallet className="w-2.5 h-2.5" />
+                                    {membership.paymentMethod}
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[10px] text-green-700 mb-2">
-                                Transferred from another patient.
+                              <p className="text-xs text-green-700 mb-3">
+                                This membership was transferred from another patient.
                               </p>
                               <div className="grid grid-cols-2 gap-2">
                                 {membership.transferredFromName && (
-                                  <div className="bg-white/80 border border-green-100 rounded p-2">
-                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">From</div>
-                                    <div className="flex items-center gap-1">
-                                      <User className="w-3 h-3 text-green-600" />
-                                      <span className="text-[10px] font-bold text-green-900 truncate">
+                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred From</div>
+                                    <div className="flex items-center gap-1.5">
+                                      <User className="w-3.5 h-3.5 text-green-600" />
+                                      <span className="text-xs font-bold text-green-900">
                                         {membership.transferredFromName}
                                       </span>
                                     </div>
                                   </div>
                                 )}
                                 {membership.transferredFreeConsultations !== null && (
-                                  <div className="bg-white/80 border border-green-100 rounded p-2">
-                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">Transferred</div>
-                                    <span className="text-[10px] font-bold text-green-900">
+                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred Consultations</div>
+                                    <span className="text-xs font-bold text-green-900">
                                       {membership.transferredFreeConsultations}
                                     </span>
                                   </div>
                                 )}
                                 {membership.totalFreeConsultations && (
-                                  <div className="bg-white/80 border border-green-100 rounded p-2">
-                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">Total</div>
-                                    <span className="text-[10px] font-bold text-green-900">
+                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Total Available Consultations</div>
+                                    <span className="text-xs font-bold text-green-900">
                                       {membership.totalFreeConsultations}
                                     </span>
                                   </div>
                                 )}
                                 {membership.remainingFreeConsultations !== null && (
-                                  <div className="bg-white/80 border border-green-100 rounded p-2">
-                                    <div className="text-[8px] text-gray-500 mb-0.5 uppercase font-bold">Remaining</div>
-                                    <span className="text-[10px] font-bold text-green-900">
+                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Remaining Consultations</div>
+                                    <span className="text-xs font-bold text-green-900">
                                       {membership.remainingFreeConsultations}
                                     </span>
                                   </div>
@@ -6401,23 +6393,23 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     const isAgentDiscount = billing.isAgentDiscountApplied;
                                     const isMembershipDiscount = (billing.membershipDiscountApplied || 0) > 0;
                                     const hasAnyDiscount = discountPercent > 0 || isDoctorDiscount || isAgentDiscount || isMembershipDiscount;
-                                    
+                                   
                                     // Refund info
                                     const isRefunded = billing.isOfferRefunded || false;
                                     const refundedOffers = billing.refundedOffers || [];
                                     const refundedAt = billing.refundedAt;
                                     // const refundedBy = billing.refundedBy;
                                     // const refundedAmount = billing.refundedAmount || 0;
-                                    
+                                   
                                     // Payment methods
                                     const paymentMethods = billing.multiplePayments && billing.multiplePayments.length > 0
                                       ? billing.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ")
                                       : (billing.paymentMethod || "–");
-                                    
+                                   
                                     // Offer type
                                     const offerType = billing.offerType || null;
                                     const offerName = billing.offerName || null;
-                                    
+                                   
                                     // Free sessions
                                     const usedFreeSessionCount = billing.usedFreeSessionCount || 0;
                                     const usedFreeSessionNames = billing.usedFreeSessions || [];
@@ -6426,21 +6418,21 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     const freeConsultation = billing.isFreeConsultation || false;
                                     const freeConsultCount = billing.freeConsultationCount || 0;
                                     const isBundleOffer = billing.offerType === 'bundle';
-                                    
+                                   
                                     // Cashback
                                     const cashbackEarnedAmt = billing.cashbackEarned || 0;
                                     const cashbackEarnedFromOffer = billing.cashbackAmount || 0;
                                     const cashbackUsedAmt = billing.cashbackWalletUsed || 0;
                                     const isCashbackApplied = billing.isCashbackApplied || false;
                                     const cashbackOfferName = billing.cashbackOfferName || '';
-                                    
+                                   
                                     // Pending and advance
                                     const pendingAmt = billing.pending || 0;
                                     const advanceAmt = billing.advance || 0;
                                     const advanceUsed = billing.advanceUsed || 0;
                                     const claimUsed = billing.claimAmountUsed || 0;
                                     const pendingUsed = billing.pendingUsed || 0;
-                                    
+                                   
                                     return (
                                       <tr key={billing._id || index} className={`transition-colors ${isRefunded ? 'bg-red-50 hover:bg-red-100 border-l-4 border-l-red-500' : `hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}`}>
                                         {/* Invoice */}
@@ -6899,7 +6891,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   // const freeOfferSessionCount = billing.freeOfferSessionCount || 0;
                                   const freeConsultation = billing.isFreeConsultation || false;
                                   const freeConsultCount = billing.freeConsultationCount || 0;
-                                  
+                                 
                                   return (
                                     <div key={billing._id || index} className={`p-4 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
                                       <div className="flex justify-between items-start mb-3">
@@ -6912,7 +6904,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                           <div className="text-[10px] text-gray-400">Qty: {billing.quantity || 1}</div>
                                         </div>
                                       </div>
-                                      
+                                     
                                       {/* Treatment / Package */}
                                       <div className="mb-3">
                                         <div className="text-xs text-gray-700">
@@ -6939,7 +6931,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                           </div>
                                         )}
                                       </div>
-                                      
+                                     
                                       {/* Tags Row */}
                                       <div className="flex flex-wrap gap-1 mb-3">
                                         {discountPct > 0 && (
@@ -6998,7 +6990,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                           <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-700">Free Consult ({freeConsultCount})</span>
                                         )}
                                       </div>
-                                      
+                                     
                                       {/* Financial Details */}
                                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] mb-3 p-2 bg-gray-50 rounded-lg">
                                         <div className="flex justify-between">
@@ -7042,7 +7034,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                           </>
                                         )}
                                       </div>
-                                      
+                                     
                                       {/* Payment Method */}
                                       <div className="text-[10px] text-gray-500">
                                         <span className="font-medium">Payment:</span> {paymentMethods}
@@ -8748,11 +8740,11 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     // pendingUsed is for tracking when THIS invoice cleared a PREVIOUS invoice's pending
                     // It should NOT be subtracted from this invoice's own pending amount
                     let remainingPending = pending;
-                    
+                   
                     // Check if fully paid based on pending field directly
                     const hasPendingAmount = remainingPending > 0;
                     const isFullyPaid = !hasPendingAmount;
-                    
+                   
                     // Status based on remaining pending amount
                     const treatmentStatus = hasPendingAmount ? 'pending' : 'completed';
                    
@@ -8843,10 +8835,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                 if (treatmentFilter === 'completed') {
                   // Completed section: All completed treatments from appointments AND billing
                   // Include appointments with completed status (with or without invoice) and billing completed records
-                  const completedFromAppointments = appointmentTreatments.filter((t: any) => 
+                  const completedFromAppointments = appointmentTreatments.filter((t: any) =>
                     t.treatmentStatus === 'invoice' || t.treatmentStatus === 'completed-no-invoice'
                   );
-                  const completedFromBilling = billingTreatments.filter((t: any) => 
+                  const completedFromBilling = billingTreatments.filter((t: any) =>
                     t.treatmentStatus === 'completed'
                   );
                   filtered = [...completedFromAppointments, ...completedFromBilling].filter(applyAllFilters);
@@ -8857,10 +8849,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   }).filter(applyAllFilters);
                 } else if (treatmentFilter === 'invoice') {
                   // Invoice section: Billing invoices + appointments with invoices (exclude ongoing treatments)
-                  const invoicedFromBilling = billingTreatments.filter((t: any) => 
+                  const invoicedFromBilling = billingTreatments.filter((t: any) =>
                     t.treatmentStatus !== 'ongoing' // Exclude ongoing treatments from invoice section
                   ).map((t: any) => ({ ...t, invoiceSource: 'billing' }));
-                  const invoicedFromAppointments = appointmentTreatments.filter((t: any) => 
+                  const invoicedFromAppointments = appointmentTreatments.filter((t: any) =>
                     (t.invoiceNumber || t.treatmentStatus === 'invoice' || t.hasInvoice) &&
                     t.treatmentStatus !== 'ongoing' // Exclude ongoing treatments from invoice section
                   ).map((t: any) => ({ ...t, invoiceSource: 'appointment' }));
@@ -8909,11 +8901,11 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                             + appointmentTreatments.filter((t: any) => t.treatmentStatus === 'ongoing').length
                             + billingTreatments.filter((t: any) => t.treatmentStatus === 'pending').length
                             + billingTreatments.filter((t: any) => t.treatmentStatus !== 'ongoing').length  // Exclude ongoing from billing count
-                            + appointmentTreatments.filter((t: any) => 
+                            + appointmentTreatments.filter((t: any) =>
                               (t.invoiceNumber || t.treatmentStatus === 'invoice' || t.hasInvoice) &&
                               t.treatmentStatus !== 'ongoing'  // Exclude ongoing from invoice count
                             ).length
-                            + (appointmentTreatments.filter((t: any) => 
+                            + (appointmentTreatments.filter((t: any) =>
                               t.treatmentStatus === 'invoice' || t.treatmentStatus === 'completed-no-invoice'
                             ).length + billingTreatments.filter((t: any) => t.treatmentStatus === 'completed').length)
                             + appointmentTreatments.filter((t: any) => t.treatmentStatus === 'cancelled').length;
@@ -8923,14 +8915,14 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                           count = billingTreatments.filter((t: any) => t.treatmentStatus === 'pending').length;
                         } else if (f === 'invoice') {
                           // Invoice count: Only count treatments with invoices, exclude ongoing treatments
-                          count = billingTreatments.filter((t: any) => t.treatmentStatus !== 'ongoing').length 
-                            + appointmentTreatments.filter((t: any) => 
+                          count = billingTreatments.filter((t: any) => t.treatmentStatus !== 'ongoing').length
+                            + appointmentTreatments.filter((t: any) =>
                               (t.invoiceNumber || t.treatmentStatus === 'invoice' || t.hasInvoice) &&
                               t.treatmentStatus !== 'ongoing'
                             ).length;
                         } else if (f === 'completed') {
                           // Completed count: Appointments with invoice or completed-no-invoice + billing completed
-                          count = appointmentTreatments.filter((t: any) => 
+                          count = appointmentTreatments.filter((t: any) =>
                             t.treatmentStatus === 'invoice' || t.treatmentStatus === 'completed-no-invoice'
                           ).length + billingTreatments.filter((t: any) => t.treatmentStatus === 'completed').length;
                         } else if (f === 'cancelled') {
@@ -8985,7 +8977,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               />
                             </div>
                           </div>
-                          
+                         
                           {/* Doctor Filter */}
                           <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-1">Filter by Doctor</label>
@@ -9000,7 +8992,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               />
                             </div>
                           </div>
-                          
+                         
                           {/* Date Range */}
                           <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-1">From Date</label>
@@ -9011,7 +9003,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                             />
                           </div>
-                          
+                         
                           <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-1">To Date</label>
                             <input
@@ -9021,7 +9013,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                             />
                           </div>
-                          
+                         
                           {/* Sort By */}
                           <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-1">Sort By</label>
@@ -9036,7 +9028,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               <option value="status">Status</option>
                             </select>
                           </div>
-                          
+                         
                           {/* Sort Order */}
                           <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-1">Order</label>
@@ -9050,7 +9042,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                             </select>
                           </div>
                         </div>
-                        
+                       
                         {/* Clear Filters */}
                         <div className="flex justify-end">
                           <button
@@ -9069,7 +9061,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                       </div>
                     )}
 
-                    
+                   
                     {isLoading ? (
                       <div className="flex items-center justify-center py-16">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
@@ -10195,10 +10187,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   <div className="text-center">
                     <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Payment Status</p>
                     <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold ${
-                      selectedPaymentHistoryBilling.pending === 0 
-                        ? 'bg-green-100 text-green-700' 
-                        : selectedPaymentHistoryBilling.paid > 0 
-                          ? 'bg-amber-100 text-amber-700' 
+                      selectedPaymentHistoryBilling.pending === 0
+                        ? 'bg-green-100 text-green-700'
+                        : selectedPaymentHistoryBilling.paid > 0
+                          ? 'bg-amber-100 text-amber-700'
                           : 'bg-red-100 text-red-700'
                     }`}>
                       {selectedPaymentHistoryBilling.pending === 0 ? 'Completed' : selectedPaymentHistoryBilling.paid > 0 ? 'Partial' : 'Unpaid'}
@@ -10215,8 +10207,8 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   <div>
                     <p className="text-[10px] text-gray-500 uppercase">Invoiced Date</p>
                     <p className="font-semibold text-gray-700">
-                      {selectedPaymentHistoryBilling.invoicedDate 
-                        ? new Date(selectedPaymentHistoryBilling.invoicedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) 
+                      {selectedPaymentHistoryBilling.invoicedDate
+                        ? new Date(selectedPaymentHistoryBilling.invoicedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                         : 'N/A'}
                     </p>
                   </div>
@@ -10303,8 +10295,8 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         <div key={idx} className="relative">
                           {/* Payment Card */}
                           <div className={`p-4 rounded-xl border-2 ${
-                            payment.transactionType === 'ADVANCE_USAGE' 
-                              ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200' 
+                            payment.transactionType === 'ADVANCE_USAGE'
+                              ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200'
                               : payment.transactionType === 'CLAIM_USAGE'
                                 ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
                                 : payment.transactionType === 'PENDING_CLEARANCE'
@@ -10330,9 +10322,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                 <div>
                                   <p className="text-sm font-bold text-gray-800">{payment.paymentMethod}</p>
                                   <p className="text-[10px] text-gray-500">
-                                    {payment.paidAt ? new Date(payment.paidAt).toLocaleString('en-US', { 
-                                      month: 'short', day: 'numeric', year: 'numeric', 
-                                      hour: '2-digit', minute: '2-digit' 
+                                    {payment.paidAt ? new Date(payment.paidAt).toLocaleString('en-US', {
+                                      month: 'short', day: 'numeric', year: 'numeric',
+                                      hour: '2-digit', minute: '2-digit'
                                     }) : 'N/A'}
                                   </p>
                                 </div>
@@ -10400,7 +10392,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               <Check className="w-3 h-3 text-white absolute top-0.5 left-0.5" />
                             )}
                           </div>
-                          
+                         
                           {/* History Card */}
                           <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100">
                             <div className="flex items-center justify-between mb-3">
@@ -10515,7 +10507,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                       <p className="text-sm font-bold text-gray-700">{getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.cashbackWalletUsed || 0).toLocaleString()}</p>
                     </div>
                   </div>
-                  
+                 
                   {/* Notes */}
                   {selectedPaymentHistoryBilling.notes && (
                     <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-100">
@@ -10687,18 +10679,18 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         {/* Pay Invoice Pending Modal */}
         {showInvoicePayModal && selectedInvoiceForPayment && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-            <div 
-              className="absolute inset-0 bg-gray-900/60 backdrop-blur-md" 
-              onClick={() => { 
-                if (!payingInvoicePending) { 
-                  setShowInvoicePayModal(false); 
-                  setSelectedInvoiceForPayment(null); 
-                  setInvoicePayAmount(""); 
+            <div
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-md"
+              onClick={() => {
+                if (!payingInvoicePending) {
+                  setShowInvoicePayModal(false);
+                  setSelectedInvoiceForPayment(null);
+                  setInvoicePayAmount("");
                   setInvoicePayMethod("Cash");
                   setInvoiceUseAdvanceBalance(false);
                   setInvoiceAdvanceUsed(0);
                 }
-              }} 
+              }}
             />
             <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full">
               {/* Header */}
@@ -10707,15 +10699,15 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   <h3 className="text-lg font-bold text-white">Pay Invoice Pending</h3>
                   <p className="text-red-100 text-xs mt-0.5">Invoice: {selectedInvoiceForPayment.invoiceNumber}</p>
                 </div>
-                <button 
-                  onClick={() => { 
-                    setShowInvoicePayModal(false); 
-                    setSelectedInvoiceForPayment(null); 
-                    setInvoicePayAmount(""); 
+                <button
+                  onClick={() => {
+                    setShowInvoicePayModal(false);
+                    setSelectedInvoiceForPayment(null);
+                    setInvoicePayAmount("");
                     setInvoicePayMethod("Cash");
                     setInvoiceUseAdvanceBalance(false);
                     setInvoiceAdvanceUsed(0);
-                  }} 
+                  }}
                   className="text-white/80 hover:text-white"
                 >
                   <X className="w-5 h-5" />
@@ -10744,7 +10736,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
                 {/* Quick Select */}
                 <div className="flex gap-2">
-                  <button 
+                  <button
                     onClick={() => {
                       const halfAmount = ((selectedInvoiceForPayment.pendingAmount || 0) / 2).toFixed(2);
                       setInvoicePayAmount(halfAmount);
@@ -10754,12 +10746,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         setInvoiceAdvanceUsed(advanceToUse);
                         setInvoicePayAmount((Number(halfAmount) - advanceToUse).toFixed(2));
                       }
-                    }} 
+                    }}
                     className="flex-1 py-1.5 text-xs font-semibold border border-red-300 text-red-700 rounded-lg hover:bg-red-50"
                   >
                     Half
                   </button>
-                  <button 
+                  <button
                     onClick={() => {
                       const fullAmount = (selectedInvoiceForPayment.pendingAmount || 0).toFixed(2);
                       setInvoicePayAmount(fullAmount);
@@ -10769,7 +10761,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         setInvoiceAdvanceUsed(advanceToUse);
                         setInvoicePayAmount((Number(fullAmount) - advanceToUse).toFixed(2));
                       }
-                    }} 
+                    }}
                     className="flex-1 py-1.5 text-xs font-semibold bg-red-100 border border-red-300 text-red-700 rounded-lg hover:bg-red-200"
                   >
                     Full Amount
@@ -10862,13 +10854,13 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
                   <div className="grid grid-cols-3 gap-2">
                     {["Cash", "Card", "BT"].map((m) => (
-                      <button 
-                        key={m} 
-                        onClick={() => setInvoicePayMethod(m)} 
-                        className={`py-1.5 text-xs font-semibold rounded-lg border transition-all ${ 
-                          invoicePayMethod === m 
-                            ? "bg-red-600 text-white border-red-600" 
-                            : "bg-white text-gray-600 border-gray-300 hover:border-red-400" 
+                      <button
+                        key={m}
+                        onClick={() => setInvoicePayMethod(m)}
+                        className={`py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                          invoicePayMethod === m
+                            ? "bg-red-600 text-white border-red-600"
+                            : "bg-white text-gray-600 border-gray-300 hover:border-red-400"
                         }`}
                       >
                         {m}
@@ -10885,7 +10877,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     const advanceUsed = invoiceAdvanceUsed;
                     const maxPending = selectedInvoiceForPayment.pendingAmount || 0;
                     if (payAmt < 0 || (payAmt + advanceUsed) > maxPending) return;
-                    
+                   
                     setPayingInvoicePending(true);
                     try {
                       const headers = getAuthHeaders();
@@ -10899,7 +10891,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         },
                         { headers }
                       );
-                      
+                     
                       if (res.data.success) {
                         setShowInvoicePayModal(false);
                         setSelectedInvoiceForPayment(null);
@@ -10907,12 +10899,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         setInvoicePayMethod("Cash");
                         setInvoiceUseAdvanceBalance(false);
                         setInvoiceAdvanceUsed(0);
-                        
+                       
                         // Refresh balance and billing history
                         const updatedBalance = await fetchPatientBalance(patientData._id);
                         if (updatedBalance) setBalance(updatedBalance as typeof balance);
                         await fetchBillingHistory();
-                        
+                       
                         alert("Payment recorded successfully!");
                       } else {
                         alert(res.data.message || "Payment failed");
