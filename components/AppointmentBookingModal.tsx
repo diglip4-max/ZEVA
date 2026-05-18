@@ -961,7 +961,7 @@ export default function AppointmentBookingModal({
             {/* Treatment Selection (Optional) */}
             <div className="relative">
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
-                Treatments (Optional)
+                Treatments 
               </label>
               <div
                 className={`w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 cursor-pointer flex justify-between items-center transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
@@ -996,7 +996,7 @@ export default function AppointmentBookingModal({
                     })
                   ) : (
                     <span className="text-gray-400 dark:text-gray-500">
-                      Select treatments (optional)
+                      Select treatments 
                     </span>
                   )}
                 </div>

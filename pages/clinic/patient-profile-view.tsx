@@ -540,7 +540,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { p
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
   const [appointmentFilter, setAppointmentFilter] = useState('all');
   const [loadingAppointments, setLoadingAppointments] = useState(false);
-  
+ 
   // Drag and drop for status filter tabs
   const [draggedStatusKey, setDraggedStatusKey] = useState<string | null>(null);
   const [statusTabOrder, setStatusTabOrder] = useState<string[]>(() => {
@@ -555,17 +555,17 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { p
       }
     }
     return [
-      'all', 'booked', 'upcoming', 'enquiry', 'Arrived', 'Waiting', 
-      'Consultation', 'Approved', 'Rescheduled', 'Completed', 
+      'all', 'booked', 'upcoming', 'enquiry', 'Arrived', 'Waiting',
+      'Consultation', 'Approved', 'Rescheduled', 'Completed',
       'Discharge', 'invoice', 'Cancelled', 'Rejected', 'No Show'
     ];
   });
-  
+ 
   // Default status tabs configuration
   const statusTabsConfig = [
     { key: 'all',          label: 'All' },
     { key: 'booked',       label: 'Booked' },
-    { key: 'upcoming',     label: 'Upcoming' },
+    { key: 'upcoming',     label: 'Follow-Up' },
     { key: 'enquiry',      label: 'Enquiry' },
     { key: 'Arrived',      label: 'Arrived' },
     { key: 'Waiting',      label: 'Waiting' },
@@ -592,7 +592,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { p
   const [billingSearchQuery, setBillingSearchQuery] = useState('');
   const [billingSearchType, setBillingSearchType] = useState<'all' | 'invoice' | 'treatment'>('all');
   const [expandedTreatments, setExpandedTreatments] = useState<Record<string, boolean>>({});
-  
+ 
   // Cache for package names to avoid repeated API calls
   const [packageNameCache, setPackageNameCache] = useState<Record<string, string>>({});
   const [allPackagesLoaded, setAllPackagesLoaded] = useState(false);
@@ -609,7 +609,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { p
       try {
         const headers = getAuthHeaders();
         if (!headers) return 'Package';
-        
+       
         const res = await axios.get('/api/clinic/packages', { headers });
         if (res.data?.success && res.data?.packages) {
           // Build cache from all packages
@@ -621,7 +621,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { p
           });
           setPackageNameCache(newCache);
           setAllPackagesLoaded(true);
-          
+         
           // Return the package name if found
           if (newCache[packageId]) {
             return newCache[packageId];
@@ -631,7 +631,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated }: { p
         console.error('Error fetching packages:', error);
       }
     }
-    
+   
     return 'Package';
   };
 
@@ -780,7 +780,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     const [invoiceAvailableBalance, setInvoiceAvailableBalance] = useState({ advanceBalance: 0 });
   // Treatment Filter Type - Extended with Invoice and Cancelled sections
   const [treatmentFilter, setTreatmentFilter] = useState<'all' | 'ongoing' | 'completed' | 'pending' | 'invoice' | 'cancelled'>('all');
-  
+ 
   // Advanced Treatment Filters
   const [treatmentDateRange, setTreatmentDateRange] = useState<{ from: string; to: string }>({ from: '', to: '' });
   const [treatmentDoctorFilter, setTreatmentDoctorFilter] = useState<string>('');
@@ -868,7 +868,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       }
     }
   }, [manuallyPaidInvoices, patientData._id]);
-  
+ 
   // Persist billed package IDs to sessionStorage
   useEffect(() => {
     if (typeof window !== 'undefined' && patientData._id) {
@@ -956,7 +956,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         if (response.data.success) {
           setPkgSuccess("Package created successfully!");
           setPkgError("");
-          
+         
           // Reset form after success
           setTimeout(() => {
             setShowCreatePackage(false);
@@ -1187,7 +1187,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   // Helper function to calculate amount to pay based on entered amount and balance usage
   const calculatePkgAmountToPay = (enteredAmt: number) => {
     let totalBalanceUsed = 0;
-    
+   
     // Calculate advance used
     if (pkgUseAdvanceBalance) {
       const advanceToUse = Math.min(pkgAvailableBalance.advanceBalance, enteredAmt);
@@ -1196,7 +1196,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     } else {
       setPkgAdvanceUsedAmount(0);
     }
-    
+   
     // Calculate claim used on remaining after advance
     if (pkgUseClaimBalance) {
       const remainingAfterAdvance = Math.max(0, enteredAmt - totalBalanceUsed);
@@ -1206,7 +1206,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     } else {
       setPkgClaimUsedAmount(0);
     }
-    
+   
     // Calculate final amount to pay
     const amountToPay = Math.max(0, enteredAmt - totalBalanceUsed);
     setPkgPaidAmount(amountToPay);
@@ -1217,7 +1217,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     if (pkgPendingToCreate) {
       try {
         const shouldAddToPatient = pkgPendingToCreate.addToPatient;
-        
+       
         // Use the paymentStatus passed from the button click (respects user's Full/Partial choice)
         // Don't recalculate - the button already determined the correct status
         const actualPaymentStatus = paymentStatus;
@@ -1225,7 +1225,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         // If "Create & Add to Patient" was clicked, immediately create the package and assign to patient
         if (shouldAddToPatient) {
           setPkgSubmitting(true);
-          
+         
           // Step 1: Create the package via API
           const headers = getAuthHeaders();
           if (!headers) {
@@ -1248,7 +1248,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           }
 
           const realPackageId = createRes.data.package?._id || createRes.data.packageId;
-          
+         
           // Step 2: Assign the package to patient
           await axios.post("/api/clinic/assign-package-to-patient", {
             patientId: patientData._id,
@@ -1283,7 +1283,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   treatments: pkgPendingToCreate.treatments,
                 }, { headers });
                 console.log('Package billing created with balance usage');
-                
+               
                 // Mark as billed to prevent duplicates
                 setBilledPackageIds(prev => {
                   const updated = new Set(prev);
@@ -1312,7 +1312,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
             advanceBalanceUsed: pkgAdvanceUsedAmount,
             claimAmountUsed: pkgClaimUsedAmount,
           };
-          
+         
           setEditFormData((prev: any) => ({
             ...prev,
             package: 'Yes',
@@ -1342,24 +1342,24 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
          
           setPkgSuccess("Package created and added to patient successfully!");
           setTimeout(() => setPkgSuccess(""), 3000);
-          
+         
           // Refresh the packages list and patient data to show the newly added package
           try {
             const headers = getAuthHeaders();
-            
+           
             // Fetch updated patient data from API
             const patientRes = await axios.get(`/api/clinic/patient-registration?id=${patientData._id}`, { headers });
             if (patientRes.data.success && patientRes.data.patient) {
               // Update patient data with fresh packages
               onPatientUpdated?.(patientRes.data.patient);
-              
+             
               // Call fetchPackagesAndMemberships with the fresh patient data to update the UI
               await fetchPackagesAndMemberships({
                 packages: patientRes.data.patient.packages || [],
                 memberships: patientRes.data.patient.memberships || []
               });
             }
-            
+           
             // Also refresh the available packages list
             const pRes = await axios.get('/api/clinic/packages', { headers });
             if (pRes.data.success) setAllAvailablePackages(pRes.data.packages || []);
@@ -1618,7 +1618,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         treatments: newPkg.treatments,
                       }, { headers });
                       console.log('Package billing created with balance usage');
-                      
+                     
                       // Mark as billed to prevent duplicates
                       setBilledPackageIds(prev => {
                         const updated = new Set(prev);
@@ -1659,17 +1659,17 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       }
        
       // Step 1.5: Create billing records for existing packages with balance usage OR paid amount
-      const existingPackagesToBill = packagesToSave.filter((p: any) => 
+      const existingPackagesToBill = packagesToSave.filter((p: any) =>
         !p.isNewPackage && (p.advanceBalanceUsed > 0 || p.claimAmountUsed > 0 || p.paidAmount > 0)
       );
-      
+     
       if (existingPackagesToBill.length > 0) {
         for (const existingPkg of existingPackagesToBill) {
           try {
             // Find the package details to get the name
             const pkgDetails = allAvailablePackages.find((pkg: any) => pkg._id === existingPkg.packageId);
             const packageName = pkgDetails?.name || existingPkg.packageName || 'Package';
-            
+           
             // Check if this package has already been billed in current session
             const packageBillingKey = `${packageName}-${existingPkg.totalPrice || 0}-${patientData._id}`;
             if (billedPackageIds.has(packageBillingKey)) {
@@ -1688,7 +1688,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                 treatments: pkgDetails?.treatments || [],
               }, { headers });
               console.log('Billing created for existing package:', existingPkg.packageId);
-              
+             
               // Mark as billed to prevent duplicates
               setBilledPackageIds(prev => {
                 const updated = new Set(prev);
@@ -1918,7 +1918,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
     // From billing — add payment entries
     const billings = Array.isArray(billingHistory)
-      ? billingHistory.filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
+      ? billingHistory.filter((b: any) => !b.isAdvanceOnly)
       : [];
     billings.slice(0, 3).forEach((b: any) => {
       if (b.paid > 0) {
@@ -2047,11 +2047,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
   // Tab-specific refreshes (optional: keeps current behavior if tab changes)
   useEffect(() => {
     if (activeTab === 'appointments' && patientData?._id) {
-      // Fetch upcoming appointments when filter is 'upcoming', otherwise fetch all
+      // Fetch upcoming appointments when filter is 'upcoming', otherwise fetch all AND also fetch upcoming
       if (appointmentFilter === 'upcoming') {
         fetchUpcomingAppointments();
       } else {
         fetchAppointments();
+        fetchUpcomingAppointments();
       }
     }
   }, [activeTab, appointmentFilter]);
@@ -2256,7 +2257,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
         // Calculate total paid including both cash/card and advance balance from billing history
         // This ensures packages paid entirely with advance balance are marked as "Full" paid
-        const packageBillingsForPkg = billings.filter((billing: any) => 
+        const packageBillingsForPkg = billings.filter((billing: any) =>
           billing.service === "Package" && billing.package === pkg.name
         );
         const totalAdvanceUsedFromBillings = packageBillingsForPkg.reduce(
@@ -2274,7 +2275,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         } else if (totalPaidIncludingAdvance > 0) {
           calculatedPaymentStatus = 'Partial';
         }
-        
+       
         return {
           ...pkg,
           validityInMonths: patientPackage?.validityInMonths || pkg.validityInMonths || 0,
@@ -2370,7 +2371,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       }] : [];
      
       setPackages(patientPackages);
-      
+     
       // Update editFormData.packages with fresh data (like paymentStatus, paidAmount) from patientPackages
       setEditFormData((prev: any) => {
         const updatedPackages = (prev.packages || []).map((pkg: any) => {
@@ -2439,7 +2440,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                 }
 
                 // Calculate total advance used from billing history for user packages!
-                const packageBillingsForUserPkg = billings.filter((billing: any) => 
+                const packageBillingsForUserPkg = billings.filter((billing: any) =>
                   billing.service === "Package" && billing.package === fullPkg.packageName
                 );
                 const totalAdvanceUsedFromBillingsForUserPkg = packageBillingsForUserPkg.reduce(
@@ -2457,7 +2458,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                 } else if (totalPaidIncludingAdvanceForUserPkg > 0) {
                   calculatedPaymentStatusForUserPkg = 'Partial';
                 }
-                
+               
                 return {
                   ...fullPkg,
                   validityInMonths: fullPkg.validityInMonths || 0,
@@ -2508,7 +2509,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
      
       if (response.data.success) {
         let billings = response.data.billings || [];
-        
+       
         // CRITICAL: Load already-billed package IDs from billing history to prevent duplicates
         // This ensures packages that were already billed in previous sessions are tracked
         const packageBillings = billings.filter((b: any) => b.service === "Package" && b.package);
@@ -2523,7 +2524,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
             return updated;
           });
         }
-        
+       
         // Resolve package names for unpaidPackagesPaid
         const billingsWithPackageNames = await Promise.all(
           billings.map(async (billing: any) => {
@@ -2534,13 +2535,13 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   if (pkg.packageName) {
                     return pkg;
                   }
-                  
+                 
                   // Otherwise fetch it from packageId
                   if (pkg.packageId) {
                     const packageName = await fetchPackageName(pkg.packageId);
                     return { ...pkg, packageName };
                   }
-                  
+                 
                   return pkg;
                 })
               );
@@ -2549,7 +2550,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
             return billing;
           })
         );
-        
+       
         setBillingHistory(billingsWithPackageNames);
         calculateFinancialSnapshot(billingsWithPackageNames);
        
@@ -2569,7 +2570,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
             console.log('[CashbackProfile] Skipping refunded billing:', billing.invoiceNumber);
             return false;
           }
-          
+         
           if (!billing.isCashbackApplied || !billing.cashbackAmount || billing.cashbackAmount <= 0) {
             return false;
           }
@@ -3730,27 +3731,27 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
   const handleStatusTabDrop = (e: React.DragEvent, targetStatusKey: string) => {
     e.preventDefault();
-    
+   
     if (!draggedStatusKey || draggedStatusKey === targetStatusKey) return;
 
     setStatusTabOrder((prevOrder) => {
       const newOrder = [...prevOrder];
       const draggedIndex = newOrder.indexOf(draggedStatusKey);
       const targetIndex = newOrder.indexOf(targetStatusKey);
-      
+     
       if (draggedIndex === -1 || targetIndex === -1) return prevOrder;
-      
+     
       newOrder.splice(draggedIndex, 1);
       newOrder.splice(targetIndex, 0, draggedStatusKey);
-      
+     
       // Save to localStorage
       if (typeof window !== "undefined") {
         localStorage.setItem("appointmentStatusTabOrder", JSON.stringify(newOrder));
       }
-      
+     
       return newOrder;
     });
-    
+   
     setDraggedStatusKey(null);
   };
 
@@ -3992,7 +3993,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                           {isUpcomingAppointment && (
                                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-800 text-[10px] font-bold w-fit">
                                               <Clock size={9} />
-                                              Upcoming
+                                              Follow-Up
                                             </span>
                                           )}
                                           <div className="flex flex-wrap gap-1">
@@ -4807,7 +4808,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               }
                               return null;
                             })()}
-                            
+                           
                             <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between shadow-sm">
                               <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
@@ -4860,7 +4861,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   <Wallet className="w-4 h-4 text-blue-600" />
                                   <span className="text-[11px] font-bold text-blue-800 uppercase tracking-wider">Use Available Balances</span>
                                 </div>
-                                
+                               
                                 {/* Advance Balance Option */}
                                 {pkgAvailableBalance.advanceBalance > 0 && (
                                   <label className="flex items-center justify-between cursor-pointer p-3 bg-white rounded-xl border-2 border-emerald-200 hover:border-emerald-400 transition-all shadow-sm">
@@ -5042,7 +5043,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   // Respect the user's payment type selection (Full or Partial)
                                   // The pkgPaymentType state holds what user selected
                                   const status = pkgPaymentType === 'Partial' ? 'Partial' : (pkgPaidAmount > 0 ? 'Full' : 'Unpaid');
-                                  
+                                 
                                   finalizePmAddPackage(pkgPaidAmount, status, pkgPaymentMethod);
                                 }}
                                 className="flex-[2] min-w-[120px] py-3 bg-gradient-to-r from-purple-600 to-indigo-700 text-white text-xs font-bold rounded-2xl hover:shadow-lg hover:shadow-purple-200 transition-all"
@@ -5437,15 +5438,15 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                               {used}/{max}
                                             </span>
                                             {treatment.usageDetails && treatment.usageDetails.length > 0 && (
-                                              <button 
-                                                type="button" 
+                                              <button
+                                                type="button"
                                                 onClick={() => setExpandedTreatments(prev => ({
                                                   ...prev,
                                                   [treatmentKey]: !prev[treatmentKey]
                                                 }))}
                                                 className="p-1 hover:bg-gray-200 rounded"
                                               >
-                                                <ChevronDown 
+                                                <ChevronDown
                                                   className={`w-3 h-3 text-gray-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                                                 />
                                               </button>
@@ -6213,7 +6214,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
               /* Billing Tab Content - Modern Two-Column Dashboard */
               <div className="space-y-4">
                 {/* Billing Overview Stats - Top Row for Mobile */}
-                {!loadingBilling && billingHistory && (billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length > 0 && (
+                {!loadingBilling && billingHistory && (billingHistory || []).filter((b: any) => !b.isAdvanceOnly).length > 0 && (
                   <div className="grid grid-cols-2 lg:hidden gap-3">
                     <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
                       <div className="text-[10px] text-blue-600 font-bold uppercase tracking-wider mb-1">Total Billed</div>
@@ -6238,7 +6239,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     <div className="col-span-1 lg:col-span-3 flex items-center justify-center py-12">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
                     </div>
-                  ) : !billingHistory || (billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length === 0 ? (
+                  ) : !billingHistory || (billingHistory || []).filter((b: any) => !b.isAdvanceOnly).length === 0 ? (
                     <div className="col-span-1 lg:col-span-3">
                       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                         {/* Top gradient banner */}
@@ -6373,7 +6374,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               </thead>
                               <tbody className="bg-white divide-y divide-gray-100">
                                 {(billingHistory || [])
-                                  .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
+                                  .filter((b: any) => !b.isAdvanceOnly)
                                   .filter((b: any) => {
                                     if (!billingSearchQuery.trim()) return true;
                                     const query = billingSearchQuery.toLowerCase();
@@ -6392,23 +6393,23 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     const isAgentDiscount = billing.isAgentDiscountApplied;
                                     const isMembershipDiscount = (billing.membershipDiscountApplied || 0) > 0;
                                     const hasAnyDiscount = discountPercent > 0 || isDoctorDiscount || isAgentDiscount || isMembershipDiscount;
-                                    
+                                   
                                     // Refund info
                                     const isRefunded = billing.isOfferRefunded || false;
                                     const refundedOffers = billing.refundedOffers || [];
                                     const refundedAt = billing.refundedAt;
                                     // const refundedBy = billing.refundedBy;
                                     // const refundedAmount = billing.refundedAmount || 0;
-                                    
+                                   
                                     // Payment methods
                                     const paymentMethods = billing.multiplePayments && billing.multiplePayments.length > 0
                                       ? billing.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ")
                                       : (billing.paymentMethod || "–");
-                                    
+                                   
                                     // Offer type
                                     const offerType = billing.offerType || null;
                                     const offerName = billing.offerName || null;
-                                    
+                                   
                                     // Free sessions
                                     const usedFreeSessionCount = billing.usedFreeSessionCount || 0;
                                     const usedFreeSessionNames = billing.usedFreeSessions || [];
@@ -6417,21 +6418,21 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     const freeConsultation = billing.isFreeConsultation || false;
                                     const freeConsultCount = billing.freeConsultationCount || 0;
                                     const isBundleOffer = billing.offerType === 'bundle';
-                                    
+                                   
                                     // Cashback
                                     const cashbackEarnedAmt = billing.cashbackEarned || 0;
                                     const cashbackEarnedFromOffer = billing.cashbackAmount || 0;
                                     const cashbackUsedAmt = billing.cashbackWalletUsed || 0;
                                     const isCashbackApplied = billing.isCashbackApplied || false;
                                     const cashbackOfferName = billing.cashbackOfferName || '';
-                                    
+                                   
                                     // Pending and advance
                                     const pendingAmt = billing.pending || 0;
                                     const advanceAmt = billing.advance || 0;
                                     const advanceUsed = billing.advanceUsed || 0;
                                     const claimUsed = billing.claimAmountUsed || 0;
                                     const pendingUsed = billing.pendingUsed || 0;
-                                    
+                                   
                                     return (
                                       <tr key={billing._id || index} className={`transition-colors ${isRefunded ? 'bg-red-50 hover:bg-red-100 border-l-4 border-l-red-500' : `hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}`}>
                                         {/* Invoice */}
@@ -6448,6 +6449,21 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                         {/* Treatment / Package */}
                                         <td className="px-3 py-3">
                                           <div className="text-xs text-gray-700 max-w-[150px]" title={billing.package || billing.treatment}>
+                                            {/* Advance Payment Badge */}
+                                            {billing.treatment === "Advance Payment" && (
+                                              <div className="flex items-center gap-1 mb-1">
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                                  💰 Advance Added
+                                                </span>
+                                              </div>
+                                            )}
+                                            {billing.pastAdvance > 0 && billing.treatment !== "Advance Payment" && (
+                                              <div className="flex items-center gap-1 mb-1">
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                                                  📜 Past Advance ({billing.pastAdvanceType || 'Historical'})
+                                                </span>
+                                              </div>
+                                            )}
                                             {billing.package ? (
                                               <div className="flex flex-col">
                                                 <span className="font-semibold text-indigo-700 flex items-center gap-1">
@@ -6629,11 +6645,19 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                         </td>
                                         {/* Total */}
                                         <td className="px-3 py-3 text-right">
-                                          <span className="text-xs font-bold text-gray-900">{formatAED(billing.amount || 0)}</span>
+                                          <span className="text-xs font-bold text-gray-900">
+                                            {billing.treatment === "Advance Payment" || billing.pastAdvance > 0 
+                                              ? formatAED(billing.advance > 0 ? billing.advance : billing.pastAdvance || 0)
+                                              : formatAED(billing.amount || 0)}
+                                          </span>
                                         </td>
                                         {/* Paid */}
                                         <td className="px-3 py-3 text-right">
-                                          <span className="text-xs font-semibold text-green-600">{formatAED(billing.paid || 0)}</span>
+                                          <span className="text-xs font-semibold text-green-600">
+                                            {billing.treatment === "Advance Payment" || billing.pastAdvance > 0
+                                              ? formatAED(billing.paid || billing.advance || billing.pastAdvance || 0)
+                                              : formatAED(billing.paid || 0)}
+                                          </span>
                                         </td>
                                         {/* Pending */}
                                         <td className="px-3 py-3 text-right">
@@ -6752,7 +6776,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               </thead>
                               <tbody className="bg-white divide-y divide-gray-100">
                                 {(billingHistory || [])
-                                  .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
+                                  .filter((b: any) => !b.isAdvanceOnly)
                                   .filter((b: any) => {
                                     if (!billingSearchQuery.trim()) return true;
                                     const query = billingSearchQuery.toLowerCase();
@@ -6860,7 +6884,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                             {/* Mobile List View */}
                             <div className="md:hidden divide-y divide-gray-100">
                               {(billingHistory || [])
-                                .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
+                                .filter((b: any) => !b.isAdvanceOnly)
                                 .filter((b: any) => {
                                   if (!billingSearchQuery.trim()) return true;
                                   const query = billingSearchQuery.toLowerCase();
@@ -6890,7 +6914,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   // const freeOfferSessionCount = billing.freeOfferSessionCount || 0;
                                   const freeConsultation = billing.isFreeConsultation || false;
                                   const freeConsultCount = billing.freeConsultationCount || 0;
-                                  
+                                 
                                   return (
                                     <div key={billing._id || index} className={`p-4 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
                                       <div className="flex justify-between items-start mb-3">
@@ -6899,13 +6923,32 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                           <div className="text-[10px] text-gray-500">{billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString() : ''}</div>
                                         </div>
                                         <div className="text-right">
-                                          <div className="text-lg font-bold text-gray-900">{formatAED(billing.amount || 0)}</div>
+                                          <div className="text-lg font-bold text-gray-900">
+                                            {billing.treatment === "Advance Payment" || billing.pastAdvance > 0
+                                              ? formatAED(billing.advance > 0 ? billing.advance : billing.pastAdvance || 0)
+                                              : formatAED(billing.amount || 0)}
+                                          </div>
                                           <div className="text-[10px] text-gray-400">Qty: {billing.quantity || 1}</div>
                                         </div>
                                       </div>
-                                      
+                                     
                                       {/* Treatment / Package */}
                                       <div className="mb-3">
+                                        {/* Advance Payment Badge */}
+                                        {billing.treatment === "Advance Payment" && (
+                                          <div className="flex items-center gap-1 mb-1">
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                              💰 Advance Added
+                                            </span>
+                                          </div>
+                                        )}
+                                        {billing.pastAdvance > 0 && billing.treatment !== "Advance Payment" && (
+                                          <div className="flex items-center gap-1 mb-1">
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                                              📜 Past Advance ({billing.pastAdvanceType || 'Historical'})
+                                            </span>
+                                          </div>
+                                        )}
                                         <div className="text-xs text-gray-700">
                                           {billing.package ? (
                                             <span className="font-semibold text-indigo-700 flex items-center gap-1">
@@ -6930,7 +6973,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                           </div>
                                         )}
                                       </div>
-                                      
+                                     
                                       {/* Tags Row */}
                                       <div className="flex flex-wrap gap-1 mb-3">
                                         {discountPct > 0 && (
@@ -6989,7 +7032,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                           <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-700">Free Consult ({freeConsultCount})</span>
                                         )}
                                       </div>
-                                      
+                                     
                                       {/* Financial Details */}
                                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] mb-3 p-2 bg-gray-50 rounded-lg">
                                         <div className="flex justify-between">
@@ -7033,7 +7076,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                           </>
                                         )}
                                       </div>
-                                      
+                                     
                                       {/* Payment Method */}
                                       <div className="text-[10px] text-gray-500">
                                         <span className="font-medium">Payment:</span> {paymentMethods}
@@ -7046,7 +7089,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         </div>
 
                         {/* Summary Section - Total Billed, Total Paid, Outstanding */}
-                        {(billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length > 0 && (
+                        {(billingHistory || []).filter((b: any) => !b.isAdvanceOnly).length > 0 && (
                           <div className="px-5 py-4 border-t border-gray-200 bg-gray-50">
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                               {/* Total Billed */}
@@ -8739,11 +8782,11 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     // pendingUsed is for tracking when THIS invoice cleared a PREVIOUS invoice's pending
                     // It should NOT be subtracted from this invoice's own pending amount
                     let remainingPending = pending;
-                    
+                   
                     // Check if fully paid based on pending field directly
                     const hasPendingAmount = remainingPending > 0;
                     const isFullyPaid = !hasPendingAmount;
-                    
+                   
                     // Status based on remaining pending amount
                     const treatmentStatus = hasPendingAmount ? 'pending' : 'completed';
                    
@@ -8834,10 +8877,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                 if (treatmentFilter === 'completed') {
                   // Completed section: All completed treatments from appointments AND billing
                   // Include appointments with completed status (with or without invoice) and billing completed records
-                  const completedFromAppointments = appointmentTreatments.filter((t: any) => 
+                  const completedFromAppointments = appointmentTreatments.filter((t: any) =>
                     t.treatmentStatus === 'invoice' || t.treatmentStatus === 'completed-no-invoice'
                   );
-                  const completedFromBilling = billingTreatments.filter((t: any) => 
+                  const completedFromBilling = billingTreatments.filter((t: any) =>
                     t.treatmentStatus === 'completed'
                   );
                   filtered = [...completedFromAppointments, ...completedFromBilling].filter(applyAllFilters);
@@ -8848,10 +8891,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   }).filter(applyAllFilters);
                 } else if (treatmentFilter === 'invoice') {
                   // Invoice section: Billing invoices + appointments with invoices (exclude ongoing treatments)
-                  const invoicedFromBilling = billingTreatments.filter((t: any) => 
+                  const invoicedFromBilling = billingTreatments.filter((t: any) =>
                     t.treatmentStatus !== 'ongoing' // Exclude ongoing treatments from invoice section
                   ).map((t: any) => ({ ...t, invoiceSource: 'billing' }));
-                  const invoicedFromAppointments = appointmentTreatments.filter((t: any) => 
+                  const invoicedFromAppointments = appointmentTreatments.filter((t: any) =>
                     (t.invoiceNumber || t.treatmentStatus === 'invoice' || t.hasInvoice) &&
                     t.treatmentStatus !== 'ongoing' // Exclude ongoing treatments from invoice section
                   ).map((t: any) => ({ ...t, invoiceSource: 'appointment' }));
@@ -8900,11 +8943,11 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                             + appointmentTreatments.filter((t: any) => t.treatmentStatus === 'ongoing').length
                             + billingTreatments.filter((t: any) => t.treatmentStatus === 'pending').length
                             + billingTreatments.filter((t: any) => t.treatmentStatus !== 'ongoing').length  // Exclude ongoing from billing count
-                            + appointmentTreatments.filter((t: any) => 
+                            + appointmentTreatments.filter((t: any) =>
                               (t.invoiceNumber || t.treatmentStatus === 'invoice' || t.hasInvoice) &&
                               t.treatmentStatus !== 'ongoing'  // Exclude ongoing from invoice count
                             ).length
-                            + (appointmentTreatments.filter((t: any) => 
+                            + (appointmentTreatments.filter((t: any) =>
                               t.treatmentStatus === 'invoice' || t.treatmentStatus === 'completed-no-invoice'
                             ).length + billingTreatments.filter((t: any) => t.treatmentStatus === 'completed').length)
                             + appointmentTreatments.filter((t: any) => t.treatmentStatus === 'cancelled').length;
@@ -8914,14 +8957,14 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                           count = billingTreatments.filter((t: any) => t.treatmentStatus === 'pending').length;
                         } else if (f === 'invoice') {
                           // Invoice count: Only count treatments with invoices, exclude ongoing treatments
-                          count = billingTreatments.filter((t: any) => t.treatmentStatus !== 'ongoing').length 
-                            + appointmentTreatments.filter((t: any) => 
+                          count = billingTreatments.filter((t: any) => t.treatmentStatus !== 'ongoing').length
+                            + appointmentTreatments.filter((t: any) =>
                               (t.invoiceNumber || t.treatmentStatus === 'invoice' || t.hasInvoice) &&
                               t.treatmentStatus !== 'ongoing'
                             ).length;
                         } else if (f === 'completed') {
                           // Completed count: Appointments with invoice or completed-no-invoice + billing completed
-                          count = appointmentTreatments.filter((t: any) => 
+                          count = appointmentTreatments.filter((t: any) =>
                             t.treatmentStatus === 'invoice' || t.treatmentStatus === 'completed-no-invoice'
                           ).length + billingTreatments.filter((t: any) => t.treatmentStatus === 'completed').length;
                         } else if (f === 'cancelled') {
@@ -8976,7 +9019,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               />
                             </div>
                           </div>
-                          
+                         
                           {/* Doctor Filter */}
                           <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-1">Filter by Doctor</label>
@@ -8991,7 +9034,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               />
                             </div>
                           </div>
-                          
+                         
                           {/* Date Range */}
                           <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-1">From Date</label>
@@ -9002,7 +9045,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                             />
                           </div>
-                          
+                         
                           <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-1">To Date</label>
                             <input
@@ -9012,7 +9055,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                             />
                           </div>
-                          
+                         
                           {/* Sort By */}
                           <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-1">Sort By</label>
@@ -9027,7 +9070,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               <option value="status">Status</option>
                             </select>
                           </div>
-                          
+                         
                           {/* Sort Order */}
                           <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-1">Order</label>
@@ -9041,7 +9084,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                             </select>
                           </div>
                         </div>
-                        
+                       
                         {/* Clear Filters */}
                         <div className="flex justify-end">
                           <button
@@ -9060,7 +9103,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                       </div>
                     )}
 
-                    
+                   
                     {isLoading ? (
                       <div className="flex items-center justify-center py-16">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
@@ -10186,10 +10229,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   <div className="text-center">
                     <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Payment Status</p>
                     <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold ${
-                      selectedPaymentHistoryBilling.pending === 0 
-                        ? 'bg-green-100 text-green-700' 
-                        : selectedPaymentHistoryBilling.paid > 0 
-                          ? 'bg-amber-100 text-amber-700' 
+                      selectedPaymentHistoryBilling.pending === 0
+                        ? 'bg-green-100 text-green-700'
+                        : selectedPaymentHistoryBilling.paid > 0
+                          ? 'bg-amber-100 text-amber-700'
                           : 'bg-red-100 text-red-700'
                     }`}>
                       {selectedPaymentHistoryBilling.pending === 0 ? 'Completed' : selectedPaymentHistoryBilling.paid > 0 ? 'Partial' : 'Unpaid'}
@@ -10206,8 +10249,8 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   <div>
                     <p className="text-[10px] text-gray-500 uppercase">Invoiced Date</p>
                     <p className="font-semibold text-gray-700">
-                      {selectedPaymentHistoryBilling.invoicedDate 
-                        ? new Date(selectedPaymentHistoryBilling.invoicedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) 
+                      {selectedPaymentHistoryBilling.invoicedDate
+                        ? new Date(selectedPaymentHistoryBilling.invoicedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                         : 'N/A'}
                     </p>
                   </div>
@@ -10294,8 +10337,8 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         <div key={idx} className="relative">
                           {/* Payment Card */}
                           <div className={`p-4 rounded-xl border-2 ${
-                            payment.transactionType === 'ADVANCE_USAGE' 
-                              ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200' 
+                            payment.transactionType === 'ADVANCE_USAGE'
+                              ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200'
                               : payment.transactionType === 'CLAIM_USAGE'
                                 ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
                                 : payment.transactionType === 'PENDING_CLEARANCE'
@@ -10321,9 +10364,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                 <div>
                                   <p className="text-sm font-bold text-gray-800">{payment.paymentMethod}</p>
                                   <p className="text-[10px] text-gray-500">
-                                    {payment.paidAt ? new Date(payment.paidAt).toLocaleString('en-US', { 
-                                      month: 'short', day: 'numeric', year: 'numeric', 
-                                      hour: '2-digit', minute: '2-digit' 
+                                    {payment.paidAt ? new Date(payment.paidAt).toLocaleString('en-US', {
+                                      month: 'short', day: 'numeric', year: 'numeric',
+                                      hour: '2-digit', minute: '2-digit'
                                     }) : 'N/A'}
                                   </p>
                                 </div>
@@ -10391,7 +10434,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               <Check className="w-3 h-3 text-white absolute top-0.5 left-0.5" />
                             )}
                           </div>
-                          
+                         
                           {/* History Card */}
                           <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100">
                             <div className="flex items-center justify-between mb-3">
@@ -10506,7 +10549,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                       <p className="text-sm font-bold text-gray-700">{getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.cashbackWalletUsed || 0).toLocaleString()}</p>
                     </div>
                   </div>
-                  
+                 
                   {/* Notes */}
                   {selectedPaymentHistoryBilling.notes && (
                     <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-100">
@@ -10678,18 +10721,18 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         {/* Pay Invoice Pending Modal */}
         {showInvoicePayModal && selectedInvoiceForPayment && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-            <div 
-              className="absolute inset-0 bg-gray-900/60 backdrop-blur-md" 
-              onClick={() => { 
-                if (!payingInvoicePending) { 
-                  setShowInvoicePayModal(false); 
-                  setSelectedInvoiceForPayment(null); 
-                  setInvoicePayAmount(""); 
+            <div
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-md"
+              onClick={() => {
+                if (!payingInvoicePending) {
+                  setShowInvoicePayModal(false);
+                  setSelectedInvoiceForPayment(null);
+                  setInvoicePayAmount("");
                   setInvoicePayMethod("Cash");
                   setInvoiceUseAdvanceBalance(false);
                   setInvoiceAdvanceUsed(0);
                 }
-              }} 
+              }}
             />
             <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full">
               {/* Header */}
@@ -10698,15 +10741,15 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   <h3 className="text-lg font-bold text-white">Pay Invoice Pending</h3>
                   <p className="text-red-100 text-xs mt-0.5">Invoice: {selectedInvoiceForPayment.invoiceNumber}</p>
                 </div>
-                <button 
-                  onClick={() => { 
-                    setShowInvoicePayModal(false); 
-                    setSelectedInvoiceForPayment(null); 
-                    setInvoicePayAmount(""); 
+                <button
+                  onClick={() => {
+                    setShowInvoicePayModal(false);
+                    setSelectedInvoiceForPayment(null);
+                    setInvoicePayAmount("");
                     setInvoicePayMethod("Cash");
                     setInvoiceUseAdvanceBalance(false);
                     setInvoiceAdvanceUsed(0);
-                  }} 
+                  }}
                   className="text-white/80 hover:text-white"
                 >
                   <X className="w-5 h-5" />
@@ -10735,7 +10778,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
                 {/* Quick Select */}
                 <div className="flex gap-2">
-                  <button 
+                  <button
                     onClick={() => {
                       const halfAmount = ((selectedInvoiceForPayment.pendingAmount || 0) / 2).toFixed(2);
                       setInvoicePayAmount(halfAmount);
@@ -10745,12 +10788,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         setInvoiceAdvanceUsed(advanceToUse);
                         setInvoicePayAmount((Number(halfAmount) - advanceToUse).toFixed(2));
                       }
-                    }} 
+                    }}
                     className="flex-1 py-1.5 text-xs font-semibold border border-red-300 text-red-700 rounded-lg hover:bg-red-50"
                   >
                     Half
                   </button>
-                  <button 
+                  <button
                     onClick={() => {
                       const fullAmount = (selectedInvoiceForPayment.pendingAmount || 0).toFixed(2);
                       setInvoicePayAmount(fullAmount);
@@ -10760,7 +10803,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         setInvoiceAdvanceUsed(advanceToUse);
                         setInvoicePayAmount((Number(fullAmount) - advanceToUse).toFixed(2));
                       }
-                    }} 
+                    }}
                     className="flex-1 py-1.5 text-xs font-semibold bg-red-100 border border-red-300 text-red-700 rounded-lg hover:bg-red-200"
                   >
                     Full Amount
@@ -10853,13 +10896,13 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
                   <div className="grid grid-cols-3 gap-2">
                     {["Cash", "Card", "BT"].map((m) => (
-                      <button 
-                        key={m} 
-                        onClick={() => setInvoicePayMethod(m)} 
-                        className={`py-1.5 text-xs font-semibold rounded-lg border transition-all ${ 
-                          invoicePayMethod === m 
-                            ? "bg-red-600 text-white border-red-600" 
-                            : "bg-white text-gray-600 border-gray-300 hover:border-red-400" 
+                      <button
+                        key={m}
+                        onClick={() => setInvoicePayMethod(m)}
+                        className={`py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                          invoicePayMethod === m
+                            ? "bg-red-600 text-white border-red-600"
+                            : "bg-white text-gray-600 border-gray-300 hover:border-red-400"
                         }`}
                       >
                         {m}
@@ -10876,7 +10919,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     const advanceUsed = invoiceAdvanceUsed;
                     const maxPending = selectedInvoiceForPayment.pendingAmount || 0;
                     if (payAmt < 0 || (payAmt + advanceUsed) > maxPending) return;
-                    
+                   
                     setPayingInvoicePending(true);
                     try {
                       const headers = getAuthHeaders();
@@ -10890,7 +10933,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         },
                         { headers }
                       );
-                      
+                     
                       if (res.data.success) {
                         setShowInvoicePayModal(false);
                         setSelectedInvoiceForPayment(null);
@@ -10898,12 +10941,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         setInvoicePayMethod("Cash");
                         setInvoiceUseAdvanceBalance(false);
                         setInvoiceAdvanceUsed(0);
-                        
+                       
                         // Refresh balance and billing history
                         const updatedBalance = await fetchPatientBalance(patientData._id);
                         if (updatedBalance) setBalance(updatedBalance as typeof balance);
                         await fetchBillingHistory();
-                        
+                       
                         alert("Payment recorded successfully!");
                       } else {
                         alert(res.data.message || "Payment failed");
