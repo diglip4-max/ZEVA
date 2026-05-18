@@ -405,6 +405,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [items, setItems] = useState<NavItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [permissions, setPermissions] = useState<any[] | null>(null);
 
   // Trial countdown timer state
   const [trialInfo, setTrialInfo] = useState<{
@@ -627,6 +628,9 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
         }
 
         if (res && res.data && res.data.success) {
+          // Store permissions
+          setPermissions(res.data.permissions || null);
+          
           // Convert API navigation items to NavItem format
           const convertedItems: NavItem[] = (
             res.data.navigationItems || []
@@ -669,8 +673,91 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             }
           });
 
-          // Build grouped sections using only existing sidebar items
+          // Build grouped sections using only existing sidebar items and check permissions
           const toKey = (s: string) => (s || "").trim().toLowerCase();
+          
+          // Create permission map
+          const permissionMap: Record<string, any> = {};
+          if (res.data.permissions && res.data.permissions.length > 0) {
+            res.data.permissions.forEach((perm: any) => {
+              const moduleKey = perm.module;
+              const moduleKeyWithoutPrefix = moduleKey.replace(/^(admin|clinic|doctor)_/, '');
+              const moduleKeyWithPrefix = `clinic_${moduleKeyWithoutPrefix}`;
+              
+              const permissionData = {
+                moduleActions: perm.actions,
+                subModules: {}
+              };
+              
+              permissionMap[moduleKey] = permissionData;
+              permissionMap[moduleKeyWithoutPrefix] = permissionData;
+              permissionMap[moduleKeyWithPrefix] = permissionData;
+              
+              if (perm.subModules && perm.subModules.length > 0) {
+                perm.subModules.forEach((subModule: any) => {
+                  permissionData.subModules[subModule.name] = subModule.actions;
+                });
+              }
+            });
+          }
+          
+          // Helper to check if module has any permission
+          const hasModulePermission = (moduleKey: string): boolean => {
+            if (!res.data.permissions || res.data.permissions.length === 0) return true;
+            
+            const modulePerm = permissionMap[moduleKey] || 
+                             permissionMap[moduleKey.replace('clinic_', '')] ||
+                             permissionMap[moduleKey.replace(/^(admin|clinic|doctor)_/, '')];
+            
+            if (!modulePerm) return false;
+            
+            return modulePerm.moduleActions.all === true ||
+                   modulePerm.moduleActions.create === true ||
+                   modulePerm.moduleActions.read === true ||
+                   modulePerm.moduleActions.update === true ||
+                   modulePerm.moduleActions.delete === true;
+          };
+          
+          // Mapping of hardcoded navigation items to module keys
+          const navItemToModuleKey: Record<string, string> = {
+            'dashboard': 'clinic_dashboard',
+            'manage health center': 'clinic_health_center',
+            'create offers': 'clinic_create_offers',
+            'service setup': 'Clinic_services_setup',
+            'setup & operation': 'clinic_addRoom',
+            'consent form': 'clinic_patient_registration',
+            'job posting': 'clinic_job_posting',
+            'commission': 'clinic_commission',
+            'referral': 'clinic_referal',
+            'track members': 'clinic_Track',
+            'create agent': 'clinic_create_agent',
+            'create lead': 'clinic_create_lead',
+            'inbox': 'clinic_marketing',
+            'templates': 'clinic_marketing',
+            'providers': 'clinic_marketing',
+            'reviews': 'clinic_marketing',
+            'enquiry': 'clinic_marketing',
+            'write blog': 'clinic_write_blog',
+            'book appointments': 'clinic_Appointment',
+            'scheduled appointments': 'clinic_ScheduledAppointment',
+            'patient registration': 'clinic_patient_registration',
+            'locations': 'clinic_stock',
+            'suppliers': 'clinic_stock',
+            'uom': 'clinic_stock',
+            'purchase requests': 'clinic_stock',
+            'purchase orders': 'clinic_stock',
+            'grn': 'clinic_stock',
+            'purchase invoices': 'clinic_stock',
+            'purchase returns': 'clinic_stock',
+            'stock qty adjustment': 'clinic_stock',
+            'stock transfer requests': 'clinic_stock',
+            'transfer stock': 'clinic_stock',
+            'material activity consumption': 'clinic_stock',
+            'allocated stock items': 'clinic_stock',
+            'petty cash': 'clinic_patient_registration',
+            'reports': 'clinic_patient_registration',
+          };
+          
           const byLabel: Record<string, NavItem> = {};
           const childByLabel: Record<string, NavItemChild> = {};
           convertedItems.forEach((i) => {
@@ -686,15 +773,25 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
 
           const pickTop = (label: string): NavItemChild | null => {
             const found = byLabel[toKey(label)];
-            return found
-              ? { label: found.label, path: found.path, icon: found.icon }
-              : null;
+            if (!found) return null;
+            const moduleKey = navItemToModuleKey[toKey(label)] || found.moduleKey || '';
+            if (!hasModulePermission(moduleKey)) return null;
+            return { label: found.label, path: found.path, icon: found.icon };
           };
           const pickChild = (label: string): NavItemChild | null => {
             const found = childByLabel[toKey(label)];
-            return found
-              ? { label: found.label, path: found.path, icon: found.icon }
-              : null;
+            if (!found) return null;
+            const labelKey = toKey(label);
+            const moduleKey = navItemToModuleKey[labelKey] || '';
+            if (moduleKey && !hasModulePermission(moduleKey)) return null;
+            return { label: found.label, path: found.path, icon: found.icon };
+          };
+          
+          // Wrapper function to check permission for hardcoded nav items
+          const wrapWithPermissionCheck = (item: NavItemChild, labelKey: string): NavItemChild | null => {
+            const moduleKey = navItemToModuleKey[labelKey] || '';
+            if (moduleKey && !hasModulePermission(moduleKey)) return null;
+            return item;
           };
           const nonNull = (...items: Array<NavItemChild | null>) =>
             items.filter(Boolean) as NavItemChild[];
@@ -716,26 +813,26 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               icon: "business",
               children: nonNull(
                 pickTop("Manage Health Center"),
-                {
+                wrapWithPermissionCheck({
                   label: "Create Offers",
                   path: "/clinic/create-offer",
                   icon: "🎁",
-                },
+                }, "create offers"),
                 {
                   label: "User Package",
                   path: "/clinic/userpackages",
                   icon: "package",
                 },
-                {
+                wrapWithPermissionCheck({
                   label: "Service Setup",
                   path: "/clinic/services_setup",
                   icon: "services",
-                },
-                {
+                }, "service setup"),
+                wrapWithPermissionCheck({
                   label: "Setup & Operation",
                   path: "/clinic/add-room",
                   icon: "clinic",
-                },
+                }, "setup & operation"),
                 pickChild("Membership"),
               ),
               order: 100,
@@ -744,23 +841,23 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               label: "HR Management",
               icon: "users",
               children: nonNull(
-                { label: "Consent Form", path: "/clinic/consent", icon: "📝" },
-                {
+                wrapWithPermissionCheck({ label: "Consent Form", path: "/clinic/consent", icon: "📝" }, "consent form"),
+                wrapWithPermissionCheck({
                   label: "Job Posting",
                   path: "/clinic/job-posting",
                   icon: "📝",
-                },
-                { label: "Commission", path: "/clinic/commission", icon: "💰" },
+                }, "job posting"),
+                wrapWithPermissionCheck({ label: "Commission", path: "/clinic/commission", icon: "💰" }, "commission"),
                 pickTop("Assigned Leads"),
                 pickTop("Referral"),
                 pickTop("Referal"),
                 pickTop("Track-Members"),
-                { label: "Referral", path: "/clinic/referal", icon: "leads" },
-                {
+                wrapWithPermissionCheck({ label: "Referral", path: "/clinic/referal", icon: "leads" }, "referral"),
+                wrapWithPermissionCheck({
                   label: "Track Members",
                   path: "/clinic/Track-Members",
                   icon: "users",
-                },
+                }, "track members"),
                 pickChild("Membership"),
                 pickTop("Create Agent"),
               ),
@@ -770,20 +867,20 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               label: "Marketing",
               icon: "🎯",
               children: nonNull(
-                {
+                wrapWithPermissionCheck({
                   label: "Create Lead",
                   path: "/clinic/create-lead",
                   icon: "➕",
-                },
-                { label: "Inbox", path: "/clinic/inbox", icon: "📨" },
-                {
+                }, "create lead"),
+                wrapWithPermissionCheck({ label: "Inbox", path: "/clinic/inbox", icon: "📨" }, "inbox"),
+                wrapWithPermissionCheck({
                   label: "Templates",
                   path: "/clinic/all-templates",
                   icon: "📝",
-                },
-                { label: "Providers", path: "/clinic/providers", icon: "👥" },
-                { label: "Reviews", path: "/clinic/getAllReview", icon: "⭐" },
-                { label: "Enquiry", path: "/clinic/get-Enquiry", icon: "❓" },
+                }, "templates"),
+                wrapWithPermissionCheck({ label: "Providers", path: "/clinic/providers", icon: "👥" }, "providers"),
+                wrapWithPermissionCheck({ label: "Reviews", path: "/clinic/getAllReview", icon: "⭐" }, "reviews"),
+                wrapWithPermissionCheck({ label: "Enquiry", path: "/clinic/get-Enquiry", icon: "❓" }, "enquiry"),
               ),
               order: 120,
             },
@@ -807,63 +904,63 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               label: "Stock Management",
               icon: "archive",
               children: nonNull(
-                {
+                wrapWithPermissionCheck({
                   label: "Locations",
                   path: "/clinic/stocks/locations",
                   icon: "storage",
-                },
-                {
+                }, "locations"),
+                wrapWithPermissionCheck({
                   label: "Suppliers",
                   path: "/clinic/stocks/suppliers",
                   icon: "archive",
-                },
-                { label: "UOM", path: "/clinic/stocks/uom", icon: "database" },
-                {
+                }, "suppliers"),
+                wrapWithPermissionCheck({ label: "UOM", path: "/clinic/stocks/uom", icon: "database" }, "uom"),
+                wrapWithPermissionCheck({
                   label: "Purchase Requests",
                   path: "/clinic/stocks/purchase-requests",
                   icon: "reports",
-                },
-                {
+                }, "purchase requests"),
+                wrapWithPermissionCheck({
                   label: "Purchase Orders",
                   path: "/clinic/stocks/purchase-orders",
                   icon: "deals",
-                },
-                { label: "GRN", path: "/clinic/stocks/grn", icon: "billing" },
-                {
+                }, "purchase orders"),
+                wrapWithPermissionCheck({ label: "GRN", path: "/clinic/stocks/grn", icon: "billing" }, "grn"),
+                wrapWithPermissionCheck({
                   label: "Purchase Invoices",
                   path: "/clinic/stocks/purchase-invoices",
                   icon: "billing",
-                },
-                {
+                }, "purchase invoices"),
+                wrapWithPermissionCheck({
                   label: "Purchase Returns",
                   path: "/clinic/stocks/purchase-returns",
                   icon: "billing",
-                },
-                {
+                }, "purchase returns"),
+                wrapWithPermissionCheck({
                   label: "Stock Qty Adjustment",
                   path: "/clinic/stocks/stock-qty-adjustment",
                   icon: "statistics",
-                },
-                {
+                }, "stock qty adjustment"),
+                wrapWithPermissionCheck({
                   label: "Stock Transfer Requests",
                   path: "/clinic/stocks/stock-transfer/stock-transfer-requests",
                   icon: "share",
-                },
-                {
+                }, "stock transfer requests"),
+                wrapWithPermissionCheck({
                   label: "Transfer Stock",
                   path: "/clinic/stocks/stock-transfer/transfer-stock",
                   icon: "share",
-                },
-                {
+                }, "transfer stock"),
+                wrapWithPermissionCheck({
                   label: "Material Activity Consumption",
                   path: "/clinic/stocks/material-consumptions",
                   icon: "⚡",
-                },
-                {
+                }, "material activity consumption"),
+                wrapWithPermissionCheck({
                   label: "Allocated Stock Items",
                   path: "/clinic/stocks/allocated-stock-items",
                   icon: "package",
-                },
+                }, "allocated stock items"),
               ),
               order: 135,
             },
@@ -891,21 +988,21 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               label: "Patients & Appointments",
               icon: "appointments",
               children: nonNull(
-                {
+                wrapWithPermissionCheck({
                   label: "Book Appointments",
                   path: "/clinic/appointment",
                   icon: "booking",
-                },
-                {
+                }, "book appointments"),
+                wrapWithPermissionCheck({
                   label: "Scheduled Appointments",
                   path: "/clinic/all-appointment",
                   icon: "calendar",
-                },
-                {
+                }, "scheduled appointments"),
+                wrapWithPermissionCheck({
                   label: "Patient Registration",
                   path: "/clinic/patient-registration",
                   icon: "👤",
-                },
+                }, "patient registration"),
                 pickChild("Patient Information"),
               ),
               order: 160,
@@ -918,12 +1015,12 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 pickTop("Add Expense"),
                 pickTop("Petty Cash"),
                 pickChild("Petty Cash"),
-                {
+                wrapWithPermissionCheck({
                   label: "Petty Cash",
                   path: "/clinic/pettycash",
                   icon: "dollar-sign",
-                },
-                { label: "Reports", path: "/clinic/report", icon: "reports" },
+                }, "petty cash"),
+                wrapWithPermissionCheck({ label: "Reports", path: "/clinic/report", icon: "reports" }, "reports"),
               ),
               order: 180,
             },

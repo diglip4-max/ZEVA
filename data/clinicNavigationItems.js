@@ -185,11 +185,19 @@ export const clinicNavigationItems = [
     order: 16,
   },
   {
+    label: "Services Setup",
+    path: "/clinic/services_setup",
+    icon: "settings",
+    description: "Manage services and setup",
+    moduleKey: "services_setup",
+    order: 18,
+  },
+  {
     label: "Commission",
     path: "/clinic/commission",
     icon: "percent",
     description: "Referral & staff commissions",
     moduleKey: "clinic_commission",
-    order: 17,
+    order: 19,
   },
 ];
