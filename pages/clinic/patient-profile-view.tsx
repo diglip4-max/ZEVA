@@ -3998,18 +3998,31 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                         : appointment.treatmentName
                                         ? [appointment.treatmentName]
                                         : [];
-                                      const isUpcomingAppointment = upcomingAppointments.some((apt: any) => apt._id === appointment._id);
-                                      if (names.length === 0 && !isUpcomingAppointment) {
+                                      if (names.length === 0) {
                                         return <div className="font-semibold text-gray-400 text-sm">-</div>;
                                       }
                                       return (
                                         <div className="flex flex-col gap-1">
-                                          {isUpcomingAppointment && (
-                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-800 text-[10px] font-bold w-fit">
-                                              <Clock size={9} />
-                                              Follow-Up
-                                            </span>
-                                          )}
+                                          {(() => {
+                                            const isFollowUp = 
+                                              (appointment.followType && appointment.followType.toLowerCase() === 'follow-up') ||
+                                              (appointment.followType && appointment.followType.toLowerCase() === 'follow up') ||
+                                              (appointment.followType === 'Follow Up') ||
+                                              (appointment.status && appointment.status.toLowerCase() === 'follow-up') ||
+                                              (appointment.status && appointment.status.toLowerCase() === 'follow up') ||
+                                              (appointment.appointmentStatus && appointment.appointmentStatus.toLowerCase() === 'follow-up') ||
+                                              (appointment.appointmentStatus && appointment.appointmentStatus.toLowerCase() === 'follow up');
+                                            
+                                            if (isFollowUp) {
+                                              return (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-800 text-[10px] font-bold w-fit">
+                                                  <Clock size={9} />
+                                                  Follow-Up
+                                                </span>
+                                              );
+                                            }
+                                            return null;
+                                          })()}
                                           <div className="flex flex-wrap gap-1">
                                             {names.map((name, i) => (
                                               <span

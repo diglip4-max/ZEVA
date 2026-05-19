@@ -26,14 +26,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false, message: "patientId is required" });
     }
 
-    // Today at midnight (start of today UTC)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
+    // Just query all appointments for the patient that are booked/scheduled/upcoming/confirmed OR followType is follow up!
     const appointments = await Appointment.find({
       clinicId,
       patientId,
-      startDate: { $gt: today },
+      $or: [
+        { status: { $in: ['upcoming', 'booked', 'scheduled', 'confirmed', 'Arrived', 'Waiting', 'Consultation'] } },
+        { followType: { $in: ['follow up', 'Follow Up', 'follow-up', 'Follow-Up'] } }
+      ]
     })
       .sort({ startDate: 1, fromTime: 1 })
       .select("_id startDate fromTime toTime status followType serviceId serviceIds")
