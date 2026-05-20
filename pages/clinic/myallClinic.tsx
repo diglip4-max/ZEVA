@@ -43,6 +43,48 @@ import { supportedCurrencies, getCurrencySymbol } from "@/lib/currencyHelper";
 import { useCurrency } from "@/context/CurrencyContext";
 import { QRCodeCanvas } from "qrcode.react";
 
+const TOKEN_PRIORITY = [
+  "clinicToken",
+  "doctorToken",
+  "agentToken",
+  "staffToken",
+  "userToken",
+  "adminToken",
+];
+
+const getStoredToken = () => {
+  if (typeof window === "undefined") return null;
+  for (const key of TOKEN_PRIORITY) {
+    const v = localStorage.getItem(key) || sessionStorage.getItem(key);
+    if (v) return v;
+  }
+  return null;
+};
+
+const isTruthy = (val: unknown) =>
+  val === true || val === "true" || String(val ?? "").toLowerCase() === "true";
+
+const findHealthCenterModule = (permissionsList: { module?: string; actions?: any }[]) =>
+  permissionsList.find((p) => {
+    if (!p?.module) return false;
+    const mod = String(p.module).toLowerCase();
+    return (
+      mod === "clinic_health_center" ||
+      mod === "health_center" ||
+      mod === "clinic_healthcenter"
+    );
+  });
+
+const parsePermissionActions = (actions: Record<string, unknown> = {}) => {
+  const moduleAll = isTruthy(actions.all);
+  return {
+    canRead: moduleAll || isTruthy(actions.read),
+    canCreate: moduleAll || isTruthy(actions.create),
+    canUpdate: moduleAll || isTruthy(actions.update),
+    canDelete: moduleAll || isTruthy(actions.delete),
+  };
+};
+
 // QR Code component for Scheduler Link tab
 const SchedulerQRCode = ({ url }: { url: string }) => (
   <QRCodeCanvas
@@ -149,12 +191,13 @@ function ClinicManagementDashboard(): ReactElement {
   const [showSubTreatmentDropdown, setShowSubTreatmentDropdown] = useState<
     number | null
   >(null);
-  const [permissions] = useState({
-    canRead: true,
-    canUpdate: true,
-    canDelete: true,
+  const [permissions, setPermissions] = useState({
+    canRead: false,
+    canCreate: false,
+    canUpdate: false,
+    canDelete: false,
   });
-  const [permissionsLoaded] = useState(false);
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [dashboardStats, setDashboardStats] = useState<any>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [reviewsData, setReviewsData] = useState<any>(null);
@@ -341,6 +384,8 @@ function ClinicManagementDashboard(): ReactElement {
   });
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({
     lat: 28.474389,
     lng: 77.50399,
@@ -426,8 +471,221 @@ function ClinicManagementDashboard(): ReactElement {
     tamara: { enabled: false, type: "flat", value: 0, applyOn: "earned" },
   });
 
+  // Clinic-level (sidebar-permissions) + agent/doctorStaff-level (get-module-permissions)
+  useEffect(() => {
+    let isMounted = true;
+    const userRole = getUserRole() as "clinic" | "staff" | "agent" | "doctor" | "user" | "admin" | "doctorStaff" | null;
+    const authToken = getStoredToken();
+    const clinicToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("clinicToken") ||
+          sessionStorage.getItem("clinicToken")
+        : null;
+    const doctorToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("doctorToken") ||
+          sessionStorage.getItem("doctorToken")
+        : null;
+    const agentToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("agentToken") ||
+          sessionStorage.getItem("agentToken")
+        : null;
+    const staffToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("staffToken") ||
+          sessionStorage.getItem("staffToken")
+        : null;
+    const userToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("userToken") ||
+          sessionStorage.getItem("userToken")
+        : null;
+
+    if (userRole === "admin") {
+      setPermissions({
+        canRead: true,
+        canCreate: true,
+        canUpdate: true,
+        canDelete: true,
+      });
+      setPermissionsLoaded(true);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    if (userRole === "clinic" || userRole === "doctor") {
+      const fetchClinicPermissions = async () => {
+        try {
+          const clinicAuthToken = clinicToken || doctorToken || authToken;
+          if (!clinicAuthToken) {
+            if (!isMounted) return;
+            setPermissions({
+              canRead: false,
+              canCreate: false,
+              canUpdate: false,
+              canDelete: false,
+            });
+            return;
+          }
+          const res = await axios.get("/api/clinic/sidebar-permissions", {
+            headers: { Authorization: `Bearer ${clinicAuthToken}` },
+          });
+          if (!isMounted) return;
+          if (res.data.success) {
+            if (
+              res.data.permissions === null ||
+              !Array.isArray(res.data.permissions) ||
+              res.data.permissions.length === 0
+            ) {
+              setPermissions({
+                canRead: true,
+                canCreate: true,
+                canUpdate: true,
+                canDelete: true,
+              });
+            } else {
+              const modulePermission = findHealthCenterModule(res.data.permissions);
+              if (modulePermission) {
+                setPermissions(
+                  parsePermissionActions(modulePermission.actions || {}),
+                );
+              } else {
+                setPermissions({
+                  canRead: true,
+                  canCreate: false,
+                  canUpdate: false,
+                  canDelete: false,
+                });
+              }
+            }
+          } else {
+            setPermissions({
+              canRead: true,
+              canCreate: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+          }
+        } catch (err) {
+          console.error("Error fetching clinic sidebar permissions:", err);
+          if (isMounted) {
+            setPermissions({
+              canRead: true,
+              canCreate: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+          }
+        } finally {
+          if (isMounted) setPermissionsLoaded(true);
+        }
+      };
+      fetchClinicPermissions();
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const agentStaffToken = getStoredToken();
+    if (!agentStaffToken) {
+      setPermissions({
+        canRead: false,
+        canCreate: false,
+        canUpdate: false,
+        canDelete: false,
+      });
+      setPermissionsLoaded(true);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    if (
+      agentToken ||
+      staffToken ||
+      userToken ||
+      userRole === "agent" ||
+      userRole === "doctorStaff" ||
+      userRole === "staff"
+    ) {
+      const fetchAgentPermissions = async () => {
+        try {
+          let permissionToken = agentStaffToken;
+          if (userRole === "agent") {
+            permissionToken = agentToken || agentStaffToken;
+          } else if (userRole === "doctorStaff" || userRole === "staff") {
+            permissionToken = userToken || staffToken || agentStaffToken;
+          }
+          const res = await axios.get("/api/agent/get-module-permissions", {
+            params: { moduleKey: "clinic_health_center" },
+            headers: { Authorization: `Bearer ${permissionToken}` },
+          });
+          if (!isMounted) return;
+          if (
+            !res.data?.permissions &&
+            res.data?.error?.includes("not found in agent permissions")
+          ) {
+            setPermissions({
+              canRead: true,
+              canCreate: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+            return;
+          }
+          if (res.data?.success && res.data?.permissions) {
+            setPermissions(
+              parsePermissionActions(res.data.permissions.actions || {}),
+            );
+          } else {
+            setPermissions({
+              canRead: false,
+              canCreate: false,
+              canUpdate: false,
+              canDelete: false,
+            });
+          }
+        } catch (err) {
+          console.error("Error fetching agent health center permissions:", err);
+          if (isMounted) {
+            setPermissions({
+              canRead: false,
+              canCreate: false,
+              canUpdate: false,
+              canDelete: false,
+            });
+          }
+        } finally {
+          if (isMounted) setPermissionsLoaded(true);
+        }
+      };
+      fetchAgentPermissions();
+    } else {
+      setPermissions({
+        canRead: true,
+        canCreate: true,
+        canUpdate: true,
+        canDelete: true,
+      });
+      setPermissionsLoaded(true);
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Fetch clinics
   useEffect(() => {
+    if (!permissionsLoaded) return;
+    if (!permissions.canRead) {
+      setClinics([]);
+      setLoading(false);
+      return;
+    }
+
     const fetchClinics = async () => {
       try {
         const authHeaders = getAuthHeaders();
@@ -478,7 +736,7 @@ function ClinicManagementDashboard(): ReactElement {
     };
 
     fetchClinics();
-  }, []);
+  }, [permissionsLoaded, permissions.canRead]);
 
   // Fetch available treatments for dropdown add
   useEffect(() => {
@@ -583,6 +841,16 @@ function ClinicManagementDashboard(): ReactElement {
           applyOn: "earned",
         },
       });
+    }
+    // Load logo and cover preview from clinic's photos array
+    const photos = (c as any).photos || [];
+    if (photos.length > 0) {
+      const logoPath = photos[0];
+      setLogoPreview(getImagePath(logoPath));
+    }
+    if (photos.length > 1) {
+      const coverPath = photos[1];
+      setCoverPreview(getImagePath(coverPath));
     }
     if (!stateSnapshot) {
       setStateSnapshot({
@@ -756,6 +1024,7 @@ function ClinicManagementDashboard(): ReactElement {
   }, [editForm.documents]);
 
   const addTreatmentFromAvailable = (t: Treatment) => {
+    if (!permissions.canUpdate) return;
     if (!t?.name) return;
     setEditForm((prev) => {
       const existingIndex = (prev.treatments || []).findIndex(
@@ -784,6 +1053,7 @@ function ClinicManagementDashboard(): ReactElement {
     sub: { name: string; price?: number },
     targetIndex: number | null,
   ) => {
+    if (!permissions.canUpdate) return;
     if (!sub?.name || targetIndex === null) return;
     setEditForm((prev) => {
       const updatedTreatments = [...(prev.treatments || [])];
@@ -885,6 +1155,7 @@ function ClinicManagementDashboard(): ReactElement {
     field: string,
     value: string | string[] | File[] | (string | File)[],
   ) => {
+    if (!permissions.canUpdate) return;
     setEditForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -961,6 +1232,8 @@ function ClinicManagementDashboard(): ReactElement {
       );
       setLogoPreview(stateSnapshot.logoPreview || null);
       setCoverPreview(stateSnapshot.coverPreview || null);
+      setLogoFile(null);
+      setCoverFile(null);
       setIntegrations(stateSnapshot.integrations || integrations);
       setBrandPrimary(stateSnapshot.brandPrimary || brandPrimary);
       setBrandSecondary(stateSnapshot.brandSecondary || brandSecondary);
@@ -973,6 +1246,10 @@ function ClinicManagementDashboard(): ReactElement {
   };
 
   const handleAddDocument = () => {
+    if (!permissions.canCreate) {
+      toast.error("You do not have permission to upload documents");
+      return;
+    }
     if (!newDocName.trim() || !newDocFile) {
       toast.error("Please provide document name and file");
       return;
@@ -989,10 +1266,10 @@ function ClinicManagementDashboard(): ReactElement {
     }));
     setNewDocName("");
     setNewDocFile(null);
-    toast.success("Document added");
   };
 
   const handleRemoveExistingDocument = (index: number) => {
+    if (!permissions.canDelete) return;
     setEditForm((prev) => {
       const docs = [...(prev.documents || [])];
       if (index >= 0 && index < docs.length) {
@@ -1006,6 +1283,10 @@ function ClinicManagementDashboard(): ReactElement {
 
   // Handle update
   const handleUpdate = async () => {
+    if (!permissions.canUpdate) {
+      toast.error("You do not have permission to update clinic information");
+      return;
+    }
     console.log("🟢 Save Changes clicked");
     if (!editingClinicId) {
       console.error("❌ No clinic ID found");
@@ -1020,6 +1301,11 @@ function ClinicManagementDashboard(): ReactElement {
         return;
       }
       const toRelativeUploadPath = (s: string) => {
+        if (!s) return s;
+        // If it's already a Cloudinary URL or absolute URL, return as is
+        if (s.startsWith("http://") || s.startsWith("https://")) {
+          return s;
+        }
         let out = s.trim().replace(/^['"`]+|['"`]+$/g, "");
         try {
           if (out.startsWith("http://") || out.startsWith("https://")) {
@@ -1034,11 +1320,24 @@ function ClinicManagementDashboard(): ReactElement {
         if (out.startsWith("/")) return out;
         return `/uploads/clinic/${out}`;
       };
-      const existingPhotos = (editForm.photos || [])
+      
+      let existingPhotos = (editForm.photos || [])
         .filter(
           (p: any) => typeof p === "string" && String(p).trim().length > 0,
         )
         .map((p: any) => toRelativeUploadPath(String(p)));
+      
+      if (logoFile) {
+        existingPhotos = existingPhotos.slice(1);
+      }
+      if (coverFile) {
+        if (logoFile) {
+          existingPhotos = existingPhotos.slice(1);
+        } else {
+          existingPhotos = [existingPhotos[0], ...existingPhotos.slice(2)];
+        }
+      }
+      
       const existingDocuments = (editForm.documents || [])
         .filter((d: any) => d && typeof d.url === "string" && d.url.length > 0)
         .map((d: any) => ({
@@ -1051,16 +1350,33 @@ function ClinicManagementDashboard(): ReactElement {
       const filesFromEdit = (editForm.photos || []).filter(
         (p: any) => p instanceof File,
       ) as File[];
-      const filesToUploadMap = new Map<string, File>();
+      
+      const mediaFilesToUploadMap = new Map<string, File>();
+      
+      if (logoFile) {
+        const key = `${logoFile.name}-${logoFile.size}-${logoFile.type}`;
+        mediaFilesToUploadMap.set(key, logoFile);
+      }
+      if (coverFile) {
+        const key = `${coverFile.name}-${coverFile.size}-${coverFile.type}`;
+        mediaFilesToUploadMap.set(key, coverFile);
+      }
+      
+      const otherFilesToUploadMap = new Map<string, File>();
+      
       [...(selectedFiles || []), ...filesFromEdit].forEach((f) => {
         const key = `${f.name}-${f.size}-${f.type}`;
-        if (!filesToUploadMap.has(key)) filesToUploadMap.set(key, f);
+        if (!mediaFilesToUploadMap.has(key) && !otherFilesToUploadMap.has(key)) {
+          otherFilesToUploadMap.set(key, f);
+        }
       });
-      const filesToUpload = Array.from(filesToUploadMap.values());
+      
+      const mediaFilesToUpload = Array.from(mediaFilesToUploadMap.values());
+      const otherFilesToUpload = Array.from(otherFilesToUploadMap.values());
       const documentFilesToUpload = (editForm.documents || [])
         .filter((d: any) => d && d.file instanceof File)
         .map((d: any) => d.file as File);
-      const hasFiles = filesToUpload.length > 0;
+      const hasFiles = mediaFilesToUpload.length > 0 || otherFilesToUpload.length > 0;
       const hasDocFiles = documentFilesToUpload.length > 0;
       if (hasFiles || hasDocFiles) {
         const form = new FormData();
@@ -1087,14 +1403,24 @@ function ClinicManagementDashboard(): ReactElement {
         if (existingDocuments && existingDocuments.length > 0) {
           form.append("existingDocuments", JSON.stringify(existingDocuments));
         }
-        filesToUpload.forEach((file) => form.append("photos", file));
+        // Append media files (logo, cover) with a specific flag to tell API to prepend them
+        form.append("isMediaUpload", "true");
+        mediaFilesToUpload.forEach((file) => {
+          form.append("photos", file);
+        });
+        otherFilesToUpload.forEach((file) => {
+          form.append("photos", file);
+        });
         // Append new documents with names
-        (editForm.documents || [])
-          .filter((d: any) => d && d.file instanceof File)
-          .forEach((d: any) => {
-            form.append("documents", d.file);
-            form.append("documentNames", d.name || d.file?.name || "Document");
-          });
+        const newDocuments = (editForm.documents || [])
+          .filter((d: any) => d && d.file instanceof File);
+        console.log("📄 New documents to upload:", newDocuments);
+        newDocuments.forEach((d: any) => {
+          form.append("documents", d.file);
+          form.append("documentNames", d.name || d.file?.name || "Document");
+        });
+        console.log("📄 Form document entries:", form.getAll("documents"));
+        console.log("📄 Form document names:", form.getAll("documentNames"));
         try {
           const response = await axios.put(
             `/api/clinics/${editingClinicId}`,
@@ -1145,7 +1471,14 @@ function ClinicManagementDashboard(): ReactElement {
                 JSON.stringify(existingDocuments),
               );
             }
-            filesToUpload.forEach((file) => retryForm.append("photos", file));
+            if (logoFile) retryForm.append("photos", logoFile);
+            if (coverFile) retryForm.append("photos", coverFile);
+            mediaFilesToUpload.forEach((file) => {
+              retryForm.append("photos", file);
+            });
+            otherFilesToUpload.forEach((file) => {
+              retryForm.append("photos", file);
+            });
             (editForm.documents || [])
               .filter((d: any) => d && d.file instanceof File)
               .forEach((d: any) => {
@@ -1254,9 +1587,14 @@ function ClinicManagementDashboard(): ReactElement {
           }
         }
       }
+      console.log("🔔 About to show success toast");
       toast.success("Clinic updated successfully");
+      console.log("🔔 Success toast shown");
       // Sync currency to global context after successful save
       setGlobalCurrency(clinicCurrency);
+      // Reset logo and cover file states
+      setLogoFile(null);
+      setCoverFile(null);
       console.log("✅ Update successful, refreshing data...");
       const refreshResponse = await axios.get("/api/clinics/myallClinic", {
         headers: authHeaders,
@@ -1272,6 +1610,8 @@ function ClinicManagementDashboard(): ReactElement {
                 )
                 .filter((p: any) => typeof p === "string" && p.length > 0)
             : [];
+        console.log("🔄 Refresh response clinic:", refreshResponse.data.clinic);
+        console.log("📄 Refresh response documents:", refreshResponse.data.clinic.documents);
         const clinicObj = refreshResponse.data.clinic
           ? {
               ...refreshResponse.data.clinic,
@@ -1376,6 +1716,7 @@ function ClinicManagementDashboard(): ReactElement {
   };
 
   const handleAddTreatment = () => {
+    if (!permissions.canUpdate) return;
     if (!newTreatment.trim()) return;
     const newTreatmentObj = {
       mainTreatment: newTreatment.trim(),
@@ -1392,6 +1733,7 @@ function ClinicManagementDashboard(): ReactElement {
   };
 
   const handleRemoveTreatment = (index: number) => {
+    if (!permissions.canDelete) return;
     setEditForm((prev) => ({
       ...prev,
       treatments: (prev.treatments || []).filter((_, i) => i !== index),
@@ -1399,6 +1741,7 @@ function ClinicManagementDashboard(): ReactElement {
   };
 
   const handleAddSubTreatment = () => {
+    if (!permissions.canUpdate) return;
     if (!newSubTreatment.trim() || selectedTreatmentIndex === null) return;
     const price = newSubTreatmentPrice ? parseFloat(newSubTreatmentPrice) : 0;
     const newSubTreatmentObj = {
@@ -1432,6 +1775,7 @@ function ClinicManagementDashboard(): ReactElement {
   };
 
   const toggleMainTreatment = (index: number, isOn: boolean) => {
+    if (!permissions.canUpdate) return;
     setEditForm((prev) => {
       const updated = [...(prev.treatments || [])];
       if (!updated[index]) return prev;
@@ -1453,6 +1797,7 @@ function ClinicManagementDashboard(): ReactElement {
     sIndex: number,
     isOn: boolean,
   ) => {
+    if (!permissions.canUpdate) return;
     setEditForm((prev) => {
       const updated = [...(prev.treatments || [])];
       if (!updated[tIndex]) return prev;
@@ -1471,6 +1816,7 @@ function ClinicManagementDashboard(): ReactElement {
     treatmentIndex: number,
     subIndex: number,
   ) => {
+    if (!permissions.canDelete) return;
     setEditForm((prev) => {
       const updatedTreatments = [...(prev.treatments || [])];
       if (updatedTreatments[treatmentIndex]) {
@@ -1488,8 +1834,9 @@ function ClinicManagementDashboard(): ReactElement {
     });
   };
 
-  if (loading) return <Loader />;
-  if (permissionsLoaded && !permissions.canRead) {
+  if (!permissionsLoaded || loading) return <Loader />;
+
+  if (!permissions.canRead) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
@@ -1510,6 +1857,8 @@ function ClinicManagementDashboard(): ReactElement {
       </div>
     );
   }
+
+  const fieldDisabled = !permissions.canUpdate;
 
   // Main component render
   return (
@@ -1559,15 +1908,17 @@ function ClinicManagementDashboard(): ReactElement {
                 <X className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
                 <span className="hidden sm:inline">Cancel</span>
               </button>
-              <button
-                onClick={handleUpdate}
-                disabled={updating}
-                className={`${btnPrimary} disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2`}
-              >
-                <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
-                <span className="hidden sm:inline">Save Changes</span>
-                <span className="sm:hidden">Save</span>
-              </button>
+              {permissions.canUpdate && (
+                <button
+                  onClick={handleUpdate}
+                  disabled={updating}
+                  className={`${btnPrimary} disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2`}
+                >
+                  <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+                  <span className="hidden sm:inline">Save Changes</span>
+                  <span className="sm:hidden">Save</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1628,6 +1979,8 @@ function ClinicManagementDashboard(): ReactElement {
                         onChange={(e) =>
                           handleInputChange("name", e.target.value)
                         }
+                        disabled={fieldDisabled}
+                        readOnly={fieldDisabled}
                         className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                         placeholder="Enter clinic name"
                       />
@@ -1645,6 +1998,8 @@ function ClinicManagementDashboard(): ReactElement {
                             slug: e.target.value,
                           }))
                         }
+                        disabled={fieldDisabled}
+                        readOnly={fieldDisabled}
                         className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                         placeholder="zeva-health"
                       />
@@ -1675,6 +2030,8 @@ function ClinicManagementDashboard(): ReactElement {
                               pricing: e.target.value,
                             }))
                           }
+                          disabled={fieldDisabled}
+                          readOnly={fieldDisabled}
                           className="w-full pl-10 sm:pl-14 pr-3 sm:pr-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                           placeholder="e.g. 200"
                         />
@@ -1697,6 +2054,8 @@ function ClinicManagementDashboard(): ReactElement {
                             tagline: e.target.value,
                           }))
                         }
+                        disabled={fieldDisabled}
+                        readOnly={fieldDisabled}
                         className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                         placeholder="Your Health, Our Priority"
                       />
@@ -1713,6 +2072,8 @@ function ClinicManagementDashboard(): ReactElement {
                             description: e.target.value,
                           }))
                         }
+                        disabled={fieldDisabled}
+                        readOnly={fieldDisabled}
                         className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                         placeholder="Premium healthcare services in Dubai"
                         rows={3}
@@ -1727,6 +2088,7 @@ function ClinicManagementDashboard(): ReactElement {
                       <select
                         value={clinicCurrency}
                         onChange={(e) => setClinicCurrency(e.target.value)}
+                        disabled={fieldDisabled}
                         className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
                       >
                         {supportedCurrencies.map((c) => (
@@ -1752,16 +2114,19 @@ function ClinicManagementDashboard(): ReactElement {
                       <div className="text-sm font-medium text-gray-700 mb-2">
                         Clinic Logo
                       </div>
-                      <label className="relative block overflow-hidden border-2 border-dashed border-teal-200 rounded-xl p-6 sm:p-5 min-h-[220px] sm:min-h-[240px] text-center hover:border-teal-300 hover:bg-teal-50/30 transition flex items-center justify-center">
+                      <label className={`relative block overflow-hidden border-2 border-dashed border-teal-200 rounded-xl p-6 sm:p-5 min-h-[220px] sm:min-h-[240px] text-center transition flex items-center justify-center ${fieldDisabled ? "" : "hover:border-teal-300 hover:bg-teal-50/30"}`}>
                         <input
                           type="file"
                           accept="image/jpeg,image/jpg,image/png"
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          disabled={fieldDisabled}
+                          className={`absolute inset-0 w-full h-full opacity-0 ${fieldDisabled ? "cursor-not-allowed pointer-events-none" : "cursor-pointer"}`}
                           onChange={(e) => {
+                            if (fieldDisabled) return;
                             const f = e.target.files?.[0];
                             if (!f) return;
                             const url = URL.createObjectURL(f);
                             setLogoPreview(url);
+                            setLogoFile(f);
                           }}
                         />
                         {logoPreview ? (
@@ -1787,16 +2152,19 @@ function ClinicManagementDashboard(): ReactElement {
                       <div className="text-sm font-medium text-gray-700 mb-2">
                         Cover Image
                       </div>
-                      <label className="relative block overflow-hidden border-2 border-dashed border-teal-200 rounded-xl p-6 sm:p-5 min-h-[220px] sm:min-h-[240px] text-center hover:border-teal-300 hover:bg-teal-50/30 transition flex items-center justify-center">
+                      <label className={`relative block overflow-hidden border-2 border-dashed border-teal-200 rounded-xl p-6 sm:p-5 min-h-[220px] sm:min-h-[240px] text-center transition flex items-center justify-center ${fieldDisabled ? "" : "hover:border-teal-300 hover:bg-teal-50/30"}`}>
                         <input
                           type="file"
                           accept="image/jpeg,image/jpg,image/png"
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          disabled={fieldDisabled}
+                          className={`absolute inset-0 w-full h-full opacity-0 ${fieldDisabled ? "cursor-not-allowed pointer-events-none" : "cursor-pointer"}`}
                           onChange={(e) => {
+                            if (fieldDisabled) return;
                             const f = e.target.files?.[0];
                             if (!f) return;
                             const url = URL.createObjectURL(f);
                             setCoverPreview(url);
+                            setCoverFile(f);
                           }}
                         />
                         {coverPreview ? (
@@ -1918,6 +2286,7 @@ function ClinicManagementDashboard(): ReactElement {
                                         {sub.price}
                                       </span>
                                     )}
+                                  {permissions.canDelete && (
                                   <button
                                     onClick={() =>
                                       handleRemoveSubTreatment(
@@ -1929,12 +2298,14 @@ function ClinicManagementDashboard(): ReactElement {
                                   >
                                     <X className="w-3 h-3" />
                                   </button>
+                                  )}
                                 </span>
                               ))}
                             </div>
                           )}
 
                         {/* Custom Sub-treatment Form */}
+                        {permissions.canUpdate && (
                         <div className="border-t border-gray-200 pt-3 mt-3">
                           <div className="text-xs font-medium text-teal-700 mb-2">
                             Add Custom Sub-treatment
@@ -1989,9 +2360,11 @@ function ClinicManagementDashboard(): ReactElement {
                             </div>
                           </div>
                         </div>
+                        )}
                       </div>
                     )}
                   {/* Add from available treatments */}
+                  {permissions.canUpdate && (
                   <div className="space-y-2 mb-3">
                     <label className="text-xs font-medium text-teal-700">
                       Add from list
@@ -2141,8 +2514,9 @@ function ClinicManagementDashboard(): ReactElement {
                       </div>
                     )}
                   </div>
-                  <div className="space-y-3">
-                    <div className="flex gap-1.5 sm:gap-2">
+                  )}
+                  {permissions.canUpdate && (
+                    <div className="flex gap-1.5 sm:gap-2 mb-3">
                       <input
                         type="text"
                         value={newTreatment}
@@ -2160,7 +2534,8 @@ function ClinicManagementDashboard(): ReactElement {
                         <Plus className="w-4 h-4 sm:w-4 sm:h-4" />
                       </button>
                     </div>
-                    <div className="space-y-3">
+                  )}
+                  <div className="space-y-3">
                       {editForm.treatments?.map(
                         (treatment: any, index: number) => (
                           <div
@@ -2176,6 +2551,7 @@ function ClinicManagementDashboard(): ReactElement {
                                   <input
                                     type="checkbox"
                                     checked={treatment.enabled !== false}
+                                    disabled={fieldDisabled}
                                     onChange={(e) =>
                                       toggleMainTreatment(
                                         index,
@@ -2187,12 +2563,14 @@ function ClinicManagementDashboard(): ReactElement {
                                 </label>
                               </div>
                               <div className="flex items-center gap-2">
+                                {permissions.canDelete && (
                                 <button
                                   onClick={() => handleRemoveTreatment(index)}
                                   className="text-red-500 hover:text-red-700 transition-colors p-1.5 sm:p-1"
                                 >
                                   <X className="w-4 h-4 sm:w-4 sm:h-4" />
                                 </button>
+                                )}
                               </div>
                             </div>
                             {treatment.subTreatments &&
@@ -2231,6 +2609,7 @@ function ClinicManagementDashboard(): ReactElement {
                                               )
                                             }
                                             disabled={
+                                              fieldDisabled ||
                                               treatment.enabled === false
                                             }
                                           />
@@ -2238,6 +2617,7 @@ function ClinicManagementDashboard(): ReactElement {
                                             Show
                                           </span>
                                         </label>
+                                        {permissions.canDelete && (
                                         <button
                                           onClick={() =>
                                             handleRemoveSubTreatment(
@@ -2249,6 +2629,7 @@ function ClinicManagementDashboard(): ReactElement {
                                         >
                                           <X className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                                         </button>
+                                        )}
                                       </div>
                                     ),
                                   )}
@@ -2256,6 +2637,7 @@ function ClinicManagementDashboard(): ReactElement {
                               )}
 
                             {/* Add Sub-Treatment Form */}
+                            {permissions.canUpdate && (
                             <div className="border-t border-gray-200 pt-3 mt-3">
                               <div className="text-xs font-medium text-teal-700 mb-2">
                                 Add Sub-Treatment
@@ -2493,11 +2875,11 @@ function ClinicManagementDashboard(): ReactElement {
                                 </div>
                               </div>
                             </div>
+                            )}
                           </div>
                         ),
                       )}
                     </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -2517,13 +2899,16 @@ function ClinicManagementDashboard(): ReactElement {
                       <input
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                         value={contactForm.phone}
-                        onChange={(e) =>
+                        disabled={fieldDisabled}
+                        readOnly={fieldDisabled}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
                           setContactForm({
                             ...contactForm,
-                            phone: e.target.value,
-                          })
-                        }
-                        placeholder="+91 1234569870"
+                            phone: value,
+                          });
+                        }}
+                        placeholder="1234567890"
                       />
                     </div>
                     <div>
@@ -2533,13 +2918,16 @@ function ClinicManagementDashboard(): ReactElement {
                       <input
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                         value={contactForm.whatsapp}
-                        onChange={(e) =>
+                        disabled={fieldDisabled}
+                        readOnly={fieldDisabled}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
                           setContactForm({
                             ...contactForm,
-                            whatsapp: e.target.value,
-                          })
-                        }
-                        placeholder="+91 1234567890"
+                            whatsapp: value,
+                          });
+                        }}
+                        placeholder="1234567890"
                       />
                     </div>
                     <div>
@@ -2550,6 +2938,8 @@ function ClinicManagementDashboard(): ReactElement {
                         type="email"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                         value={contactForm.email}
+                        disabled={fieldDisabled}
+                        readOnly={fieldDisabled}
                         onChange={(e) =>
                           setContactForm({
                             ...contactForm,
@@ -2566,6 +2956,8 @@ function ClinicManagementDashboard(): ReactElement {
                       <input
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                         value={contactForm.website}
+                        disabled={fieldDisabled}
+                        readOnly={fieldDisabled}
                         onChange={(e) =>
                           setContactForm({
                             ...contactForm,
@@ -2636,6 +3028,7 @@ function ClinicManagementDashboard(): ReactElement {
                       Manage your clinic's official documents and certifications
                     </p>
                   </div>
+                  {permissions.canCreate && (
                   <label className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all cursor-pointer shadow-sm text-xs sm:text-sm">
                     <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     <span className="font-medium">Upload New</span>
@@ -2648,19 +3041,19 @@ function ClinicManagementDashboard(): ReactElement {
                         if (f) {
                           setNewDocFile(f);
                           setNewDocName(f.name.split(".")[0]);
-                          toast.success(
-                            "File selected. Click Add Document to upload.",
-                          );
                         }
                       }}
                     />
                   </label>
+                  )}
                 </div>
 
                 {/* Document Grid */}
                 {editForm.documents && editForm.documents.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
-                    {(editForm.documents || []).map((doc: any, idx: number) => {
+                    {(() => {
+                      console.log("📋 Rendering documents:", editForm.documents);
+                      return (editForm.documents || []).map((doc: any, idx: number) => {
                       const url = String(doc?.url || "");
                       const hasUrl = url && url.length > 0;
                       const isImage = /\.(jpg|jpeg|png)$/i.test(url);
@@ -2675,13 +3068,6 @@ function ClinicManagementDashboard(): ReactElement {
                             doc.type ||
                             "PDF"
                           ).toUpperCase();
-                      const uploadDate = doc.createdAt
-                        ? new Date(doc.createdAt).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })
-                        : "Recently";
                       const isPending = !hasUrl && doc.file; // New document not yet saved
 
                       return (
@@ -2725,9 +3111,6 @@ function ClinicManagementDashboard(): ReactElement {
                                 <span>{fileType}</span>
                                 <span>•</span>
                                 <span>{fileSize}</span>
-                              </div>
-                              <div className="mt-1 text-xs text-gray-400">
-                                Uploaded {uploadDate}
                               </div>
                             </div>
                           </div>
@@ -2788,6 +3171,7 @@ function ClinicManagementDashboard(): ReactElement {
                                 </button>
                               </>
                             )}
+                            {permissions.canDelete && (
                             <button
                               type="button"
                               onClick={() => handleRemoveExistingDocument(idx)}
@@ -2796,19 +3180,21 @@ function ClinicManagementDashboard(): ReactElement {
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
+                            )}
                           </div>
 
                           {/* Save Notice */}
                           {isPending && (
                             <div className="mt-3 pt-3 border-t border-gray-100">
                               <p className="text-xs text-orange-600 text-center">
-                                ⚠️ Click "Update Profile" to save this document
+                                ⚠️ Click "Save Changes" to save this document
                               </p>
                             </div>
                           )}
                         </div>
                       );
-                    })}
+                    });
+                  })()}
                   </div>
                 ) : (
                   <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
@@ -2828,6 +3214,7 @@ function ClinicManagementDashboard(): ReactElement {
                 )}
 
                 {/* Drag & Drop Upload Area */}
+                {permissions.canCreate && (
                 <div
                   className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-teal-400 hover:bg-teal-50/30 transition-all"
                   onDragOver={(e) => {
@@ -2879,7 +3266,6 @@ function ClinicManagementDashboard(): ReactElement {
 
                     setNewDocFile(file);
                     setNewDocName(file.name.split(".")[0]);
-                    toast.success(`File "${file.name}" ready to upload`);
                   }}
                 >
                   <div className="max-w-md mx-auto">
@@ -2918,11 +3304,24 @@ function ClinicManagementDashboard(): ReactElement {
                             }
                           }}
                         />
-                        <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 text-center hover:bg-gray-50 transition-all">
+                        <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 text-center hover:bg-gray-50 transition-all flex items-center justify-between">
                           {newDocFile ? (
-                            <span className="text-teal-700 font-medium">
-                              ✓ {newDocFile.name}
-                            </span>
+                            <>
+                              <span className="text-teal-700 font-medium truncate">
+                                ✓ {newDocFile.name}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setNewDocFile(null);
+                                }}
+                                className="ml-2 text-gray-500 hover:text-red-500 transition-colors"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </>
                           ) : (
                             "Choose File"
                           )}
@@ -2939,6 +3338,7 @@ function ClinicManagementDashboard(): ReactElement {
                     </div>
                   </div>
                 </div>
+                )}
               </div>
             )}
 
@@ -3067,10 +3467,12 @@ function ClinicManagementDashboard(): ReactElement {
                                 </svg>
                               </button>
                             )}
+                          {permissions.canUpdate && (
                           <label className="relative inline-flex items-center cursor-pointer">
                             <input
                               type="checkbox"
                               className="sr-only peer"
+                              disabled={!permissions.canUpdate}
                               checked={
                                 listingVisibility.showServices as boolean
                               }
@@ -3086,6 +3488,7 @@ function ClinicManagementDashboard(): ReactElement {
                             />
                             <div className="w-9 h-5 sm:w-11 sm:h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 sm:after:h-5 sm:after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
                           </label>
+                          )}
                         </div>
                       </div>
 
@@ -3118,6 +3521,7 @@ function ClinicManagementDashboard(): ReactElement {
                                   </span>
                                 )}
                                 {/* Master All toggle */}
+                                {permissions.canUpdate && (
                                 <div className="flex items-center gap-1.5">
                                   <span className="text-[11px] text-gray-500 font-medium">
                                     All
@@ -3158,6 +3562,7 @@ function ClinicManagementDashboard(): ReactElement {
                                     <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-600"></div>
                                   </label>
                                 </div>
+                                )}
                               </div>
                             </div>
 
@@ -3196,6 +3601,7 @@ function ClinicManagementDashboard(): ReactElement {
                                             )}
                                           </div>
                                         </div>
+                                        {permissions.canUpdate && (
                                         <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
                                           <input
                                             type="checkbox"
@@ -3230,6 +3636,7 @@ function ClinicManagementDashboard(): ReactElement {
                                           />
                                           <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-600"></div>
                                         </label>
+                                        )}
                                       </div>
 
                                       {/* Sub-treatment rows — only when main is ON */}
@@ -3240,6 +3647,7 @@ function ClinicManagementDashboard(): ReactElement {
                                             <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">
                                               Sub-treatments
                                             </span>
+                                            {permissions.canUpdate && (
                                             <div className="flex items-center gap-1.5">
                                               <span className="text-[10px] text-gray-400">
                                                 All
@@ -3279,6 +3687,7 @@ function ClinicManagementDashboard(): ReactElement {
                                                 <div className="w-7 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-teal-500"></div>
                                               </label>
                                             </div>
+                                            )}
                                           </div>
                                           {/* Sub rows */}
                                           <div className="divide-y divide-gray-100">
@@ -3311,6 +3720,7 @@ function ClinicManagementDashboard(): ReactElement {
                                                         </span>
                                                       )}
                                                     </div>
+                                                    {permissions.canUpdate && (
                                                     <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-2">
                                                       <input
                                                         type="checkbox"
@@ -3352,6 +3762,7 @@ function ClinicManagementDashboard(): ReactElement {
                                                       />
                                                       <div className="w-7 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-teal-500"></div>
                                                     </label>
+                                                    )}
                                                   </div>
                                                 );
                                               },
@@ -3404,10 +3815,12 @@ function ClinicManagementDashboard(): ReactElement {
                           </p>
                         </div>
                       </div>
+                      {permissions.canUpdate && (
                       <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
                         <input
                           type="checkbox"
                           className="sr-only peer"
+                          disabled={!permissions.canUpdate}
                           checked={listingVisibility.showPrices as boolean}
                           onChange={() => {
                             setListingVisibility((prev) => ({
@@ -3421,6 +3834,7 @@ function ClinicManagementDashboard(): ReactElement {
                         />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
                       </label>
+                      )}
                     </div>
 
                     {/* Show Staff */}
@@ -3459,6 +3873,7 @@ function ClinicManagementDashboard(): ReactElement {
                           </p>
                         </div>
                       </div>
+                      {permissions.canUpdate && (
                       <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
                         <input
                           type="checkbox"
@@ -3476,6 +3891,7 @@ function ClinicManagementDashboard(): ReactElement {
                         />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
                       </label>
+                      )}
                     </div>
 
                     {/* Show Reviews */}
@@ -3514,6 +3930,7 @@ function ClinicManagementDashboard(): ReactElement {
                           </p>
                         </div>
                       </div>
+                      {permissions.canUpdate && (
                       <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
                         <input
                           type="checkbox"
@@ -3531,6 +3948,7 @@ function ClinicManagementDashboard(): ReactElement {
                         />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
                       </label>
+                      )}
                     </div>
 
                     {/* Enable Online Booking */}
@@ -3569,6 +3987,7 @@ function ClinicManagementDashboard(): ReactElement {
                           </p>
                         </div>
                       </div>
+                      {permissions.canUpdate && (
                       <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
                         <input
                           type="checkbox"
@@ -3588,6 +4007,7 @@ function ClinicManagementDashboard(): ReactElement {
                         />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
                       </label>
+                      )}
                     </div>
 
                     {/* Featured Listing */}
@@ -3626,6 +4046,7 @@ function ClinicManagementDashboard(): ReactElement {
                           </p>
                         </div>
                       </div>
+                      {permissions.canUpdate && (
                       <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
                         <input
                           type="checkbox"
@@ -3640,6 +4061,7 @@ function ClinicManagementDashboard(): ReactElement {
                         />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
                       </label>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -3662,6 +4084,7 @@ function ClinicManagementDashboard(): ReactElement {
                       Manage your clinic locations and branches
                     </p>
                   </div>
+                  {permissions.canCreate && (
                   <button
                     onClick={() =>
                       setBranchModal({
@@ -3678,6 +4101,7 @@ function ClinicManagementDashboard(): ReactElement {
                     <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     <span>Add New Branch</span>
                   </button>
+                  )}
                 </div>
 
                 {/* Branch Cards */}
@@ -3694,6 +4118,7 @@ function ClinicManagementDashboard(): ReactElement {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
+                        {permissions.canUpdate && (
                         <button
                           onClick={() =>
                             setBranchModal({
@@ -3710,6 +4135,7 @@ function ClinicManagementDashboard(): ReactElement {
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>
+                        )}
                         <button
                           disabled
                           className="p-2 text-red-400 bg-gray-100 rounded-lg cursor-not-allowed"
@@ -3797,6 +4223,7 @@ function ClinicManagementDashboard(): ReactElement {
                             </h3>
                           </div>
                           <div className="flex items-center gap-2">
+                            {permissions.canUpdate && (
                             <button
                               onClick={() =>
                                 setBranchModal({
@@ -3813,6 +4240,8 @@ function ClinicManagementDashboard(): ReactElement {
                             >
                               <Edit3 className="w-4 h-4" />
                             </button>
+                            )}
+                            {permissions.canDelete && (
                             <button
                               onClick={() =>
                                 setBranches((prev) =>
@@ -3824,6 +4253,7 @@ function ClinicManagementDashboard(): ReactElement {
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
+                            )}
                           </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -3860,6 +4290,7 @@ function ClinicManagementDashboard(): ReactElement {
                 </div>
 
                 {/* Add Another Branch */}
+                {permissions.canCreate && (
                 <div className="border-2 mt-6 sm:mt-9 border-dashed border-gray-300 rounded-xl p-4 sm:p-8 text-center hover:border-teal-400 hover:bg-teal-50/30 transition-all">
                   <div className="max-w-md mx-auto">
                     <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
@@ -3888,6 +4319,7 @@ function ClinicManagementDashboard(): ReactElement {
                     </button>
                   </div>
                 </div>
+                )}
               </div>
             )}
 
@@ -3931,7 +4363,9 @@ function ClinicManagementDashboard(): ReactElement {
                                   payment.key as keyof typeof bankDetails
                                 ].enabled
                               }
+                              disabled={fieldDisabled}
                               onChange={(e) => {
+                                if (fieldDisabled) return;
                                 setBankDetails((prev) => ({
                                   ...prev,
                                   [payment.key]: {
@@ -3957,7 +4391,9 @@ function ClinicManagementDashboard(): ReactElement {
                                     payment.key as keyof typeof bankDetails
                                   ].type
                                 }
+                                disabled={fieldDisabled}
                                 onChange={(e) => {
+                                  if (fieldDisabled) return;
                                   setBankDetails((prev) => ({
                                     ...prev,
                                     [payment.key]: {
@@ -3984,7 +4420,9 @@ function ClinicManagementDashboard(): ReactElement {
                                     payment.key as keyof typeof bankDetails
                                   ].applyOn
                                 }
+                                disabled={fieldDisabled}
                                 onChange={(e) => {
+                                  if (fieldDisabled) return;
                                   setBankDetails((prev) => ({
                                     ...prev,
                                     [payment.key]: {
@@ -4014,7 +4452,10 @@ function ClinicManagementDashboard(): ReactElement {
                                     payment.key as keyof typeof bankDetails
                                   ].value
                                 }
+                                disabled={fieldDisabled}
+                                readOnly={fieldDisabled}
                                 onChange={(e) => {
+                                  if (fieldDisabled) return;
                                   setBankDetails((prev) => ({
                                     ...prev,
                                     [payment.key]: {
@@ -4043,7 +4484,7 @@ function ClinicManagementDashboard(): ReactElement {
             )}
 
             {/* Scheduler Link */}
-            {activeTab === "Scheduler Link" && (
+            {permissions.canRead && activeTab === "Scheduler Link" && (
               <div className="w-full space-y-5">
                 {/* Header */}
                 <div className="flex items-center gap-3">
@@ -4216,6 +4657,7 @@ function ClinicManagementDashboard(): ReactElement {
                           week
                         </p>
                       </div>
+                      {permissions.canUpdate && (
                       <button
                         type="button"
                         onClick={() => {
@@ -4263,6 +4705,7 @@ function ClinicManagementDashboard(): ReactElement {
                         </svg>
                         Apply Monday to All
                       </button>
+                      )}
                     </div>
                   </div>
 
@@ -4279,8 +4722,10 @@ function ClinicManagementDashboard(): ReactElement {
                               <input
                                 type="checkbox"
                                 className="sr-only peer"
+                                disabled={fieldDisabled}
                                 checked={t.open}
                                 onChange={() => {
+                                  if (fieldDisabled) return;
                                   setTiming((prev) => {
                                     const copy = [...prev];
                                     copy[idx] = {
@@ -4312,6 +4757,8 @@ function ClinicManagementDashboard(): ReactElement {
                               </label>
                               <input
                                 type="time"
+                                disabled={fieldDisabled}
+                                readOnly={fieldDisabled}
                                 value={t.opening}
                                 onChange={(e) => {
                                   setTiming((prev) => {
@@ -4332,6 +4779,8 @@ function ClinicManagementDashboard(): ReactElement {
                               </label>
                               <input
                                 type="time"
+                                disabled={fieldDisabled}
+                                readOnly={fieldDisabled}
                                 value={t.closing}
                                 onChange={(e) => {
                                   setTiming((prev) => {
@@ -4352,6 +4801,8 @@ function ClinicManagementDashboard(): ReactElement {
                               </label>
                               <input
                                 type="time"
+                                disabled={fieldDisabled}
+                                readOnly={fieldDisabled}
                                 value={t.breakStart}
                                 onChange={(e) => {
                                   setTiming((prev) => {
@@ -4373,6 +4824,8 @@ function ClinicManagementDashboard(): ReactElement {
                               </label>
                               <input
                                 type="time"
+                                disabled={fieldDisabled}
+                                readOnly={fieldDisabled}
                                 value={t.breakEnd}
                                 onChange={(e) => {
                                   setTiming((prev) => {
@@ -4878,7 +5331,7 @@ function ClinicManagementDashboard(): ReactElement {
           <div className="w-full">
             {/* Show permission denied message if no read permission (only for agent/doctorStaff, not clinic/doctor) */}
             {(() => {
-              const userRole = getUserRole();
+              const userRole = getUserRole() as "clinic" | "staff" | "agent" | "doctor" | "user" | "admin" | "doctorStaff" | null;
               // Clinic and doctor roles always have access - don't show access denied
               if (userRole === "clinic" || userRole === "doctor") {
                 return null;
@@ -4908,7 +5361,7 @@ function ClinicManagementDashboard(): ReactElement {
               return null;
             })()}
             {(() => {
-              const userRole = getUserRole();
+              const userRole = getUserRole() as "clinic" | "staff" | "agent" | "doctor" | "user" | "admin" | "doctorStaff" | null;
               // If clinic/doctor role, always show content (they have full access)
               if (userRole === "clinic" || userRole === "doctor") {
                 // Show clinics or empty state
