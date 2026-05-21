@@ -8,7 +8,7 @@ import {
   ExternalLink,
   AlertTriangle, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck,
   ChevronDown, Search, Loader2, Check,  Camera, Image as ImageIcon, Eye, Edit2, Trash2, Paperclip,
-  Filter, AlertCircle as AlertCircleIcon, UserPlus
+  Filter, AlertCircle as UserPlus
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';

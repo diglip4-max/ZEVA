@@ -633,7 +633,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
           token={token || ""}
           isOpen={isConvertModalOpen}
           onClose={() => setIsConvertModalOpen(false)}
-          onSuccess={(purchaseOrderData: PurchaseRecord) => {
+          onSuccess={(_purchaseOrderData: PurchaseRecord) => {
             setIsConvertModalOpen(false);
           }}
         />
@@ -641,7 +641,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
           token={token || ""}
           isOpen={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}
-          onSuccess={(purchaseOrderData: PurchaseRecord) => {
+          onSuccess={(_purchaseOrderData: PurchaseRecord) => {
             setIsAddModalOpen(false);
           }}
         />

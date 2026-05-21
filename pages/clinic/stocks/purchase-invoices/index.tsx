@@ -446,8 +446,10 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
         <AddPurchaseInvoiceModal
           token={token || ""}
           isOpen={isAddModalOpen}
+
+
           onClose={() => setIsAddModalOpen(false)}
-          onSuccess={(invoiceData: any) => {
+          onSuccess={(_invoiceData: any) => {
             setIsAddModalOpen(false);
           }}
         />

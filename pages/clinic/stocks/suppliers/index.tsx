@@ -65,8 +65,8 @@ const SuppliersPage: NextPageWithLayout = () => {
     canDelete: true,
   });
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
-  const [isAgentStaff, setIsAgentStaff] = useState(false);
-  const [role, setRole] = useState<string | null>(null);
+  const [_isAgentStaff, setIsAgentStaff] = useState(false);
+  const [_role, setRole] = useState<string | null>(null);
 
   // Fetch suppliers with proper error handling
   const fetchSuppliers = useCallback(

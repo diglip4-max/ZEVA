@@ -501,23 +501,26 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
               <Filter className="h-4 w-4" />
               Filter
             </button>
-            <button
-              onClick={handleAdd}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-indigo-600 hover:bg-gray-50 rounded-lg font-medium transition-colors"
-            >
-              <PlusIcon className="h-5 w-5" />
-              New Adjustment
-            </button>
-          )}
+            {permissions.canCreate && (
+              <button
+                onClick={handleAdd}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-indigo-600 hover:bg-gray-50 rounded-lg font-medium transition-colors"
+              >
+                <PlusIcon className="h-5 w-5" />
+                New Adjustment
+              </button>
+            )}
 
             {/* Add Adjustment Modal */}
-            <AddAdjustmentModal
-              isOpen={isAddOpen}
-              onClose={() => setIsAddOpen(false)}
-              onSuccess={() =>
-                fetchRecords(pagination.currentPage, searchTerm, filterData)
-              }
-            />
+            {permissions.canCreate && (
+              <AddAdjustmentModal
+                isOpen={isAddOpen}
+                onClose={() => setIsAddOpen(false)}
+                onSuccess={() =>
+                  fetchRecords(pagination.currentPage, searchTerm, filterData)
+                }
+              />
+            )}
 
             {/* Edit Adjustment Modal */}
             <EditAdjustmentModal
@@ -712,12 +715,14 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
               <p className="text-gray-500 mb-6">
                 Get started by creating your first stock quantity adjustment.
               </p>
-              <button
-                onClick={handleAdd}
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-4 py-2.5 rounded-xl"
-              >
-                <PlusIcon className="h-5 w-5" /> Create Adjustment
-              </button>
+              {permissions.canCreate && (
+                <button
+                  onClick={handleAdd}
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-4 py-2.5 rounded-xl"
+                >
+                  <PlusIcon className="h-5 w-5" /> Create Adjustment
+                </button>
+              )}
             </div>
           ) : (
             /* Data Table */

@@ -234,7 +234,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const [clinicInfo, setClinicInfo] = useState<ClinicInfo>({});
   const [_permissions, setPermissions] = useState<SidebarResponse['permissions']>([]);
   const [statsLoading, setStatsLoading] = useState<boolean>(true);
-  const [accessDenied, setAccessDenied] = useState(false);
+  const [_accessDenied, setAccessDenied] = useState(false);
   const [accessMessage, setAccessMessage] = useState('You do not have permission to view this dashboard.');
   const [moduleAccess, setModuleAccess] = useState<{ canRead: boolean; canUpdate: boolean; canCreate: boolean }>({
     canRead: true,
@@ -920,11 +920,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
   // Token helpers (shared across clinic, agent, and doctorStaff)
   const getAuthToken = useCallback((): string | null => getStoredToken(), [getStoredToken]);
 
-  const getAuthHeaders = useCallback((): Record<string, string> => {
-    const token = getAuthToken();
-    if (!token) return {};
-    return { Authorization: `Bearer ${token}` };
-  }, [getAuthToken]);
+  // const getAuthHeaders = useCallback((): Record<string, string> => {
+  //   const token = getAuthToken();
+  //   if (!token) return {};
+  //   return { Authorization: `Bearer ${token}` };
+  // }, [getAuthToken]);
 
   const getUserRole = useCallback((): string | null => {
     const token = getAuthToken();
