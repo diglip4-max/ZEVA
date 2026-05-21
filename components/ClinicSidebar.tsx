@@ -207,6 +207,7 @@ const iconMap: { [key: string]: React.ReactNode } = {
   notes: <FileEdit className="w-4 h-4 text-[#6B7280]" />,
   forms: <ClipboardList className="w-4 h-4 text-[#6B7280]" />,
   templates: <FileText className="w-4 h-4 text-[#6B7280]" />,
+  "file-text": <FileText className="w-4 h-4 text-[#6B7280]" />,
 
   // Business & Work
   "💼": <Briefcase className="w-4 h-4 text-[#6B7280]" />,
@@ -372,7 +373,7 @@ const renderIcon = (key: string, isActive: boolean = false) => {
     // Clone the element and update the color class based on active state
     if (React.isValidElement(node)) {
       return React.cloneElement(node as React.ReactElement<any>, {
-        className: `w-4 h-4 ${isActive ? "text-white" : "text-[#6B7280]"}`,
+        className: `w-4 h-4 ${isActive ? 'text-white' : 'text-[#6B7280]'}`
       });
     }
     return node;
@@ -405,8 +406,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [items, setItems] = useState<NavItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [, setPermissions] = useState<any[] | null>(null);
-
+  
   // Trial countdown timer state
   const [trialInfo, setTrialInfo] = useState<{
     days: number;
@@ -457,93 +457,81 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
   useEffect(() => {
     const calculateTrialTime = () => {
       // Get trial info from login response stored in sessionStorage
-      const trialData =
-        typeof window !== "undefined"
-          ? sessionStorage.getItem("clinicTrialInfo")
-          : null;
-
-      // console.log('Sidebar - Trial Data from sessionStorage:', trialData);
-
+      const trialData = typeof window !== 'undefined' ? sessionStorage.getItem('clinicTrialInfo') : null;
+      
+      console.log('Sidebar - Trial Data from sessionStorage:', trialData);
+      
       if (!trialData) {
-        console.log("Sidebar - No trial data found in sessionStorage");
+        console.log('Sidebar - No trial data found in sessionStorage');
         setTrialInfo(null);
         return;
       }
 
       try {
         const trial = JSON.parse(trialData);
-        console.log("Sidebar - Parsed trial data:", trial);
-
+        console.log('Sidebar - Parsed trial data:', trial);
+        
         // Check if this is a legacy user (no trial restriction)
         if (trial.isLegacyUser) {
-          console.log("Sidebar - Legacy user detected, hiding trial countdown");
+          console.log('Sidebar - Legacy user detected, hiding trial countdown');
           setTrialInfo(null);
           return;
         }
-
+        
         // Handle case where trialEndDate might be null
         if (!trial.trialEndDate) {
-          console.log("Sidebar - No trial end date, hiding countdown");
+          console.log('Sidebar - No trial end date, hiding countdown');
           setTrialInfo(null);
           return;
         }
-
+        
         const trialEndDate = new Date(trial.trialEndDate);
         const now = new Date();
         const difference = trialEndDate.getTime() - now.getTime();
-
-        console.log("Sidebar - Trial calculation:", {
+        
+        console.log('Sidebar - Trial calculation:', {
           trialEndDate,
           now,
           difference,
-          isExpired: difference <= 0,
+          isExpired: difference <= 0
         });
 
         if (difference <= 0) {
           // Trial has expired - show warning but don't auto-logout
           // The verify-token API or page navigation will handle authentication
-          console.log("Sidebar - Trial expired! Showing warning...");
-
+          console.log('Sidebar - Trial expired! Showing warning...');
+          
           // Show trial expired popup
           setShowTrialExpiredPopup(true);
-
+          
           setTrialInfo({
             days: 0,
             hours: 0,
             minutes: 0,
             seconds: 0,
             isExpired: true,
-            trialEndDate: trial.trialEndDate,
+            trialEndDate: trial.trialEndDate
           });
           return;
         }
 
         const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-        const hours = Math.floor(
-          (difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
-        );
-        const minutes = Math.floor(
-          (difference % (1000 * 60 * 60)) / (1000 * 60),
-        );
+        const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((difference % (1000 * 60)) / 1000);
 
-        console.log("Sidebar - Setting trial info:", {
-          days,
-          hours,
-          minutes,
-          seconds,
-        });
-
+        console.log('Sidebar - Setting trial info:', { days, hours, minutes, seconds });
+        
         setTrialInfo({
           days,
           hours,
           minutes,
           seconds,
           isExpired: false,
-          trialEndDate: trial.trialEndDate,
+          trialEndDate: trial.trialEndDate
         });
       } catch (error) {
-        console.error("Sidebar - Error parsing trial info:", error);
+        console.error('Sidebar - Error parsing trial info:', error);
         setTrialInfo(null);
       }
     };
@@ -628,9 +616,6 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
         }
 
         if (res && res.data && res.data.success) {
-          // Store permissions
-          setPermissions(res.data.permissions || null);
-          
           // Convert API navigation items to NavItem format
           const convertedItems: NavItem[] = (
             res.data.navigationItems || []
@@ -673,93 +658,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             }
           });
 
-          // Build grouped sections using only existing sidebar items and check permissions
-          const toKey = (s: string) => (s || "").trim().toLowerCase();
-          
-          // Create permission map
-          const permissionMap: Record<string, any> = {};
-          if (res.data.permissions && res.data.permissions.length > 0) {
-            res.data.permissions.forEach((perm: any) => {
-              const moduleKey = perm.module;
-              const moduleKeyWithoutPrefix = moduleKey.replace(/^(admin|clinic|doctor)_/, '');
-              const moduleKeyWithPrefix = `clinic_${moduleKeyWithoutPrefix}`;
-              
-              const permissionData = {
-                moduleActions: perm.actions,
-                subModules: {} as Record<string, any>
-              };
-              
-              permissionMap[moduleKey] = permissionData;
-              permissionMap[moduleKeyWithoutPrefix] = permissionData;
-              permissionMap[moduleKeyWithPrefix] = permissionData;
-              
-              if (perm.subModules && perm.subModules.length > 0) {
-                perm.subModules.forEach((subModule: any) => {
-                  permissionData.subModules[subModule.name] = subModule.actions;
-                });
-              }
-            });
-          }
-          
-          // Helper to check if module has any permission
-          const hasModulePermission = (moduleKey: string): boolean => {
-            if (!res.data.permissions || res.data.permissions.length === 0) return true;
-            
-            const modulePerm = permissionMap[moduleKey] || 
-                             permissionMap[moduleKey.replace('clinic_', '')] ||
-                             permissionMap[moduleKey.replace(/^(admin|clinic|doctor)_/, '')];
-            
-            if (!modulePerm) return false;
-            
-            return modulePerm.moduleActions.all === true ||
-                   modulePerm.moduleActions.create === true ||
-                   modulePerm.moduleActions.read === true ||
-                   modulePerm.moduleActions.update === true ||
-                   modulePerm.moduleActions.delete === true;
-          };
-          
-          // Mapping of hardcoded navigation items to module keys
-          const navItemToModuleKey: Record<string, string> = {
-            'dashboard': 'clinic_dashboard',
-            'manage health center': 'clinic_health_center',
-            'create offers': 'clinic_create_offers',
-            'service setup': 'Clinic_services_setup',
-            'setup & operation': 'clinic_addRoom',
-            'consent form': 'clinic_patient_registration',
-            'job posting': 'clinic_job_posting',
-            'commission': 'clinic_commission',
-            'referral': 'clinic_referal',
-            'track members': 'clinic_Track',
-            'create agent': 'clinic_create_agent',
-            'pass claims': 'clinic_patient_registration',
-            'campaigns': 'clinic_marketing',
-            'create lead': 'clinic_create_lead',
-            'inbox': 'clinic_marketing',
-            'templates': 'clinic_marketing',
-            'providers': 'clinic_marketing',
-            'reviews': 'clinic_marketing',
-            'enquiry': 'clinic_marketing',
-            'write blog': 'clinic_write_blog',
-            'book appointments': 'clinic_Appointment',
-            'scheduled appointments': 'clinic_ScheduledAppointment',
-            'patient registration': 'clinic_patient_registration',
-            'locations': 'clinic_stock',
-            'suppliers': 'clinic_stock',
-            'uom': 'clinic_stock',
-            'purchase requests': 'clinic_stock',
-            'purchase orders': 'clinic_stock',
-            'grn': 'clinic_stock',
-            'purchase invoices': 'clinic_stock',
-            'purchase returns': 'clinic_stock',
-            'stock qty adjustment': 'clinic_stock',
-            'stock transfer requests': 'clinic_stock',
-            'transfer stock': 'clinic_stock',
-            'material activity consumption': 'clinic_stock',
-            'allocated stock items': 'clinic_stock',
-            'petty cash': 'clinic_patient_registration',
-            'reports': 'clinic_patient_registration',
-          };
-          
+          // Build grouped sections using only existing sidebar items
+          const toKey = (s: string) => (s || '').trim().toLowerCase();
           const byLabel: Record<string, NavItem> = {};
           const childByLabel: Record<string, NavItemChild> = {};
           convertedItems.forEach((i) => {
@@ -775,25 +675,15 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
 
           const pickTop = (label: string): NavItemChild | null => {
             const found = byLabel[toKey(label)];
-            if (!found) return null;
-            const moduleKey = navItemToModuleKey[toKey(label)] || found.moduleKey || '';
-            if (!hasModulePermission(moduleKey)) return null;
-            return { label: found.label, path: found.path, icon: found.icon };
+            return found
+              ? { label: found.label, path: found.path, icon: found.icon }
+              : null;
           };
           const pickChild = (label: string): NavItemChild | null => {
             const found = childByLabel[toKey(label)];
-            if (!found) return null;
-            const labelKey = toKey(label);
-            const moduleKey = navItemToModuleKey[labelKey] || '';
-            if (moduleKey && !hasModulePermission(moduleKey)) return null;
-            return { label: found.label, path: found.path, icon: found.icon };
-          };
-          
-          // Wrapper function to check permission for hardcoded nav items
-          const wrapWithPermissionCheck = (item: NavItemChild, labelKey: string): NavItemChild | null => {
-            const moduleKey = navItemToModuleKey[labelKey] || '';
-            if (moduleKey && !hasModulePermission(moduleKey)) return null;
-            return item;
+            return found
+              ? { label: found.label, path: found.path, icon: found.icon }
+              : null;
           };
           const nonNull = (...items: Array<NavItemChild | null>) =>
             items.filter(Boolean) as NavItemChild[];
@@ -815,26 +705,26 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               icon: "business",
               children: nonNull(
                 pickTop("Manage Health Center"),
-                wrapWithPermissionCheck({
+                {
                   label: "Create Offers",
                   path: "/clinic/create-offer",
                   icon: "🎁",
-                }, "create offers"),
+                },
                 {
                   label: "User Package",
                   path: "/clinic/userpackages",
                   icon: "package",
                 },
-                wrapWithPermissionCheck({
+                {
                   label: "Service Setup",
                   path: "/clinic/services_setup",
                   icon: "services",
-                }, "service setup"),
-                wrapWithPermissionCheck({
+                },
+                {
                   label: "Setup & Operation",
                   path: "/clinic/add-room",
                   icon: "clinic",
-                }, "setup & operation"),
+                },
                 pickChild("Membership"),
               ),
               order: 100,
@@ -843,30 +733,26 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               label: "HR Management",
               icon: "users",
               children: nonNull(
-                wrapWithPermissionCheck({ label: "Consent Form", path: "/clinic/consent", icon: "📝" }, "consent form"),
-                wrapWithPermissionCheck({
+                { label: "Consent Form", path: "/clinic/consent", icon: "📝" },
+                {
                   label: "Job Posting",
                   path: "/clinic/job-posting",
                   icon: "📝",
-                }, "job posting"),
-                wrapWithPermissionCheck({ label: "Commission", path: "/clinic/commission", icon: "💰" }, "commission"),
+                },
+                { label: "Commission", path: "/clinic/commission", icon: "💰" },
+                { label: "Pass-Claims", path: "/clinic/pass-claims", icon: "file-text" },
                 pickTop("Assigned Leads"),
                 pickTop("Referral"),
                 pickTop("Referal"),
                 pickTop("Track-Members"),
-                wrapWithPermissionCheck({ label: "Referral", path: "/clinic/referal", icon: "leads" }, "referral"),
-                wrapWithPermissionCheck({
+                { label: "Referral", path: "/clinic/referal", icon: "leads" },
+                {
                   label: "Track Members",
                   path: "/clinic/Track-Members",
                   icon: "users",
-                }, "track members"),
+                },
                 pickChild("Membership"),
                 pickTop("Create Agent"),
-                wrapWithPermissionCheck({
-                  label: "Pass Claims",
-                  path: "/clinic/pass-claims",
-                  icon: "📋",
-                }, "pass claims"),
               ),
               order: 110,
             },
@@ -874,25 +760,21 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               label: "Marketing",
               icon: "🎯",
               children: nonNull(
-                wrapWithPermissionCheck({
+                {
                   label: "Create Lead",
                   path: "/clinic/create-lead",
                   icon: "➕",
-                }, "create lead"),
-                wrapWithPermissionCheck({ label: "Inbox", path: "/clinic/inbox", icon: "📨" }, "inbox"),
-                wrapWithPermissionCheck({
+                },
+                { label: "Inbox", path: "/clinic/inbox", icon: "📨" },
+                {
                   label: "Templates",
                   path: "/clinic/all-templates",
                   icon: "📝",
-                }, "templates"),
-                wrapWithPermissionCheck({ label: "Providers", path: "/clinic/providers", icon: "👥" }, "providers"),
-                wrapWithPermissionCheck({ label: "Reviews", path: "/clinic/getAllReview", icon: "⭐" }, "reviews"),
-                wrapWithPermissionCheck({ label: "Enquiry", path: "/clinic/get-Enquiry", icon: "❓" }, "enquiry"),
-                wrapWithPermissionCheck({
-                  label: "Campaigns",
-                  path: "/clinic/campaigns",
-                  icon: "campaigns",
-                }, "campaigns"),
+                },
+                { label: "Providers", path: "/clinic/providers", icon: "👥" },
+                { label: "Reviews", path: "/clinic/getAllReview", icon: "⭐" },
+                { label: "Enquiry", path: "/clinic/get-Enquiry", icon: "❓" },
+                { label: "Campaigns", path: "/clinic/campaigns", icon: "campaigns" },
               ),
               order: 120,
             },
@@ -916,63 +798,63 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               label: "Stock Management",
               icon: "archive",
               children: nonNull(
-                wrapWithPermissionCheck({
+                {
                   label: "Locations",
                   path: "/clinic/stocks/locations",
                   icon: "storage",
-                }, "locations"),
-                wrapWithPermissionCheck({
+                },
+                {
                   label: "Suppliers",
                   path: "/clinic/stocks/suppliers",
                   icon: "archive",
-                }, "suppliers"),
-                wrapWithPermissionCheck({ label: "UOM", path: "/clinic/stocks/uom", icon: "database" }, "uom"),
-                wrapWithPermissionCheck({
+                },
+                { label: "UOM", path: "/clinic/stocks/uom", icon: "database" },
+                {
                   label: "Purchase Requests",
                   path: "/clinic/stocks/purchase-requests",
                   icon: "reports",
-                }, "purchase requests"),
-                wrapWithPermissionCheck({
+                },
+                {
                   label: "Purchase Orders",
                   path: "/clinic/stocks/purchase-orders",
                   icon: "deals",
-                }, "purchase orders"),
-                wrapWithPermissionCheck({ label: "GRN", path: "/clinic/stocks/grn", icon: "billing" }, "grn"),
-                wrapWithPermissionCheck({
+                },
+                { label: "GRN", path: "/clinic/stocks/grn", icon: "billing" },
+                {
                   label: "Purchase Invoices",
                   path: "/clinic/stocks/purchase-invoices",
                   icon: "billing",
-                }, "purchase invoices"),
-                wrapWithPermissionCheck({
+                },
+                {
                   label: "Purchase Returns",
                   path: "/clinic/stocks/purchase-returns",
                   icon: "billing",
-                }, "purchase returns"),
-                wrapWithPermissionCheck({
+                },
+                {
                   label: "Stock Qty Adjustment",
                   path: "/clinic/stocks/stock-qty-adjustment",
                   icon: "statistics",
-                }, "stock qty adjustment"),
-                wrapWithPermissionCheck({
+                },
+                {
                   label: "Stock Transfer Requests",
                   path: "/clinic/stocks/stock-transfer/stock-transfer-requests",
                   icon: "share",
-                }, "stock transfer requests"),
-                wrapWithPermissionCheck({
+                },
+                {
                   label: "Transfer Stock",
                   path: "/clinic/stocks/stock-transfer/transfer-stock",
                   icon: "share",
-                }, "transfer stock"),
-                wrapWithPermissionCheck({
+                },
+                {
                   label: "Material Activity Consumption",
                   path: "/clinic/stocks/material-consumptions",
                   icon: "⚡",
-                }, "material activity consumption"),
-                wrapWithPermissionCheck({
+                },
+                {
                   label: "Allocated Stock Items",
                   path: "/clinic/stocks/allocated-stock-items",
                   icon: "package",
-                }, "allocated stock items"),
+                },
               ),
               order: 135,
             },
@@ -1000,21 +882,21 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               label: "Patients & Appointments",
               icon: "appointments",
               children: nonNull(
-                wrapWithPermissionCheck({
+                {
                   label: "Book Appointments",
                   path: "/clinic/appointment",
                   icon: "booking",
-                }, "book appointments"),
-                wrapWithPermissionCheck({
+                },
+                {
                   label: "Scheduled Appointments",
                   path: "/clinic/all-appointment",
                   icon: "calendar",
-                }, "scheduled appointments"),
-                wrapWithPermissionCheck({
+                },
+                {
                   label: "Patient Registration",
                   path: "/clinic/patient-registration",
                   icon: "👤",
-                }, "patient registration"),
+                },
                 pickChild("Patient Information"),
               ),
               order: 160,
@@ -1027,12 +909,12 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 pickTop("Add Expense"),
                 pickTop("Petty Cash"),
                 pickChild("Petty Cash"),
-                wrapWithPermissionCheck({
+                {
                   label: "Petty Cash",
                   path: "/clinic/pettycash",
                   icon: "dollar-sign",
-                }, "petty cash"),
-                wrapWithPermissionCheck({ label: "Reports", path: "/clinic/report", icon: "reports" }, "reports"),
+                },
+                { label: "Reports", path: "/clinic/report", icon: "reports" },
               ),
               order: 180,
             },
@@ -1042,10 +924,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               icon: "workflowGuide",
               order: 190,
             },
-          ].filter(
-            (group) =>
-              (group.children && group.children.length > 0) || group.path,
-          );
+          ].filter((group) => (group.children && group.children.length > 0) || group.path);
 
           const usedLabels = new Set<string>([
             ...groupedModules.flatMap((g) =>
@@ -1226,14 +1105,14 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
       {/* Mobile Sidebar */}
       <aside
         className={clsx(
-          "fixed inset-y-0 left-0 z-[100] w-[80%] sm:w-[75%] bg-[#F3F4F6] border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:hidden",
+          "fixed inset-y-0 left-0 z-50 w-72 bg-[#F3F4F6] border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:hidden",
           {
             "translate-x-0": isMobileOpen,
             "-translate-x-full": !isMobileOpen,
           },
           className,
         )}
-        style={{ height: "100vh", maxWidth: "320px" }}
+        style={{ height: "100vh" }}
       >
         <div className="flex flex-col h-full">
           {/* Mobile Header Section */}
@@ -1297,7 +1176,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                   Loading menu…
                 </div>
               ) : (
-                items.map((item, parentIdx) => {
+                items.map((item) => {
+                  const isDropdownOpen = openDropdown === item.label;
                   const isSection = !!item.children && !item.path;
                   const isActive = selectedItem
                     ? selectedItem === item.label
@@ -1314,42 +1194,113 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                     }
                   };
 
-                  // Section header - collapsible on mobile
-                  if (isSection && item.children) {
-                    const isDropdownOpen = openDropdown === item.label;
+                  if (isSection && item.children && item.children.length > 0) {
+                    const itemIndex = items.findIndex(
+                      (i) => i.label === item.label,
+                    );
+                    return (
+                      <div key={item.label} className="mt-4">
+                        <div className="px-2 text-xs font-medium uppercase tracking-wider text-[#64748B] inter-font flex items-center">
+                          <span className="flex-1">{item.label}</span>
+                        </div>
+                        <div className="mt-2 space-y-1">
+                          {item.children.map((child, childIdx) => {
+                            const isChildActive =
+                              router.pathname === child.path;
+                            return child.path ? (
+                              <Link
+                                key={childIdx}
+                                href={child.path}
+                                onClick={handleItemClick}
+                              >
+                                <div
+                                  draggable
+                                  onDragStart={onDragStartChild(
+                                    itemIndex,
+                                    childIdx,
+                                  )}
+                                  onDragOver={onDragOver}
+                                  onDrop={onDropChild(itemIndex, childIdx)}
+                                  onDragEnd={onDragEnd}
+                                  className={clsx(
+                                    "px-3 py-2 rounded-lg transition-all duration-200 text-sm flex items-center gap-2 inter-font",
+                                    {
+                                      "bg-[#2D9AA5] text-white": isChildActive,
+                                      "text-[#374151] hover:bg-gray-100":
+                                        !isChildActive,
+                                    },
+                                  )}
+                                >
+                                  <span className="text-[#374151]">
+                                    {child.label}
+                                  </span>
+                                  {child.badge && (
+                                    <span className="ml-auto bg-red-600 text-white text-[10px] rounded-full min-w-4 h-4 px-1 flex items-center justify-center font-medium inter-font">
+                                      {child.badge}
+                                    </span>
+                                  )}
+                                </div>
+                              </Link>
+                            ) : (
+                              <div
+                                key={childIdx}
+                                className="px-3 py-2 text-sm text-[#374151]"
+                              >
+                                {child.label}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (item.children && item.children.length > 0) {
+                    const itemIndex = items.findIndex(
+                      (i) => i.label === item.label,
+                    );
                     return (
                       <div
                         key={item.label}
+                        className="space-y-1"
                         draggable
-                        onDragStart={onDragStartParent(parentIdx)}
+                        onDragStart={onDragStartParent(itemIndex)}
                         onDragOver={onDragOver}
-                        onDrop={onDropParent(parentIdx)}
+                        onDrop={onDropParent(itemIndex)}
                         onDragEnd={onDragEnd}
                       >
                         <button
                           onClick={() => {
                             setSelectedItem(item.label);
-                            setOpenDropdown(isDropdownOpen ? null : item.label);
+                            setOpenDropdown(
+                              openDropdown === item.label ? null : item.label,
+                            );
                           }}
                           className={clsx(
-                            "w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-left group cursor-move mt-3 mb-1",
+                            "w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-left group cursor-move",
                             {
                               "bg-[#2D9AA5] text-white": isActive,
                               "text-[#374151] hover:bg-gray-100": !isActive,
                             },
                           )}
                         >
-                          <span className="flex items-center gap-2">
-                            {renderIcon(item.icon, isActive)}
-                            <span
+                          <div className="flex items-center gap-1">
+                            <div
                               className={clsx(
-                                "inter-font text-xs font-medium uppercase tracking-wider",
-                                { "text-white": isActive },
+                                "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
+                                {
+                                  "bg-[#2D9AA5] text-white": isActive,
+                                  "text-[#6B7280] group-hover:text-[#374151]":
+                                    !isActive,
+                                },
                               )}
                             >
+                              {renderIcon(item.icon, isActive)}
+                            </div>
+                            <span className="inter-font text-sm font-medium text-[#374151]">
                               {item.label}
                             </span>
-                          </span>
+                          </div>
                           <ChevronDown
                             className={clsx(
                               "w-4 h-4 transition-transform duration-200",
@@ -1362,59 +1313,62 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                           />
                         </button>
                         {isDropdownOpen && (
-                          <div className="mt-1 ml-9 space-y-0.5">
+                          <div className="ml-9 space-y-0.5">
                             {item.children.map((child, childIdx) => {
-                              const childActive = selectedItem
-                                ? selectedItem === child.label
-                                : router.pathname === child.path;
-                              return (
-                                <Link key={child.path} href={child.path!}>
+                              const isChildActive =
+                                router.pathname === child.path;
+                              return child.path ? (
+                                <Link
+                                  key={childIdx}
+                                  href={child.path}
+                                  onClick={handleItemClick}
+                                >
                                   <div
                                     draggable
                                     onDragStart={onDragStartChild(
-                                      parentIdx,
+                                      itemIndex,
                                       childIdx,
                                     )}
                                     onDragOver={onDragOver}
-                                    onDrop={onDropChild(parentIdx, childIdx)}
+                                    onDrop={onDropChild(itemIndex, childIdx)}
                                     onDragEnd={onDragEnd}
                                     className={clsx(
                                       "px-3 py-2 rounded-lg transition-all duration-200 text-sm cursor-move flex items-start gap-2.5 inter-font min-w-0",
                                       {
-                                        "bg-[#2D9AA5] text-white": childActive,
+                                        "bg-[#2D9AA5] text-white":
+                                          isChildActive,
                                         "text-[#374151] hover:bg-gray-100":
-                                          !childActive,
+                                          !isChildActive,
                                       },
                                     )}
-                                    onClick={safeClick(() => {
-                                      setSelectedItem(child.label);
-                                      if (onExternalToggleMobile && externalIsMobileOpen) {
-                                        onExternalToggleMobile();
-                                      } else {
-                                        setInternalIsMobileOpen(false);
-                                      }
-                                    })}
                                   >
                                     <span
                                       className={clsx(
                                         "flex-shrink-0 mt-0.5",
-                                        childActive
+                                        isChildActive
                                           ? "text-white"
                                           : "text-[#6B7280] group-hover:text-[#374151]",
                                       )}
                                     >
-                                      {renderIcon(child.icon, childActive)}
+                                      {renderIcon(child.icon, isChildActive)}
                                     </span>
                                     <span
                                       className={clsx(
                                         "inter-font font-medium text-sm leading-tight",
-                                        { "text-white": childActive },
+                                        { "text-white": isChildActive },
                                       )}
                                     >
                                       {child.label}
                                     </span>
                                   </div>
                                 </Link>
+                              ) : (
+                                <div
+                                  key={childIdx}
+                                  className="px-3 py-2 text-sm text-[#374151]"
+                                >
+                                  {child.label}
+                                </div>
                               );
                             })}
                           </div>
@@ -1423,68 +1377,56 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                     );
                   }
 
-                  // Regular (non-dropdown) item
                   const MenuItemContent = (
                     <div
                       draggable
-                      onDragStart={onDragStartParent(parentIdx)}
+                      onDragStart={onDragStartParent(
+                        items.findIndex((i) => i.label === item.label),
+                      )}
                       onDragOver={onDragOver}
-                      onDrop={onDropParent(parentIdx)}
+                      onDrop={onDropParent(
+                        items.findIndex((i) => i.label === item.label),
+                      )}
                       onDragEnd={onDragEnd}
+                      onClick={safeClick(handleItemClick)}
                       className={clsx(
-                        "group relative block rounded-lg transition-all duration-200 cursor-move p-2.5 touch-manipulation",
+                        "w-full flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 group cursor-move inter-font",
                         {
                           "bg-[#2D9AA5] text-white": isActive,
-                          "hover:bg-gray-100 text-[#374151]": !isActive,
+                          "text-[#374151] hover:bg-gray-100": !isActive,
                         },
                       )}
-                      onClick={safeClick(() => {
-                        setOpenDropdown(null);
-                        setSelectedItem(item.label);
-                        if (onExternalToggleMobile && externalIsMobileOpen) {
-                          onExternalToggleMobile();
-                        } else {
-                          setInternalIsMobileOpen(false);
-                        }
-                      })}
                     >
-                      <div className="flex items-center gap-1">
+                      <div
+                        className={clsx(
+                          "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
+                          {
+                            "text-white": isActive,
+                            "text-[#6B7280] group-hover:text-gray-700":
+                              !isActive,
+                          },
+                        )}
+                      >
+                        {renderIcon(item.icon, isActive)}
+                      </div>
+
+                      <div className="flex-1 min-w-0 ">
                         <div
                           className={clsx(
-                            "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
+                            "inter-font font-medium text-sm transition-colors duration-200",
                             {
                               "text-white": isActive,
-                              "text-[#6B7280] group-hover:text-[#374151]":
-                                !isActive,
+                              "text-[#374151]": !isActive,
+                              uppercase:
+                                (item.label || "").toUpperCase() ===
+                                "DASHBOARD",
+                              "text-xs":
+                                (item.label || "").toUpperCase() ===
+                                "DASHBOARD",
                             },
                           )}
                         >
-                          {renderIcon(item.icon, isActive)}
-                          {item.badge && (
-                            <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-medium inter-font text-[10px]">
-                              {item.badge}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div
-                            className={clsx(
-                              "inter-font font-medium text-sm transition-colors duration-200",
-                              {
-                                "text-white": isActive,
-                                "text-[#374151]": !isActive,
-                                uppercase:
-                                  (item.label || "").toUpperCase() ===
-                                  "DASHBOARD",
-                                "text-xs":
-                                  (item.label || "").toUpperCase() ===
-                                  "DASHBOARD",
-                              },
-                            )}
-                          >
-                            {item.label}
-                          </div>
+                          {item.label}
                         </div>
                       </div>
                     </div>
@@ -1758,73 +1700,45 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             {trialInfo && !trialInfo.isExpired && (
               <div className="mt-3 mx-2 p-3 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-lg">
                 <div className="flex items-center gap-1.5 mb-2">
-                  <svg
-                    className="w-3.5 h-3.5 text-amber-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
+                  <svg className="w-3.5 h-3.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <span className="text-[10px] font-semibold text-amber-800 uppercase tracking-wide">
-                    Free Trial Ends In
-                  </span>
+                  <span className="text-[10px] font-semibold text-amber-800 uppercase tracking-wide">Free Trial Ends In</span>
                 </div>
-
+                
                 {/* Countdown Display */}
                 <div className="grid grid-cols-4 gap-1.5 mb-2">
                   <div className="bg-white rounded-md p-1.5 text-center shadow-sm">
-                    <div className="text-base font-bold text-amber-700">
-                      {trialInfo.days}
-                    </div>
-                    <div className="text-[9px] text-amber-600 uppercase">
-                      Days
-                    </div>
+                    <div className="text-base font-bold text-amber-700">{trialInfo.days}</div>
+                    <div className="text-[9px] text-amber-600 uppercase">Days</div>
                   </div>
                   <div className="bg-white rounded-md p-1.5 text-center shadow-sm">
-                    <div className="text-base font-bold text-amber-700">
-                      {trialInfo.hours}
-                    </div>
-                    <div className="text-[9px] text-amber-600 uppercase">
-                      Hrs
-                    </div>
+                    <div className="text-base font-bold text-amber-700">{trialInfo.hours}</div>
+                    <div className="text-[9px] text-amber-600 uppercase">Hrs</div>
                   </div>
                   <div className="bg-white rounded-md p-1.5 text-center shadow-sm">
-                    <div className="text-base font-bold text-amber-700">
-                      {trialInfo.minutes}
-                    </div>
-                    <div className="text-[9px] text-amber-600 uppercase">
-                      Min
-                    </div>
+                    <div className="text-base font-bold text-amber-700">{trialInfo.minutes}</div>
+                    <div className="text-[9px] text-amber-600 uppercase">Min</div>
                   </div>
                   <div className="bg-white rounded-md p-1.5 text-center shadow-sm">
-                    <div className="text-base font-bold text-amber-700">
-                      {trialInfo.seconds}
-                    </div>
-                    <div className="text-[9px] text-amber-600 uppercase">
-                      Sec
-                    </div>
+                    <div className="text-base font-bold text-amber-700">{trialInfo.seconds}</div>
+                    <div className="text-[9px] text-amber-600 uppercase">Sec</div>
                   </div>
                 </div>
 
                 {/* Progress Bar */}
                 <div className="w-full bg-amber-200 rounded-full h-1 mb-2">
-                  <div
+                  <div 
                     className="bg-gradient-to-r from-amber-500 to-orange-500 h-1 rounded-full transition-all duration-1000"
-                    style={{
-                      width: `${Math.max(0, Math.min(100, ((trialInfo.days * 24 * 60 + trialInfo.hours * 60 + trialInfo.minutes) / (30 * 24 * 60)) * 100))}%`,
+                    style={{ 
+                      width: `${Math.max(0, Math.min(100, ((trialInfo.days * 24 * 60 + trialInfo.hours * 60 + trialInfo.minutes) / (30 * 24 * 60)) * 100))}%` 
                     }}
                   ></div>
                 </div>
-
+                
                 {/* Upgrade Button */}
                 <button
-                  onClick={() => router.push("/clinic/upgrade-plan")}
+                  onClick={() => router.push('/clinic/upgrade-plan')}
                   className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-[10px] font-semibold py-1.5 px-2 rounded-md transition-all duration-200 shadow-sm hover:shadow-md"
                 >
                   Upgrade to Premium →
@@ -1836,29 +1750,14 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             {trialInfo && trialInfo.isExpired && (
               <div className="mt-4 mx-3 p-4 bg-gradient-to-br from-red-50 to-rose-50 border border-red-200 rounded-xl">
                 <div className="flex items-center gap-2 mb-3">
-                  <svg
-                    className="w-4 h-4 text-red-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                    />
+                  <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
-                  <span className="text-xs font-semibold text-red-800 uppercase tracking-wide">
-                    Trial Expired
-                  </span>
+                  <span className="text-xs font-semibold text-red-800 uppercase tracking-wide">Trial Expired</span>
                 </div>
-                <p className="text-xs text-red-700 mb-3">
-                  Your free trial has ended. Upgrade now to continue accessing
-                  all features.
-                </p>
+                <p className="text-xs text-red-700 mb-3">Your free trial has ended. Upgrade now to continue accessing all features.</p>
                 <button
-                  onClick={() => router.push("/clinic/upgrade-plan")}
+                  onClick={() => router.push('/clinic/upgrade-plan')}
                   className="w-full bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
                 >
                   Upgrade to Premium →
