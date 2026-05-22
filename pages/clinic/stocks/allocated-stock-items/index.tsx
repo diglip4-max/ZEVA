@@ -893,24 +893,28 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
                         >
                           View
                         </button>
-                        <button
-                          onClick={() => {
-                            setSelectedAllocatedItem(item);
-                            setIsOpenEditModal(true);
-                          }}
-                          className="text-blue-600 hover:text-blue-800"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSelectedAllocatedItem(item);
-                            setIsOpenDeleteModal(true);
-                          }}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          Delete
-                        </button>
+                        {permissions.canUpdate && (
+                          <button
+                            onClick={() => {
+                              setSelectedAllocatedItem(item);
+                              setIsOpenEditModal(true);
+                            }}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {permissions.canDelete && (
+                          <button
+                            onClick={() => {
+                              setSelectedAllocatedItem(item);
+                              setIsOpenDeleteModal(true);
+                            }}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            Delete
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
