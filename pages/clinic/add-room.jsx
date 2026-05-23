@@ -763,7 +763,7 @@ function AddRoomPage({ contextOverride = null }) {
           <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
           <p className="text-xs sm:text-sm">Checking your permissions...</p>
         </div>
-      ) : !permissions.canRead ? (
+      ) : !permissions.canRead && !permissions.canCreate ? (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -771,7 +771,7 @@ function AddRoomPage({ contextOverride = null }) {
             </div>
             <h2 className="text-xl font-bold text-teal-900 mb-2">Access Denied</h2>
             <p className="text-sm text-teal-700 mb-4">
-              You do not have permission to view rooms and departments.
+              You do not have permission to view or create rooms and departments.
             </p>
             <p className="text-xs text-teal-600">
               Please contact your administrator to request access to the Add Room module.

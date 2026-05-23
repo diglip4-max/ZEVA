@@ -19,9 +19,21 @@ import DeleteGRNModal from "./_components/DeleteGRNModal";
 import EditGRNModal from "./_components/EditGRNModal";
 import FilterModal from "./_components/FilterModal";
 
+const MODULE_KEY = "clinic_stock_grn";
+
 const GRNPage: NextPageWithLayout = () => {
   const [grnRecords, setGrnRecords] = useState<PurchaseRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  // Permission state
+  const [permissions, setPermissions] = useState({
+    canRead: true,
+    canCreate: true,
+    canUpdate: true,
+    canDelete: true,
+  });
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [isAgentStaff, setIsAgentStaff] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -218,6 +230,167 @@ const GRNPage: NextPageWithLayout = () => {
     };
   }, []);
 
+  // Permission fetching
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      try {
+        const token = getTokenByPath();
+        if (!token) {
+          setPermissionsLoaded(true);
+          return;
+        }
+
+        // Decode JWT to get role
+        const decoded = JSON.parse(atob(token.split(".")[1]));
+        setRole(decoded.role);
+        setIsAgentStaff(
+          decoded.role === "agent" ||
+            decoded.role === "staff" ||
+            decoded.role === "doctorstaff"
+        );
+
+        if (
+          decoded.role === "agent" ||
+          decoded.role === "staff" ||
+          decoded.role === "doctorstaff"
+        ) {
+          // Agent/Staff/DoctorStaff permissions
+          console.log("Fetching Agent/Staff Permissions for clinic_stock_grn...");
+          setPermissionsLoaded(false);
+          const agentRes = await axios.get("/api/agent/get-module-permissions", {
+            params: { moduleKey: MODULE_KEY },
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const data = agentRes.data;
+          console.log("Agent Permissions API Response (GRN):", data);
+
+          // Default to true if module not found in permissions (matches backend logic)
+          if (
+            !data?.permissions &&
+            data?.error?.includes("No permissions found for module")
+          ) {
+            console.log("Module not found in permissions, granting full access by default (GRN)");
+            setPermissions({
+              canRead: true,
+              canCreate: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+          } else if (agentRes.data.success) {
+            const actions = data?.permissions?.actions || {};
+            const isTrue = (val: any) =>
+              val === true ||
+              val === "true" ||
+              String(val || "").toLowerCase() === "true";
+
+            const canAll = isTrue(actions.all);
+            const newPerms = {
+              canRead: canAll || isTrue(actions.read),
+              canCreate: canAll || isTrue(actions.create),
+              canUpdate: canAll || isTrue(actions.update),
+              canDelete: canAll || isTrue(actions.delete),
+            };
+            console.log("Setting permissions (GRN):", newPerms);
+            setPermissions(newPerms);
+          }
+        } else {
+          // Clinic/Doctor permissions
+          const clinicRes = await axios.get("/api/clinic/sidebar-permissions", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (clinicRes.data.success) {
+            console.log("Clinic Sidebar Permissions Response (GRN):", clinicRes.data);
+            if (
+              clinicRes.data.permissions === null ||
+              !Array.isArray(clinicRes.data.permissions) ||
+              clinicRes.data.permissions.length === 0
+            ) {
+              console.log("No permissions set, granting full access (GRN)");
+              setPermissions({
+                canRead: true,
+                canCreate: true,
+                canUpdate: true,
+                canDelete: true,
+              });
+            } else {
+              let modulePermission = clinicRes.data.permissions.find((p: any) => {
+                if (!p?.module) return false;
+                if (p.module === "clinic_stock_grn") return true;
+                return false;
+              });
+
+              console.log("Direct module permission found (GRN):", modulePermission);
+
+              if (!modulePermission) {
+                const parentStockModule = clinicRes.data.permissions.find((p: any) => 
+                  p?.module === "clinic_stock" && Array.isArray(p.subModules)
+                );
+                
+                console.log("Parent stock module found (GRN):", parentStockModule);
+                
+                if (parentStockModule) {
+                  modulePermission = parentStockModule.subModules.find((sm: any) => 
+                    sm?.moduleKey === "clinic_stock_grn"
+                  );
+                  console.log("Submodule permission found (GRN):", modulePermission);
+                }
+              }
+
+              if (modulePermission) {
+                const actions = modulePermission.actions || {};
+                console.log("Module permission actions (GRN):", actions);
+
+                const moduleAll =
+                  actions.all === true ||
+                  actions.all === "true" ||
+                  String(actions.all).toLowerCase() === "true";
+                const moduleCreate =
+                  actions.create === true ||
+                  actions.create === "true" ||
+                  String(actions.create).toLowerCase() === "true";
+                const moduleRead =
+                  actions.read === true ||
+                  actions.read === "true" ||
+                  String(actions.read).toLowerCase() === "true";
+                const moduleUpdate =
+                  actions.update === true ||
+                  actions.update === "true" ||
+                  String(actions.update).toLowerCase() === "true";
+                const moduleDelete =
+                  actions.delete === true ||
+                  actions.delete === "true" ||
+                  String(actions.delete).toLowerCase() === "true";
+
+                const newPermissions = {
+                  canRead: moduleAll || moduleRead,
+                  canCreate: moduleAll || moduleCreate,
+                  canUpdate: moduleAll || moduleUpdate,
+                  canDelete: moduleAll || moduleDelete,
+                };
+                console.log("Setting permissions (GRN):", newPermissions);
+                setPermissions(newPermissions);
+              } else {
+                setPermissions({
+                  canRead: true,
+                  canCreate: false,
+                  canUpdate: false,
+                  canDelete: false,
+                });
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching permissions (GRN):", err);
+      } finally {
+        setPermissionsLoaded(true);
+      }
+    };
+
+    fetchPermissions();
+  }, []);
+
   // Toggle row expansion for showing items
   const toggleRowExpansion = (id: string) => {
     setExpandedRows((prev) => ({
@@ -228,6 +401,8 @@ const GRNPage: NextPageWithLayout = () => {
 
   const displayData = grnRecords.length > 0 ? grnRecords : [];
 
+  // ALL HOOKS MUST BE DECLARED BEFORE CONDITIONAL RETURNS
+  // Move useCallback hooks here after permission check
   const handleAddGRN = useCallback(() => {
     setIsAddModalOpen(true);
   }, []);
@@ -290,6 +465,64 @@ const GRNPage: NextPageWithLayout = () => {
     setGrnToEdit(null);
   }, []);
 
+  // Now place conditional returns AFTER all hooks
+  if (!permissionsLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  // Access Denied - when both canRead and canCreate are false
+  if (!permissions.canRead && !permissions.canCreate) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-gray-600">You do not have permission to view GRN records.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Create-only view - when canRead is false but canCreate is true
+  if (!permissions.canRead && permissions.canCreate) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
+        <div className="mb-8">
+          <div className="max-w-9xl mx-auto">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
+                  Goods Received Notes
+                </h1>
+                <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
+                  Manage your goods received notes and inventory receiveds
+                </p>
+              </div>
+              <button
+                className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                onClick={handleAddGRN}
+              >
+                <PlusIcon className="h-5 w-5 mr-2" />
+                Add GRN
+              </button>
+            </div>
+          </div>
+        </div>
+        {/* Add GRN Modal */}
+        <AddGRNModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onAddGRN={(_grnData: PurchaseRecord) => {
+            // Refresh or handle post-creation
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
       {/* Header Section */}
@@ -305,20 +538,24 @@ const GRNPage: NextPageWithLayout = () => {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
-                onClick={() => setIsFilterOpen(!isFilterOpen)}
-              >
-                <Filter className="h-5 w-5" />
-                Advanced Filter
-              </button>
-              <button
-                className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
-                onClick={handleAddGRN}
-              >
-                <PlusIcon className="h-5 w-5 mr-2" />
-                Add GRN
-              </button>
+              {permissions.canRead && (
+                <button
+                  className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                  onClick={() => setIsFilterOpen(!isFilterOpen)}
+                >
+                  <Filter className="h-5 w-5" />
+                  Advanced Filter
+                </button>
+              )}
+              {permissions.canCreate && (
+                <button
+                  className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                  onClick={handleAddGRN}
+                >
+                  <PlusIcon className="h-5 w-5 mr-2" />
+                  Add GRN
+                </button>
+              )}
             </div>
 
             {/* Add GRN Modal */}
@@ -588,13 +825,15 @@ const GRNPage: NextPageWithLayout = () => {
               <p className="text-gray-500 mb-6">
                 Get started by adding your first goods Received note.
               </p>
-              <button
-                onClick={handleAddGRN}
-                className="cursor-pointer inline-flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-4 py-2.5 rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 text-sm font-semibold"
-              >
-                <ShoppingCart className="h-5 w-5" />
-                Add First GRN
-              </button>
+              {permissions.canCreate && (
+                <button
+                  onClick={handleAddGRN}
+                  className="cursor-pointer inline-flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-4 py-2.5 rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 text-sm font-semibold"
+                >
+                  <ShoppingCart className="h-5 w-5" />
+                  Add First GRN
+                </button>
+              )}
             </div>
           ) : (
             /* Data Table */
@@ -810,7 +1049,7 @@ const GRNPage: NextPageWithLayout = () => {
                                 } z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-gray-200 ring-opacity-5 focus:outline-none`}
                               >
                                 <div className="py-1" role="none">
-                                  {![
+                                  {permissions.canUpdate && ![
                                     "Partly_Invoiced",
                                     "Invoiced",
                                     "Partly_Paid",
@@ -880,20 +1119,22 @@ const GRNPage: NextPageWithLayout = () => {
                                         : "Show Items"}
                                     </div>
                                   </button>
-                                  <button
-                                    onClick={() => {
-                                      handleDeleteClick(grn);
-                                      document
-                                        .getElementById(`menu-${grn._id}`)
-                                        ?.classList.add("hidden");
-                                    }}
-                                    className="block w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50"
-                                  >
-                                    <div className="flex items-center">
-                                      <TrashIcon className="h-4 w-4 mr-2" />
-                                      Delete
-                                    </div>
-                                  </button>
+                                  {permissions.canDelete && (
+                                    <button
+                                      onClick={() => {
+                                        handleDeleteClick(grn);
+                                        document
+                                          .getElementById(`menu-${grn._id}`)
+                                          ?.classList.add("hidden");
+                                      }}
+                                      className="block w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50"
+                                    >
+                                      <div className="flex items-center">
+                                        <TrashIcon className="h-4 w-4 mr-2" />
+                                        Delete
+                                      </div>
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             </div>

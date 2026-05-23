@@ -1553,8 +1553,8 @@ const ConsentPage: NextPageWithLayout = () => {
     withSignature: consents.filter((c) => c.enableDigitalSignature).length,
   };
 
-  // Show access denied message if no permission
-  if (!permissions.canRead) {
+  // Show access denied message only if BOTH read and create are false
+  if (!permissions.canRead && !permissions.canCreate) {
     console.log("Rendering Access Denied - permissions:", permissions);
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -1566,7 +1566,7 @@ const ConsentPage: NextPageWithLayout = () => {
             Access Denied
           </h3>
           <p className="text-sm text-gray-700">
-            You do not have permission to view consent forms. Please contact your administrator.
+            You do not have permission to view or upload consent forms. Please contact your administrator.
           </p>
         </div>
       </div>
@@ -1599,20 +1599,23 @@ const ConsentPage: NextPageWithLayout = () => {
           )}
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <StatCard label="Total Forms" value={stats.total} color="blue" icon={FileText} />
-          <StatCard label="Published" value={stats.published} color="green" icon={CheckCircle} />
-          <StatCard
-            label="Digital Signature Enabled"
-            value={stats.withSignature}
-            color="purple"
-            icon={PenLine}
-          />
-        </div>
+          {/* READ-ONLY SECTION: Stats, Search, and Table - Only shown when canRead is true */}
+          {permissions.canRead && (
+          <>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+              <StatCard label="Total Forms" value={stats.total} color="blue" icon={FileText} />
+              <StatCard label="Published" value={stats.published} color="green" icon={CheckCircle} />
+              <StatCard
+                label="Digital Signature Enabled"
+                value={stats.withSignature}
+                color="purple"
+                icon={PenLine}
+              />
+            </div>
 
-        {/* Search + Table */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
+            {/* Search + Table */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-700">All Consent Forms</h2>
             <div className="relative w-64">
@@ -1780,6 +1783,8 @@ const ConsentPage: NextPageWithLayout = () => {
             </div>
           )}
         </div>
+        </>
+        )}
       </div>
 
       {/* Upload Modal */}

@@ -179,37 +179,44 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
                 canDelete: true,
               });
             } else {
-              // Admin has set permissions - check the clinic_enquiry module
-              const modulePermission = res.data.permissions.find((p: any) => {
+              // Admin has set permissions - check the clinic_enquiry module or as submodule of clinic_marketing
+              let actions = {};
+              
+              // First, check if clinic_enquiry is a top-level module
+              let modulePermission = res.data.permissions.find((p: any) => {
                 if (!p?.module) return false;
-                // Check for clinic_enquiry module
-                if (p.module === "clinic_enquiry") return true;
-                if (p.module === "enquiry") return true;
-                return false;
+                return p.module === "clinic_enquiry" || p.module === "enquiry";
               });
 
               if (modulePermission) {
-                const actions = modulePermission.actions || {};
-                
-                // Check if "all" is true, which grants all permissions
-                const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
-                const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
-                const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
-                const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
-
-                setPermissions({
-                  canRead: moduleAll || moduleRead,
-                  canUpdate: moduleAll || moduleUpdate,
-                  canDelete: moduleAll || moduleDelete,
-                });
+                actions = modulePermission.actions || {};
               } else {
-                // Module permission not found in the permissions array - default to read-only
-                setPermissions({
-                  canRead: true, // Clinic/doctor can always read their own data
-                  canUpdate: false,
-                  canDelete: false,
-                });
+                // If not top-level, check as submodule of clinic_marketing
+                const marketingModule = res.data.permissions.find((p: any) => p?.module === "clinic_marketing");
+                if (marketingModule && Array.isArray(marketingModule.subModules)) {
+                  const enquirySubModule = marketingModule.subModules.find((sub: any) => 
+                    sub.name === "Enquiry" || sub.moduleKey === "clinic_enquiry"
+                  );
+                  if (enquirySubModule) {
+                    actions = enquirySubModule.actions || {};
+                  } else {
+                    // Check marketing module's top-level actions if submodule not found
+                    actions = marketingModule.actions || {};
+                  }
+                }
               }
+
+              // Check if "all" is true, which grants all permissions
+              const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
+              const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
+              const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
+              const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
+
+              setPermissions({
+                canRead: moduleAll || moduleRead,
+                canUpdate: moduleAll || moduleUpdate,
+                canDelete: moduleAll || moduleDelete,
+              });
             }
           } else {
             // API response indicates failure, default to full access (backward compatibility)

@@ -439,10 +439,12 @@ function PettyCashPage() {
       setExpenseSuccess(true);
       setExpenseVendor(""); setExpenseItems([{ itemName: "", amount: "" }]); setExpenseImages([]); setUsePettyCash(true);
       
-      // Refresh both lists + global totals
-      fetchManual();
-      fetchGlobalTotals();
-      fetchData(page);
+      // Refresh lists when user can read
+      if (permissions.canRead) {
+        fetchManual();
+        fetchGlobalTotals();
+        fetchData(page);
+      }
       
       setTimeout(() => {
         setExpenseSuccess(false);
@@ -595,10 +597,11 @@ function PettyCashPage() {
       );
       setAddSuccess(true);
       setAddName(""); setAddAmount(""); setAddNote("");
-      fetchManual();
-      // refresh global totals + filtered data
-      fetchGlobalTotals();
-      fetchData(page);
+      if (permissions.canRead) {
+        fetchManual();
+        fetchGlobalTotals();
+        fetchData(page);
+      }
       setTimeout(() => setAddSuccess(false), 3000);
     } catch (e: any) {
       setAddError(e?.response?.data?.message || "Failed to add entry");
@@ -885,79 +888,6 @@ function PettyCashPage() {
         )}
       </div>
 
-      {/* DRAWER 1: Add Petty Cash */}
-      <Drawer open={addDrawerOpen} onClose={() => { setAddDrawerOpen(false); setAddError(""); setAddSuccess(false); }} title="Add Petty Cash">
-        <div className="flex flex-col gap-5">
-          {addSuccess && (
-            <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded-lg p-3 text-sm">
-              <CheckCircle size={16} />
-              Entry added successfully!
-            </div>
-          )}
-          {addError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">{addError}</div>
-          )}
-
-          {/* Name */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. Office supplies, Snacks, Petrol..."
-              value={addName}
-              onChange={(e) => setAddName(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400"
-            />
-          </div>
-
-          {/* Amount */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Amount (AED) <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0.00"
-              value={addAmount}
-              onChange={(e) => setAddAmount(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400"
-            />
-          </div>
-
-          {/* Note (optional) */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Note <span className="text-xs text-gray-400">(optional)</span></label>
-            <textarea
-              rows={2}
-              placeholder="Any additional notes..."
-              value={addNote}
-              onChange={(e) => setAddNote(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400 resize-none"
-            />
-          </div>
-
-          <button
-            onClick={handleAdd}
-            disabled={addLoading}
-            className="w-full py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-          >
-            {addLoading ? <RefreshCw size={15} className="animate-spin" /> : <Plus size={15} />}
-            {addLoading ? "Adding..." : "Add to Petty Cash"}
-          </button>
-
-          {/* Preview of total after add */}
-          {addAmount && parseFloat(addAmount) > 0 && (
-            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-xs text-green-700">
-              New combined total will be: <span className="font-bold">{fmt(combinedTotal + parseFloat(addAmount))}</span>
-            </div>
-          )}
-        </div>
-      </Drawer>
-
       {/* DRAWER 2: Manual Petty Cash Entries */}
       <Drawer open={manualDrawerOpen} onClose={() => setManualDrawerOpen(false)} title="Manual Entries">
         <div className="flex flex-col gap-4">
@@ -1231,6 +1161,84 @@ function PettyCashPage() {
                 <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{records.length} shown (page {pagination.page}/{pagination.totalPages})</span>
                 <span className="text-base font-bold text-green-700">{fmt(summary.totalCashIn)}</span>
               </div>
+            </div>
+          )}
+        </div>
+      </Drawer>
+        </>
+      )}
+
+      {/* Create-only drawers — outside canRead so add flows work when read is false */}
+      {permissions.canCreate && (
+        <>
+      {/* DRAWER 1: Add Petty Cash */}
+      <Drawer open={addDrawerOpen} onClose={() => { setAddDrawerOpen(false); setAddError(""); setAddSuccess(false); }} title="Add Petty Cash">
+        <div className="flex flex-col gap-5">
+          {addSuccess && (
+            <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded-lg p-3 text-sm">
+              <CheckCircle size={16} />
+              Entry added successfully!
+            </div>
+          )}
+          {addError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">{addError}</div>
+          )}
+
+          {/* Name */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Office supplies, Snacks, Petrol..."
+              value={addName}
+              onChange={(e) => setAddName(e.target.value)}
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400"
+            />
+          </div>
+
+          {/* Amount */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Amount (AED) <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              value={addAmount}
+              onChange={(e) => setAddAmount(e.target.value)}
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400"
+            />
+          </div>
+
+          {/* Note (optional) */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Note <span className="text-xs text-gray-400">(optional)</span></label>
+            <textarea
+              rows={2}
+              placeholder="Any additional notes..."
+              value={addNote}
+              onChange={(e) => setAddNote(e.target.value)}
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400 resize-none"
+            />
+          </div>
+
+          <button
+            onClick={handleAdd}
+            disabled={addLoading}
+            className="w-full py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+          >
+            {addLoading ? <RefreshCw size={15} className="animate-spin" /> : <Plus size={15} />}
+            {addLoading ? "Adding..." : "Add to Petty Cash"}
+          </button>
+
+          {/* Preview of total after add */}
+          {permissions.canRead && addAmount && parseFloat(addAmount) > 0 && (
+            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-xs text-green-700">
+              New combined total will be: <span className="font-bold">{fmt(combinedTotal + parseFloat(addAmount))}</span>
             </div>
           )}
         </div>

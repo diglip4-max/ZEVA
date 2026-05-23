@@ -1348,8 +1348,8 @@ function ServicesSetupPage() {
 
 
 
-  // Show access denied message if no permission
-  if (!permissions.canRead) {
+  // Show access denied message only if BOTH read and create are false
+  if (!permissions.canRead && !permissions.canCreate) {
     console.log("Rendering Access Denied - permissions:", permissions);
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -1361,7 +1361,7 @@ function ServicesSetupPage() {
             Access Denied
           </h3>
           <p className="text-sm text-gray-700">
-            You do not have permission to view services setup. Please contact your administrator.
+            You do not have permission to view or create services. Please contact your administrator.
           </p>
         </div>
       </div>

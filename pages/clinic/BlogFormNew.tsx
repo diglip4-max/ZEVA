@@ -2009,28 +2009,6 @@ function ModernBlogForm() {
 
   }
 
-  // Show access denied message if no read permission
-  if (!permissions.canReadPublished) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Sparkles className="w-8 h-8 text-red-600" />
-          </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-sm text-gray-700 mb-4">
-            You do not have permission to view blog posts.
-          </p>
-          <p className="text-xs text-gray-600">
-            Please contact your administrator to request access to the Blog module.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-
-
   const publishedPostIds = new Set(publishedPosts.map(p => p._id));
 
 
@@ -2112,6 +2090,7 @@ function ModernBlogForm() {
         }
       `}</style>
       {/* Fixed Header - No movement */}
+      {permissions.canReadPublished && (
       <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-xl border-b border-cyan-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 sm:py-4">
           <div className="flex items-center justify-between gap-3 mb-3">
@@ -2208,11 +2187,41 @@ function ModernBlogForm() {
         </div>
 
       </div>
+      )}
 
 
 
       {/* Content Area */}
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Show access denied if no read permission */}
+        {!permissions.canReadPublished && (
+          <div className="flex flex-col items-center justify-center py-12 mb-8">
+            <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md mb-6">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="w-8 h-8 text-red-600" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
+              <p className="text-sm text-gray-700 mb-4">
+                You do not have permission to view blog posts.
+              </p>
+              <p className="text-xs text-gray-600">
+                Please contact your administrator to request access to the Blog module.
+              </p>
+            </div>
+            
+            {/* Show New Post button if user has create permission */}
+            {permissions.canCreate && (
+              <button
+                onClick={handleCreatePost}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-600 hover:to-teal-700 text-white rounded-lg text-base font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105"
+              >
+                <PlusCircle className="w-5 h-5" />
+                <span>New Post</span>
+              </button>
+            )}
+          </div>
+        )}
+        
         {loading ? (
 
           <div className="flex items-center justify-center py-32">
@@ -2222,7 +2231,7 @@ function ModernBlogForm() {
             </div>
           </div>
 
-        ) : (
+        ) : permissions.canReadPublished ? (
 
           <>
 
@@ -2552,6 +2561,12 @@ function ModernBlogForm() {
 
           </>
 
+        ) : permissions.canCreate ? null : (
+          <div className="flex items-center justify-center py-32">
+            <div className="text-center">
+              <p className="text-gray-600">You don't have permission to view or create blog posts.</p>
+            </div>
+          </div>
         )}
 
       </div>
