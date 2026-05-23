@@ -539,20 +539,29 @@ function ServicesSetupPage() {
     }
     try {
       setDepartmentsLoading(true);
+      console.log("Loading departments with module:", MODULE_KEY);
       const res = await axios.get("/api/clinic/departments", {
         headers,
         params: { module: MODULE_KEY },
       });
+      console.log("Departments API response:", res.data);
       if (res.data.success) {
+        console.log("Departments loaded:", res.data.departments);
         setDepartments(res.data.departments || []);
       } else {
         const errorMsg = res.data.message || "Failed to load departments";
+        console.error("Departments API error:", errorMsg);
         setMessage({ type: "error", text: errorMsg });
         toast.error(errorMsg, { duration: 3000 });
       }
     } catch (error) {
       const status = error.response?.status;
-      if (status !== 401 && status !== 403) {
+      console.error("Departments load error - status:", status, error.response?.data);
+      if (status === 403) {
+        console.warn("403 Forbidden - departments may not be accessible");
+        // Still set empty array to allow form to work
+        setDepartments([]);
+      } else if (status !== 401) {
         const errorMsg = error.response?.data?.message || "Failed to load departments";
         setMessage({ type: "error", text: errorMsg });
         toast.error(errorMsg, { duration: 3000 });
@@ -634,9 +643,12 @@ function ServicesSetupPage() {
 
   useEffect(() => {
     if (!permissionsLoaded) return;
-    if (!permissions.canRead) return;
-    loadServices();
+    // Always load departments (needed for create form even when canRead is false)
     loadDepartments();
+    // Only load services if canRead is true
+    if (permissions.canRead) {
+      loadServices();
+    }
   }, [permissionsLoaded, permissions.canRead]);
 
   useEffect(() => {
@@ -1368,6 +1380,9 @@ function ServicesSetupPage() {
     );
   }
 
+  // Helper to check if we should show list data (only when canRead is true)
+  const shouldShowData = permissions.canRead;
+
   return (
     <>
       <Toaster position="top-right" />
@@ -1561,6 +1576,7 @@ function ServicesSetupPage() {
             )}
             
             {/* Service Display Section - Modern Healthcare UI */}
+            {shouldShowData && (
             <div className="bg-white border border-teal-200 rounded-xl p-4 shadow-sm">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                 <div className="flex items-center gap-2.5">
@@ -1892,6 +1908,7 @@ function ServicesSetupPage() {
                 </div>
               )}
             </div>
+            )}
           </>
         )}
                {activeTab === "memberships" && (
@@ -2031,6 +2048,7 @@ function ServicesSetupPage() {
             )}
 
             {/* Membership Display Section - Compact Healthcare UI */}
+            {shouldShowData && (
             <div className="bg-white border border-teal-200 rounded-xl p-4 shadow-sm">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                 <div className="flex items-center gap-2.5">
@@ -2449,6 +2467,7 @@ function ServicesSetupPage() {
                 </div>
               )}
             </div>
+            )}
           </>
         )}
         {activeTab === "packages" && (
@@ -2792,6 +2811,7 @@ function ServicesSetupPage() {
             </div>
             )}
             
+            {shouldShowData && (
             <div className="mt-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
                 <div className="flex items-center gap-3">
@@ -2961,6 +2981,7 @@ function ServicesSetupPage() {
                 </div>
               )}
             </div>
+            )}
           </>
         )}
       </div>

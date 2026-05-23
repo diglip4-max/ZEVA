@@ -948,6 +948,13 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             setIsLoading(false);
             return;
           }
+          if (error.response?.status === 403) {
+            // Forbidden - user doesn't have permission, handle silently
+            setItems([]);
+            setPermissions([]);
+            setIsLoading(false);
+            return;
+          }
           if (error.response?.status === 404) {
             console.log(
               "ClinicSidebar: API endpoint not found - this may be normal for agent routes",
@@ -1442,8 +1449,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
           setItems([]);
         }
       } catch (err: any) {
-        // Only log non-401/404 errors to avoid console spam
-        if (err.response?.status !== 401 && err.response?.status !== 404) {
+        // Only log non-401/403/404 errors to avoid console spam
+        if (err.response?.status !== 401 && err.response?.status !== 403 && err.response?.status !== 404) {
           console.error(
             "Error fetching navigation items and permissions:",
             err,

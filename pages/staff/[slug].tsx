@@ -232,6 +232,7 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   "clinic-pettycash": () => import("../clinic/pettycash"),
   "clinic-pass-claims": () => import("../clinic/pass-claims"),
   "clinic-report": () => import("../clinic/report"),
+  "clinic-authentication": () => import("../clinic/authentication"),
 };
 
 
