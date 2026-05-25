@@ -438,8 +438,8 @@ const CampaignsPage: NextPageWithLayout = () => {
     fetchCampaigns();
   }, [fetchCampaigns, permissionsLoaded, permissions.canRead]);
 
-  // Show access denied message if no permission
-  if (!permissions.canRead) {
+  // Show access denied message only if BOTH read and create are false
+  if (!permissions.canRead && !permissions.canCreate) {
     console.log("Rendering Access Denied - permissions:", permissions);
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -451,7 +451,7 @@ const CampaignsPage: NextPageWithLayout = () => {
             Access Denied
           </h3>
           <p className="text-sm text-gray-700">
-            You do not have permission to view campaigns. Please contact your administrator.
+            You do not have permission to view or create campaigns. Please contact your administrator.
           </p>
         </div>
       </div>
@@ -497,6 +497,9 @@ const CampaignsPage: NextPageWithLayout = () => {
         </div>
       </div>
 
+      {/* READ-ONLY SECTION: Stats, Filters, and Campaign List - Only shown when canRead is true */}
+      {permissions.canRead && (
+      <>
       {/* Stats Overview */}
       <div className="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
@@ -1280,6 +1283,8 @@ const CampaignsPage: NextPageWithLayout = () => {
         campaignName={selectedCampaign?.name}
         campaignStatus={selectedCampaign?.status}
       />
+      </>
+      )}
 
       {/* Create Campaign Modal */}
       <CreateCampaignModal

@@ -40,17 +40,43 @@ export default async function handler(req, res) {
       // When accessed from create-agent page, it should check "clinic_create_agent"
       const moduleToCheck = req.query.module || "clinic_addRoom";
       
-      // Check read permission for the specified module
-      const { hasPermission, error: permError } = await checkClinicPermission(
-        clinicId,
-        moduleToCheck,
-        "read"
-      );
+      // For Clinic_services_setup module, allow access if user has create OR read permission
+      // This ensures departments can be loaded for the create form even when read is false
+      let hasPermission = false;
+      
+      if (moduleToCheck === "Clinic_services_setup" || moduleToCheck === "clinic_services_setup") {
+        // Check both read and create permissions
+        const { hasPermission: canRead } = await checkClinicPermission(
+          clinicId,
+          moduleToCheck,
+          "read"
+        );
+        const { hasPermission: canCreate } = await checkClinicPermission(
+          clinicId,
+          moduleToCheck,
+          "create"
+        );
+        hasPermission = canRead || canCreate;
+      } else {
+        // For other modules, check read permission only
+        const { hasPermission: permResult, error: permError } = await checkClinicPermission(
+          clinicId,
+          moduleToCheck,
+          "read"
+        );
+        hasPermission = permResult;
+        if (!hasPermission) {
+          return res.status(403).json({
+            success: false,
+            message: permError || "You do not have permission to view departments",
+          });
+        }
+      }
 
       if (!hasPermission) {
         return res.status(403).json({
           success: false,
-          message: permError || "You do not have permission to view departments",
+          message: "You do not have permission to view departments",
         });
       }
 

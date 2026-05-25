@@ -85,6 +85,52 @@ const parsePermissionActions = (actions: Record<string, unknown> = {}) => {
   };
 };
 
+// Helper function to get user info from token
+const getUserInfo = (): { role: string | null; id: string | null } => {
+  if (typeof window === "undefined") return { role: null, id: null };
+  try {
+    for (const key of TOKEN_PRIORITY) {
+      const token =
+        window.localStorage.getItem(key) ||
+        window.sessionStorage.getItem(key);
+      if (token) {
+        try {
+          const base64Url = token.split(".")[1];
+          const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+          const jsonPayload = decodeURIComponent(
+            atob(base64)
+              .split("")
+              .map(
+                (c) =>
+                  "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2),
+              )
+              .join(""),
+          );
+          const decoded = JSON.parse(jsonPayload);
+          console.log("[myallClinic] Decoded user from token:", decoded);
+          return {
+            role: decoded.role || decoded.userRole || null,
+            id: decoded.userId || decoded.id || null,
+          };
+        } catch (e) {
+          console.log("[myallClinic] Error decoding token", key, e);
+          continue;
+        }
+      }
+    }
+  } catch (error) {
+    console.error("[myallClinic] Error getting user info:", error);
+  }
+  return { role: null, id: null };
+};
+
+// Helper function to get user role from token
+const getUserRoleFromToken = (): string | null => {
+  const role = getUserInfo().role;
+  console.log("[myallClinic] getUserRoleFromToken returning:", role);
+  return role;
+};
+
 // QR Code component for Scheduler Link tab
 const SchedulerQRCode = ({ url }: { url: string }) => (
   <QRCodeCanvas
@@ -474,8 +520,10 @@ function ClinicManagementDashboard(): ReactElement {
   // Clinic-level (sidebar-permissions) + agent/doctorStaff-level (get-module-permissions)
   useEffect(() => {
     let isMounted = true;
-    const userRole = getUserRole() as "clinic" | "staff" | "agent" | "doctor" | "user" | "admin" | "doctorStaff" | null;
+    const userRole = getUserRoleFromToken() as "clinic" | "staff" | "agent" | "doctor" | "user" | "admin" | "doctorStaff" | null;
+    console.log("[myallClinic] Permission useEffect, userRole:", userRole);
     const authToken = getStoredToken();
+    console.log("[myallClinic] Stored auth token exists:", !!authToken);
     const clinicToken =
       typeof window !== "undefined"
         ? localStorage.getItem("clinicToken") ||
@@ -502,7 +550,16 @@ function ClinicManagementDashboard(): ReactElement {
           sessionStorage.getItem("userToken")
         : null;
 
+    console.log("[myallClinic] Token status:", {
+      clinicToken: !!clinicToken,
+      doctorToken: !!doctorToken,
+      agentToken: !!agentToken,
+      staffToken: !!staffToken,
+      userToken: !!userToken
+    });
+
     if (userRole === "admin") {
+      console.log("[myallClinic] User is admin, granting full access");
       setPermissions({
         canRead: true,
         canCreate: true,
@@ -516,6 +573,7 @@ function ClinicManagementDashboard(): ReactElement {
     }
 
     if (userRole === "clinic" || userRole === "doctor") {
+      console.log("[myallClinic] User is clinic/doctor, fetching clinic permissions");
       const fetchClinicPermissions = async () => {
         try {
           const clinicAuthToken = clinicToken || doctorToken || authToken;
@@ -529,9 +587,11 @@ function ClinicManagementDashboard(): ReactElement {
             });
             return;
           }
+          console.log("[myallClinic] Calling /api/clinic/sidebar-permissions");
           const res = await axios.get("/api/clinic/sidebar-permissions", {
             headers: { Authorization: `Bearer ${clinicAuthToken}` },
           });
+          console.log("[myallClinic] Clinic permissions response:", res.data);
           if (!isMounted) return;
           if (res.data.success) {
             if (
@@ -539,6 +599,7 @@ function ClinicManagementDashboard(): ReactElement {
               !Array.isArray(res.data.permissions) ||
               res.data.permissions.length === 0
             ) {
+              console.log("[myallClinic] No clinic permissions set, granting full access");
               setPermissions({
                 canRead: true,
                 canCreate: true,
@@ -547,11 +608,14 @@ function ClinicManagementDashboard(): ReactElement {
               });
             } else {
               const modulePermission = findHealthCenterModule(res.data.permissions);
+              console.log("[myallClinic] Found module permission:", modulePermission);
               if (modulePermission) {
+                console.log("[myallClinic] Parsing permission actions:", modulePermission.actions);
                 setPermissions(
                   parsePermissionActions(modulePermission.actions || {}),
                 );
               } else {
+                console.log("[myallClinic] No module permission found, defaulting to read-only");
                 setPermissions({
                   canRead: true,
                   canCreate: false,
@@ -561,6 +625,7 @@ function ClinicManagementDashboard(): ReactElement {
               }
             }
           } else {
+            console.log("[myallClinic] Clinic permissions API failed, granting full access");
             setPermissions({
               canRead: true,
               canCreate: true,
@@ -569,7 +634,7 @@ function ClinicManagementDashboard(): ReactElement {
             });
           }
         } catch (err) {
-          console.error("Error fetching clinic sidebar permissions:", err);
+          console.error("[myallClinic] Error fetching clinic sidebar permissions:", err);
           if (isMounted) {
             setPermissions({
               canRead: true,
@@ -590,6 +655,7 @@ function ClinicManagementDashboard(): ReactElement {
 
     const agentStaffToken = getStoredToken();
     if (!agentStaffToken) {
+      console.log("[myallClinic] No agent/staff token found");
       setPermissions({
         canRead: false,
         canCreate: false,
@@ -602,14 +668,18 @@ function ClinicManagementDashboard(): ReactElement {
       };
     }
 
-    if (
+    const shouldCheckAgentPermissions = 
       agentToken ||
       staffToken ||
       userToken ||
       userRole === "agent" ||
       userRole === "doctorStaff" ||
-      userRole === "staff"
-    ) {
+      userRole === "staff";
+
+    console.log("[myallClinic] Should check agent permissions?", shouldCheckAgentPermissions);
+
+    if (shouldCheckAgentPermissions) {
+      console.log("[myallClinic] Calling /api/agent/get-module-permissions for module: clinic_health_center");
       const fetchAgentPermissions = async () => {
         try {
           let permissionToken = agentStaffToken;
@@ -618,15 +688,18 @@ function ClinicManagementDashboard(): ReactElement {
           } else if (userRole === "doctorStaff" || userRole === "staff") {
             permissionToken = userToken || staffToken || agentStaffToken;
           }
+          console.log("[myallClinic] Using permission token:", !!permissionToken);
           const res = await axios.get("/api/agent/get-module-permissions", {
             params: { moduleKey: "clinic_health_center" },
             headers: { Authorization: `Bearer ${permissionToken}` },
           });
+          console.log("[myallClinic] Agent permissions response:", res.data);
           if (!isMounted) return;
           if (
             !res.data?.permissions &&
             res.data?.error?.includes("not found in agent permissions")
           ) {
+            console.log("[myallClinic] Module not found in agent permissions, granting full access");
             setPermissions({
               canRead: true,
               canCreate: true,
@@ -636,10 +709,12 @@ function ClinicManagementDashboard(): ReactElement {
             return;
           }
           if (res.data?.success && res.data?.permissions) {
+            console.log("[myallClinic] Parsing agent permission actions:", res.data.permissions.actions);
             setPermissions(
               parsePermissionActions(res.data.permissions.actions || {}),
             );
           } else {
+            console.log("[myallClinic] Agent permissions failed, denying access");
             setPermissions({
               canRead: false,
               canCreate: false,
@@ -648,7 +723,7 @@ function ClinicManagementDashboard(): ReactElement {
             });
           }
         } catch (err) {
-          console.error("Error fetching agent health center permissions:", err);
+          console.error("[myallClinic] Error fetching agent health center permissions:", err);
           if (isMounted) {
             setPermissions({
               canRead: false,
@@ -663,6 +738,7 @@ function ClinicManagementDashboard(): ReactElement {
       };
       fetchAgentPermissions();
     } else {
+      console.log("[myallClinic] No agent/staff match, granting full access");
       setPermissions({
         canRead: true,
         canCreate: true,
@@ -676,6 +752,21 @@ function ClinicManagementDashboard(): ReactElement {
       isMounted = false;
     };
   }, []);
+
+  // Auto-switch to an available tab when permissions are loaded
+  useEffect(() => {
+    if (!permissionsLoaded) return;
+    
+    // If user can't read the current tab, switch to an available one
+    const readRestrictedTabs = ["General Info", "Contact", "Listing", "Clinic Timing", "Banks", "Scheduler Link"];
+    
+    if (!permissions.canRead && readRestrictedTabs.includes(activeTab)) {
+      // Switch to Documents or Branches if available
+      if (permissions.canCreate) {
+        setActiveTab("Documents");
+      }
+    }
+  }, [permissionsLoaded, permissions.canRead, permissions.canCreate, activeTab]);
 
   // Fetch clinics
   useEffect(() => {
@@ -1106,6 +1197,32 @@ function ClinicManagementDashboard(): ReactElement {
         }
       } catch (error: any) {
         console.error("Error fetching dashboard stats:", error);
+        
+        // Handle 403 permission errors gracefully
+        if (error.response?.status === 403) {
+          console.warn("Dashboard stats access denied - user lacks clinic_dashboard:read permission");
+          // Set empty stats to prevent UI errors
+          setDashboardStats({
+            totalReviews: 0,
+            totalEnquiries: 0,
+            totalAppointments: 0,
+            totalLeads: 0,
+            totalTreatments: 0,
+            totalRooms: 0,
+            totalDepartments: 0,
+            totalPackages: 0,
+            totalOffers: 0,
+            totalPatients: 0,
+            totalJobs: 0,
+            appointmentStatusBreakdown: {},
+            leadStatusBreakdown: {},
+            offerStatusBreakdown: {},
+          });
+        } else if (error.response?.status === 401) {
+          console.error("Authentication required for dashboard stats");
+        } else {
+          console.error("Unexpected error fetching dashboard stats:", error.message);
+        }
       } finally {
         setStatsLoading(false);
       }
@@ -1840,7 +1957,8 @@ function ClinicManagementDashboard(): ReactElement {
 
   if (!permissionsLoaded || loading) return <Loader />;
 
-  if (!permissions.canRead) {
+  // Only show access denied if user has NO permissions at all
+  if (!permissions.canRead && !permissions.canCreate && !permissions.canUpdate && !permissions.canDelete) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
@@ -1930,8 +2048,9 @@ function ClinicManagementDashboard(): ReactElement {
         {/* Tabs - Positioned below header */}
         <div className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4 max-w-7xl">
           <div className="flex items-center gap-1.5 sm:gap-2 h-9 sm:h-10 rounded-full bg-white/80 border border-gray-200 shadow-sm px-1.5 sm:px-2 overflow-x-auto whitespace-nowrap scrollbar-thin">
-            {(
-              [
+            {(() => {
+              // Determine which tabs to show based on permissions
+              const allTabs = [
                 "General Info",
                 "Contact",
                 "Documents",
@@ -1940,8 +2059,21 @@ function ClinicManagementDashboard(): ReactElement {
                 "Branches",
                 "Banks",
                 "Scheduler Link",
-              ] as const
-            ).map((tab) => (
+              ] as const;
+              
+              // If user can't read, only show tabs that have create permission
+              if (!permissions.canRead) {
+                return allTabs.filter((tab) => {
+                  if (tab === "Documents" || tab === "Branches") {
+                    return permissions.canCreate;
+                  }
+                  return false;
+                });
+              }
+              
+              // If user can read, show all tabs
+              return allTabs;
+            })().map((tab) => (
               <button
                 key={tab}
                 type="button"
@@ -2988,6 +3120,8 @@ function ClinicManagementDashboard(): ReactElement {
                       <input
                         className="flex-1 px-2.5 sm:px-3 py-2 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                         value={editForm.address || ""}
+                        disabled={fieldDisabled}
+                        readOnly={fieldDisabled}
                         onChange={(e) =>
                           setEditForm({ ...editForm, address: e.target.value })
                         }
@@ -2996,7 +3130,8 @@ function ClinicManagementDashboard(): ReactElement {
                       <button
                         type="button"
                         onClick={locateOnMap}
-                        className="px-3 sm:px-4 py-1.5 sm:py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-xs sm:text-sm font-medium whitespace-nowrap self-end sm:self-auto"
+                        disabled={fieldDisabled}
+                        className={`px-3 sm:px-4 py-1.5 sm:py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-xs sm:text-sm font-medium whitespace-nowrap self-end sm:self-auto ${fieldDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
                       >
                         Locate on Map
                       </button>
@@ -3055,8 +3190,8 @@ function ClinicManagementDashboard(): ReactElement {
                   )}
                 </div>
 
-                {/* Document Grid */}
-                {editForm.documents && editForm.documents.length > 0 ? (
+                {/* Document Grid - Only show if canRead is true */}
+                {permissions.canRead && editForm.documents && editForm.documents.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
                     {(() => {
                       console.log("📋 Rendering documents:", editForm.documents);
@@ -3203,7 +3338,7 @@ function ClinicManagementDashboard(): ReactElement {
                     });
                   })()}
                   </div>
-                ) : (
+                ) : permissions.canRead ? (
                   <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
                     <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                     <h3 className="text-lg font-semibold text-gray-900">
@@ -3218,7 +3353,7 @@ function ClinicManagementDashboard(): ReactElement {
                       </p>
                     )}
                   </div>
-                )}
+                ) : null}
 
                 {/* Drag & Drop Upload Area */}
                 {permissions.canCreate && (
@@ -4111,7 +4246,8 @@ function ClinicManagementDashboard(): ReactElement {
                   )}
                 </div>
 
-                {/* Branch Cards */}
+                {/* Branch Cards - Only show if canRead is true */}
+                {permissions.canRead && (
                 <div className="space-y-4 mb-6">
                   {/* Main Branch - Primary (from form) */}
                   <div className="bg-white border-2 border-teal-200 rounded-xl p-5 shadow-sm relative">
@@ -4143,6 +4279,7 @@ function ClinicManagementDashboard(): ReactElement {
                           <Edit3 className="w-4 h-4" />
                         </button>
                         )}
+                        {permissions.canDelete && (
                         <button
                           disabled
                           className="p-2 text-red-400 bg-gray-100 rounded-lg cursor-not-allowed"
@@ -4150,6 +4287,7 @@ function ClinicManagementDashboard(): ReactElement {
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
+                        )}
                       </div>
                     </div>
                     <div className="space-y-3">
@@ -4295,6 +4433,7 @@ function ClinicManagementDashboard(): ReactElement {
                       </div>
                     ))}
                 </div>
+                )}
 
                 {/* Add Another Branch */}
                 {permissions.canCreate && (
@@ -5336,15 +5475,15 @@ function ClinicManagementDashboard(): ReactElement {
           </div>
         ) : (
           <div className="w-full">
-            {/* Show permission denied message if no read permission (only for agent/doctorStaff, not clinic/doctor) */}
+            {/* Show permission denied message if no permissions at all (only for agent/doctorStaff, not clinic/doctor) */}
             {(() => {
               const userRole = getUserRole() as "clinic" | "staff" | "agent" | "doctor" | "user" | "admin" | "doctorStaff" | null;
               // Clinic and doctor roles always have access - don't show access denied
               if (userRole === "clinic" || userRole === "doctor") {
                 return null;
               }
-              // For other roles, check permissions
-              if (!permissions.canRead) {
+              // For other roles, check if they have ANY permission
+              if (!permissions.canRead && !permissions.canCreate && !permissions.canUpdate && !permissions.canDelete) {
                 return (
                   <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
                     <div className="text-center max-w-md mx-auto">

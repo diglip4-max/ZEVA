@@ -538,8 +538,8 @@ function ClinicReferralPage() {
     }
   };
 
-  // Show access denied message if no permission
-  if (!permissions.canRead) {
+  // Show access denied message only if BOTH read and create are false
+  if (!permissions.canRead && !permissions.canCreate) {
     console.log("Rendering Access Denied - permissions:", permissions);
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -551,7 +551,7 @@ function ClinicReferralPage() {
             Access Denied
           </h3>
           <p className="text-sm text-gray-700">
-            You do not have permission to view referrals. Please contact your administrator.
+            You do not have permission to view or create referrals. Please contact your administrator.
           </p>
         </div>
       </div>
@@ -576,22 +576,26 @@ function ClinicReferralPage() {
               <h2 className="text-sm sm:text-base font-bold text-teal-900">Referral Management</h2>
               <p className="text-[10px] sm:text-xs text-teal-700">Create, update, and delete referral contacts</p>
             </div>
-            <button
-              className={`px-3 py-1.5 text-white text-xs rounded-md flex items-center gap-1 ${permissions.canCreate ? "bg-teal-600 hover:bg-teal-700" : "bg-gray-400 cursor-not-allowed"}`}
-              onClick={() => {
-                console.log("New button clicked, canCreate:", permissions.canCreate);
-                if (!permissions.canCreate) return;
-                resetForm();
-                setShowModal(true);
-              }}
-              disabled={!permissions.canCreate}
-              title={!permissions.canCreate ? "No permission to create referral" : ""}
-            >
-              <Plus className="w-4 h-4" />
-              New
-            </button>
+            <div className="flex gap-2">
+              <button
+                className={`px-3 py-1.5 text-white text-xs rounded-md flex items-center gap-1 ${permissions.canCreate ? "bg-teal-600 hover:bg-teal-700" : "bg-gray-400 cursor-not-allowed"}`}
+                onClick={() => {
+                  console.log("New button clicked, canCreate:", permissions.canCreate);
+                  if (!permissions.canCreate) return;
+                  resetForm();
+                  setShowModal(true);
+                }}
+                disabled={!permissions.canCreate}
+                title={!permissions.canCreate ? "No permission to create referral" : ""}
+              >
+                <Plus className="w-4 h-4" />
+                New
+              </button>
+            </div>
           </div>
 
+          {/* READ-ONLY SECTION: Table and data - Only shown when canRead is true */}
+          {permissions.canRead && (
           <div>
             <div className="border rounded-lg p-3">
               <div className="flex items-center justify-between mb-2">
@@ -645,6 +649,7 @@ function ClinicReferralPage() {
               )}
             </div>
           </div>
+          )}
         </div>
       </div>
 

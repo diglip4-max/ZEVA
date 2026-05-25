@@ -1,7 +1,7 @@
 import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import { NextPageWithLayout } from "@/pages/_app";
-import React, { ReactElement, useState, useCallback, useEffect, useRef } from "react";
+import React, { ReactElement, useState, useCallback, useEffect} from "react";
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
 import {
@@ -48,7 +48,7 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
   contextOverride?: "clinic" | "agent" | null;
 }) => {
   const router = useRouter();
-  const [routeContext, setRouteContext] = useState<"clinic" | "agent">(
+  const [_routeContext, setRouteContext] = useState<"clinic" | "agent">(
     contextOverride || "clinic",
   );
   const [permissions, setPermissions] = useState({
@@ -1525,7 +1525,7 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
                                   {request.items.map((item, idx) => (
                                     <tr key={idx}>
                                       <td className="px-4 py-2 text-sm text-gray-900">
-                                        {item.itemName}
+                                        {item.name}
                                       </td>
                                       <td className="px-4 py-2 text-sm text-gray-500">
                                         {item.quantity}
@@ -1585,11 +1585,11 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
                       <button
                         key={pageNum}
                         onClick={() => handlePageChange(pageNum)}
-                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${{
-                          true: "bg-blue-600 text-white",
-                          false:
-                            "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50",
-                        }[pagination.currentPage === pageNum]}`}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                          pagination.currentPage === pageNum
+                            ? "bg-blue-600 text-white"
+                            : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                        }`}
                       >
                         {pageNum}
                       </button>

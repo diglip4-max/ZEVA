@@ -2,7 +2,7 @@
 import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import { NextPageWithLayout } from "@/pages/_app";
-import React, { ReactElement, useState, useEffect, useCallback, useRef } from "react";
+import React, { ReactElement, useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
 import { PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
@@ -54,7 +54,7 @@ const StockLocationPage: NextPageWithLayout = ({
   contextOverride?: "clinic" | "agent" | null;
 }) => {
   const router = useRouter();
-  const [routeContext, setRouteContext] = useState<"clinic" | "agent">(
+  const [_routeContext, setRouteContext] = useState<"clinic" | "agent">(
     contextOverride || "clinic",
   );
   const [permissions, setPermissions] = useState({

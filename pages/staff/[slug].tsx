@@ -215,6 +215,8 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   "clinic-stocks-grn": () => import("../clinic/stocks/grn"),
   "clinic-stocks-purchase-invoices": () =>
     import("../clinic/stocks/purchase-invoices"),
+  "clinic-stocks-purchase-returns": () =>
+    import("../clinic/stocks/purchase-returns"),
   "clinic-stocks-stock-qty-adjustment": () =>
     import("../clinic/stocks/stock-qty-adjustment"),
   "clinic-stocks-material-consumptions": () =>
@@ -230,6 +232,7 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   "clinic-pettycash": () => import("../clinic/pettycash"),
   "clinic-pass-claims": () => import("../clinic/pass-claims"),
   "clinic-report": () => import("../clinic/report"),
+  "clinic-authentication": () => import("../clinic/authentication"),
 };
 
 

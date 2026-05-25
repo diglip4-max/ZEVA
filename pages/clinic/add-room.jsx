@@ -387,7 +387,7 @@ function AddRoomPage({ contextOverride = null }) {
 
   useEffect(() => {
     if (!permissionsLoaded) return;
-    if (!permissions.canRead) {
+    if (!permissions.canRead && !permissions.canCreate) {
       setRooms([]);
       setDepartments([]);
       setLoading(false);
@@ -426,7 +426,7 @@ function AddRoomPage({ contextOverride = null }) {
     return () => {
       cancelled = true;
     };
-  }, [permissionsLoaded, permissions.canRead]);
+  }, [permissionsLoaded, permissions.canRead, permissions.canCreate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -763,7 +763,7 @@ function AddRoomPage({ contextOverride = null }) {
           <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
           <p className="text-xs sm:text-sm">Checking your permissions...</p>
         </div>
-      ) : !permissions.canRead ? (
+      ) : !permissions.canRead && !permissions.canCreate ? (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -771,7 +771,7 @@ function AddRoomPage({ contextOverride = null }) {
             </div>
             <h2 className="text-xl font-bold text-teal-900 mb-2">Access Denied</h2>
             <p className="text-sm text-teal-700 mb-4">
-              You do not have permission to view rooms and departments.
+              You do not have permission to view or create rooms and departments.
             </p>
             <p className="text-xs text-teal-600">
               Please contact your administrator to request access to the Add Room module.
@@ -904,6 +904,8 @@ function AddRoomPage({ contextOverride = null }) {
           </div>
           )}
 
+          {permissions.canRead && (
+            <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
               <div className="flex items-center gap-2 mb-2">
@@ -1030,8 +1032,10 @@ function AddRoomPage({ contextOverride = null }) {
         )}
           </div>
           )}
+            </>
+          )}
 
-          {viewMode === "department" && (
+          {viewMode === "department" && permissions.canRead && (
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
               <div className="flex items-center gap-2 mb-4">
                 <Building2 className="w-5 h-5 text-teal-700" />

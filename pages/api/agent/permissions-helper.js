@@ -60,7 +60,13 @@ export async function checkAgentPermission(agentId, moduleKey, action, subModule
             sm.moduleKey && moduleCandidates.some(candidate => 
               sm.moduleKey === candidate || 
               sm.moduleKey.replace(/^(admin|clinic|doctor)_/, '') === candidate.replace(/^(admin|clinic|doctor)_/, '')
-            )
+            ) ||
+            // Also check by name (e.g., "Enquiry", "Review")
+            sm.name && moduleCandidates.some(candidate => {
+              const candidateName = candidate.replace(/^(admin|clinic|doctor)_/, '').replace(/_/g, ' ').toLowerCase();
+              const subModuleName = sm.name.toLowerCase();
+              return subModuleName.includes(candidateName);
+            })
           );
           if (subModule) {
             modulePermission = subModule;
@@ -212,7 +218,13 @@ export async function getAgentModulePermissions(agentId, moduleKey) {
             const found = sm.moduleKey && moduleCandidates.some(candidate => 
               sm.moduleKey === candidate || 
               sm.moduleKey.replace(/^(admin|clinic|doctor)_/, '') === candidate.replace(/^(admin|clinic|doctor)_/, '')
-            );
+            ) ||
+            // Also check by name (e.g., "Enquiry", "Review")
+            sm.name && moduleCandidates.some(candidate => {
+              const candidateName = candidate.replace(/^(admin|clinic|doctor)_/, '').replace(/_/g, ' ').toLowerCase();
+              const subModuleName = sm.name.toLowerCase();
+              return subModuleName.includes(candidateName);
+            });
             console.log("[getAgentModulePermissions] subModule found:", found);
             return found;
           });

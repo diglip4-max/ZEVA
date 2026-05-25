@@ -50,7 +50,7 @@ const AddLocationModal: React.FC<AddLocationModalProps> = ({
             </div>
           </div>
           <button
-            onClick={handleClose}
+            onClick={onClose}
             disabled={loading}
             className="text-white hover:bg-white/20 rounded-lg p-1.5 transition-colors disabled:opacity-50"
           >
@@ -111,7 +111,7 @@ const AddLocationModal: React.FC<AddLocationModalProps> = ({
         {/* Footer */}
         <div className="border-t border-t-gray-200 bg-gray-50 px-4 py-3 flex justify-end gap-2">
           <button
-            onClick={handleClose}
+            onClick={onClose}
             disabled={loading}
             className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 text-xs sm:text-sm font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
           >
