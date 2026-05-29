@@ -33,24 +33,7 @@ export default async function handler(req, res) {
             return res.status(404).json({ success: false, message: error });
           }
 
-          // ✅ Check permission for reading published blogs (only for agent/doctorStaff, clinic/admin/doctor bypass)
-          if (!["admin", "clinic", "doctor"].includes(me.role) && clinicId) {
-            if (isAgent || isDoctorStaff) {
-              const result = await checkAgentPermission(
-                me._id,
-                "clinic_write_blog", // Use clinic_write_blog to match the module key format
-                "read",
-                null // No submodule - this is a module-level check
-              );
-              if (!result.hasPermission) {
-              return res.status(403).json({
-                success: false,
-                  message: result.error || "You do not have permission to view published blogs"
-              });
-              }
-            }
-            // Clinic, admin, and doctor users bypass permission checks
-          }
+          // ✅ No permission checks - all authenticated users with clinic access can read blogs
 
           const { id } = req.query;
 
@@ -278,24 +261,7 @@ export default async function handler(req, res) {
             return res.status(404).json({ success: false, message: error });
           }
 
-          // ✅ Check permission for creating published blogs (only for agent/doctorStaff, clinic/admin/doctor bypass)
-          if (!["admin", "clinic", "doctor"].includes(me.role) && clinicId) {
-            if (isAgent || isDoctorStaff) {
-              const result = await checkAgentPermission(
-                me._id,
-                "clinic_write_blog", // Use clinic_write_blog to match the module key format
-                "create",
-                null // No submodule - this is a module-level check
-              );
-              if (!result.hasPermission) {
-              return res.status(403).json({
-                success: false,
-                  message: result.error || "You do not have permission to create blogs"
-              });
-              }
-            }
-            // Clinic, admin, and doctor users bypass permission checks
-          }
+          // ✅ No permission checks - all authenticated users with clinic access can create blogs
 
           const { title, content, paramlink } = req.body;
           const { draftId } = req.query; // Check if publishing from a draft
@@ -671,24 +637,7 @@ export default async function handler(req, res) {
             });
           }
 
-          // ✅ Check permission for updating published blogs (only for agent/doctorStaff, clinic/admin/doctor bypass)
-          if (!["admin", "clinic", "doctor"].includes(me.role) && clinicId) {
-            if (isAgent || isDoctorStaff) {
-              const result = await checkAgentPermission(
-                me._id,
-                "clinic_write_blog", // Use clinic_write_blog to match the module key format
-                "update",
-                null // No submodule - this is a module-level check
-              );
-              if (!result.hasPermission) {
-              return res.status(403).json({
-                success: false,
-                  message: result.error || "You do not have permission to update blogs"
-              });
-              }
-            }
-            // Clinic, admin, and doctor users bypass permission checks
-          }
+          // ✅ No permission checks - all authenticated users with clinic access can update blogs
 
           // If paramlink is being updated, automatically generate sequential slug if it conflicts
           let finalParamlink = paramlink;
@@ -818,24 +767,7 @@ export default async function handler(req, res) {
             });
           }
 
-          // ✅ Check permission for deleting published blogs (only for agent/doctorStaff, clinic/admin/doctor bypass)
-          if (!["admin", "clinic", "doctor"].includes(me.role) && clinicId) {
-            if (isAgent || isDoctorStaff) {
-              const result = await checkAgentPermission(
-                me._id,
-                "clinic_write_blog", // Use clinic_write_blog to match the module key format
-                "delete",
-                null // No submodule - this is a module-level check
-              );
-              if (!result.hasPermission) {
-              return res.status(403).json({
-                success: false,
-                  message: result.error || "You do not have permission to delete blogs"
-              });
-              }
-            }
-            // Clinic, admin, and doctor users bypass permission checks
-          }
+          // ✅ No permission checks - all authenticated users with clinic access can delete blogs
 
           // Clear comments and likes before deleting
           existingBlog.comments = [];

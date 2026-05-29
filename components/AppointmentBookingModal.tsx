@@ -211,12 +211,12 @@ export default function AppointmentBookingModal({
         setReferral("No");
       }
       setStartDate(defaultDate || new Date().toISOString().split("T")[0]);
-      // Reset mandatory fields to empty to force manual selection as per user request
-      setSelectedDoctorId("");
+      // Set doctor from click (pre-selected), but allow user to change via dropdown
+      setSelectedDoctorId(doctorId || "");
       setRoomId("");
       setStatus("");
 
-      console.log("Modal opened - mandatory fields reset to empty");
+      console.log("Modal opened - doctor pre-selected:", doctorId || "(none - dropdown will show placeholder)");
       // Always update bookedFrom from prop when modal opens - this ensures it's correct
       // CRITICAL: Use the prop value directly if it's explicitly "room" or "doctor"
       let newBookedFrom: "doctor" | "room";

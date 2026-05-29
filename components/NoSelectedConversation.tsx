@@ -5,11 +5,13 @@ import { useRouter } from "next/router";
 type Props = {
   onNewChat?: () => void;
   onCreateLead?: () => void;
+  canCreate?: boolean;
 };
 
 const NoSelectedConversation: React.FC<Props> = ({
   onNewChat,
   onCreateLead,
+  canCreate = true,
 }) => {
   const router = useRouter();
 
@@ -51,22 +53,24 @@ const NoSelectedConversation: React.FC<Props> = ({
           Select a conversation from the left, or start a new chat.
         </p>
 
-        <div className="mt-6 flex items-center justify-center gap-3">
-          <button
-            onClick={handleNewChat}
-            className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            New chat
-          </button>
+        {canCreate && (
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <button
+              onClick={handleNewChat}
+              className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              New chat
+            </button>
 
-          <button
-            onClick={handleCreateLead}
-            className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            Create lead
-          </button>
-        </div>
+            <button
+              onClick={handleCreateLead}
+              className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Create lead
+            </button>
+          </div>
+        )}
 
         <ul className="mt-6 text-sm text-gray-500 space-y-2">
           <li>• Tip: Use search to find existing leads quickly.</li>

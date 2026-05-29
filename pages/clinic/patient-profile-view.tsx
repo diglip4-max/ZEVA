@@ -4710,7 +4710,29 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   const startDate = p.startDate || pkg?.startDate;
                                   const endDate = p.endDate || pkg?.endDate;
                                   const isExpired = endDate && new Date(endDate) < new Date();
-                                  const paymentStatus = p.paymentStatus || 'Unpaid';
+                                  
+                                  // Calculate payment status from billing history (same logic as AppointmentBillingModal)
+                                  const packagePrice = pkg?.totalPrice || p.totalPrice || 0;
+                                  const packageBillingsForPkg = billingHistory?.filter((billing: any) =>
+                                    billing.service === "Package" && billing.package === pkg?.name
+                                  ) || [];
+                                  const totalCashPaidFromBillings = packageBillingsForPkg.reduce(
+                                    (sum: number, billing: any) => sum + (Number(billing.paid) || 0), 0
+                                  );
+                                  const totalAdvanceUsedFromBillings = packageBillingsForPkg.reduce(
+                                    (sum: number, billing: any) => sum + (Number(billing.advanceUsed) || 0), 0
+                                  );
+                                  const totalPaidFromBillings = totalCashPaidFromBillings + totalAdvanceUsedFromBillings;
+                                  
+                                  // Determine correct payment status based on total paid (cash + advance) vs price
+                                  let calculatedPaymentStatus = p.paymentStatus || 'Unpaid';
+                                  if (packagePrice > 0 && totalPaidFromBillings >= packagePrice) {
+                                    calculatedPaymentStatus = 'Full';
+                                  } else if (totalPaidFromBillings > 0) {
+                                    calculatedPaymentStatus = 'Partial';
+                                  }
+                                  
+                                  const paymentStatus = calculatedPaymentStatus;
                                   const paymentMethod = p.paymentMethod || 'N/A';
                                  
                                   return (
@@ -4724,7 +4746,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                         <div className={`font-bold ${isExpired ? 'text-red-900 line-through' : 'text-gray-800'} flex items-center gap-1.5`}>
                                           {pkg?.name || p.packageId} • {getCurrencySymbol(currency)}{pkg?.totalPrice}
                                           {paymentStatus === 'Full' && <span className="px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[7px] font-black uppercase">Full Paid</span>}
-                                          {paymentStatus === 'Partial' && <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[7px] font-black uppercase">Partial ({getCurrencySymbol(currency)}{p.paidAmount})</span>}
+                                          {paymentStatus === 'Partial' && <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[7px] font-black uppercase">Partial ({getCurrencySymbol(currency)}{totalPaidFromBillings})</span>}
                                           {paymentStatus === 'Unpaid' && <span className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-[7px] font-black uppercase">Unpaid</span>}
                                         </div>
                                         <button
@@ -5227,9 +5249,29 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                      
                       // Price calculation
                       const totalPrice = pkg.totalPrice || pkg.price || 0;
-                      const paidAmount = pkg.paidAmount || 0;
-                      const advanceUsed = pkg.advanceUsed || 0;
+                      // const paidAmount = pkg.paidAmount || 0;
+                      // const advanceUsed = pkg.advanceUsed || 0;
                       const formattedTotalPrice = typeof totalPrice === 'number' ? `${getCurrencySymbol(currency)}${totalPrice.toFixed(2)}` : `${getCurrencySymbol(currency)}${totalPrice || 0}`;
+                      
+                      // Calculate payment status from billing history (same logic as AppointmentBillingModal)
+                      const packageBillingsForPkg = billingHistory?.filter((billing: any) =>
+                        billing.service === "Package" && billing.package === packageName
+                      ) || [];
+                      const totalCashPaidFromBillings = packageBillingsForPkg.reduce(
+                        (sum: number, billing: any) => sum + (Number(billing.paid) || 0), 0
+                      );
+                      const totalAdvanceUsedFromBillings = packageBillingsForPkg.reduce(
+                        (sum: number, billing: any) => sum + (Number(billing.advanceUsed) || 0), 0
+                      );
+                      const totalPaidFromBillings = totalCashPaidFromBillings + totalAdvanceUsedFromBillings;
+                      
+                      // Determine correct payment status based on total paid (cash + advance) vs price
+                      let calculatedPaymentStatus = pkg.paymentStatus || 'Unpaid';
+                      if (totalPrice > 0 && totalPaidFromBillings >= totalPrice) {
+                        calculatedPaymentStatus = 'Full';
+                      } else if (totalPaidFromBillings > 0) {
+                        calculatedPaymentStatus = 'Partial';
+                      }
 
                       return (
                         <div key={pkg._id || packageId || index} className={`bg-white rounded-lg border ${isExpired ? 'border-red-200 shadow-sm' : 'border-gray-200 shadow-md'} overflow-hidden hover:shadow-lg transition-all duration-300 relative`}>
@@ -5263,20 +5305,20 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     </div>
                                   </div>
                                   <div className="flex flex-wrap items-center gap-2 text-[10px]">
-                                    {/* Payment Status & Method Tags */}
-                                    {pkg.paymentStatus === 'Full' && (
+                                    {/* Payment Status & Method Tags - Use calculated status from billing */}
+                                    {calculatedPaymentStatus === 'Full' && (
                                       <span className="px-2 py-0.5 rounded-lg bg-green-100 text-green-700 font-black uppercase text-[7px] shadow-sm flex items-center gap-1">
                                         <CheckCircle className="w-2 h-2" />
                                         Full Paid
                                       </span>
                                     )}
-                                    {pkg.paymentStatus === 'Partial' && (
+                                    {calculatedPaymentStatus === 'Partial' && (
                                       <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 font-black uppercase text-[7px] shadow-sm flex items-center gap-1">
                                         <Activity className="w-2 h-2" />
-                                        Partial
+                                        Partial ({getCurrencySymbol(currency)}{totalPaidFromBillings})
                                       </span>
                                     )}
-                                    {pkg.paymentStatus === 'Unpaid' && (
+                                    {calculatedPaymentStatus === 'Unpaid' && (
                                       <span className="px-2 py-0.5 rounded-lg bg-red-100 text-red-700 font-black uppercase text-[7px] shadow-sm flex items-center gap-1">
                                         <XCircle className="w-2 h-2" />
                                         Unpaid
@@ -5322,33 +5364,33 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               <div className="space-y-1.5">
                                 <div className="flex items-center justify-between">
                                   <span className="text-[9px] text-gray-600 font-medium">Cash/Card Paid:</span>
-                                  <span className="text-[10px] font-bold text-green-700">{getCurrencySymbol(currency)}{paidAmount.toFixed(2)}</span>
+                                  <span className="text-[10px] font-bold text-green-700">{getCurrencySymbol(currency)}{totalCashPaidFromBillings.toFixed(2)}</span>
                                 </div>
-                                {(pkg.totalPaid || 0) > paidAmount && (
+                                {totalAdvanceUsedFromBillings > 0 && (
                                   <div className="flex items-center justify-between">
                                     <span className="text-[9px] text-gray-600 font-medium">Advance Used:</span>
-                                    <span className="text-[10px] font-bold text-emerald-700">{getCurrencySymbol(currency)}{((pkg.totalPaid || 0) - paidAmount).toFixed(2)}</span>
+                                    <span className="text-[10px] font-bold text-emerald-700">{getCurrencySymbol(currency)}{totalAdvanceUsedFromBillings.toFixed(2)}</span>
                                   </div>
                                 )}
-                                {(pkg.totalPaid || 0) > 0 && (
+                                {totalPaidFromBillings > 0 && (
                                   <div className="flex items-center justify-between bg-green-50 px-1.5 py-0.5 rounded">
                                     <span className="text-[9px] text-green-700 font-medium">Total Paid:</span>
-                                    <span className="text-[10px] font-bold text-green-800">{getCurrencySymbol(currency)}{(pkg.totalPaid || 0).toFixed(2)}</span>
+                                    <span className="text-[10px] font-bold text-green-800">{getCurrencySymbol(currency)}{totalPaidFromBillings.toFixed(2)}</span>
                                   </div>
                                 )}
                                 <div className="flex items-center justify-between">
                                   <span className="text-[9px] text-gray-600 font-medium">Status:</span>
-                                  <span className={`text-[9px] font-bold ${pkg.paymentStatus === 'Full' ? 'text-green-700' : pkg.paymentStatus === 'Partial' ? 'text-amber-700' : 'text-gray-600'}`}>
-                                    {pkg.paymentStatus === 'Full' ? 'Full' : pkg.paymentStatus === 'Partial' ? 'Partial' : 'Unpaid'}
+                                  <span className={`text-[9px] font-bold ${calculatedPaymentStatus === 'Full' ? 'text-green-700' : calculatedPaymentStatus === 'Partial' ? 'text-amber-700' : 'text-gray-600'}`}>
+                                    {calculatedPaymentStatus === 'Full' ? 'Full' : calculatedPaymentStatus === 'Partial' ? 'Partial' : 'Unpaid'}
                                   </span>
                                 </div>
-                                {advanceUsed > 0 && (
+                                {totalAdvanceUsedFromBillings > 0 && (
                                   <div className="pt-1.5 border-t border-gray-200 mt-1.5">
                                     <div className="flex items-center justify-between">
                                       <div className="flex items-center gap-1">
                                         <span className="text-[9px] text-gray-600 font-medium">Advance Used:</span>
                                       </div>
-                                      <span className="text-[10px] font-bold text-emerald-700">{getCurrencySymbol(currency)}{advanceUsed.toFixed(2)}</span>
+                                      <span className="text-[10px] font-bold text-emerald-700">{getCurrencySymbol(currency)}{totalAdvanceUsedFromBillings.toFixed(2)}</span>
                                     </div>
                                   </div>
                                 )}
@@ -6269,13 +6311,13 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
               /* Billing Tab Content - Modern Two-Column Dashboard */
               <div className="space-y-4">
                 {/* Billing Overview Stats - Top Row for Mobile */}
-                {!loadingBilling && billingHistory && (billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length > 0 && (
+                {!loadingBilling && billingHistory && (billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Historical Advance Balance").length > 0 && (
                   <div className="grid grid-cols-2 lg:hidden gap-3">
                     <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
                       <div className="text-[10px] text-blue-600 font-bold uppercase tracking-wider mb-1">Total Billed</div>
                       <div className="text-lg font-bold text-blue-800">
                         {formatAED((billingHistory || []).filter((b: any) =>
-                          (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") ||
+                          (!b.isAdvanceOnly && b.treatment !== "Historical Advance Balance") ||
                           b.treatment === "Pending Balance Payment"
                         ).reduce((acc: number, b: any) => acc + (Number(b.amount) || 0), 0))}
                       </div>
@@ -6294,7 +6336,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     <div className="col-span-1 lg:col-span-3 flex items-center justify-center py-12">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
                     </div>
-                  ) : !billingHistory || (billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length === 0 ? (
+                  ) : !billingHistory || (billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Historical Advance Balance").length === 0 ? (
                     <div className="col-span-1 lg:col-span-3">
                       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                         {/* Top gradient banner */}
@@ -6428,7 +6470,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               </thead>
                               <tbody className="bg-white divide-y divide-gray-100">
                                 {(billingHistory || [])
-                                  .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
+                                  .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Historical Advance Balance")
                                   .filter((b: any) => {
                                     if (!billingSearchQuery.trim()) return true;
                                     const query = billingSearchQuery.toLowerCase();
@@ -6439,14 +6481,17 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     return invoiceMatch || treatmentMatch;
                                   })
                                   .map((billing: any, index: number) => {
-                                    // Calculate discount
+                                    // Check if this is an advance payment (should not show discount calculation)
+                                    const isAdvancePayment = billing.treatment === "Advance Payment" || billing.isAdvanceOnly;
+                                                                      
+                                    // Calculate discount (exclude advance payments from discount calculation)
                                     const originalAmt = billing.originalAmount || billing.amount || 0;
-                                    const totalDiscount = originalAmt > billing.amount ? (originalAmt - billing.amount) : 0;
+                                    const totalDiscount = (!isAdvancePayment && originalAmt > billing.amount) ? (originalAmt - billing.amount) : 0;
                                     const discountPercent = originalAmt > 0 ? (totalDiscount / originalAmt * 100) : 0;
                                     const isDoctorDiscount = billing.isDoctorDiscountApplied;
                                     const isAgentDiscount = billing.isAgentDiscountApplied;
                                     const isMembershipDiscount = (billing.membershipDiscountApplied || 0) > 0;
-                                   
+                                                                      
                                     // Refund info
                                     const isRefunded = billing.isOfferRefunded || false;
                                     const refundedOffers = billing.refundedOffers || [];
@@ -6830,7 +6875,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               </thead>
                               <tbody className="bg-white divide-y divide-gray-100">
                                 {(billingHistory || [])
-                                  .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
+                                  .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Historical Advance Balance")
                                   .filter((b: any) => {
                                     if (!billingSearchQuery.trim()) return true;
                                     const query = billingSearchQuery.toLowerCase();
@@ -6841,26 +6886,29 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     return invoiceMatch || treatmentMatch;
                                   })
                                   .map((billing: any, index: number) => {
-                                    // Calculate discount
+                                    // Check if this is an advance payment (should not show discount calculation)
+                                    const isAdvancePayment = billing.treatment === "Advance Payment" || billing.isAdvanceOnly;
+                                                                      
+                                    // Calculate discount (exclude advance payments from discount calculation)
                                     const originalAmt = billing.originalAmount || billing.amount || 0;
-                                    const totalDiscount = originalAmt > billing.amount ? (originalAmt - billing.amount) : 0;
+                                    const totalDiscount = (!isAdvancePayment && originalAmt > billing.amount) ? (originalAmt - billing.amount) : 0;
                                     const discountPercent = originalAmt > 0 ? (totalDiscount / originalAmt * 100) : 0;
-                                   
+                                                                      
                                     // Refund info
                                     const isRefunded = billing.isOfferRefunded || false;
-                                   
+                                                                      
                                     // Payment methods
                                     const paymentMethods = billing.multiplePayments && billing.multiplePayments.length > 0
                                       ? billing.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ")
                                       : (billing.paymentMethod || "–");
-                                   
+                                                                      
                                     // Offer type
                                     const offerType = billing.offerType || null;
-                                    
+                                                                      
                                     // Free sessions
                                     const usedFreeSessionCount = billing.usedFreeSessionCount || 0;
                                     const earnedFreeSessions = billing.freeOfferSessionCount || 0;
-                                   
+                                                                      
                                     // Cashback
                                     const cashbackEarnedAmt = billing.cashbackEarned || 0;
                                     const cashbackEarnedFromOffer = billing.cashbackAmount || 0;
@@ -6986,7 +7034,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                             {/* Mobile List View */}
                             <div className="md:hidden divide-y divide-gray-100">
                               {(billingHistory || [])
-                                .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
+                                .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Historical Advance Balance")
                                 .filter((b: any) => {
                                   if (!billingSearchQuery.trim()) return true;
                                   const query = billingSearchQuery.toLowerCase();
@@ -7185,7 +7233,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         </div>
 
                         {/* Summary Section - Total Billed, Total Paid, Outstanding */}
-                        {(billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length > 0 && (
+                        {(billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Historical Advance Balance").length > 0 && (
                           <div className="px-5 py-4 border-t border-gray-200 bg-gray-50">
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                               {/* Total Billed */}
@@ -7193,7 +7241,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                 <div className="text-[10px] sm:text-xs text-blue-600 mb-1">Total Billed</div>
                                 <div className="text-lg sm:text-xl md:text-2xl font-bold text-blue-800">
                                   {formatAED((billingHistory || []).filter((b: any) =>
-                                    (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") ||
+                                    (!b.isAdvanceOnly && b.treatment !== "Historical Advance Balance") ||
                                     b.treatment === "Pending Balance Payment"
                                   ).reduce((acc: number, b: any) => acc + (Number(b.amount) || 0), 0))}
                                 </div>
@@ -7203,7 +7251,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                 <div className="text-[10px] sm:text-xs text-green-600 mb-1">Total Paid</div>
                                 <div className="text-lg sm:text-xl md:text-2xl font-bold text-green-800">
                                   {formatAED((billingHistory || []).filter((b: any) =>
-                                    (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") ||
+                                    (!b.isAdvanceOnly && b.treatment !== "Historical Advance Balance") ||
                                     b.treatment === "Pending Balance Payment"
                                   ).reduce((acc: number, b: any) => acc + (Number(b.paid) || 0), 0))}
                                 </div>
@@ -10203,6 +10251,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           patientId={patientData._id}
           patientName={`${patientData.firstName} ${patientData.lastName}`}
           onSuccess={async () => {
+            // Refresh billing history to show advance payment in billing section
+            await fetchBillingHistory();
+            // Also refresh patient balance
             const updated = await fetchPatientBalance(patientData._id);
             if (updated) setBalance(updated as typeof balance);
           }}
@@ -10426,7 +10477,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
               {/* Payment Details Section */}
               <div className="px-6 py-4 overflow-y-auto max-h-[calc(90vh-300px)]">
                 {/* All Payments from multiplePayments array */}
-                {selectedPaymentHistoryBilling.multiplePayments && selectedPaymentHistoryBilling.multiplePayments.length > 0 && (
+                {selectedPaymentHistoryBilling.multiplePayments && selectedPaymentHistoryBilling.multiplePayments.length > 0 ? (
                   <div className="mb-4">
                     <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
                       <div className="p-1.5 bg-indigo-100 rounded-full">
@@ -10511,6 +10562,88 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         </div>
                       ))}
                     </div>
+                  </div>
+                ) : (
+                  /* Single Payment - Show the single payment details directly */
+                  <div className="mb-4">
+                    <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                      <div className="p-1.5 bg-indigo-100 rounded-full">
+                        <CreditCard className="w-4 h-4 text-indigo-600" />
+                      </div>
+                      Payment Details
+                    </h4>
+                    {selectedPaymentHistoryBilling.paid > 0 && (
+                      <div className="p-4 rounded-xl border-2 bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2.5 rounded-xl bg-green-100">
+                              {selectedPaymentHistoryBilling.paymentMethod === 'Cash' && <span className="text-lg">💵</span>}
+                              {selectedPaymentHistoryBilling.paymentMethod === 'Card' && <span className="text-lg">💳</span>}
+                              {selectedPaymentHistoryBilling.paymentMethod === 'Advance Balance' && <Wallet className="w-5 h-5 text-amber-600" />}
+                              {(selectedPaymentHistoryBilling.paymentMethod === 'Insurance' || selectedPaymentHistoryBilling.paymentMethod === 'Claim') && <span className="text-lg">🏥</span>}
+                              {!['Cash', 'Card', 'Advance Balance', 'Insurance', 'Claim'].includes(selectedPaymentHistoryBilling.paymentMethod) && <CreditCard className="w-5 h-5 text-gray-600" />}
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-gray-800">{selectedPaymentHistoryBilling.paymentMethod || 'Payment'}</p>
+                              <p className="text-[10px] text-gray-500">
+                                {selectedPaymentHistoryBilling.paidAt ? new Date(selectedPaymentHistoryBilling.paidAt).toLocaleString('en-US', {
+                                  month: 'short', day: 'numeric', year: 'numeric',
+                                  hour: '2-digit', minute: '2-digit'
+                                }) : 'N/A'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xl font-bold text-gray-900">{getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.paid || 0).toLocaleString()}</p>
+                            <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold bg-green-100 text-green-700">
+                              Paid
+                            </span>
+                          </div>
+                        </div>
+                        {/* Transaction Details */}
+                        <div className="mt-3 pt-3 border-t border-gray-200/50 grid grid-cols-3 gap-2">
+                          <div>
+                            <p className="text-[9px] text-gray-400 uppercase">Amount</p>
+                            <p className="text-xs font-semibold text-gray-600">{getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.amount || 0).toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] text-gray-400 uppercase">Paid Amount</p>
+                            <p className="text-xs font-semibold text-gray-600">{getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.paid || 0).toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] text-gray-400 uppercase">Paid By</p>
+                            <p className="text-xs font-semibold text-gray-600">{selectedPaymentHistoryBilling.paidByName || 'N/A'}</p>
+                          </div>
+                        </div>
+                        {/* Pending Amount */}
+                        {(selectedPaymentHistoryBilling.pending > 0 || selectedPaymentHistoryBilling.pendingAmount > 0) && (
+                          <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-[10px] text-amber-600 uppercase font-bold">Pending Amount</p>
+                                <p className="text-lg font-bold text-amber-700">{getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.pending || selectedPaymentHistoryBilling.pendingAmount || 0).toLocaleString()}</p>
+                              </div>
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-700">Unpaid</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {/* If no paid amount, show basic info */}
+                    {!selectedPaymentHistoryBilling.paid && (
+                      <div className="p-4 rounded-xl border-2 border-gray-200 bg-gray-50">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-bold text-gray-700">No payments recorded yet</p>
+                            <p className="text-[10px] text-gray-500 mt-1">
+                              {selectedPaymentHistoryBilling.amount ? `Total: ${getCurrencySymbol(currency)}${Number(selectedPaymentHistoryBilling.amount).toLocaleString()}` : ''}
+                              {selectedPaymentHistoryBilling.pending > 0 ? ` | Pending: ${getCurrencySymbol(currency)}${Number(selectedPaymentHistoryBilling.pending).toLocaleString()}` : ''}
+                            </p>
+                          </div>
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-gray-200 text-gray-600">No Payment</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

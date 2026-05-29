@@ -920,14 +920,14 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
           return;
         }
 
-        console.log(
-          "ClinicSidebar: Using token:",
-          token ? "Token exists" : "No token found",
-        );
+        // console.log(
+        //   "ClinicSidebar: Using token:",
+        //   token ? "Token exists" : "No token found",
+        // );
 
         let res;
         try {
-          console.log('[ClinicSidebar] Calling /api/clinic/sidebar-permissions with token (first 20 chars):', token ? token.substring(0, 20) : 'no token');
+          // console.log('[ClinicSidebar] Calling /api/clinic/sidebar-permissions with token (first 20 chars):', token ? token.substring(0, 20) : 'no token');
           res = await axios.get("/api/clinic/sidebar-permissions", {
             headers: { Authorization: `Bearer ${token}` },
           });
@@ -940,9 +940,9 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
 
           // Handle 401, 403, 404, and other errors gracefully
           if (error.response?.status === 401) {
-            console.log(
-              "ClinicSidebar: Unauthorized - token may be invalid or expired",
-            );
+            // console.log(
+            //   "ClinicSidebar: Unauthorized - token may be invalid or expired",
+            // );
             setItems([]);
             setPermissions([]);
             setIsLoading(false);
@@ -956,9 +956,9 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             return;
           }
           if (error.response?.status === 404) {
-            console.log(
-              "ClinicSidebar: API endpoint not found - this may be normal for agent routes",
-            );
+            // console.log(
+            //   "ClinicSidebar: API endpoint not found - this may be normal for agent routes",
+            // );
             setItems([]);
             setPermissions([]);
             setIsLoading(false);
@@ -969,11 +969,11 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
         }
 
         if (res && res.data && res.data.success) {
-          console.log('[ClinicSidebar] Full res object:', res);
-          console.log('[ClinicSidebar] API Response data:', res.data);
-          console.log('[ClinicSidebar] res.data.permissions:', res.data.permissions);
+          // console.log('[ClinicSidebar] Full res object:', res);
+          // console.log('[ClinicSidebar] API Response data:', res.data);
+          // console.log('[ClinicSidebar] res.data.permissions:', res.data.permissions);
           const perms = res.data.permissions;
-          console.log('[ClinicSidebar] perms type:', typeof perms, 'length:', perms ? perms.length : 'null/undefined');
+          // console.log('[ClinicSidebar] perms type:', typeof perms, 'length:', perms ? perms.length : 'null/undefined');
           const localPermissions = perms && Array.isArray(perms) ? perms : [];
           setPermissions(localPermissions);
           
@@ -985,9 +985,9 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
           };
 
           const localHasModulePermission = (moduleKey: string, label?: string): boolean => {
-            console.log('[localHasModulePermission] Checking moduleKey:', moduleKey, 'label:', label, 'localPermissions:', localPermissions);
+            // console.log('[localHasModulePermission] Checking moduleKey:', moduleKey, 'label:', label, 'localPermissions:', localPermissions);
             if (!localPermissions || localPermissions.length === 0) {
-              console.log('[localHasModulePermission] No localPermissions set, returning true');
+              // console.log('[localHasModulePermission] No localPermissions set, returning true');
               return true;
             }
 
@@ -1010,7 +1010,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 ]).filter(Boolean)
               )
             );
-            console.log('[localHasModulePermission] moduleCandidates:', moduleCandidates);
+            // console.log('[localHasModulePermission] moduleCandidates:', moduleCandidates);
 
             const modulePerm = localPermissions.find(p => {
               const permModule = p.module || '';
@@ -1018,10 +1018,10 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 permModule === candidate ||
                 permModule.replace(/^(admin|clinic|doctor)_/, '') === (candidate as string).replace(/^(admin|clinic|doctor)_/, '')
               );
-              console.log('[localHasModulePermission] Checking permModule:', permModule, 'found:', found);
+              // console.log('[localHasModulePermission] Checking permModule:', permModule, 'found:', found);
               return found;
             });
-            console.log('[localHasModulePermission] modulePerm:', modulePerm);
+            // console.log('[localHasModulePermission] modulePerm:', modulePerm);
 
             if (modulePerm) {
               const actions = modulePerm.actions || {};
@@ -1035,28 +1035,24 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 localIsActionTrue(actions.export) ||
                 localIsActionTrue(actions.approve)
               );
-              console.log('[localHasModulePermission] actions:', actions, 'hasPermission:', hasPermission);
+              // console.log('[localHasModulePermission] actions:', actions, 'hasPermission:', hasPermission);
               return hasPermission;
             }
 
             // If no top-level module found, check parent module's subModules (stock and marketing)
             if (label) {
-              console.log('[localHasModulePermission] Checking parent subModules for label:', label);
+              // console.log('[localHasModulePermission] Checking parent subModules for label:', label);
               const parentModulesToCheck = ['clinic_stock', 'clinic_marketing'];
               for (const parentModuleKey of parentModulesToCheck) {
                 const parentPerm = localPermissions.find(p => p.module === parentModuleKey);
-                console.log('[localHasModulePermission] Checking parentModuleKey:', parentModuleKey, 'parentPerm:', parentPerm);
+                // console.log('[localHasModulePermission] Checking parentModuleKey:', parentModuleKey, 'parentPerm:', parentPerm);
                 if (parentPerm) {
-                  console.log('[localHasModulePermission] parentPerm.subModules:', parentPerm.subModules);
+                  // console.log('[localHasModulePermission] parentPerm.subModules:', parentPerm.subModules);
                   if (parentPerm.subModules && Array.isArray(parentPerm.subModules)) {
-                    console.log('[localHasModulePermission] parentPerm.subModules length:', parentPerm.subModules.length);
-                    for (const sm of parentPerm.subModules) {
-                      console.log('[localHasModulePermission] parent subModule:', sm.name, 'label:', label);
-                    }
                     const subModule = parentPerm.subModules.find((sm: { name?: string; actions?: Record<string, boolean> }) => {
                       const smNameTrimmed = sm.name?.trim().toLowerCase() || '';
                       const labelTrimmed = label.trim().toLowerCase();
-                      console.log('[localHasModulePermission] Comparing: smNameTrimmed:', smNameTrimmed, 'labelTrimmed:', labelTrimmed);
+                      // console.log('[localHasModulePermission] Comparing: smNameTrimmed:', smNameTrimmed, 'labelTrimmed:', labelTrimmed);
                       return (
                         smNameTrimmed === labelTrimmed ||
                         smNameTrimmed.includes(labelTrimmed) ||
@@ -1069,7 +1065,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                         (labelTrimmed === 'inbox' && smNameTrimmed === 'inbox')
                       );
                     });
-                    console.log('[localHasModulePermission] Found subModule:', subModule);
+                    // console.log('[localHasModulePermission] Found subModule:', subModule);
                     if (subModule && subModule.actions) {
                       const hasSubPermission = (
                         localIsActionTrue(subModule.actions.all) ||
@@ -1081,7 +1077,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                         localIsActionTrue(subModule.actions.export) ||
                         localIsActionTrue(subModule.actions.approve)
                       );
-                      console.log('[localHasModulePermission] Found subModule in', parentModuleKey, ':', subModule.name, 'actions:', subModule.actions, 'hasSubPermission:', hasSubPermission);
+                      // console.log('[localHasModulePermission] Found subModule in', parentModuleKey, ':', subModule.name, 'actions:', subModule.actions, 'hasSubPermission:', hasSubPermission);
                       return hasSubPermission;
                     }
                   }
@@ -1089,22 +1085,22 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               }
             }
 
-            console.log('[localHasModulePermission] No modulePerm or subModule found, returning false');
+            // console.log('[localHasModulePermission] No modulePerm or subModule found, returning false');
             return false;
           };
 
           const localShouldShowItem = (item: NavItemChild | NavItem): boolean => {
-            console.log('[localShouldShowItem] Checking item:', item);
+            // console.log('[localShouldShowItem] Checking item:', item);
             let moduleKey: string | undefined;
             if ('moduleKey' in item) {
               moduleKey = item.moduleKey;
             } else if (item.label in labelToModuleKey) {
               moduleKey = labelToModuleKey[item.label];
             }
-            console.log('[localShouldShowItem] item label:', item.label, 'moduleKey:', moduleKey);
+            // console.log('[localShouldShowItem] item label:', item.label, 'moduleKey:', moduleKey);
 
             if (!moduleKey) {
-              console.log('[localShouldShowItem] No moduleKey, returning true');
+              // console.log('[localShouldShowItem] No moduleKey, returning true');
               return true;
             }
 
@@ -1128,9 +1124,9 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             label.includes('allocated');
 
             if (isStockSubmodule || label.includes('stock')) {
-              console.log('[localShouldShowItem] Checking stock parent permission');
+              // console.log('[localShouldShowItem] Checking stock parent permission');
               const parentAllowed = localHasModulePermission('clinic_stock');
-              console.log('[localShouldShowItem] clinic_stock parent allowed:', parentAllowed);
+              // console.log('[localShouldShowItem] clinic_stock parent allowed:', parentAllowed);
               if (!parentAllowed) {
                 return false;
               }
@@ -1143,9 +1139,9 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 label.includes('inbox') || label.includes('template') || 
                 label.includes('provider') || label.includes('review') || 
                 label.includes('enquiry')) {
-              console.log('[localShouldShowItem] Checking marketing parent permission');
+              // console.log('[localShouldShowItem] Checking marketing parent permission');
               const parentAllowed = localHasModulePermission('clinic_marketing');
-              console.log('[localShouldShowItem] clinic_marketing parent allowed:', parentAllowed);
+              // console.log('[localShouldShowItem] clinic_marketing parent allowed:', parentAllowed);
               if (!parentAllowed) {
                 return false;
               }
@@ -1154,7 +1150,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             }
 
             const result = localHasModulePermission(moduleKey);
-            console.log('[localShouldShowItem] Result for', item.label, ':', result);
+            // console.log('[localShouldShowItem] Result for', item.label, ':', result);
             return result;
           };
           
@@ -1250,9 +1246,9 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
           // Helper to create item and check permission
           const createItem = (label: string, path: string, icon: string): NavItemChild | null => {
             const item = { label, path, icon };
-            console.log('[createItem] Creating item:', label);
+            // console.log('[createItem] Creating item:', label);
             const shouldShow = localShouldShowItem(item);
-            console.log('[createItem] Should show:', label, shouldShow);
+            // console.log('[createItem] Should show:', label, shouldShow);
             return shouldShow ? item : null;
           };
 

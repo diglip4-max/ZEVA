@@ -371,10 +371,11 @@ const BillingHistoryPage = () => {
       // Extract billings array from response (response.data.billings or response.data)
       let billingData = response.data?.billings || response.data;
       if (billingData && Array.isArray(billingData)) {
-        // Include all billing records except pure balance adjustments
-        // Advance payment records are now included for tracking
+        // Include all billing records including advance payments
+        // Advance payment records are included for tracking
         billingData = billingData.filter((b: any) => 
           !b.isAdvanceOnly ||
+          b.treatment === "Advance Payment" ||
           b.treatment === "Pending Balance Payment"
         );
         
@@ -637,12 +638,16 @@ const BillingHistoryPage = () => {
                           const cashbackEarnedAmt = billing.cashbackAmount || 0;
                           const cashbackOfferName = billing.cashbackOfferName || '';
                           
+                          // Check if this is an advance payment (should not show discount calculation)
+                          const isAdvancePayment = billing.treatment === "Advance Payment" || billing.isAdvanceOnly;
+                          
                           const originalAmount = billing.originalAmount || 0;
                           const finalAmount = billing.amount || 0;
-                          const totalDiscountAmount = originalAmount > finalAmount ? (originalAmount - finalAmount) : 0;
+                          // Exclude advance payments from discount calculation
+                          const totalDiscountAmount = (!isAdvancePayment && originalAmount > finalAmount) ? (originalAmount - finalAmount) : 0;
                           const totalPercent = totalDiscountAmount > 0 && originalAmount > 0 ? (totalDiscountAmount / originalAmount * 100) : 0;
                           const membershipPercent = isMembershipDiscount && originalAmount > 0 ? (membershipDiscountAmount / originalAmount * 100) : 0;
-
+                          
                           if (!isDoctorDiscount && !isAgentDiscount && !isMembershipDiscount && !isFreeSessionEarned && !isFreeSessionUsed && !isCashbackUsed && !isCashbackApplied && totalPercent <= 0) {
                             return <div className="text-xs text-gray-400">—</div>;
                           }
