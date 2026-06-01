@@ -51,11 +51,16 @@ class BookingPayload(BaseModel):
     fromTime: str
     toTime: str
 
+
+@tool
+def check_data():
+
 @tool("book_appointment",args_schema=BookingPayload)
 def book_appointment(patientId: str,doctorId: str,roomId: str,status: str,followType: str,startDate: str, fromTime: str,toTime: str ):
-    print(f"Booking appointment for patient {patientId} with doctor {doctorId} in room {roomId} on {startDate} from {fromTime} to {toTime}. Status: {status}, Follow-up type: {followType}")
-    return f"Appointment booked for patient {patientId} with doctor {doctorId} in room {roomId} on {startDate} from {fromTime} to {toTime}. Status: {status}, Follow-up type: {followType}"
+    print("http://localhost:3000/api/clinic/appointments")
 
+
+    
 
 conn = sqlite3.connect("chatbot.db", check_same_thread=False)
 checkpointer=SqliteSaver(conn=conn)
