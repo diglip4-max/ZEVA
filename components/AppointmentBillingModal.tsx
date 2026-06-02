@@ -389,7 +389,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     pending: "0.00",
     advance: "0.00",
     pastAdvance: "0.00",
-    paymentMethod: "Cash",
+    paymentMethod: "",
     insurance: "No",
     advanceGivenAmount: "",
     coPayPercent: "",
@@ -521,7 +521,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         pending: "0.00",
         advance: "0.00",
         pastAdvance: "0.00",
-        paymentMethod: "Cash",
+        paymentMethod: "",
         insurance: "No",
         advanceGivenAmount: "",
         coPayPercent: "",
@@ -3607,6 +3607,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       if (!formData.firstName) fieldErrors.firstName = "Required";
       if (!formData.mobileNumber) fieldErrors.mobileNumber = "Required";
       if (!formData.doctor) fieldErrors.doctor = "Required";
+      if (!formData.paymentMethod) fieldErrors.paymentMethod = "Choose payment method";
       if (Object.keys(fieldErrors).length > 0) {
         const missingList = Object.keys(fieldErrors)
           .map((k) => {
@@ -5444,16 +5445,20 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       <div>
                         <label className="block text-[10px] font-semibold text-gray-600 mb-1">Payment Method <span className="text-red-500">*</span></label>
                         <select value={formData.paymentMethod}
-                          onChange={(e) => setFormData((prev) => ({ ...prev, paymentMethod: e.target.value }))}
-                          className={`w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-1 focus:ring-teal-500 outline-none ${useMultiplePayments ? "opacity-50" : ""}`}
+                          onChange={(e) => { setFormData((prev) => ({ ...prev, paymentMethod: e.target.value })); if (errors.paymentMethod) setErrors((prev) => { const n = { ...prev }; delete n.paymentMethod; return n; }); }}
+                          className={`w-full px-2.5 py-1.5 text-xs border rounded-lg bg-white text-gray-900 focus:ring-1 focus:ring-teal-500 outline-none ${errors.paymentMethod ? "border-2 border-red-500" : "border-gray-300"} ${useMultiplePayments ? "opacity-50" : ""}`}
                           required disabled={useMultiplePayments}
                         >
+                          <option value="" disabled>Select Payment Method</option>
                           <option value="Cash">Cash</option>
                           <option value="Card">Card</option>
                           <option value="BT">BT</option>
                           <option value="Tabby">Tabby</option>
                           <option value="Tamara">Tamara</option>
                         </select>
+                        {errors.paymentMethod && (
+                          <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.paymentMethod}</p>
+                        )}
                       </div>
                     </div>
 
@@ -6123,7 +6128,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             // const paidAmount = totalCashPaidFromBillings || pkg.paidAmount || 0;
                             const advanceUsed = totalAdvanceUsedFromBillings;
                             const totalPaid = totalPaidFromBillings;
-                            const isUnpaid = paymentStatus === 'Unpaid' || totalPaid === 0;
+                            const isUnpaid = paymentStatus === 'Unpaid';
 
                             return (
                               <div key={`${pkg.packageId || pkg._id}-${pkgIndex}`} className={`border ${isExpired ? 'border-red-200 bg-red-50' : 'border-teal-200 bg-gradient-to-br from-teal-50 to-cyan-50'} rounded-xl overflow-hidden relative shadow-sm`}>

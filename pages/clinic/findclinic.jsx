@@ -22,6 +22,9 @@ import AuthModal from "../../components/AuthModal";
 import Image from "next/image";
 import { HeartPulse} from "lucide-react";
 
+// Simple SVG placeholder data URL
+const DEFAULT_IMG = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNDAwIiB2aWV3Qm94PSIwIDAgNDAwIDQwMCI+PHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSI0MDAiIGZpbGw9IiNlNWU3ZWIiLz48dGV4dCB4PSIyMDAiIHk9IjIwMCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjQwIiBmaWxsPSIjOWNhM2FiIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj5DbGluaWM8L3RleHQ+PC9zdmc+";
+
 export default function Home() {
     const [query, setQuery] = useState("");
     const resultsRef = useRef(null);
@@ -38,6 +41,7 @@ export default function Home() {
     const [clinicNamesLoading, setClinicNamesLoading] = useState(true);
     const [specialties, setSpecialties] = useState([]);
     const [specialtiesLoading, setSpecialtiesLoading] = useState(true);
+    const [failedImages, setFailedImages] = useState({}); // Track failed images: { clinicId: Set([photoIndex]) }
 
     // Auth Modal states
     const [showAuthModal, setShowAuthModal] = useState(false);
@@ -2018,9 +2022,22 @@ export default function Home() {
                                                                 const photos = (clinic.photos || []).filter(photo => photo);
                                                                 const currentIndex = photoIndexByClinic[clinic._id] !== undefined ? photoIndexByClinic[clinic._id] : (photos.length > 0 ? photos.length - 1 : 0);
                                                                 const currentPhoto = photos.length > 0 ? photos[currentIndex] : null;
+                                                                const hasFailed = failedImages[clinic._id]?.has(currentIndex);
+                                                                const imgSrc = hasFailed ? DEFAULT_IMG : (currentPhoto ? normalizeImagePath(currentPhoto) : DEFAULT_IMG);
+                                                                
+                                                                const handleImgError = (e) => {
+                                                                    if (!hasFailed) {
+                                                                        setFailedImages(prev => ({
+                                                                            ...prev,
+                                                                            [clinic._id]: new Set([...(prev[clinic._id] || []), currentIndex])
+                                                                        }));
+                                                                    }
+                                                                };
+                                                                
                                                                 return currentPhoto ? (
                                                                     <img
-                                                                        src={normalizeImagePath(currentPhoto)}
+                                                                        key={`${clinic._id}-${currentIndex}-${hasFailed ? 'failed' : 'ok'}`}
+                                                                        src={imgSrc}
                                                                         alt={clinic.name || "Clinic Image"}
                                                                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                                                         style={{
@@ -2029,9 +2046,7 @@ export default function Home() {
                                                                             height: '100%',
                                                                             display: 'block'
                                                                         }}
-                                                                        onError={(e) => {
-                                                                            e.currentTarget.src = "/image1.png";
-                                                                        }}
+                                                                        onError={handleImgError}
                                                                     />
                                                                 ) : (
                                                                     <div className="w-full h-full bg-gray-100 flex items-center justify-center">

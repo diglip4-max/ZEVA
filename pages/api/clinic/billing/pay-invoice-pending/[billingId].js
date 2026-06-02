@@ -235,7 +235,23 @@ export default async function handler(req, res) {
               break;
             }
             
-            // Check 2: Match by package name from Package model
+            // Check 2: Match by packageId field in billing (for transferred packages)
+            if (billing.packageId && String(pkg.packageId) === String(billing.packageId)) {
+              matchingPackageIndex = i;
+              matchingPackage = pkg;
+              console.log('[PayInvoicePending] Match by billing.packageId found at index', i);
+              break;
+            }
+            
+            // Check 3: Match by packageName field directly (fallback for transferred packages)
+            if (pkg.packageName && String(pkg.packageName).toLowerCase() === String(billing.package).toLowerCase()) {
+              matchingPackageIndex = i;
+              matchingPackage = pkg;
+              console.log('[PayInvoicePending] Match by packageName found at index', i);
+              break;
+            }
+            
+            // Check 4: Match by package name from Package model
             if (pkg.packageId) {
               try {
                 const pkgModel = await Package.findById(pkg.packageId);
@@ -248,6 +264,21 @@ export default async function handler(req, res) {
                 }
               } catch (pkgErr) {
                 console.log('[PayInvoicePending] Error fetching package model:', pkgErr);
+              }
+            }
+            
+            // Check 5: Match by packageId name (for transferred packages where packageName might not match)
+            if (pkg.packageId && billing.package) {
+              try {
+                const pkgModel = await Package.findById(pkg.packageId);
+                if (pkgModel && pkgModel.name && String(pkgModel.name).toLowerCase() === String(billing.package).toLowerCase()) {
+                  matchingPackageIndex = i;
+                  matchingPackage = pkg;
+                  console.log('[PayInvoicePending] Match by packageId name found at index', i);
+                  break;
+                }
+              } catch (pkgErr) {
+                // Ignore errors
               }
             }
           }
@@ -286,6 +317,9 @@ export default async function handler(req, res) {
             }
             
             console.log('[PayInvoicePending] Updated package object in array:', patient.packages[matchingPackageIndex]);
+            
+            // Mark the packages array as modified to ensure mongoose saves the changes
+            patient.markModified('packages');
             
             // Also update the top-level package fields in PatientRegistration
             patient.packageId = patient.packageId || pkg.packageId;

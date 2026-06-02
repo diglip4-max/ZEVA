@@ -8916,8 +8916,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     const amount = parseFloat(billing.amount) || 0;
                     const originalAmount = parseFloat(billing.originalAmount) || amount;
                     const paid = parseFloat(billing.paid || billing.paidAmount || 0) || 0;
+                    const advanceUsed = parseFloat(billing.advanceUsed || 0) || 0;
                     const pending = parseFloat(billing.pending || 0) || 0;
                     const pendingUsed = parseFloat(billing.pendingUsed || 0) || 0;
+                    const totalPaid = paid + advanceUsed; // Total paid including advance balance
                    
                     // Get invoice number early (needed for manuallyPaidInvoices check)
                     const invoiceNumber = billing.invoiceNumber || billing.invoiceNo || billing._id?.slice(-8).toUpperCase() || '';
@@ -8977,6 +8979,8 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                       treatmentStatus,
                       amount,
                       paid,
+                      advanceUsed, // Add advance used for UI display
+                      totalPaid, // Add total paid (cash + advance) for UI display
                       pendingAmount: remainingPending, // Use remaining pending after pendingUsed deduction
                       isFullyPaid,
                       invoiceNumber,
@@ -9348,7 +9352,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   </div>
                                   <div className="flex items-center justify-between text-sm">
                                     <span className="text-gray-500">Paid:</span>
-                                    <span className="font-semibold text-green-600">{getCurrencySymbol(currency)} {(item.paid || 0).toFixed(2)}</span>
+                                    <span className="font-semibold text-green-600">{getCurrencySymbol(currency)} {(item.totalPaid || item.paid || 0).toFixed(2)}</span>
                                   </div>
                                   {hasPendingAmount && (
                                     <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-100">
@@ -11004,7 +11008,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   </div>
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-xs text-amber-700 font-semibold">Paid:</span>
-                    <span className="text-sm font-bold text-green-700">{getCurrencySymbol(currency)} {(selectedInvoiceForPayment.paid || 0).toFixed(2)}</span>
+                    <span className="text-sm font-bold text-green-700">{getCurrencySymbol(currency)} {(selectedInvoiceForPayment.totalPaid || selectedInvoiceForPayment.paid || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center pt-2 border-t border-amber-200">
                     <span className="text-xs text-red-700 font-bold">Pending:</span>
