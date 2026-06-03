@@ -335,9 +335,9 @@ function PassClaimsPage() {
       const headers = getAuthHeaders();
       const res = await axios.get("/api/clinic/insurance-claims", { headers });
       if (res.data.success) {
-        // Only show Approved, Rejected, and Released claims (already reviewed by doctor)
+        // Show Approved, Released, and claims rejected from pass-claims (Under Review with rejectedFromPassClaims flag)
         const reviewedClaims = (res.data.data || []).filter(
-          (c) => c.status === "Approved" || c.status === "Rejected" || c.status === "Released"
+          (c) => c.status === "Approved" || c.status === "Released" || (c.status === "Under Review" && c.rejectedFromPassClaims === true)
         );
         setClaims(reviewedClaims);
       }
@@ -350,7 +350,13 @@ function PassClaimsPage() {
 
   const filteredClaims = useMemo(() => {
     return claims
-      .filter((c) => c.status === activeTab)
+      .filter((c) => {
+        // For Rejected tab, show claims with rejectedFromPassClaims flag (status is "Under Review")
+        if (activeTab === "Rejected") {
+          return c.status === "Under Review" && c.rejectedFromPassClaims === true;
+        }
+        return c.status === activeTab;
+      })
       .filter((c) => {
         if (!searchTerm) return true;
         const term = searchTerm.toLowerCase();
@@ -435,11 +441,12 @@ function PassClaimsPage() {
         { headers }
       );
       if (res.data.success) {
-        setClaims((prev) => prev.filter((c) => c._id !== rejectModal._id));
         setRejectModal(null);
         setRejectionNote("");
         setSuccessMsg("Claim rejected back to doctor successfully!");
         setTimeout(() => setSuccessMsg(""), 3000);
+        // Refresh claims to show the rejected claim in the Rejected tab
+        fetchClaims();
       }
     } catch (err) {
       alert(err.response?.data?.message || "Failed to reject claim");
@@ -448,19 +455,27 @@ function PassClaimsPage() {
     }
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status, rejectedFromPassClaims) => {
+    // Claims rejected from pass-claims have status "Under Review" but should show as "Rejected"
+    const displayStatus = (status === "Under Review" && rejectedFromPassClaims) ? "Rejected" : status;
     const styles = {
       Approved: "bg-green-100 text-green-800 border-green-300",
       Rejected: "bg-red-100 text-red-800 border-red-300",
       Released: "bg-blue-100 text-blue-800 border-blue-300",
     };
-    return styles[status] || "bg-gray-100 text-gray-800 border-gray-300";
+    return styles[displayStatus] || "bg-gray-100 text-gray-800 border-gray-300";
+  };
+
+  // Helper to get display status for a claim
+  const getDisplayStatus = (claim) => {
+    if (claim.status === "Under Review" && claim.rejectedFromPassClaims) return "Rejected";
+    return claim.status;
   };
 
   const tabs = ["Approved", "Rejected", "Released"];
   const tabCounts = {
     Approved: claims.filter((c) => c.status === "Approved").length,
-    Rejected: claims.filter((c) => c.status === "Rejected").length,
+    Rejected: claims.filter((c) => c.status === "Under Review" && c.rejectedFromPassClaims === true).length,
     Released: claims.filter((c) => c.status === "Released").length,
   };
 
@@ -580,22 +595,24 @@ function PassClaimsPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {paginatedClaims.map((claim) => (
+              {paginatedClaims.map((claim) => {
+                const displayStatus = getDisplayStatus(claim);
+                return (
                 <div
                   key={claim._id}
                   className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 flex flex-col"
                 >
                   {/* Card Header - Status Badge */}
-                  <div className={`px-4 py-2.5 border-b rounded-t-xl ${getStatusBadge(claim.status)}`}>
+                  <div className={`px-4 py-2.5 border-b rounded-t-xl ${getStatusBadge(claim.status, claim.rejectedFromPassClaims)}`}>
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold uppercase tracking-wider">
-                        {claim.status === "Approved" ? "Approved" : claim.status === "Rejected" ? "Rejected" : "Released"}
+                        {displayStatus}
                       </span>
                       <span className="text-[10px] font-medium opacity-80">
-                        {claim.status === "Approved" 
+                        {displayStatus === "Approved" 
                           ? formatDate(claim.approvedAt)
-                          : claim.status === "Rejected"
-                          ? formatDate(claim.rejectedAt)
+                          : displayStatus === "Rejected"
+                          ? formatDate(claim.rejectedFromPassClaimsAt || claim.rejectedAt)
                           : formatDate(claim.releasedAt)
                         }
                       </span>
@@ -623,21 +640,21 @@ function PassClaimsPage() {
                       {/* Doctor Info */}
                       <div className="bg-gray-50 rounded-lg p-2.5 border border-gray-100">
                         <p className="text-[10px] text-gray-500 uppercase font-bold tracking-tight">
-                          {claim.status === "Released" ? "Released By" : "Reviewed By"}
+                          {displayStatus === "Released" ? "Released By" : "Reviewed By"}
                         </p>
                         <p className="text-sm font-semibold text-gray-900 truncate">
-                          {claim.status === "Approved" 
+                          {displayStatus === "Approved" 
                             ? claim.approvedByName || claim.doctorName
-                            : claim.status === "Rejected"
-                            ? claim.rejectedByName || claim.doctorName
+                            : displayStatus === "Rejected"
+                            ? claim.rejectedFromPassClaimsByName || claim.rejectedByName || claim.doctorName
                             : claim.releasedByName || claim.doctorName
                           }
                         </p>
                         <p className="text-[10px] text-teal-600 font-medium capitalize">
-                          {claim.status === "Approved" 
+                          {displayStatus === "Approved" 
                             ? (claim.approvedByRole || "Doctor")
-                            : claim.status === "Rejected"
-                            ? (claim.rejectedByRole || "Doctor")
+                            : displayStatus === "Rejected"
+                            ? (claim.rejectedFromPassClaimsByRole || claim.rejectedByRole || "Clinic")
                             : (claim.releasedByRole || "Doctor")
                           }
                         </p>
@@ -685,7 +702,7 @@ function PassClaimsPage() {
                     </div>
 
                     {/* Rejection Reason (if rejected) */}
-                    {claim.status === "Rejected" && claim.rejectionReason && (
+                    {displayStatus === "Rejected" && claim.rejectionReason && (
                       <div className="bg-red-50 border border-red-100 rounded-lg p-2.5">
                         <p className="text-[10px] text-red-600 font-bold flex items-center gap-1 uppercase">
                           <AlertCircle className="w-3 h-3" />
@@ -736,7 +753,8 @@ function PassClaimsPage() {
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

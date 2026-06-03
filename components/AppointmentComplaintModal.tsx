@@ -2786,7 +2786,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                           <div>
                                             <label className="block text-[9px] text-violet-600 font-medium mb-0.5">/Session</label>
                                             <div className="px-2 py-1.5 text-xs font-bold text-center bg-violet-100 rounded-md text-violet-700 border border-violet-200">
-                                              â‚¹{sessPrice.toFixed(2)}
+                                              {sessPrice.toFixed(2)}
                                             </div>
                                           </div>
                                         </div>
@@ -2798,11 +2798,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   <div className="grid grid-cols-3 gap-1.5 bg-violet-100 rounded-lg px-3 py-2.5">
                                     <div className="text-center">
                                       <p className="text-[9px] text-violet-600 font-medium mb-0.5">Pkg Price</p>
-                                      <p className="text-xs font-bold text-violet-800">â‚¹{parseFloat(pkgModalPrice) || 0}</p>
+                                      <p className="text-xs font-bold text-violet-800">{parseFloat(pkgModalPrice) || 0}</p>
                                     </div>
                                     <div className="text-center">
                                       <p className="text-[9px] text-violet-600 font-medium mb-0.5">Allocated</p>
-                                      <p className="text-xs font-bold text-violet-800">â‚¹{pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0).toFixed(2)}</p>
+                                      <p className="text-xs font-bold text-violet-800">{pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0).toFixed(2)}</p>
                                     </div>
                                     <div className="text-center">
                                       <p className="text-[9px] text-violet-600 font-medium mb-0.5">Remaining</p>
@@ -2810,7 +2810,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         Math.abs((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)) < 0.01
                                           ? "text-teal-600" : "text-amber-600"
                                       }`}>
-                                        â‚¹{((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)).toFixed(2)}
+                                        {((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)).toFixed(2)}
                                       </p>
                                     </div>
                                   </div>
@@ -4196,7 +4196,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                             </div>
                                             <div>
                                               <label className="block text-[9px] text-violet-600 font-medium mb-0.5">/Session</label>
-                                              <div className="px-2 py-1.5 text-xs font-bold text-center bg-violet-100 rounded-md text-violet-700 border border-violet-200">â‚¹{sessPrice.toFixed(2)}</div>
+                                              <div className="px-2 py-1.5 text-xs font-bold text-center bg-violet-100 rounded-md text-violet-700 border border-violet-200">{sessPrice.toFixed(2)}</div>
                                             </div>
                                           </div>
                                         </div>
@@ -4205,16 +4205,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 bg-violet-100 rounded-lg px-3 py-2.5">
                                       <div className="text-center">
                                         <p className="text-[9px] text-violet-600 font-medium mb-0.5">Pkg Price</p>
-                                        <p className="text-xs font-bold text-violet-800">â‚¹{parseFloat(pkgModalPrice) || 0}</p>
+                                        <p className="text-xs font-bold text-violet-800">{parseFloat(pkgModalPrice) || 0}</p>
                                       </div>
                                       <div className="text-center">
                                         <p className="text-[9px] text-violet-600 font-medium mb-0.5">Allocated</p>
-                                        <p className="text-xs font-bold text-violet-800">â‚¹{pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0).toFixed(2)}</p>
+                                        <p className="text-xs font-bold text-violet-800">{pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0).toFixed(2)}</p>
                                       </div>
                                       <div className="text-center">
                                         <p className="text-[9px] text-violet-600 font-medium mb-0.5">Remaining</p>
                                         <p className={`text-xs font-bold ${Math.abs((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)) < 0.01 ? "text-teal-600" : "text-amber-600"}`}>
-                                          â‚¹{((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)).toFixed(2)}
+                                          {((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)).toFixed(2)}
                                         </p>
                                       </div>
                                     </div>
@@ -5180,7 +5180,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                             </div>
                                             <div>
                                               <label className="block text-[9px] text-violet-600 font-medium mb-0.5">/Session</label>
-                                              <div className="px-2 py-1.5 text-xs font-bold text-center bg-violet-100 rounded-md text-violet-700 border border-violet-200">â‚¹{sessPrice.toFixed(2)}</div>
+                                              <div className="px-2 py-1.5 text-xs font-bold text-center bg-violet-100 rounded-md text-violet-700 border border-violet-200">{sessPrice.toFixed(2)}</div>
                                             </div>
                                           </div>
                                         </div>
@@ -5189,16 +5189,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 bg-violet-100 rounded-lg px-3 py-2.5">
                                       <div className="text-center">
                                         <p className="text-[9px] text-violet-600 font-medium mb-0.5">Pkg Price</p>
-                                        <p className="text-xs font-bold text-violet-800">â‚¹{parseFloat(pkgModalPrice) || 0}</p>
+                                        <p className="text-xs font-bold text-violet-800">{parseFloat(pkgModalPrice) || 0}</p>
                                       </div>
                                       <div className="text-center">
                                         <p className="text-[9px] text-violet-600 font-medium mb-0.5">Allocated</p>
-                                        <p className="text-xs font-bold text-violet-800">â‚¹{pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0).toFixed(2)}</p>
+                                        <p className="text-xs font-bold text-violet-800">{pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0).toFixed(2)}</p>
                                       </div>
                                       <div className="text-center">
                                         <p className="text-[9px] text-violet-600 font-medium mb-0.5">Remaining</p>
                                         <p className={`text-xs font-bold ${Math.abs((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)) < 0.01 ? "text-teal-600" : "text-amber-600"}`}>
-                                          â‚¹{((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)).toFixed(2)}
+                                          {((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)).toFixed(2)}
                                         </p>
                                       </div>
                                     </div>
