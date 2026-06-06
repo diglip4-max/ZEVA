@@ -1,6 +1,5 @@
 import dbConnect from "../../../../lib/database";
 import InsuranceClaim from "../../../../models/InsuranceClaim";
-import User from "../../../../models/Users";
 import { getUserFromReq } from "../../lead-ms/auth";
 import { getClinicIdFromUser } from "../../lead-ms/permissions-helper";
 
@@ -33,8 +32,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false, message: "claimId and action are required" });
     }
 
-    if (!["release", "reject", "ready"].includes(action)) {
-      return res.status(400).json({ success: false, message: "Action must be 'release', 'reject', or 'ready'" });
+    if (!["release", "reject"].includes(action)) {
+      return res.status(400).json({ success: false, message: "Action must be 'release' or 'reject'" });
     }
 
     if (action === "reject" && (!rejectionNote || !rejectionNote.trim())) {
@@ -49,11 +48,11 @@ export default async function handler(req, res) {
     // Get clinicId for access control
     const { clinicId: userClinicId, isAdmin } = await getClinicIdFromUser(user);
 
-    // Only Approved or Rejected claims can be released/rejected/readied back
-    if (!["Approved", "Rejected"].includes(claim.status)) {
+    // Only Completed claims can be released/rejected from release-requested-claims
+    if (claim.status !== "Completed") {
       return res.status(400).json({
         success: false,
-        message: `Cannot perform action on claim with status "${claim.status}". Only "Approved" or "Rejected" claims can be processed.`,
+        message: `Cannot perform action on claim with status "${claim.status}". Only "Completed" claims can be processed.`,
       });
     }
 
@@ -71,37 +70,28 @@ export default async function handler(req, res) {
       claim.releasedByName = user.name || user.firstName || "";
       claim.releasedByRole = user.role;
       claim.releasedAt = new Date();
-    } else if (action === "ready") {
-      // Mark claim as Ready for finance verification
-      claim.status = "Ready";
-      claim.readyBy = user._id;
-      claim.readyByName = user.name || user.firstName || "";
-      claim.readyByRole = user.role;
-      claim.readyAt = new Date();
     } else if (action === "reject") {
-      // Reject claim back to doctor - reset to Under Review
+      // Reject claim - reset to Under Review
       claim.status = "Under Review";
-      // Keep reviewedBy to track that it was previously reviewed and rejected back
       claim.reviewNotes = rejectionNote.trim();
-      // Keep rejectionReason for tracking
       claim.rejectionReason = rejectionNote.trim();
-      // Add a flag to indicate this was rejected from pass-claims
-      claim.rejectedFromPassClaims = true;
-      claim.rejectedFromPassClaimsAt = new Date();
-      claim.rejectedFromPassClaimsBy = user._id;
-      claim.rejectedFromPassClaimsByName = user.name || user.firstName || "";
-      claim.rejectedFromPassClaimsByRole = user.role;
+      // Add a flag to indicate this was rejected from release-requested-claims
+      claim.rejectedFromReleaseRequested = true;
+      claim.rejectedFromReleaseRequestedAt = new Date();
+      claim.rejectedFromReleaseRequestedBy = user._id;
+      claim.rejectedFromReleaseRequestedByName = user.name || user.firstName || "";
+      claim.rejectedFromReleaseRequestedByRole = user.role;
     }
 
     await claim.save();
 
     return res.status(200).json({
       success: true,
-      message: action === "release" ? "Claim released successfully" : action === "ready" ? "Claim marked as ready successfully" : "Claim rejected back to doctor successfully",
+      message: action === "release" ? "Claim released successfully" : "Claim rejected successfully",
       data: claim,
     });
   } catch (error) {
-    console.error("Error processing claim:", error);
+    console.error("Error processing release-requested claim:", error);
     return res.status(500).json({ success: false, message: "Failed to process claim" });
   }
 }

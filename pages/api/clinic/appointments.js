@@ -4,6 +4,7 @@ import Service from "../../../models/Service";
 import Clinic from "../../../models/Clinic";
 import PatientRegistration from "../../../models/PatientRegistration";
 import User from "../../../models/Users";
+import Room from "../../../models/Room"; // Import Room model to register it for population
 import { getUserFromReq } from "../lead-ms/auth";
 import { getClinicIdFromUser } from "../lead-ms/permissions-helper";
 import { formatDoctorTreatments } from "../../../server/staff/doctorTreatmentService";

@@ -143,6 +143,23 @@ interface PreviousComplaint {
       }
     | string
     | null;
+  patientId?:
+    | {
+        _id?: string;
+        firstName?: string;
+        lastName?: string;
+        name?: string;
+        emrNumber?: string;
+        phone?: string;
+      }
+    | string
+    | null;
+  appointmentId?:
+    | {
+        _id?: string;
+      }
+    | string
+    | null;
   items?: Array<{
     itemId?: string;
     code?: string;
@@ -154,6 +171,13 @@ interface PreviousComplaint {
   }>;
   beforeImage?: string;
   afterImage?: string;
+  consentLogs?: Array<{
+    _id: string;
+    consentFormName: string;
+    status: string;
+    [key: string]: any;
+  }>;
+  visitDate?: string;
 }
 
 interface AppointmentComplaintModalProps {
@@ -198,8 +222,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   >([]);
   const [loadingComplaints, setLoadingComplaints] = useState(false);
   const [_showPreviousReports, setShowPreviousReports] = useState(false);
-
-  // Patient EMR stats â€” total spend from Billing, visits from Appointment
   interface PatientEMRStats {
     totalSpend: number; totalBilled: number; totalPending: number;
     totalVisits: number; billingCount: number;
@@ -249,8 +271,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   interface ConsentFormOption { _id: string; formName: string; }
   const [consentForms, setConsentForms] = useState<ConsentFormOption[]>([]);
   const [selectedConsentId, setSelectedConsentId] = useState<string>("");
+  const [_selectedComplaintId, setSelectedComplaintId] = useState<string>("");
   const [sendingConsent, setSendingConsent] = useState<boolean>(false);
   const [consentSent, setConsentSent] = useState<boolean>(false);
+  const [sentConsentLogIds, setSentConsentLogIds] = useState<string[]>([]); // Track consent log IDs sent in this modal session
  
   // Consent status tracking
   // interface ConsentStatusData {
@@ -479,7 +503,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           setCurrency(res.data.clinic.currency);
         }
       } catch (e) {
-        console.error('Error fetching clinic currency:', e);
+        // Silently ignore - default to INR
       }
     };
     fetchClinicCurrency();
@@ -615,6 +639,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       setEditIndex(null);
       setEditingItem(null);
       setSelectedConsentId("");
+      setSelectedComplaintId(""); // New: reset selected complaint
       setConsentSent(false);
       setActiveTab("complaint");
       setProgressNotes([]);
@@ -684,6 +709,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       setIsEditModalOpen(false);
       setIsOpenDeleteComplaintModal(false);
       setIsOpenViewComplaintModal(false);
+      setSentConsentLogIds([]); // Reset sent consent log IDs
       return;
     }
 
@@ -752,6 +778,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     setIsEditModalOpen(false);
     setIsOpenDeleteComplaintModal(false);
     setIsOpenViewComplaintModal(false);
+    setSentConsentLogIds([]); // Reset sent consent log IDs
 
     // Fetch consent forms for dropdown
     const fetchConsentForms = async () => {
@@ -1344,7 +1371,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     if (!report || !report.reportId) {
       toast.error(
         <div className="flex flex-col gap-1">
-          <span className="font-semibold">âš  Vitals Report Required</span>
+          <span className="font-semibold"> Vitals Report Required</span>
           <span className="text-xs opacity-80">Please fill the appointment report first, then add complaints.</span>
         </div>,
         {
@@ -1371,7 +1398,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     if (!complaints.trim()) {
       toast.error(
         <div className="flex flex-col gap-1">
-          <span className="font-semibold">âš  Complaint Required</span>
+          <span className="font-semibold">  Complaint Required</span>
           <span className="text-xs opacity-80">Please enter complaint notes before saving.</span>
         </div>,
         {
@@ -1401,7 +1428,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       setChecklistError(`Please tick all checklist items before saving: ${unchecked.join(", ")}`);
       toast.error(
         <div className="flex flex-col gap-1">
-          <span className="font-semibold">âš  Incomplete Checklist</span>
+          <span className="font-semibold"> Incomplete Checklist</span>
           <span className="text-xs opacity-80">Please tick all checklist items before saving: {unchecked.join(", ")}</span>
         </div>,
         {
@@ -1444,6 +1471,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           isDoctorDiscountApplied: isDoctorDiscountApplied,
           doctorDiscountType: isDoctorDiscountApplied ? doctorDiscount?.discountType : null,
           doctorDiscountAmount: isDoctorDiscountApplied ? doctorDiscount?.discountAmount : 0,
+          consentLogIds: sentConsentLogIds, // Pass the sent consent log IDs
         },
         { headers },
       );
@@ -1462,7 +1490,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           // Show warning but don't fail the entire operation since complaint was saved
           toast.error(
             <div className="flex flex-col gap-1">
-              <span className="font-semibold">âš  Warning</span>
+              <span className="font-semibold"> Warning</span>
               <span className="text-xs opacity-80">Complaint saved, but services may not have been saved properly. Please verify.</span>
             </div>,
             {
@@ -1505,6 +1533,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       setBeforeImage("");
       setAfterImage("");
       setError("");
+      setSentConsentLogIds([]); // Clear the sent consent log IDs after saving
 
       // set items to empty array
       setItems([]);
@@ -1518,7 +1547,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       // Show success toast
       toast.success(
         <div className="flex flex-col gap-1">
-          <span className="font-semibold">âœ“ Complaints Saved Successfully</span>
+          <span className="font-semibold"> Complaints Saved Successfully</span>
           <span className="text-xs opacity-80">Your complaint notes have been saved to the patient record.</span>
         </div>,
         {
@@ -1572,7 +1601,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     if (!currentItem.name.trim() || !currentItem.quantity || !currentItem.uom) {
       toast.error(
         <div className="flex flex-col gap-1">
-          <span className="font-semibold">âš  Incomplete Item</span>
+          <span className="font-semibold">  Incomplete Item</span>
           <span className="text-xs opacity-80">Please complete item selection, quantity and UOM</span>
         </div>,
         {
@@ -1765,7 +1794,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           try {
             const token = getTokenByPath();
             const selectedForm = consentForms.find((f) => f._id === selectedConsentId);
-            await axios.post(
+            const logResponse = await axios.post(
               "/api/clinic/consent-log",
               {
                 consentFormId: selectedConsentId,
@@ -1781,6 +1810,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                 },
               }
             );
+            
+            // Store the log ID to link it when saving the complaint
+            if (logResponse.data && logResponse.data.logId) {
+              setSentConsentLogIds(prev => [...prev, logResponse.data.logId]);
+            }
            
             // Force re-fetch of consent statuses by clearing and setting state
             setConsentStatuses([]);
@@ -1850,7 +1884,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         if (data && data?.success) {
           toast.success(
             <div className="flex flex-col gap-1">
-              <span className="font-semibold">âœ“ Message Sent Successfully</span>
+              <span className="font-semibold">Message Sent Successfully</span>
               <span className="text-xs opacity-80">Your prescription has been sent via WhatsApp.</span>
             </div>,
             {
@@ -1903,7 +1937,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         console.log("Error in send prescription msg on whatsapp: ", error?.message);
         toast.error(
           <div className="flex flex-col gap-1">
-            <span className="font-semibold">âš  Send Failed</span>
+            <span className="font-semibold">  Send Failed</span>
             <span className="text-xs opacity-80">{error?.response?.data?.message || "Failed to send prescription via WhatsApp"}</span>
           </div>,
           {
@@ -1956,7 +1990,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-3 md:p-4">
         <div className="bg-gray-50 w-full max-w-[1500px] rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[98vh] sm:max-h-[96vh]">
 
-          {/* â”€â”€ TOP HEADER BAR â”€â”€ */}
+          
           <div className="bg-white border-b border-gray-200 px-3 sm:px-4 md:px-5 py-2 sm:py-3 flex-shrink-0">
             {loading ? (
               <div className="flex items-center justify-between">
@@ -1988,11 +2022,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           ) : (
                             <User className="w-3 h-3 text-gray-400" />
                           )}
-                          <span className="capitalize">{details.gender || "â€”"}</span>
+                          <span className="capitalize">{details.gender || ""}</span>
                         </span>
                         <span className="flex items-center gap-1">
                           <Phone className="w-3 h-3 text-gray-400" />
-                          <span>{details.mobileNumber || "â€”"}</span>
+                          <span>{details.mobileNumber || ""}</span>
                         </span>
                       </div>
                     </div>
@@ -2003,13 +2037,13 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                     <div className="flex flex-col items-center px-3 sm:px-4 py-1 sm:py-1.5 rounded-lg sm:rounded-xl border border-teal-200 bg-teal-50/40 min-w-[80px] sm:min-w-[100px]">
                       <span className="text-[9px] sm:text-[10px] text-teal-600 font-medium">Total Spend</span>
                       <span className="text-base font-bold text-teal-700 leading-tight">
-                        {loadingPatientStats ? "â€¦" : patientStats != null ? `${getCurrencySymbol(currency)} ${patientStats.totalSpend.toLocaleString()}` : "â€”"}
+                        {loadingPatientStats ? "" : patientStats != null ? `${getCurrencySymbol(currency)} ${patientStats.totalSpend.toLocaleString()}` : ""}
                       </span>
                     </div>
                     <div className="flex flex-col items-center px-3 sm:px-4 py-1 sm:py-1.5 rounded-lg sm:rounded-xl border border-teal-200 bg-teal-50/40 min-w-[56px] sm:min-w-[64px]">
                       <span className="text-[9px] sm:text-[10px] text-teal-600 font-medium">Visits</span>
                       <span className="text-base font-bold text-teal-700 leading-tight">
-                        {loadingPatientStats ? "â€¦" : patientStats != null ? patientStats.totalVisits : "â€”"}
+                        {loadingPatientStats ? "" : patientStats != null ? patientStats.totalVisits : ""}
                       </span>
                     </div>
                   </div>
@@ -2021,7 +2055,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                     </div>
                     {details.fromTime && (
                       <div className="flex items-center gap-1 sm:gap-1.5 border border-gray-200 rounded-md sm:rounded-lg px-2 py-1 sm:px-2.5 sm:py-1.5 text-[10px] sm:text-xs text-gray-500 bg-gray-50">
-                        <Clock size={10} className="sm:w-[11px] sm:h-[11px]" /> {details.fromTime}{details.toTime ? ` â€“ ${details.toTime}` : ""}
+                        <Clock size={10} className="sm:w-[11px] sm:h-[11px]" /> {details.fromTime}{details.toTime ? `${details.toTime}` : ""}
                       </div>
                     )}
                     <span className={`text-[10px] sm:text-xs rounded-full px-2 sm:px-2.5 py-0.5 sm:py-1 font-semibold ${
@@ -2044,7 +2078,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       </button>
                     </div>
 
-                    {/* History â€” scrolls to existing Previous Complaints section */}
+                   
                     <button type="button"
                       onClick={() => { if (activeTab !== "complaint") setActiveTab("complaint"); setTimeout(() => { previousComplaintsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); }}
                       className="flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg border border-gray-200 text-[10px] sm:text-xs font-medium text-gray-600 hover:bg-gray-50 whitespace-nowrap">
@@ -2060,13 +2094,13 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                 {report && (
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-gray-500 bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-100">
                     <span className="font-semibold text-gray-700">Vitals:</span>
-                    <span>ðŸŒ¡ {report.temperatureCelsius}Â°C</span>
-                    <span>ðŸ’“ {report.pulseBpm} bpm</span>
-                    <span>ðŸ©¸ {report.systolicBp}/{report.diastolicBp} mmHg</span>
-                    {report.weightKg != null && <span>âš– {report.weightKg} kg</span>}
-                    {report.heightCm != null && <span>ðŸ“ {report.heightCm} cm</span>}
+                    <span> {report.temperatureCelsius}</span>
+                    <span> {report.pulseBpm} bpm</span>
+                    <span> {report.systolicBp}/{report.diastolicBp} mmHg</span>
+                    {report.weightKg != null && <span> {report.weightKg} kg</span>}
+                    {report.heightCm != null && <span>{report.heightCm} cm</span>}
                     {report.bmi != null && <span>BMI {report.bmi}</span>}
-                    {report.spo2Percent != null && <span>SpOâ‚‚ {report.spo2Percent}%</span>}
+                    {report.spo2Percent != null && <span> {report.spo2Percent}%</span>}
                   </div>
                 )}
 
@@ -2131,10 +2165,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
           )}
 
-          {/* â”€â”€ MAIN BODY: two-column â”€â”€ */}
+
           <div className="flex flex-1 min-h-0 overflow-hidden flex-col lg:flex-row">
 
-            {/* â”€â”€ LEFT MAIN PANEL â”€â”€ */}
+           
             <div className="flex-1 min-w-0 overflow-y-auto scrollbar-hide px-3 sm:px-4 py-3 sm:py-4 space-y-3 sm:space-y-4">
 
               {error && (
@@ -2175,7 +2209,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                     ))}
                   </div>
 
-                  {/* â”€â”€ COMPLAINT TAB â”€â”€ */}
+                
                   {activeTab === "complaint" && (
                     <div className="space-y-4">
                       {/* Chief Complaints */}
@@ -2730,7 +2764,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                       <div className="text-left">
                                                         <p className="text-sm font-medium text-gray-800">{svc.name}</p>
                                                         <p className="text-xs text-gray-500">
-                                                          {getCurrencySymbol(currency)} {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)} â€¢ {svc.durationMinutes} mins
+                                                          {getCurrencySymbol(currency)} {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}  {svc.durationMinutes} mins
                                                         </p>
                                                       </div>
                                                     </div>
@@ -3002,7 +3036,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                             </span>
                                           )}
                                         </div>
-                                        <p className="text-xs text-gray-500 mb-2">Service #{i + 1} â€¢ ID: {svc._id.slice(-6)}</p>
+                                        <p className="text-xs text-gray-500 mb-2">Service #{i + 1}  ID: {svc._id.slice(-6)}</p>
                                                                                                        
                                         {/* Price Input */}
                                         <div className="flex items-center gap-2">
@@ -3458,9 +3492,32 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         )}
                                         <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-400">
                                           <span>{formatDateTime(complaint.createdAt)}</span>
-                                          <span>Â·</span>
+                                          <span>·</span>
                                           <span>{typeof complaint.doctorId === "object" && complaint.doctorId?.name ? `Dr. ${complaint.doctorId.name}` : "Unknown Doctor"}</span>
                                         </div>
+                                        {/* Linked Consent Forms */}
+                                        {complaint.consentLogs && complaint.consentLogs.length > 0 && (
+                                          <div className="mt-2 flex flex-wrap gap-1.5">
+                                            {complaint.consentLogs.map((consent: any) => (
+                                              <div
+                                                key={consent._id}
+                                                className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                                                  consent.status === "signed"
+                                                    ? "border-green-200 bg-green-50 text-green-700"
+                                                    : "border-blue-200 bg-blue-50 text-blue-700"
+                                                }`}
+                                              >
+                                                <FileText className="w-3 h-3" />
+                                                <span className="truncate max-w-[120px]">{consent.consentFormName}</span>
+                                                {consent.status === "signed" ? (
+                                                  <CheckCircle className="w-3 h-3" />
+                                                ) : (
+                                                  <Send className="w-3 h-3" />
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
                                       </div>
                                       <div className="flex items-center gap-1.5 flex-shrink-0">
                                         {hasItems && (
@@ -3665,10 +3722,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                   )}
 
 
-                      {/* â”€â”€ APPOINTMENTS CARD â”€â”€ */}
-                 
-
-                  {/* â”€â”€ PROGRESS TAB â”€â”€ */}
+                    
                   {activeTab === "progress" && (
                     <div className="space-y-4">
                       {progressError && (
@@ -3927,7 +3981,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         </button>
                       </div>
 
-                      {/* â”€â”€ DIVIDER â”€â”€ */}
                       <div className="flex items-center gap-3">
                         <div className="flex-1 h-px bg-gray-200" />
                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Session Summary</span>
@@ -4162,7 +4215,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                     </div>
                                                     <div className="text-left">
                                                       <p className="text-sm font-medium text-gray-800">{svc.name}</p>
-                                                      <p className="text-xs text-gray-500">{getCurrencySymbol(currency)} {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)} â€¢ {svc.durationMinutes} mins</p>
+                                                      <p className="text-xs text-gray-500">{getCurrencySymbol(currency)} {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}  {svc.durationMinutes} mins</p>
                                                     </div>
                                                   </div>
                                                 </button>
@@ -4268,7 +4321,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                           <h4 className="text-sm font-bold text-gray-900">{svc.name}</h4>
                                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">Standard</span>
                                         </div>
-                                        <p className="text-xs text-gray-500 mb-2">Service #{i + 1} â€¢ ID: {svc._id.slice(-6)}</p>
+                                        <p className="text-xs text-gray-500 mb-2">Service #{i + 1} ID: {svc._id.slice(-6)}</p>
                                         <div className="flex items-center gap-2">
                                           <label className="text-xs text-gray-600 font-medium">Price:</label>
                                           <div className="relative">
@@ -4358,7 +4411,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                     </div>
                   )}
 
-                  {/* â”€â”€ PRESCRIPTION TAB â”€â”€ */}
+                
                   {activeTab === "prescription" && (
                     <div className="space-y-5">
                       <div>
@@ -4641,7 +4694,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               } else {
                                 toast.error(
                                   <div className="flex flex-col gap-1">
-                                    <span className="font-semibold">âš  Upload Failed</span>
+                                    <span className="font-semibold">  Upload Failed</span>
                                     <span className="text-xs opacity-80">Prescription saved but failed to send WhatsApp message.</span>
                                   </div>,
                                   {
@@ -4667,7 +4720,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               console.error("Error sending prescription:", err);
                               toast.error(
                                 <div className="flex flex-col gap-1">
-                                  <span className="font-semibold">âš  Send Failed</span>
+                                  <span className="font-semibold"> Send Failed</span>
                                   <span className="text-xs opacity-80">{err.response?.data?.message || "Failed to send prescription via WhatsApp"}</span>
                                 </div>,
                                 {
@@ -4749,9 +4802,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                               <tr key={med._id || mIdx}>
                                                 <td className="px-3 py-2 text-gray-400">{mIdx + 1}</td>
                                                 <td className="px-3 py-2 font-medium text-gray-800">{med.medicineName}</td>
-                                                <td className="px-3 py-2 text-gray-500">{med.dosage || "â€”"}</td>
-                                                <td className="px-3 py-2 text-gray-500">{med.duration || "â€”"}</td>
-                                                <td className="px-3 py-2 text-gray-500">{med.notes || "â€”"}</td>
+                                                <td className="px-3 py-2 text-gray-500">{med.dosage || ""}</td>
+                                                <td className="px-3 py-2 text-gray-500">{med.duration || ""}</td>
+                                                <td className="px-3 py-2 text-gray-500">{med.notes || ""}</td>
                                               </tr>
                                             ))}
                                           </tbody>
@@ -4911,7 +4964,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         </button>
                       </div>
 
-                      {/* â”€â”€ DIVIDER â”€â”€ */}
+                     
                       <div className="flex items-center gap-3">
                         <div className="flex-1 h-px bg-gray-200" />
                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Session Summary</span>
@@ -5146,7 +5199,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                     </div>
                                                     <div className="text-left">
                                                       <p className="text-sm font-medium text-gray-800">{svc.name}</p>
-                                                      <p className="text-xs text-gray-500">{getCurrencySymbol(currency)} {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)} â€¢ {svc.durationMinutes} mins</p>
+                                                      <p className="text-xs text-gray-500">{getCurrencySymbol(currency)} {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}  {svc.durationMinutes} mins</p>
                                                     </div>
                                                   </div>
                                                 </button>
@@ -5252,7 +5305,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                           <h4 className="text-sm font-bold text-gray-900">{svc.name}</h4>
                                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">Standard</span>
                                         </div>
-                                        <p className="text-xs text-gray-500 mb-2">Service #{i + 1} â€¢ ID: {svc._id.slice(-6)}</p>
+                                        <p className="text-xs text-gray-500 mb-2">Service #{i + 1}  ID: {svc._id.slice(-6)}</p>
                                         <div className="flex items-center gap-2">
                                           <label className="text-xs text-gray-600 font-medium">Price:</label>
                                           <div className="relative">
@@ -5402,7 +5455,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
               )}
             </div>
 
-            {/* â”€â”€ RIGHT SIDEBAR â”€â”€ */}
+    
             <div className="w-full lg:w-72 flex-shrink-0 border-l border-gray-200 overflow-y-auto scrollbar-hide bg-white lg:border-t-0 border-t max-h-[40vh] lg:max-h-none">
               <div className="p-3 sm:p-4 space-y-3">
 
@@ -5416,7 +5469,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                   </div>
                   <div className="px-4 py-3 space-y-2">
                     {loadingPatientStats ? (
-                      <div className="py-3 text-center text-xs text-gray-400">Loading billing dataâ€¦</div>
+                      <div className="py-3 text-center text-xs text-gray-400">Loading billing data</div>
                     ) : patientStats ? (
                       <>
                         <div className="flex items-center justify-between">
@@ -5730,7 +5783,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
             </div>
           </div>
 
-          {/* â”€â”€ FOOTER â”€â”€ */}
+      
           <div className="flex items-center justify-between border-t border-gray-200 px-3 sm:px-4 md:px-5 py-2 sm:py-3 bg-white flex-shrink-0 gap-2">
             <button
               type="button"
@@ -5760,9 +5813,17 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                   items: updated.items || [], 
                   createdAt: (updated as any).createdAt || pc.createdAt,
                   beforeImage: (updated.beforeImage || "").trim().replace(/^`|`$/g, ""), // Trim and remove backticks
-                  afterImage: (updated.afterImage || "").trim().replace(/^`|`$/g, "") // Trim and remove backticks
+                  afterImage: (updated.afterImage || "").trim().replace(/^`|`$/g, ""), // Trim and remove backticks
+                  consentLogs: updated.consentLogs || pc.consentLogs || [],
                 } : pc));
                 setIsEditModalOpen(false); setEditingComplaint(null);
+              }}
+              onConsentSent={() => {
+                // Refresh previous complaints when consent is sent
+                const patientId = typeof editingComplaint.patientId === 'object' ? editingComplaint.patientId?._id : editingComplaint.patientId;
+                if (patientId) {
+                  fetchPreviousComplaints(patientId);
+                }
               }}
               getAuthHeaders={getAuthHeaders}
             />
@@ -5797,7 +5858,8 @@ const EditComplaintModal: React.FC<{
   onClose: () => void;
   onSaved: (updated: PreviousComplaint) => void;
   getAuthHeaders: () => Record<string, string>;
-}> = ({ complaint, onClose, onSaved, getAuthHeaders }) => {
+  onConsentSent?: () => void; // Optional callback when consent is sent
+}> = ({ complaint, onClose, onSaved, getAuthHeaders, onConsentSent }) => {
   const token = getTokenByPath() || "";
   const { stockItems } = useStockItems();
   const { uoms, loading: uomsLoading } = useUoms({ token });
@@ -5830,6 +5892,30 @@ const EditComplaintModal: React.FC<{
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>("");
 
+  // consent form
+  interface ConsentFormOption { _id: string; formName: string; }
+  const [consentForms, setConsentForms] = useState<ConsentFormOption[]>([]);
+  const [selectedConsentId, setSelectedConsentId] = useState<string>("");
+  const [sendingConsent, setSendingConsent] = useState<boolean>(false);
+  const [consentSent, setConsentSent] = useState<boolean>(false);
+
+  // fetch consent forms
+  const fetchConsentForms = async () => {
+    try {
+      const headers = getAuthHeaders();
+      const res = await axios.get("/api/clinic/consent", { headers });
+      if (res.data?.success) {
+        setConsentForms(res.data.consents || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch consent forms", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchConsentForms();
+  }, []);
+
   const handleCurrentItemChange = (field: keyof StockRow, value: any) => {
     if (field === "itemId") {
       const item = stockItems.find((i) => i._id === value);
@@ -5856,7 +5942,7 @@ const EditComplaintModal: React.FC<{
     if (!currentItem.name.trim() || !currentItem.quantity || !currentItem.uom) {
       toast.error(
         <div className="flex flex-col gap-1">
-          <span className="font-semibold">âš  Incomplete Item</span>
+          <span className="font-semibold"> Incomplete Item</span>
           <span className="text-xs opacity-80">Please complete item selection, quantity and UOM</span>
         </div>,
         {
@@ -5980,6 +6066,139 @@ const EditComplaintModal: React.FC<{
     }
   };
 
+  const handleSendConsentMsgOnWhatsapp = async () => {
+    if (!selectedConsentId) return;
+
+    setSendingConsent(true);
+    try {
+      const headers = getAuthHeaders();
+      const patientId = typeof complaint.patientId === 'object' ? complaint.patientId?._id : complaint.patientId;
+      const patientName = typeof complaint.patientId === 'object' ? complaint.patientId?.firstName || complaint.patientId?.name || 'Patient' : 'Patient';
+      const appointmentId = typeof complaint.appointmentId === 'object' ? complaint.appointmentId?._id : complaint.appointmentId;
+
+      // First, fetch patient data to get WhatsApp number
+      const patientRes = await axios.get("/api/clinic/patient-information", { 
+        headers,
+        params: { id: patientId }
+      });
+      const patient = patientRes.data?.patient;
+      const patientWhatsapp = patient?.mobileNumber || patient?.phone;
+      if (!patientWhatsapp) {
+        toast.error("Patient doesn't have a WhatsApp number", {
+          duration: 5000,
+          position: 'top-right',
+          style: {
+            background: '#ef4444',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            zIndex: 9999,
+            maxWidth: '500px',
+          },
+          iconTheme: {
+            primary: '#fff',
+            secondary: '#ef4444',
+          }
+        });
+        return;
+      }
+
+      // Get consent form details
+      const selectedForm = consentForms.find((f) => f._id === selectedConsentId);
+      if (!selectedForm) return;
+
+      // Prepare message
+      const greeting = `Hello ${patientName}!`;
+      // // You might want to get this from somewhere
+      const consentUrl = `${window.location.origin}/consent-form/${selectedConsentId}?patientId=${patientId}&appointmentId=${appointmentId || ''}`;
+      const message = `${greeting}\n\nPlease review and sign the consent form: "${selectedForm.formName}"\n\n${consentUrl}\n\nThank you!`;
+
+      // Log the sent consent form - link to current complaint!
+      try {
+        await axios.post(
+          "/api/clinic/consent-log",
+          {
+            consentFormId: selectedConsentId,
+            consentFormName: selectedForm?.formName || "",
+            patientId: patientId,
+            patientName: patientName,
+            appointmentId: appointmentId || null,
+            complaintId: complaint._id, // Link to current complaint!
+            sentVia: "whatsapp",
+          },
+          { headers },
+        );
+      } catch (logError) {
+        console.error("Error logging consent form sent:", logError);
+      }
+
+      // Open WhatsApp
+      const whatsappUrl = `https://wa.me/${patientWhatsapp}?text=${encodeURIComponent(message)}`;
+      window.open(whatsappUrl, "_blank");
+
+      // Show success toast
+      toast.success(
+        <div className="flex flex-col gap-1">
+          <span className="font-semibold">✅ Consent Form Sent!</span>
+          <span className="text-xs opacity-80">Consent form "{selectedForm.formName}" has been sent to the patient</span>
+        </div>,
+        {
+          duration: 5000,
+          position: 'top-right',
+          style: {
+            background: '#10b981',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            zIndex: 9999,
+            maxWidth: '500px',
+          },
+          iconTheme: {
+            primary: '#fff',
+            secondary: '#10b981',
+          }
+        }
+      );
+
+      // Update state to indicate consent was sent
+      setConsentSent(true);
+      // Reset selected consent form for next time
+      setSelectedConsentId("");
+      // Call onConsentSent callback to refresh parent
+      onConsentSent && onConsentSent();
+
+    } catch (error: any) {
+      console.error("Error sending consent message:", error);
+      toast.error(
+        <div className="flex flex-col gap-1">
+          <span className="font-semibold">❌ Failed to send consent form</span>
+          <span className="text-xs opacity-80">{error.message || "Please try again"}</span>
+        </div>,
+        {
+          duration: 5000,
+          position: 'top-right',
+          style: {
+            background: '#ef4444',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            zIndex: 9999,
+            maxWidth: '500px',
+          },
+          iconTheme: {
+            primary: '#fff',
+            secondary: '#ef4444',
+          }
+        }
+      );
+    } finally {
+      setSendingConsent(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4 py-8">
       <div className="bg-white w-full max-w-6xl rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -6010,6 +6229,25 @@ const EditComplaintModal: React.FC<{
               onChange={(e) => setNote(e.target.value)}
               className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
             />
+          </div>
+          {/* Send Consent Form */}
+          <div className="space-y-2">
+            <label className="block text-sm font-bold text-gray-900">
+              Send Consent Form
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <select value={selectedConsentId} onChange={(e) => { setSelectedConsentId(e.target.value); setConsentSent(false); }} className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-300">
+                <option value="">Select Consent Form</option>
+                {consentForms.map((cf) => (
+                  <option key={cf._id} value={cf._id}>{cf.formName}</option>
+                ))}
+              </select>
+              <button type="button" disabled={!selectedConsentId || sendingConsent || consentSent}
+                onClick={handleSendConsentMsgOnWhatsapp}
+                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${consentSent ? "bg-green-100 text-green-700 border border-green-200" : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40"}`}>
+                {consentSent ? <><Check size={16} /> Sent</> : sendingConsent ? <><RefreshCw size={16} className="animate-spin" /> Sending...</> : <><Send size={16} /> Send Consent</>}
+              </button>
+            </div>
           </div>
           <div className="space-y-2">
             <label className="block text-sm font-bold text-gray-900">

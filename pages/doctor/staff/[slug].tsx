@@ -21,7 +21,7 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   'contract': () => import('../../staff/contract'),
   'pending-claims': () => import('../../staff/pending-claims'),
   'cancelled-claims': () => import('../../staff/cancelled-claims'),
-  'all-claims': () => import('../../staff/all-claims'),
+  'all-claims': () => import('../../clinic/all-claims'),
   'booked-appointments': () => import('../../staff/booked-appointments'),
   'add-treatment': () => import('../../staff/add-treatment'),
 };

@@ -136,7 +136,7 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   "clinic-contract": () => import("../staff/contract"),
   "clinic-pending-claims": () => import("../staff/pending-claims"),
   "clinic-cancelled-claims": () => import("../staff/cancelled-claims"),
-  "clinic-all-claims": () => import("../staff/all-claims"),
+  "clinic-all-claims": () => import("../clinic/all-claims"),
   "clinic-booked-appointments": () => import("../staff/booked-appointments"),
   "clinic-staff-add-treatment": () => import("../staff/add-treatment"),
 
@@ -173,7 +173,7 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   "doctor-contract": () => import("../staff/contract"),
   "doctor-pending-claims": () => import("../staff/pending-claims"),
   "doctor-cancelled-claims": () => import("../staff/cancelled-claims"),
-  "doctor-all-claims": () => import("../staff/all-claims"),
+  "doctor-all-claims": () => import("../clinic/all-claims"),
   "doctor-booked-appointments": () => import("../staff/booked-appointments"),
   "doctor-staff-add-treatment": () => import("../staff/add-treatment"),
 
@@ -233,6 +233,8 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   "clinic-pass-claims": () => import("../clinic/pass-claims"),
   "clinic-report": () => import("../clinic/report"),
   "clinic-authentication": () => import("../clinic/authentication"),
+  "clinic-release-requested-claims": () => import("../clinic/release-requested-claims"),
+  "all-claims": () => import("../clinic/all-claims"),
 };
 
 

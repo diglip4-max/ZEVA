@@ -161,12 +161,35 @@ export const clinicNavigationItems = [
     ],
   },
   {
+    label: "Claims",
+    icon: "file-text",
+    description: "Claims Management",
+    moduleKey: "claims",
+    order: 14,
+    children: [
+      {
+        label: "Pass By Doctor",
+        path: "/clinic/pass-claims",
+        icon: "check-circle",
+        description: "Pass claims by doctor",
+        order: 1,
+      },
+      {
+        label: "Release Requested",
+        path: "/clinic/release-requested-claims",
+        icon: "truck",
+        description: "Release requested claims",
+        order: 2,
+      },
+    ],
+  },
+  {
     label: "Job Posting",
     path: "/clinic/job-posting",
     icon: "briefcase",
     description: "Manage job postings",
     moduleKey: "job_posting",
-    order: 14,
+    order: 15,
   },
   {
     label: "Write Blog",
@@ -174,7 +197,7 @@ export const clinicNavigationItems = [
     icon: "file-text",
     description: "Manage Blogs",
     moduleKey: "write_blog",
-    order: 15,
+    order: 16,
   },
   {
     label: "Workflow Guide",
@@ -182,7 +205,7 @@ export const clinicNavigationItems = [
     icon: "book-open",
     description: "Complete clinic workflow documentation",
     moduleKey: "workflow_guide",
-    order: 16,
+    order: 17,
   },
   {
     label: "Services Setup",

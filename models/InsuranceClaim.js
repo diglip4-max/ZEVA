@@ -19,6 +19,14 @@ const InsuranceClaimSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
+    createdByName: {
+      type: String,
+      default: "",
+    },
+    createdByRole: {
+      type: String,
+      default: "",
+    },
 
     // Insurance Details (mandatory when insurance=Yes)
     insuranceProvider: {
@@ -86,6 +94,11 @@ const InsuranceClaimSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    // Final claim amount after co-pay adjustment (for "Patient Pays" co-pay type)
+    finalClaimAmount: {
+      type: Number,
+      default: null,
+    },
     claimType: {
       type: String,
       enum: ["Paid", "Advance"],
@@ -134,7 +147,7 @@ const InsuranceClaimSchema = new mongoose.Schema(
     // Status & Approval
     status: {
       type: String,
-      enum: ["Under Review", "Approved", "Rejected", "Released"],
+      enum: ["Under Review", "Approved", "Rejected", "Released", "Ready", "Completed"],
       default: "Under Review",
       index: true,
     },
@@ -234,6 +247,67 @@ const InsuranceClaimSchema = new mongoose.Schema(
       default: "",
     },
     releasedAt: {
+      type: Date,
+      default: null,
+    },
+
+    // Ready tracking (by clinic/agent in pass-claims)
+    readyBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    readyByName: {
+      type: String,
+      default: "",
+    },
+    readyByRole: {
+      type: String,
+      default: "",
+    },
+    readyAt: {
+      type: Date,
+      default: null,
+    },
+
+    // Rejection tracking from release-requested-claims
+    rejectedFromReleaseRequested: {
+      type: Boolean,
+      default: false,
+    },
+    rejectedFromReleaseRequestedAt: {
+      type: Date,
+      default: null,
+    },
+    rejectedFromReleaseRequestedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    rejectedFromReleaseRequestedByName: {
+      type: String,
+      default: "",
+    },
+    rejectedFromReleaseRequestedByRole: {
+      type: String,
+      default: "",
+    },
+
+    // Completed tracking (by finance staff in all-claims)
+    completedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    completedByName: {
+      type: String,
+      default: "",
+    },
+    completedByRole: {
+      type: String,
+      default: "",
+    },
+    completedAt: {
       type: Date,
       default: null,
     },

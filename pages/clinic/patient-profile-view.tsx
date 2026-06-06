@@ -8,7 +8,7 @@ import {
   ExternalLink,
   AlertTriangle, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck,
   ChevronDown, Search, Loader2, Check,  Camera, Image as ImageIcon, Eye, Edit2, Trash2, Paperclip,
-  Filter, AlertCircle as UserPlus
+  Filter, AlertCircle as UserPlus, Calculator, Info
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -3372,6 +3372,19 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       advanceStatus: claim.advanceStatus || "Full Pay",
       advanceAmount: claim.advanceAmount || 0,
     });
+    // Calculate co-pay amounts for edit modal
+    const claimAmt = parseFloat(claim.claimAmount) || 0;
+    const copPct = parseFloat(claim.coPayPercent) || 0;
+    const copType = claim.coPayType || 'Patient Pays';
+    const advStatus = claim.advanceStatus || 'Full Pay';
+    const advAmt = claim.advanceAmount || 0;
+    const calculated = calculateCoPayAmounts(claimAmt, copPct, copType, advStatus, advAmt);
+    setClaimEditData((prev: any) => ({
+      ...prev,
+      totalClaimAmount: claim.totalClaimAmount || calculated.totalClaimAmount,
+      pendingClaimAmount: claim.pendingClaimAmount || calculated.pendingClaimAmount,
+      coPayAmount: claim.coPayAmount || calculated.coPayAmount,
+    }));
     setClaimEditModal(claim);
     fetchClaimDropdowns();
   };
@@ -3394,11 +3407,38 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     }
   };
 
+  // Calculate co-pay adjusted amounts for insurance claims
+  const calculateCoPayAmounts = (claimAmount: number, coPayPercent: number, coPayType: string, advanceStatus: string, paidOrAdvanceAmount: number) => {
+    const coPayAmount = claimAmount * (coPayPercent / 100);
+    let totalClaimAmount = claimAmount;
+    let pendingClaimAmount = 0;
+
+    // If co-pay type is Patient Pays, add co-pay amount to total claim
+    if (coPayType === 'Patient Pays') {
+      totalClaimAmount = claimAmount + coPayAmount;
+    }
+    // If co-pay type is Clinic Adjusts, no adjustment to claim amount (keep as is)
+    // coPayAmount is still tracked for reference but doesn't affect claim amount
+
+    // Calculate pending amount based on advance status
+    if (advanceStatus === 'Partial Pay') {
+      // For partial pay, remaining amount goes to pending claim
+      pendingClaimAmount = totalClaimAmount - paidOrAdvanceAmount;
+    }
+
+    return {
+      coPayAmount: Math.round(coPayAmount * 100) / 100,
+      totalClaimAmount: Math.round(totalClaimAmount * 100) / 100,
+      pendingClaimAmount: Math.round(Math.max(0, pendingClaimAmount) * 100) / 100,
+    };
+  };
+
   // Handle new claim field changes
   const handleNewClaimChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setNewClaimData((prev: any) => {
-      const updated = { ...prev, [name]: value };
+      let updated = { ...prev, [name]: value };
+
       // Handle direct advanceAmount input (for both Advance and Paid types)
       if (name === "advanceAmount") {
         updated.advanceAmount = parseFloat(value) || 0;
@@ -3411,6 +3451,34 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         updated.advanceStatus = "Full Pay";
         updated.advanceAmount = 0;
       }
+
+
+      // Get current values for calculation
+      const claimAmt = name === "claimAmount" ? parseFloat(value) || 0 : parseFloat(updated.claimAmount) || 0;
+      const copPct = name === "coPayPercent" ? parseFloat(value) || 0 : parseFloat(updated.coPayPercent) || 0;
+      const copType = name === "coPayType" ? value : updated.coPayType;
+      const advStatus = name === "advanceStatus" ? value : updated.advanceStatus;
+      
+      // Auto-calculate paid amount based on advance status
+      let advAmt = name === "advanceAmount" ? parseFloat(value) || 0 : (updated.advanceAmount || 0);
+      if (name === "advanceStatus") {
+        if (value === "Partial Pay") {
+          const calculated = calculateCoPayAmounts(claimAmt, copPct, copType, "Partial Pay", 0);
+          advAmt = calculated.totalClaimAmount / 2;
+          updated.advanceAmount = Math.round(advAmt * 100) / 100;
+        } else if (value === "Full Pay") {
+          const calculated = calculateCoPayAmounts(claimAmt, copPct, copType, "Full Pay", 0);
+          advAmt = calculated.totalClaimAmount;
+          updated.advanceAmount = Math.round(advAmt * 100) / 100;
+        }
+      }
+
+      // Calculate amounts
+      const calculated = calculateCoPayAmounts(claimAmt, copPct, copType, advStatus, advAmt);
+      updated.totalClaimAmount = calculated.totalClaimAmount;
+      updated.pendingClaimAmount = calculated.pendingClaimAmount;
+      updated.coPayAmount = calculated.coPayAmount;
+
       return updated;
     });
   };
@@ -3615,6 +3683,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           documentFiles: newClaimData.documentFiles,
           advanceStatus: newClaimData.advanceStatus,
           advanceAmount: newClaimData.advanceAmount,
+          // Include calculated co-pay amounts for enterprise billing logic
+          finalClaimAmount: newClaimData.totalClaimAmount || parseFloat(newClaimData.claimAmount) || 0,
+          pendingClaim: newClaimData.pendingClaimAmount || 0,
+          coPayAmount: newClaimData.coPayAmount || 0,
         }),
       });
       const data = await res.json();
@@ -7301,29 +7373,59 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         setShowNewClaimForm(opening);
                         if (opening) {
                           fetchNewClaimDropdowns();
-                          // Reset form to empty values - no prefilling
-                          setNewClaimData({
-                            insuranceProvider: "",
-                            policyNumber: "",
-                            expiryDate: "",
-                            insuranceCardFile: "",
-                            tableOfBenefitsFile: "",
-                            departmentId: "",
-                            departmentName: "",
-                            serviceId: "",
-                            serviceName: "",
-                            services: [],
-                            doctorId: "",
-                            doctorName: "",
-                            claimAmount: "",
-                            claimType: "Paid",
-                            coPayPercent: "",
-                            coPayType: "Patient Pays",
-                            notes: "",
-                            documentFiles: [],
-                            advanceStatus: "Full Pay",
-                            advanceAmount: 0,
-                          });
+                          
+                          // Get most recent claim for prefill if exists
+                          const mostRecentClaim = insuranceClaims.length > 0 ? insuranceClaims[0] : null;
+                          
+                          if (mostRecentClaim) {
+                            // Prefill insurance details from most recent claim
+                            setNewClaimData({
+                              insuranceProvider: mostRecentClaim.insuranceProvider || "",
+                              policyNumber: mostRecentClaim.policyNumber || "",
+                              expiryDate: mostRecentClaim.expiryDate ? new Date(mostRecentClaim.expiryDate).toISOString().split('T')[0] : "",
+                              insuranceCardFile: mostRecentClaim.insuranceCardFile || "",
+                              tableOfBenefitsFile: mostRecentClaim.tableOfBenefitsFile || "",
+                              departmentId: "",
+                              departmentName: "",
+                              serviceId: "",
+                              serviceName: "",
+                              services: [],
+                              doctorId: "",
+                              doctorName: "",
+                              claimAmount: "",
+                              claimType: "Paid",
+                              coPayPercent: mostRecentClaim.coPayPercent || "",
+                              coPayType: mostRecentClaim.coPayType || "Patient Pays",
+                              notes: "",
+                              documentFiles: [],
+                              advanceStatus: "Full Pay",
+                              advanceAmount: 0,
+                            });
+                          } else {
+                            // No existing claims - start with empty form
+                            setNewClaimData({
+                              insuranceProvider: "",
+                              policyNumber: "",
+                              expiryDate: "",
+                              insuranceCardFile: "",
+                              tableOfBenefitsFile: "",
+                              departmentId: "",
+                              departmentName: "",
+                              serviceId: "",
+                              serviceName: "",
+                              services: [],
+                              doctorId: "",
+                              doctorName: "",
+                              claimAmount: "",
+                              claimType: "Paid",
+                              coPayPercent: "",
+                              coPayType: "Patient Pays",
+                              notes: "",
+                              documentFiles: [],
+                              advanceStatus: "Full Pay",
+                              advanceAmount: 0,
+                            });
+                          }
                         }
                       }}
                       className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-semibold transition-colors"
@@ -7684,6 +7786,58 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                             </div>
                           </div>
                         )}
+
+                        {/* Co-Pay Calculated Summary */}
+                        {(newClaimData.claimAmount && parseFloat(newClaimData.claimAmount) > 0 && newClaimData.coPayPercent) && (
+                          <div className="mt-2 pt-2 border-t border-purple-200">
+                            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-3 border border-indigo-200">
+                              <div className="text-[10px] font-bold text-indigo-800 mb-2 flex items-center gap-1">
+                                <Calculator className="w-3 h-3" />
+                                Co-Pay Calculation Summary
+                              </div>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[9px]">
+                                <div className="bg-white rounded p-1.5 shadow-sm">
+                                  <span className="text-gray-500">Base Claim:</span>
+                                  <span className="ml-1 font-semibold text-gray-800">{formatAED(parseFloat(newClaimData.claimAmount) || 0)}</span>
+                                </div>
+                                {newClaimData.coPayType === 'Patient Pays' && (
+                                  <div className="bg-white rounded p-1.5 shadow-sm">
+                                    <span className="text-gray-500">Co-Pay ({newClaimData.coPayPercent}%):</span>
+                                    <span className="ml-1 font-semibold text-orange-600">+{formatAED(newClaimData.coPayAmount || 0)}</span>
+                                  </div>
+                                )}
+                                <div className={`rounded p-1.5 shadow-sm ${newClaimData.coPayType === 'Patient Pays' ? 'bg-indigo-100' : 'bg-white'}`}>
+                                  <span className={`${newClaimData.coPayType === 'Patient Pays' ? 'text-indigo-700' : 'text-gray-500'}`}>Total Claim:</span>
+                                  <span className={`ml-1 font-bold ${newClaimData.coPayType === 'Patient Pays' ? 'text-indigo-800' : 'text-gray-800'}`}>{formatAED(newClaimData.totalClaimAmount || parseFloat(newClaimData.claimAmount) || 0)}</span>
+                                </div>
+                                {newClaimData.advanceStatus === 'Full Pay' && (
+                                  <div className="bg-green-100 rounded p-1.5 shadow-sm">
+                                    <span className="text-green-700">Paid Amount:</span>
+                                    <span className="ml-1 font-semibold text-green-800">{formatAED(newClaimData.totalClaimAmount || parseFloat(newClaimData.claimAmount) || 0)}</span>
+                                  </div>
+                                )}
+                                {newClaimData.advanceStatus === 'Partial Pay' && (
+                                  <>
+                                    <div className="bg-green-100 rounded p-1.5 shadow-sm">
+                                      <span className="text-green-700">Paid Amount:</span>
+                                      <span className="ml-1 font-semibold text-green-800">{formatAED(newClaimData.advanceAmount || 0)}</span>
+                                    </div>
+                                    <div className="bg-orange-100 rounded p-1.5 shadow-sm">
+                                      <span className="text-orange-700">Pending Amount:</span>
+                                      <span className="ml-1 font-semibold text-orange-800">{formatAED(newClaimData.pendingClaimAmount || 0)}</span>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                              {newClaimData.coPayType === 'Clinic Adjusts' && (
+                                <div className="mt-1.5 text-[9px] text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-200">
+                                  <Info className="w-3 h-3 inline mr-1" />
+                                  Co-Pay will be adjusted by clinic. No amount added to claim.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Form action buttons */}
@@ -7793,25 +7947,41 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     </td>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{claim.doctorName || '-'}</td>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">
-                                      {getCurrencySymbol(currency)} {claim.claimAmount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      {getCurrencySymbol(currency)} {(claim.finalClaimAmount || claim.claimAmount)?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </td>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-green-700">
                                       {claim.advanceAmount ? `${getCurrencySymbol(currency)} ${claim.advanceAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                                     </td>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-orange-700">
-                                      {/* Show pending claim only if balance.pendingClaim > 0 (meaning there's still pending claim to collect) */}
-                                      {balance.pendingClaim > 0 && claim.pendingClaim > 0 ? `${getCurrencySymbol(currency)} ${claim.pendingClaim.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                                      {claim.pendingClaim > 0 ? `${getCurrencySymbol(currency)} ${claim.pendingClaim.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                                     </td>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{claim.coPayPercent}%</td>
                                     <td className="px-4 py-3 whitespace-nowrap">
-                                      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                                        claim.status === 'Under Review' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
-                                        claim.status === 'Approved' ? 'bg-green-100 text-green-800 border-green-300' :
-                                        claim.status === 'Rejected' ? 'bg-red-100 text-red-800 border-red-300' :
-                                        'bg-blue-100 text-blue-800 border-blue-300'
-                                      }`}>
-                                        {claim.status}
-                                      </span>
+                                      {(() => {
+                                        const events: { date: string; status: string }[] = [];
+                                        if (claim.rejectedFromReleaseRequestedAt) events.push({ date: claim.rejectedFromReleaseRequestedAt, status: 'Rejected' });
+                                        if (claim.rejectedFromPassClaimsAt) events.push({ date: claim.rejectedFromPassClaimsAt, status: 'Rejected' });
+                                        if (claim.approvedAt) events.push({ date: claim.approvedAt, status: 'Approved' });
+                                        if (claim.rejectedAt) events.push({ date: claim.rejectedAt, status: 'Rejected' });
+                                        if (claim.releasedAt) events.push({ date: claim.releasedAt, status: 'Released' });
+                                        if (claim.completedAt) events.push({ date: claim.completedAt, status: 'Completed' });
+                                        if (claim.readyAt) events.push({ date: claim.readyAt, status: 'Ready' });
+                                        events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                                        const effectiveStatus = events.length > 0 ? events[0].status : (claim.status || 'Under Review');
+                                        return (
+                                          <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                                            effectiveStatus === 'Under Review' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
+                                            effectiveStatus === 'Approved' ? 'bg-green-100 text-green-800 border-green-300' :
+                                            effectiveStatus === 'Rejected' ? 'bg-red-100 text-red-800 border-red-300' :
+                                            effectiveStatus === 'Ready' ? 'bg-indigo-100 text-indigo-800 border-indigo-300' :
+                                            effectiveStatus === 'Completed' ? 'bg-purple-100 text-purple-800 border-purple-300' :
+                                            effectiveStatus === 'Released' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                                            'bg-gray-100 text-gray-800 border-gray-300'
+                                          }`}>
+                                            {effectiveStatus}
+                                          </span>
+                                        );
+                                      })()}
                                     </td>
                                     <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{new Date(claim.createdAt).toLocaleDateString()}</td>
                                     <td className="px-4 py-3 whitespace-nowrap">
@@ -8114,133 +8284,77 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         {/* Timeline Container */}
                         <div className="relative">
                           {/* Vertical Line */}
-                          <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-purple-300 via-blue-300 to-green-300"></div>
+                          <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-100"></div>
                          
                           {/* Timeline Items */}
                           <div className="space-y-6">
-                            {/* 1. Claim Created */}
-                            <div className="relative flex items-start gap-4">
-                              <div className="relative z-10 w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
-                                <FileText className="w-5 h-5 text-white" />
-                              </div>
-                              <div className="flex-1 bg-purple-50 border border-purple-200 rounded-xl p-4 ml-2">
-                                <div className="flex items-center justify-between mb-2">
-                                  <h3 className="text-sm font-bold text-purple-900">Claim Created</h3>
-                                  <span className="text-xs font-semibold text-purple-600 bg-purple-100 px-2 py-1 rounded-full">
-                                    {new Date(claimTrackingModal.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                  </span>
+                            {(() => {
+                              const ctm = claimTrackingModal || {};
+                              const allSteps = [];
+                              if (ctm.createdAt) allSteps.push({ type: "created", date: ctm.createdAt, title: "Claim Created", badge: "Created", icon: <FileText className="w-5 h-5 text-white" />, bg: "from-purple-500 to-purple-600", cardBg: "bg-purple-50", border: "border-purple-200", titleColor: "text-purple-900", badgeColor: "text-purple-600 bg-purple-100", reviewer: ctm.createdByName, role: ctm.createdByRole || "Staff", content: <><p className="text-xs text-purple-700">Insurance claim created with amount <strong>{ctm.claimAmount?.toLocaleString()}</strong></p><p className="text-xs text-purple-600 mt-1">Type: <span className="font-semibold">{ctm.claimType}</span></p></> });
+                              if (ctm.rejectedFromPassClaims) allSteps.push({ type: "rejectPass", date: ctm.rejectedFromPassClaimsAt, title: "Rejected from Pass Claims", badge: "Pass Reject", icon: <XCircle className="w-5 h-5 text-white" />, bg: "from-orange-500 to-red-500", cardBg: "bg-red-50", border: "border-red-200", titleColor: "text-red-900", badgeColor: "text-red-600 bg-red-100", reviewer: ctm.rejectedFromPassClaimsByName, role: ctm.rejectedFromPassClaimsByRole });
+                              if (ctm.approvedAt || ctm.approvedBy) allSteps.push({ type: "approved", date: ctm.approvedAt, title: "Claim Approved by Doctor", badge: "Approved", icon: <CheckCircle className="w-5 h-5 text-white" />, bg: "from-green-500 to-emerald-500", cardBg: "bg-green-50", border: "border-green-200", titleColor: "text-green-900", badgeColor: "text-green-600 bg-green-100", reviewer: ctm.approvedByName, role: ctm.approvedByRole });
+                              if (ctm.rejectedAt || ctm.rejectedBy) allSteps.push({ type: "rejected", date: ctm.rejectedAt, title: "Claim Rejected", badge: "Rejected", icon: <XCircle className="w-5 h-5 text-white" />, bg: "from-red-500 to-rose-500", cardBg: "bg-red-50", border: "border-red-200", titleColor: "text-red-900", badgeColor: "text-red-600 bg-red-100", reviewer: ctm.rejectedByName, role: ctm.rejectedByRole });
+                              if (ctm.readyAt || ctm.readyBy) allSteps.push({ type: "ready", date: ctm.readyAt, title: "Claim Checked by Financial Department", subtitle: "Ready", badge: "Ready", icon: <CheckCircle className="w-5 h-5 text-white" />, bg: "from-indigo-500 to-violet-500", cardBg: "bg-indigo-50", border: "border-indigo-200", titleColor: "text-indigo-900", badgeColor: "text-indigo-600 bg-indigo-100", reviewer: ctm.readyByName, role: ctm.readyByRole });
+                              if (ctm.completedAt || ctm.completedBy) allSteps.push({ type: "completed", date: ctm.completedAt, title: "Claim Completed with Treatment Plan by Doctor", badge: "Completed", icon: <CheckCircle className="w-5 h-5 text-white" />, bg: "from-purple-500 to-pink-500", cardBg: "bg-purple-50", border: "border-purple-200", titleColor: "text-purple-900", badgeColor: "text-purple-600 bg-purple-100", reviewer: ctm.completedByName, role: ctm.completedByRole });
+                              if (ctm.releasedAt || ctm.releasedBy) allSteps.push({ type: "released", date: ctm.releasedAt, title: "Claim Released", badge: "Released", icon: <DollarSign className="w-5 h-5 text-white" />, bg: "from-blue-500 to-cyan-500", cardBg: "bg-blue-50", border: "border-blue-200", titleColor: "text-blue-900", badgeColor: "text-blue-600 bg-blue-100", reviewer: ctm.releasedByName, role: ctm.releasedByRole, extra: <><p className="text-xs text-blue-700 mt-2 pt-2 border-t border-blue-200"><strong>Advance Amount:</strong> {ctm.advanceAmount?.toLocaleString() || 'N/A'}</p></> });
+                              if (ctm.rejectedFromReleaseRequested) allSteps.push({ type: "rejectRelease", date: ctm.rejectedFromReleaseRequestedAt, title: "Rejected from Release", badge: "Release Reject", icon: <XCircle className="w-5 h-5 text-white" />, bg: "from-orange-500 to-red-500", cardBg: "bg-red-50", border: "border-red-200", titleColor: "text-red-900", badgeColor: "text-red-600 bg-red-100", reviewer: ctm.rejectedFromReleaseRequestedByName, role: ctm.rejectedFromReleaseRequestedByRole });
+                              allSteps.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                              const iconMap: Record<string, React.ReactNode> = { approved: <CheckCircle className="w-4 h-4 text-green-600" />, rejected: <XCircle className="w-4 h-4 text-red-600" />, rejectPass: <AlertCircle className="w-4 h-4 text-orange-600" />, rejectRelease: <AlertCircle className="w-4 h-4 text-orange-600" />, ready: <CheckCircle className="w-4 h-4 text-indigo-600" />, released: <CheckCircle className="w-4 h-4 text-blue-600" />, completed: <CheckCircle className="w-4 h-4 text-purple-600" />, created: <FileText className="w-4 h-4 text-purple-600" /> };
+                              const bgMap: Record<string, string> = { approved: "bg-green-100", rejected: "bg-red-100", rejectPass: "bg-orange-100", rejectRelease: "bg-orange-100", ready: "bg-indigo-100", released: "bg-blue-100", completed: "bg-purple-100", created: "bg-purple-100" };
+                              const badgeColorMap: Record<string, string> = { approved: "text-green-600 bg-green-50", rejected: "text-red-600 bg-red-50", rejectPass: "text-orange-600 bg-orange-50", rejectRelease: "text-orange-600 bg-orange-50", ready: "text-indigo-600 bg-indigo-50", released: "text-blue-600 bg-blue-50", completed: "text-purple-600 bg-purple-50", created: "text-purple-600 bg-purple-50" };
+                              
+                              return allSteps.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-12 text-center">
+                                  <Activity className="w-12 h-12 text-gray-200 mb-4" />
+                                  <p className="text-gray-500 font-medium">No tracking history available for this claim</p>
                                 </div>
-                                <p className="text-xs text-purple-700">
-                                  Insurance claim created with amount <strong>{claimTrackingModal.claimAmount?.toLocaleString()}</strong>
-                                </p>
-                                <p className="text-xs text-purple-600 mt-1">
-                                  Type: <span className="font-semibold">{claimTrackingModal.claimType}</span>
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* 2. Pass Claims Review (if rejected from pass claims) */}
-                            {claimTrackingModal.rejectedFromPassClaims && (
-                              <div className="relative flex items-start gap-4">
-                                <div className="relative z-10 w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-lg">
-                                  <XCircle className="w-5 h-5 text-white" />
-                                </div>
-                                <div className="flex-1 bg-red-50 border border-red-200 rounded-xl p-4 ml-2">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-sm font-bold text-red-900">Rejected from Pass Claims</h3>
-                                    <span className="text-xs font-semibold text-red-600 bg-red-100 px-2 py-1 rounded-full">
-                                      {claimTrackingModal.rejectedFromPassClaimsAt ? new Date(claimTrackingModal.rejectedFromPassClaimsAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                                    </span>
+                              ) : (
+                                allSteps.map((step, idx) => (
+                                  <div key={step.type} className="flex gap-4 group">
+                                    <div className={`relative z-10 w-8 h-8 rounded-full ${bgMap[step.type]} border-4 border-white flex items-center justify-center shadow-sm`}>
+                                      {iconMap[step.type]}
+                                    </div>
+                                    <div className="flex-1 pt-0.5">
+                                      <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm group-hover:shadow-md transition-shadow">
+                                        <div className="flex items-center justify-between mb-2">
+                                          <div>
+                                            <h4 className="text-sm font-bold text-gray-900">{step.title}</h4>
+                                            {step.subtitle && <p className="text-[10px] font-semibold text-indigo-600 mt-0.5">Status: {step.subtitle}</p>}
+                                          </div>
+                                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${badgeColorMap[step.type]}`}>Step {idx + 1}</span>
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                                          <div className="flex items-center gap-2">
+                                            <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center"><User className="w-3.5 h-3.5 text-gray-400" /></div>
+                                            <div>
+                                              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">{step.type === 'released' ? 'Released By' : step.type === 'approved' ? 'Approved By' : step.type === 'rejected' ? 'Rejected By' : step.type === 'ready' ? 'Checked By' : step.type === 'completed' ? 'Completed By' : step.type === 'created' ? 'Created By' : 'Rejected By'}</p>
+                                              <p className="text-xs font-semibold text-gray-700">{step.reviewer || "N/A"}</p>
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center"><Shield className="w-3.5 h-3.5 text-gray-400" /></div>
+                                            <div>
+                                              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">Role</p>
+                                              <p className="text-xs font-semibold text-gray-700 capitalize">{step.role || "N/A"}</p>
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-2 col-span-full">
+                                            <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center"><Clock className="w-3.5 h-3.5 text-gray-400" /></div>
+                                            <div>
+                                              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">Date & Time</p>
+                                              <p className="text-xs font-semibold text-gray-700">{step.date ? new Date(step.date).toLocaleString() : "N/A"}</p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        {step.content}
+                                        {step.extra}
+                                      </div>
+                                    </div>
                                   </div>
-                                  <div className="space-y-1">
-                                    <p className="text-xs text-red-700">
-                                      <strong>Rejected By:</strong> {claimTrackingModal.rejectedFromPassClaimsByName || 'N/A'}
-                                    </p>
-                                    <p className="text-xs text-red-700">
-                                      <strong>Role:</strong> <span className="font-semibold capitalize">{claimTrackingModal.rejectedFromPassClaimsByRole || 'N/A'}</span>
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* 3. Approval (if approved) */}
-                            {claimTrackingModal.approvedBy && (
-                              <div className="relative flex items-start gap-4">
-                                <div className="relative z-10 w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-lg">
-                                  <CheckCircle className="w-5 h-5 text-white" />
-                                </div>
-                                <div className="flex-1 bg-green-50 border border-green-200 rounded-xl p-4 ml-2">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-sm font-bold text-green-900">Claim Approved</h3>
-                                    <span className="text-xs font-semibold text-green-600 bg-green-100 px-2 py-1 rounded-full">
-                                      {claimTrackingModal.approvedAt ? new Date(claimTrackingModal.approvedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                                    </span>
-                                  </div>
-                                  <div className="space-y-1">
-                                    <p className="text-xs text-green-700">
-                                      <strong>Approved By:</strong> {claimTrackingModal.approvedByName || 'N/A'}
-                                    </p>
-                                    <p className="text-xs text-green-700">
-                                      <strong>Role:</strong> <span className="font-semibold capitalize">{claimTrackingModal.approvedByRole || 'N/A'}</span>
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* 4. Rejection (if rejected) */}
-                            {claimTrackingModal.rejectedBy && (
-                              <div className="relative flex items-start gap-4">
-                                <div className="relative z-10 w-12 h-12 rounded-full bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center shadow-lg">
-                                  <XCircle className="w-5 h-5 text-white" />
-                                </div>
-                                <div className="flex-1 bg-red-50 border border-red-200 rounded-xl p-4 ml-2">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-sm font-bold text-red-900">Claim Rejected</h3>
-                                    <span className="text-xs font-semibold text-red-600 bg-red-100 px-2 py-1 rounded-full">
-                                      {claimTrackingModal.rejectedAt ? new Date(claimTrackingModal.rejectedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                                    </span>
-                                  </div>
-                                  <div className="space-y-1">
-                                    <p className="text-xs text-red-700">
-                                      <strong>Rejected By:</strong> {claimTrackingModal.rejectedByName || 'N/A'}
-                                    </p>
-                                    <p className="text-xs text-red-700">
-                                      <strong>Role:</strong> <span className="font-semibold capitalize">{claimTrackingModal.rejectedByRole || 'N/A'}</span>
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* 5. Release (if released) */}
-                            {claimTrackingModal.releasedBy && (
-                              <div className="relative flex items-start gap-4">
-                                <div className="relative z-10 w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                                  <DollarSign className="w-5 h-5 text-white" />
-                                </div>
-                                <div className="flex-1 bg-blue-50 border border-blue-200 rounded-xl p-4 ml-2">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-sm font-bold text-blue-900">Claim Released</h3>
-                                    <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
-                                      {claimTrackingModal.releasedAt ? new Date(claimTrackingModal.releasedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                                    </span>
-                                  </div>
-                                  <div className="space-y-1">
-                                    <p className="text-xs text-blue-700">
-                                      <strong>Released By:</strong> {claimTrackingModal.releasedByName || 'N/A'}
-                                    </p>
-                                    <p className="text-xs text-blue-700">
-                                      <strong>Role:</strong> <span className="font-semibold capitalize">{claimTrackingModal.releasedByRole || 'N/A'}</span>
-                                    </p>
-                                    <p className="text-xs text-blue-700 mt-2 pt-2 border-t border-blue-200">
-                                      <strong>Advance Amount:</strong> {claimTrackingModal.advanceAmount?.toLocaleString() || 'N/A'}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
+                                ))
+                              );
+                            })()}
 
                             {/* Current Status Badge */}
                             <div className="relative flex items-start gap-4">
@@ -8249,14 +8363,32 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               </div>
                               <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-4 ml-2">
                                 <h3 className="text-sm font-bold text-gray-900 mb-2">Current Status</h3>
-                                <span className={`inline-flex px-3 py-1.5 rounded-full text-xs font-bold border ${
-                                  claimTrackingModal.status === 'Under Review' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
-                                  claimTrackingModal.status === 'Approved' ? 'bg-green-100 text-green-800 border-green-300' :
-                                  claimTrackingModal.status === 'Rejected' ? 'bg-red-100 text-red-800 border-red-300' :
-                                  'bg-blue-100 text-blue-800 border-blue-300'
-                                }`}>
-                                  {claimTrackingModal.status}
-                                </span>
+                                {(() => {
+                                  const ctm = claimTrackingModal || {};
+                                  const events: { date: string; status: string }[] = [];
+                                  if (ctm.rejectedFromReleaseRequestedAt) events.push({ date: ctm.rejectedFromReleaseRequestedAt, status: 'Rejected' });
+                                  if (ctm.rejectedFromPassClaimsAt) events.push({ date: ctm.rejectedFromPassClaimsAt, status: 'Rejected' });
+                                  if (ctm.approvedAt) events.push({ date: ctm.approvedAt, status: 'Approved' });
+                                  if (ctm.rejectedAt) events.push({ date: ctm.rejectedAt, status: 'Rejected' });
+                                  if (ctm.releasedAt) events.push({ date: ctm.releasedAt, status: 'Released' });
+                                  if (ctm.completedAt) events.push({ date: ctm.completedAt, status: 'Completed' });
+                                  if (ctm.readyAt) events.push({ date: ctm.readyAt, status: 'Ready' });
+                                  events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                                  const effectiveStatus = events.length > 0 ? events[0].status : (ctm.status || 'Under Review');
+                                  return (
+                                    <span className={`inline-flex px-3 py-1.5 rounded-full text-xs font-bold border ${
+                                      effectiveStatus === 'Under Review' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
+                                      effectiveStatus === 'Approved' ? 'bg-green-100 text-green-800 border-green-300' :
+                                      effectiveStatus === 'Rejected' ? 'bg-red-100 text-red-800 border-red-300' :
+                                      effectiveStatus === 'Ready' ? 'bg-indigo-100 text-indigo-800 border-indigo-300' :
+                                      effectiveStatus === 'Completed' ? 'bg-purple-100 text-purple-800 border-purple-300' :
+                                      effectiveStatus === 'Released' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                                      'bg-gray-100 text-gray-800 border-gray-300'
+                                    }`}>
+                                      {effectiveStatus}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             </div>
                           </div>
@@ -8279,7 +8411,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                 {/* Claim Edit Modal */}
                 {claimEditModal && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
                       <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
                         <h2 className="text-lg font-bold text-gray-900">Edit Claim</h2>
                         <button onClick={() => setClaimEditModal(null)} className="p-2 hover:bg-gray-100 rounded-lg">
@@ -8290,7 +8422,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         {/* Insurance Details */}
                         <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                           <h3 className="text-sm font-semibold text-blue-800 mb-3">Insurance Details</h3>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                             <div>
                               <label className="block text-xs font-medium text-gray-700 mb-1">Insurance Provider <span className="text-red-500">*</span></label>
                               <input type="text" value={claimEditData.insuranceProvider || ''} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, insuranceProvider: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
@@ -8377,7 +8509,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         {/* Claim Source & Type */}
                         <div className="bg-green-50 rounded-lg p-4 border border-green-200">
                           <h3 className="text-sm font-semibold text-green-800 mb-3">Claim Source & Type</h3>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 items-start">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-start">
                             <div className="flex flex-col">
                               <label className="block text-xs font-medium text-gray-700 mb-1">
                                 Department
@@ -8498,14 +8630,48 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         {/* Claim Details */}
                         <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
                           <h3 className="text-sm font-semibold text-purple-800 mb-3">Claim Details</h3>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 items-start">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-start">
                             <div className="flex flex-col">
                               <label className="block text-xs font-medium text-gray-700 mb-1">Co-Pay %</label>
-                              <input type="number" value={claimEditData.coPayPercent ?? ''} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, coPayPercent: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 h-[38px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" min="0" max="100" />
+                              <input type="number" value={claimEditData.coPayPercent ?? ''} onChange={(e) => {
+                                const newCopPct = e.target.value;
+                                setClaimEditData((prev: any) => {
+                                  const claimAmt = parseFloat(prev.claimAmount) || 0;
+                                  const copPct = parseFloat(newCopPct) || 0;
+                                  const copType = prev.coPayType || 'Patient Pays';
+                                  const advStatus = prev.advanceStatus || 'Full Pay';
+                                  const advAmt = prev.advanceAmount || 0;
+                                  const calculated = calculateCoPayAmounts(claimAmt, copPct, copType, advStatus, advAmt);
+                                  return {
+                                    ...prev,
+                                    coPayPercent: newCopPct,
+                                    totalClaimAmount: calculated.totalClaimAmount,
+                                    pendingClaimAmount: calculated.pendingClaimAmount,
+                                    coPayAmount: calculated.coPayAmount,
+                                  };
+                                });
+                              }} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 h-[38px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" min="0" max="100" />
                             </div>
                             <div className="flex flex-col">
                               <label className="block text-xs font-medium text-gray-700 mb-1">Co-Pay Type</label>
-                              <select value={claimEditData.coPayType || 'Patient Pays'} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, coPayType: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 h-[38px]">
+                              <select value={claimEditData.coPayType || 'Patient Pays'} onChange={(e) => {
+                                const newCopType = e.target.value;
+                                setClaimEditData((prev: any) => {
+                                  const claimAmt = parseFloat(prev.claimAmount) || 0;
+                                  const copPct = parseFloat(prev.coPayPercent) || 0;
+                                  const copType = newCopType;
+                                  const advStatus = prev.advanceStatus || 'Full Pay';
+                                  const advAmt = prev.advanceAmount || 0;
+                                  const calculated = calculateCoPayAmounts(claimAmt, copPct, copType, advStatus, advAmt);
+                                  return {
+                                    ...prev,
+                                    coPayType: newCopType,
+                                    totalClaimAmount: calculated.totalClaimAmount,
+                                    pendingClaimAmount: calculated.pendingClaimAmount,
+                                    coPayAmount: calculated.coPayAmount,
+                                  };
+                                });
+                              }} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 h-[38px]">
                                 <option value="Patient Pays">Patient Pays</option>
                                 <option value="Deduct from Claim">Deduct from Claim</option>
                                 <option value="Clinic Adjusts">Clinic Adjusts</option>
@@ -8556,24 +8722,92 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                </div>
                             </div>
                             {(claimEditData.claimType === 'Advance' || claimEditData.claimType === 'Paid') && (
-                              <div className="grid grid-cols-2 gap-2 lg:col-span-1">
+                              <>
                                 <div className="flex flex-col">
-                                  <label className="block text-[10px] font-medium text-gray-700 mb-1 truncate">{claimEditData.claimType} Status</label>
+                                  <label className="block text-xs font-medium text-gray-700 mb-1 truncate">{claimEditData.claimType} Status</label>
                                   <select value={claimEditData.advanceStatus || 'Full Pay'} onChange={(e) => {
-                                    const amt = parseFloat(claimEditData.claimAmount) || 0;
-                                    setClaimEditData((prev: any) => ({
-                                      ...prev,
-                                      advanceStatus: e.target.value,
-                                      advanceAmount: e.target.value === 'Full Pay' ? amt : amt * 0.5,
-                                    }));
-                                  }} className="w-full px-2 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 h-[38px]">
+                                    const claimAmt = parseFloat(claimEditData.claimAmount) || 0;
+                                    const copPct = parseFloat(claimEditData.coPayPercent) || 0;
+                                    const copType = claimEditData.coPayType || 'Patient Pays';
+                                    let amtToPay = claimAmt;
+                                    if (copType === 'Patient Pays') {
+                                      amtToPay = claimAmt + (claimAmt * copPct / 100);
+                                    }
+                                    setClaimEditData((prev: any) => {
+                                      const newStatus = e.target.value;
+                                      let newAdvanceAmount = amtToPay;
+                                      if (newStatus === 'Partial Pay') {
+                                        newAdvanceAmount = amtToPay / 2;
+                                      }
+                                      const calculated = calculateCoPayAmounts(claimAmt, copPct, copType, newStatus, newAdvanceAmount);
+                                      return {
+                                        ...prev,
+                                        advanceStatus: newStatus,
+                                        advanceAmount: newAdvanceAmount,
+                                        totalClaimAmount: calculated.totalClaimAmount,
+                                        pendingClaimAmount: calculated.pendingClaimAmount,
+                                        coPayAmount: calculated.coPayAmount,
+                                      };
+                                    });
+                                  }} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 h-[38px]">
                                     <option value="Full Pay">Full</option>
                                     <option value="Partial Pay">Partial</option>
                                   </select>
                                 </div>
                                 <div className="flex flex-col">
-                                  <label className="block text-[10px] font-medium text-gray-700 mb-1 truncate">Amount</label>
-                                  <input type="number" value={claimEditData.advanceAmount ?? ''} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, advanceAmount: parseFloat(e.target.value) || 0 }))} className="w-full px-2 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-semibold h-[38px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" placeholder="0" min="0" step="0.01" />
+                                  <label className="block text-xs font-medium text-gray-700 mb-1 truncate">Amount</label>
+                                  <input type="number" value={claimEditData.advanceAmount ?? ''} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, advanceAmount: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-semibold h-[38px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" placeholder="0" min="0" step="0.01" />
+                                </div>
+                              </>
+                            )}
+                            {/* Co-Pay Calculated Summary for Edit Modal */}
+                            {(claimEditData.claimAmount && parseFloat(claimEditData.claimAmount) > 0 && claimEditData.coPayPercent) && (
+                              <div className="mt-3 pt-3 border-t border-purple-200">
+                                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-3 border border-indigo-200">
+                                  <div className="text-[10px] font-bold text-indigo-800 mb-2 flex items-center gap-1">
+                                    <Calculator className="w-3 h-3" />
+                                    Co-Pay Calculation Summary
+                                  </div>
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 text-xs">
+                                    <div className="bg-white rounded p-2 shadow-sm">
+                                      <span className="text-gray-500 block text-[10px]">Base Claim:</span>
+                                      <span className="font-semibold text-gray-800 text-xs">{formatAED(parseFloat(claimEditData.claimAmount) || 0)}</span>
+                                    </div>
+                                    {claimEditData.coPayType === 'Patient Pays' && (
+                                      <div className="bg-white rounded p-2 shadow-sm">
+                                        <span className="text-gray-500 block text-[10px]">Co-Pay ({claimEditData.coPayPercent}%):</span>
+                                        <span className="font-semibold text-orange-600 text-xs">+{formatAED(claimEditData.coPayAmount || 0)}</span>
+                                      </div>
+                                    )}
+                                    <div className={`rounded p-2 shadow-sm ${claimEditData.coPayType === 'Patient Pays' ? 'bg-indigo-100' : 'bg-white'}`}>
+                                      <span className={`${claimEditData.coPayType === 'Patient Pays' ? 'text-indigo-700' : 'text-gray-500'} block text-[10px]`}>Total Claim:</span>
+                                      <span className={`font-bold ${claimEditData.coPayType === 'Patient Pays' ? 'text-indigo-800' : 'text-gray-800'} text-xs`}>{formatAED(claimEditData.totalClaimAmount || parseFloat(claimEditData.claimAmount) || 0)}</span>
+                                    </div>
+                                    {claimEditData.advanceStatus === 'Full Pay' && (
+                                      <div className="bg-green-100 rounded p-2 shadow-sm">
+                                        <span className="text-green-700 block text-[10px]">Paid Amount:</span>
+                                        <span className="font-semibold text-green-800 text-xs">{formatAED(claimEditData.totalClaimAmount || parseFloat(claimEditData.claimAmount) || 0)}</span>
+                                      </div>
+                                    )}
+                                    {claimEditData.advanceStatus === 'Partial Pay' && (
+                                      <>
+                                        <div className="bg-green-100 rounded p-2 shadow-sm">
+                                          <span className="text-green-700 block text-[10px]">Paid Amount:</span>
+                                          <span className="font-semibold text-green-800 text-xs">{formatAED(claimEditData.advanceAmount || 0)}</span>
+                                        </div>
+                                        <div className="bg-orange-100 rounded p-2 shadow-sm">
+                                          <span className="text-orange-700 block text-[10px]">Pending Amount:</span>
+                                          <span className="font-semibold text-orange-800 text-xs">{formatAED(claimEditData.pendingClaimAmount || 0)}</span>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                  {claimEditData.coPayType === 'Clinic Adjusts' && (
+                                    <div className="mt-1.5 text-[9px] text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-200">
+                                      <Info className="w-3 h-3 inline mr-1" />
+                                      Co-Pay will be adjusted by clinic. No amount added to claim.
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             )}

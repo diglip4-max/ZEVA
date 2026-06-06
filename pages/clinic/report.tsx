@@ -27,6 +27,7 @@ const RevenueReport = dynamic(() => import("../../components/reports/RevenueRepo
 const RoomResourceReport = dynamic(() => import("../../components/reports/RoomResourceReport"), { ssr: false });
 const StockReport = dynamic(() => import("../../components/reports/StockReport"), { ssr: false });
 const OfferTrackReport = dynamic(() => import("../../components/reports/OfferTrackReport"), { ssr: false });
+const InsuranceClaimsReport = dynamic(() => import("../../components/reports/InsuranceClaimsReport"), { ssr: false });
 
 const TAB_CONFIG = {
   department: { label: "Department", color: "bg-teal-800 hover:bg-teal-900" },
@@ -40,11 +41,12 @@ const TAB_CONFIG = {
   rooms: { label: "Rooms", color: "bg-teal-800 hover:bg-teal-900" },
   stock: { label: "Stock", color: "bg-teal-800 hover:bg-teal-900" },
   offerTrack: { label: "Offer Track", color: "bg-teal-800 hover:bg-teal-900" },
+  insuranceClaims: { label: "Insurance Claims", color: "bg-teal-800 hover:bg-teal-900" },
 };
 
 function ReportPage() {
   const [activeTab, setActiveTab] = useState<
-    "department" | "package" | "membership" | "appointment" | "patient" | "lead" | "doctorStaff" | "rooms" | "revenue" | "stock" | "offerTrack"
+    "department" | "package" | "membership" | "appointment" | "patient" | "lead" | "doctorStaff" | "rooms" | "revenue" | "stock" | "offerTrack" | "insuranceClaims"
   >("department");
   const [startDate, setStartDate] = useState(dayjs().startOf("month").format("YYYY-MM-DD"));
   const [endDate, setEndDate] = useState(dayjs().endOf("month").format("YYYY-MM-DD"));
@@ -540,6 +542,7 @@ function ReportPage() {
           {activeTab === "rooms" && <RoomResourceReport startDate={startDate} endDate={endDate} headers={headers} />}
           {activeTab === "stock" && <StockReport startDate={startDate} endDate={endDate} headers={headers} />}
                     {activeTab === "offerTrack" && <OfferTrackReport startDate={startDate} endDate={endDate} headers={headers} canUpdate={permissions.canUpdate} />}
+                                      {activeTab === "insuranceClaims" && <InsuranceClaimsReport startDate={startDate} endDate={endDate} headers={headers} />}
         </div>
       </div>
     </div>

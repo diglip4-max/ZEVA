@@ -557,8 +557,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         if (res.data.success && res.data.clinic?.currency) {
           setCurrency(res.data.clinic.currency);
         }
-      } catch (e) { 
-        console.error('Error fetching clinic currency:', e); 
+      } catch (e: any) {
+        // Silently ignore 403 permission errors
+        if (e?.response?.status !== 403) {
+          console.error('Error fetching clinic currency:', e);
+        }
       }
     };
     fetchClinicCurrency();

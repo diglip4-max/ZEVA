@@ -14,11 +14,13 @@ interface NavItemChild {
   badge?: number;
   permissionKey?: string;
   order?: number;
+  permissions?: Record<string, boolean> | null;
 }
 
 interface NavItem extends NavItemChild {
   children?: NavItemChild[];
   moduleKey?: string;
+  permissions?: Record<string, boolean> | null;
 }
  
 interface NavigationItemFromAPI {
@@ -29,11 +31,13 @@ interface NavigationItemFromAPI {
   description?: string;
   order: number;
   moduleKey: string;
+  permissions?: Record<string, boolean> | null;
   subModules?: Array<{
     name: string;
     path?: string;
     icon: string;
     order: number;
+    permissions?: Record<string, boolean> | null;
   }>;
 }
 
@@ -108,13 +112,19 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
 
             // Convert subModules to children
             if (item.subModules && item.subModules.length > 0) {
-              navItem.children = item.subModules.map((subModule: { name: string; path?: string; icon: string; order: number }): NavItemChild => ({
+              navItem.children = item.subModules.map((subModule: { name: string; path?: string; icon: string; order: number; permissions?: Record<string, boolean> | null }): NavItemChild => ({
                 label: subModule.name,
                 path: subModule.path,
                 icon: subModule.icon,
                 description: subModule.name,
                 order: subModule.order,
+                permissions: subModule.permissions || null,
               }));
+            }
+
+            // Add module-level permissions
+            if (item.permissions) {
+              navItem.permissions = item.permissions;
             }
 
             return navItem;
@@ -155,6 +165,12 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
     };
   }, [router]);
 
+  // Helper function to check if any permissions are enabled
+  const hasAnyPermission = (permissions: Record<string, boolean> | null | undefined): boolean => {
+    if (!permissions) return false;
+    return Object.values(permissions).some(val => val === true);
+  };
+
   const filteredItems = useMemo(() => {
     // Add Dashboard item at the beginning
     const dashboardItem: NavItem = {
@@ -175,16 +191,41 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
       order: 9,
     };
 
-    // Navigation items are already filtered by the API based on permissions
-    // Just return them as-is, but ensure children are properly structured
-    const apiItems = navigationItems.map(item => ({
-          ...item,
-      children: item.children && item.children.length > 0 ? item.children : undefined,
-    })).filter(item => {
+    // Filter navigation items based on permissions
+    const apiItems = navigationItems.map(item => {
+      // Filter out sub-modules with no permissions
+      const filteredChildren = item.children?.filter(child => {
+        // Keep child if it has any permission enabled
+        return hasAnyPermission(child.permissions);
+      });
+
+      return {
+        ...item,
+        children: filteredChildren && filteredChildren.length > 0 ? filteredChildren : undefined,
+      };
+    }).filter(item => {
       // Remove items with no path and no children (empty modules)
       if (!item.path && (!item.children || item.children.length === 0)) {
         return false;
       }
+
+      // For parent modules with children, check if any child has permissions
+      if (item.children && item.children.length > 0) {
+        // Check if module-level permissions exist
+        const hasModulePerms = hasAnyPermission(item.permissions);
+        
+        // Check if any child has permissions
+        const hasChildPerms = item.children.some(child => hasAnyPermission(child.permissions));
+        
+        // Only show if module has permissions OR any child has permissions
+        return hasModulePerms || hasChildPerms;
+      }
+
+      // For single modules (no children), check if module has permissions
+      if (item.permissions) {
+        return hasAnyPermission(item.permissions);
+      }
+
       return true;
     });
 
@@ -494,8 +535,8 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                     <span className="font-semibold text-sm">AG</span>
                   </div>
                   <div>
-                    <span className="font-semibold text-sm text-slate-900 block">Agent Portal</span>
-                    <span className="text-xs text-sky-600 font-medium">Lead management</span>
+                    <span className="font-semibold text-sm text-slate-900 block">Staff Portal</span>
+                    <span className="text-xs text-sky-600 font-medium">Staff management</span>
                   </div>
                 </div>
               </div>

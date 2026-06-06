@@ -553,7 +553,7 @@ function PettyCashPage() {
           setCurrency(res.data.clinic.currency);
         }
       } catch (e) { 
-        console.error('Error fetching clinic currency:', e); 
+        // Silently ignore - default to INR
       }
     };
     fetchClinicCurrency();
@@ -615,18 +615,10 @@ function PettyCashPage() {
 
   // ── Service info ──────────────────────────────────────────────────────────
   const renderServiceInfo = (record: CashRecord) => {
-    if (record.membershipInfo) {
-      return (
-        <div className="flex flex-col gap-0.5">
-          <span className="inline-flex items-center gap-1 text-purple-700 font-medium text-xs"><CreditCard size={12} />Membership</span>
-          <span className="text-gray-800 text-xs font-semibold">{record.membershipInfo.name}</span>
-          <span className="text-gray-500 text-xs">{fmt(record.membershipInfo.price)}</span>
-          {record.membershipDiscountApplied > 0 && <span className="text-green-600 text-xs">Discount: {fmt(record.membershipDiscountApplied)}</span>}
-        </div>
-      );
-    }
+    let mainService;
+    
     if (record.service === "Package") {
-      return (
+      mainService = (
         <div className="flex flex-col gap-0.5">
           <span className="inline-flex items-center gap-1 text-blue-700 font-medium text-xs"><Package size={12} />Package</span>
           <span className="text-gray-800 text-xs font-semibold">{record.package}</span>
@@ -641,11 +633,41 @@ function PettyCashPage() {
           )}
         </div>
       );
+    } else if (record.treatment) {
+      mainService = (
+        <div className="flex flex-col gap-0.5">
+          <span className="inline-flex items-center gap-1 text-teal-700 font-medium text-xs"><Stethoscope size={12} />Treatment</span>
+          <span className="text-gray-800 text-xs font-semibold">{record.treatment}</span>
+        </div>
+      );
+    } else if (record.membershipInfo) {
+      mainService = (
+        <div className="flex flex-col gap-0.5">
+          <span className="inline-flex items-center gap-1 text-purple-700 font-medium text-xs"><CreditCard size={12} />Membership</span>
+          <span className="text-gray-800 text-xs font-semibold">{record.membershipInfo.name}</span>
+          <span className="text-gray-500 text-xs">{fmt(record.membershipInfo.price)}</span>
+          {record.membershipDiscountApplied > 0 && <span className="text-green-600 text-xs">Discount: {fmt(record.membershipDiscountApplied)}</span>}
+        </div>
+      );
+    } else {
+      mainService = (
+        <div className="flex flex-col gap-0.5">
+          <span className="inline-flex items-center gap-1 text-teal-700 font-medium text-xs"><Stethoscope size={12} />Treatment</span>
+          <span className="text-gray-800 text-xs font-semibold">—</span>
+        </div>
+      );
     }
+
     return (
       <div className="flex flex-col gap-0.5">
-        <span className="inline-flex items-center gap-1 text-teal-700 font-medium text-xs"><Stethoscope size={12} />Treatment</span>
-        <span className="text-gray-800 text-xs font-semibold">{record.treatment || "—"}</span>
+        {mainService}
+        {record.membershipInfo && (record.service === "Package" || record.treatment) && (
+          <span className="inline-flex items-center gap-1 text-purple-600 text-[10px] mt-0.5">
+            <CreditCard size={10} />
+            {record.membershipInfo.name}
+            {record.membershipDiscountApplied > 0 && <span> (Discount: {fmt(record.membershipDiscountApplied)})</span>}
+          </span>
+        )}
       </div>
     );
   };
