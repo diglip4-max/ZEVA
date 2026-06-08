@@ -3610,7 +3610,25 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       if (!formData.firstName) fieldErrors.firstName = "Required";
       if (!formData.mobileNumber) fieldErrors.mobileNumber = "Required";
       if (!formData.doctor) fieldErrors.doctor = "Required";
-      if (!formData.paymentMethod) fieldErrors.paymentMethod = "Choose payment method";
+      if (!useMultiplePayments && !formData.paymentMethod) fieldErrors.paymentMethod = "Choose payment method";
+      
+      // Validate multiple payments if enabled
+      if (useMultiplePayments) {
+        const validPayments = multiplePayments.filter(p => 
+          p.paymentMethod && parseFloat(p.amount) > 0
+        );
+        if (validPayments.length === 0) {
+          fieldErrors.paymentMethod = "Please add at least one payment method with an amount";
+        }
+        // Check for any payment with empty payment method
+        const hasEmptyPaymentMethod = multiplePayments.some(p => 
+          parseFloat(p.amount) > 0 && !p.paymentMethod
+        );
+        if (hasEmptyPaymentMethod) {
+          fieldErrors.paymentMethod = "Please select a payment method for all payment entries";
+        }
+      }
+      
       if (Object.keys(fieldErrors).length > 0) {
         const missingList = Object.keys(fieldErrors)
           .map((k) => {

@@ -344,8 +344,9 @@ InsuranceClaimSchema.index({ clinicId: 1, status: 1 });
 InsuranceClaimSchema.index({ doctorId: 1, status: 1 });
 InsuranceClaimSchema.index({ patientId: 1, createdAt: -1 });
 
-// Pre-save hook: auto-calculate advanceAmount
+// Pre-save hook: auto-calculate advanceAmount and pendingClaim
 InsuranceClaimSchema.pre("save", function (next) {
+  // Auto-calculate advanceAmount for Advance type claims
   if (this.claimType === "Advance" && this.advanceStatus) {
     if (this.advanceStatus === "Full Pay") {
       this.advanceAmount = this.claimAmount;
@@ -353,6 +354,16 @@ InsuranceClaimSchema.pre("save", function (next) {
       this.advanceAmount = this.claimAmount * 0.5;
     }
   }
+
+  // Auto-calculate pendingClaim on new claims only.
+  // We skip this on existing docs to avoid overwriting payment reductions
+  // made by pay-pending-claim and create-patient-registration APIs.
+  if (this.isNew) {
+    const baseAmount = Number(this.finalClaimAmount || this.claimAmount || 0);
+    const paidAmount = Number(this.advanceAmount || 0);
+    this.pendingClaim = Math.max(0, baseAmount - paidAmount);
+  }
+
   next();
 });
 

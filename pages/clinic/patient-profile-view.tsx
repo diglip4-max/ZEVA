@@ -6534,6 +6534,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   <th className="px-2 py-2 text-right text-[9px] font-bold text-gray-600 uppercase tracking-wider">Adv.U</th>
                                   <th className="px-2 py-2 text-right text-[9px] font-bold text-gray-600 uppercase tracking-wider">Claim</th>
                                   <th className="px-2 py-2 text-right text-[9px] font-bold text-gray-600 uppercase tracking-wider">Pend.U</th>
+                                  <th className="px-2 py-2 text-right text-[9px] font-bold text-gray-600 uppercase tracking-wider">Pend.Cl</th>
                                   <th className="px-2 py-2 text-center text-[9px] font-bold text-gray-600 uppercase tracking-wider">Qty</th>
                                   <th className="px-2 py-2 text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider">Method</th>
                                   <th className="px-2 py-2 text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider">Refund</th>
@@ -6602,6 +6603,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     const advanceUsed = billing.advanceUsed || 0;
                                     const claimUsed = billing.claimAmountUsed || 0;
                                     const pendingUsed = billing.pendingUsed || 0;
+const pendingClaimUsed = billing.pendingClaimUsed || 0;
                                    
                                     return (
                                       <tr key={billing._id || index} className={`transition-colors ${isRefunded ? 'bg-red-50 hover:bg-red-100 border-l-4 border-l-red-500' : `hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}`}>
@@ -6850,6 +6852,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                             {formatAED(pendingUsed)}
                                           </span>
                                         </td>
+                                        {/* Pending Claim Used */}
+                                        <td className="px-2 py-2 text-right">
+                                          <span className={`text-[10px] ${pendingClaimUsed > 0 ? 'text-purple-600 font-medium' : 'text-gray-400'}`}>
+                                            {formatAED(pendingClaimUsed)}
+                                          </span>
+                                        </td>
                                         {/* Qty */}
                                         <td className="px-2 py-2 text-center">
                                           <span className="text-[10px] text-gray-600">{billing.quantity || 1}</span>
@@ -6939,6 +6947,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   <th className="px-2 py-2 text-right text-[8px] font-bold text-gray-600 uppercase tracking-wider">Adv.U</th>
                                   <th className="px-2 py-2 text-right text-[8px] font-bold text-gray-600 uppercase tracking-wider">Claim</th>
                                   <th className="px-2 py-2 text-right text-[8px] font-bold text-gray-600 uppercase tracking-wider">Pend.U</th>
+                                  <th className="px-2 py-2 text-right text-[8px] font-bold text-gray-600 uppercase tracking-wider">Pend.Cl</th>
                                   <th className="px-2 py-2 text-center text-[8px] font-bold text-gray-600 uppercase tracking-wider">Qty</th>
                                   <th className="px-2 py-2 text-left text-[8px] font-bold text-gray-600 uppercase tracking-wider">Method</th>
                                   <th className="px-2 py-2 text-left text-[8px] font-bold text-gray-600 uppercase tracking-wider">Refund</th>
@@ -6993,6 +7002,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     const advanceUsed = billing.advanceUsed || 0;
                                     const claimUsed = billing.claimAmountUsed || 0;
                                     const pendingUsed = billing.pendingUsed || 0;
+const pendingClaimUsed = billing.pendingClaimUsed || 0;
                                     return (
                                       <tr key={billing._id || index} className={`transition-colors ${isRefunded ? 'bg-red-50 hover:bg-red-100 border-l-4 border-l-red-500' : `hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}`}>
                                         {/* Invoice */}
@@ -7073,6 +7083,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                         {/* Pend.U */}
                                         <td className="px-2 py-2 text-right">
                                           <span className={`text-[9px] ${pendingUsed > 0 ? 'text-orange-600 font-medium' : 'text-gray-400'}`}>{formatAED(pendingUsed)}</span>
+                                        </td>
+                                        {/* Pend.Cl */}
+                                        <td className="px-2 py-2 text-right">
+                                          <span className={`text-[9px] ${pendingClaimUsed > 0 ? 'text-purple-600 font-medium' : 'text-gray-400'}`}>{formatAED(pendingClaimUsed)}</span>
                                         </td>
                                         {/* Qty */}
                                         <td className="px-2 py-2 text-center"><span className="text-[9px] text-gray-600">{billing.quantity || 1}</span></td>

@@ -7,6 +7,7 @@ import Appointment from "../../../models/Appointment";
 import Referral from "../../../models/Referral";
 import Commission from "../../../models/Commission";
 import AgentProfile from "../../../models/AgentProfile";
+import InsuranceClaim from "../../../models/InsuranceClaim";
 import { getUserFromReq } from "../lead-ms/auth";
 import { checkClinicPermission } from "../lead-ms/permissions-helper";
 import { checkAgentPermission } from "../agent/permissions-helper";
@@ -260,6 +261,43 @@ export default async function handler(req, res) {
       });
     }
 
+    // Validate payment method(s)
+    const multiPayArr =
+      Array.isArray(multiplePayments) && multiplePayments.length > 0
+        ? multiplePayments
+        : [];
+    
+    if (multiPayArr.length === 0 && !paymentMethod) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment method is required when not using multiple payments",
+      });
+    }
+    
+    if (multiPayArr.length > 0) {
+      // Check that at least one payment has an amount > 0
+      const hasValidPayment = multiPayArr.some(mp => 
+        mp.paymentMethod && parseFloat(mp.amount) > 0
+      );
+      if (!hasValidPayment) {
+        return res.status(400).json({
+          success: false,
+          message: "Please provide at least one payment method with a positive amount",
+        });
+      }
+      
+      // Check that all payments with amount >0 have a payment method
+      const hasInvalidPayment = multiPayArr.some(mp => 
+        parseFloat(mp.amount) > 0 && !mp.paymentMethod
+      );
+      if (hasInvalidPayment) {
+        return res.status(400).json({
+          success: false,
+          message: "All payments with an amount must have a payment method selected",
+        });
+      }
+    }
+
     // Validate appointment exists
     const appointment = await Appointment.findById(appointmentId);
     if (!appointment) {
@@ -511,10 +549,6 @@ export default async function handler(req, res) {
 
     // Calculate paid from multiple payments if provided
     let paidNum = parseFloat(paid) || 0;
-    const multiPayArr =
-      Array.isArray(multiplePayments) && multiplePayments.length > 0
-        ? multiplePayments
-        : [];
     if (multiPayArr.length > 0) {
       paidNum = multiPayArr.reduce(
         (sum, mp) => sum + (parseFloat(mp.amount) || 0),
@@ -619,7 +653,6 @@ export default async function handler(req, res) {
       pending: pendingToStore,
       advance: advanceToStore,
       pastAdvance: finalPastAdvance,
-      paymentMethod,
       multiplePayments: multiPayArr.map((mp) => ({
         paymentMethod: mp.paymentMethod,
         amount: parseFloat(mp.amount) || 0,
@@ -629,7 +662,6 @@ export default async function handler(req, res) {
           amount: amountNum,
           paid: paidNum,
           pending: finalPending,
-          paymentMethod,
           multiplePayments: multiPayArr.map((mp) => ({
             paymentMethod: mp.paymentMethod,
             amount: parseFloat(mp.amount) || 0,
@@ -677,6 +709,12 @@ export default async function handler(req, res) {
       // Cashback WALLET usage (when patient uses previously earned cashback)
       cashbackWalletUsed: cashbackWalletUsed || 0,
     };
+
+    // Only add paymentMethod if we're not using multiple payments
+    if (multiPayArr.length === 0 && paymentMethod) {
+      billingData.paymentMethod = paymentMethod;
+      billingData.paymentHistory[0].paymentMethod = paymentMethod;
+    }
 
     // console.log({ billingData });
     // console.log('[BundleAPI] billingData.offerFreeSession:', billingData.offerFreeSession);
@@ -947,11 +985,13 @@ export default async function handler(req, res) {
     //console.log("[CreatePatientRegistration] Final selected bank payment details:", selectedBankPaymentDetails);
     const earnedAmountForCommission = amountNum; // Amount before any deductions
     
-    // Calculate commissionable amount: paidNum minus pendingUsed (since pendingUsed is clearing past debt, not new payment)
-    const commissionablePaidAmount = Math.max(0, paidNum - pendingUsedNum);
+    // Calculate commissionable amount: paidNum minus pendingUsed and pendingClaimUsed
+    // (since both represent clearing past debt, not new payment revenue)
+    const commissionablePaidAmount = Math.max(0, paidNum - pendingUsedNum - pendingClaimUsedNum);
     // console.log("[CreatePatientRegistration] Original paid amount:", paidNum);
     // console.log("[CreatePatientRegistration] Pending used amount:", pendingUsedNum);
-    // console.log("[CreatePatientRegistration] Commissionable paid amount (after pendingUsed deduction):", commissionablePaidAmount);
+    // console.log("[CreatePatientRegistration] Pending claim used amount:", pendingClaimUsedNum);
+    // console.log("[CreatePatientRegistration] Commissionable paid amount (after pendingUsed + pendingClaimUsed deduction):", commissionablePaidAmount);
 
     // Track referral commission amount (will be used to adjust doctor/staff commission if both are applicable
     let referralCommissionAmount = 0;
@@ -1192,6 +1232,51 @@ export default async function handler(req, res) {
       }
 
       // console.log('[CreatePatientRegistration] Updated pending invoices, remaining:', remainingPendingUsed);
+    }
+
+    // Update insurance claim pendingClaim when pendingClaimUsedNum > 0
+    // This mirrors the pending invoice update logic above - reduces claim's pendingClaim field
+    // so the patient profile correctly reflects paid status
+    if (pendingClaimUsedNum > 0) {
+      try {
+        // Find Released insurance claims with pending claim for this patient (oldest first)
+        const pendingClaims = await InsuranceClaim.find({
+          clinicId: clinic._id,
+          patientId: patientRegistration._id,
+          status: "Released",
+          pendingClaim: { $gt: 0 }
+        }).sort({ createdAt: 1 });
+
+        let remainingPendingClaimUsed = pendingClaimUsedNum;
+
+        for (const claim of pendingClaims) {
+          if (remainingPendingClaimUsed <= 0) break;
+
+          const currentPending = Number(claim.pendingClaim || 0);
+          const paymentForClaim = Math.min(remainingPendingClaimUsed, currentPending);
+          const newPendingClaim = Math.max(0, currentPending - paymentForClaim);
+
+          claim.pendingClaim = newPendingClaim;
+
+          // If pending claim is fully paid, update advanceStatus to Full Pay
+          // and set advanceAmount to finalClaimAmount (full payment completed)
+          if (newPendingClaim === 0) {
+            claim.advanceStatus = "Full Pay";
+            // For "Paid" type claims, manually set advanceAmount to finalClaimAmount
+            // (pre-save hook only handles "Advance" type automatically)
+            if (claim.claimType === "Paid") {
+              claim.advanceAmount = Number(claim.finalClaimAmount || claim.claimAmount || 0);
+            }
+            // For "Advance" type, the pre-save hook sets advanceAmount = claimAmount
+          }
+
+          await claim.save();
+          remainingPendingClaimUsed -= paymentForClaim;
+        }
+      } catch (claimUpdateError) {
+        console.error('[CreatePatientRegistration] Error updating insurance claim pendingClaim:', claimUpdateError.message);
+        // Don't fail the billing if claim update fails
+      }
     }
 
     // Doctor/Staff commission based on AgentProfile (supports flat, target-based, and after_deduction)
