@@ -648,7 +648,8 @@ const BillingHistoryPage = () => {
                           const finalAmount = billing.amount || 0;
                           // Exclude advance payments from discount calculation
                           const totalDiscountAmount = (!isAdvancePayment && originalAmount > finalAmount) ? (originalAmount - finalAmount) : 0;
-                          const totalPercent = totalDiscountAmount > 0 && originalAmount > 0 ? (totalDiscountAmount / originalAmount * 100) : 0;
+                          // Use stored discountPercent if available, otherwise calculate
+                          const totalPercent = billing.discountPercent > 0 ? billing.discountPercent : (totalDiscountAmount > 0 && originalAmount > 0 ? (totalDiscountAmount / originalAmount * 100) : 0);
                           const membershipPercent = isMembershipDiscount && originalAmount > 0 ? (membershipDiscountAmount / originalAmount * 100) : 0;
                           
                           if (!isDoctorDiscount && !isAgentDiscount && !isMembershipDiscount && !isFreeSessionEarned && !isFreeSessionUsed && !isCashbackUsed && !isCashbackApplied && totalPercent <= 0) {

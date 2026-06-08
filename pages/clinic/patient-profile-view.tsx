@@ -10683,7 +10683,7 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
                 )}
 
                 {/* Discount & Offer Info */}
-                {(selectedPaymentHistoryBilling.discountPercent > 0 || selectedPaymentHistoryBilling.membershipDiscountApplied > 0 || selectedPaymentHistoryBilling.doctorDiscountAmount > 0 || selectedPaymentHistoryBilling.agentDiscountAmount > 0) && (
+                {/* {(selectedPaymentHistoryBilling.discountPercent > 0 || selectedPaymentHistoryBilling.membershipDiscountApplied > 0 || selectedPaymentHistoryBilling.doctorDiscountAmount > 0 || selectedPaymentHistoryBilling.agentDiscountAmount > 0) && (
                   <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
                     {selectedPaymentHistoryBilling.discountPercent > 0 && (
                       <div className="p-2 bg-amber-50 rounded-lg">
@@ -10710,7 +10710,7 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
                       </div>
                     )}
                   </div>
-                )}
+                )} */}
 
                 {/* Cashback Info */}
                 {selectedPaymentHistoryBilling.cashbackEarned > 0 && (

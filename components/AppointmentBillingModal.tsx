@@ -320,6 +320,66 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     return { role: null, id: null };
   };
 
+  // Helper function to check if a treatment is eligible for an offer
+  const isTreatmentEligibleForOffer = (offer: Offer, treatment: OfferMatchTreatment): boolean => {
+    if (offer.applyOnAllServices) {
+      return true;
+    }
+    
+    // Check doctor-specific
+    const currentDoctorId = typeof appointment?.doctorId === 'object'
+      ? (appointment.doctorId as any)._id
+      : appointment?.doctorId;
+    if (offer.doctorIds && Array.isArray(offer.doctorIds) && currentDoctorId) {
+      if (offer.doctorIds.some(id => String(id) === String(currentDoctorId))) {
+        return true;
+      }
+    }
+    
+    // Check service-specific
+    let isEligible = false;
+    
+    // Check serviceIds
+    if (offer.serviceIds && Array.isArray(offer.serviceIds)) {
+      isEligible = offer.serviceIds.some(svc => {
+        if (typeof svc === 'string') {
+          return (
+            String(svc) === String(treatment.slug) ||
+            (treatment.serviceId && String(svc) === String(treatment.serviceId)) ||
+            String(svc).toLowerCase() === String(treatment.name).toLowerCase()
+          );
+        } else if (svc && typeof svc === 'object') {
+          return (
+            String(svc._id) === String(treatment.slug) || 
+            (treatment.serviceId && String(svc._id) === String(treatment.serviceId)) ||
+            (svc.serviceSlug && String(svc.serviceSlug) === String(treatment.slug)) ||
+            (svc.name && String(svc.name).toLowerCase() === String(treatment.name).toLowerCase())
+          );
+        }
+        return false;
+      });
+    }
+    
+    // Check serviceNames as fallback
+    if (!isEligible && offer.serviceNames && Array.isArray(offer.serviceNames)) {
+      isEligible = offer.serviceNames.some((name: string) => 
+        String(name).toLowerCase() === String(treatment.name).toLowerCase()
+      );
+    }
+    
+    return isEligible;
+  };
+
+  // Helper function to calculate eligible total for an offer
+  const calculateEligibleTotal = (offer: Offer, treatments: OfferMatchTreatment[]): number => {
+    return treatments.reduce((sum, t) => {
+      if (isTreatmentEligibleForOffer(offer, t)) {
+        return sum + t.price * t.quantity;
+      }
+      return sum;
+    }, 0);
+  };
+
   // Balances and advance usage
   const [balances, setBalances] = useState<{
     advanceBalance: number;
@@ -1519,8 +1579,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       applicableOffers.sort((a, b) => {
         const getDiscountAmount = (offer: Offer) => {
           let amount = 0;
+          const eligibleTotal = calculateEligibleTotal(offer, paidTreatments);
           if (offer.discountMode === "percentage") {
-            amount = (baseTotal * offer.discountValue) / 100;
+            amount = (eligibleTotal * offer.discountValue) / 100;
             if (offer.maxBenefitCap > 0) amount = Math.min(amount, offer.maxBenefitCap);
           } else {
             amount = offer.discountValue;
@@ -1712,14 +1773,21 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       }
       
       let discountAmount = 0;
-      if (offer.discountMode === 'percentage') {
-        discountAmount = (baseTotal * offer.discountValue) / 100;
-        if (offer.maxBenefitCap > 0) {
-          discountAmount = Math.min(discountAmount, offer.maxBenefitCap);
-        }
-      } else {
-        discountAmount = offer.discountValue || 0;
-      }
+          // Get current treatments for eligible total calculation
+          const currentTreatmentsForOffer = selectedService === "Treatment" 
+            ? selectedTreatments.map(t => ({ slug: t.treatmentSlug, serviceId: t.treatmentServiceId, name: t.treatmentName, price: t.price, quantity: t.quantity }))
+            : packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, serviceId: undefined, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions }));
+          const paidTreatmentsForOffer = currentTreatmentsForOffer.filter(t => t.price > 0);
+          const eligibleTotal = calculateEligibleTotal(offer, paidTreatmentsForOffer);
+          
+          if (offer.discountMode === 'percentage') {
+            discountAmount = (eligibleTotal * offer.discountValue) / 100;
+            if (offer.maxBenefitCap > 0) {
+              discountAmount = Math.min(discountAmount, offer.maxBenefitCap);
+            }
+          } else {
+            discountAmount = offer.discountValue || 0;
+          }
       
       // console.log(`[AutoApply] Offer "${offer.title}": ${offer.discountMode} ${offer.discountValue} = ${discountAmount}`);
       eligibleDiscounts.push({ 
@@ -2831,9 +2899,16 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             }
           } else if (offer.offerType !== "bundle") {
             // Regular instant discount
+            // Get current treatments for eligible total calculation
+            const currentTreatmentsForOffer = selectedService === "Treatment" 
+              ? selectedTreatments.map(t => ({ slug: t.treatmentSlug, serviceId: t.treatmentServiceId, name: t.treatmentName, price: t.price, quantity: t.quantity }))
+              : packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, serviceId: undefined, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions }));
+            const paidTreatmentsForOffer = currentTreatmentsForOffer.filter(t => t.price > 0);
+            const eligibleTotal = calculateEligibleTotal(offer, paidTreatmentsForOffer);
+            
             if (offer.discountMode === "percentage") {
-              currentOfferDiscount = (baseTotal * offer.discountValue) / 100;
-              console.log(`[OfferDiscountCalc] Before cap: baseTotal=${baseTotal}, discountValue=${offer.discountValue}, calculated=${currentOfferDiscount}, maxBenefitCap=${offer.maxBenefitCap}`);
+              currentOfferDiscount = (eligibleTotal * offer.discountValue) / 100;
+              console.log(`[OfferDiscountCalc] Before cap: eligibleTotal=${eligibleTotal}, discountValue=${offer.discountValue}, calculated=${currentOfferDiscount}, maxBenefitCap=${offer.maxBenefitCap}`);
               if (offer.maxBenefitCap > 0) {
                 currentOfferDiscount = Math.min(currentOfferDiscount, offer.maxBenefitCap);
                 console.log(`[OfferDiscountCalc] After cap applied: ${currentOfferDiscount}`);
@@ -3766,12 +3841,19 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       // Calculate offer discount applied
       let offerDiscountApplied = 0;
       const appliedOffers = matchedOffers.filter(o => appliedOfferIds.includes(o._id));
+      // Get current treatments for eligible total calculation
+      const currentTreatmentsForOffer = selectedService === "Treatment" 
+        ? selectedTreatments.map(t => ({ slug: t.treatmentSlug, serviceId: t.treatmentServiceId, name: t.treatmentName, price: t.price, quantity: t.quantity }))
+        : packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, serviceId: undefined, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions }));
+      const paidTreatmentsForOffer = currentTreatmentsForOffer.filter(t => t.price > 0);
+      
       if (appliedOffers.length > 0) {
         appliedOffers.forEach(offer => {
           if (offer.minimumBillAmount === 0 || baseAmount >= offer.minimumBillAmount) {
             let currentOfferDiscount = 0;
+            const eligibleTotal = calculateEligibleTotal(offer, paidTreatmentsForOffer);
             if (offer.discountMode === "percentage") {
-              currentOfferDiscount = (baseAmount * offer.discountValue) / 100;
+              currentOfferDiscount = (eligibleTotal * offer.discountValue) / 100;
               if (offer.maxBenefitCap && offer.maxBenefitCap > 0) {
                 currentOfferDiscount = Math.min(currentOfferDiscount, offer.maxBenefitCap);
               }
@@ -3892,11 +3974,23 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         cashbackOfferId: isCashbackApplied && matchedCashbackOffer ? matchedCashbackOffer._id : null,
         cashbackOfferName: isCashbackApplied && matchedCashbackOffer ? matchedCashbackOffer.title : null,
         cashbackAmount: isCashbackApplied && matchedCashbackOffer ? appliedCashbackAmount : 0,
-        discountPercent: (calcMembershipDiscount > 0 || calcOfferDiscount > 0 || calcReceptionistDiscount > 0)
-          ? (baseAmount > 0
-              ? ((baseAmount - finalAmount) / baseAmount * 100)
-              : 0)
-          : 0,
+        discountPercent: (() => {
+          if (calcMembershipDiscount > 0) {
+            return membershipUsage?.discountPercentage || 0;
+          } else if (calcOfferDiscount > 0 && appliedOffers.length > 0) {
+            const mainOffer = appliedOffers[0];
+            if (mainOffer.discountMode === "percentage") {
+              return mainOffer.discountValue;
+            }
+          } else if (calcReceptionistDiscount > 0) {
+            if (isDoctorDiscountApplied && doctorComplaintDiscount?.discountType === "percentage") {
+              return doctorComplaintDiscount.discountAmount;
+            } else if (isAgentDiscountApplied && agentDiscount?.discountType === "percentage") {
+              return agentDiscount.discountAmount;
+            }
+          }
+          return (baseAmount > 0 ? ((baseAmount - finalAmount) / baseAmount * 100) : 0);
+        })(),
         originalAmount: baseAmount,
       };
 
@@ -4545,6 +4639,18 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           <div className="mt-3 space-y-2">
                             {selectedTreatments.map((treatment) => {
                               const isJustAdded = justAddedServiceName && treatment.treatmentName === justAddedServiceName;
+                              const treatmentForOffer = {
+                                slug: treatment.treatmentSlug,
+                                serviceId: treatment.treatmentServiceId,
+                                name: treatment.treatmentName,
+                                price: treatment.price,
+                                quantity: treatment.quantity,
+                              };
+                              const appliedOffersForTreatment = matchedOffers.filter(
+                                (offer) => 
+                                  appliedOfferIds.includes(offer._id) && 
+                                  isTreatmentEligibleForOffer(offer, treatmentForOffer)
+                              );
                               return (
                                 <div
                                   key={treatment.treatmentSlug}
@@ -4571,8 +4677,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                           )}
                                         </div>
                                         <div className="text-[10px] text-gray-500">Dr. {appointment.doctorName}</div>
-                                        {(treatment.usesFreeConsultation || treatment.usesMembershipDiscount || treatment.isFreeSession) && (
-                                          <div className="flex items-center gap-1 mt-0.5">
+                                        {(treatment.usesFreeConsultation || treatment.usesMembershipDiscount || treatment.isFreeSession || appliedOffersForTreatment.length > 0) && (
+                                          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                                             {treatment.usesFreeConsultation && (
                                               <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-semibold">Free Consultation</span>
                                             )}
@@ -4587,6 +4693,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                                 Bundle Offer
                                               </span>
                                             )}
+                                            {appliedOffersForTreatment.map((offer) => (
+                                              <span key={offer._id} className="text-[9px] px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded font-semibold flex items-center gap-0.5">
+                                                🎁 Offer Applied
+                                              </span>
+                                            ))}
                                           </div>
                                         )}
                                         {isJustAdded && (
@@ -4762,7 +4873,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                                 <div className="text-[10px] text-teal-600 font-medium">{getCurrencySymbol(currency)} {treatment.sessionPrice.toFixed(2)}/session</div>
                                                 
                                                 {isBilledToday && (
-                                                  <div className="flex items-center gap-1 mt-0.5">
+                                                  <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                                                     <span className="text-[9px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-semibold flex items-center gap-1">
                                                       <AlertCircle className="w-2.5 h-2.5" /> Already Billed for this Appointment
                                                     </span>
@@ -4770,7 +4881,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                                 )}
 
                                                 {(isPrepaid || treatment.usesMembershipDiscount) && !isBilledToday && (
-                                                  <div className="flex items-center gap-1 mt-0.5">
+                                                  <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                                                     {isPrepaid && (
                                                       <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-semibold">
                                                         {selectedPackage?.paymentStatus === "Full" ? "Prepaid (Full)" : "Prepaid (Partial)"}

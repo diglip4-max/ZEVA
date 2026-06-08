@@ -10,12 +10,18 @@ import { Search, Filter, CheckCircle, XCircle, Eye, FileText, Upload, X, AlertCi
 const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
 
 // Helper function to get user role from token
-// Priority: agent/doctorStaff/doctor roles -> agent auth, clinic role -> clinic auth
+// Priority: when on /clinic/ path, check clinicToken first; otherwise use original priority
 const getUserRole = () => {
   if (typeof window === 'undefined') return null;
   try {
-    // Check tokens in order of specificity - prefer role-specific tokens
-    const tokenKeys = ['agentToken', 'doctorToken', 'clinicToken', 'staffToken', 'userToken', 'adminToken'];
+    // Determine token priority based on current path
+    const isClinicPath = window.location.pathname.startsWith('/clinic/');
+    let tokenKeys;
+    if (isClinicPath) {
+      tokenKeys = ['clinicToken', 'doctorToken', 'agentToken', 'staffToken', 'userToken', 'adminToken'];
+    } else {
+      tokenKeys = ['agentToken', 'doctorToken', 'clinicToken', 'staffToken', 'userToken', 'adminToken'];
+    }
     
     for (const key of tokenKeys) {
       const token = localStorage.getItem(key) || sessionStorage.getItem(key);
@@ -24,9 +30,6 @@ const getUserRole = () => {
           const payload = JSON.parse(atob(token.split('.')[1]));
           const role = payload.role || null;
           
-          // Return the role from the token if it's a valid role for this page
-          // agent/doctorStaff/doctor -> use agent auth
-          // clinic -> use clinic auth
           if (role && ['agent', 'doctorStaff', 'doctor', 'clinic', 'staff', 'admin'].includes(role)) {
             return role;
           }
@@ -2360,7 +2363,14 @@ function AllClaimsPage() {
 }
 
 AllClaimsPage.getLayout = function PageLayout(page) {
-  // Check user role and apply appropriate layout
+  // Always use ClinicLayout on /clinic/ paths
+  const isClinicPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/clinic/');
+  
+  if (isClinicPath) {
+    return <ClinicLayout>{page}</ClinicLayout>;
+  }
+  
+  // Check user role and apply appropriate layout for non-clinic paths
   const role = getUserRole();
   
   // For agent and doctorStaff roles, use AgentLayout
@@ -2378,6 +2388,13 @@ const AgentProtectedAllClaimsPage = withAgentAuth(AllClaimsPage);
 
 // Main component that chooses which protected version to use
 const ProtectedAllClaimsPage = (props) => {
+  // Always use clinic auth on /clinic/ paths
+  const isClinicPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/clinic/');
+  
+  if (isClinicPath) {
+    return <ClinicProtectedAllClaimsPage {...props} />;
+  }
+  
   const role = getUserRole();
   
   // For agent and doctorStaff roles, use agent auth
