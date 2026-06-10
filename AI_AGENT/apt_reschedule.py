@@ -2,7 +2,10 @@ from cache import get_cache, set_cache, redis_client
 import httpx
 from datetime import datetime, timedelta
 from appointment import get_header
+import redis
+import logging
 
+logger = logging.getLogger(__name__)
 APPOINTMENT_CACHE_TTL = 120                
 
 async def find_lead_id(conversation_id:str,clinicToken:str):
@@ -20,7 +23,6 @@ async def find_lead_id(conversation_id:str,clinicToken:str):
 
                 resp = await client.get(url, headers=headers)
                 data = resp.json()
-                # print(data)
 
                 # Search all messages on this page
                 for day in data["data"]:
@@ -46,7 +48,6 @@ async def find_lead_id(conversation_id:str,clinicToken:str):
             }
 
 
-
 async def find_patient_id(leadId:str,clinicToken:str):
     headers = get_header(clinicToken)
 
@@ -65,6 +66,8 @@ async def find_patient_id(leadId:str,clinicToken:str):
 
                 for d in data["leads"]:
                     if d["_id"] == leadId:
+                        print("FOUND LEAD")
+                        print(d)
                         patient_id = d.get("patientId")
 
                         if patient_id:
@@ -90,7 +93,7 @@ async def find_patient_id(leadId:str,clinicToken:str):
                 "Status": "Error",
                 "Message": f"Failed to fetch booking details: {e}"
             }
-        
+
 def extract_appointment_details(appointment: dict) -> dict:
     return {
         "_id":           appointment.get("_id"),
@@ -122,7 +125,6 @@ async def find_latest_appointment(conversation_id: str, clinicToken: str):
         f"http://localhost:3000/api/clinic/all-appointments"
         f"?page=1&limit=50&patientId={patientId}"
     )
-    print(url)
 
     def parse_date(appt: dict) -> datetime:
         raw = appt.get("createdAt")
@@ -143,7 +145,8 @@ async def find_latest_appointment(conversation_id: str, clinicToken: str):
             latest_apt = max(appointments, key=parse_date)
             return {
                 "apt_details": extract_appointment_details(latest_apt),
-                "existing": latest_apt
+                "existing": latest_apt,
+                "all_apt":appointments
             }
 
         except httpx.HTTPStatusError as e:
@@ -162,7 +165,7 @@ async def reschedule_apt(conversation_id: str, clinicToken: str, startDate: str,
     headers = get_header(clinicToken)
 
     apt = await find_latest_appointment(conversation_id=conversation_id, clinicToken=clinicToken)
-
+    print(apt)
     # Check for any error bubbled up from lead/patient/appointment lookup
     if "Status" in apt and apt["Status"] == "Error":
         return apt  # Bubble up: agent will receive and relay the message
@@ -195,14 +198,18 @@ async def reschedule_apt(conversation_id: str, clinicToken: str, startDate: str,
                 headers=headers,
                 timeout=10.0
             )
+            print(put_resp)
         put_data = put_resp.json()
         print(put_data)
     except Exception as e:
         return {"Status": "Error", "Message": f"Failed to update appointment: {e}"}
 
-    if put_data["success"]:
+    if put_data.get("success"):
         cache_key = f"appointment:{clinicToken}:{apt_id}"
-        await redis_client.delete(cache_key)
+        try:
+            await redis_client.delete(cache_key)
+        except redis.exceptions.RedisError as e:
+            logger.error(f"Redis Error: {e}")
         return {
             "Appointment Status": "Rescheduled",
             "Message": put_data.get("message", "Appointment rescheduled successfully."),

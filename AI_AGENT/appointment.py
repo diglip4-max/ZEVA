@@ -3,7 +3,6 @@ import httpx
 from dotenv import load_dotenv
 from langgraph.graph import END, START, StateGraph
 from datetime import datetime, timedelta
-
 load_dotenv()
 
 class AppointmentState(TypedDict):             
@@ -33,7 +32,6 @@ class AppointmentState(TypedDict):
 
 def get_header(token):                        
     return {"Authorization": f"Bearer {token}"}
-
 
 
 async def check_patient(state: AppointmentState):
@@ -94,7 +92,7 @@ async def check_doctor(state: AppointmentState):
 #     header = get_header(state['clinicToken'])
 #     url = "http://localhost:3000/api/clinic/rooms"
 
-#     async with httpx.AsyncClient() as client:                   
+#     async with httpx.AsyncClient() as client:
 #         search_room = await client.get(url, headers=header)
 #     data = search_room.json()
 
@@ -141,12 +139,13 @@ async def check_treatments(state: AppointmentState):
             None,
         )
         if treatment:
+            print(treatment)
             return {
                 "treatmentExists": True,
                 "treatments": data,
                 "selectedTreatment": treatment["_id"],
             }
-
+    print(data)
     return {
         "treatmentExists": False,
         "treatments": data,
@@ -157,7 +156,6 @@ async def check_treatments(state: AppointmentState):
 def confirm_time(state: AppointmentState):    
     start_time_str = state["fromTime"]
     date_str = state["startDate"]
-
     converted_date = None
     formats_to_try = ["%d-%m-%Y", "%Y-%m-%d", "%Y-%m-%dT%H:%M:%S.%fZ"]
 
@@ -185,7 +183,6 @@ def confirm_time(state: AppointmentState):
         "fromTime": start_time_str,
         "toTime": to_time_str
     }
-
 
 
 def handle_error(state: AppointmentState):     
@@ -226,7 +223,6 @@ async def book_appointment(state: AppointmentState):
         return {"Status": "Error", "Message": data.get("message", "An error occurred while booking the appointment.")}
 
 
-
 def after_check_patient(state: AppointmentState) -> Literal["check_doctor", "handle_error"]:
     return "check_doctor" if state["patientExists"] else "handle_error"
 
@@ -238,7 +234,6 @@ def after_check_doctor(state: AppointmentState) -> Literal["check_treatments", "
 
 def after_check_treatments(state: AppointmentState) -> Literal["confirm_time", "handle_error"]:
     return "confirm_time" if state["treatmentExists"] else "handle_error"
-
 
 
 def buildGraph(clinicToken: str, payload: dict):

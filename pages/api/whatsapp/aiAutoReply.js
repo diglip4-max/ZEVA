@@ -75,7 +75,7 @@ export async function cancelAIReply(conversationId) {
 async function triggerAIReply({
   conversationId,
   messageContent,
-  clinicId, // ✅ clinicId comes in
+  clinicId, 
   providerPhone,
   customerPhone,
 }) {
@@ -127,7 +127,7 @@ async function triggerAIReply({
       body: JSON.stringify({
         messages: messageContent,
         threadId: conversationId,
-        clinicToken: clinicToken, // ✅ real JWT token
+        clinicToken: clinicToken, 
         conversation_id: conversationId,
       }),
     });

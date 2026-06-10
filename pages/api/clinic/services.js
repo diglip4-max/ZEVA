@@ -1,5 +1,6 @@
 import dbConnect from "../../../lib/database";
 import Service from "../../../models/Service";
+import Department from "../../../models/Department";
 import { getUserFromReq } from "../lead-ms/auth";
 import {
   getClinicIdFromUser,

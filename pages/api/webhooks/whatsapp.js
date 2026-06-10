@@ -592,7 +592,7 @@ const processWhatsAppWebhook = async (req) => {
           scheduleAIReply({
             conversationId: conversation._id.toString(),
             messageContent: messageTextContent,
-            clinicToken: provider.clinicId.toString(),
+            clinicId: provider.clinicId.toString(),
             providerPhone: whatsappPhoneId,
             customerPhone: from,
           });
