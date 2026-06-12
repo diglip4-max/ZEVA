@@ -411,7 +411,7 @@ const processWhatsAppWebhook = async (req) => {
           const newMessage = new Message({
             clinicId,
             conversationId: conversation?._id,
-            contactId: findLead?._id,
+            leadId: findLead?._id,
             provider: provider?._id,
             channel: "whatsapp",
             messageType: "conversational",

@@ -68,3 +68,15 @@ export const sendBatchWhatsappMessageQueue = new Queue(
     connection: redis,
   },
 );
+export const scheduleEmailCampaignQueue = new Queue(
+  "scheduleEmailCampaignQueue",
+  {
+    connection: redis,
+  },
+);
+export const sendSmtpEmailBatchQueue = new Queue("sendSmtpEmailBatchQueue", {
+  connection: redis,
+});
+export const sendGmailEmailBatchQueue = new Queue("sendGmailEmailBatchQueue", {
+  connection: redis,
+});

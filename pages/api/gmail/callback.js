@@ -55,7 +55,7 @@ export default async function handler(req, res) {
         senderName: `Test User`,
         subject: "Gmail Connected Successfully",
         content:
-          "Hi,\n\nYour Gmail account has been successfully connected to the HelloCRM. All future email activity will be synced automatically.\n\nBest,\nHelloCRM Team",
+          "Hi,\n\nYour Gmail account has been successfully connected to the ZEVA. All future email activity will be synced automatically.\n\nBest,\nZEVA Team",
         attachments: [],
       });
 
@@ -105,19 +105,23 @@ export default async function handler(req, res) {
 
       // Set up Gmail Watch
       try {
-        // const resWatchData = await gmail.users.watch({
-        //   userId: "me",
-        //   requestBody: {
-        //     labelIds: ["INBOX"],
-        //     topicName: "projects/crm-messaging-427110/topics/gmail-sync-topic",
-        //   },
-        // });
-        // console.log("Initial Gmail Watch Response:", resWatchData.data);
+        const resWatchData = await gmail.users.watch({
+          userId: "me",
+          requestBody: {
+            labelIds: ["INBOX"],
+            topicName: "projects/zeva360/topics/gmail-sync-topic",
+          },
+        });
+
+        console.log("Initial Gmail Watch Response:", resWatchData.data);
         // Schedule Gmail Watch Renewal (Commented out until queue is configured)
-        /*
         const expirationTime = Number(resWatchData.data.expiration);
         const rewatchTime = expirationTime - 1000 * 60 * 60;
 
+        console.log("Expiration Time:", expirationTime);
+        console.log("Rewatch Time:", rewatchTime);
+
+        /*
         const jobId = `rewatch-${provider._id}`;
         const gmailRewatchJob = await gmailWatchRenewalQueue.add(
           "rewatch-gmail",

@@ -1,10 +1,14 @@
 import { calculateDelay } from "../../../bullmq/helper";
-import { scheduleWhatsappCampaignQueue } from "../../../bullmq/queue";
+import {
+  scheduleEmailCampaignQueue,
+  scheduleWhatsappCampaignQueue,
+} from "../../../bullmq/queue";
 import dbConnect from "../../../lib/database";
 import Campaign from "../../../models/Campaign";
 import Segment from "../../../models/Segment";
 import Lead from "../../../models/Lead";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
+import { validateEmail } from "../../../services/validate";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -91,7 +95,13 @@ async function updateCampaign(req, res, campaignId) {
       segmentId,
       template,
       whatsappMsgType,
+      subject,
+      preheader,
       content,
+      // for block editor
+      editorType,
+      designJson,
+
       headerText,
       footerText,
       replyButtons,
@@ -109,7 +119,8 @@ async function updateCampaign(req, res, campaignId) {
 
       // for recipients (manual numbers or segment)
       recipientType,
-      manualNumbers,
+      manualNumbers = "",
+      manualEmails = "",
     } = req.body;
 
     // Find campaign
@@ -134,6 +145,8 @@ async function updateCampaign(req, res, campaignId) {
     if (template !== undefined) campaign.template = template;
     if (whatsappMsgType !== undefined)
       campaign.whatsappMsgType = whatsappMsgType;
+    if (subject !== undefined) campaign.subject = subject;
+    if (preheader !== undefined) campaign.preheader = preheader;
     if (content !== undefined) campaign.content = content;
     if (headerText !== undefined) campaign.headerText = headerText;
     if (footerText !== undefined) campaign.footerText = footerText;
@@ -155,6 +168,11 @@ async function updateCampaign(req, res, campaignId) {
     // Update recipientType and manualNumbers
     if (recipientType !== undefined) campaign.recipientType = recipientType;
     if (manualNumbers !== undefined) campaign.manualNumbers = manualNumbers;
+    if (manualEmails !== undefined) campaign.manualEmails = manualEmails;
+
+    // for block editor
+    if (editorType !== undefined) campaign.editorType = editorType;
+    if (designJson !== undefined) campaign.designJson = designJson;
 
     await campaign.save();
 
@@ -207,23 +225,62 @@ async function updateCampaign(req, res, campaignId) {
         manualNumbers = manualNumbers
           .split("\n")
           .map((number) => number.trim());
+        manualEmails = manualEmails.split("\n").map((email) => email.trim());
+        manualEmails = manualEmails.filter((email) => validateEmail(email));
         const uniqueNumbers = [...new Set(manualNumbers)];
         console.log({ uniqueNumbers, manualNumbers });
 
-        const leadsData = uniqueNumbers.map((number) => ({
-          clinicId: campaign.clinicId,
-          phone: number,
-          name: number,
-          segments: [],
-          source: "Other",
-          customSource: "Zeva Campaign",
-        }));
+        const uniqueEmails = [...new Set(manualEmails)];
+        console.log({ uniqueEmails, manualEmails });
+
+        if (uniqueNumbers.length === 0 && uniqueEmails.length === 0) {
+          return res.status(400).json({
+            success: false,
+            message: "Please add at least one number or email",
+          });
+        }
+
+        let leadsData = [];
+        if (uniqueNumbers.length > 0) {
+          leadsData = uniqueNumbers.map((number) => ({
+            clinicId: campaign.clinicId,
+            phone: number,
+            name: number,
+            segments: [],
+            source: "Other",
+            customSource: "Zeva Campaign",
+          }));
+        } else if (uniqueEmails.length > 0) {
+          leadsData = uniqueEmails.map((email) => ({
+            clinicId: campaign.clinicId,
+            email: email,
+            name: email,
+            segments: [],
+            source: "Other",
+            customSource: "Zeva Campaign",
+          }));
+        }
         for (let i = 0; i < leadsData.length; i++) {
           // find lead by phone number
-          const lead = await Lead.findOne({
-            phone: leadsData[i].phone,
-            clinicId: campaign.clinicId,
-          });
+          let lead;
+          if (leadsData[i].phone) {
+            lead = await Lead.findOne({
+              phone: leadsData[i].phone,
+              clinicId: campaign.clinicId,
+            });
+          } else if (leadsData[i].email) {
+            lead = await Lead.findOne({
+              email: leadsData[i].email,
+              clinicId: campaign.clinicId,
+            });
+          }
+
+          if (!lead) {
+            lead = await Lead.findOne({
+              email: leadsData[i].email,
+              clinicId: campaign.clinicId,
+            });
+          }
           if (!lead) {
             const newLead = await Lead.create(leadsData[i]);
             newLead.segments.push(newSegment);
@@ -244,6 +301,20 @@ async function updateCampaign(req, res, campaignId) {
       if (campaign.type === "whatsapp") {
         queueJob = await scheduleWhatsappCampaignQueue.add(
           "scheduleWhatsappQueue",
+          {
+            campaignId,
+          },
+          {
+            delay: scheduleType === "later" ? delay : 0,
+            attempts: 3,
+            backoff: 5000,
+            removeOnComplete: true,
+            jobId: customJobId,
+          },
+        );
+      } else if (campaign.type === "email") {
+        queueJob = await scheduleEmailCampaignQueue.add(
+          "scheduleEmailQueue",
           {
             campaignId,
           },

@@ -49,6 +49,7 @@ export type Template = {
   templateButtons: any[];
   metadata: any;
   templateId: string;
+  buttons: TemplateButtonOption[];
   createdAt: string;
   updatedAt: string;
 };
