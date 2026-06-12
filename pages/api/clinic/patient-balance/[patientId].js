@@ -248,22 +248,18 @@ export default async function handler(req, res) {
     console.log(`[Patient Balance] Final claim amount: ${claimAmount}`);
     
     // Calculate total pending claim amount from released claims
+    // The claim's pendingClaim field is the authoritative source - it is directly updated
+    // by create-patient-registration and pay-pending-claim APIs when payments are made.
+    // No need to subtract pendingClaimUsed from billings (that would cause double-deduction
+    // since the claim record is already reduced).
     const totalPendingClaim = claims.reduce(
       (sum, c) => sum + Number(c.pendingClaim || 0), 0
     );
     console.log(`[Patient Balance] Total pending claim from claims: ${totalPendingClaim}`);
     
-    // Calculate total pending claim amount that has been paid in billings
-    // Use the pendingClaimUsed field which tracks pending claim payments
-    const totalPendingClaimPaid = billings.reduce((sum, b) => {
-      const pendingClaimUsedAmount = Number(b.pendingClaimUsed || 0);
-      return sum + pendingClaimUsedAmount;
-    }, 0);
-    console.log(`[Patient Balance] Total pending claim paid in billings: ${totalPendingClaimPaid}`);
-    
-    // Final pending claim = total from claims - amount already paid
-    const finalPendingClaim = Math.max(0, Number((totalPendingClaim - totalPendingClaimPaid).toFixed(2)));
-    console.log(`[Patient Balance] Final pending claim after payments: ${finalPendingClaim}`);
+    // Final pending claim = direct sum from claim records (already reduced by billing/payment APIs)
+    const finalPendingClaim = Math.max(0, Number(totalPendingClaim.toFixed(2)));
+    console.log(`[Patient Balance] Final pending claim: ${finalPendingClaim}`);
 
     return res.status(200).json({
       success: true,

@@ -201,7 +201,7 @@ const billingSchema = new mongoose.Schema(
     paymentMethod: {
       type: String,
       enum: ["Cash", "Card", "BT", "Tabby", "Tamara"],
-      required: true,
+      required: false,
     },
     // Multiple payment methods for split payments
     multiplePayments: [multiplePaymentSchema],
@@ -440,20 +440,23 @@ billingSchema.pre("save", function (next) {
   this.advanceUsed = Number(this.advanceUsed ?? 0);
   this.claimAmountUsed = Number(this.claimAmountUsed ?? 0);
   this.pendingUsed = Number(this.pendingUsed ?? 0);
+  this.pendingClaimUsed = Number(this.pendingClaimUsed ?? 0);
   this.advance = Number(this.advance ?? 0);
 
   if (this.advanceUsed < 0) this.advanceUsed = 0;
   if (this.claimAmountUsed < 0) this.claimAmountUsed = 0;
   if (this.pendingUsed < 0) this.pendingUsed = 0;
+  if (this.pendingClaimUsed < 0) this.pendingClaimUsed = 0;
 
   // Check if pending was directly modified, if so skip calculation
   // This allows explicit pending updates from APIs like pay-invoice-pending
   if (this.isModified('pending')) {
-    // Only recalculate advance based on paid and pendingUsed
+    // Only recalculate advance based on paid and pendingUsed/pendingClaimUsed
     const totalCreditsUsed = this.advanceUsed + this.claimAmountUsed;
     const effectiveDue = Math.max(0, this.amount - totalCreditsUsed);
     // New advance generated if paid exceeds effective due (minus pending cleared)
-    this.advance = Math.max(0, this.paid - effectiveDue - this.pendingUsed);
+    // pendingClaimUsed is subtracted because clearing insurance pending claim is past debt, not new advance
+    this.advance = Math.max(0, this.paid - effectiveDue - this.pendingUsed - this.pendingClaimUsed);
     return next();
   }
 
@@ -477,8 +480,9 @@ billingSchema.pre("save", function (next) {
   // Pending is any remaining due after today's payment
   this.pending = Math.max(0, effectiveDue - this.paid);
   // New advance generated if paid exceeds effective due
-  // If pendingUsed is provided, it reduces the amount that can be converted to advance
-  this.advance = Math.max(0, this.paid - effectiveDue - this.pendingUsed);
+  // If pendingUsed/pendingClaimUsed is provided, it reduces the amount that can be converted to advance
+  // Both represent past debt being cleared (not new revenue), so they reduce advance generation
+  this.advance = Math.max(0, this.paid - effectiveDue - this.pendingUsed - this.pendingClaimUsed);
 
   next();
 });

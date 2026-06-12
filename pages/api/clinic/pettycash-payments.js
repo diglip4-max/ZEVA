@@ -40,34 +40,8 @@ export default async function handler(req, res) {
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
     const skip = (pageNum - 1) * limitNum;
 
-    // Role-based scoping:
-    //  - agent       → only records they invoiced (invoicedById = me._id)
-    //  - doctorStaff → look up all appointments where doctorId = me._id,
-    //                  then filter Billing by those appointmentIds
-    //                  (works for both old records without doctorId field and new ones)
-    //  - clinic/admin/doctor → all records for the clinic
+    // No role-based scoping - all clinic data is visible to any authorized user (clinic, doctor, agent, doctorStaff)
     let userScopeFilter = {};
-    if (me.role === "agent") {
-      userScopeFilter = { invoicedById: me._id };
-    } else if (me.role === "doctorStaff") {
-      // Fetch all appointment IDs for this doctor within the clinic
-      const apptFilter = { doctorId: me._id };
-      if (clinicId) apptFilter.clinicId = new mongoose.Types.ObjectId(String(clinicId));
-      const doctorAppointments = await Appointment.find(apptFilter)
-        .select("_id")
-        .lean();
-      const apptIds = doctorAppointments.map((a) => a._id);
-      // If doctor has no appointments at all, return empty early
-      if (apptIds.length === 0) {
-        return res.status(200).json({
-          success: true,
-          data: [],
-          pagination: { total: 0, page: pageNum, limit: limitNum, totalPages: 0 },
-          summary: { totalCashIn: 0, totalRecords: 0 },
-        });
-      }
-      userScopeFilter = { appointmentId: { $in: apptIds } };
-    }
 
     // Build clinic filter
     const clinicFilter = clinicId
