@@ -496,7 +496,7 @@ const useCreateAndEditTemplate = () => {
         if (redirectPath === "none") {
           return updatedTemplateId;
         }
-        router.back();
+        router.push(`/clinic/all-templates`);
         return updatedTemplateId;
       }
     } catch (error) {
@@ -646,7 +646,7 @@ const useCreateAndEditTemplate = () => {
       }
 
       if (values.templateType !== "email") {
-        router.back();
+        router.push(`/clinic/all-templates`);
       }
       return createdTemplateId;
     } catch (error: any) {

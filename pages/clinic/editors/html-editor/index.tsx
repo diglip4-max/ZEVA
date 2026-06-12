@@ -192,7 +192,13 @@ const HTMLEditorPage: NextPageWithLayout = () => {
         toast.success("Campaign saved successfully!");
         setHasChanges(false);
         setLastSaved(new Date());
-        router.back();
+        if (templateId) {
+          router.push(`/clinic/all-templates/${templateId}`);
+        } else if (campaignId) {
+          router.push(`/clinic/campaigns/${campaignId}/edit`);
+        } else {
+          router.back();
+        }
       }
     } catch (error: any) {
       console.error("Error saving campaign:", error?.message);

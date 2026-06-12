@@ -1,4 +1,6 @@
 import dbConnect from "../../../../lib/database";
+import Campaign from "../../../../models/Campaign";
+import Lead from "../../../../models/Lead";
 import Message from "../../../../models/Message";
 
 export default async function handler(req, res) {
@@ -25,12 +27,12 @@ export default async function handler(req, res) {
     const campaignId = message.campaignId;
     const recipientId = message.recipientId;
 
-    // const contact = await Contact.findById(recipientId);
-    // if (!contact) {
-    //   return res
-    //     .status(404)
-    //     .json({ success: false, message: "Contact not found" });
-    // }
+    const lead = await Lead.findById(recipientId);
+    if (!lead) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Lead not found" });
+    }
 
     // const fields = contact.additionalFields || {};
     const replacedUrl = decodedUrl;
@@ -42,49 +44,49 @@ export default async function handler(req, res) {
     }
     await message.save();
 
-    // const campaign = await Campaign.findById(campaignId);
-    // if (campaign) {
-    //   // === Handle clickedContacts logic ===
-    //   const existing = campaign.clickedContacts.find(
-    //     (c) => c.contact.toString() === recipientId.toString()
-    //   );
+    const campaign = await Campaign.findById(campaignId);
+    if (campaign) {
+      // === Handle clickedLeads logic ===
+      const existing = campaign.clickedLeads.find(
+        (c) => c.lead.toString() === recipientId.toString(),
+      );
 
-    //   if (!existing) {
-    //     // First time this contact clicked
-    //     campaign.clickedMessages += 1;
-    //     campaign.clickedContacts.push({
-    //       contact: recipientId,
-    //       message: emailId,
-    //       clickCount: 1,
-    //       clickedAt: new Date(),
-    //       links: [
-    //         { link: replacedUrl, clickCount: 1, lastClickedAt: new Date() },
-    //       ],
-    //     });
-    //   } else {
-    //     // Already exists - update click count and link
-    //     existing.clickCount += 1;
-    //     existing.clickedAt = new Date();
+      if (!existing) {
+        // First time this lead clicked
+        campaign.clickedMessages += 1;
+        campaign.clickedLeads.push({
+          lead: recipientId,
+          message: emailId,
+          clickCount: 1,
+          clickedAt: new Date(),
+          links: [
+            { link: replacedUrl, clickCount: 1, lastClickedAt: new Date() },
+          ],
+        });
+      } else {
+        // Already exists - update click count and link
+        existing.clickCount += 1;
+        existing.clickedAt = new Date();
 
-    //     const linkIndex = existing.links.findIndex(
-    //       (l) => l.link === replacedUrl
-    //     );
-    //     if (linkIndex !== -1) {
-    //       // Link already exists - increment count
-    //       existing.links[linkIndex].clickCount += 1;
-    //       existing.links[linkIndex].lastClickedAt = new Date();
-    //     } else {
-    //       // Add new link
-    //       existing.links.push({
-    //         link: replacedUrl,
-    //         clickCount: 1,
-    //         lastClickedAt: new Date(),
-    //       });
-    //     }
-    //   }
+        const linkIndex = existing.links.findIndex(
+          (l) => l.link === replacedUrl,
+        );
+        if (linkIndex !== -1) {
+          // Link already exists - increment count
+          existing.links[linkIndex].clickCount += 1;
+          existing.links[linkIndex].lastClickedAt = new Date();
+        } else {
+          // Add new link
+          existing.links.push({
+            link: replacedUrl,
+            clickCount: 1,
+            lastClickedAt: new Date(),
+          });
+        }
+      }
 
-    //   await campaign.save();
-    // }
+      await campaign.save();
+    }
 
     // Redirect to actual destination
     return res.redirect(replacedUrl);

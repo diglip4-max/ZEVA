@@ -1,5 +1,13 @@
 import React, { useState } from "react";
-import { X, Megaphone } from "lucide-react";
+import {
+  X,
+  Megaphone,
+  // Mail
+} from "lucide-react";
+import {
+  // FaSms,
+  FaWhatsapp,
+} from "react-icons/fa";
 
 interface CreateCampaignModalProps {
   isOpen: boolean;
@@ -24,11 +32,11 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
     "whatsapp" | "sms" | "email"
   >("whatsapp");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
-    onCreateCampaign({
+    await onCreateCampaign({
       name: name.trim(),
       description: description.trim(),
       type: campaignType,
@@ -82,43 +90,40 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
               <label className="block text-sm font-bold text-gray-900">
                 Campaign Type <span className="text-red-500">*</span>
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {[
                   {
                     value: "whatsapp" as const,
                     label: "WhatsApp",
-                    icon: "💬",
-                    color: "green",
+                    icon: <FaWhatsapp className="w-5 h-5" />,
+                    activeClass: "border-green-500 bg-green-50 text-green-700",
                   },
                   // {
                   //   value: "sms" as const,
                   //   label: "SMS",
-                  //   icon: "📱",
-                  //   color: "blue",
+                  //   icon: <FaSms className="w-5 h-5" />,
+                  //   activeClass: "border-blue-500 bg-blue-50 text-blue-700",
                   // },
                   // {
                   //   value: "email" as const,
                   //   label: "Email",
-                  //   icon: "📧",
-                  //   color: "purple",
+                  //   icon: <Mail className="w-5 h-5" />,
+                  //   activeClass: "border-red-500 bg-red-50 text-red-700",
                   // },
                 ].map((type) => (
                   <button
                     key={type.value}
                     type="button"
                     onClick={() => setCampaignType(type.value)}
-                    className={`px-3 py-3 rounded-lg border-2 transition-all text-center ${
+                    className={`flex flex-col items-center justify-center gap-1 px-3 py-3 rounded-lg border-2 transition-all text-center ${
                       campaignType === type.value
-                        ? type.color === "green"
-                          ? "border-green-500 bg-green-50 text-green-700"
-                          : type.color === "blue"
-                            ? "border-blue-500 bg-blue-50 text-blue-700"
-                            : "border-purple-500 bg-purple-50 text-purple-700"
+                        ? type.activeClass
                         : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                     }`}
                   >
-                    <div className="text-xl mb-1">{type.icon}</div>
-                    <div className="text-xs font-bold">{type.label}</div>
+                    <span>{type.icon}</span>
+
+                    <span className="text-xs font-semibold">{type.label}</span>
                   </button>
                 ))}
               </div>

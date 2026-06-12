@@ -60,6 +60,11 @@ const TemplateSchema = new mongoose.Schema(
       enum: ["html-editor", "block-editor", "rich-text-editor", "text-editor"],
       default: "text-editor",
     },
+    emailTemplateType: {
+      type: String,
+      enum: ["sales", "marketing"],
+      default: "sales",
+    },
     status: {
       type: String,
       //   enum:["pending", "approved", "rejected", "active", "active", "inactive", "paused"]
@@ -116,7 +121,7 @@ const TemplateSchema = new mongoose.Schema(
       type: String, //for whatsapp meta template
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // Prevent model recompilation error in development
