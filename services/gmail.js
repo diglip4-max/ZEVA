@@ -214,3 +214,53 @@ export function extractEmailReplyBody(body) {
   }
   return body.trim(); // fallback to full body
 }
+
+export const extractEmailsFromCC = (ccRaw) => {
+  const ccEmails = ccRaw.split(",").map((email) => email.trim());
+  return ccEmails.filter((email) => email !== "");
+};
+
+export const getIncomingGmailBody = (payload) => {
+  // Recursive function to extract body from parts
+  const extractBodyFromParts = (parts) => {
+    if (!parts) return "";
+
+    // First, look for text/plain or text/html in the immediate parts
+    for (const part of parts) {
+      if (part.mimeType === "text/plain" && part.body?.data) {
+        return Buffer.from(part.body.data, "base64").toString("utf-8");
+      }
+    }
+
+    for (const part of parts) {
+      if (part.mimeType === "text/html" && part.body?.data) {
+        return Buffer.from(part.body.data, "base64").toString("utf-8");
+      }
+    }
+
+    // If not found, check nested parts recursively
+    for (const part of parts) {
+      if (part.parts) {
+        const nestedBody = extractBodyFromParts(part.parts);
+        if (nestedBody) return nestedBody;
+      }
+    }
+    return "";
+  };
+
+  // Check if payload has body data directly
+  if (payload.body?.data) {
+    return Buffer.from(payload.body.data, "base64").toString("utf-8");
+  }
+
+  // Otherwise extract from parts
+  return extractBodyFromParts(payload.parts);
+};
+
+export const getMediaTypeFromMime = (mimeType) => {
+  if (!mimeType) return "file";
+  if (mimeType.startsWith("image/")) return "image";
+  if (mimeType.startsWith("video/")) return "video";
+  if (mimeType.startsWith("audio/")) return "audio";
+  return "file";
+};

@@ -3,7 +3,10 @@ import Clinic from "../../../../models/Clinic";
 import dbConnect from "../../../../lib/database";
 import Campaign from "../../../../models/Campaign";
 import Message from "../../../../models/Message";
-import { scheduleWhatsappCampaignQueue } from "../../../../bullmq/queue";
+import {
+  scheduleEmailCampaignQueue,
+  scheduleWhatsappCampaignQueue,
+} from "../../../../bullmq/queue";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -97,6 +100,19 @@ export default async function handler(req, res) {
     if (campaign.type === "whatsapp") {
       queueJob = await scheduleWhatsappCampaignQueue.add(
         "scheduleWhatsappQueue",
+        {
+          campaignId,
+        },
+        {
+          attempts: 3,
+          backoff: 5000,
+          removeOnComplete: true,
+          jobId: customJobId,
+        },
+      );
+    } else if (campaign.type === "email") {
+      queueJob = await scheduleEmailCampaignQueue.add(
+        "scheduleEmailQueue",
         {
           campaignId,
         },

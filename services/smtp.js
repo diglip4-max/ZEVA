@@ -1,6 +1,8 @@
 import nodemailer from "nodemailer";
 import * as cheerio from "cheerio";
 import Provider from "../models/Provider.js";
+import Campaign from "../models/Campaign.js";
+import Message from "../models/Message.js";
 
 export const sendTestEmailBySmtp = async ({
   smtpHost,
@@ -88,6 +90,82 @@ export const sendEmailViaSmtpMultiple = async ({
     const info = await transporter.sendMail(mailOptions);
     console.log("✅ Email sent via SMTP (multiple):", info.messageId);
     return info;
+  } catch (error) {
+    console.error("❌ Error sending email via SMTP (multiple):", error.message);
+    throw new Error("Failed to send email via SMTP (multiple)");
+  }
+};
+
+export const sendBatchEmailBySmtp = async ({
+  messages,
+  smtpHost,
+  smtpPort,
+  smtpUsername,
+  smtpPassword,
+  smtpSecure,
+}) => {
+  console.log("Email campaign smpt function called");
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      auth: {
+        user: smtpUsername,
+        pass: smtpPassword,
+      },
+    });
+
+    for (const message of messages) {
+      const {
+        channel,
+        to,
+        from,
+        senderName,
+        subject,
+        content,
+        attachments = [],
+        originalMessageId = "",
+        threadId = "",
+        campaignId,
+        messageId,
+        leadId,
+      } = message;
+      const mailOptions = await encodeMessageForSmtp({
+        to,
+        from,
+        senderName,
+        subject,
+        content,
+        attachments,
+        originalMessageId,
+        threadId,
+      });
+      const info = await transporter.sendMail(mailOptions);
+
+      if (info.messageId) {
+        await Campaign.findByIdAndUpdate(campaignId, {
+          $inc: {
+            deliveredMessages: 1,
+          },
+          $push: {
+            deliveredLeads: {
+              lead: leadId,
+              message: messageId,
+              deliveredAt: new Date(),
+            },
+          },
+        });
+        await Message.findByIdAndUpdate(messageId, {
+          $set: {
+            status: "delivered",
+            providerMessageId: info.messageId,
+          },
+        });
+      }
+      console.log("✅ Email sent via SMTP Batch:", info.messageId);
+    }
   } catch (error) {
     console.error("❌ Error sending email via SMTP (multiple):", error.message);
     throw new Error("Failed to send email via SMTP (multiple)");

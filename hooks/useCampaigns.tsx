@@ -367,6 +367,11 @@ const useCampaigns = () => {
       }
       return;
     }
+
+    if (action === "analytics") {
+      router.push(`/clinic/campaigns/analytics/?campaignId=${campaignId}`);
+      return;
+    }
   };
 
   const handleActionConfirm = async () => {

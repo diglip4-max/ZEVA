@@ -32,6 +32,7 @@ import {
   Smile,
   Underline,
   X,
+  Layout,
 } from "lucide-react";
 import EmojiPickerModal from "@/components/shared/EmojiPickerModal";
 
@@ -332,6 +333,28 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
     }
   };
 
+  const handleOpenBlockEditor = async () => {
+    console.log("block editor opened called");
+    let finalId = id;
+    if (isCreateMode) {
+      // Create first
+      const newId = await handleCreateTemplate("none");
+      console.log("newId", newId);
+      if (newId) finalId = newId;
+      else return;
+    } else {
+      // Update first
+      const updatedId = await handleUpdateTemplate(id as string, "none");
+      console.log("updatedId", updatedId);
+      if (updatedId) finalId = updatedId;
+      else return;
+    }
+
+    if (finalId) {
+      router.push(`/clinic/editors/block-editor/?templateId=${finalId}`);
+    }
+  };
+
   const isCreateMode = id === "new";
 
   // Close dropdown when clicking outside
@@ -605,43 +628,6 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                     <>
                       <div>
                         <label className="block text-sm font-medium text-gray-800 mb-2">
-                          Editor Type
-                        </label>
-                        <div className="grid grid-cols-2 gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setEditorType("rich-text-editor")}
-                            className={`flex items-center justify-center gap-2 p-3 rounded-lg border transition-all ${
-                              editorType === "rich-text-editor"
-                                ? "border-blue-500 bg-blue-50 text-blue-700"
-                                : "border-gray-300 hover:border-gray-400 hover:bg-gray-50 text-gray-600"
-                            }`}
-                          >
-                            <Edit3 size={18} />
-                            <span className="font-medium">Rich Text</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleOpenHtmlEditor}
-                            className={`flex items-center justify-center gap-2 p-3 rounded-lg border transition-all ${
-                              editorType === "html-editor"
-                                ? "border-blue-500 bg-blue-50 text-blue-700"
-                                : "border-gray-300 hover:border-gray-400 hover:bg-gray-50 text-gray-600"
-                            }`}
-                          >
-                            <Code size={18} />
-                            <span className="font-medium">HTML Editor</span>
-                          </button>
-                        </div>
-                        <p className="mt-2 text-xs text-gray-500">
-                          {editorType === "html-editor"
-                            ? "Advanced HTML editor for custom email designs."
-                            : "Simple drag-and-drop style rich text editor."}
-                        </p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-800 mb-2">
                           Email Template Type
                         </label>
                         <div className="flex gap-2 flex-wrap">
@@ -697,6 +683,57 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                           disabled={loading}
                         />
                       )}
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-800 mb-2">
+                          Editor Type
+                        </label>
+                        <div className="grid grid-cols-3 gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setEditorType("rich-text-editor")}
+                            className={`flex items-center justify-center gap-2 p-3 rounded-lg border transition-all ${
+                              editorType === "rich-text-editor"
+                                ? "border-blue-500 bg-blue-50 text-blue-700"
+                                : "border-gray-300 hover:border-gray-400 hover:bg-gray-50 text-gray-600"
+                            }`}
+                          >
+                            <Edit3 size={18} />
+                            <span className="font-medium">Rich Text</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleOpenBlockEditor}
+                            className={`flex items-center justify-center gap-2 p-3 rounded-lg border transition-all ${
+                              editorType === "block-editor"
+                                ? "border-blue-500 bg-blue-50 text-blue-700"
+                                : "border-gray-300 hover:border-gray-400 hover:bg-gray-50 text-gray-600"
+                            }`}
+                          >
+                            <Layout size={18} />
+                            <span className="font-medium">Block Editor</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleOpenHtmlEditor}
+                            className={`flex items-center justify-center gap-2 p-3 rounded-lg border transition-all ${
+                              editorType === "html-editor"
+                                ? "border-blue-500 bg-blue-50 text-blue-700"
+                                : "border-gray-300 hover:border-gray-400 hover:bg-gray-50 text-gray-600"
+                            }`}
+                          >
+                            <Code size={18} />
+                            <span className="font-medium">HTML Editor</span>
+                          </button>
+                        </div>
+                        <p className="mt-2 text-xs text-gray-500">
+                          {editorType === "html-editor"
+                            ? "Advanced HTML editor for custom email designs."
+                            : editorType === "block-editor"
+                              ? "Professional drag & drop email builder."
+                              : "Simple drag-and-drop style rich text editor."}
+                        </p>
+                      </div>
                     </>
                   )}
 
@@ -1219,17 +1256,17 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                         align="start"
                         position="top-left"
                       />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        icon={<Plus size={16} />}
-                        onClick={handleAddVariable}
-                      >
-                        Add Variable
-                      </Button>
 
                       {values?.templateType === "whatsapp" && (
                         <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            icon={<Plus size={16} />}
+                            onClick={handleAddVariable}
+                          >
+                            Add Variable
+                          </Button>
                           {!values?.isHeader && (
                             <Button
                               variant="outline"

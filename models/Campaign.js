@@ -1,4 +1,176 @@
-import mongoose from "mongoose";
+import mongoose, { Schema } from "mongoose";
+
+const openedLeadSchema = new Schema(
+  {
+    lead: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Lead",
+      required: true,
+      unique: true, // Only one entry per contact per campaign
+    },
+    message: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+    },
+    openCount: {
+      type: Number,
+      default: 1,
+    },
+    openedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { timestamps: true },
+);
+
+const clickedLeadSchema = new Schema(
+  {
+    lead: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Lead",
+      required: true,
+      unique: true, // Only one entry per contact per campaign
+    },
+    message: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+    },
+    links: [
+      {
+        link: { type: String, required: true },
+        clickCount: { type: Number, default: 1 },
+        lastClickedAt: { type: Date, default: Date.now },
+      },
+    ],
+    clickCount: {
+      type: Number,
+      default: 0,
+    },
+    clickedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { timestamps: true },
+);
+
+// Schema for tracking sent leads
+const sentLeadSchema = new Schema({
+  lead: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Lead",
+    required: true,
+    unique: true,
+  },
+  message: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Message",
+    unique: true,
+  },
+  sentAt: { type: Date, default: Date.now },
+});
+
+// Schema for tracking sent leads
+const notSentLeadSchema = new Schema({
+  lead: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Lead",
+    required: true,
+    unique: true,
+  },
+  message: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Message",
+    unique: true,
+  },
+  notSentAt: { type: Date, default: Date.now },
+});
+
+// Schema for tracking unsubscribed leads
+const unsubscribedLeadSchema = new Schema({
+  lead: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Lead",
+    required: true,
+    unique: true,
+  },
+  message: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Message",
+    unique: true,
+  },
+  unsubscribedAt: { type: Date, default: Date.now },
+});
+// Schema for tracking delivered leads
+const deliveredLeadSchema = new Schema({
+  lead: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Lead",
+    required: true,
+    unique: true,
+  },
+  message: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Message",
+    unique: true,
+  },
+  deliveredAt: { type: Date, default: Date.now },
+});
+// Schema for tracking failed leads
+const failedLeadSchema = new Schema({
+  lead: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Lead",
+    required: true,
+    unique: true,
+  },
+  message: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Message",
+    unique: true,
+  },
+  errorCode: {
+    type: String,
+  },
+  errorMessage: {
+    type: String,
+  },
+  failedAt: { type: Date, default: Date.now },
+});
+// Schema for tracking bounced leads
+const bouncedLeadSchema = new Schema({
+  lead: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Lead",
+    required: true,
+    unique: true,
+  },
+  message: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Message",
+    unique: true,
+  },
+  bouncedAt: { type: Date, default: Date.now },
+});
+// Schema for tracking complained leads
+const complainedLeadSchema = new Schema({
+  lead: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Lead",
+    required: true,
+    unique: true,
+  },
+  message: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Message",
+    unique: true,
+  },
+  complainedAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
 
 const CampaignSchema = new mongoose.Schema(
   {
@@ -125,6 +297,10 @@ const CampaignSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    manualEmails: {
+      type: String,
+      default: "",
+    },
 
     totalBatches: {
       type: Number,
@@ -220,6 +396,17 @@ const CampaignSchema = new mongoose.Schema(
         type: String,
       },
     ],
+
+    // for tracking leads analytics
+    openedLeads: [openedLeadSchema],
+    clickedLeads: [clickedLeadSchema],
+    sentLeads: [sentLeadSchema],
+    deliveredLeads: [deliveredLeadSchema],
+    failedLeads: [failedLeadSchema],
+    unsubscribedLeads: [unsubscribedLeadSchema],
+    bouncedLeads: [bouncedLeadSchema],
+    notSentLeads: [notSentLeadSchema],
+    complainedLeads: [complainedLeadSchema],
   },
   { timestamps: true },
 );

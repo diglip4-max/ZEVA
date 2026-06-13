@@ -433,6 +433,7 @@ const Message: React.FC<IProps> = ({
                       </span>
                       <span className="text-gray-600">
                         {/* Add your provider email here */}
+                        {message?.provider?.email}
                       </span>
                     </div>
                     <div className="flex items-center text-sm">
