@@ -1,7 +1,7 @@
 //pages/clinic/policy_compliance.tsx
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import Head from "next/head";
-import { ShieldCheck, FileText, BookOpenCheck, ClipboardList, Plus, Search, UploadCloud, MoreVertical, Sparkles, AlertTriangle, TrendingUp, CircleCheckBig, Eye, Clock, X, Users, Building, Layers, Tag, Hash, CalendarDays, User } from "lucide-react";
+import { ShieldCheck, FileText, BookOpenCheck, ClipboardList, Plus, Search, UploadCloud, MoreVertical, Sparkles, AlertTriangle, TrendingUp, CircleCheckBig, Eye, Clock, X, Users, Building, Layers, Tag, Hash, CalendarDays, User, ZoomIn, ZoomOut, Maximize2, Minimize2, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import ClinicLayout from "../../components/ClinicLayout";
 import withClinicAuth from "../../components/withClinicAuth";
 import type { NextPageWithLayout } from "../_app";
@@ -180,6 +180,14 @@ function PolicyCompliance() {
   const [viewerTitle, setViewerTitle] = useState<string>("Document Preview");
   const pdfContainerRef = useRef<HTMLDivElement | null>(null);
   const [viewerError, setViewerError] = useState<string | null>(null);
+  const [pdfDoc, setPdfDoc] = useState<any>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [scale, setScale] = useState(1.2);
+  const [isLoading, setIsLoading] = useState(false);
+  const [thumbnails, setThumbnails] = useState<string[]>([]);
+  const pdfCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const thumbnailContainerRef = useRef<HTMLDivElement | null>(null);
   const [ackModalOpen, setAckModalOpen] = useState(false);
   const [editingType, setEditingType] = useState<TabKey | null>(null);
   const [editingItem, setEditingItem] = useState<any | null>(null);
@@ -206,41 +214,104 @@ function PolicyCompliance() {
     setViewerTitle(title || "Document Preview");
     setViewerOpen(true);
     setViewerError(null);
+    setCurrentPage(1);
+    setScale(1.2);
+    setPdfDoc(null);
+  };
+
+  const ensurePdfJs = async () => {
+    const w = window as any;
+    if (w.pdfjsLib) return;
+    await new Promise<void>((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error("Failed to load PDF viewer"));
+      document.body.appendChild(s);
+    });
+    await new Promise<void>((resolve, reject) => {
+      const sw = document.createElement("script");
+      sw.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      sw.onload = () => resolve();
+      sw.onerror = () => reject(new Error("Failed to load PDF worker"));
+      document.body.appendChild(sw);
+    });
+    const pdfjsLib = (window as any).pdfjsLib;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  };
+
+  const renderPage = async (pageNum: number) => {
+    if (!pdfDoc || !pdfCanvasRef.current) return;
+
+    try {
+      setIsLoading(true);
+      const page = await pdfDoc.getPage(pageNum);
+      const viewport = page.getViewport({ scale: scale });
+      const canvas = pdfCanvasRef.current;
+      const ctx = canvas.getContext("2d")!;
+      
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+
+      await page.render({ canvasContext: ctx, viewport }).promise;
+
+      // Add signature if needed
+      const shouldPlaceSignature = (currentAck?.status === "Acknowledged" || !!currentAck?.acknowledgedOn) && !!(currentAck as any)?.signatureDataUrl;
+      if (shouldPlaceSignature && (currentAck as any)?.signatureDataUrl) {
+        const img = new Image();
+        img.onload = () => {
+          const padding = 16;
+          const sigW = Math.min(200, canvas.width * 0.35);
+          const sigH = Math.round(sigW * 0.35);
+          const sx = canvas.width - sigW - padding - 8;
+          const sy = canvas.height - sigH - padding - 8;
+          ctx.save();
+          ctx.globalAlpha = 0.95;
+          ctx.drawImage(img, sx, sy, sigW, sigH);
+          const ts = (currentAck as any)?.signatureAt
+            ? new Date((currentAck as any).signatureAt)
+            : (currentAck?.acknowledgedOn ? new Date(currentAck.acknowledgedOn) : new Date());
+          let whenStr: string;
+          try {
+            whenStr = ts.toLocaleString(undefined, {
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: false
+            });
+          } catch {
+            whenStr = ts.toISOString();
+          }
+          ctx.globalAlpha = 1;
+          ctx.font = "11px Segoe UI, Arial, sans-serif";
+          ctx.fillStyle = "#374151";
+          ctx.fillText(`Signed: ${whenStr}`, Math.max(padding, sx - 160), sy + sigH + 14);
+          ctx.restore();
+        };
+        img.src = (currentAck as any).signatureDataUrl;
+      }
+
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Error rendering page:", error);
+      setIsLoading(false);
+    }
   };
 
   const loadPdfIntoModal = async (pdfUrl: string) => {
     try {
       setViewerError(null);
-      const ensurePdfJs = async () => {
-        const w = window as any;
-        if (w.pdfjsLib) return;
-        await new Promise<void>((resolve, reject) => {
-          const s = document.createElement("script");
-          s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-          s.onload = () => resolve();
-          s.onerror = () => reject(new Error("Failed to load PDF viewer"));
-          document.body.appendChild(s);
-        });
-        await new Promise<void>((resolve, reject) => {
-          const sw = document.createElement("script");
-          sw.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-          sw.onload = () => resolve();
-          sw.onerror = () => reject(new Error("Failed to load PDF worker"));
-          document.body.appendChild(sw);
-        });
-      };
+      setIsLoading(true);
+      setThumbnails([]);
       await ensurePdfJs();
-      // Inject styles to reduce print/save options
-      if (!document.getElementById("pdf-secure-styles")) {
-        const style = document.createElement("style");
-        style.id = "pdf-secure-styles";
-        style.textContent =
-          ".pdf-secure{user-select:none;-webkit-user-select:none;-ms-user-select:none}.pdf-secure canvas{pointer-events:auto}.pdf-secure .overlay{position:absolute;inset:0;background:transparent;pointer-events:none}.pdf-secure .container{position:relative}.pdf-secure *{webkit-touch-callout:none}@media print{.pdf-secure{display:none !important}}";
-        document.head.appendChild(style);
-      }
+      
       const fullUrl = pdfUrl.startsWith("http") ? pdfUrl : `${window.location.origin}${pdfUrl}`;
       const headers = { ...(getAuthHeaders() as Record<string, string>), Accept: "application/pdf" };
       const resp = await fetch(fullUrl, { headers, credentials: "include", cache: "no-store" });
+      
       if (!resp.ok) {
         let message: any = `Failed to fetch document: ${resp.status}`;
         try {
@@ -251,90 +322,83 @@ function PolicyCompliance() {
           } catch {
             message = raw || message;
           }
-        } catch {}
+        } catch { }
         const msgString = typeof message === "string" ? message : JSON.stringify(message);
         setViewerError(msgString);
-        const c = pdfContainerRef.current!;
-        c.innerHTML = `<div class="p-8 text-center"><div class="text-red-600 mb-2">Failed to load document</div><div class="text-sm text-gray-500">${msgString}</div></div>`;
+        setIsLoading(false);
         return;
       }
+      
       const blob = await resp.blob();
       const objectUrl = URL.createObjectURL(blob);
       const pdfjsLib = (window as any).pdfjsLib;
-      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
       const task = pdfjsLib.getDocument({ url: objectUrl });
       const pdf = await task.promise;
-
-      const container = pdfContainerRef.current!;
-      container.innerHTML = "";
-      const wrapper = document.createElement("div");
-      wrapper.className = "pdf-secure container";
-      container.appendChild(wrapper);
-      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-        const page = await pdf.getPage(pageNum);
-        const viewport = page.getViewport({ scale: 1.1 });
+      
+      setPdfDoc(pdf);
+      setTotalPages(pdf.numPages);
+      
+      // Generate all thumbnails
+      const thumbs: string[] = [];
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 0.2 });
         const canvas = document.createElement("canvas");
-        canvas.style.display = "block";
-        canvas.style.margin = "0 auto 16px auto";
-        canvas.style.maxWidth = "100%";
-        canvas.style.height = "auto";
-        const ctx = canvas.getContext("2d")!;
-        canvas.height = viewport.height;
         canvas.width = viewport.width;
-        wrapper.appendChild(canvas);
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext("2d")!;
         await page.render({ canvasContext: ctx, viewport }).promise;
-        const shouldPlaceSignature = (currentAck?.status === "Acknowledged" || !!currentAck?.acknowledgedOn) && !!(currentAck as any)?.signatureDataUrl;
-        if (shouldPlaceSignature && (currentAck as any)?.signatureDataUrl) {
-          const img = new Image();
-          img.onload = () => {
-            const padding = 16;
-            const sigW = Math.min(200, canvas.width * 0.35);
-            const sigH = Math.round(sigW * 0.35);
-            const sx = canvas.width - sigW - padding - 8;
-            const sy = canvas.height - sigH - padding - 8;
-            ctx.save();
-            ctx.globalAlpha = 0.95;
-            ctx.drawImage(img, sx, sy, sigW, sigH);
-            // Digital timestamp near signature
-            const ts = (currentAck as any)?.signatureAt
-              ? new Date((currentAck as any).signatureAt)
-              : (currentAck?.acknowledgedOn ? new Date(currentAck.acknowledgedOn) : new Date());
-            let whenStr: string;
-            try {
-              whenStr = ts.toLocaleString(undefined, {
-                year: "numeric",
-                month: "2-digit",
-                day: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: false
-              });
-            } catch {
-              whenStr = ts.toISOString();
-            }
-            ctx.globalAlpha = 1;
-            ctx.font = "11px Segoe UI, Arial, sans-serif";
-            ctx.fillStyle = "#374151";
-            ctx.fillText(`Signed: ${whenStr}`, Math.max(padding, sx - 160), sy + sigH + 14);
-            ctx.restore();
-          };
-          img.src = (currentAck as any).signatureDataUrl;
-        }
+        thumbs.push(canvas.toDataURL());
       }
-      const overlay = document.createElement("div");
-      overlay.className = "overlay";
-      overlay.style.pointerEvents = "none";
-      overlay.oncontextmenu = (e) => e.preventDefault();
-      wrapper.appendChild(overlay);
+      setThumbnails(thumbs);
+      
+      setIsLoading(false);
       URL.revokeObjectURL(objectUrl);
     } catch (error: any) {
       console.error("Error loading PDF:", error);
       setViewerError(error?.message || "Failed to load document");
-      if (pdfContainerRef.current) {
-        pdfContainerRef.current.innerHTML = `<div class="p-8 text-center"><div class="text-red-600 mb-2">Failed to load document</div><div class="text-sm text-gray-500">${error?.message || "Unknown error"}</div></div>`;
-      }
+      setIsLoading(false);
     }
+  };
+
+  const goToPrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(prev => prev - 1);
+    }
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(prev => prev + 1);
+    }
+  };
+
+  const zoomIn = () => {
+    setScale(prev => Math.min(prev + 0.2, 3));
+  };
+
+  const zoomOut = () => {
+    setScale(prev => Math.max(prev - 0.2, 0.5));
+  };
+
+  const fitToWidth = async () => {
+    if (!pdfDoc || !pdfContainerRef.current) return;
+    const page = await pdfDoc.getPage(currentPage);
+    const viewport = page.getViewport({ scale: 1 });
+    const containerWidth = pdfContainerRef.current?.clientWidth || 800;
+    const newScale = (containerWidth - 48) / viewport.width;
+    setScale(Math.min(newScale, 3));
+  };
+
+  const fitToPage = async () => {
+    if (!pdfDoc || !pdfCanvasRef.current || !pdfContainerRef.current) return;
+    const page = await pdfDoc.getPage(currentPage);
+    const viewport = page.getViewport({ scale: 1 });
+    const containerHeight = pdfContainerRef.current.clientHeight - 48;
+    const containerWidth = pdfContainerRef.current.clientWidth - 48;
+    const scaleX = containerWidth / viewport.width;
+    const scaleY = containerHeight / viewport.height;
+    setScale(Math.min(scaleX, scaleY, 3));
   };
 
 
@@ -349,6 +413,8 @@ function PolicyCompliance() {
           e.preventDefault();
           e.stopPropagation();
         }
+        if (k === "arrowleft") goToPrevPage();
+        if (k === "arrowright") goToNextPage();
       };
       document.addEventListener("contextmenu", preventContext);
       document.addEventListener("keydown", preventKeys, true);
@@ -359,6 +425,21 @@ function PolicyCompliance() {
       };
     }
   }, [viewerOpen, viewerUrl]);
+
+  useEffect(() => {
+    if (pdfDoc) {
+      // Auto-fit to width when first loaded
+      setTimeout(() => {
+        fitToWidth();
+      }, 100);
+    }
+  }, [pdfDoc]);
+
+  useEffect(() => {
+    if (pdfDoc) {
+      renderPage(currentPage);
+    }
+  }, [pdfDoc, currentPage, scale]);
 
   useEffect(() => {
     (async () => {
@@ -505,7 +586,12 @@ function PolicyCompliance() {
       if (search) params.set("q", search);
       if (ackStatusFilter) params.set("status", ackStatusFilter);
       if (ackTypeFilter) params.set("type", ackTypeFilter);
-      params.set("all", "1");
+      // Only clinic/admin roles can see all acknowledgments; agent/doctorStaff see only their own
+      const userInfo = getUserInfo();
+      const isPrivilegedRole = userInfo.role === "clinic" || userInfo.role === "admin" || userInfo.role === "doctor";
+      if (isPrivilegedRole) {
+        params.set("all", "1");
+      }
       const res = await fetch(`/api/compliance/acknowledgments?${params.toString()}`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (!json.success) return;
@@ -2443,7 +2529,9 @@ function PolicyCompliance() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredSops.map(i => (
+                    {filteredSops.length === 0 ? (
+                      <tr><td colSpan={10} className="px-4 py-12 text-center text-sm text-gray-500">No SOPs assigned to you yet.</td></tr>
+                    ) : filteredSops.map(i => (
                       <tr key={i._id} className="border-t text-xs">
                         <td className="px-2 py-2">
                           {/* <input type="checkbox" className="h-4 w-4 rounded border" /> */}
@@ -2523,7 +2611,9 @@ function PolicyCompliance() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredPolicies.map(i => (
+                    {filteredPolicies.length === 0 ? (
+                      <tr><td colSpan={10} className="px-4 py-12 text-center text-sm text-gray-500">No policies assigned to you yet.</td></tr>
+                    ) : filteredPolicies.map(i => (
                       <tr key={i._id} className="border-t text-xs">
                         <td className="px-2 py-2">
                           {/* <input type="checkbox" className="h-4 w-4 rounded border" /> */}
@@ -2597,7 +2687,9 @@ function PolicyCompliance() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredPlaybooks.map(i => (
+                    {filteredPlaybooks.length === 0 ? (
+                      <tr><td colSpan={10} className="px-4 py-12 text-center text-sm text-gray-500">No playbooks assigned to you yet.</td></tr>
+                    ) : filteredPlaybooks.map(i => (
                       <tr key={i._id} className="border-t text-xs">
                         <td className="px-2 py-2">
                           {/* <input type="checkbox" className="h-4 w-4 rounded border" /> */}
@@ -2675,7 +2767,9 @@ function PolicyCompliance() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredAckItems.map(i => (
+                    {filteredAckItems.length === 0 ? (
+                      <tr><td colSpan={10} className="px-4 py-12 text-center text-sm text-gray-500">No acknowledgment records found.</td></tr>
+                    ) : filteredAckItems.map(i => (
                       <tr key={i._id} className="border-t text-xs">
                         <td className="px-2 py-2">
                           {/* <input type="checkbox" className="h-4 w-4 rounded border" /> */}
@@ -2774,33 +2868,176 @@ function PolicyCompliance() {
       {showCreate && (permissions.canCreate || (editingType && canUpdateActions)) && <CreateModal />}
       {ackModalOpen && canCreateActions && <AckModal onClose={() => setAckModalOpen(false)} />}
       {viewerOpen && viewerUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-5xl bg-white rounded-xl shadow-xl overflow-hidden max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-md bg-gradient-to-r from-teal-600 to-blue-600 flex items-center justify-center text-white font-bold text-xs shadow-md">Z</div>
-                  <span className="text-xs font-bold text-gray-800">Zeva</span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
+          <div className="w-full max-w-7xl bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-lg">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-bold text-slate-800">{viewerTitle}</span>
+                    {pdfDoc && (
+                      <span className="text-xs text-slate-500">
+                        Page {currentPage} of {totalPages} • {Math.round(scale * 100)}%
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-sm font-semibold text-gray-900">{viewerTitle}</div>
               </div>
               <button
                 onClick={() => {
                   setViewerOpen(false);
                   setViewerError(null);
                 }}
-                className="rounded-md px-3 py-1 text-sm border hover:bg-gray-50"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 hover:border-slate-400 transition-all shadow-sm"
               >
+                <X className="w-4 h-4" />
                 Close
               </button>
             </div>
+
+            {/* Error message */}
             {viewerError && (
-              <div className="p-4 bg-red-50 border-b border-red-200">
+              <div className="p-4 bg-red-50 border-b border-red-200 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-500" />
                 <div className="text-red-700 text-sm">{String(viewerError)}</div>
               </div>
             )}
-            <div className="flex-1 min-h-0 overflow-y-auto p-0">
-              <div ref={pdfContainerRef} className="p-4" />
+
+            {/* Toolbar */}
+            <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-slate-200">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={goToPrevPage}
+                  disabled={currentPage <= 1 || !pdfDoc}
+                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg">
+                  <input
+                    type="number"
+                    min={1}
+                    max={totalPages}
+                    value={currentPage}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (val >= 1 && val <= totalPages) setCurrentPage(val);
+                    }}
+                    className="w-12 text-center text-sm font-semibold text-slate-800 bg-transparent border-none outline-none"
+                  />
+                  <span className="text-sm text-slate-500">/ {totalPages}</span>
+                </div>
+                <button
+                  onClick={goToNextPage}
+                  disabled={currentPage >= totalPages || !pdfDoc}
+                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={zoomOut}
+                  disabled={!pdfDoc}
+                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ZoomOut className="w-5 h-5" />
+                </button>
+                <div className="px-3 py-1.5 bg-slate-100 rounded-lg min-w-[70px] text-center">
+                  <span className="text-sm font-semibold text-slate-800">{Math.round(scale * 100)}%</span>
+                </div>
+                <button
+                  onClick={zoomIn}
+                  disabled={!pdfDoc}
+                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ZoomIn className="w-5 h-5" />
+                </button>
+                <div className="w-px h-6 bg-slate-200 mx-1" />
+                <button
+                  onClick={fitToWidth}
+                  disabled={!pdfDoc}
+                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  title="Fit to Width"
+                >
+                  <Maximize2 className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={fitToPage}
+                  disabled={!pdfDoc}
+                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  title="Fit to Page"
+                >
+                  <Minimize2 className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Main Content with Sidebar */}
+            <div className="flex flex-1 min-h-0 overflow-hidden">
+              {/* Sidebar - Thumbnails */}
+              {thumbnails.length > 0 && (
+                <div className="w-48 bg-slate-50 border-r border-slate-200 flex flex-col">
+                  <div className="p-3 border-b border-slate-200">
+                    <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Pages</h3>
+                  </div>
+                  <div
+                    ref={thumbnailContainerRef}
+                    className="flex-1 overflow-y-auto p-3 space-y-3"
+                  >
+                    {thumbnails.map((thumb, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setCurrentPage(idx + 1)}
+                        className={`w-full rounded-lg overflow-hidden shadow-sm transition-all ${
+                          currentPage === idx + 1
+                            ? "ring-2 ring-indigo-500 ring-offset-1"
+                            : "hover:shadow-md"
+                        }`}
+                      >
+                        <div className="relative">
+                          <img
+                            src={thumb}
+                            alt={`Page ${idx + 1}`}
+                            className="w-full"
+                          />
+                          <div className="absolute bottom-1 right-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
+                            {idx + 1}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* PDF Content Area */}
+              <div
+                ref={pdfContainerRef}
+                className="flex-1 min-h-0 overflow-auto bg-slate-100 p-6 flex items-start justify-center"
+              >
+                {isLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-slate-100/80 z-10">
+                    <div className="flex flex-col items-center gap-3">
+                      <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
+                      <span className="text-sm text-slate-600 font-medium">Loading document...</span>
+                    </div>
+                  </div>
+                )}
+                {pdfDoc && (
+                  <div className="relative shadow-2xl rounded-xl overflow-hidden bg-white">
+                    <canvas
+                      ref={pdfCanvasRef}
+                      className="block"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

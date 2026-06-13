@@ -94,6 +94,14 @@ const UserPackageSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
   },
+  packageSoldBy: {
+    type: String,
+    trim: true,
+  },
+  packageSoldByUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
 }, { timestamps: true });
 
 UserPackageSchema.index({ patientId: 1, clinicId: 1 });

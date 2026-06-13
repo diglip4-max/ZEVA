@@ -101,6 +101,7 @@
     const [routeContext, setRouteContext] = useState<"clinic" | "agent">(
       (contextOverride || "clinic") as "clinic" | "agent"
     );
+    const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
     useEffect(() => {
       if (contextOverride) {
         setRouteContext(contextOverride);
@@ -594,6 +595,20 @@
       }
     }, [filters, page, getAuthHeaders, permissionsLoaded, permissions.canRead]);
 
+    // Calculate status counts from appointments
+    const calculateStatusCounts = useCallback(() => {
+      const counts: Record<string, number> = {};
+      appointments.forEach((apt) => {
+        const status = apt.status;
+        counts[status] = (counts[status] || 0) + 1;
+      });
+      setStatusCounts(counts);
+    }, [appointments]);
+
+    useEffect(() => {
+      calculateStatusCounts();
+    }, [appointments, calculateStatusCounts]);
+
     useEffect(() => {
       fetchFilterData();
     }, [fetchFilterData, permissionsLoaded, permissions.canRead]);
@@ -788,6 +803,54 @@
                 />
                     </div>
                   </div>
+
+                  {/* Appointment Status Counts */}
+                  {Object.keys(statusCounts).length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs font-semibold text-gray-600">Today's Status:</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(statusCounts)
+                          .filter(([, count]) => count > 0)
+                          .sort((a, b) => b[1] - a[1])
+                          .map(([status, count]) => {
+                            const statusColors: Record<string, { bg: string; text: string; border: string; icon: string }> = {
+                              booked: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200", icon: "text-blue-500" },
+                              enquiry: { bg: "bg-yellow-50", text: "text-yellow-700", border: "border-yellow-200", icon: "text-yellow-500" },
+                              Discharge: { bg: "bg-green-50", text: "text-green-700", border: "border-green-200", icon: "text-green-500" },
+                              Arrived: { bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200", icon: "text-purple-500" },
+                              Consultation: { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200", icon: "text-orange-500" },
+                              Cancelled: { bg: "bg-red-50", text: "text-red-700", border: "border-red-200", icon: "text-red-500" },
+                              Approved: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200", icon: "text-emerald-500" },
+                              Rescheduled: { bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200", icon: "text-indigo-500" },
+                              Waiting: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", icon: "text-amber-500" },
+                              Rejected: { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", icon: "text-rose-500" },
+                              Completed: { bg: "bg-teal-50", text: "text-teal-700", border: "border-teal-200", icon: "text-teal-500" },
+                              invoice: { bg: "bg-cyan-50", text: "text-cyan-700", border: "border-cyan-200", icon: "text-cyan-500" },
+                              "No Show": { bg: "bg-gray-50", text: "text-gray-700", border: "border-gray-200", icon: "text-gray-500" },
+                            };
+
+                            const colors = statusColors[status] || { bg: "bg-gray-50", text: "text-gray-700", border: "border-gray-200", icon: "text-gray-500" };
+
+                            return (
+                              <div
+                                key={status}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${colors.bg} ${colors.border} shadow-sm hover:shadow-md transition-all duration-200`}
+                              >
+                                <div className={`w-2 h-2 rounded-full ${colors.icon} animate-pulse`} />
+                                <span className={`text-xs font-semibold capitalize ${colors.text}`}>
+                                  {status === "No Show" ? "No Show" : status.toLowerCase()}
+                                </span>
+                                <span className={`text-xs font-bold ${colors.text} bg-white bg-opacity-60 px-2 py-0.5 rounded-full`}>
+                                  {count}
+                                </span>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
               </div>
 
               {/* Advanced Filters */}

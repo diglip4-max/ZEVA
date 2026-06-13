@@ -21,6 +21,9 @@ export default async function handler(req, res) {
     try {
       const { agentId } = req.query;
       
+      console.log('\n========== [API DEBUG] /api/agent/permissions (GET) ==========');
+      console.log('[API DEBUG] Requesting agentId:', agentId);
+      
       if (!agentId) {
         return res.status(400).json({ success: false, message: 'Agent ID is required' });
       }
@@ -28,8 +31,15 @@ export default async function handler(req, res) {
       // Verify agent exists and user has permission to view it
       const agent = await User.findById(agentId);
       if (!agent || !['agent', 'doctorStaff'].includes(agent.role)) {
+        console.log('[API DEBUG] ERROR: Agent not found');
         return res.status(404).json({ success: false, message: 'Agent not found' });
       }
+
+      console.log('[API DEBUG] Agent found:', {
+        agentId: agent._id.toString(),
+        role: agent.role,
+        name: agent.name
+      });
 
       // Check if user has permission to view this agent's permissions
       if (me.role === 'admin') {
@@ -85,12 +95,25 @@ export default async function handler(req, res) {
       // Get agent permissions
       const permissions = await AgentPermission.findOne({ agentId }).populate('grantedBy', 'name email');
       
+      console.log('[API DEBUG] Permissions found:', !!permissions);
+      if (permissions) {
+        console.log('[API DEBUG] Permissions data:');
+        console.log('[DEBUG]   - Total modules:', permissions.permissions?.length || 0);
+        permissions.permissions?.forEach((perm, index) => {
+          console.log(`[DEBUG]   [${index}] module: "${perm.module}"`);
+          console.log(`[DEBUG]       actions:`, JSON.stringify(perm.actions, null, 2));
+        });
+      }
+      
+      console.log('[API DEBUG] ========== /api/agent/permissions (GET) END ==========\n');
+      
       return res.status(200).json({ 
         success: true, 
         data: permissions || null 
       });
     } catch (error) {
-      // console.error('Error fetching agent permissions:', error);
+      console.error('[API DEBUG] ERROR in /api/agent/permissions (GET):', error);
+      console.log('[API DEBUG] ========== /api/agent/permissions (GET) END (ERROR) ==========\n');
       return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
     }
   }
@@ -99,6 +122,10 @@ export default async function handler(req, res) {
     try {
       const { agentId, permissions } = req.body;
 
+      console.log('\n========== [API DEBUG] /api/agent/permissions (POST) ==========');
+      console.log('[API DEBUG] agentId:', agentId);
+      console.log('[API DEBUG] permissions count:', permissions?.length || 0);
+      
       if (!agentId) {
         return res.status(400).json({ success: false, message: 'Agent ID is required' });
       }
@@ -107,11 +134,32 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, message: 'Permissions array is required' });
       }
 
+      // Log the permissions being saved
+      console.log('[API DEBUG] Permissions to save:');
+      permissions.forEach((perm, index) => {
+        console.log(`[DEBUG]   [${index}] module: "${perm.module}"`);
+        console.log(`[DEBUG]       actions:`, JSON.stringify(perm.actions, null, 2));
+        if (perm.subModules?.length > 0) {
+          console.log(`[DEBUG]       subModules: ${perm.subModules.length}`);
+          perm.subModules.forEach((sm, smIndex) => {
+            console.log(`[DEBUG]         [${smIndex}] name: "${sm.name}", moduleKey: "${sm.moduleKey || 'N/A'}"`);
+            console.log(`[DEBUG]             actions:`, JSON.stringify(sm.actions, null, 2));
+          });
+        }
+      });
+
       // Verify agent exists and user has permission to modify it
       const agent = await User.findById(agentId);
       if (!agent || !['agent', 'doctorStaff'].includes(agent.role)) {
+        console.log('[API DEBUG] ERROR: Agent not found');
         return res.status(404).json({ success: false, message: 'Agent not found' });
       }
+
+      console.log('[API DEBUG] Agent found:', {
+        agentId: agent._id.toString(),
+        role: agent.role,
+        name: agent.name
+      });
 
       // Check if user has permission to modify this agent's permissions
       if (me.role === 'admin') {
@@ -177,6 +225,8 @@ export default async function handler(req, res) {
         }
       }
 
+      console.log('[API DEBUG] Validation passed, saving to database...');
+
       // Create or update agent permissions
       const agentPermission = await AgentPermission.findOneAndUpdate(
         { agentId },
@@ -190,13 +240,19 @@ export default async function handler(req, res) {
         { upsert: true, new: true }
       );
 
+      console.log('[API DEBUG] Save successful!');
+      console.log('[API DEBUG]   - Created/Updated ID:', agentPermission._id.toString());
+      console.log('[API DEBUG]   - Total permissions:', agentPermission.permissions?.length || 0);
+      console.log('[API DEBUG] ========== /api/agent/permissions (POST) END ==========\n');
+
       return res.status(200).json({ 
         success: true, 
         message: 'Agent permissions updated successfully',
         data: agentPermission 
       });
     } catch (error) {
-      // console.error('Error updating agent permissions:', error);
+      console.error('[API DEBUG] ERROR in /api/agent/permissions (POST):', error);
+      console.log('[API DEBUG] ========== /api/agent/permissions (POST) END (ERROR) ==========\n');
       return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
     }
   }

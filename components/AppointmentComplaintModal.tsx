@@ -80,6 +80,7 @@ interface AppointmentDetails {
   fromTime?: string;
   toTime?: string;
   status?: string;
+  serviceId?: string;
   serviceIds?: string[];
   serviceNames?: string[];
 }
@@ -305,6 +306,70 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [newEntryDate, setNewEntryDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [savingProgress, setSavingProgress] = useState(false);
   const [progressError, setProgressError] = useState<string>("");
+  
+  // Edit progress note state
+  const [editingProgressNoteId, setEditingProgressNoteId] = useState<string | null>(null);
+  const [editingProgressNoteData, setEditingProgressNoteData] = useState<{
+    note: string;
+    noteDate: string;
+  } | null>(null);
+  const [savingEditedProgress, setSavingEditedProgress] = useState(false);
+
+  // Helper function to check if a date is within the last 24 hours
+  const isWithin24Hours = (dateString: string) => {
+    const now = new Date();
+    const createdDate = new Date(dateString);
+    const hoursDiff = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
+    return hoursDiff < 24;
+  };
+
+  // Edit progress note handlers
+  const startEditProgressNote = (entry: ProgressNoteEntry) => {
+    setEditingProgressNoteId(entry._id);
+    setEditingProgressNoteData({
+      note: entry.note,
+      noteDate: entry.noteDate ? new Date(entry.noteDate).toISOString().slice(0, 10) : new Date(entry.createdAt).toISOString().slice(0, 10),
+    });
+  };
+
+  const cancelEditProgressNote = () => {
+    setEditingProgressNoteId(null);
+    setEditingProgressNoteData(null);
+  };
+
+  const saveEditedProgressNote = async (noteId: string) => {
+    if (!editingProgressNoteData || !editingProgressNoteData.note.trim()) return;
+    
+    setSavingEditedProgress(true);
+    try {
+      const headers = getAuthHeaders();
+      
+      await axios.put("/api/clinic/progress-notes", {
+        noteId,
+        note: editingProgressNoteData.note.trim(),
+        noteDate: editingProgressNoteData.noteDate,
+      }, { headers });
+
+      // Update local state
+      setProgressNotes(prev => prev.map(n => {
+        if (n._id === noteId) {
+          return {
+            ...n,
+            note: editingProgressNoteData.note.trim(),
+            noteDate: editingProgressNoteData.noteDate,
+          };
+        }
+        return n;
+      }));
+
+      setEditingProgressNoteId(null);
+      setEditingProgressNoteData(null);
+    } catch (error: any) {
+      setProgressError(error.response?.data?.message || "Failed to update progress note");
+    } finally {
+      setSavingEditedProgress(false);
+    }
+  };
 
   // Prescription tab state
   type MedicineLine = { id: string; medicineName: string; dosage: string; duration: string; notes: string };
@@ -327,6 +392,71 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [prescriptionHistory, setPrescriptionHistory] = useState<PrescriptionHistoryEntry[]>([]);
   const [loadingPrescriptionHistory, setLoadingPrescriptionHistory] = useState(false);
   const [expandedPrescription, setExpandedPrescription] = useState<Record<string, boolean>>({});
+  
+  // Edit prescription state
+  const [editingPrescriptionId, setEditingPrescriptionId] = useState<string | null>(null);
+  const [editingPrescriptionData, setEditingPrescriptionData] = useState<{
+    medicines: Array<{ _id?: string; medicineName: string; dosage?: string; duration?: string; notes?: string }>;
+    aftercareInstructions?: string;
+  } | null>(null);
+  const [savingEditedPrescription, setSavingEditedPrescription] = useState(false);
+
+  // Edit prescription handlers
+  const startEditPrescription = (entry: PrescriptionHistoryEntry) => {
+    setEditingPrescriptionId(entry._id);
+    setEditingPrescriptionData({
+      medicines: entry.medicines.map(m => ({
+        _id: m._id,
+        medicineName: m.medicineName || "",
+        dosage: m.dosage || "",
+        duration: m.duration || "",
+        notes: m.notes || "",
+      })),
+      aftercareInstructions: entry.aftercareInstructions || "",
+    });
+  };
+
+  const cancelEditPrescription = () => {
+    setEditingPrescriptionId(null);
+    setEditingPrescriptionData(null);
+  };
+
+  const saveEditedPrescription = async (prescriptionId: string) => {
+    if (!editingPrescriptionData) return;
+    
+    setSavingEditedPrescription(true);
+    try {
+      const headers = getAuthHeaders();
+      // Filter out empty medicines
+      const validMeds = editingPrescriptionData.medicines.filter(m => m.medicineName.trim());
+      
+      await axios.put("/api/clinic/prescriptions", {
+        prescriptionId,
+        medicines: validMeds,
+        aftercareInstructions: editingPrescriptionData.aftercareInstructions || "",
+      }, { headers });
+
+      // Update local state
+      setPrescriptionHistory(prev => prev.map(p => {
+        if (p._id === prescriptionId) {
+          return {
+            ...p,
+            medicines: validMeds,
+            aftercareInstructions: editingPrescriptionData.aftercareInstructions || "",
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return p;
+      }));
+
+      setEditingPrescriptionId(null);
+      setEditingPrescriptionData(null);
+    } catch (error: any) {
+      setPrescriptionError(error.response?.data?.message || "Failed to update prescription");
+    } finally {
+      setSavingEditedPrescription(false);
+    }
+  };
 
   // Smart Recommendations state
   interface SmartService { _id: string; name: string; price: number; clinicPrice?: number | null; durationMinutes?: number; departmentId?: string; }
@@ -410,7 +540,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [checklistError, setChecklistError] = useState<string>("");
 
   // Add Service state
-  interface ClinicService { _id: string; name: string; price: number; clinicPrice?: number | null; durationMinutes?: number; }
+  interface ClinicService { _id: string; name: string; price: number; clinicPrice?: number | null; durationMinutes?: number; quantity?: number; }
   const [allServices, setAllServices] = useState<ClinicService[]>([]);
   const [showAddServiceDropdown, setShowAddServiceDropdown] = useState(false);
   const [serviceSearchQuery, setServiceSearchQuery] = useState("");
@@ -812,6 +942,37 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
         setDetails(response.data.appointment || null);
 
+        // Fetch all services if not already loaded
+        if (allServices.length === 0) {
+          await fetchAllServices();
+        }
+
+        // Populate selectedServices from current appointment's services
+        const currentAppointment = response.data.appointment;
+        const servicesToSelect: ClinicService[] = [];
+        
+        // Get service from serviceId if exists
+        if (currentAppointment.serviceId) {
+          const foundSvc = allServices.find(s => s._id === currentAppointment.serviceId);
+          if (foundSvc) {
+            servicesToSelect.push({ ...foundSvc, quantity: 1 });
+          }
+        }
+        
+        // Get services from serviceIds array
+        if (Array.isArray(currentAppointment.serviceIds)) {
+          currentAppointment.serviceIds.forEach((sid: string) => {
+            const foundSvc = allServices.find(s => s._id === sid);
+            if (foundSvc && !servicesToSelect.some(existing => existing._id === foundSvc._id)) {
+              servicesToSelect.push({ ...foundSvc, quantity: 1 });
+            }
+          });
+        }
+
+        if (servicesToSelect.length > 0) {
+          setSelectedServices(servicesToSelect);
+        }
+
         if (response.data.report) {
           const r = response.data.report;
           setReport({
@@ -988,12 +1149,41 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         appointmentData.roomId = nextSessionRoom;
       }
 
-      await axios.post("/api/clinic/appointments", appointmentData, { headers });
+      const res = await axios.post("/api/clinic/appointments", appointmentData, { headers });
+      const newAppointmentId = res.data.appointment?._id || res.data.appointmentId;
+      
+      // Collect all services: first from selectedServices, then from details if any missing
+      const serviceMap = new Map();
+      
+      // Add selected services
+      selectedServices.forEach(s => {
+        serviceMap.set(s._id, { serviceId: s._id, quantity: s.quantity || 1 });
+      });
+      
+      // Add services from details (serviceId and serviceIds) if not already present
+      if (details.serviceId && !serviceMap.has(details.serviceId)) {
+        serviceMap.set(details.serviceId, { serviceId: details.serviceId, quantity: 1 });
+      }
+      if (Array.isArray(details.serviceIds)) {
+        details.serviceIds.forEach(sid => {
+          if (sid && !serviceMap.has(sid)) {
+            serviceMap.set(sid, { serviceId: sid, quantity: 1 });
+          }
+        });
+      }
+      
+      const servicesToSave = Array.from(serviceMap.values());
+      
+      // Save services to new appointment
+      if (servicesToSave.length > 0 && newAppointmentId) {
+        await axios.patch(`/api/clinic/appointment-services/${newAppointmentId}`, { services: servicesToSave }, { headers });
+      }
+
       setNextSessionBooked(true);
       // Refresh upcoming list
       if (details?.patientId) fetchUpcomingAppointments(details.patientId);
     } catch (err: any) {
-      setNextSessionError(err.response?.data?.message || "Failed to book next session.");
+      setNextSessionError(err.response?.data?.message || "Failed to book next session");
     } finally {
       setBookingNextSession(false);
     }
@@ -1182,8 +1372,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     setServicesSaved(false);
     try {
       const headers = getAuthHeaders();
-      const serviceIds = selectedServices.map((s) => s._id);
-      await axios.patch(`/api/clinic/appointment-services/${details.appointmentId}`, { serviceIds }, { headers });
+      const services = selectedServices.map((s) => ({ serviceId: s._id, quantity: s.quantity || 1 }));
+      await axios.patch(`/api/clinic/appointment-services/${details.appointmentId}`, { services }, { headers });
       setServicesSaved(true);
       setShowAddServiceDropdown(false);
       if (onSuccess) onSuccess();
@@ -1479,10 +1669,13 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       // Step 2: Only if complaint saved successfully, then save services to appointment
       if (selectedServices.length > 0 && details.appointmentId) {
         try {
-          const serviceIds = selectedServices.map((s) => s._id);
+          const services = selectedServices.map((s) => ({ 
+            serviceId: s._id, 
+            quantity: s.quantity || 1 
+          }));
           await axios.patch(
             `/api/clinic/appointment-services/${details.appointmentId}`,
-            { serviceIds },
+            { services },
             { headers }
           );
         } catch (serviceErr: any) {
@@ -1979,11 +2172,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     currentItem.quantity > availableForSelectedUom &&
     availableForSelectedUom > 0;
 
-  // Compute total bill from selected services
+  // Compute total bill from selected services AND packages
   const totalBill = selectedServices.reduce(
-    (sum, s) => sum + (s.clinicPrice != null ? s.clinicPrice : s.price),
+    (sum, s) => sum + (s.clinicPrice != null ? s.clinicPrice : s.price) * (s.quantity || 1),
     0,
-  );
+  ) + (createdPackage && parseFloat(createdPackage.totalPrice || 0) > 0 ? parseFloat(createdPackage.totalPrice) : 0);
 
   return (
     <>
@@ -2416,7 +2609,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   const isSelected = selectedServices.some((s) => s._id === svc._id);
                                   return (
                                     <button key={svc._id} type="button"
-                                      onClick={() => { setSelectedServices((prev) => isSelected ? prev.filter((s) => s._id !== svc._id) : [...prev, svc]); setServicesSaved(false); }}
+                                      onClick={() => { setSelectedServices((prev) => isSelected ? prev.filter((s) => s._id !== svc._id) : [...prev, { ...svc, quantity: 1 }]); setServicesSaved(false); }}
                                       className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${
                                         isSelected
                                           ? "bg-blue-50 border-blue-300 shadow-sm"
@@ -3039,18 +3232,72 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         <p className="text-xs text-gray-500 mb-2">Service #{i + 1}  ID: {svc._id.slice(-6)}</p>
                                                                                                        
                                         {/* Price Input */}
-                                        <div className="flex items-center gap-2">
-                                          <label className="text-xs text-gray-600 font-medium">Price:</label>
-                                          <div className="relative">
-                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
-                                            <input
-                                              type="number"
-                                              min="0"
-                                              step="0.01"
-                                              value={(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
-                                              readOnly
-                                              className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-gray-50 transition-all"
-                                            />
+                                        <div className="flex items-center gap-4">
+                                          <div className="flex items-center gap-2">
+                                            <label className="text-xs text-gray-600 font-medium">Price:</label>
+                                            <div className="relative">
+                                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                              <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
+                                                readOnly
+                                                className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-gray-50 transition-all"
+                                              />
+                                            </div>
+                                          </div>
+
+                                          {/* Quantity Controls */}
+                                          <div className="flex items-center gap-2">
+                                            <label className="text-xs text-gray-600 font-medium">Qty:</label>
+                                            <div className="flex items-center gap-1 border border-gray-300 rounded-lg overflow-hidden">
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setSelectedServices((prev) =>
+                                                    prev.map((s) =>
+                                                      s._id === svc._id
+                                                        ? { ...s, quantity: Math.max(1, (s.quantity || 1) - 1) }
+                                                        : s
+                                                    )
+                                                  );
+                                                }}
+                                                className="px-2 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+                                                disabled={(svc.quantity || 1) <= 1}
+                                              >
+                                                -
+                                              </button>
+                                              <input
+                                                type="number"
+                                                min="1"
+                                                value={svc.quantity || 1}
+                                                onChange={(e) => {
+                                                  const newQty = Math.max(1, parseInt(e.target.value) || 1);
+                                                  setSelectedServices((prev) =>
+                                                    prev.map((s) =>
+                                                      s._id === svc._id ? { ...s, quantity: newQty } : s
+                                                    )
+                                                  );
+                                                }}
+                                                className="w-12 px-1 py-1 text-xs font-semibold text-center border-0 focus:outline-none focus:ring-0"
+                                              />
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setSelectedServices((prev) =>
+                                                    prev.map((s) =>
+                                                      s._id === svc._id
+                                                        ? { ...s, quantity: (s.quantity || 1) + 1 }
+                                                        : s
+                                                    )
+                                                  );
+                                                }}
+                                                className="px-2 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+                                              >
+                                                +
+                                              </button>
+                                            </div>
                                           </div>
                                         </div>
                                       </div>
@@ -3060,7 +3307,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                     <div className="flex items-center gap-2">
                                       <div className="text-right">
                                         <p className="text-sm font-bold text-gray-900">
-                                          {getCurrencySymbol(currency)} {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
+                                          {getCurrencySymbol(currency)} {(((svc.clinicPrice != null ? svc.clinicPrice : svc.price) * (svc.quantity || 1))).toFixed(2)}
                                         </p>
                                       </div>
                                       <button
@@ -3131,6 +3378,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                               price: svc.price,
                                               clinicPrice: svc.clinicPrice,
                                               durationMinutes: svc.durationMinutes,
+                                              quantity: 1
                                             } as ClinicService;
                                            
                                             setSelectedServices((prev) => [...prev, serviceToAdd]);
@@ -3142,7 +3390,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                             // 2. Also save to appointment via API
                                             setAddingRecService((p) => ({ ...p, [patientServiceKey]: true }));
                                             try {
-                                              await axios.patch(`/api/clinic/appointment-services/${details.appointmentId}`, { serviceIds: [svc._id] }, { headers: getAuthHeaders() });
+                                              await axios.patch(`/api/clinic/appointment-services/${details.appointmentId}`, { services: [{ serviceId: svc._id, quantity: 1 }] }, { headers: getAuthHeaders() });
                                               setAddedRecServices((p) => ({ ...p, [patientServiceKey]: true }));
                                               if (onSuccess) onSuccess();
                                             } catch (err: any) {
@@ -3403,9 +3651,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                       <Send className="w-3.5 h-3.5 text-blue-600" />
                                     )}
                                   </div>
-                                  <p className="text-xs text-gray-500 mt-0.5">
-                                    {consent.description || "Consent form"}
-                                  </p>
                                   <div className="flex items-center gap-3 mt-1">
                                     <span className="text-[10px] text-gray-400">
                                       Patient: {consent.patientName}
@@ -3745,20 +3990,74 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                     <TrendingUp size={14} className="text-white" />
                                   </div>
                                   <div className="flex-1 rounded-xl border border-gray-200 bg-white shadow-sm px-4 py-3 space-y-1">
-                                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                                      <span className="text-xs font-semibold text-blue-600">{dateStr}</span>
-                                      <div className="flex items-center gap-3">
-                                        {doctorName && <span className="text-xs text-gray-400">{doctorName}</span>}
-                                        <button type="button" onClick={async () => {
-                                          try {
-                                            const headers = getAuthHeaders();
-                                            await axios.delete("/api/clinic/progress-notes", { headers, params: { noteId: entry._id } });
-                                            setProgressNotes((prev) => prev.filter((n) => n._id !== entry._id));
-                                          } catch { setProgressError("Failed to delete progress note"); }
-                                        }} className="text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={12} /></button>
+                                    {editingProgressNoteId === entry._id && editingProgressNoteData ? (
+                                      // Edit Mode
+                                      <div className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-xs font-semibold text-blue-700">Edit Progress Note</span>
+                                          <button type="button" onClick={cancelEditProgressNote} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <label className="text-xs text-gray-600 font-medium">Date:</label>
+                                          <input
+                                            type="date"
+                                            value={editingProgressNoteData.noteDate}
+                                            onChange={(e) => setEditingProgressNoteData({ ...editingProgressNoteData, noteDate: e.target.value })}
+                                            className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                          />
+                                        </div>
+                                        <textarea
+                                          autoFocus
+                                          value={editingProgressNoteData.note}
+                                          onChange={(e) => setEditingProgressNoteData({ ...editingProgressNoteData, note: e.target.value })}
+                                          rows={4}
+                                          placeholder="Describe patient's progress, treatment response, observations..."
+                                          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+                                        />
+                                        <div className="flex items-center gap-2">
+                                          <button
+                                            type="button"
+                                            disabled={savingEditedProgress || !editingProgressNoteData.note.trim()}
+                                            onClick={() => saveEditedProgressNote(entry._id)}
+                                            className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+                                          >
+                                            {savingEditedProgress ? (
+                                              <><svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg> Saving...</>
+                                            ) : (
+                                              "Save Changes"
+                                            )}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={cancelEditProgressNote}
+                                            className="px-4 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                                          >
+                                            Cancel
+                                          </button>
+                                        </div>
                                       </div>
-                                    </div>
-                                    <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{entry.note}</p>
+                                    ) : (
+                                      // View Mode
+                                      <div>
+                                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                                          <span className="text-xs font-semibold text-blue-600">{dateStr}</span>
+                                          <div className="flex items-center gap-3">
+                                            {doctorName && <span className="text-xs text-gray-400">{doctorName}</span>}
+                                            {isWithin24Hours(entry.createdAt) && (
+                                              <button type="button" onClick={() => startEditProgressNote(entry)} className="text-gray-300 hover:text-blue-500 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>
+                                            )}
+                                            <button type="button" onClick={async () => {
+                                              try {
+                                                const headers = getAuthHeaders();
+                                                await axios.delete("/api/clinic/progress-notes", { headers, params: { noteId: entry._id } });
+                                                setProgressNotes((prev) => prev.filter((n) => n._id !== entry._id));
+                                              } catch { setProgressError("Failed to delete progress note"); }
+                                            }} className="text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={12} /></button>
+                                          </div>
+                                        </div>
+                                        <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{entry.note}</p>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               );
@@ -3840,6 +4139,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                               price: svc.price,
                                               clinicPrice: svc.clinicPrice,
                                               durationMinutes: svc.durationMinutes,
+                                              quantity: 1
                                             } as ClinicService;
                                            
                                             setSelectedServices((prev) => [...prev, serviceToAdd]);
@@ -3851,7 +4151,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                             // 2. Also save to appointment via API
                                             setAddingRecService((p) => ({ ...p, [patientServiceKey]: true }));
                                             try {
-                                              await axios.patch(`/api/clinic/appointment-services/${details.appointmentId}`, { serviceIds: [svc._id] }, { headers: getAuthHeaders() });
+                                              await axios.patch(`/api/clinic/appointment-services/${details.appointmentId}`, { services: [{ serviceId: svc._id, quantity: 1 }] }, { headers: getAuthHeaders() });
                                               setAddedRecServices((p) => ({ ...p, [patientServiceKey]: true }));
                                               if (onSuccess) onSuccess();
                                             } catch (err: any) {
@@ -4004,6 +4304,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               type="button"
                               onClick={() => {
                                 setShowAddServiceDropdown(true);
+                                setShowAddCustomService(false);
                                 setShowCreatePackage(false);
                                 setServicesSaved(false);
                                 setServicesError("");
@@ -4016,8 +4317,21 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             <button
                               type="button"
                               onClick={() => {
+                                setShowAddCustomService(true);
+                                setShowAddServiceDropdown(false);
+                                setShowCreatePackage(false);
+                                if (departments.length === 0) fetchDepartments();
+                              }}
+                              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-all shadow-md hover:shadow-lg"
+                            >
+                              <Wrench size={16} /> Add Custom Service
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
                                 setShowCreatePackage(true);
                                 setShowAddServiceDropdown(false);
+                                setShowAddCustomService(false);
                                 setPkgError("");
                                 setPkgSuccess("");
                                 if (allServices.length === 0) fetchAllServices();
@@ -4070,7 +4384,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   const isSelected = selectedServices.some((s) => s._id === svc._id);
                                   return (
                                     <button key={svc._id} type="button"
-                                      onClick={() => { setSelectedServices((prev) => isSelected ? prev.filter((s) => s._id !== svc._id) : [...prev, svc]); setServicesSaved(false); }}
+                                      onClick={() => { setSelectedServices((prev) => isSelected ? prev.filter((s) => s._id !== svc._id) : [...prev, { ...svc, quantity: 1 }]); setServicesSaved(false); }}
                                       className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${
                                         isSelected ? "bg-blue-50 border-blue-300 shadow-sm" : "bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300"
                                       }`}
@@ -4114,6 +4428,127 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 {savingServices ? (<><Loader2 className="w-4 h-4 animate-spin" />Saving...</>) : (<><CheckCircle className="w-4 h-4" />Save Services to Appointment</>)}
                               </button>
                             )}
+                          </div>
+                        )}
+
+                        {/* Custom Service Add Panel */}
+                        {showAddCustomService && (
+                          <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-br from-emerald-50/50 to-teal-50/50">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                                  <Wrench className="w-4 h-4 text-emerald-600" />
+                                </div>
+                                <span className="text-sm font-bold text-emerald-800">Add Custom Service</span>
+                              </div>
+                              <button type="button" onClick={() => {
+                                setShowAddCustomService(false);
+                                setCustomServiceName("");
+                                setCustomServicePrice("");
+                                setCustomServiceClinicPrice("");
+                                setCustomServiceDuration("");
+                                setCustomServiceDepartment("");
+                              }} className="text-gray-400 hover:text-gray-600 transition-colors">
+                                <XIcon size={16} />
+                              </button>
+                            </div>
+
+                            <form onSubmit={addCustomService} className="space-y-3">
+                              <div>
+                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Department <span className="text-red-500">*</span></label>
+                                <select
+                                  value={customServiceDepartment}
+                                  onChange={(e) => setCustomServiceDepartment(e.target.value)}
+                                  className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
+                                  disabled={departmentsLoading}
+                                  required
+                                >
+                                  <option value="" disabled>Select department</option>
+                                  {departments.map((dept) => (
+                                    <option key={dept._id} value={dept._id}>
+                                      {dept.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Service Name <span className="text-red-500">*</span></label>
+                                <input
+                                  type="text"
+                                  value={customServiceName}
+                                  onChange={(e) => setCustomServiceName(e.target.value)}
+                                  placeholder="Enter service name"
+                                  className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
+                                  required
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Price <span className="text-red-500">*</span></label>
+                                  <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={customServicePrice}
+                                      onChange={(e) => setCustomServicePrice(e.target.value)}
+                                      placeholder="0.00"
+                                      className="w-full pl-10 pr-4 py-2 text-sm font-semibold border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
+                                      required
+                                    />
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Clinic Price (Optional)</label>
+                                  <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={customServiceClinicPrice}
+                                      onChange={(e) => setCustomServiceClinicPrice(e.target.value)}
+                                      placeholder="0.00"
+                                      className="w-full pl-10 pr-4 py-2 text-sm font-semibold border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Duration (Minutes)</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={customServiceDuration}
+                                    onChange={(e) => setCustomServiceDuration(e.target.value)}
+                                    placeholder="30"
+                                    className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
+                                  />
+                                </div>
+                              </div>
+
+                              <button
+                                type="submit"
+                                disabled={addingCustomService}
+                                className="w-full flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+                              >
+                                {addingCustomService ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Adding...
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="w-4 h-4" />
+                                    Add Custom Service
+                                  </>
+                                )}
+                              </button>
+                            </form>
                           </div>
                         )}
 
@@ -4309,40 +4744,131 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">{selectedServices.length}</span>
                                 </div>
                               </div>
-                              {selectedServices.map((svc, i) => (
-                                <div key={svc._id} className="group relative rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-all duration-200">
-                                  <div className="flex items-start justify-between">
-                                    <div className="flex items-start gap-3 flex-1">
-                                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center flex-shrink-0 border border-blue-100">
-                                        <Package className="w-6 h-6 text-blue-600" />
+                              {selectedServices.map((svc, i) => {
+                                const isRecentlyAdded = recentlyAddedServices[svc._id] && (Date.now() - recentlyAddedServices[svc._id] < 3000);
+                                return (
+                                  <div key={svc._id} className={`group relative rounded-xl border p-4 shadow-sm transition-all duration-500 ${isRecentlyAdded ? 'border-green-400 bg-green-50 shadow-md ring-2 ring-green-300' : 'border-gray-200 bg-white hover:shadow-md'}`}>
+                                    {isRecentlyAdded && (
+                                      <div className="absolute -top-2 -right-2 flex items-center gap-1 px-2 py-1 rounded-full bg-green-500 text-white text-[10px] font-bold shadow-lg animate-bounce">
+                                        <Check size={10} />
+                                        <span>Just Added</span>
                                       </div>
-                                      <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1">
-                                          <h4 className="text-sm font-bold text-gray-900">{svc.name}</h4>
-                                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">Standard</span>
+                                    )}
+                                    <div className="flex items-start justify-between">
+                                      <div className="flex items-start gap-3 flex-1">
+                                        {/* Icon */}
+                                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 border ${isRecentlyAdded ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200' : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100'}`}>
+                                          <Package className={`w-6 h-6 ${isRecentlyAdded ? 'text-green-600' : 'text-blue-600'}`} />
                                         </div>
-                                        <p className="text-xs text-gray-500 mb-2">Service #{i + 1} ID: {svc._id.slice(-6)}</p>
-                                        <div className="flex items-center gap-2">
-                                          <label className="text-xs text-gray-600 font-medium">Price:</label>
-                                          <div className="relative">
-                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
-                                            <input type="number" min="0" step="0.01" value={(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
-                                              readOnly
-                                              className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-gray-50 transition-all"
-                                            />
+
+                                        {/* Info */}
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <h4 className="text-sm font-bold text-gray-900">{svc.name}</h4>
+                                            {isRecentlyAdded ? (
+                                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
+                                                Smart Recommendation
+                                              </span>
+                                            ) : (
+                                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                                                Standard
+                                              </span>
+                                            )}
+                                          </div>
+                                          <p className="text-xs text-gray-500 mb-2">Service #{i + 1} ID: {svc._id.slice(-6)}</p>
+
+                                          {/* Price and Quantity Controls */}
+                                          <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-2">
+                                              <label className="text-xs text-gray-600 font-medium">Price:</label>
+                                              <div className="relative">
+                                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                                <input
+                                                  type="number"
+                                                  min="0"
+                                                  step="0.01"
+                                                  value={(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
+                                                  readOnly
+                                                  className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-gray-50 transition-all"
+                                                />
+                                              </div>
+                                            </div>
+
+                                            {/* Quantity Controls */}
+                                            <div className="flex items-center gap-2">
+                                              <label className="text-xs text-gray-600 font-medium">Qty:</label>
+                                              <div className="flex items-center gap-1 border border-gray-300 rounded-lg overflow-hidden">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setSelectedServices((prev) =>
+                                                      prev.map((s) =>
+                                                        s._id === svc._id
+                                                          ? { ...s, quantity: Math.max(1, (s.quantity || 1) - 1) }
+                                                          : s
+                                                      )
+                                                    );
+                                                  }}
+                                                  className="px-2 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+                                                  disabled={(svc.quantity || 1) <= 1}
+                                                >
+                                                  -
+                                                </button>
+                                                <input
+                                                  type="number"
+                                                  min="1"
+                                                  value={svc.quantity || 1}
+                                                  onChange={(e) => {
+                                                    const newQty = Math.max(1, parseInt(e.target.value) || 1);
+                                                    setSelectedServices((prev) =>
+                                                      prev.map((s) =>
+                                                        s._id === svc._id ? { ...s, quantity: newQty } : s
+                                                      )
+                                                    );
+                                                  }}
+                                                  className="w-12 px-1 py-1 text-xs font-semibold text-center border-0 focus:outline-none focus:ring-0"
+                                                />
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setSelectedServices((prev) =>
+                                                      prev.map((s) =>
+                                                        s._id === svc._id
+                                                          ? { ...s, quantity: (s.quantity || 1) + 1 }
+                                                          : s
+                                                      )
+                                                    );
+                                                  }}
+                                                  className="px-2 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+                                                >
+                                                  +
+                                                </button>
+                                              </div>
+                                            </div>
                                           </div>
                                         </div>
                                       </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <div className="text-right">
-                                        <p className="text-sm font-bold text-gray-900">{getCurrencySymbol(currency)} {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}</p>
+
+                                      {/* Actions */}
+                                      <div className="flex items-center gap-2">
+                                        <div className="text-right">
+                                          <p className="text-sm font-bold text-gray-900">
+                                            {getCurrencySymbol(currency)} {(((svc.clinicPrice != null ? svc.clinicPrice : svc.price) * (svc.quantity || 1))).toFixed(2)}
+                                          </p>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => setSelectedServices((prev) => prev.filter((s) => s._id !== svc._id))}
+                                          className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50"
+                                          title="Remove service"
+                                        >
+                                          <Trash2 size={16} />
+                                        </button>
                                       </div>
-                                      <button type="button" onClick={() => setSelectedServices((prev) => prev.filter((s) => s._id !== svc._id))} className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50" title="Remove service"><Trash2 size={16} /></button>
                                     </div>
                                   </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                               <div className="mt-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 p-3 shadow-md">
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
@@ -4414,6 +4940,445 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                 
                   {activeTab === "prescription" && (
                     <div className="space-y-5">
+                      {/* Treatment & Billing - Enhanced Modern UI */}
+                      <div id="treatment-billing-section" className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
+                              <Package className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <h3 className="text-base font-bold text-gray-900">Treatment & Billing</h3>
+                              <p className="text-xs text-gray-500">Add and manage treatment services</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowAddServiceDropdown(true);
+                                setShowAddCustomService(false);
+                                setShowCreatePackage(false);
+                                setServicesSaved(false);
+                                setServicesError("");
+                                if (allServices.length === 0) fetchAllServices();
+                              }}
+                              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg"
+                            >
+                              <Plus size={16} /> Add Service
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowAddCustomService(true);
+                                setShowAddServiceDropdown(false);
+                                setShowCreatePackage(false);
+                                if (departments.length === 0) fetchDepartments();
+                              }}
+                              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-all shadow-md hover:shadow-lg"
+                            >
+                              <Wrench size={16} /> Add Custom Service
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowCreatePackage(true);
+                                setShowAddServiceDropdown(false);
+                                setShowAddCustomService(false);
+                                setPkgError("");
+                                setPkgSuccess("");
+                                if (allServices.length === 0) fetchAllServices();
+                                if (pkgTreatments.length === 0) fetchPkgTreatments();
+                              }}
+                              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-all"
+                            >
+                              <Package size={16} /> Create Package
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Add Service Panel - Enhanced Searchable Dropdown */}
+                        {showAddServiceDropdown && (
+                          <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-br from-blue-50/50 to-indigo-50/50">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                                  <Search className="w-4 h-4 text-blue-600" />
+                                </div>
+                                <span className="text-sm font-bold text-blue-800">Search & Add Services</span>
+                              </div>
+                              <button type="button" onClick={() => setShowAddServiceDropdown(false)} className="text-gray-400 hover:text-gray-600 transition-colors"><XIcon size={16} /></button>
+                            </div>
+                           
+                            {/* Search Input */}
+                            <div className="relative mb-3">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Search className="h-4 w-4 text-gray-400" />
+                              </div>
+                              <input
+                                type="text"
+                                placeholder="Search by service name..."
+                                value={serviceSearchQuery}
+                                onChange={(e) => setServiceSearchQuery(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent shadow-sm transition-all"
+                              />
+                            </div>
+                           
+                            {/* Services List */}
+                            <div className="max-h-64 overflow-y-auto space-y-2 mb-3 rounded-lg border border-gray-200 bg-white p-2">
+                              {loadingServices ? (
+                                <div className="flex items-center justify-center py-8">
+                                  <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+                                  <span className="ml-2 text-sm text-gray-500">Loading services...</span>
+                                </div>
+                              ) : allServices.filter((s) => s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase())).length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-8 text-center">
+                                  <Package className="w-12 h-12 text-gray-300 mb-2" />
+                                  <p className="text-sm text-gray-500 font-medium">No services found</p>
+                                  <p className="text-xs text-gray-400 mt-1">Try a different search term</p>
+                                </div>
+                              ) : (
+                                allServices.filter((s) => s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase())).map((svc) => {
+                                  const isSelected = selectedServices.some((s) => s._id === svc._id);
+                                  return (
+                                    <button key={svc._id} type="button"
+                                      onClick={() => { setSelectedServices((prev) => isSelected ? prev.filter((s) => s._id !== svc._id) : [...prev, { ...svc, quantity: 1 }]); setServicesSaved(false); }}
+                                      className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${
+                                        isSelected
+                                          ? "bg-blue-50 border-blue-300 shadow-sm"
+                                          : "bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+                                          isSelected ? "bg-blue-600 border-blue-600" : "border-gray-300 bg-white"
+                                        }`}>
+                                          {isSelected && <Check size={12} className="text-white" />}
+                                        </div>
+                                        <span className={`text-sm font-medium ${isSelected ? "text-blue-800" : "text-gray-700"}`}>
+                                          {svc.name}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-3">
+                                        <span className={`text-sm font-bold ${isSelected ? "text-blue-700" : "text-gray-900"}`}>
+                                          {getCurrencySymbol(currency)} {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
+                                        </span>
+                                        {isSelected && (
+                                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                                            Added
+                                          </span>
+                                        )}
+                                      </div>
+                                    </button>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Custom Service Add Panel */}
+                        {showAddCustomService && (
+                          <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-br from-emerald-50/50 to-teal-50/50">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                                  <Wrench className="w-4 h-4 text-emerald-600" />
+                                </div>
+                                <span className="text-sm font-bold text-emerald-800">Add Custom Service</span>
+                              </div>
+                              <button type="button" onClick={() => {
+                                setShowAddCustomService(false);
+                                setCustomServiceName("");
+                                setCustomServicePrice("");
+                                setCustomServiceClinicPrice("");
+                                setCustomServiceDuration("");
+                                setCustomServiceDepartment("");
+                              }} className="text-gray-400 hover:text-gray-600 transition-colors">
+                                <XIcon size={16} />
+                              </button>
+                            </div>
+
+                            <form onSubmit={addCustomService} className="space-y-3">
+                              <div>
+                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Department <span className="text-red-500">*</span></label>
+                                <select
+                                  value={customServiceDepartment}
+                                  onChange={(e) => setCustomServiceDepartment(e.target.value)}
+                                  className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
+                                  disabled={departmentsLoading}
+                                  required
+                                >
+                                  <option value="" disabled>Select department</option>
+                                  {departments.map((dept) => (
+                                    <option key={dept._id} value={dept._id}>
+                                      {dept.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Service Name <span className="text-red-500">*</span></label>
+                                <input
+                                  type="text"
+                                  value={customServiceName}
+                                  onChange={(e) => setCustomServiceName(e.target.value)}
+                                  placeholder="Enter service name"
+                                  className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
+                                  required
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Price <span className="text-red-500">*</span></label>
+                                  <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={customServicePrice}
+                                      onChange={(e) => setCustomServicePrice(e.target.value)}
+                                      placeholder="0.00"
+                                      className="w-full pl-10 pr-4 py-2 text-sm font-semibold border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
+                                      required
+                                    />
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Clinic Price (Optional)</label>
+                                  <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={customServiceClinicPrice}
+                                      onChange={(e) => setCustomServiceClinicPrice(e.target.value)}
+                                      placeholder="0.00"
+                                      className="w-full pl-10 pr-4 py-2 text-sm font-semibold border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Duration (Minutes)</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={customServiceDuration}
+                                    onChange={(e) => setCustomServiceDuration(e.target.value)}
+                                    placeholder="30"
+                                    className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
+                                  />
+                                </div>
+                              </div>
+
+                              <button
+                                type="submit"
+                                disabled={addingCustomService}
+                                className="w-full flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+                              >
+                                {addingCustomService ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Adding...
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="w-4 h-4" />
+                                    Add Custom Service
+                                  </>
+                                )}
+                              </button>
+                            </form>
+                          </div>
+                        )}
+
+                        {/* Selected Services - Card Layout with Editable Prices */}
+                        <div className="px-5 py-4">
+                          {selectedServices.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-12 text-center">
+                              <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                                <Package className="w-10 h-10 text-gray-400" />
+                              </div>
+                              <p className="text-sm font-medium text-gray-600 mb-1">No services added yet</p>
+                              <p className="text-xs text-gray-400 mb-4">Click "Add Service" to begin building your treatment plan</p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowAddServiceDropdown(true);
+                                  if (allServices.length === 0) fetchAllServices();
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-all shadow-md"
+                              >
+                                <Plus size={16} /> Browse Services
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              {/* Services Header */}
+                              <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-bold text-gray-900">Selected Treatments</span>
+                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
+                                    {selectedServices.length}
+                                  </span>
+                                </div>
+                               
+                              </div>
+
+                              {/* Service Cards */}
+                              {selectedServices.map((svc, i) => {
+                                const isRecentlyAdded = recentlyAddedServices[svc._id] && (Date.now() - recentlyAddedServices[svc._id] < 3000);
+                                return (
+                                <div key={svc._id} className={`group relative rounded-xl border p-4 shadow-sm transition-all duration-500 ${isRecentlyAdded ? 'border-green-400 bg-green-50 shadow-md ring-2 ring-green-300' : 'border-gray-200 bg-white hover:shadow-md'}`}>
+                                  {isRecentlyAdded && (
+                                    <div className="absolute -top-2 -right-2 flex items-center gap-1 px-2 py-1 rounded-full bg-green-500 text-white text-[10px] font-bold shadow-lg animate-bounce">
+                                      <Check size={10} />
+                                      <span>Just Added</span>
+                                    </div>
+                                  )}
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex items-start gap-3 flex-1">
+                                      {/* Icon */}
+                                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 border ${isRecentlyAdded ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200' : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100'}`}>
+                                        <Package className={`w-6 h-6 ${isRecentlyAdded ? 'text-green-600' : 'text-blue-600'}`} />
+                                      </div>
+                                                                   
+                                      {/* Info */}
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <h4 className="text-sm font-bold text-gray-900">{svc.name}</h4>
+                                          {isRecentlyAdded ? (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
+                                              Smart Recommendation
+                                            </span>
+                                          ) : (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                                              Standard
+                                            </span>
+                                          )}
+                                        </div>
+                                        <p className="text-xs text-gray-500 mb-2">Service #{i + 1}  ID: {svc._id.slice(-6)}</p>
+                                                                                                       
+                                        {/* Price Input */}
+                                        <div className="flex items-center gap-4">
+                                          <div className="flex items-center gap-2">
+                                            <label className="text-xs text-gray-600 font-medium">Price:</label>
+                                            <div className="relative">
+                                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                              <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
+                                                readOnly
+                                                className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-gray-50 transition-all"
+                                              />
+                                            </div>
+                                          </div>
+
+                                          {/* Quantity Controls */}
+                                          <div className="flex items-center gap-2">
+                                            <label className="text-xs text-gray-600 font-medium">Qty:</label>
+                                            <div className="flex items-center gap-1 border border-gray-300 rounded-lg overflow-hidden">
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setSelectedServices((prev) =>
+                                                    prev.map((s) =>
+                                                      s._id === svc._id
+                                                        ? { ...s, quantity: Math.max(1, (s.quantity || 1) - 1) }
+                                                        : s
+                                                    )
+                                                  );
+                                                }}
+                                                className="px-2 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+                                                disabled={(svc.quantity || 1) <= 1}
+                                              >
+                                                -
+                                              </button>
+                                              <input
+                                                type="number"
+                                                min="1"
+                                                value={svc.quantity || 1}
+                                                onChange={(e) => {
+                                                  const newQty = Math.max(1, parseInt(e.target.value) || 1);
+                                                  setSelectedServices((prev) =>
+                                                    prev.map((s) =>
+                                                      s._id === svc._id ? { ...s, quantity: newQty } : s
+                                                    )
+                                                  );
+                                                }}
+                                                className="w-12 px-1 py-1 text-xs font-semibold text-center border-0 focus:outline-none focus:ring-0"
+                                              />
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setSelectedServices((prev) =>
+                                                    prev.map((s) =>
+                                                      s._id === svc._id
+                                                        ? { ...s, quantity: (s.quantity || 1) + 1 }
+                                                        : s
+                                                    )
+                                                  );
+                                                }}
+                                                className="px-2 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+                                              >
+                                                +
+                                              </button>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                                                 
+                                    {/* Actions */}
+                                    <div className="flex items-center gap-2">
+                                      <div className="text-right">
+                                        <p className="text-sm font-bold text-gray-900">
+                                          {getCurrencySymbol(currency)} {(((svc.clinicPrice != null ? svc.clinicPrice : svc.price) * (svc.quantity || 1))).toFixed(2)}
+                                        </p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedServices((prev) => prev.filter((s) => s._id !== svc._id))}
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50"
+                                        title="Remove service"
+                                      >
+                                        <Trash2 size={16} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                                );
+                              })}
+
+                              {/* Total Bill Value - Compact */}
+                              <div className="mt-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 p-3 shadow-md">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-white bg-opacity-20 flex items-center justify-center">
+                                      <ClipboardList className="w-5 h-5 text-white" />
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-medium text-blue-100">Total Bill</p>
+                                      <p className="text-[10px] text-blue-200">{selectedServices.length} {selectedServices.length === 1 ? 'treatment' : 'treatments'}</p>
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-lg font-bold text-white">{getCurrencySymbol(currency)} {totalBill.toFixed(2)}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                       <div>
                         <div className="flex items-center justify-between mb-3">
                           <h3 className="text-sm font-semibold text-gray-800">Prescribed Medicines <span className="text-red-500">*</span></h3>
@@ -4427,7 +5392,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           {medicines.map((med) => (
                             <div key={med.id} className="rounded-xl border border-gray-200 bg-white px-4 py-3 flex flex-col sm:flex-row gap-3 items-start sm:items-center shadow-sm">
                               <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase">Medicine <span className="text-red-500">*</span></label>
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase">Medicine</label>
                                 <input type="text" value={med.medicineName} onChange={(e) => setMedicines((prev) => prev.map((m) => m.id === med.id ? { ...m, medicineName: e.target.value } : m))} placeholder="Medicine name (required)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300 text-gray-800 placeholder-gray-400" />
                               </div>
                               <div className="flex flex-col gap-0.5 w-full sm:w-28">
@@ -4464,18 +5429,12 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
                       {prescriptionError && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{prescriptionError}</div>}
                       {prescriptionSaved && <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 flex items-center gap-2"><Check size={14} /> Prescription saved.</div>}
-                      {medicines.some((m) => !m.medicineName.trim()) && (
-                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 flex items-center gap-2">
-                          <AlertCircle size={14} />
-                          Please fill in all medicine names (marked with *) before saving.
-                        </div>
-                      )}
 
                       <div className="flex items-center gap-3 flex-wrap">
-                        <button type="button" disabled={savingPrescription || medicines.every((m) => !m.medicineName.trim())}
+                        <button type="button" disabled={savingPrescription}
                           onClick={async () => {
                             const validMeds = medicines.filter((m) => m.medicineName.trim());
-                            if (!validMeds.length || !details) return;
+                            if (!details) return;
                             setSavingPrescription(true); setPrescriptionError(""); setPrescriptionSaved(false);
                             try {
                               const headers = getAuthHeaders();
@@ -4490,9 +5449,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         >
                           {savingPrescription ? <><RefreshCw size={13} className="animate-spin" /> Saving...</> : <><Check size={13} /> Save Prescription</>}
                         </button>
-                        <button type="button" disabled={medicines.every((m) => !m.medicineName.trim())} onClick={() => {
+                        <button type="button" onClick={() => {
                           const validMeds = medicines.filter((m) => m.medicineName.trim());
-                          if (!validMeds.length || !details) return;
+                          if (!details) return;
                          
                           const doc = new jsPDF();
                           const pageWidth = doc.internal.pageSize.getWidth();
@@ -4567,10 +5526,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         }} className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gray-800 text-white text-sm font-semibold hover:bg-gray-900 disabled:opacity-40 shadow-sm"><FileText size={13} /> Generate PDF</button>
                         <button 
                           type="button" 
-                          disabled={medicines.every((m) => !m.medicineName.trim()) || sendMsgLoading} 
+                          disabled={sendMsgLoading} 
                           onClick={async () => {
                             const validMeds = medicines.filter((m) => m.medicineName.trim());
-                            if (!validMeds.length || !details) return;
+                            if (!details) return;
                            
                             // Show loader immediately on click
                             setSendMsgLoading(true);
@@ -4782,38 +5741,191 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                       {doctorName && <span className="text-xs text-gray-400">Dr. {doctorName}</span>}
                                     </div>
                                     <div className="flex items-center gap-2">
+                                      {isWithin24Hours(entry.createdAt) && (
+                                        <button type="button" onClick={(e) => { e.stopPropagation(); startEditPrescription(entry); }} className="p-1 text-gray-300 hover:text-blue-500"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>
+                                      )}
                                       <button type="button" onClick={async (e) => { e.stopPropagation(); try { const headers = getAuthHeaders(); await axios.delete("/api/clinic/prescriptions", { headers, params: { prescriptionId: entry._id } }); setPrescriptionHistory((prev) => prev.filter((p) => p._id !== entry._id)); } catch { setPrescriptionError("Failed to delete prescription"); } }} className="p-1 text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>
                                       {isExpanded ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
                                     </div>
                                   </button>
                                   {isExpanded && (
                                     <div className="border-t border-gray-100 px-4 py-3 bg-gray-50/50 space-y-3">
-                                      <div className="rounded-lg border border-gray-200 overflow-hidden">
-                                        <table className="w-full text-xs">
-                                          <thead className="bg-gray-100"><tr>
-                                            <th className="px-3 py-2 text-left font-semibold text-gray-500">#</th>
-                                            <th className="px-3 py-2 text-left font-semibold text-gray-500">Medicine</th>
-                                            <th className="px-3 py-2 text-left font-semibold text-gray-500">Dosage</th>
-                                            <th className="px-3 py-2 text-left font-semibold text-gray-500">Duration</th>
-                                            <th className="px-3 py-2 text-left font-semibold text-gray-500">Notes</th>
-                                          </tr></thead>
-                                          <tbody className="divide-y divide-gray-100 bg-white">
-                                            {entry.medicines.map((med, mIdx) => (
-                                              <tr key={med._id || mIdx}>
-                                                <td className="px-3 py-2 text-gray-400">{mIdx + 1}</td>
-                                                <td className="px-3 py-2 font-medium text-gray-800">{med.medicineName}</td>
-                                                <td className="px-3 py-2 text-gray-500">{med.dosage || ""}</td>
-                                                <td className="px-3 py-2 text-gray-500">{med.duration || ""}</td>
-                                                <td className="px-3 py-2 text-gray-500">{med.notes || ""}</td>
-                                              </tr>
-                                            ))}
-                                          </tbody>
-                                        </table>
-                                      </div>
-                                      {entry.aftercareInstructions && (
+                                      {editingPrescriptionId === entry._id && editingPrescriptionData ? (
+                                        // Edit Mode
+                                        <div className="space-y-3">
+                                          <div className="flex items-center justify-between">
+                                            <h4 className="text-sm font-semibold text-blue-700">Edit Prescription</h4>
+                                            <button type="button" onClick={cancelEditPrescription} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+                                          </div>
+                                          
+                                          {/* Editable Medicines Table */}
+                                          <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
+                                            <table className="w-full text-xs">
+                                              <thead className="bg-gray-100">
+                                                <tr>
+                                                  <th className="px-3 py-2 text-left font-semibold text-gray-500">#</th>
+                                                  <th className="px-3 py-2 text-left font-semibold text-gray-500">Medicine</th>
+                                                  <th className="px-3 py-2 text-left font-semibold text-gray-500">Dosage</th>
+                                                  <th className="px-3 py-2 text-left font-semibold text-gray-500">Duration</th>
+                                                  <th className="px-3 py-2 text-left font-semibold text-gray-500">Notes</th>
+                                                  <th className="px-3 py-2 text-center font-semibold text-gray-500 w-20">Action</th>
+                                                </tr>
+                                              </thead>
+                                              <tbody className="divide-y divide-gray-100">
+                                                {editingPrescriptionData.medicines.map((med, mIdx) => (
+                                                  <tr key={med._id || mIdx}>
+                                                    <td className="px-3 py-2 text-gray-400">{mIdx + 1}</td>
+                                                    <td className="px-3 py-2">
+                                                      <input
+                                                        type="text"
+                                                        value={med.medicineName}
+                                                        onChange={(e) => {
+                                                          const newMeds = [...editingPrescriptionData.medicines];
+                                                          newMeds[mIdx].medicineName = e.target.value;
+                                                          setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds });
+                                                        }}
+                                                        placeholder="Medicine name"
+                                                        className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                                      />
+                                                    </td>
+                                                    <td className="px-3 py-2">
+                                                      <input
+                                                        type="text"
+                                                        value={med.dosage || ""}
+                                                        onChange={(e) => {
+                                                          const newMeds = [...editingPrescriptionData.medicines];
+                                                          newMeds[mIdx].dosage = e.target.value;
+                                                          setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds });
+                                                        }}
+                                                        placeholder="Dosage"
+                                                        className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                                      />
+                                                    </td>
+                                                    <td className="px-3 py-2">
+                                                      <input
+                                                        type="text"
+                                                        value={med.duration || ""}
+                                                        onChange={(e) => {
+                                                          const newMeds = [...editingPrescriptionData.medicines];
+                                                          newMeds[mIdx].duration = e.target.value;
+                                                          setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds });
+                                                        }}
+                                                        placeholder="Duration"
+                                                        className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                                      />
+                                                    </td>
+                                                    <td className="px-3 py-2">
+                                                      <input
+                                                        type="text"
+                                                        value={med.notes || ""}
+                                                        onChange={(e) => {
+                                                          const newMeds = [...editingPrescriptionData.medicines];
+                                                          newMeds[mIdx].notes = e.target.value;
+                                                          setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds });
+                                                        }}
+                                                        placeholder="Notes"
+                                                        className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                                      />
+                                                    </td>
+                                                    <td className="px-3 py-2 text-center">
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                          const newMeds = editingPrescriptionData.medicines.filter((_, idx) => idx !== mIdx);
+                                                          setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds });
+                                                        }}
+                                                        className="text-red-500 hover:text-red-700 p-1"
+                                                        title="Remove medicine"
+                                                      >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                                      </button>
+                                                    </td>
+                                                  </tr>
+                                                ))}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                          
+                                          {/* Add Medicine Button */}
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const newMeds = [...editingPrescriptionData.medicines, { medicineName: "", dosage: "", duration: "", notes: "" }];
+                                              setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds });
+                                            }}
+                                            className="flex items-center gap-2 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                          >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                                            Add Medicine
+                                          </button>
+                                          
+                                          {/* Editable Aftercare Instructions */}
+                                          <div>
+                                            <label className="text-[10px] font-semibold text-gray-500 uppercase mb-1 block">Aftercare Instructions</label>
+                                            <textarea
+                                              value={editingPrescriptionData.aftercareInstructions || ""}
+                                              onChange={(e) => {
+                                                setEditingPrescriptionData({ ...editingPrescriptionData, aftercareInstructions: e.target.value });
+                                              }}
+                                              rows={3}
+                                              placeholder="Enter aftercare instructions..."
+                                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+                                            />
+                                          </div>
+                                          
+                                          {/* Save/Cancel Buttons */}
+                                          <div className="flex items-center gap-3">
+                                            <button
+                                              type="button"
+                                              disabled={savingEditedPrescription}
+                                              onClick={() => saveEditedPrescription(entry._id)}
+                                              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+                                            >
+                                              {savingEditedPrescription ? (
+                                                <><svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg> Saving...</>
+                                              ) : (
+                                                <><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Changes</>
+                                              )}
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={cancelEditPrescription}
+                                              className="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 text-xs font-semibold hover:bg-gray-300"
+                                            >
+                                              Cancel
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ) : (
                                         <div>
-                                          <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">Aftercare Instructions</p>
-                                          <p className="text-sm text-gray-700 whitespace-pre-wrap bg-white rounded-lg border border-gray-200 px-3 py-2">{entry.aftercareInstructions}</p>
+                                          <div className="rounded-lg border border-gray-200 overflow-hidden">
+                                            <table className="w-full text-xs">
+                                              <thead className="bg-gray-100"><tr>
+                                                <th className="px-3 py-2 text-left font-semibold text-gray-500">#</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-gray-500">Medicine</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-gray-500">Dosage</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-gray-500">Duration</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-gray-500">Notes</th>
+                                              </tr></thead>
+                                              <tbody className="divide-y divide-gray-100 bg-white">
+                                                {entry.medicines.map((med, mIdx) => (
+                                                  <tr key={med._id || mIdx}>
+                                                    <td className="px-3 py-2 text-gray-400">{mIdx + 1}</td>
+                                                    <td className="px-3 py-2 font-medium text-gray-800">{med.medicineName}</td>
+                                                    <td className="px-3 py-2 text-gray-500">{med.dosage || ""}</td>
+                                                    <td className="px-3 py-2 text-gray-500">{med.duration || ""}</td>
+                                                    <td className="px-3 py-2 text-gray-500">{med.notes || ""}</td>
+                                                  </tr>
+                                                ))}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                          {entry.aftercareInstructions && (
+                                            <div>
+                                              <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">Aftercare Instructions</p>
+                                              <p className="text-sm text-gray-700 whitespace-pre-wrap bg-white rounded-lg border border-gray-200 px-3 py-2">{entry.aftercareInstructions}</p>
+                                            </div>
+                                          )}
                                         </div>
                                       )}
                                     </div>
@@ -4857,6 +5969,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                               price: svc.price,
                                               clinicPrice: svc.clinicPrice,
                                               durationMinutes: svc.durationMinutes,
+                                              quantity: 1
                                             } as ClinicService;
                                            
                                             setSelectedServices((prev) => [...prev, serviceToAdd]);
@@ -4868,7 +5981,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                             // 2. Also save to appointment via API
                                             setAddingRecService((p) => ({ ...p, [patientServiceKey]: true }));
                                             try {
-                                              await axios.patch(`/api/clinic/appointment-services/${details.appointmentId}`, { serviceIds: [svc._id] }, { headers: getAuthHeaders() });
+                                              await axios.patch(`/api/clinic/appointment-services/${details.appointmentId}`, { services: [{ serviceId: svc._id, quantity: 1 }] }, { headers: getAuthHeaders() });
                                               setAddedRecServices((p) => ({ ...p, [patientServiceKey]: true }));
                                               if (onSuccess) onSuccess();
                                             } catch (err: any) {
@@ -4988,6 +6101,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               type="button"
                               onClick={() => {
                                 setShowAddServiceDropdown(true);
+                                setShowAddCustomService(false);
                                 setShowCreatePackage(false);
                                 setServicesSaved(false);
                                 setServicesError("");
@@ -5000,8 +6114,21 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             <button
                               type="button"
                               onClick={() => {
+                                setShowAddCustomService(true);
+                                setShowAddServiceDropdown(false);
+                                setShowCreatePackage(false);
+                                if (departments.length === 0) fetchDepartments();
+                              }}
+                              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-all shadow-md hover:shadow-lg"
+                            >
+                              <Wrench size={16} /> Add Custom Service
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
                                 setShowCreatePackage(true);
                                 setShowAddServiceDropdown(false);
+                                setShowAddCustomService(false);
                                 setPkgError("");
                                 setPkgSuccess("");
                                 if (allServices.length === 0) fetchAllServices();
@@ -5054,7 +6181,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   const isSelected = selectedServices.some((s) => s._id === svc._id);
                                   return (
                                     <button key={svc._id} type="button"
-                                      onClick={() => { setSelectedServices((prev) => isSelected ? prev.filter((s) => s._id !== svc._id) : [...prev, svc]); setServicesSaved(false); }}
+                                      onClick={() => { setSelectedServices((prev) => isSelected ? prev.filter((s) => s._id !== svc._id) : [...prev, { ...svc, quantity: 1 }]); setServicesSaved(false); }}
                                       className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${
                                         isSelected ? "bg-blue-50 border-blue-300 shadow-sm" : "bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300"
                                       }`}
@@ -5098,6 +6225,127 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 {savingServices ? (<><Loader2 className="w-4 h-4 animate-spin" />Saving...</>) : (<><CheckCircle className="w-4 h-4" />Save Services to Appointment</>)}
                               </button>
                             )}
+                          </div>
+                        )}
+
+                        {/* Custom Service Add Panel */}
+                        {showAddCustomService && (
+                          <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-br from-emerald-50/50 to-teal-50/50">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                                  <Wrench className="w-4 h-4 text-emerald-600" />
+                                </div>
+                                <span className="text-sm font-bold text-emerald-800">Add Custom Service</span>
+                              </div>
+                              <button type="button" onClick={() => {
+                                setShowAddCustomService(false);
+                                setCustomServiceName("");
+                                setCustomServicePrice("");
+                                setCustomServiceClinicPrice("");
+                                setCustomServiceDuration("");
+                                setCustomServiceDepartment("");
+                              }} className="text-gray-400 hover:text-gray-600 transition-colors">
+                                <XIcon size={16} />
+                              </button>
+                            </div>
+
+                            <form onSubmit={addCustomService} className="space-y-3">
+                              <div>
+                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Department <span className="text-red-500">*</span></label>
+                                <select
+                                  value={customServiceDepartment}
+                                  onChange={(e) => setCustomServiceDepartment(e.target.value)}
+                                  className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
+                                  disabled={departmentsLoading}
+                                  required
+                                >
+                                  <option value="" disabled>Select department</option>
+                                  {departments.map((dept) => (
+                                    <option key={dept._id} value={dept._id}>
+                                      {dept.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Service Name <span className="text-red-500">*</span></label>
+                                <input
+                                  type="text"
+                                  value={customServiceName}
+                                  onChange={(e) => setCustomServiceName(e.target.value)}
+                                  placeholder="Enter service name"
+                                  className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
+                                  required
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Price <span className="text-red-500">*</span></label>
+                                  <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={customServicePrice}
+                                      onChange={(e) => setCustomServicePrice(e.target.value)}
+                                      placeholder="0.00"
+                                      className="w-full pl-10 pr-4 py-2 text-sm font-semibold border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
+                                      required
+                                    />
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Clinic Price (Optional)</label>
+                                  <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={customServiceClinicPrice}
+                                      onChange={(e) => setCustomServiceClinicPrice(e.target.value)}
+                                      placeholder="0.00"
+                                      className="w-full pl-10 pr-4 py-2 text-sm font-semibold border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Duration (Minutes)</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={customServiceDuration}
+                                    onChange={(e) => setCustomServiceDuration(e.target.value)}
+                                    placeholder="30"
+                                    className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
+                                  />
+                                </div>
+                              </div>
+
+                              <button
+                                type="submit"
+                                disabled={addingCustomService}
+                                className="w-full flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+                              >
+                                {addingCustomService ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Adding...
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="w-4 h-4" />
+                                    Add Custom Service
+                                  </>
+                                )}
+                              </button>
+                            </form>
                           </div>
                         )}
 
@@ -5293,40 +6541,131 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">{selectedServices.length}</span>
                                 </div>
                               </div>
-                              {selectedServices.map((svc, i) => (
-                                <div key={svc._id} className="group relative rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-all duration-200">
-                                  <div className="flex items-start justify-between">
-                                    <div className="flex items-start gap-3 flex-1">
-                                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center flex-shrink-0 border border-blue-100">
-                                        <Package className="w-6 h-6 text-blue-600" />
+                              {selectedServices.map((svc, i) => {
+                                const isRecentlyAdded = recentlyAddedServices[svc._id] && (Date.now() - recentlyAddedServices[svc._id] < 3000);
+                                return (
+                                  <div key={svc._id} className={`group relative rounded-xl border p-4 shadow-sm transition-all duration-500 ${isRecentlyAdded ? 'border-green-400 bg-green-50 shadow-md ring-2 ring-green-300' : 'border-gray-200 bg-white hover:shadow-md'}`}>
+                                    {isRecentlyAdded && (
+                                      <div className="absolute -top-2 -right-2 flex items-center gap-1 px-2 py-1 rounded-full bg-green-500 text-white text-[10px] font-bold shadow-lg animate-bounce">
+                                        <Check size={10} />
+                                        <span>Just Added</span>
                                       </div>
-                                      <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1">
-                                          <h4 className="text-sm font-bold text-gray-900">{svc.name}</h4>
-                                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">Standard</span>
+                                    )}
+                                    <div className="flex items-start justify-between">
+                                      <div className="flex items-start gap-3 flex-1">
+                                        {/* Icon */}
+                                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 border ${isRecentlyAdded ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200' : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100'}`}>
+                                          <Package className={`w-6 h-6 ${isRecentlyAdded ? 'text-green-600' : 'text-blue-600'}`} />
                                         </div>
-                                        <p className="text-xs text-gray-500 mb-2">Service #{i + 1}  ID: {svc._id.slice(-6)}</p>
-                                        <div className="flex items-center gap-2">
-                                          <label className="text-xs text-gray-600 font-medium">Price:</label>
-                                          <div className="relative">
-                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
-                                            <input type="number" min="0" step="0.01" value={(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
-                                              readOnly
-                                              className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-gray-50 transition-all"
-                                            />
+
+                                        {/* Info */}
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <h4 className="text-sm font-bold text-gray-900">{svc.name}</h4>
+                                            {isRecentlyAdded ? (
+                                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
+                                                Smart Recommendation
+                                              </span>
+                                            ) : (
+                                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                                                Standard
+                                              </span>
+                                            )}
+                                          </div>
+                                          <p className="text-xs text-gray-500 mb-2">Service #{i + 1}  ID: {svc._id.slice(-6)}</p>
+
+                                          {/* Price and Quantity Controls */}
+                                          <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-2">
+                                              <label className="text-xs text-gray-600 font-medium">Price:</label>
+                                              <div className="relative">
+                                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                                <input
+                                                  type="number"
+                                                  min="0"
+                                                  step="0.01"
+                                                  value={(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
+                                                  readOnly
+                                                  className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-gray-50 transition-all"
+                                                />
+                                              </div>
+                                            </div>
+
+                                            {/* Quantity Controls */}
+                                            <div className="flex items-center gap-2">
+                                              <label className="text-xs text-gray-600 font-medium">Qty:</label>
+                                              <div className="flex items-center gap-1 border border-gray-300 rounded-lg overflow-hidden">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setSelectedServices((prev) =>
+                                                      prev.map((s) =>
+                                                        s._id === svc._id
+                                                          ? { ...s, quantity: Math.max(1, (s.quantity || 1) - 1) }
+                                                          : s
+                                                      )
+                                                    );
+                                                  }}
+                                                  className="px-2 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+                                                  disabled={(svc.quantity || 1) <= 1}
+                                                >
+                                                  -
+                                                </button>
+                                                <input
+                                                  type="number"
+                                                  min="1"
+                                                  value={svc.quantity || 1}
+                                                  onChange={(e) => {
+                                                    const newQty = Math.max(1, parseInt(e.target.value) || 1);
+                                                    setSelectedServices((prev) =>
+                                                      prev.map((s) =>
+                                                        s._id === svc._id ? { ...s, quantity: newQty } : s
+                                                      )
+                                                    );
+                                                  }}
+                                                  className="w-12 px-1 py-1 text-xs font-semibold text-center border-0 focus:outline-none focus:ring-0"
+                                                />
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setSelectedServices((prev) =>
+                                                      prev.map((s) =>
+                                                        s._id === svc._id
+                                                          ? { ...s, quantity: (s.quantity || 1) + 1 }
+                                                          : s
+                                                      )
+                                                    );
+                                                  }}
+                                                  className="px-2 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+                                                >
+                                                  +
+                                                </button>
+                                              </div>
+                                            </div>
                                           </div>
                                         </div>
                                       </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <div className="text-right">
-                                        <p className="text-sm font-bold text-gray-900">{getCurrencySymbol(currency)} {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}</p>
+
+                                      {/* Actions */}
+                                      <div className="flex items-center gap-2">
+                                        <div className="text-right">
+                                          <p className="text-sm font-bold text-gray-900">
+                                            {getCurrencySymbol(currency)} {(((svc.clinicPrice != null ? svc.clinicPrice : svc.price) * (svc.quantity || 1))).toFixed(2)}
+                                          </p>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => setSelectedServices((prev) => prev.filter((s) => s._id !== svc._id))}
+                                          className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50"
+                                          title="Remove service"
+                                        >
+                                          <Trash2 size={16} />
+                                        </button>
                                       </div>
-                                      <button type="button" onClick={() => setSelectedServices((prev) => prev.filter((s) => s._id !== svc._id))} className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50" title="Remove service"><Trash2 size={16} /></button>
                                     </div>
                                   </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                               <div className="mt-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 p-3 shadow-md">
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
@@ -5394,9 +6733,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                       <Send className="w-3.5 h-3.5 text-blue-600" />
                                     )}
                                   </div>
-                                  <p className="text-xs text-gray-500 mt-0.5">
-                                    {consent.description || "Consent form"}
-                                  </p>
                                   <div className="flex items-center gap-3 mt-1">
                                     <span className="text-[10px] text-gray-400">
                                       Patient: {consent.patientName}
@@ -5500,7 +6836,15 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             {patientStats.recentBillings.map((b, i) => (
                               <div key={i} className="flex items-center justify-between py-0.5 text-xs">
                                 <span className="text-gray-600 truncate flex-1 mr-2">{b.label}</span>
-                                <span className="text-gray-800 font-medium whitespace-nowrap">{getCurrencySymbol(currency)} {(b.paid||0).toLocaleString()}</span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-gray-800 font-medium whitespace-nowrap">{getCurrencySymbol(currency)} {(b.amount||0).toLocaleString()}</span>
+                                  {(b.paid || 0) === 0 && (b.pending || 0) > 0 && (
+                                    <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 text-[9px] font-semibold rounded border border-amber-200">Unpaid</span>
+                                  )}
+                                  {(b.paid || 0) > 0 && (b.pending || 0) > 0 && (
+                                    <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 text-[9px] font-semibold rounded border border-blue-200">Partial</span>
+                                  )}
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -5892,6 +7236,46 @@ const EditComplaintModal: React.FC<{
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>("");
 
+  // Progress Notes state
+  interface ProgressNoteEntry {
+    _id: string;
+    note: string;
+    noteDate: string;
+    doctorId?: { _id?: string; name?: string; email?: string } | string | null;
+    createdAt: string;
+  }
+  const [progressNotes, setProgressNotes] = useState<ProgressNoteEntry[]>([]);
+  const [loadingProgressNotes, setLoadingProgressNotes] = useState(false);
+  const [progressError, setProgressError] = useState<string>("");
+  const [editingProgressNoteId, setEditingProgressNoteId] = useState<string | null>(null);
+  const [editingProgressNoteData, setEditingProgressNoteData] = useState<{ note: string; noteDate: string } | null>(null);
+  const [savingEditedProgress, setSavingEditedProgress] = useState(false);
+  const [addingNewEntry, setAddingNewEntry] = useState(false);
+  const [newEntryText, setNewEntryText] = useState<string>("");
+  const [newEntryDate, setNewEntryDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [savingProgress, setSavingProgress] = useState(false);
+
+  // Prescription state
+  interface PrescriptionHistoryEntry {
+    _id: string;
+    medicines: Array<{ _id?: string; medicineName: string; dosage?: string; duration?: string; notes?: string }>;
+    aftercareInstructions?: string;
+    includeInPdf?: boolean;
+    doctorId?: { _id?: string; name?: string; email?: string } | string | null;
+    createdAt: string;
+    updatedAt: string;
+  }
+  const [prescriptionHistory, setPrescriptionHistory] = useState<PrescriptionHistoryEntry[]>([]);
+  const [loadingPrescriptionHistory, setLoadingPrescriptionHistory] = useState(false);
+  const [prescriptionError, setPrescriptionError] = useState<string>("");
+  const [editingPrescriptionId, setEditingPrescriptionId] = useState<string | null>(null);
+  const [editingPrescriptionData, setEditingPrescriptionData] = useState<{
+    medicines: Array<{ _id?: string; medicineName: string; dosage?: string; duration?: string; notes?: string }>;
+    aftercareInstructions?: string;
+  } | null>(null);
+  const [savingEditedPrescription, setSavingEditedPrescription] = useState(false);
+  const [expandedPrescription, setExpandedPrescription] = useState<Record<string, boolean>>({});
+
   // consent form
   interface ConsentFormOption { _id: string; formName: string; }
   const [consentForms, setConsentForms] = useState<ConsentFormOption[]>([]);
@@ -5914,7 +7298,204 @@ const EditComplaintModal: React.FC<{
 
   useEffect(() => {
     fetchConsentForms();
+    // Fetch progress notes and prescriptions when modal opens
+    const patientId = typeof complaint.patientId === 'object' ? complaint.patientId?._id : complaint.patientId;
+    if (patientId) {
+      fetchProgressNotes(patientId);
+      fetchPrescriptionHistory(patientId);
+    }
   }, []);
+
+  // Helper function to check if within 24 hours
+  const isWithin24Hours = (createdAt: string) => {
+    const now = new Date();
+    const createdDate = new Date(createdAt);
+    const hoursDiff = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
+    return hoursDiff < 24;
+  };
+
+  // Fetch progress notes
+  const fetchProgressNotes = async (patientId: string) => {
+    setLoadingProgressNotes(true);
+    setProgressError("");
+    try {
+      const headers = getAuthHeaders();
+      const res = await axios.get("/api/clinic/progress-notes", {
+        headers,
+        params: { patientId },
+      });
+      if (res.data?.success) {
+        setProgressNotes(res.data.notes || []);
+      }
+    } catch {
+      setProgressError("Failed to load progress notes");
+    } finally {
+      setLoadingProgressNotes(false);
+    }
+  };
+
+  // Fetch prescription history
+  const fetchPrescriptionHistory = async (patientId: string) => {
+    setLoadingPrescriptionHistory(true);
+    try {
+      const headers = getAuthHeaders();
+      const res = await axios.get("/api/clinic/prescriptions", {
+        headers,
+        params: { patientId },
+      });
+      if (res.data?.success) {
+        setPrescriptionHistory(res.data.prescriptions || []);
+      }
+    } catch {
+      // silently ignore
+    } finally {
+      setLoadingPrescriptionHistory(false);
+    }
+  };
+
+  // Progress note handlers
+  const startEditProgressNote = (entry: ProgressNoteEntry) => {
+    setEditingProgressNoteId(entry._id);
+    setEditingProgressNoteData({
+      note: entry.note,
+      noteDate: entry.noteDate ? new Date(entry.noteDate).toISOString().slice(0, 10) : new Date(entry.createdAt).toISOString().slice(0, 10),
+    });
+  };
+
+  const cancelEditProgressNote = () => {
+    setEditingProgressNoteId(null);
+    setEditingProgressNoteData(null);
+  };
+
+  const saveEditedProgressNote = async (noteId: string) => {
+    if (!editingProgressNoteData || !editingProgressNoteData.note.trim()) return;
+    setSavingEditedProgress(true);
+    try {
+      const headers = getAuthHeaders();
+      await axios.put("/api/clinic/progress-notes", {
+        noteId,
+        note: editingProgressNoteData.note.trim(),
+        noteDate: editingProgressNoteData.noteDate,
+      }, { headers });
+
+      setProgressNotes(prev => prev.map(n => {
+        if (n._id === noteId) {
+          return { ...n, note: editingProgressNoteData.note.trim(), noteDate: editingProgressNoteData.noteDate };
+        }
+        return n;
+      }));
+      setEditingProgressNoteId(null);
+      setEditingProgressNoteData(null);
+    } catch (error: any) {
+      setProgressError(error.response?.data?.message || "Failed to update progress note");
+    } finally {
+      setSavingEditedProgress(false);
+    }
+  };
+
+  const addProgressNote = async () => {
+    if (!newEntryText.trim()) return;
+    const patientId = typeof complaint.patientId === 'object' ? complaint.patientId?._id : complaint.patientId;
+    const appointmentId = typeof complaint.appointmentId === 'object' ? complaint.appointmentId?._id : complaint.appointmentId;
+    if (!patientId) return;
+
+    setSavingProgress(true);
+    setProgressError("");
+    try {
+      const headers = getAuthHeaders();
+      const res = await axios.post("/api/clinic/progress-notes", {
+        appointmentId,
+        patientId,
+        note: newEntryText.trim(),
+        noteDate: newEntryDate,
+      }, { headers });
+      if (res.data?.success && res.data.note) {
+        setProgressNotes((prev) => [res.data.note, ...prev]);
+      }
+      setNewEntryText("");
+      setNewEntryDate(new Date().toISOString().slice(0, 10));
+      setAddingNewEntry(false);
+    } catch (err: any) {
+      setProgressError(err.response?.data?.message || "Failed to save progress note");
+    } finally {
+      setSavingProgress(false);
+    }
+  };
+
+  const deleteProgressNote = async (noteId: string) => {
+    try {
+      const headers = getAuthHeaders();
+      await axios.delete("/api/clinic/progress-notes", { headers, params: { noteId } });
+      setProgressNotes((prev) => prev.filter((n) => n._id !== noteId));
+    } catch {
+      setProgressError("Failed to delete progress note");
+    }
+  };
+
+  // Prescription handlers
+  const startEditPrescription = (entry: PrescriptionHistoryEntry) => {
+    setEditingPrescriptionId(entry._id);
+    setEditingPrescriptionData({
+      medicines: entry.medicines.map(m => ({
+        _id: m._id,
+        medicineName: m.medicineName || "",
+        dosage: m.dosage || "",
+        duration: m.duration || "",
+        notes: m.notes || "",
+      })),
+      aftercareInstructions: entry.aftercareInstructions || "",
+    });
+    setExpandedPrescription((prev) => ({ ...prev, [entry._id]: true }));
+  };
+
+  const cancelEditPrescription = () => {
+    setEditingPrescriptionId(null);
+    setEditingPrescriptionData(null);
+  };
+
+  const saveEditedPrescription = async (prescriptionId: string) => {
+    if (!editingPrescriptionData) return;
+    setSavingEditedPrescription(true);
+    try {
+      const headers = getAuthHeaders();
+      const validMeds = editingPrescriptionData.medicines.filter(m => m.medicineName.trim());
+      
+      await axios.put("/api/clinic/prescriptions", {
+        prescriptionId,
+        medicines: validMeds,
+        aftercareInstructions: editingPrescriptionData.aftercareInstructions || "",
+      }, { headers });
+
+      setPrescriptionHistory(prev => prev.map(p => {
+        if (p._id === prescriptionId) {
+          return {
+            ...p,
+            medicines: validMeds,
+            aftercareInstructions: editingPrescriptionData.aftercareInstructions || "",
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return p;
+      }));
+
+      setEditingPrescriptionId(null);
+      setEditingPrescriptionData(null);
+    } catch (error: any) {
+      setPrescriptionError(error.response?.data?.message || "Failed to update prescription");
+    } finally {
+      setSavingEditedPrescription(false);
+    }
+  };
+
+  const deletePrescription = async (prescriptionId: string) => {
+    try {
+      const headers = getAuthHeaders();
+      await axios.delete("/api/clinic/prescriptions", { headers, params: { prescriptionId } });
+      setPrescriptionHistory((prev) => prev.filter((p) => p._id !== prescriptionId));
+    } catch {
+      setPrescriptionError("Failed to delete prescription");
+    }
+  };
 
   const handleCurrentItemChange = (field: keyof StockRow, value: any) => {
     if (field === "itemId") {
@@ -6585,6 +8166,272 @@ const EditComplaintModal: React.FC<{
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Progress Notes Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-blue-500" />
+                Progress Notes
+                <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">{progressNotes.length}</span>
+              </h4>
+            </div>
+            {progressError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">{progressError}</div>
+            )}
+            {loadingProgressNotes ? (
+              <div className="py-4 text-center text-gray-400 text-xs">Loading progress notes...</div>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {progressNotes.length === 0 ? (
+                  <div className="py-4 text-center text-gray-400 text-xs">No progress notes found.</div>
+                ) : (
+                  progressNotes.map((entry) => {
+                    const dateStr = entry.noteDate ? new Date(entry.noteDate).toISOString().slice(0, 10) : new Date(entry.createdAt).toISOString().slice(0, 10);
+                    const doctorName = typeof entry.doctorId === "object" && entry.doctorId?.name ? entry.doctorId.name : null;
+                    return (
+                      <div key={entry._id} className="rounded-lg border border-gray-200 bg-white p-3 space-y-2">
+                        {editingProgressNoteId === entry._id && editingProgressNoteData ? (
+                          // Edit Mode
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-blue-700">Edit Progress Note</span>
+                              <button type="button" onClick={cancelEditProgressNote} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <label className="text-xs text-gray-600 font-medium">Date:</label>
+                              <input
+                                type="date"
+                                value={editingProgressNoteData.noteDate}
+                                onChange={(e) => setEditingProgressNoteData({ ...editingProgressNoteData, noteDate: e.target.value })}
+                                className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
+                              />
+                            </div>
+                            <textarea
+                              autoFocus
+                              value={editingProgressNoteData.note}
+                              onChange={(e) => setEditingProgressNoteData({ ...editingProgressNoteData, note: e.target.value })}
+                              rows={3}
+                              placeholder="Describe patient's progress..."
+                              className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+                            />
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                disabled={savingEditedProgress || !editingProgressNoteData.note.trim()}
+                                onClick={() => saveEditedProgressNote(entry._id)}
+                                className="px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+                              >
+                                {savingEditedProgress ? "Saving..." : "Save"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={cancelEditProgressNote}
+                                className="px-3 py-1 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          // View Mode
+                          <div>
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-semibold text-blue-600">{dateStr}</span>
+                                {doctorName && <span className="text-xs text-gray-400">Dr. {doctorName}</span>}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {isWithin24Hours(entry.createdAt) && (
+                                  <button type="button" onClick={() => startEditProgressNote(entry)} className="p-1 text-gray-300 hover:text-blue-500 transition-colors">
+                                    <Edit2 size={12} />
+                                  </button>
+                                )}
+                                <button type="button" onClick={() => deleteProgressNote(entry._id)} className="p-1 text-gray-300 hover:text-red-500 transition-colors">
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            </div>
+                            <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed mt-1">{entry.note}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+            {/* Add New Progress Note */}
+            {addingNewEntry ? (
+              <div className="rounded-lg border-2 border-dashed border-blue-300 bg-blue-50/60 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-blue-700 flex items-center gap-1"><Plus size={12} /> New Progress Entry</span>
+                  <span className="text-xs text-blue-600">{newEntryDate}</span>
+                </div>
+                <textarea autoFocus value={newEntryText} onChange={(e) => setNewEntryText(e.target.value)} rows={3} placeholder="Describe patient's progress..." className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none" />
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-blue-700 font-medium">Date:</label>
+                    <input type="date" value={newEntryDate} onChange={(e) => setNewEntryDate(e.target.value)} className="border border-blue-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => { setAddingNewEntry(false); setNewEntryText(""); setProgressError(""); }} className="px-3 py-1 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">Cancel</button>
+                    <button type="button" disabled={savingProgress || !newEntryText.trim()} onClick={addProgressNote} className="flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50">
+                      {savingProgress ? "Saving..." : "Save"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={() => { setAddingNewEntry(true); setNewEntryDate(new Date().toISOString().slice(0, 10)); }}
+                className="w-full flex items-center justify-center gap-1 rounded-lg border-2 border-dashed border-gray-200 py-2 text-xs font-medium text-gray-400 hover:border-blue-300 hover:text-blue-600 transition-colors bg-white"
+              >
+                <Plus size={12} /> Add Progress Note
+              </button>
+            )}
+          </div>
+
+          {/* Prescription Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                <Pill className="w-4 h-4 text-purple-500" />
+                Prescriptions
+                <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold">{prescriptionHistory.length}</span>
+              </h4>
+            </div>
+            {prescriptionError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">{prescriptionError}</div>
+            )}
+            {loadingPrescriptionHistory ? (
+              <div className="py-4 text-center text-gray-400 text-xs">Loading prescriptions...</div>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {prescriptionHistory.length === 0 ? (
+                  <div className="py-4 text-center text-gray-400 text-xs">No prescriptions found.</div>
+                ) : (
+                  prescriptionHistory.map((entry) => {
+                    const isExpanded = !!expandedPrescription[entry._id];
+                    const doctorName = typeof entry.doctorId === "object" && entry.doctorId?.name ? entry.doctorId.name : null;
+                    return (
+                      <div key={entry._id} className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
+                        <button type="button" onClick={() => setExpandedPrescription((prev) => ({ ...prev, [entry._id]: !prev[entry._id] }))} className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200"><Pill size={10} />{entry.medicines.length} med{entry.medicines.length !== 1 ? "s" : ""}</span>
+                            <span className="text-xs text-gray-400">{new Date(entry.createdAt).toLocaleDateString()}</span>
+                            {doctorName && <span className="text-xs text-gray-400">Dr. {doctorName}</span>}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {isWithin24Hours(entry.createdAt) && (
+                              <button type="button" onClick={(e) => { e.stopPropagation(); startEditPrescription(entry); }} className="p-1 text-gray-300 hover:text-blue-500">
+                                <Edit2 size={12} />
+                              </button>
+                            )}
+                            <button type="button" onClick={(e) => { e.stopPropagation(); deletePrescription(entry._id); }} className="p-1 text-gray-300 hover:text-red-500">
+                              <Trash2 size={12} />
+                            </button>
+                            {isExpanded ? <ChevronUp size={12} className="text-gray-400" /> : <ChevronDown size={12} className="text-gray-400" />}
+                          </div>
+                        </button>
+                        {isExpanded && (
+                          <div className="border-t border-gray-100 px-3 py-2 bg-gray-50/50 space-y-2">
+                            {editingPrescriptionId === entry._id && editingPrescriptionData ? (
+                              // Edit Mode
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <h5 className="text-xs font-semibold text-blue-700">Edit Prescription</h5>
+                                  <button type="button" onClick={cancelEditPrescription} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+                                </div>
+                                <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
+                                  <table className="w-full text-xs">
+                                    <thead className="bg-gray-100">
+                                      <tr>
+                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">#</th>
+                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">Medicine</th>
+                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">Dosage</th>
+                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">Duration</th>
+                                        <th className="px-2 py-1.5 text-center font-semibold text-gray-500 w-12">Action</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                      {editingPrescriptionData.medicines.map((med, mIdx) => (
+                                        <tr key={med._id || mIdx}>
+                                          <td className="px-2 py-1.5 text-gray-400">{mIdx + 1}</td>
+                                          <td className="px-2 py-1.5">
+                                            <input type="text" value={med.medicineName} onChange={(e) => { const newMeds = [...editingPrescriptionData.medicines]; newMeds[mIdx].medicineName = e.target.value; setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds }); }} placeholder="Medicine" className="w-full border border-gray-200 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300" />
+                                          </td>
+                                          <td className="px-2 py-1.5">
+                                            <input type="text" value={med.dosage || ""} onChange={(e) => { const newMeds = [...editingPrescriptionData.medicines]; newMeds[mIdx].dosage = e.target.value; setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds }); }} placeholder="Dosage" className="w-full border border-gray-200 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300" />
+                                          </td>
+                                          <td className="px-2 py-1.5">
+                                            <input type="text" value={med.duration || ""} onChange={(e) => { const newMeds = [...editingPrescriptionData.medicines]; newMeds[mIdx].duration = e.target.value; setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds }); }} placeholder="Duration" className="w-full border border-gray-200 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300" />
+                                          </td>
+                                          <td className="px-2 py-1.5 text-center">
+                                            <button type="button" onClick={() => { const newMeds = editingPrescriptionData.medicines.filter((_, idx) => idx !== mIdx); setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds }); }} className="text-red-500 hover:text-red-700 p-0.5">
+                                              <Trash2 size={10} />
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                                <button type="button" onClick={() => { const newMeds = [...editingPrescriptionData.medicines, { medicineName: "", dosage: "", duration: "", notes: "" }]; setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds }); }} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium">
+                                  <Plus size={10} /> Add Medicine
+                                </button>
+                                <div>
+                                  <label className="text-[10px] font-semibold text-gray-500 uppercase mb-1 block">Aftercare</label>
+                                  <textarea value={editingPrescriptionData.aftercareInstructions || ""} onChange={(e) => setEditingPrescriptionData({ ...editingPrescriptionData, aftercareInstructions: e.target.value })} rows={2} placeholder="Aftercare instructions..." className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300 resize-none" />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button type="button" disabled={savingEditedPrescription} onClick={() => saveEditedPrescription(entry._id)} className="flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50">
+                                    {savingEditedPrescription ? "Saving..." : "Save"}
+                                  </button>
+                                  <button type="button" onClick={cancelEditPrescription} className="px-3 py-1 rounded-lg bg-gray-200 text-gray-700 text-xs font-semibold hover:bg-gray-300">Cancel</button>
+                                </div>
+                              </div>
+                            ) : (
+                              // View Mode
+                              <div>
+                                <div className="rounded-lg border border-gray-200 overflow-hidden">
+                                  <table className="w-full text-xs">
+                                    <thead className="bg-gray-100">
+                                      <tr>
+                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">#</th>
+                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">Medicine</th>
+                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">Dosage</th>
+                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">Duration</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100 bg-white">
+                                      {entry.medicines.map((med, mIdx) => (
+                                        <tr key={mIdx}>
+                                          <td className="px-2 py-1.5 text-gray-400">{mIdx + 1}</td>
+                                          <td className="px-2 py-1.5 font-medium text-gray-800">{med.medicineName}</td>
+                                          <td className="px-2 py-1.5 text-gray-600">{med.dosage || "-"}</td>
+                                          <td className="px-2 py-1.5 text-gray-600">{med.duration || "-"}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                                {entry.aftercareInstructions && (
+                                  <div className="mt-2">
+                                    <p className="text-[10px] font-semibold text-gray-500 uppercase mb-0.5">Aftercare</p>
+                                    <p className="text-xs text-gray-600 whitespace-pre-wrap">{entry.aftercareInstructions}</p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-gray-200 px-6 py-3">

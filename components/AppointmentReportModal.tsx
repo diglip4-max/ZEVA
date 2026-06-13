@@ -430,6 +430,7 @@ const AppointmentReportModal: React.FC<AppointmentReportModalProps> = ({
                           </span>
                           <input
                             type={field.type}
+                            step="any"
                             value={reportValues[field.name as keyof ReportData] ?? ""}
                             onChange={(e) => handleChange(field.name as keyof ReportData, e.target.value)}
                             required={field.required}
@@ -452,6 +453,7 @@ const AppointmentReportModal: React.FC<AppointmentReportModalProps> = ({
                           </span>
                           <input
                             type={field.type}
+                            step="any"
                             value={reportValues[field.name as keyof ReportData] ?? ""}
                             onChange={(e) => handleChange(field.name as keyof ReportData, e.target.value)}
                             required={field.required}

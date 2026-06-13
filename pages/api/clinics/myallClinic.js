@@ -82,7 +82,7 @@ export default async function handler(req, res) {
     }
 
     // ✅ Log result of DB query
-    console.log("🏥 Clinic found:", clinic);
+  
 
     if (!clinic) return res.status(404).json({ success: false, message: "Clinic not found" });
 

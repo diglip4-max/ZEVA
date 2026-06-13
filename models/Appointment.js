@@ -125,6 +125,22 @@ const AppointmentSchema = new mongoose.Schema(
         ref: "Service",
       },
     ],
+    // Services with quantity (new field for quantity support)
+    services: [
+      {
+        serviceId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Service",
+          required: true
+        },
+        quantity: {
+          type: Number,
+          default: 1,
+          min: 1
+        },
+        _id: false
+      }
+    ],
     // Track who booked the appointment
     bookedByRole: {
       type: String,

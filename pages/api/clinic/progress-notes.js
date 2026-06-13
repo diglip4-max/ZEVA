@@ -139,6 +139,70 @@ export default async function handler(req, res) {
     }
   }
 
-  res.setHeader("Allow", ["GET", "POST", "DELETE"]);
+  // ── PUT (update existing progress note) ───────────────────────────────────────
+  if (req.method === "PUT") {
+    const { noteId, note, noteDate } = req.body || {};
+
+    if (!noteId) {
+      return res.status(400).json({ success: false, message: "noteId is required" });
+    }
+
+    if (!note || !note.trim()) {
+      return res.status(400).json({ success: false, message: "note is required" });
+    }
+
+    try {
+      // Find the note first to verify it belongs to this clinic
+      const existingNote = await ProgressNote.findOne({ _id: noteId, clinicId });
+      if (!existingNote) {
+        return res.status(404).json({ success: false, message: "Progress note not found" });
+      }
+
+      // Check if progress note was created within the last 24 hours
+      const createdAt = new Date(existingNote.createdAt);
+      const now = new Date();
+      const hoursDiff = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+      if (hoursDiff >= 24) {
+        return res.status(403).json({ 
+          success: false, 
+          message: "Progress note can only be edited within 24 hours of creation" 
+        });
+      }
+
+      // Update the progress note
+      const updatedNote = await ProgressNote.findByIdAndUpdate(
+        noteId,
+        {
+          $set: {
+            note: note.trim(),
+            noteDate: noteDate ? new Date(noteDate) : existingNote.noteDate,
+          },
+        },
+        { new: true },
+      )
+        .populate("doctorId", "name email")
+        .lean();
+
+      return res.status(200).json({
+        success: true,
+        message: "Progress note updated successfully",
+        note: {
+          _id: updatedNote._id,
+          note: updatedNote.note,
+          noteDate: updatedNote.noteDate,
+          doctorId: updatedNote.doctorId,
+          patientId: updatedNote.patientId,
+          appointmentId: updatedNote.appointmentId,
+          createdAt: updatedNote.createdAt,
+          updatedAt: updatedNote.updatedAt,
+        },
+      });
+    } catch (error) {
+      console.error("Error updating progress note:", error);
+      return res.status(500).json({ success: false, message: "Failed to update progress note" });
+    }
+  }
+
+  res.setHeader("Allow", ["GET", "POST", "PUT", "DELETE"]);
   return res.status(405).json({ success: false, message: "Method Not Allowed" });
 }
