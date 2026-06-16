@@ -28,6 +28,13 @@ const ConsentLogSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    complaintId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "PatientComplains",
+      default: null,
+      index: true,
+      description: "Optional: Link consent form to a specific patient complaint",
+    },
     clinicId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Clinic",
@@ -57,6 +64,6 @@ const ConsentLogSchema = new mongoose.Schema(
 );
 
 // Index for efficient querying
-ConsentLogSchema.index({ patientId: 1, appointmentId: 1, createdAt: -1 });
+ConsentLogSchema.index({ patientId: 1, appointmentId: 1, complaintId: 1, createdAt: -1 });
 
 export default mongoose.models.ConsentLog || mongoose.model("ConsentLog", ConsentLogSchema);

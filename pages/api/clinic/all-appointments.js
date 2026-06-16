@@ -384,12 +384,17 @@ export default async function handler(req, res) {
           .populate({
             path: "serviceId",
             model: "Service",
-            select: "name",
+            select: "name price clinicPrice",
           })
           .populate({
             path: "serviceIds",
             model: "Service",
-            select: "name",
+            select: "name price clinicPrice",
+          })
+          .populate({
+            path: "services.serviceId",
+            model: "Service",
+            select: "name price clinicPrice",
           })
           .sort({ startDate: -1, fromTime: -1, createdAt: -1 })
           .skip(skip)
@@ -474,6 +479,55 @@ export default async function handler(req, res) {
                 ]
               : fromServiceIds;
             return combined;
+          })(),
+          services: (() => {
+            const existingServices = new Map();
+            
+            if (Array.isArray(apt.services)) {
+              apt.services.forEach(s => {
+                if (s.serviceId?._id) {
+                  existingServices.set(s.serviceId._id.toString(), {
+                    serviceId: s.serviceId._id.toString(),
+                    quantity: s.quantity || 1,
+                    name: s.serviceId?.name,
+                    price: s.serviceId?.price,
+                    clinicPrice: s.serviceId?.clinicPrice
+                  });
+                }
+              });
+            }
+
+            if (apt.serviceId?._id) {
+              const id = apt.serviceId._id.toString();
+              if (!existingServices.has(id)) {
+                existingServices.set(id, {
+                  serviceId: id,
+                  quantity: 1,
+                  name: apt.serviceId?.name,
+                  price: apt.serviceId?.price,
+                  clinicPrice: apt.serviceId?.clinicPrice
+                });
+              }
+            }
+
+            if (Array.isArray(apt.serviceIds)) {
+              apt.serviceIds.forEach(s => {
+                if (s?._id) {
+                  const id = s._id.toString();
+                  if (!existingServices.has(id)) {
+                    existingServices.set(id, {
+                      serviceId: id,
+                      quantity: 1,
+                      name: s?.name,
+                      price: s?.price,
+                      clinicPrice: s?.clinicPrice
+                    });
+                  }
+                }
+              });
+            }
+
+            return Array.from(existingServices.values());
           })(),
           status: apt.status,
           followType: apt.followType,

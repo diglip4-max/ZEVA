@@ -58,7 +58,8 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
           setNavigationItems(res.data.navigationItems);
         }
       } catch (error) {
-        console.error('Error fetching navigation items:', error);
+        // Don't show error in UI, just log quietly for debugging
+        console.debug('Error fetching navigation items (will not show in UI):', error);
       }
     };
 

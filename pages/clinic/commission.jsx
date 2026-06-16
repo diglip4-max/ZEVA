@@ -888,7 +888,16 @@ function ClinicCommissionPage() {
                                 ) : "—"}
                               </td>
                               <td className="px-1.5 py-1.5 whitespace-nowrap text-[8px]">
-                                {it.paymentMethod === "Cash" ? (
+                                {it.multiplePayments && it.multiplePayments.length > 0 ? (
+                                  <div className="flex flex-col gap-0.5">
+                                    {it.multiplePayments.map((mp, idx) => (
+                                      <div key={idx} className="flex items-center justify-between gap-1">
+                                        <span className="font-medium text-gray-700">{mp.paymentMethod}</span>
+                                        <span className="text-gray-600">{getCurrencySymbol(currency)} {Number(mp.amount).toFixed(2)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : it.paymentMethod === "Cash" ? (
                                   <span className="text-gray-700">Cash</span>
                                 ) : it.paymentMethod && it.bankDeduction?.enabled ? (
                                   <div className="flex flex-col gap-0.5">

@@ -4,7 +4,7 @@ const multiplePaymentSchema = new mongoose.Schema(
   {
     paymentMethod: {
       type: String,
-      enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Advance Balance", "Insurance Claim", "Pending Claim", "Cashback Wallet"],
+      enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Advance Balance", "Insurance Claim", "Pending Claim", "Cashback Wallet", "Package Full Paid"],
       required: true,
     },
     amount: { type: Number, required: true, min: 0 },
@@ -26,7 +26,7 @@ const paymentHistorySchema = new mongoose.Schema(
     pending: { type: Number, required: true, min: 0 },
     paymentMethod: {
       type: String,
-      enum: ["Cash", "Card", "BT", "Tabby", "Tamara"],
+      enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Package Full Paid"],
     },
     multiplePayments: [multiplePaymentSchema],
     status: {
@@ -110,7 +110,7 @@ const billingSchema = new mongoose.Schema(
     quantity: {
       type: Number,
       default: 1,
-      min: 1,
+      min: 0,
     },
     sessions: {
       type: Number,
@@ -123,6 +123,18 @@ const billingSchema = new mongoose.Schema(
         treatmentName: { type: String, trim: true },
         treatmentSlug: { type: String, trim: true },
         sessions: { type: Number, min: 0, default: 0 },
+        _id: false,
+      },
+    ],
+    // Selected treatments with details (slugs, service IDs, quantities)
+    selectedTreatments: [
+      {
+        treatmentName: { type: String, trim: true },
+        treatmentSlug: { type: String, trim: true },
+        treatmentServiceId: { type: String, trim: true },
+        quantity: { type: Number, min: 0, default: 1 },
+        price: { type: Number, min: 0, default: 0 },
+        originalAppointmentQuantity: { type: Number, min: 0 }, // Original quantity from the appointment (if any)
         _id: false,
       },
     ],
@@ -176,6 +188,41 @@ const billingSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    // Enterprise Pending Ledger: denormalized cache of total remainingAmount
+    // across all Open/Partial ledger rows in PatientPendingLedger collection
+    // for THIS billing. Source of truth lives in PatientPendingLedger.
+    // This cached field is updated by lib/pendingLedger.applyClearance.
+    pendingLedgerCached: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    // Number of Open/Partial ledger rows attached to this billing (for fast list rendering)
+    pendingLedgerOpenCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    // Enterprise Pending Ledger: per-line breakdown of which ledger rows
+    // THIS billing record cleared. Populated only on audit billings
+    // created by /api/clinic/pending-ledgers/clear. Each entry references
+    // a PatientPendingLedger row by ledgerId so the UI can render the
+    // per-treatment breakdown of a pending payment.
+    pendingClearedBreakdown: [
+      {
+        ledgerId: { type: String, trim: true, index: true },
+        invoiceNumber: { type: String, trim: true },
+        service: { type: String, enum: ["Treatment", "Package", "Service"] },
+        treatmentSlug: { type: String, trim: true },
+        treatmentName: { type: String, trim: true },
+        packageId: { type: mongoose.Schema.Types.ObjectId, ref: "Package" },
+        packageName: { type: String, trim: true },
+        amountCleared: { type: Number, min: 0 },
+        newStatus: { type: String },
+        newRemaining: { type: Number, min: 0 },
+        _id: false,
+      },
+    ],
     advance: {
       type: Number,
       default: 0,
@@ -200,8 +247,8 @@ const billingSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["Cash", "Card", "BT", "Tabby", "Tamara"],
-      required: true,
+      enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Package Full Paid"],
+      required: false,
     },
     // Multiple payment methods for split payments
     multiplePayments: [multiplePaymentSchema],
@@ -440,20 +487,23 @@ billingSchema.pre("save", function (next) {
   this.advanceUsed = Number(this.advanceUsed ?? 0);
   this.claimAmountUsed = Number(this.claimAmountUsed ?? 0);
   this.pendingUsed = Number(this.pendingUsed ?? 0);
+  this.pendingClaimUsed = Number(this.pendingClaimUsed ?? 0);
   this.advance = Number(this.advance ?? 0);
 
   if (this.advanceUsed < 0) this.advanceUsed = 0;
   if (this.claimAmountUsed < 0) this.claimAmountUsed = 0;
   if (this.pendingUsed < 0) this.pendingUsed = 0;
+  if (this.pendingClaimUsed < 0) this.pendingClaimUsed = 0;
 
   // Check if pending was directly modified, if so skip calculation
   // This allows explicit pending updates from APIs like pay-invoice-pending
   if (this.isModified('pending')) {
-    // Only recalculate advance based on paid and pendingUsed
+    // Only recalculate advance based on paid and pendingUsed/pendingClaimUsed
     const totalCreditsUsed = this.advanceUsed + this.claimAmountUsed;
     const effectiveDue = Math.max(0, this.amount - totalCreditsUsed);
     // New advance generated if paid exceeds effective due (minus pending cleared)
-    this.advance = Math.max(0, this.paid - effectiveDue - this.pendingUsed);
+    // pendingClaimUsed is subtracted because clearing insurance pending claim is past debt, not new advance
+    this.advance = Math.max(0, this.paid - effectiveDue - this.pendingUsed - this.pendingClaimUsed);
     return next();
   }
 
@@ -477,8 +527,9 @@ billingSchema.pre("save", function (next) {
   // Pending is any remaining due after today's payment
   this.pending = Math.max(0, effectiveDue - this.paid);
   // New advance generated if paid exceeds effective due
-  // If pendingUsed is provided, it reduces the amount that can be converted to advance
-  this.advance = Math.max(0, this.paid - effectiveDue - this.pendingUsed);
+  // If pendingUsed/pendingClaimUsed is provided, it reduces the amount that can be converted to advance
+  // Both represent past debt being cleared (not new revenue), so they reduce advance generation
+  this.advance = Math.max(0, this.paid - effectiveDue - this.pendingUsed - this.pendingClaimUsed);
 
   next();
 });

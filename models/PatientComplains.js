@@ -91,6 +91,12 @@ const PatientComplainsSchema = new mongoose.Schema(
         },
       },
     ],
+    consentLogs: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ConsentLog",
+      default: [],
+      description: "Optional: List of consent forms linked to this complaint",
+    }],
   },
   {
     timestamps: true,

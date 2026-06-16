@@ -1,6 +1,5 @@
 import React from "react";
 import Head from "next/head";
-import { CheckCircle } from "lucide-react";
 
 const ConsentSuccessPage: React.FC = () => {
   return (
@@ -10,47 +9,91 @@ const ConsentSuccessPage: React.FC = () => {
         <meta name="description" content="Your consent form has been submitted successfully" />
       </Head>
 
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center py-8 px-4">
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center py-8 px-4">
         <div className="max-w-md w-full">
-          <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
-            {/* Success Icon */}
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle size={40} className="text-green-600" />
-            </div>
 
-            {/* Title */}
-            <h1 className="text-2xl font-bold text-gray-900 mb-3">
-              Consent Submitted Successfully!
-            </h1>
+          {/* ── Document Container ── */}
+          <div className="bg-white shadow-xl border border-gray-200 rounded-sm overflow-hidden">
 
-            {/* Message */}
-            <p className="text-gray-600 mb-8">
-              Thank you for completing your consent form. Your response has been recorded and will be reviewed by our medical team.
-            </p>
+            {/* ── Top Accent Bar ── */}
+            <div className="h-1.5 bg-gradient-to-r from-emerald-600 via-emerald-500 to-emerald-600" />
 
-            {/* Info Box */}
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-8">
-              <p className="text-sm text-blue-800">
+            {/* ── Content ── */}
+            <div className="px-8 py-10 text-center">
+
+              {/* Success Icon */}
+              <div className="relative mx-auto mb-5 w-16 h-16">
+                <div className="absolute inset-0 bg-emerald-100 rounded-full animate-ping opacity-20" />
+                <div className="relative w-16 h-16 bg-emerald-50 border-2 border-emerald-200 rounded-full flex items-center justify-center">
+                  <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Title */}
+              <h1 className="text-lg font-bold text-gray-900 mb-1.5 tracking-tight">
+                Consent Submitted
+              </h1>
+              <p className="text-xs text-gray-500 mb-6">
+                Your consent form has been recorded successfully.
+              </p>
+
+              {/* Divider */}
+              <div className="border-t border-dashed border-gray-200 my-5" />
+
+              {/* Info */}
+              <p className="text-[11px] text-gray-600 leading-relaxed mb-5">
                 A copy of your consent form has been saved to your medical records and is available for download at any time.
+              </p>
+
+              {/* What Happens Next */}
+              <div className="text-left bg-gray-50 border border-gray-200 rounded-md p-4 mb-5">
+                <h3 className="text-[11px] font-bold text-slate-800 uppercase tracking-wide mb-2.5">What happens next?</h3>
+                <ul className="space-y-2">
+                  <li className="flex items-start gap-2">
+                    <span className="w-4 h-4 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    </span>
+                    <span className="text-[11px] text-gray-600 leading-relaxed">Our medical team will review your consent</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-4 h-4 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    </span>
+                    <span className="text-[11px] text-gray-600 leading-relaxed">You'll receive a confirmation via WhatsApp or SMS</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-4 h-4 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    </span>
+                    <span className="text-[11px] text-gray-600 leading-relaxed">The consent will be available in your patient portal</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-4 h-4 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    </span>
+                    <span className="text-[11px] text-gray-600 leading-relaxed">You can access it anytime before your appointment</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Contact */}
+              <p className="text-[10px] text-gray-400">
+                Questions? Contact our support team for assistance.
               </p>
             </div>
 
-            {/* Additional Info */}
-            <div className="text-left bg-gray-50 rounded-xl p-4 mb-6">
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">What happens next?</h3>
-              <ul className="text-xs text-gray-600 space-y-1.5">
-                <li>• Our medical team will review your consent</li>
-                <li>• You'll receive a confirmation via WhatsApp or SMS</li>
-                <li>• The consent will be available in your patient portal</li>
-                <li>• You can access it anytime before your appointment</li>
-              </ul>
+            {/* ── Footer Bar ── */}
+            <div className="px-8 py-3 bg-gray-50 border-t border-gray-200">
+              <p className="text-center text-[10px] text-gray-400">
+                Powered by <span className="font-semibold text-slate-600">Zeva360</span> Healthcare
+              </p>
             </div>
 
-            {/* Contact Info */}
-            <p className="text-xs text-gray-500">
-              If you have any questions, please contact our support team.
-            </p>
           </div>
+          {/* ── End Document Container ── */}
+
         </div>
       </div>
     </>

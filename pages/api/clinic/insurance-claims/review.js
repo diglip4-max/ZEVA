@@ -56,12 +56,12 @@ export default async function handler(req, res) {
       }
     }
 
-    // Allow reviewing claims with "Under Review", "Approved", or "Rejected" status
+    // Allow reviewing claims with "Under Review", "Approved", "Rejected", or "Ready" status
     // This allows reverting already reviewed claims back to the opposite status
-    if (!["Under Review", "Approved", "Rejected"].includes(claim.status)) {
+    if (!["Under Review", "Approved", "Rejected", "Ready"].includes(claim.status)) {
       return res.status(400).json({
         success: false,
-        message: `Cannot review claim with status "${claim.status}". Only "Under Review", "Approved", or "Rejected" claims can be reviewed.`,
+        message: `Cannot review claim with status "${claim.status}". Only "Under Review", "Approved", "Rejected", or "Ready" claims can be reviewed.`,
       });
     }
 

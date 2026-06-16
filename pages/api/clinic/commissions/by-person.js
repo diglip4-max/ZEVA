@@ -195,6 +195,7 @@ export default async function handler(req, res) {
         isApproved: !!c.isApproved,
         doctorName: doctor.name || "",
         paymentMethod: c.paymentMethod || billing.paymentMethod || "",
+        multiplePayments: Array.isArray(c.multiplePayments) ? c.multiplePayments : Array.isArray(billing.multiplePayments) ? billing.multiplePayments : [],
         bankDeduction: c.bankDeduction || null,
         referralCommissionDeducted: Number(c.referralCommissionDeducted || 0),
       };

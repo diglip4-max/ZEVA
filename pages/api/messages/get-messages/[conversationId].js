@@ -81,7 +81,7 @@ export default async function handler(req, res) {
         .limit(limit)
         .populate("senderId", "name email phone")
         .populate("recipientId", "name email phone")
-        .populate("provider", "name label email phone")
+        .populate("provider", "name label email phone _ct _ac")
         .populate({
           path: "replyToMessageId",
           select: "content mediaType mediaUrl channel direction",

@@ -11,7 +11,7 @@ const LeadSchema = new mongoose.Schema(
     }, // ✅ Clinic that owns this lead
 
     name: { type: String, required: true },
-    phone: { type: String, required: true, index: true },
+    phone: { type: String, index: true },
     email: { type: String, index: true },
     gender: {
       type: String,

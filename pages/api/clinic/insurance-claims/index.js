@@ -25,8 +25,9 @@ export default async function handler(req, res) {
   // GET: List claims
   if (req.method === "GET") {
     try {
-      const { patientId, doctorId, clinicId, status } = req.query;
+      const { patientId, doctorId, clinicId, status, accessLevel } = req.query;
       const query = {};
+
 
       // Determine clinicId for filtering
       const { clinicId: userClinicId, isAdmin } = await getClinicIdFromUser(user);
@@ -38,12 +39,18 @@ export default async function handler(req, res) {
         query.clinicId = userClinicId;
       }
 
-      // If doctorStaff, only show their own claims
-      if (user.role === "doctorStaff") {
+      // Determine what claims to show based on accessLevel (route-based priority)
+      // accessLevel is determined by route: /clinic/* = clinic, /staff/* or /agent/* = staff
+      // This ensures that even if multiple tokens exist, the route determines the behavior
+      
+      if (accessLevel === 'doctorStaff' || user.role === 'doctorStaff') {
+        // doctorStaff always sees only their own claims (token takes precedence for doctorStaff role)
         query.doctorId = user._id;
       } else if (doctorId) {
+        // Specific doctor filter
         query.doctorId = doctorId;
       }
+      // For 'clinic' and 'staff' access levels: show all doctor staff claims (no doctorId filter)
 
       if (patientId) query.patientId = patientId;
       if (status) query.status = status;
@@ -89,12 +96,15 @@ export default async function handler(req, res) {
         doctorId,
         doctorName,
         claimAmount,
+        finalClaimAmount,
         claimType,
         coPayPercent,
         coPayType,
         notes,
         documentFiles,
         advanceStatus,
+        advanceAmount: frontendAdvanceAmount,
+        pendingClaim: frontendPendingClaim,
       } = req.body;
 
       // Validate required fields
@@ -132,20 +142,10 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, message: "Patient not found" });
       }
 
-      // Calculate advanceAmount and pendingClaim based on manually entered amount
-      let advanceAmount = 0;
-      let pendingClaim = 0;
-      
-      if (claimType === "Advance" || claimType === "Paid") {
-        if (advanceStatus) {
-          // Use the manually entered advanceAmount from req.body
-          advanceAmount = parseFloat(req.body.advanceAmount) || 0;
-          
-          if (advanceStatus === "Partial Pay") {
-            pendingClaim = parseFloat(claimAmount) - advanceAmount;
-          }
-        }
-      }
+      // Use frontend-calculated values if provided
+      let advanceAmount = parseFloat(frontendAdvanceAmount) || 0;
+      let pendingClaim = parseFloat(frontendPendingClaim) || 0;
+      const amountToStore = parseFloat(finalClaimAmount) || parseFloat(claimAmount);
 
       // Get doctor name
       const resolvedDoctorName = doctorName || `${doctor.name || ''}`.trim() || doctor.email;
@@ -160,10 +160,15 @@ export default async function handler(req, res) {
         servicesArray = [{ serviceId: serviceId, serviceName: serviceName || "" }];
       }
 
+      // Resolve creator name
+      const creatorName = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || "";
+
       const newClaim = await InsuranceClaim.create({
         clinicId: clinicIdToUse,
         patientId,
         createdBy: user._id,
+        createdByName: creatorName,
+        createdByRole: user.role || "",
         insuranceProvider: insuranceProvider.trim(),
         policyNumber: policyNumber.trim(),
         expiryDate: new Date(expiryDate),
@@ -175,12 +180,13 @@ export default async function handler(req, res) {
         doctorId,
         doctorName: resolvedDoctorName,
         claimAmount: parseFloat(claimAmount),
+        finalClaimAmount: amountToStore,
         claimType,
         coPayPercent: coPayPercent || 0,
         coPayType: coPayType || "Patient Pays",
         notes: notes || "",
         documentFiles: documentFiles || [],
-        advanceStatus: claimType === "Advance" ? (advanceStatus || "Full Pay") : null,
+        advanceStatus: advanceStatus || "Full Pay",
         advanceAmount,
         pendingClaim,
         status: "Under Review",

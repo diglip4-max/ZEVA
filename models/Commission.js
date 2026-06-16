@@ -1,5 +1,17 @@
 import mongoose from "mongoose";
 
+const multiplePaymentSchema = new mongoose.Schema(
+  {
+    paymentMethod: {
+      type: String,
+      enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Advance Balance", "Insurance Claim", "Pending Claim", "Cashback Wallet"],
+      required: true,
+    },
+    amount: { type: Number, required: true, min: 0 },
+  },
+  { _id: false },
+);
+
 const CommissionSchema = new mongoose.Schema(
   {
     clinicId: { type: mongoose.Schema.Types.ObjectId, ref: "Clinic", required: true, index: true },
@@ -47,6 +59,7 @@ const CommissionSchema = new mongoose.Schema(
     isApproved: { type: Boolean, default: false },  // Clinic approves the batch after submitting (approve button on summary row)
     // Payment method and bank deduction details
     paymentMethod: { type: String, enum: ["Cash", "Card", "BT", "Tabby", "Tamara"] },
+    multiplePayments: [multiplePaymentSchema],
     bankDeduction: { 
       enabled: Boolean,
       type: { type: String, enum: ["flat", "percentage"] },

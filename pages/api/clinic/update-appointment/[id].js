@@ -3,6 +3,7 @@ import Appointment from "../../../../models/Appointment";
 import Clinic from "../../../../models/Clinic";
 import User from "../../../../models/Users";
 import Room from "../../../../models/Room";
+import PatientRegistration from "../../../../models/PatientRegistration";
 import { getUserFromReq } from "../../lead-ms/auth";
 import { getClinicIdFromUser } from "../../lead-ms/permissions-helper";
 
@@ -211,6 +212,19 @@ export default async function handler(req, res) {
       });
     }
 
+    // Validate that appointment date/time is not in the past
+    const now = new Date();
+    const [year, month, day] = startDate.split('-').map(Number);
+    const [fromHour, fromMinute] = fromTime.split(':').map(Number);
+    const appointmentDateTime = new Date(year, month - 1, day, fromHour, fromMinute);
+    
+    if (appointmentDateTime < now) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot update an appointment to a past time. Please select a future date and time."
+      });
+    }
+
     // Validate doctor belongs to clinic
     const doctor = await User.findById(doctorId);
     if (
@@ -312,6 +326,16 @@ export default async function handler(req, res) {
       .populate("serviceId", "name")
       .populate("serviceIds", "name")
       .lean();
+
+    // Sync referral to patient's referredBy field
+    if (referral !== undefined) {
+      const patientReferralValue = referral === "No" ? "No" : referral;
+      await PatientRegistration.findByIdAndUpdate(
+        patientId,
+        { $set: { referredBy: patientReferralValue } },
+        { new: true }
+      );
+    }
 
     return res.status(200).json({
       success: true,

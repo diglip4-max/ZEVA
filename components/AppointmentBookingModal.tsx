@@ -143,6 +143,15 @@ export default function AppointmentBookingModal({
 
   const SLOT_INTERVAL_MINUTES = 15;
 
+  const getCurrentDate = () => {
+    return new Date().toISOString().split('T')[0];
+  };
+
+  const getCurrentTime = () => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  };
+
   const calculateEndTime = (time: string) => {
     if (!time) return "";
     const [hour, min] = time.split(":").map(Number);
@@ -311,6 +320,16 @@ export default function AppointmentBookingModal({
   };
 
   const handleFromTimeChange = (value: string) => {
+    // Check if time is in the past
+    if (startDate === getCurrentDate()) {
+      const currentTimeMinutes = timeStringToMinutes(getCurrentTime());
+      const selectedTimeMinutes = timeStringToMinutes(value);
+      if (selectedTimeMinutes < currentTimeMinutes) {
+        toast.error("Cannot select a time in the past");
+        return;
+      }
+    }
+
     // Check against custom time slots if available
     if (customTimeSlots?.endTime) {
       const selectedMinutes = timeStringToMinutes(value);
@@ -326,6 +345,16 @@ export default function AppointmentBookingModal({
   };
 
   const handleToTimeChange = (value: string) => {
+    // Check if time is in the past
+    if (startDate === getCurrentDate()) {
+      const currentTimeMinutes = timeStringToMinutes(getCurrentTime());
+      const selectedTimeMinutes = timeStringToMinutes(value);
+      if (selectedTimeMinutes < currentTimeMinutes) {
+        toast.error("Cannot select a time in the past");
+        return;
+      }
+    }
+
     // Check against custom time slots if available
     if (customTimeSlots?.endTime) {
       const selectedMinutes = timeStringToMinutes(value);
@@ -477,6 +506,18 @@ export default function AppointmentBookingModal({
     // Clear previous errors
     setError("");
     setFieldErrors({});
+
+    // Validate that appointment date/time is not in the past
+    const now = new Date();
+    const [year, month, day] = startDate.split('-').map(Number);
+    const [fromHour, fromMinute] = fromTime.split(':').map(Number);
+    const appointmentDateTime = new Date(year, month - 1, day, fromHour, fromMinute);
+    
+    if (appointmentDateTime < now) {
+      setError("Cannot book an appointment in the past. Please select a future date and time.");
+      toast.error("Cannot book an appointment in the past");
+      return;
+    }
 
     // Client-side validation
     const clientErrors: Record<string, string> = {};
@@ -1479,6 +1520,7 @@ export default function AppointmentBookingModal({
                 </label>
                 <input
                   type="date"
+                  min={getCurrentDate()}
                   value={startDate}
                   onChange={(e) => {
                     setStartDate(e.target.value);
@@ -1504,6 +1546,7 @@ export default function AppointmentBookingModal({
                 </label>
                 <input
                   type="time"
+                  min={startDate === getCurrentDate() ? getCurrentTime() : undefined}
                   value={fromTime}
                   onChange={(e) => handleFromTimeChange(e.target.value)}
                   className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
@@ -1524,6 +1567,7 @@ export default function AppointmentBookingModal({
                 </label>
                 <input
                   type="time"
+                  min={startDate === getCurrentDate() ? getCurrentTime() : undefined}
                   value={toTime}
                   onChange={(e) => handleToTimeChange(e.target.value)}
                   className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${

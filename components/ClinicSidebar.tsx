@@ -781,7 +781,10 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
     "Consent Form": "Clinic_consent_Form",
     "Job Posting": "clinic_job_posting",
     "Commission": "clinic_commission",
-    "Pass-Claims": "clinic_claim",
+    "Claims": "claims",
+    "Pass By Doctor": "pass_by_doctor",
+    "Release Requested": "release_requested",
+    "Doctor's Claim": "doctor_claim",
     "Assigned Leads": "assignedLead",
     "Referral": "clinic_referal",
     "Referal": "clinic_referal",
@@ -1039,10 +1042,10 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               return hasPermission;
             }
 
-            // If no top-level module found, check parent module's subModules (stock and marketing)
+            // If no top-level module found, check parent module's subModules (stock, marketing, and claims)
             if (label) {
               // console.log('[localHasModulePermission] Checking parent subModules for label:', label);
-              const parentModulesToCheck = ['clinic_stock', 'clinic_marketing'];
+              const parentModulesToCheck = ['clinic_stock', 'clinic_marketing', 'claims'];
               for (const parentModuleKey of parentModulesToCheck) {
                 const parentPerm = localPermissions.find(p => p.module === parentModuleKey);
                 // console.log('[localHasModulePermission] Checking parentModuleKey:', parentModuleKey, 'parentPerm:', parentPerm);
@@ -1062,7 +1065,10 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                         (labelTrimmed === 'locations' && smNameTrimmed === 'stock locations') ||
                         (labelTrimmed === 'templates' && smNameTrimmed === 'template') ||
                         (labelTrimmed === 'reviews' && smNameTrimmed === 'review') ||
-                        (labelTrimmed === 'inbox' && smNameTrimmed === 'inbox')
+                        (labelTrimmed === 'inbox' && smNameTrimmed === 'inbox') ||
+                        // Claims submodules special cases
+                        (labelTrimmed === 'pass by doctor' && smNameTrimmed === 'pass by doctor') ||
+                        (labelTrimmed === 'release requested' && smNameTrimmed === 'release requested')
                       );
                     });
                     // console.log('[localHasModulePermission] Found subModule:', subModule);
@@ -1146,6 +1152,18 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 return false;
               }
               // Check if this specific marketing submodule has permission
+              return localHasModulePermission(moduleKey || '', item.label);
+            }
+
+            // Check claims submodules (pass_by_doctor, release_requested, doctor_claim)
+            const claimsSubmodules = ['pass_by_doctor', 'release_requested', 'doctor_claim'];
+            if (claimsSubmodules.includes(moduleKey || '')) {
+              // First check if parent claims module has any permission
+              const claimsParentAllowed = localHasModulePermission('claims');
+              if (!claimsParentAllowed) {
+                return false;
+              }
+              // Check if this specific claims submodule has permission
               return localHasModulePermission(moduleKey || '', item.label);
             }
 
@@ -1284,7 +1302,6 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 createItem("Consent Form", "/clinic/consent", "📝"),
                 createItem("Job Posting", "/clinic/job-posting", "📝"),
                 createItem("Commission", "/clinic/commission", "💰"),
-                createItem("Pass-Claims", "/clinic/pass-claims", "file-text"),
                 pickTop("Assigned Leads"),
                 pickTop("Referral"),
                 pickTop("Referal"),
@@ -1309,6 +1326,16 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 createItem("Campaigns", "/clinic/campaigns", "campaigns"),
               ),
               order: 120,
+            },
+            {
+              label: "Claims",
+              icon: "file-text",
+              children: nonNull(
+                createItem("Pass By Doctor", "/clinic/pass-claims", "✅"),
+                createItem("Release Requested", "/clinic/release-requested-claims", "🚀"),
+                createItem("Doctor's Claim", "/clinic/all-claims", "👨‍⚕️"),
+              ),
+              order: 125,
             },
             {
               label: "Automation",

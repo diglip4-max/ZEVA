@@ -191,8 +191,50 @@ export default async function handler(req, res) {
     });
 
     await billingRecord.save();
+    console.log(`[Package Billing] Created billing record for patient ${patientId}, package ${packageName}`);
+    console.log(`[Package Billing] Total: ${totalAmount}, Paid: ${paidAmount || 0}, Advance Used: ${advanceBalanceUsed || 0}, Claim Used: ${claimAmountUsed || 0}, Pending: ${pendingAmount}`);
 
-    // Add to PettyCash if payment method is Cash and paidAmount > 0
+    // ============================================================
+    // Enterprise Pending Ledger: if package has pending > 0, create
+    // a corresponding PatientPendingLedger row so the pending amount
+    // is traceable to a specific package.
+    // ============================================================
+    try {
+      console.log("[PackageBilling] Checking if ledger entry needed: pendingAmount =", pendingAmount);
+      if (pendingAmount > 0) {
+        const { createLedgerEntry } = await import("../../../lib/pendingLedger");
+        console.log("[PackageBilling] Creating ledger entry for billing", billingRecord._id, "pending:", pendingAmount);
+        const entry = await createLedgerEntry({
+          clinicId,
+          branchId: null,
+          patientId,
+          parentBillingId: billingRecord._id,
+          appointmentId: null,
+          invoiceNumber: finalInvoiceNumber,
+          service: "Package",
+          treatmentSlug: null,
+          treatmentName: null,
+          packageId: packageId || null,
+          packageName: packageName || null,
+          serviceId: null,
+          patientPackageId: null,
+          patientPackageSubId: null,
+          amount: pendingAmount,
+          createdBy: user._id,
+        });
+        console.log(
+          "[PackageBilling] ✓ Created ledger entry", entry?.ledgerId, "for billing", billingRecord._id,
+        );
+      } else {
+        console.log("[PackageBilling] No ledger entry needed (pendingAmount = 0)");
+      }
+    } catch (ledgerErr) {
+      console.error(
+        "[PackageBilling] ✗ Failed to create ledger entry for billing",
+        billingRecord._id,
+        ledgerErr.message,
+      );
+    }
     if (paymentMethod === "Cash" && paidAmount > 0) {
       try {
         const pettyCashRecord = await PettyCash.create({
@@ -217,13 +259,27 @@ export default async function handler(req, res) {
       }
     }
 
-    console.log(`[Package Billing] Created billing record for patient ${patientId}, package ${packageName}`);
-    console.log(`[Package Billing] Total: ${totalAmount}, Paid: ${paidAmount || 0}, Advance Used: ${advanceBalanceUsed || 0}, Claim Used: ${claimAmountUsed || 0}, Pending: ${pendingAmount}`);
+    // Refresh billing from DB to include updated ledger cached fields
+    let billingForResponse = billingRecord;
+    try {
+      const refreshed = await Billing.findById(billingRecord._id).lean();
+      if (refreshed) {
+        console.log(
+          "[PackageBilling] Billing refresh: pendingLedgerCached =",
+          refreshed.pendingLedgerCached,
+          ", pendingLedgerOpenCount =",
+          refreshed.pendingLedgerOpenCount,
+        );
+        billingForResponse = refreshed;
+      }
+    } catch (refreshErr) {
+      console.warn("[PackageBilling] Billing refresh failed:", refreshErr.message);
+    }
 
     return res.status(201).json({
       success: true,
       message: "Package billing recorded successfully",
-      billing: billingRecord,
+      billing: billingForResponse,
       invoiceNumber: finalInvoiceNumber,
     });
   } catch (error) {

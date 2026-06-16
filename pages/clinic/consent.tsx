@@ -26,6 +26,13 @@ import withClinicAuth from "../../components/withClinicAuth";
 import type { NextPageWithLayout } from "../_app";
 import { toast } from "react-hot-toast";
 import { useAgentPermissions } from "../../hooks/useAgentPermissions";
+import dynamic from "next/dynamic";
+import "react-quill/dist/quill.snow.css";
+
+const ReactQuill = dynamic(
+  () => import("react-quill").then((mod: any) => mod.default as React.ComponentType<any>),
+  { ssr: false }
+);
 
 const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
 const getStoredToken = () => {
@@ -185,14 +192,20 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
   const selectedServices = services.filter((s) => selectedServiceIds.includes(s._id));
 
   const canProceed = () => {
-    if (currentStep === 2) return formName.trim().length > 0;
+    if (currentStep === 2) return formName.trim().length > 0 && description.trim().length > 0;
     return true;
   };
 
   const handleNext = () => {
-    if (currentStep === 2 && !formName.trim()) {
-      toast.error("Form name is required");
-      return;
+    if (currentStep === 2) {
+      if (!formName.trim()) {
+        toast.error("Form name is required");
+        return;
+      }
+      if (!description.trim() || description === "<p><br></p>") {
+        toast.error("Description is required");
+        return;
+      }
     }
     if (currentStep < 5) setCurrentStep((p) => p + 1);
   };
@@ -204,6 +217,10 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
   const handlePublish = async () => {
     if (!formName.trim()) {
       toast.error("Form name is required");
+      return;
+    }
+    if (!description.trim() || description === "<p><br></p>") {
+      toast.error("Description is required");
       return;
     }
     setSubmitting(true);
@@ -499,16 +516,43 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
                 />
               </div>
 
-              {/* Description */}
+              {/* Description – Rich Text Editor */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={3}
-                  placeholder="Brief description of this consent form..."
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description <span className="text-red-500">*</span>
+                </label>
+                <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
+                  <ReactQuill
+                    value={description}
+                    onChange={setDescription}
+                    placeholder="Enter the full consent form content here (Treatment Information, Risks, etc.)..."
+                    modules={{
+                      toolbar: [
+                        [{ header: [1, 2, 3, false] }],
+                        ["bold", "italic", "underline", "strike"],
+                        [{ color: [] }, { background: [] }],
+                        [{ font: [] }],
+                        [{ list: "ordered" }, { list: "bullet" }],
+                        [{ align: [] }],
+                        ["blockquote"],
+                        ["clean"],
+                      ],
+                    }}
+                    formats={[
+                      "header",
+                      "bold", "italic", "underline", "strike",
+                      "color", "background",
+                      "font",
+                      "list", "bullet",
+                      "align",
+                      "blockquote",
+                    ]}
+                    className="text-sm"
+                  />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Use the toolbar to format headings, bold text, fonts, and bullet/numbered lists.
+                </p>
               </div>
             </div>
           )}
@@ -738,7 +782,11 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
                     <ReviewRow label="Version" value={version || "1.0"} />
                     {description && (
                       <div className="col-span-2">
-                        <ReviewRow label="Description" value={description} />
+                        <p className="text-xs text-gray-400 font-medium mb-1">Description</p>
+                        <div
+                          className="text-sm text-gray-800 prose prose-sm max-w-none"
+                          dangerouslySetInnerHTML={{ __html: description }}
+                        />
                       </div>
                     )}
                   </div>
@@ -1013,7 +1061,10 @@ function ViewConsentModal({ consent, onClose }: ViewConsentModalProps) {
               {consent.description && (
                 <div className="col-span-2">
                   <p className="text-xs text-gray-400 font-medium">Description</p>
-                  <p className="text-sm text-gray-700 mt-1">{consent.description}</p>
+                  <div
+                    className="text-sm text-gray-700 mt-1 prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: consent.description }}
+                  />
                 </div>
               )}
               <div className="col-span-2">

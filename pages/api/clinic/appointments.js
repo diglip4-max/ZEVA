@@ -4,6 +4,7 @@ import Service from "../../../models/Service";
 import Clinic from "../../../models/Clinic";
 import PatientRegistration from "../../../models/PatientRegistration";
 import User from "../../../models/Users";
+import Room from "../../../models/Room"; // Import Room model to register it for population
 import { getUserFromReq } from "../lead-ms/auth";
 import { getClinicIdFromUser } from "../lead-ms/permissions-helper";
 import { formatDoctorTreatments } from "../../../server/staff/doctorTreatmentService";
@@ -635,6 +636,19 @@ export default async function handler(req, res) {
         }
       }
 
+      // Validate that appointment date/time is not in the past
+      const now = new Date();
+      const [year, month, day] = startDate.split('-').map(Number);
+      const [fromHour, fromMinute] = fromTime.split(':').map(Number);
+      const appointmentDateTime = new Date(year, month - 1, day, fromHour, fromMinute);
+      
+      if (appointmentDateTime < now) {
+        return res.status(400).json({
+          success: false,
+          message: "Cannot book an appointment in the past. Please select a future date and time."
+        });
+      }
+
       // Create appointment
       console.log("💾 Creating appointment with bookedFrom:", validBookedFrom);
       // Ensure appointmentDate is normalized to UTC midnight
@@ -737,6 +751,16 @@ export default async function handler(req, res) {
         "✅ Appointment bookedFrom type:",
         typeof appointment.bookedFrom,
       );
+
+      // Sync referral to patient's referredBy field
+      if (referral !== undefined) {
+        const patientReferralValue = referral === "direct" ? "No" : (referral || "No");
+        await PatientRegistration.findByIdAndUpdate(
+          patientId,
+          { $set: { referredBy: patientReferralValue } },
+          { new: true }
+        );
+      }
 
       // Force-set bookedFrom in case schema hot-reload missed the new field
       if (appointment.bookedFrom !== validBookedFrom) {

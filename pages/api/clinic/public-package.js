@@ -122,6 +122,8 @@ export default async function handler(req, res) {
           userPackages: {
             packageId: userPackage._id,
             packageName: userPackage.packageName,
+            packageSoldBy: userPackage.packageSoldBy,
+            packageSoldByUserId: userPackage.packageSoldByUserId,
             totalSessions: userPackage.totalSessions,
             remainingSessions: userPackage.remainingSessions,
             totalPrice: userPackage.totalPrice,
@@ -161,7 +163,9 @@ export default async function handler(req, res) {
         sessionPrice, 
         treatments, 
         endDate,
-        createdBy 
+        createdBy,
+        packageSoldBy,
+        packageSoldByUserId
       } = req.body;
 
       if (!clinicId || !patientId || !packageName || !totalPrice || !totalSessions) {
@@ -188,6 +192,8 @@ export default async function handler(req, res) {
         approvalStatus: 'pending',
         paymentStatus: 'paid',
         createdBy: createdBy || null,
+        packageSoldBy,
+        packageSoldByUserId,
       });
 
       const savedPackage = await newPackage.save();
@@ -235,6 +241,8 @@ export default async function handler(req, res) {
               userPackages: {
                 packageId: userPackage._id,
                 packageName: userPackage.packageName,
+                packageSoldBy: userPackage.packageSoldBy,
+                packageSoldByUserId: userPackage.packageSoldByUserId,
                 totalSessions: userPackage.totalSessions,
                 remainingSessions: userPackage.remainingSessions,
                 totalPrice: userPackage.totalPrice,

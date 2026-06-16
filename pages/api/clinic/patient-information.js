@@ -12,7 +12,7 @@ export default async function handler(req, res) {
         allowedRoles: ["staff", "doctorStaff", "doctor", "clinic", "agent", "admin"],
       });
 
-      const { emrNumber, invoiceNumber, name, phone, claimStatus, applicationStatus } = req.query;
+      const { emrNumber, invoiceNumber, name, phone, claimStatus, applicationStatus, id } = req.query;
 
       // Build query based on user role - CRITICAL: userId filter must be applied first
       let query = {};
@@ -62,6 +62,15 @@ export default async function handler(req, res) {
       // For other roles: show their own patients
       else {
         query.userId = user._id;
+      }
+
+      // If id is provided, fetch single patient
+      if (id) {
+        const patient = await PatientRegistration.findOne({ _id: id, ...query }).lean();
+        if (!patient) {
+          return res.status(404).json({ success: false, message: "Patient not found" });
+        }
+        return res.status(200).json({ success: true, patient });
       }
 
       // Handle name search - if name filter exists, use $and to combine with userId filter
