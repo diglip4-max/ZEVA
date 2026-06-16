@@ -47,12 +47,20 @@ export default async function handler(req, res) {
 
   // Check if clinic is within 2-day mock data period and has no real data
   if (clinic && isNewClinicInMockPeriod(clinic.registeredAt)) {
+    const parseDate = (v) => {
+      const val = Array.isArray(v) ? v[0] : v;
+      if (!val || val === "undefined" || val === "null") return null;
+      const d = new Date(val);
+      return isNaN(d.getTime()) ? null : d;
+    };
+    const mockQStart = parseDate(req.query.startDate);
+    const mockQEnd = parseDate(req.query.endDate);
     const appointmentCount = await mongoose.connection.collection("appointments").countDocuments({
-      clinicId: targetClinicId,
-      ...(qStart || qEnd ? {
+      clinicId: clinic._id,
+      ...(mockQStart || mockQEnd ? {
         startDate: {
-          ...(qStart ? { $gte: qStart } : {}),
-          ...(qEnd ? { $lte: qEnd } : {})
+          ...(mockQStart ? { $gte: mockQStart } : {}),
+          ...(mockQEnd ? { $lte: mockQEnd } : {})
         }
       } : {})
     });
@@ -295,9 +303,21 @@ export default async function handler(req, res) {
         },
       ]).toArray(),
       mongoose.connection.collection("patientregistrations").aggregate([
-        { $unwind: { path: "$memberships", preserveNullAndEmptyArrays: true } },
-        ...(qEnd ? [{ $match: { "memberships.startDate": { $lte: qEnd } } }] : []),
-        ...(qStart ? [{ $match: { $or: [{ "memberships.endDate": null }, { "memberships.endDate": { $gte: qStart } }] } }] : []),
+        { $unwind: { path: "$memberships", preserveNullAndEmptyArrays: false } },
+        // Filter by purchase date: memberships.startDate within range, fallback to createdAt
+        ...((qStart || qEnd) ? [{
+          $addFields: {
+            "memberships._purchaseDate": {
+              $ifNull: ["$memberships.startDate", "$memberships.createdAt"]
+            }
+          }
+        }] : []),
+        ...((qStart || qEnd) ? [{
+          $match: {
+            ...(qStart ? { "memberships._purchaseDate": { $gte: qStart } } : {}),
+            ...(qEnd ? { "memberships._purchaseDate": { $lte: qEnd } } : {}),
+          }
+        }] : []),
         {
           $lookup: {
             from: "membershipplans",
@@ -306,7 +326,8 @@ export default async function handler(req, res) {
             as: "plan",
           },
         },
-        { $unwind: { path: "$plan", preserveNullAndEmptyArrays: true } },
+        { $unwind: { path: "$plan", preserveNullAndEmptyArrays: false } },
+        // Strictly filter by current clinic's membership plans
         ...(targetClinicId ? [{ $match: { "plan.clinicId": targetClinicId } }] : []),
         {
           $group: {
@@ -334,12 +355,32 @@ export default async function handler(req, res) {
       mongoose.connection.collection("patientregistrations").aggregate([
         { $match: { packages: { $exists: true, $not: { $size: 0 } } } },
         { $unwind: "$packages" },
-        ...(qStart || qEnd ? [{
-          $match: {
-            ...(qStart ? { "packages.startDate": { $gte: qStart } } : {}),
-            ...(qEnd ? { "packages.startDate": { $lte: qEnd } } : {}),
-          },
+        // Filter by assignment date: packages.assignedDate within range, fallback to createdAt
+        ...((qStart || qEnd) ? [{
+          $addFields: {
+            "_pkgDate": {
+              $ifNull: ["$packages.assignedDate", "$packages.createdAt"]
+            }
+          }
         }] : []),
+        ...((qStart || qEnd) ? [{
+          $match: {
+            ...(qStart ? { "_pkgDate": { $gte: qStart } } : {}),
+            ...(qEnd ? { "_pkgDate": { $lte: qEnd } } : {}),
+          }
+        }] : []),
+        // Lookup package definition to enforce clinic filter
+        {
+          $lookup: {
+            from: "packages",
+            localField: "packages.packageId",
+            foreignField: "_id",
+            as: "pkgDef",
+          },
+        },
+        { $unwind: { path: "$pkgDef", preserveNullAndEmptyArrays: false } },
+        // Strictly filter by current clinic
+        ...(targetClinicId ? [{ $match: { "pkgDef.clinicId": targetClinicId } }] : []),
         {
           $group: {
             _id: "$_id",
