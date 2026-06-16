@@ -281,9 +281,32 @@ export default async function handler(req, res) {
       const skip = (pageNum - 1) * limitNum;
 
       let total, appointments, totalRevenue = 0;
+      let dayWiseStatusCounts = {};
       try {
         // Get total count for pagination (use the final query)
         total = await Appointment.countDocuments(query);
+      
+        // Compute day-wise status counts for the filtered date range (independent of pagination)
+        try {
+          const statusAgg = await Appointment.aggregate([
+            { $match: query },
+            {
+              $group: {
+                _id: "$status",
+                count: { $sum: 1 }
+              }
+            }
+          ]);
+          
+          statusAgg.forEach(item => {
+            if (item._id) {
+              dayWiseStatusCounts[item._id] = item.count;
+            }
+          });
+        } catch (statusErr) {
+          console.error("Error computing status counts:", statusErr);
+          dayWiseStatusCounts = {};
+        }
       
         // Compute total revenue for the same filtered appointments
         try {
@@ -494,6 +517,7 @@ export default async function handler(req, res) {
         page: pageNum,
             totalPages: Math.ceil(total / limitNum),
             totalRevenue,
+            statusCounts: dayWiseStatusCounts,
       });
     }
 

@@ -41,43 +41,99 @@ export default async function handler(req, res) {
   }
 
   const { departmentId, sortBy = "revenue", startDate, endDate } = req.query;
-  if (!departmentId || !mongoose.Types.ObjectId.isValid(departmentId)) {
-    return res.status(400).json({ success: false, message: "Valid departmentId is required" });
-  }
+  const hasDepartment = departmentId && mongoose.Types.ObjectId.isValid(departmentId);
 
   try {
-    // Find all services of this department for this clinic
-    const svcQuery = { departmentId: new mongoose.Types.ObjectId(departmentId) };
-    if (user.role !== "admin") {
-      svcQuery.clinicId = new mongoose.Types.ObjectId(String(clinicId));
-    } else if (req.query.clinicId) {
-      svcQuery.clinicId = new mongoose.Types.ObjectId(String(req.query.clinicId));
+    // Find all services of this department for this clinic (only when departmentId is provided)
+    let serviceNames = [];
+    if (hasDepartment) {
+      const svcQuery = { departmentId: new mongoose.Types.ObjectId(departmentId) };
+      if (user.role !== "admin") {
+        svcQuery.clinicId = new mongoose.Types.ObjectId(String(clinicId));
+      } else if (req.query.clinicId) {
+        svcQuery.clinicId = new mongoose.Types.ObjectId(String(req.query.clinicId));
+      }
+      const services = await Service.find(svcQuery).select("name clinicId").lean();
+      serviceNames = services.map((s) => s.name);
     }
-    const services = await Service.find(svcQuery).select("name clinicId").lean();
-    const serviceNames = services.map((s) => s.name);
     const clinicObjectId =
       user.role === "admin" && req.query.clinicId
         ? new mongoose.Types.ObjectId(String(req.query.clinicId))
         : new mongoose.Types.ObjectId(String(clinicId));
 
-    // Aggregate billing only for treatments that belong to this department
+    // End date = end-of-day
+    const endDateEod = endDate
+      ? new Date(new Date(endDate).getFullYear(), new Date(endDate).getMonth(), new Date(endDate).getDate(), 23, 59, 59, 999)
+      : null;
+
+    // Aggregate billings (Treatment + Service). When departmentId is provided,
+    // filter to services belonging to that department; otherwise return all services.
     const match = {
-      service: "Treatment",
+      service: { $in: ["Treatment", "Service"] },
       clinicId: clinicObjectId,
-      treatment: { $in: serviceNames.length ? serviceNames : ["__none__"] },
     };
-    if (startDate || endDate) {
+    if (hasDepartment) {
+      if (serviceNames.length) {
+        match.$or = [
+          { treatment: { $in: serviceNames } },
+          { service: "Service" }, // Service billings filtered by department via appointment lookup below
+        ];
+      } else {
+        match.treatment = { $in: ["__none__"] };
+      }
+    }
+    if (startDate || endDateEod) {
       match.invoicedDate = {};
       if (startDate) match.invoicedDate.$gte = new Date(startDate);
-      if (endDate) match.invoicedDate.$lte = new Date(endDate);
+      if (endDateEod) match.invoicedDate.$lte = endDateEod;
       if (Object.keys(match.invoicedDate).length === 0) delete match.invoicedDate;
     }
 
     const data = await Billing.aggregate([
       { $match: match },
       {
+        $lookup: {
+          from: "appointments",
+          localField: "appointmentId",
+          foreignField: "_id",
+          as: "appt",
+        },
+      },
+      { $unwind: { path: "$appt", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "services",
+          localField: "appt.serviceId",
+          foreignField: "_id",
+          as: "apptSvc",
+        },
+      },
+      { $unwind: { path: "$apptSvc", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          resolvedServiceName: {
+            $ifNull: ["$treatment", { $ifNull: ["$apptSvc.name", "Unknown"] }],
+          },
+          apptDeptId: "$apptSvc.departmentId",
+        },
+      },
+      // When departmentId is provided, keep only services that match this department
+      // (by name for Treatment, or by departmentId for Service via appointment lookup)
+      ...(hasDepartment
+        ? [{
+            $match: {
+              $expr: {
+                $or: [
+                  { $in: ["$resolvedServiceName", serviceNames.length ? serviceNames : ["__none__"]] },
+                  { $eq: ["$apptDeptId", new mongoose.Types.ObjectId(departmentId)] },
+                ],
+              },
+            },
+          }]
+        : []),
+      {
         $group: {
-          _id: "$treatment",
+          _id: "$resolvedServiceName",
           totalRevenue: { $sum: { $ifNull: ["$paid", 0] } },
           totalBookings: { $sum: 1 },
           averagePrice: { $avg: { $ifNull: ["$amount", 0] } },

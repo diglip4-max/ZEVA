@@ -232,19 +232,67 @@ export default async function handler(req, res) {
         remaining = Math.max(0, total - used);
       }
 
-      if (remaining <= 0) {
-        return res.status(400).json({ success: false, message: "No remaining package sessions to transfer" });
-      }
+      // Get sessions to transfer from request body, default to all remaining
+        let sessionsToTransfer = req.body.sessionsToTransfer ? Number(req.body.sessionsToTransfer) : remaining;
+        
+        // Validate sessions to transfer
+        if (sessionsToTransfer <= 0) {
+          return res.status(400).json({ success: false, message: "Sessions to transfer must be greater than 0" });
+        }
+        if (sessionsToTransfer > remaining) {
+          return res.status(400).json({ success: false, message: `Only ${remaining} sessions available to transfer` });
+        }
 
-      // Check for pending package billing and handle transfer of pending liability
+        // Check if doing partial transfer, then verify package is fully paid
+        if (sessionsToTransfer < remaining) {
+          // Calculate payment status from billing history for accuracy
+          let packagePaymentStatus = "Unpaid";
+          
+          if (isUserPackage) {
+            packagePaymentStatus = pkg.paymentStatus;
+          } else {
+            // Get all package billings for this patient
+            const packageBillingsForPkg = await Billing.find({
+              clinicId: source.clinicId,
+              patientId: sourcePatientId,
+              service: "Package",
+              package: pkg.name,
+            });
+            
+            // Calculate total paid (cash + advance)
+            const totalCashPaidFromBillings = packageBillingsForPkg.reduce((sum, b) => sum + (Number(b.paid) || 0), 0);
+            const totalAdvanceUsedFromBillings = packageBillingsForPkg.reduce((sum, b) => sum + (Number(b.advanceUsed) || 0), 0);
+            const totalPaidIncludingAdvance = totalCashPaidFromBillings + totalAdvanceUsedFromBillings;
+            
+            // Get package price
+            const packagePrice = pkg.totalPrice || 0;
+            
+            // Determine payment status
+            if (packagePrice > 0 && totalPaidIncludingAdvance >= packagePrice) {
+              packagePaymentStatus = "Full";
+            } else if (totalPaidIncludingAdvance > 0) {
+              packagePaymentStatus = "Partial";
+            } else {
+              // Fall back to patient package entry if no billings
+              const sourcePackageEntry = (source.packages || []).find(p => String(p.packageId) === String(packageId));
+              packagePaymentStatus = sourcePackageEntry?.paymentStatus || "Unpaid";
+            }
+          }
+          
+          if (packagePaymentStatus !== "Full") {
+            return res.status(400).json({ success: false, message: "Only fully paid package sessions can be transferred" });
+          }
+        }
+
+      // Check for pending package billing and handle transfer of pending liability (only if transferring all sessions)
       let pendingPackageAmount = 0;
       let packageBillingToTransfer = null;
       let totalPaidBySource = 0; // Total paid by source patient (cash + advance)
       let cashPaidBySource = 0; // Cash/card paid by source patient
       let advanceUsedBySource = 0; // Advance balance used by source patient
 
-      if (clinicId) {
-        // Find all billing records for this package for the source patient
+      if (clinicId && sessionsToTransfer === remaining) {
+        // Only transfer pending amount if transferring all sessions
         const packageBillings = await Billing.find({
           clinicId,
           patientId: sourcePatientId,
@@ -271,8 +319,8 @@ export default async function handler(req, res) {
       const session = await mongoose.startSession();
       session.startTransaction();
       try {
-        // If there's pending amount, transfer the billing liability
-        if (pendingPackageAmount > 0 && packageBillingToTransfer && clinicId) {
+        // If there's pending amount and transferring all sessions, transfer the billing liability
+        if (pendingPackageAmount > 0 && packageBillingToTransfer && clinicId && sessionsToTransfer === remaining) {
           // Create new billing record for target patient with the pending amount
           const targetBillingInvoiceCount = await Billing.countDocuments({ clinicId });
           const targetBillingInvoiceNumber = `PKG-TRANSFER-${Date.now()}-${targetBillingInvoiceCount + 1}`;
@@ -343,25 +391,50 @@ export default async function handler(req, res) {
           console.log(`[Transfer Benefits] Transferred pending amount ${pendingPackageAmount} from source ${sourcePatientId} to target ${targetPatientId}`);
         }
         if (isUserPackage) {
-          // For UserPackage, we just transfer ownership of the document
-          pkg.patientId = targetPatientId;
-          await pkg.save({ session });
+          if (sessionsToTransfer === remaining) {
+            // Transfer entire UserPackage
+            pkg.patientId = targetPatientId;
+            await pkg.save({ session });
+          } else {
+            // Update remaining sessions for source
+            pkg.remainingSessions = remaining - sessionsToTransfer;
+            await pkg.save({ session });
+            // Create a new UserPackage for the target patient
+            const targetUserPkg = new UserPackage({
+              patientId: targetPatientId,
+              packageName: pkg.packageName,
+              clinicId: source.clinicId,
+              totalSessions: sessionsToTransfer,
+              remainingSessions: sessionsToTransfer,
+              totalPrice: pkg.totalPrice,
+              paymentStatus: pkg.paymentStatus,
+              paidAmount: pkg.paidAmount,
+              createdBy: user._id,
+              createdAt: new Date(),
+            });
+            await targetUserPkg.save({ session });
+          }
         } else {
-          // For standard package, we remove from source and add to target
+          // For standard package: only remove from source if transferring all sessions, but ALWAYS add to target.packages
+          // First get sourcePackage BEFORE removing it from source.packages!
           const sourcePackage = (Array.isArray(source.packages) ? source.packages.find(p => String(p.packageId) === String(packageId)) : {});
-          source.packages = (Array.isArray(source.packages) ? source.packages.filter(p => String(p.packageId) !== String(packageId)) : []);
-          
+          if (sessionsToTransfer === remaining) {
+            source.packages = (Array.isArray(source.packages) ? source.packages.filter(p => String(p.packageId) !== String(packageId)) : []);
+          }
           target.packages = Array.isArray(target.packages) ? target.packages : [];
-          target.packages.push({ 
-            packageId, 
-            packageName,
-            packageSoldBy: sourcePackage.packageSoldBy || user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown',
-            assignedDate: new Date(),
-            paymentStatus: totalPaidBySource >= (pkg.totalPrice || 0) ? 'Full' : (totalPaidBySource > 0 ? 'Partial' : 'Unpaid'),
-            paidAmount: totalPaidBySource, // Total paid (cash + advance) by source patient
-            paymentMethod,
-            totalPrice: pkg.totalPrice || 0, // Add totalPrice for payment status calculation
-          });
+          const existingTargetPkg = target.packages.find(p => String(p.packageId) === String(packageId));
+          if (!existingTargetPkg) {
+            target.packages.push({ 
+              packageId, 
+              packageName,
+              packageSoldBy: sourcePackage.packageSoldBy || user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown',
+              assignedDate: new Date(),
+              paymentStatus: pendingPackageAmount > 0 ? (totalPaidBySource >= (pkg.totalPrice || 0) ? 'Full' : (totalPaidBySource > 0 ? 'Partial' : 'Unpaid')) : paymentStatus,
+              paidAmount: pendingPackageAmount > 0 ? totalPaidBySource : paidAmount, // Total paid (cash + advance) by source patient
+              paymentMethod,
+              totalPrice: pkg.totalPrice || 0, // Add totalPrice for payment status calculation
+            });
+          }
         }
 
         // Common logging for transfer history
@@ -373,7 +446,7 @@ export default async function handler(req, res) {
           packageName,
           isUserPackage,
           toPatientId: target._id,
-          transferredSessions: remaining,
+          transferredSessions: sessionsToTransfer,
           paymentStatus,
           paidAmount,
           paymentMethod,
@@ -388,7 +461,7 @@ export default async function handler(req, res) {
           packageName,
           isUserPackage,
           fromPatientId: source._id,
-          transferredSessions: remaining,
+          transferredSessions: sessionsToTransfer,
           paymentStatus,
           paidAmount,
           paymentMethod,
@@ -406,10 +479,10 @@ export default async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        message: `Transferred ${remaining} package session(s)${pendingPackageAmount > 0 ? ` and pending amount ₹${pendingPackageAmount}` : ''}`,
+        message: `Transferred ${sessionsToTransfer} package session(s)${pendingPackageAmount > 0 ? ` and pending amount ₹${pendingPackageAmount}` : ''}`,
         data: { 
           type, 
-          remainingTransferred: remaining,
+          remainingTransferred: sessionsToTransfer,
           pendingAmountTransferred: pendingPackageAmount,
         }
       });

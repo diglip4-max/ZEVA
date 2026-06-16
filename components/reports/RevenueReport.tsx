@@ -20,6 +20,7 @@ interface Props {
 
 type DoctorRow = { doctorId: string; name: string; amount: number };
 type ServiceRow = { serviceId: string; name: string; amount: number };
+type PackageRow = { packageName: string; amount: number };
 type DepartmentRow = { departmentId: string; name: string; amount: number };
 type PaymentRow = { method: string; amount: number };
 type ViewRow = { label: string; amount: number };
@@ -27,8 +28,13 @@ type ViewRow = { label: string; amount: number };
 export default function RevenueReport({ startDate, endDate, headers }: Props) {
   const [loading, setLoading] = useState(false);
   const [totalRevenue, setTotalRevenue] = useState(0);
+  const [treatmentRevenue, setTreatmentRevenue] = useState(0);
+  const [packageRevenue, setPackageRevenue] = useState(0);
+  const [advanceRevenue, setAdvanceRevenue] = useState(0);
+  const [pendingCleared, setPendingCleared] = useState(0);
   const [revenueByDoctor, setRevenueByDoctor] = useState<DoctorRow[]>([]);
   const [revenueByService, setRevenueByService] = useState<ServiceRow[]>([]);
+  const [revenueByPackage, setRevenueByPackage] = useState<PackageRow[]>([]);
   const [revenueByDepartment, setRevenueByDepartment] = useState<DepartmentRow[]>([]);
   const [revenueByPaymentMethod, setRevenueByPaymentMethod] = useState<PaymentRow[]>([]);
   const [daily, setDaily] = useState<ViewRow[]>([]);
@@ -66,16 +72,26 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
       const json = await res.json();
       if (!res.ok || !json.success) {
         setTotalRevenue(0);
+        setTreatmentRevenue(0);
+        setPackageRevenue(0);
+        setAdvanceRevenue(0);
+        setPendingCleared(0);
         setRevenueByDoctor([]);
         setRevenueByService([]);
+        setRevenueByPackage([]);
         setRevenueByDepartment([]);
         setRevenueByPaymentMethod([]);
         setDaily([]); setWeekly([]); setMonthly([]); setYearly([]);
         return;
       }
       setTotalRevenue(json.data?.totalRevenue || 0);
+      setTreatmentRevenue(json.data?.treatmentRevenue || 0);
+      setPackageRevenue(json.data?.packageRevenue || 0);
+      setAdvanceRevenue(json.data?.advanceRevenue || 0);
+      setPendingCleared(json.data?.pendingCleared || 0);
       setRevenueByDoctor(json.data?.revenueByDoctor || []);
       setRevenueByService(json.data?.revenueByService || []);
+      setRevenueByPackage(json.data?.revenueByPackage || []);
       setRevenueByDepartment(json.data?.revenueByDepartment || []);
       setRevenueByPaymentMethod(json.data?.revenueByPaymentMethod || []);
       setDaily(json.data?.views?.daily || []);
@@ -116,6 +132,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
     service: string;
     amount: number;
     paymentMethod: string;
+    transactionType: string;
     paymentStatus: string;
     paymentDate: string | null;
   };
@@ -136,7 +153,13 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
     {
       title: "Revenue Summary",
       headers: ["Metric", "Amount (AED)"],
-      data: [{ "Metric": "Total Revenue", "Amount (AED)": Math.round(totalRevenue || 0) }],
+      data: [
+        { "Metric": "Total Revenue", "Amount (AED)": Math.round(totalRevenue || 0) },
+        { "Metric": "Treatment / Service Revenue", "Amount (AED)": Math.round(treatmentRevenue || 0) },
+        { "Metric": "Package Billing Revenue", "Amount (AED)": Math.round(packageRevenue || 0) },
+        { "Metric": "Advance Payment Revenue", "Amount (AED)": Math.round(advanceRevenue || 0) },
+        { "Metric": "Pending Cleared", "Amount (AED)": Math.round(pendingCleared || 0) },
+      ],
     },
     {
       title: "Revenue by Doctor",
@@ -151,6 +174,14 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
       headers: ["Service", "Revenue (AED)"],
       data: revenueByService.map(r => ({
         "Service": r.name || "Unknown",
+        "Revenue (AED)": Math.round(r.amount || 0),
+      })),
+    },
+    {
+      title: "Revenue by Package",
+      headers: ["Package", "Revenue (AED)"],
+      data: revenueByPackage.map(r => ({
+        "Package": r.packageName || "Unknown",
         "Revenue (AED)": Math.round(r.amount || 0),
       })),
     },
@@ -202,18 +233,19 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
     },
     {
       title: "Payment Reports",
-      headers: ["Invoice Number", "Patient Name", "Service", "Amount (AED)", "Payment Method", "Payment Status", "Payment Date"],
+      headers: ["Invoice Number", "Patient Name", "Service", "Amount (AED)", "Payment Method", "Transaction Type", "Payment Status", "Payment Date"],
       data: payments.map(p => ({
         "Invoice Number": p.invoiceNumber || "-",
         "Patient Name": p.patientName || "Unknown",
         "Service": p.service || "Unknown",
         "Amount (AED)": Math.round(p.amount || 0),
         "Payment Method": p.paymentMethod || "-",
+        "Transaction Type": p.transactionType || "Payment",
         "Payment Status": p.paymentStatus || "-",
         "Payment Date": p.paymentDate ? new Date(p.paymentDate).toLocaleDateString() : "-",
       })),
     },
-  ], [totalRevenue, revenueByDoctor, revenueByService, revenueByDepartment, revenueByPaymentMethod, topPendingPatients, topAdvancePatients, pendingPayments, payments]);
+  ], [totalRevenue, treatmentRevenue, packageRevenue, advanceRevenue, pendingCleared, revenueByDoctor, revenueByService, revenueByPackage, revenueByDepartment, revenueByPaymentMethod, topPendingPatients, topAdvancePatients, pendingPayments, payments]);
 
   return (
     <div className="space-y-8">
@@ -229,10 +261,26 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
           <h3 className="text-lg font-semibold text-gray-800">Revenue Summary</h3>
           {loading && <span className="text-sm text-gray-500">Loading…</span>}
         </div>
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
             <div className="text-sm text-gray-500">Total Revenue</div>
             <div className="text-2xl font-bold text-[#2D9AA5]">{Math.round(totalRevenue)}</div>
+          </div>
+          <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+            <div className="text-sm text-gray-500">Treatment / Service</div>
+            <div className="text-2xl font-bold text-blue-600">{Math.round(treatmentRevenue)}</div>
+          </div>
+          <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+            <div className="text-sm text-gray-500">Package Billing</div>
+            <div className="text-2xl font-bold text-purple-600">{Math.round(packageRevenue)}</div>
+          </div>
+          <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+            <div className="text-sm text-gray-500">Advance Payments</div>
+            <div className="text-2xl font-bold text-emerald-600">{Math.round(advanceRevenue)}</div>
+          </div>
+          <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+            <div className="text-sm text-gray-500">Pending Cleared</div>
+            <div className="text-2xl font-bold text-amber-600">{Math.round(pendingCleared)}</div>
           </div>
         </div>
       </div>
@@ -344,6 +392,31 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 </tr>
               ))}
               {!revenueByService.length && (
+                <tr><td className="px-4 py-4 text-sm text-gray-500" colSpan={2}>No data</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="text-lg font-semibold text-gray-800 mb-3">Revenue by Package</h3>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Package</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {revenueByPackage.map((r) => (
+                <tr key={r.packageName}>
+                  <td className="px-4 py-2 text-sm">{r.packageName}</td>
+                  <td className="px-4 py-2 text-sm font-medium">{Math.round(r.amount)}</td>
+                </tr>
+              ))}
+              {!revenueByPackage.length && (
                 <tr><td className="px-4 py-4 text-sm text-gray-500" colSpan={2}>No data</td></tr>
               )}
             </tbody>
@@ -516,18 +589,30 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Service</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Amount</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Payment Method</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Transaction Type</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Payment Status</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Payment Date</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
-              {payments.map((p) => (
-                <tr key={`${p.invoiceNumber}-${p.paymentMethod}-${p.amount}`}>
+              {payments.map((p, idx) => (
+                <tr key={`${p.invoiceNumber}-${p.paymentMethod}-${p.transactionType}-${idx}`}>
                   <td className="px-4 py-2 text-sm">{p.invoiceNumber}</td>
                   <td className="px-4 py-2 text-sm">{p.patientName || "Unknown"}</td>
                   <td className="px-4 py-2 text-sm">{p.service || "Unknown"}</td>
                   <td className="px-4 py-2 text-sm font-medium">{Math.round(p.amount)}</td>
                   <td className="px-4 py-2 text-sm">{p.paymentMethod}</td>
+                  <td className="px-4 py-2 text-sm">
+                    <span className={`inline-flex px-2 py-0.5 rounded text-[11px] font-medium ${
+                      p.transactionType === 'Pending Cleared' ? 'bg-amber-100 text-amber-700' :
+                      p.transactionType === 'Advance Used' ? 'bg-blue-100 text-blue-700' :
+                      p.transactionType === 'Insurance Claim' ? 'bg-purple-100 text-purple-700' :
+                      p.transactionType === 'Cashback Used' ? 'bg-green-100 text-green-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {p.transactionType || 'Payment'}
+                    </span>
+                  </td>
                   <td className="px-4 py-2 text-sm">{p.paymentStatus}</td>
                   <td className="px-4 py-2 text-sm">
                     {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString() : "-"}
@@ -536,7 +621,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
               ))}
               {!payments.length && (
                 <tr>
-                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={7}>
+                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={8}>
                     No payments found for selected period
                   </td>
                 </tr>

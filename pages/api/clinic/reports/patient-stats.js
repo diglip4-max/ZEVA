@@ -135,7 +135,7 @@ export default async function handler(req, res) {
       if (!Object.keys(matchBilling.invoicedDate).length) delete matchBilling.invoicedDate;
     }
 
-    const [aptAgg, billingAgg, membershipAgg] = await Promise.all([
+    const [aptAgg, billingAgg, membershipAgg, packageAgg] = await Promise.all([
       mongoose.connection.collection("appointments").aggregate([
         { $match: matchApt },
         {
@@ -204,42 +204,6 @@ export default async function handler(req, res) {
                 $project: {
                   patientId: "$_id",
                   revenue: 1,
-                  patientName: {
-                    $let: {
-                      vars: { pr: { $arrayElemAt: ["$p", 0] } },
-                      in: {
-                        $trim: {
-                          input: {
-                            $concat: [
-                              { $ifNull: ["$$pr.firstName", ""] },
-                              " ",
-                              { $ifNull: ["$$pr.lastName", ""] },
-                            ],
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            ],
-            packageByPatient: [
-              { $match: { service: "Package" } },
-              { $group: { _id: "$patientId", revenue: { $sum: { $ifNull: ["$paid", 0] } }, count: { $sum: 1 } } },
-              { $sort: { revenue: -1 } },
-              {
-                $lookup: {
-                  from: "patientregistrations",
-                  localField: "_id",
-                  foreignField: "_id",
-                  as: "p",
-                },
-              },
-              {
-                $project: {
-                  patientId: "$_id",
-                  revenue: 1,
-                  count: 1,
                   patientName: {
                     $let: {
                       vars: { pr: { $arrayElemAt: ["$p", 0] } },
@@ -366,6 +330,37 @@ export default async function handler(req, res) {
         },
         { $sort: { membershipRevenue: -1 } },
       ]).toArray(),
+      // Package purchases from PatientRegistration (authoritative source for package data)
+      mongoose.connection.collection("patientregistrations").aggregate([
+        { $match: { packages: { $exists: true, $not: { $size: 0 } } } },
+        { $unwind: "$packages" },
+        ...(qStart || qEnd ? [{
+          $match: {
+            ...(qStart ? { "packages.startDate": { $gte: qStart } } : {}),
+            ...(qEnd ? { "packages.startDate": { $lte: qEnd } } : {}),
+          },
+        }] : []),
+        {
+          $group: {
+            _id: "$_id",
+            revenue: { $sum: { $ifNull: ["$packages.paidAmount", 0] } },
+            count: { $sum: 1 },
+            firstName: { $first: "$firstName" },
+            lastName: { $first: "$lastName" },
+          },
+        },
+        { $sort: { revenue: -1 } },
+        {
+          $project: {
+            patientId: "$_id",
+            revenue: 1,
+            count: 1,
+            patientName: {
+              $trim: { input: { $concat: [{ $ifNull: ["$firstName", ""] }, " ", { $ifNull: ["$lastName", ""] }] } },
+            },
+          },
+        },
+      ]).toArray(),
     ]);
 
     const aptOut = aptAgg[0] || {};
@@ -384,7 +379,7 @@ export default async function handler(req, res) {
       data: {
         topVisited,
         membershipByPatient,
-        packageByPatient: billingOut.packageByPatient || [],
+        packageByPatient: packageAgg || [],
         highestPending: billingOut.highestPending || [],
         highestAdvance: billingOut.highestAdvance || [],
         revenueByPatient: billingOut.revenueByPatient || [],

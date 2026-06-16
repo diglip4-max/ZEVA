@@ -177,19 +177,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Validate that appointment date/time is not in the past
-    const now = new Date();
-    const [year, month, day] = startDate.split('-').map(Number);
-    const [fromHour, fromMinute] = fromTime.split(':').map(Number);
-    const appointmentDateTime = new Date(year, month - 1, day, fromHour, fromMinute);
-    
-    if (appointmentDateTime < now) {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot update an appointment to a past time. Please select a future date and time."
-      });
-    }
-
     // Validate doctor belongs to clinic
     const doctor = await User.findById(doctorId);
     if (!doctor || doctor.role !== "doctorStaff" || doctor.clinicId?.toString() !== clinicId.toString()) {
