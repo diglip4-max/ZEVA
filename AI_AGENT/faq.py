@@ -1,12 +1,18 @@
+import os
+
 import httpx
 import asyncio
 import logging
 import traceback
 from cache import get_cache, set_cache
 from appointment import get_header
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 CACHE_TTL = 600
+AGENT_URL = os.getenv("NEXT_PUBLIC_BASE_URL")
 
 # Limit to 5 concurrent requests at a time instead of 26
 SEMAPHORE = asyncio.Semaphore(5)
@@ -29,7 +35,7 @@ async def get_services_for_doctor(doctor_id: str, clinicToken: str) -> list[str]
         async with httpx.AsyncClient(timeout=timeout) as client:
             while True:
                 url = (
-                    f"http://localhost:3000/api/appointment-booking/get-services/{doctor_id}"
+                    f"{AGENT_URL}/api/appointment-booking/get-services/{doctor_id}"
                     f"?search=&page={page}&limit=10"
                 )
                 resp = await client.get(url, headers=header)
@@ -65,7 +71,7 @@ async def get_all_doctors(clinicToken: str, clinic_id: str) -> list[dict]:
     async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
         while True:
             url = (
-                f"http://localhost:3000/api/appointment-booking/get-doctors-by-clinic"
+                f"{AGENT_URL}/api/appointment-booking/get-doctors-by-clinic"
                 f"?clinicId={clinic_id}&search=&page={page}&limit=10"
             )
             resp = await client.get(url, headers=header)
@@ -162,7 +168,7 @@ async def get_services(clinicToken: str) -> dict:
 
     async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
         while True:
-            url = f"http://localhost:3000/api/clinic/services?page={page}&limit=20"
+            url = f"{AGENT_URL}/api/clinic/services?page={page}&limit=20"
             resp = await client.get(url, headers=header)
             resp.raise_for_status()
             data = resp.json()
@@ -204,7 +210,7 @@ async def get_services(clinicToken: str) -> dict:
 
 async def get_timings(clinicToken: str) -> dict:
     header = get_header(clinicToken)
-    url = "http://localhost:3000/api/clinic/timings"
+    url = "{AGENT_URL}/api/clinic/timings"
 
     async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
         resp = await client.get(url, headers=header)
@@ -227,7 +233,7 @@ async def get_timings(clinicToken: str) -> dict:
 
 async def get_clinic_id(clinicToken: str) -> str:
     header = get_header(clinicToken)
-    url = "http://localhost:3000/api/clinics/myallClinic"
+    url = "{AGENT_URL}/api/clinics/myallClinic"
     async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
         resp = await client.get(url, headers=header)
         resp.raise_for_status()

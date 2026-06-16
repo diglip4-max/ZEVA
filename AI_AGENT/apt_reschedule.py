@@ -3,11 +3,15 @@ import httpx
 from datetime import datetime, timedelta
 from appointment import get_header
 import redis
+import os
 import logging
+from dotenv import load_dotenv
 
+load_dotenv()
 logger = logging.getLogger(__name__)
 APPOINTMENT_CACHE_TTL = 120
 LEAD_CACHE_TTL = 300
+AGENT_URL = os.getenv("NEXT_PUBLIC_BASE_URL")
 
 
 async def find_lead_id(conversation_id: str, clinicToken: str):
@@ -21,7 +25,7 @@ async def find_lead_id(conversation_id: str, clinicToken: str):
         page = 1
         while True:
             url = (
-                f"http://localhost:3000/api/messages/get-messages/"
+                f"{AGENT_URL}/api/messages/get-messages/"
                 f"{conversation_id}?page={page}&limit=50"
             )
             resp = await client.get(url, headers=headers)
@@ -48,7 +52,7 @@ async def find_patient_number(leadId: str, clinicToken: str):
 
             while True:
                 url = (
-                    f"http://localhost:3000/api/lead-ms/leadFilter"
+                    f"{AGENT_URL}/api/lead-ms/leadFilter"
                     f"?page={page}&limit=20&name="
                 )
 
@@ -116,7 +120,7 @@ async def find_latest_appointment(conversation_id: str, clinicToken: str):
     patientNumber = patient_result["patient_number"]
 
     url = (
-        f"http://localhost:3000/api/clinic/all-appointments"
+        f"{AGENT_URL}/api/clinic/all-appointments"
         f"?page=1&limit=50&patientNumber={patientNumber}"
     )
 
@@ -199,7 +203,7 @@ async def reschedule_apt(
     try:
         async with httpx.AsyncClient() as client:
             put_resp = await client.put(
-                f"http://localhost:3000/api/clinic/update-appointment/{apt_id}",
+                f"{AGENT_URL}/api/clinic/update-appointment/{apt_id}",
                 json=existing,
                 headers=headers,
                 timeout=10.0,

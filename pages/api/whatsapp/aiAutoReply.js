@@ -10,6 +10,10 @@ import Lead from "../../../models/Lead";
 import dbConnect from "../../../lib/database";
 import { emitIncomingMessageToUser } from "../../../services/socket-emitter";
 
+const AGENT_URL = (
+  process.env.NEXT_PUBLIC_AGENT_URL || "http://localhost:8000"
+).replace(/\/$/, "");
+
 const connection = new IORedis(process.env.REDIS_URL, {
   maxRetriesPerRequest: null,
 });
@@ -85,7 +89,7 @@ async function triggerAIReply({
     await dbConnect();
 
     // ─── 1. Fetch real JWT token from Python backend ──────────────────────
-    const tokenRes = await fetch("http://localhost:8000/get-token", {
+    const tokenRes = await fetch(`${AGENT_URL}/get-token`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -121,7 +125,7 @@ async function triggerAIReply({
     }
 
     // ─── 3. Call Python AI agent with real JWT ────────────────────────────
-    const chatRes = await fetch(`http://localhost:8000/chat`, {
+    const chatRes = await fetch(`${AGENT_URL}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

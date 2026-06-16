@@ -1,11 +1,15 @@
+import os
 from typing import Literal, TypedDict
-import httpx                                    
+import httpx
 from dotenv import load_dotenv
 from langgraph.graph import END, START, StateGraph
 from datetime import datetime, timedelta
-load_dotenv()
 
-class AppointmentState(TypedDict):             
+load_dotenv()
+AGENT_URL = os.getenv("NEXT_PUBLIC_BASE_URL")
+
+
+class AppointmentState(TypedDict):
     clinicToken: str
     patient_name: str
     doctor_name: str
@@ -27,18 +31,18 @@ class AppointmentState(TypedDict):
     fromTime: str
     toTime: str
     errorMessage: str
-    Message: str  
+    Message: str
 
 
-def get_header(token):                        
+def get_header(token):
     return {"Authorization": f"Bearer {token}"}
 
 
 async def check_patient(state: AppointmentState):
-    header = get_header(state['clinicToken'])
-    url = f"http://localhost:3000/api/clinic/search-patients?search={state['patient_name']}"
+    header = get_header(state["clinicToken"])
+    url = f"{AGENT_URL}/api/clinic/search-patients?search={state['patient_name']}"
 
-    async with httpx.AsyncClient() as client:                    
+    async with httpx.AsyncClient() as client:
         search_patient = await client.get(url, headers=header)
     data = search_patient.json()
 
@@ -57,10 +61,10 @@ async def check_patient(state: AppointmentState):
 
 
 async def check_doctor(state: AppointmentState):
-    header = get_header(state['clinicToken'])
-    url = "http://localhost:3000/api/lead-ms/get-agents-options?role=doctorStaff"
+    header = get_header(state["clinicToken"])
+    url = "{AGENT_URL}/api/lead-ms/get-agents-options?role=doctorStaff"
 
-    async with httpx.AsyncClient() as client:                    
+    async with httpx.AsyncClient() as client:
         search_doctor = await client.get(url, headers=header)
     data = search_doctor.json()
 
@@ -69,7 +73,8 @@ async def check_doctor(state: AppointmentState):
     if data["success"] == True:
         doctor = next(
             (
-                d for d in data["agents"]
+                d
+                for d in data["agents"]
                 if d.get("name", "").strip().lower() == doctor_name
             ),
             None,
@@ -89,10 +94,10 @@ async def check_doctor(state: AppointmentState):
 
 
 async def check_treatments(state: AppointmentState):
-    header = get_header(state['clinicToken'])
-    url = "http://localhost:3000/api/clinic/services"
+    header = get_header(state["clinicToken"])
+    url = "{AGENT_URL}/api/clinic/services"
 
-    async with httpx.AsyncClient() as client:                   
+    async with httpx.AsyncClient() as client:
         search_treatments = await client.get(url, headers=header)
     data = search_treatments.json()
 
@@ -101,7 +106,8 @@ async def check_treatments(state: AppointmentState):
     if data["success"] == True:
         treatment = next(
             (
-                t for t in data["services"]
+                t
+                for t in data["services"]
                 if t.get("name", "").strip().lower() == treatment_name
             ),
             None,
@@ -121,7 +127,7 @@ async def check_treatments(state: AppointmentState):
     }
 
 
-def confirm_time(state: AppointmentState):    
+def confirm_time(state: AppointmentState):
     start_time_str = state["fromTime"]
     date_str = state["startDate"]
     converted_date = None
@@ -129,17 +135,16 @@ def confirm_time(state: AppointmentState):
 
     for fmt in formats_to_try:
         try:
-            converted_date = datetime.strptime(date_str, fmt).strftime("%Y-%m-%dT00:00:00.000Z")
+            converted_date = datetime.strptime(date_str, fmt).strftime(
+                "%Y-%m-%dT00:00:00.000Z"
+            )
             break
         except ValueError:
             continue
 
     if not converted_date:
         # Last resort — return error instead of storing wrong date
-        return {
-            "Status": "Error",
-            "errorMessage": f"Could not parse date: {date_str}"
-        }
+        return {"Status": "Error", "errorMessage": f"Could not parse date: {date_str}"}
 
     start_time = datetime.strptime(start_time_str, "%H:%M")
     end_time = start_time + timedelta(minutes=20)
@@ -149,22 +154,31 @@ def confirm_time(state: AppointmentState):
         "timeConfirmed": True,
         "startDate": converted_date,
         "fromTime": start_time_str,
-        "toTime": to_time_str
+        "toTime": to_time_str,
     }
 
 
-def handle_error(state: AppointmentState):     
+def handle_error(state: AppointmentState):
     if not state["patientExists"]:
-        return {"Status": "Error", "errorMessage": f"Patient '{state['patient_name']}' was not found. Please check the name or register the patient first."}
+        return {
+            "Status": "Error",
+            "errorMessage": f"Patient '{state['patient_name']}' was not found. Please check the name or register the patient first.",
+        }
     elif not state["doctorExists"]:
-        return {"Status": "Error", "errorMessage": f"Doctor '{state['doctor_name']}' was not found. Please check the name or contact support."}
+        return {
+            "Status": "Error",
+            "errorMessage": f"Doctor '{state['doctor_name']}' was not found. Please check the name or contact support.",
+        }
     elif not state["treatmentExists"]:
-        return {"Status": "Error", "errorMessage": f"Treatment '{state['treatment_name']}' is not available. Please check the name or contact support."}
+        return {
+            "Status": "Error",
+            "errorMessage": f"Treatment '{state['treatment_name']}' is not available. Please check the name or contact support.",
+        }
 
 
 async def book_appointment(state: AppointmentState):
-    header = get_header(state['clinicToken'])
-    url = "http://localhost:3000/api/clinic/appointments"
+    header = get_header(state["clinicToken"])
+    url = "{AGENT_URL}/api/clinic/appointments"
     payload = {
         "patientId": state["patientId"],
         "doctorId": state["selectedDoctorId"],
@@ -174,33 +188,44 @@ async def book_appointment(state: AppointmentState):
         "followType": "first time",
         "startDate": state["startDate"],
         "fromTime": state["fromTime"],
-        "toTime": state["toTime"]
+        "toTime": state["toTime"],
     }
 
-    async with httpx.AsyncClient() as client:                   
+    async with httpx.AsyncClient() as client:
         response = await client.post(url, json=payload, headers=header)
     data = response.json()
     print(data)
 
     if data["success"] == True:
-        return {
-            "Status": "Booked",
-            "Message":"Appointment Booked Successfully"
-        }
+        return {"Status": "Booked", "Message": "Appointment Booked Successfully"}
     else:
-        return {"Status": "Error", "Message": data.get("message", "An error occurred while booking the appointment.")}
+        return {
+            "Status": "Error",
+            "Message": data.get(
+                "message", "An error occurred while booking the appointment."
+            ),
+        }
 
 
-def after_check_patient(state: AppointmentState) -> Literal["check_doctor", "handle_error"]:
+def after_check_patient(
+    state: AppointmentState,
+) -> Literal["check_doctor", "handle_error"]:
     return "check_doctor" if state["patientExists"] else "handle_error"
 
-def after_check_doctor(state: AppointmentState) -> Literal["check_treatments", "handle_error"]:
+
+def after_check_doctor(
+    state: AppointmentState,
+) -> Literal["check_treatments", "handle_error"]:
     return "check_treatments" if state["doctorExists"] else "handle_error"
+
 
 # def after_check_room(state: AppointmentState) -> Literal["check_treatments", "handle_error"]:
 #     return "check_treatments" if state["roomExists"] else "handle_error"
 
-def after_check_treatments(state: AppointmentState) -> Literal["confirm_time", "handle_error"]:
+
+def after_check_treatments(
+    state: AppointmentState,
+) -> Literal["confirm_time", "handle_error"]:
     return "confirm_time" if state["treatmentExists"] else "handle_error"
 
 
@@ -249,5 +274,5 @@ def buildGraph(clinicToken: str, payload: dict):
     graph.add_edge("book_appointment", END)
 
     workflow = graph.compile()
- 
+
     return workflow, initial_state

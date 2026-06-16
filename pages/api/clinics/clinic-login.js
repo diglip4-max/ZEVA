@@ -92,8 +92,12 @@ export default async function handler(req, res) {
       jwtSecret,
       { expiresIn: "1d" },
     );
+    const AGENT_URL = (
+      process.env.NEXT_PUBLIC_AGENT_URL || "http://localhost:8000"
+    ).replace(/\/$/, "");
+
     try {
-      await fetch(`http://localhost:8000/store-token`, {
+      await fetch(`${AGENT_URL}/store-token`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -21,6 +21,10 @@ import { v4 as uuidv4 } from "uuid";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+const AGENT_URL =
+  process.env.NEXT_PUBLIC_AGENT_URL?.replace(/\/$/, "") ||
+  "http://localhost:8000";
+
 interface Message {
   role: "user" | "assistant";
   content: string;
@@ -2369,7 +2373,7 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
 
     try {
       const clinicToken = localStorage.getItem("clinicToken");
-      const response = await fetch("http://localhost:8000/chat", {
+      const response = await fetch(`${AGENT_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
