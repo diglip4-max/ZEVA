@@ -210,7 +210,7 @@ async def get_services(clinicToken: str) -> dict:
 
 async def get_timings(clinicToken: str) -> dict:
     header = get_header(clinicToken)
-    url = "{AGENT_URL}/api/clinic/timings"
+    url = f"{AGENT_URL}/api/clinic/timings"
 
     async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
         resp = await client.get(url, headers=header)
@@ -233,7 +233,7 @@ async def get_timings(clinicToken: str) -> dict:
 
 async def get_clinic_id(clinicToken: str) -> str:
     header = get_header(clinicToken)
-    url = "{AGENT_URL}/api/clinics/myallClinic"
+    url = f"{AGENT_URL}/api/clinics/myallClinic"
     async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
         resp = await client.get(url, headers=header)
         resp.raise_for_status()
