@@ -10896,7 +10896,7 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
         {showPaymentHistoryModal && selectedPaymentHistoryBilling && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-md" onClick={() => setShowPaymentHistoryModal(false)} />
-            <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+            <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
               {/* Header */}
               <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4 flex items-center justify-between">
                 <div>
@@ -10911,8 +10911,10 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
                 </button>
               </div>
 
-              {/* Invoice Summary Card */}
-              <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-slate-50 border-b border-gray-200">
+              {/* Scrollable Body */}
+              <div className="flex-1 overflow-y-auto">
+                {/* Invoice Summary Card */}
+                <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-slate-50 border-b border-gray-200">
                 {/* <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="text-center">
                     <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Total Amount</p>
@@ -11022,7 +11024,7 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
               </div>
 
               {/* Payment Details Section */}
-              <div className="px-6 py-4 overflow-y-auto max-h-[calc(90vh-300px)]">
+              <div className="px-6 py-4">
                 {/* Build complete payment timeline from paymentHistory */}
                 {(() => {
                   const billing = selectedPaymentHistoryBilling;
@@ -11183,71 +11185,72 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
                     </div>
                   );
                 })()}
-              </div>
-              {/* Pending Cleared Breakdown - from PatientPendingLedger */}
-              {selectedPaymentHistoryBilling.pendingClearedBreakdown && selectedPaymentHistoryBilling.pendingClearedBreakdown.length > 0 && (
-                <div className="px-6 py-4 border-t border-gray-200">
-                  <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                    <div className="p-1.5 bg-emerald-100 rounded-full">
-                      <CheckCircle className="w-4 h-4 text-emerald-600" />
-                    </div>
-                    Pending Cleared Breakdown ({selectedPaymentHistoryBilling.pendingClearedBreakdown.length})
-                  </h4>
-                  <div className="space-y-2">
-                    {selectedPaymentHistoryBilling.pendingClearedBreakdown.map((item: any, idx: number) => (
-                      <div key={idx} className="p-3 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">
-                              {item.service === 'Treatment' ? '🩺' : item.service === 'Package' ? '📦' : '🧾'}
-                            </span>
-                            <div>
-                              <p className="text-xs font-bold text-gray-800">
-                                {item.treatmentName || item.packageName || item.service || 'N/A'}
-                              </p>
-                              <p className="text-[10px] text-gray-500">
-                                {item.service || 'Service'}{item.invoiceNumber ? ` • ${item.invoiceNumber}` : ''}
-                              </p>
+                {/* Pending Cleared Breakdown - from PatientPendingLedger */}
+                {selectedPaymentHistoryBilling.pendingClearedBreakdown && selectedPaymentHistoryBilling.pendingClearedBreakdown.length > 0 && (
+                  <div className="border-t border-gray-200 pt-4">
+                    <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                      <div className="p-1.5 bg-emerald-100 rounded-full">
+                        <CheckCircle className="w-4 h-4 text-emerald-600" />
+                      </div>
+                      Pending Cleared Breakdown ({selectedPaymentHistoryBilling.pendingClearedBreakdown.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {selectedPaymentHistoryBilling.pendingClearedBreakdown.map((item: any, idx: number) => (
+                        <div key={idx} className="p-3 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">
+                                {item.service === 'Treatment' ? '🩺' : item.service === 'Package' ? '📦' : '🧾'}
+                              </span>
+                              <div>
+                                <p className="text-xs font-bold text-gray-800">
+                                  {item.treatmentName || item.packageName || item.service || 'N/A'}
+                                </p>
+                                <p className="text-[10px] text-gray-500">
+                                  {item.service || 'Service'}{item.invoiceNumber ? ` • ${item.invoiceNumber}` : ''}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-bold text-emerald-700">{getCurrencySymbol(currency)}{Number(item.amountCleared || 0).toLocaleString()}</p>
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                item.newStatus === 'Closed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                              }`}>
+                                {item.newStatus === 'Closed' ? '✓ Closed' : '⏳ Partial'}
+                              </span>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-sm font-bold text-emerald-700">{getCurrencySymbol(currency)}{Number(item.amountCleared || 0).toLocaleString()}</p>
-                            <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                              item.newStatus === 'Closed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                            }`}>
-                              {item.newStatus === 'Closed' ? '✓ Closed' : '⏳ Partial'}
-                            </span>
-                          </div>
+                          {item.newRemaining > 0 && (
+                            <div className="mt-2 pt-2 border-t border-emerald-200/50">
+                              <p className="text-[10px] text-gray-500">Remaining: <span className="font-bold text-amber-600">{getCurrencySymbol(currency)}{Number(item.newRemaining).toLocaleString()}</span></p>
+                            </div>
+                          )}
+                          {item.paymentMethod && (
+                            <div className="mt-1.5 flex items-center gap-1.5">
+                              <span className="text-[10px]">
+                                {item.paymentMethod === 'Cash' ? '💵' : item.paymentMethod === 'Card' ? '💳' : item.paymentMethod === 'BT' ? '🏦' : '💰'}
+                              </span>
+                              <span className="text-[10px] font-semibold text-gray-600">Paid via {item.paymentMethod}</span>
+                            </div>
+                          )}
+                          {!item.paymentMethod && selectedPaymentHistoryBilling.multiplePayments && selectedPaymentHistoryBilling.multiplePayments.length > 0 && (
+                            <div className="mt-1.5 flex items-center gap-1.5">
+                              <span className="text-[10px]">
+                                {selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod === 'Cash' ? '💵' : selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod === 'Card' ? '💳' : selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod === 'BT' ? '🏦' : '💰'}
+                              </span>
+                              <span className="text-[10px] font-semibold text-gray-600">Paid via {selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod || 'Cash'}</span>
+                            </div>
+                          )}
                         </div>
-                        {item.newRemaining > 0 && (
-                          <div className="mt-2 pt-2 border-t border-emerald-200/50">
-                            <p className="text-[10px] text-gray-500">Remaining: <span className="font-bold text-amber-600">{getCurrencySymbol(currency)}{Number(item.newRemaining).toLocaleString()}</span></p>
-                          </div>
-                        )}
-                        {item.paymentMethod && (
-                          <div className="mt-1.5 flex items-center gap-1.5">
-                            <span className="text-[10px]">
-                              {item.paymentMethod === 'Cash' ? '💵' : item.paymentMethod === 'Card' ? '💳' : item.paymentMethod === 'BT' ? '🏦' : '💰'}
-                            </span>
-                            <span className="text-[10px] font-semibold text-gray-600">Paid via {item.paymentMethod}</span>
-                          </div>
-                        )}
-                        {!item.paymentMethod && selectedPaymentHistoryBilling.multiplePayments && selectedPaymentHistoryBilling.multiplePayments.length > 0 && (
-                          <div className="mt-1.5 flex items-center gap-1.5">
-                            <span className="text-[10px]">
-                              {selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod === 'Cash' ? '💵' : selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod === 'Card' ? '💳' : selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod === 'BT' ? '🏦' : '💰'}
-                            </span>
-                            <span className="text-[10px] font-semibold text-gray-600">Paid via {selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod || 'Cash'}</span>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+              </div>
 
               {/* Footer */}
-              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+              <div className="shrink-0 px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
                 <div className="text-xs text-gray-500">
                   <p>Invoice: {selectedPaymentHistoryBilling.invoiceNumber}</p>
                   <p>Created: {selectedPaymentHistoryBilling.createdAt ? new Date(selectedPaymentHistoryBilling.createdAt).toLocaleString() : 'N/A'}</p>

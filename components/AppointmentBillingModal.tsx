@@ -4553,9 +4553,18 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     return false;
   });
 
+  // Build set of transferred-in package names to avoid duplicates in dropdown
+  const transferredInNamesForDropdown = new Set(
+    activePackageUsage
+      .filter((u: any) => u.isTransferred && u.transferredFrom)
+      .map((u: any) => u.packageName)
+  );
+
   // Combine regular packages with userPackages and transferred-in packages for the dropdown
   const allPackagesForDropdown: Package[] = [
-    ...packages.map((pkg: any) => {
+    ...packages
+      .filter((pkg: any) => !transferredInNamesForDropdown.has(pkg.name))
+      .map((pkg: any) => {
       // Find if this package is already assigned to the patient
       const assignedPkg = (patientDetails?.packages || []).find((p: any) => String(p.packageId) === String(pkg._id));
       const mainPackageId = patientDetails?.packageId;
@@ -4574,7 +4583,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         paymentStatus
       };
     }),
-    ...userPackages.map((pkg: any) => ({
+    ...userPackages
+      .filter((pkg: any) => !transferredInNamesForDropdown.has(pkg.packageName))
+      .map((pkg: any) => ({
       _id: pkg._id,
       name: pkg.packageName,
       totalPrice: pkg.totalPrice,
@@ -6701,11 +6712,25 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           const usageMap = new Map();
                           activePackageUsage.forEach(u => usageMap.set(u.packageName, u));
 
+                          // Build set of transferred-in package names to avoid duplicates
+                          const transferredInPackageNames = new Set(
+                            activePackageUsage
+                              .filter((u: any) => u.isTransferred && u.transferredFrom)
+                              .map((u: any) => u.packageName)
+                          );
+
                           // Filter purchased packages: only remove if all sessions are transferred out
+                          // Also exclude packages that already appear as transferred-in (to avoid duplicates)
                           const purchasedPackages = (patientDetails?.packages || []).filter((p: any) => {
                             // Get package definition
                             const packageDef = packages.find(pkg => pkg._id === p.packageId);
                             const packageName = packageDef?.name || p.packageId;
+
+                            // Skip if this package already appears as transferred-in (will be shown with tag)
+                            if (transferredInPackageNames.has(packageName)) {
+                              return false;
+                            }
+
                             const usageData = usageMap.get(packageName);
 
                             // Check if there are any remaining sessions (if we have usage data)
@@ -6718,8 +6743,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           });
                          
                           // Add userPackages (approved packages from PatientRegistration.userPackages)
+                          // Also exclude packages that already appear as transferred-in (to avoid duplicates)
                           const approvedUserPackages = (patientDetails?.userPackages || []).filter(
-                            (pkg: any) => pkg.approvalStatus === 'approved'
+                            (pkg: any) => pkg.approvalStatus === 'approved' && !transferredInPackageNames.has(pkg.packageName)
                           );
 
                           // Add transferred-in packages from activePackageUsage
