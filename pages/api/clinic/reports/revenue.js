@@ -91,12 +91,52 @@ export default async function handler(req, res) {
       });
     }
 
-    // total revenue
+    // total revenue – from ALL billings (not just those with appointments)
     const totalRevenueAgg = await Billing.aggregate([
-      ...basePipeline,
+      { $match: { ...clinicMatch, ...dateMatch } },
       { $group: { _id: null, total: { $sum: { $ifNull: ["$paid", 0] } } } },
     ]);
     const totalRevenue = Math.round(Number(totalRevenueAgg[0]?.total || 0));
+
+    // revenue component: package billing (all Package billings)
+    const packageRevenueAgg = await Billing.aggregate([
+      { $match: { ...clinicMatch, ...dateMatch, service: "Package" } },
+      { $group: { _id: null, total: { $sum: { $ifNull: ["$paid", 0] } } } },
+    ]);
+    const packageRevenue = Math.round(Number(packageRevenueAgg[0]?.total || 0));
+
+    // revenue component: advance-only payments
+    const advanceRevenueAgg = await Billing.aggregate([
+      { $match: { ...clinicMatch, ...dateMatch, isAdvanceOnly: true } },
+      { $group: { _id: null, total: { $sum: { $ifNull: ["$paid", 0] } } } },
+    ]);
+    const advanceRevenue = Math.round(Number(advanceRevenueAgg[0]?.total || 0));
+
+    // revenue component: pending cleared (pendingUsed + pendingClaimUsed across all billings)
+    const pendingClearedAgg = await Billing.aggregate([
+      { $match: { ...clinicMatch, ...dateMatch } },
+      {
+        $group: {
+          _id: null,
+          total: {
+            $sum: {
+              $add: [
+                { $ifNull: ["$pendingUsed", 0] },
+                { $ifNull: ["$pendingClaimUsed", 0] },
+              ],
+            },
+          },
+        },
+      },
+    ]);
+    const pendingCleared = Math.round(Number(pendingClearedAgg[0]?.total || 0));
+
+    // revenue component: treatment/service (current pipeline – billings with appointments)
+    const treatmentRevenueAgg = await Billing.aggregate([
+      ...basePipeline,
+      { $group: { _id: null, total: { $sum: { $ifNull: ["$paid", 0] } } } },
+    ]);
+    const treatmentRevenue = Math.round(Number(treatmentRevenueAgg[0]?.total || 0));
 
     // revenue by doctor
     const byDoctorAgg = await Billing.aggregate([
@@ -119,60 +159,187 @@ export default async function handler(req, res) {
       amount: Math.round(Number(d.amount || 0)),
     }));
 
-    // revenue by service
+    // Revenue by Service – mirrors the aggregation in service-performance.js so each
+    // individual service name is listed with its own paid amount. Package billings
+    // are excluded here (they appear separately in Revenue by Package).
     const byServiceAgg = await Billing.aggregate([
-      ...basePipeline,
-      { $group: { _id: "$appointment.serviceId", amount: { $sum: { $ifNull: ["$paid", 0] } } } },
-      { $sort: { amount: -1 } },
-    ]);
-    const serviceIds = byServiceAgg.map((s) => s._id).filter(Boolean);
-    const serviceMap = serviceIds.length
-      ? new Map(
-          (await Service.find({ _id: { $in: serviceIds } }).select("_id name departmentId").lean()).map((s) => [
-            String(s._id),
-            { name: s.name || "Unknown", departmentId: s.departmentId ? String(s.departmentId) : null },
-          ])
-        )
-      : new Map();
-    const revenueByService = byServiceAgg.map((s) => ({
-      serviceId: String(s._id || ""),
-      name: serviceMap.get(String(s._id))?.name || "Unknown",
-      amount: Math.round(Number(s.amount || 0)),
-    }));
-
-    // department filter applied after service lookup
-    let departmentFilteredPipeline = [...basePipeline];
-    if (departmentId) {
-      departmentFilteredPipeline = [
-        ...basePipeline,
-        {
-          $lookup: {
-            from: "services",
-            localField: "appointment.serviceId",
-            foreignField: "_id",
-            as: "service",
-          },
+      // 1. Match clinic + date range + Treatment & Service billings only
+      {
+        $match: {
+          ...clinicMatch,
+          ...dateMatch,
+          service: { $in: ["Treatment", "Service"] },
         },
-        { $unwind: "$service" },
-        { $match: { "service.departmentId": new mongoose.Types.ObjectId(String(departmentId)) } },
-      ];
-    }
-
-    // revenue by department
-    const byDepartmentAgg = await Billing.aggregate([
-      ...departmentFilteredPipeline,
+      },
+      // 2. Lookup appointment (preserveNullAndEmptyArrays)
+      {
+        $lookup: {
+          from: "appointments",
+          localField: "appointmentId",
+          foreignField: "_id",
+          as: "appt",
+        },
+      },
+      { $unwind: { path: "$appt", preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
           from: "services",
-          localField: "appointment.serviceId",
+          localField: "appt.serviceId",
           foreignField: "_id",
-          as: "service",
+          as: "apptSvc",
         },
       },
-      { $unwind: "$service" },
-      { $group: { _id: "$service.departmentId", amount: { $sum: { $ifNull: ["$paid", 0] } } } },
+      { $unwind: { path: "$apptSvc", preserveNullAndEmptyArrays: true } },
+      // 3. Resolve service name from billing.treatment, falling back to apptSvc.name
+      //    so each individual service stays as its own group key (never collapsed
+      //    into a generic category like Package/Treatment/Service)
+      {
+        $addFields: {
+          resolvedServiceName: {
+            $ifNull: ["$treatment", { $ifNull: ["$apptSvc.name", "Unknown"] }],
+          },
+        },
+      },
+      // 4. Group by the resolved service name and sum `paid` per service
+      //    (same shape as the $group in service-performance.js)
+      {
+        $group: {
+          _id: "$resolvedServiceName",
+          amount: { $sum: { $ifNull: ["$paid", 0] } },
+        },
+      },
       { $sort: { amount: -1 } },
     ]);
+    const revenueByService = byServiceAgg.map((s) => ({
+      serviceId: String(s._id || ""),
+      name: s._id || "Unknown",
+      amount: Math.round(Number(s.amount || 0)),
+    }));
+
+    // revenue by package (all Package billings grouped by package name)
+    const byPackageAgg = await Billing.aggregate([
+      { $match: { ...clinicMatch, ...dateMatch, service: "Package" } },
+      { $group: { _id: { $ifNull: ["$package", "Unknown"] }, amount: { $sum: { $ifNull: ["$paid", 0] } } } },
+      { $sort: { amount: -1 } },
+    ]);
+    const revenueByPackage = byPackageAgg.map((p) => ({
+      packageName: p._id || "Unknown",
+      amount: Math.round(Number(p.amount || 0)),
+    }));
+
+    // Revenue by Department — mirrors the calculation used by Department
+    // Performance / Top Performing Departments in department-performance.js:
+    //   1. Restrict to Treatment & Service billings only (Package revenue is in
+    //      the Revenue by Package section, so it is not double-counted here).
+    //   2. Resolve department for each billing via:
+    //        (a) appointment.service.departmentId when an appointment is attached, OR
+    //        (b) service.departmentId looked up by clinicId + treatment/service name
+    //            (fallback for billings without an appointment).
+    //   3. Group by service first (sum paid per service), then group by department
+    //      (sum paid per department) — same pipeline shape as department-performance.js,
+    //      so both reports show the same numbers.
+    //   4. Only `paid` amounts (real income) are summed.
+    const departmentObjectId =
+      departmentId && mongoose.Types.ObjectId.isValid(String(departmentId))
+        ? new mongoose.Types.ObjectId(String(departmentId))
+        : null;
+
+    const departmentPipeline = [
+      // 1. Clinic + date range + Treatment/Service billings only
+      {
+        $match: {
+          ...clinicMatch,
+          ...dateMatch,
+          service: { $in: ["Treatment", "Service"] },
+        },
+      },
+      // 2. Lookup appointment (preserveNullAndEmptyArrays so billings without
+      //    appointment are still resolved via the name lookup below)
+      {
+        $lookup: {
+          from: "appointments",
+          localField: "appointmentId",
+          foreignField: "_id",
+          as: "appt",
+        },
+      },
+      { $unwind: { path: "$appt", preserveNullAndEmptyArrays: true } },
+      // 3. Lookup service attached to that appointment (gives departmentId)
+      {
+        $lookup: {
+          from: "services",
+          localField: "appt.serviceId",
+          foreignField: "_id",
+          as: "apptSvc",
+        },
+      },
+      { $unwind: { path: "$apptSvc", preserveNullAndEmptyArrays: true } },
+      // 4. Resolve service name: billing.treatment, fallback to apptSvc.name
+      {
+        $addFields: {
+          resolvedServiceName: {
+            $ifNull: ["$treatment", { $ifNull: ["$apptSvc.name", "Unknown"] }],
+          },
+        },
+      },
+      // 5. Group by service name first to sum paid per service
+      //    (matches the first $group in department-performance.js)
+      {
+        $group: {
+          _id: "$resolvedServiceName",
+          clinicId: { $first: "$clinicId" },
+          totalRevenue: { $sum: { $ifNull: ["$paid", 0] } },
+        },
+      },
+      // 6. Lookup service doc by clinicId + name to get departmentId
+      //    (same lookup as department-performance.js)
+      {
+        $lookup: {
+          from: "services",
+          let: { cId: "$clinicId", sName: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$clinicId", "$$cId"] },
+                    { $eq: ["$name", "$$sName"] },
+                  ],
+                },
+              },
+            },
+            { $project: { departmentId: 1, name: 1 } },
+          ],
+          as: "serviceDoc",
+        },
+      },
+      // 7. Project with resolved departmentId
+      {
+        $project: {
+          serviceName: "$_id",
+          clinicId: 1,
+          totalRevenue: 1,
+          departmentId: {
+            $ifNull: [{ $arrayElemAt: ["$serviceDoc.departmentId", 0] }, null],
+          },
+        },
+      },
+      // 8. If a specific departmentId filter is requested, keep only that one
+      ...(departmentObjectId
+        ? [{ $match: { departmentId: departmentObjectId } }]
+        : []),
+      // 9. Group by departmentId and sum paid amounts (same final grouping as
+      //    department-performance.js's Department Performance section)
+      {
+        $group: {
+          _id: "$departmentId",
+          amount: { $sum: "$totalRevenue" },
+        },
+      },
+      { $sort: { amount: -1 } },
+    ];
+
+    const byDepartmentAgg = await Billing.aggregate(departmentPipeline);
     const departmentIds = byDepartmentAgg.map((d) => d._id).filter(Boolean);
     const departmentMap = departmentIds.length
       ? new Map(
@@ -381,9 +548,32 @@ export default async function handler(req, res) {
       amount: Math.round(Number(r.amount || 0)),
     }));
 
-    // payment reports list
+    // payment reports list – covers ALL billings (not just those with appointments)
+    const normalizeMethod = (m) => {
+      switch (m) {
+        case "BT": return "Bank Transfer";
+        case "Tamara": return "Online Payment";
+        case "Advance Balance": return "Advance Balance";
+        case "Insurance Claim": return "Insurance Claim";
+        case "Pending Claim": return "Pending Claim";
+        case "Cashback Wallet": return "Cashback Wallet";
+        case "Package Full Paid": return "Package Full Paid";
+        case "Tabby": return "Tabby";
+        default: return m || "Unknown";
+      }
+    };
+    const normalizeTxnType = (t) => {
+      switch (t) {
+        case "PAYMENT": return "Payment";
+        case "ADVANCE_USAGE": return "Advance Used";
+        case "CLAIM_USAGE": return "Insurance Claim";
+        case "PENDING_CLEARANCE": return "Pending Cleared";
+        case "CASHBACK_USAGE": return "Cashback Used";
+        default: return "Payment";
+      }
+    };
     const paymentsPipelineBase = [
-      ...basePipeline,
+      { $match: { ...clinicMatch, ...dateMatch } },
       {
         $project: {
           invoiceNumber: "$invoiceNumber",
@@ -391,12 +581,15 @@ export default async function handler(req, res) {
           paid: { $ifNull: ["$paid", 0] },
           pending: { $ifNull: ["$pending", 0] },
           patientId: "$patientId",
-          appointment: "$appointment",
+          serviceType: "$service",
+          packageName: "$package",
+          treatmentName: "$treatment",
+          appointmentId: "$appointmentId",
           payments: {
             $cond: [
-              { $gt: [{ $size: { $ifNull: ["$multiplePayments", []] } }, 0] },
+              { $gt: [{ $size: { $ifNull: ["$multiplePayments", [] ] } }, 0] },
               "$multiplePayments",
-              [{ paymentMethod: "$paymentMethod", amount: "$paid" }],
+              [{ paymentMethod: "$paymentMethod", amount: "$paid", transactionType: "PAYMENT" }],
             ],
           },
         },
@@ -413,20 +606,42 @@ export default async function handler(req, res) {
       { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
+          from: "appointments",
+          localField: "appointmentId",
+          foreignField: "_id",
+          as: "appointment",
+        },
+      },
+      { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
           from: "services",
           localField: "appointment.serviceId",
           foreignField: "_id",
-          as: "service",
+          as: "apptService",
         },
       },
-      { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: "$apptService", preserveNullAndEmptyArrays: true } },
       {
         $project: {
           invoiceNumber: 1,
           paymentDate: "$invoicedDate",
           amount: { $ifNull: ["$payments.amount", 0] },
           method: "$payments.paymentMethod",
-          serviceName: "$service.name",
+          transactionType: "$payments.transactionType",
+          serviceName: {
+            $cond: [
+              { $eq: ["$serviceType", "Package"] },
+              { $ifNull: ["$packageName", "Package"] },
+              {
+                $cond: [
+                  { $eq: ["$serviceType", "Treatment"] },
+                  { $ifNull: ["$treatmentName", { $ifNull: ["$apptService.name", "Service"] }] },
+                  { $ifNull: ["$apptService.name", "Service"] },
+                ],
+              },
+            ],
+          },
           patientName: {
             $trim: {
               input: {
@@ -458,18 +673,13 @@ export default async function handler(req, res) {
       if (pending === 0 && paid > 0) status = "Paid";
       else if (pending > 0 && paid > 0) status = "Partially Paid";
       else status = "Pending";
-      // normalize method labels
-      const method =
-        p.method === "BT" ? "Bank Transfer" :
-        p.method === "Tabby" ? "Tabby" :
-        p.method === "Tamara" ? "Online Payment" :
-        p.method || "Unknown";
       return {
         invoiceNumber: p.invoiceNumber || "",
         patientName: p.patientName || "",
         service: p.serviceName || "Unknown",
         amount: Math.round(Number(p.amount || 0)),
-        paymentMethod: method,
+        paymentMethod: normalizeMethod(p.method),
+        transactionType: normalizeTxnType(p.transactionType),
         paymentStatus: status,
         paymentDate: p.paymentDate || null,
       };
@@ -535,8 +745,13 @@ export default async function handler(req, res) {
       success: true,
       data: {
         totalRevenue,
+        treatmentRevenue,
+        packageRevenue,
+        advanceRevenue,
+        pendingCleared,
         revenueByDoctor,
         revenueByService,
+        revenueByPackage,
         revenueByDepartment,
         revenueByPaymentMethod,
         payments,

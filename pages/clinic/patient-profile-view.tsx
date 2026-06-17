@@ -101,6 +101,11 @@ const getUserRole = () => {
   return getUserInfo().role;
 };
 
+const maskPhoneNumber = (number: string | undefined | null) => {
+  if (!number) return '***';
+  return '*'.repeat(number.length);
+};
+
 const getCurrentUserName = () => {
   try {
     const token = getStoredToken();
@@ -130,6 +135,8 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
   const [transferSubmitting, setTransferSubmitting] = useState(false);
   const [localMemberships, setLocalMemberships] = useState<any[]>([]);
   const [localPackages, setLocalPackages] = useState<any[]>([]);
+  const [sessionsToTransfer, setSessionsToTransfer] = useState("");
+  const [sessionsTransferError, setSessionsTransferError] = useState("");
   // COMMENTED OUT: Public packages no longer used - only patient packages are fetched
   // const [publicPackages, setPublicPackages] = useState<any[]>([]);
 
@@ -225,6 +232,19 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
     }
   }, [transferType, selectedPackageId, patientId, localPackages]);
 
+  // Show error if partial transfer and package not fully paid
+  useEffect(() => {
+    if (sessionsToTransfer && packageUsage) {
+      if (packageUsage.paymentStatus !== "Full") {
+        setSessionsTransferError("Only fully paid package sessions can be transferred");
+      } else {
+        setSessionsTransferError("");
+      }
+    } else {
+      setSessionsTransferError("");
+    }
+  }, [sessionsToTransfer, packageUsage]);
+
   // Search for target patients
   useEffect(() => {
     const timer = setTimeout(async () => {
@@ -299,12 +319,38 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
           setTransferSubmitting(false);
           return;
         }
+        const pkg = localPackages.find((p: any) => p._id === selectedPackageId);
+        const totalSess = pkg ? pkg.totalSessions : 0;
+        const usedSess = packageUsage?.totalSessions || 0;
+        const remainingSess = Math.max(0, (packageUsage?.totalAllowedSessions || totalSess) - usedSess);
+        
+        let sessionsToSend = remainingSess;
+        if (sessionsToTransfer) {
+          const parsed = parseInt(sessionsToTransfer, 10);
+          if (isNaN(parsed) || parsed <= 0 || parsed > remainingSess) {
+            alert(`Please enter a valid number of sessions between 1 and ${remainingSess}`);
+            setTransferSubmitting(false);
+            return;
+          }
+          sessionsToSend = parsed;
+        }
+
+        // Check if we're doing a partial transfer, then verify package is fully paid
+        if (sessionsToSend < remainingSess) {
+          if (packageUsage?.paymentStatus !== "Full") {
+            alert('Only fully paid package sessions can be transferred');
+            setTransferSubmitting(false);
+            return;
+          }
+        }
+        
         // Use the same endpoint as PatientUpdateForm
         const res = await axios.post('/api/clinic/transfer-benefits', {
           type: "package",
           sourcePatientId: patientId,
           targetPatientId: selectedTargetPatient._id,
           packageId: selectedPackageId,
+          sessionsToTransfer: sessionsToSend,
         }, { headers });
         const data = res.data;
         if (res.status === 200 || res.status === 201) {
@@ -344,6 +390,7 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                 setSelectedTargetPatient(null);
                 setSelectedPackageId("");
                 setSelectedMembershipId("");
+                setSessionsToTransfer("");
                 // Keep searchQuery and searchResults to preserve user's search
               }
             }}
@@ -455,7 +502,10 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                 <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Select Package</label>
                 <select
                   value={selectedPackageId}
-                  onChange={(e) => setSelectedPackageId(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedPackageId(e.target.value);
+                    setSessionsToTransfer("");
+                  }}
                   className="text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 border-gray-300 hover:border-indigo-400"
                 >
                   <option value="">Select package</option>
@@ -481,27 +531,47 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                 const totalSess = pkg ? pkg.totalSessions : 0;
                 const usedSess = packageUsage?.totalSessions || 0;
                 // Always calculate remaining from total and used to ensure consistency
-                const remainingSess = Math.max(0, totalSess - usedSess);
+                const remainingSess = Math.max(0, (packageUsage?.totalAllowedSessions || totalSess) - usedSess);
                
                 return (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="text-[11px]">
-                      <div className="font-semibold text-gray-700">Total Sessions</div>
-                      <div className="text-gray-900">{totalSess}</div>
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="text-[11px]">
+                        <div className="font-semibold text-gray-700">Total Sessions</div>
+                        <div className="text-gray-900">{totalSess}</div>
+                      </div>
+                      <div className="text-[11px]">
+                        <div className="font-semibold text-gray-700">Used Sessions</div>
+                        <div className="text-gray-900">{usedSess}</div>
+                      </div>
+                      <div className="text-[11px]">
+                        <div className="font-semibold text-gray-700">Remaining</div>
+                        <div className="text-gray-900">{remainingSess}</div>
+                      </div>
+                      <div className="text-[11px]">
+                        <div className="font-semibold text-gray-700">Package</div>
+                        <div className="text-gray-900">{pkg ? pkg.name : "-"}</div>
+                      </div>
                     </div>
-                    <div className="text-[11px]">
-                      <div className="font-semibold text-gray-700">Used Sessions</div>
-                      <div className="text-gray-900">{usedSess}</div>
+                    <div>
+                      <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Sessions to Transfer (leave blank for all)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max={remainingSess}
+                        value={sessionsToTransfer}
+                        onChange={(e) => setSessionsToTransfer(e.target.value)}
+                        placeholder={`1 to ${remainingSess}`}
+                        className={`text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 ${sessionsTransferError ? "border-red-500" : "border-gray-300 hover:border-indigo-400"}`}
+                      />
+                      {sessionsTransferError && (
+                        <div className="mt-1 text-[10px] text-red-600 font-medium flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          {sessionsTransferError}
+                        </div>
+                      )}
                     </div>
-                    <div className="text-[11px]">
-                      <div className="font-semibold text-gray-700">Remaining</div>
-                      <div className="text-gray-900">{remainingSess}</div>
-                    </div>
-                    <div className="text-[11px]">
-                      <div className="font-semibold text-gray-700">Package</div>
-                      <div className="text-gray-900">{pkg ? pkg.name : "-"}</div>
-                    </div>
-                  </div>
+                  </>
                 );
               })()}
             </div>
@@ -535,7 +605,7 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                   {searchResults.map((p: any) => (
                     <li key={p._id} className="p-2 hover:bg-gray-50 cursor-pointer text-[11px]" onClick={() => setSelectedTargetPatient(p)}>
                       <div className="font-medium text-gray-900">{p.fullName || `${p.firstName} ${p.lastName}`}</div>
-                      <div className="text-gray-600">{p.emrNumber} • {p.mobileNumber}</div>
+                      <div className="text-gray-600">{p.emrNumber} • {getUserRole() === 'doctorStaff' ? maskPhoneNumber(p.mobileNumber) : p.mobileNumber}</div>
                     </li>
                   ))}
                 </ul>
@@ -557,7 +627,8 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                   transferSubmitting ||
                   !selectedTargetPatient ||
                   (transferType === "membership" && (!selectedMembershipId)) ||
-                  (transferType === "package" && (!selectedPackageId))
+                  (transferType === "package" && (!selectedPackageId)) ||
+                  Boolean(sessionsTransferError)
                 }
                 className="px-4 py-2 text-[11px] bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 transition-all duration-300 font-bold shadow-lg"
               >
@@ -2290,6 +2361,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           packageUsageData = usageRes.data.packageUsage || [];
           packageTransferredOutData = usageRes.data.transferredOut || [];
         }
+
       } catch (err: any) {
         console.error('Error fetching package usage:', err.message);
       }
@@ -2309,12 +2381,31 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       }
      
       // Process packages with usage data - separate active, transferred-in, and transferred-out
-      const transferredOutPackageIds = new Set(packageTransferredOutData.map(p => String(p.packageId)));
+      // Create a map of packageId to total transferred-out sessions
+      const transferredOutSessionsByPackageId = new Map();
+      packageTransferredOutData.forEach(p => {
+        const pkgIdStr = String(p.packageId);
+        const current = transferredOutSessionsByPackageId.get(pkgIdStr) || 0;
+        transferredOutSessionsByPackageId.set(pkgIdStr, current + (p.transferredSessions || 0));
+      });
      
-      // Filter patientPackageIds to exclude transferred-out packages
-      patientPackageIds = patientPackageIds.filter((pkgId: any) =>
-        !transferredOutPackageIds.has(String(pkgId))
-      );
+      // Filter patientPackageIds to only exclude packages where ALL sessions are transferred out
+      patientPackageIds = patientPackageIds.filter((pkgId: any) => {
+        const pkgIdStr = String(pkgId);
+        const pkg = allPackages.find((p: any) => String(p._id) === pkgIdStr);
+
+        if (!pkg) return true;
+        
+        // Get total allowed sessions for the package
+        const totalSessions = pkg.totalSessions || 
+                             pkg.treatments?.reduce((sum: number, t: any) => sum + (parseInt(t.sessions) || 0), 0) || 0;
+        
+        // Get total transferred-out sessions
+        const transferredOut = transferredOutSessionsByPackageId.get(pkgIdStr) || 0;
+        
+        // Only exclude if ALL sessions are transferred out
+        return transferredOut < totalSessions;
+      });
      
       const patientPackages = allPackages.filter((pkg: any) =>
         patientPackageIds.includes(pkg._id)
@@ -2368,12 +2459,25 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           calculatedPaymentStatus = 'Partial';
         }
        
+        // For transferred packages, use usage data's totalAllowed and remaining instead of package's own totals!
+        let effectiveTotalSessions = pkg.totalSessions || calculatedTotalSessions || 0;
+        let effectiveRemainingSessions: number | null = null;
+        
+        if (usage?.isTransferred) {
+          effectiveTotalSessions = usage.totalAllowedSessions || effectiveTotalSessions;
+          effectiveRemainingSessions = usage.remainingSessions || 0;
+        } else {
+          effectiveRemainingSessions = (usage?.remainingSessions !== null && usage?.remainingSessions !== undefined) 
+            ? usage.remainingSessions 
+            : (effectiveTotalSessions - usedSessions);
+        }
+       
         return {
           ...pkg,
           validityInMonths: patientPackage?.validityInMonths || pkg.validityInMonths || 0,
           startDate: patientPackage?.startDate || pkg.startDate || patientPackage?.assignedDate || pkg.createdAt,
           endDate: patientPackage?.endDate || pkg.endDate || null,
-          totalSessions: pkg.totalSessions || calculatedTotalSessions || 0,
+          totalSessions: effectiveTotalSessions,
           usedSessions: usedSessions,
           status: 'active',
           assignedDate: patientPackage?.assignedDate || pkg.createdAt,
@@ -2389,7 +2493,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           transferredFromName: usage?.transferredFromName || null,
           transferredPackageName: usage?.transferredPackageName || (usage?.isTransferred ? usage?.packageName : null) || null,
           totalAllowedSessions: usage?.totalAllowedSessions || null,
-          remainingSessions: usage?.remainingSessions || null,
+          remainingSessions: effectiveRemainingSessions,
           packageSoldBy: patientPackage?.packageSoldBy // <-- Include packageSoldBy!
         };
       });
@@ -2409,7 +2513,6 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           treatments: u.treatments || [],
           billingHistory: u.billingHistory || []
         }));
-     
       // Process memberships with usage data - separate active, transferred-in, and transferred-out
       // Filter patientMembershipIds to exclude transferred-out memberships
       const transferredOutMembershipIds = new Set(
@@ -3998,7 +4101,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   <div className="flex items-center gap-1.5 min-w-0">
                     <Phone className="w-3 h-3 text-gray-400 flex-shrink-0" />
                     <span className="text-gray-500 font-medium flex-shrink-0">Mobile:</span>
-                    <span className="text-gray-800">{patientData.countryCode || ''} {patientData.mobileNumber || 'N/A'}</span>
+                    <span className="text-gray-800">{patientData.countryCode || ''} {getUserRole() === 'doctorStaff' ? maskPhoneNumber(patientData.mobileNumber) : (patientData.mobileNumber || 'N/A')}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <User className="w-3 h-3 text-gray-400 flex-shrink-0" />
@@ -4812,14 +4915,30 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                           </div>
                         )}
 
-                        {/* Added Packages List — hide transferred-out packages */}
+                        {/* Added Packages List — hide transferred-out packages only if ALL sessions are transferred */}
                         {(() => {
-                          const txOutPackageIds = new Set(
-                            transferredOutPackages.map((p: any) => String(p.packageId))
-                          );
+                          // Create a map: packageId → total transferred out sessions
+                          const txOutSessionsByPackageId = new Map();
+                          transferredOutPackages.forEach((p: any) => {
+                            const pkgIdStr = String(p.packageId);
+                            const current = txOutSessionsByPackageId.get(pkgIdStr) || 0;
+                            txOutSessionsByPackageId.set(pkgIdStr, current + (p.transferredSessions || 0));
+                          });
+                          
                           const visiblePackages = (editFormData.packages || [])
                             .map((p: any, originalIdx: number) => ({ p, originalIdx }))
-                            .filter(({ p }: any) => !txOutPackageIds.has(String(p.packageId)));
+                            .filter(({ p }: any) => {
+                              const pkgIdStr = String(p.packageId);
+                              const pkg = allAvailablePackages.find((x: any) => String(x._id) === pkgIdStr);
+                              if (!pkg) return true; // if we can't find the package, show it
+                              
+                              const totalSessions = pkg.totalSessions || 
+                                                   pkg.treatments?.reduce((sum: number, t: any) => sum + (parseInt(t.sessions) || 0), 0) || 0;
+                              const transferredOut = txOutSessionsByPackageId.get(pkgIdStr) || 0;
+                              
+                              // Only hide if ALL sessions are transferred out
+                              return transferredOut < totalSessions;
+                            });
                           if (visiblePackages.length === 0) return null;
                          
                           // Check if more than 3 packages to enable scroll

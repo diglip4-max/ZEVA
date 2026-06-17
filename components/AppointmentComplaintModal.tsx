@@ -4940,6 +4940,343 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                 
                   {activeTab === "prescription" && (
                     <div className="space-y-5">
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-sm font-semibold text-gray-800">Prescribed Medicines <span className="text-red-500">*</span></h3>
+                          <button type="button" onClick={() => setMedicines((prev) => [...prev, emptyMedicine()])}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700"
+                          >
+                            <Plus size={13} /> Add Medicine
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {medicines.map((med) => (
+                            <div key={med.id} className="rounded-xl border border-gray-200 bg-white px-4 py-3 flex flex-col sm:flex-row gap-3 items-start sm:items-center shadow-sm">
+                              <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase">Medicine</label>
+                                <input type="text" value={med.medicineName} onChange={(e) => setMedicines((prev) => prev.map((m) => m.id === med.id ? { ...m, medicineName: e.target.value } : m))} placeholder="Medicine name" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300 text-gray-800 placeholder-gray-400" />
+                              </div>
+                              <div className="flex flex-col gap-0.5 w-full sm:w-28">
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase">Dosage</label>
+                                <input type="text" value={med.dosage} onChange={(e) => setMedicines((prev) => prev.map((m) => m.id === med.id ? { ...m, dosage: e.target.value } : m))} placeholder="2x/day" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                              </div>
+                              <div className="flex flex-col gap-0.5 w-full sm:w-24">
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase">Duration</label>
+                                <input type="text" value={med.duration} onChange={(e) => setMedicines((prev) => prev.map((m) => m.id === med.id ? { ...m, duration: e.target.value } : m))} placeholder="7 days" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                              </div>
+                              <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase">Notes</label>
+                                <input type="text" value={med.notes} onChange={(e) => setMedicines((prev) => prev.map((m) => m.id === med.id ? { ...m, notes: e.target.value } : m))} placeholder="After meals" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                              </div>
+                              <button type="button" onClick={() => { if (medicines.length === 1) { setMedicines([emptyMedicine()]); } else { setMedicines((prev) => prev.filter((m) => m.id !== med.id)); } }} className="mt-4 sm:mt-0 text-gray-300 hover:text-red-500 flex-shrink-0"><Trash2 size={15} /></button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-800 mb-2">Aftercare Instructions</h3>
+                        <textarea value={aftercareInstructions} onChange={(e) => setAftercareInstructions(e.target.value)} rows={4} placeholder="Enter aftercare instructions..." className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none" />
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <button type="button" role="switch" aria-checked={includeInPdf} onClick={() => setIncludeInPdf((v) => !v)}
+                          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${includeInPdf ? "bg-blue-500" : "bg-gray-300"}`}
+                        >
+                          <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${includeInPdf ? "translate-x-5" : "translate-x-0"}`} />
+                        </button>
+                        <span className="text-sm text-gray-700 font-medium">Include in patient PDF</span>
+                      </div>
+
+                      {prescriptionError && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{prescriptionError}</div>}
+                      {prescriptionSaved && <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 flex items-center gap-2"><Check size={14} /> Prescription saved.</div>}
+
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <button type="button" disabled={savingPrescription}
+                          onClick={async () => {
+                            const validMeds = medicines.filter((m) => m.medicineName.trim());
+                            if (!details) return;
+                            setSavingPrescription(true); setPrescriptionError(""); setPrescriptionSaved(false);
+                            try {
+                              const headers = getAuthHeaders();
+                              await axios.post("/api/clinic/prescriptions", { appointmentId: details.appointmentId, patientId: details.patientId, medicines: validMeds, aftercareInstructions, includeInPdf }, { headers });
+                              setPrescriptionSaved(true);
+                              const histRes = await axios.get("/api/clinic/prescriptions", { headers, params: { patientId: details.patientId } });
+                              if (histRes.data?.success) setPrescriptionHistory(histRes.data.prescriptions || []);
+                            } catch (err: any) { setPrescriptionError(err.response?.data?.message || "Failed to save prescription"); }
+                            finally { setSavingPrescription(false); }
+                          }}
+                          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 shadow-sm"
+                        >
+                          {savingPrescription ? <><RefreshCw size={13} className="animate-spin" /> Saving...</> : <><Check size={13} /> Save Prescription</>}
+                        </button>
+                        <button type="button" onClick={() => {
+                          const validMeds = medicines.filter((m) => m.medicineName.trim());
+                          if (!details) return;
+                         
+                          const doc = new jsPDF();
+                          const pageWidth = doc.internal.pageSize.getWidth();
+                         
+                          // Header - Clinic Name
+                          doc.setFontSize(18);
+                          doc.setFont("helvetica", "bold");
+                          doc.text("PRESCRIPTION", pageWidth / 2, 20, { align: "center" });
+                         
+                          // Patient Information
+                          doc.setFontSize(12);
+                          doc.setFont("helvetica", "normal");
+                          doc.text(`Patient Name: ${details.patientName || "N/A"}`, 20, 35);
+                          doc.text(`Doctor: Dr. ${details.doctorName || "N/A"}`, 20, 43);
+                          const appointmentDate = details.startDate ? new Date(details.startDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A";
+                          const appointmentTime = details.fromTime || "N/A";
+                          doc.text(`Date: ${appointmentDate} at ${appointmentTime}`, 20, 51);
+                         
+                          // Divider line
+                          doc.setLineWidth(0.5);
+                          doc.line(20, 58, pageWidth - 20, 58);
+                         
+                          // Prescribed Medicines Section
+                          doc.setFontSize(14);
+                          doc.setFont("helvetica", "bold");
+                          doc.text("Prescribed Medicines", 20, 68);
+                         
+                          // Medicines table header
+                          doc.setFontSize(10);
+                          doc.setFont("helvetica", "bold");
+                          doc.setFillColor(240, 240, 240);
+                          doc.rect(20, 73, pageWidth - 40, 8, "F");
+                          doc.text("#", 22, 78);
+                          doc.text("Medicine", 30, 78);
+                          doc.text("Dosage", 90, 78);
+                          doc.text("Duration", 120, 78);
+                          doc.text("Notes", 150, 78);
+                         
+                          // Medicines table rows
+                          doc.setFont("helvetica", "normal");
+                          let yPos = 83;
+                          validMeds.forEach((med, index) => {
+                            doc.text(String(index + 1), 22, yPos);
+                            doc.text(med.medicineName || "-", 30, yPos);
+                            doc.text(med.dosage || "-", 90, yPos);
+                            doc.text(med.duration || "-", 120, yPos);
+                            doc.text(med.notes || "-", 150, yPos);
+                            yPos += 8;
+                          });
+                         
+                          // Aftercare Instructions Section
+                          if (aftercareInstructions.trim()) {
+                            yPos += 10;
+                            doc.setFontSize(14);
+                            doc.setFont("helvetica", "bold");
+                            doc.text("Aftercare Instructions", 20, yPos);
+                            yPos += 8;
+                           
+                            doc.setFontSize(10);
+                            doc.setFont("helvetica", "normal");
+                            const aftercareLines = doc.splitTextToSize(aftercareInstructions, pageWidth - 40);
+                            doc.text(aftercareLines, 20, yPos);
+                          }
+                         
+                          // Footer
+                          doc.setFontSize(8);
+                          doc.setTextColor(128, 128, 128);
+                          doc.text(`Generated on: ${new Date().toLocaleString()}`, pageWidth / 2, 285, { align: "center" });
+                         
+                          // Save the PDF
+                          doc.save(`Prescription_${details.patientName?.replace(/\s+/g, "_") || "Patient"}_${new Date().toISOString().split("T")[0]}.pdf`);
+                        }} className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gray-800 text-white text-sm font-semibold hover:bg-gray-900 disabled:opacity-40 shadow-sm"><FileText size={13} /> Generate PDF</button>
+                        <button 
+                          type="button" 
+                          disabled={sendMsgLoading} 
+                          onClick={async () => {
+                            const validMeds = medicines.filter((m) => m.medicineName.trim());
+                            if (!details) return;
+                           
+                            // Show loader immediately on click
+                            setSendMsgLoading(true);
+                           
+                            try {
+                              const headers = getAuthHeaders();
+                             
+                              // Generate PDF
+                              const doc = new jsPDF();
+                              const pageWidth = doc.internal.pageSize.getWidth();
+                             
+                              doc.setFontSize(18);
+                              doc.setFont("helvetica", "bold");
+                              doc.text("PRESCRIPTION", pageWidth / 2, 20, { align: "center" });
+                             
+                              doc.setFontSize(12);
+                              doc.setFont("helvetica", "normal");
+                              doc.text(`Patient Name: ${details.patientName || "N/A"}`, 20, 35);
+                              doc.text(`Doctor: Dr. ${details.doctorName || "N/A"}`, 20, 43);
+                              const appointmentDate = details.startDate ? new Date(details.startDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A";
+                              const appointmentTime = details.fromTime || "N/A";
+                              doc.text(`Date: ${appointmentDate} at ${appointmentTime}`, 20, 51);
+                             
+                              doc.setLineWidth(0.5);
+                              doc.line(20, 58, pageWidth - 20, 58);
+                             
+                              doc.setFontSize(14);
+                              doc.setFont("helvetica", "bold");
+                              doc.text("Prescribed Medicines", 20, 68);
+                             
+                              doc.setFontSize(10);
+                              doc.setFont("helvetica", "bold");
+                              doc.setFillColor(240, 240, 240);
+                              doc.rect(20, 73, pageWidth - 40, 8, "F");
+                              doc.text("#", 22, 78);
+                              doc.text("Medicine", 30, 78);
+                              doc.text("Dosage", 90, 78);
+                              doc.text("Duration", 120, 78);
+                              doc.text("Notes", 150, 78);
+                             
+                              doc.setFont("helvetica", "normal");
+                              let yPos = 83;
+                              validMeds.forEach((med, index) => {
+                                doc.text(String(index + 1), 22, yPos);
+                                doc.text(med.medicineName || "-", 30, yPos);
+                                doc.text(med.dosage || "-", 90, yPos);
+                                doc.text(med.duration || "-", 120, yPos);
+                                doc.text(med.notes || "-", 150, yPos);
+                                yPos += 8;
+                              });
+                             
+                              if (aftercareInstructions.trim()) {
+                                yPos += 10;
+                                doc.setFontSize(14);
+                                doc.setFont("helvetica", "bold");
+                                doc.text("Aftercare Instructions", 20, yPos);
+                                yPos += 8;
+                               
+                                doc.setFontSize(10);
+                                doc.setFont("helvetica", "normal");
+                                const aftercareLines = doc.splitTextToSize(aftercareInstructions, pageWidth - 40);
+                                doc.text(aftercareLines, 20, yPos);
+                              }
+                             
+                              doc.setFontSize(8);
+                              doc.setTextColor(128, 128, 128);
+                              doc.text(`Generated on: ${new Date().toLocaleString()}`, pageWidth / 2, 285, { align: "center" });
+                             
+                              // Convert PDF to base64
+                              const pdfBase64 = doc.output("datauristring");
+                             
+                              // Upload PDF to server using FormData
+                              const pdfFileName = `Prescription_${details.patientName?.replace(/\s+/g, "_") || "Patient"}_${Date.now()}.pdf`;
+                              const formData = new FormData();
+                             
+                              // Convert base64 to blob
+                              const base64Response = await fetch(pdfBase64);
+                              const pdfBlob = await base64Response.blob();
+                              formData.append("file", pdfBlob, pdfFileName);
+                             
+                              const uploadRes = await axios.post("/api/upload", formData, {
+                                headers: {
+                                  ...headers,
+                                  "Content-Type": "multipart/form-data",
+                                },
+                              });
+                             
+                              let pdfUrl = "";
+                              if (uploadRes.data?.url) {
+                                pdfUrl = uploadRes.data.url;
+                              } else if (uploadRes.data?.success && uploadRes.data?.fileUrl) {
+                                pdfUrl = uploadRes.data.fileUrl;
+                              }
+                             
+                              // Save prescription with PDF URL
+                              const saveRes = await axios.post("/api/clinic/prescriptions", {
+                                appointmentId: details.appointmentId,
+                                patientId: details.patientId,
+                                medicines: validMeds,
+                                aftercareInstructions,
+                                includeInPdf: true,
+                                pdfUrl,
+                              }, { headers });
+                             
+                              if (pdfUrl) {
+                                // Generate public prescription link
+                                const baseUrl = window.location.origin;
+                                const prescriptionId = saveRes.data?.prescription?._id;
+                                const prescriptionLink = prescriptionId ? `${baseUrl}/prescription/${prescriptionId}` : pdfUrl;
+                               
+                                // Log the prescription link to console
+                                console.log("=== PRESCRIPTION LINK GENERATED ===");
+                                console.log("Prescription Link:", prescriptionLink);
+                                console.log("Prescription ID:", prescriptionId);
+                                console.log("Base URL:", baseUrl);
+                                console.log("PDF URL:", pdfUrl);
+                                console.log("===================================");
+                               
+                                // Send WhatsApp message using the dedicated function
+                                await handleSendPrescriptionWhatsapp(prescriptionLink);
+                              } else {
+                                toast.error(
+                                  <div className="flex flex-col gap-1">
+                                    <span className="font-semibold">  Upload Failed</span>
+                                    <span className="text-xs opacity-80">Prescription saved but failed to send WhatsApp message.</span>
+                                  </div>,
+                                  {
+                                    duration: 4000,
+                                    position: 'top-center',
+                                    style: {
+                                      background: '#ef4444',
+                                      color: '#fff',
+                                      padding: '16px',
+                                      borderRadius: '8px',
+                                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                                      zIndex: 9999,
+                                      maxWidth: '500px',
+                                    },
+                                    iconTheme: {
+                                      primary: '#fff',
+                                      secondary: '#ef4444',
+                                    },
+                                  }
+                                );
+                              }
+                            } catch (err: any) {
+                              console.error("Error sending prescription:", err);
+                              toast.error(
+                                <div className="flex flex-col gap-1">
+                                  <span className="font-semibold"> Send Failed</span>
+                                  <span className="text-xs opacity-80">{err.response?.data?.message || "Failed to send prescription via WhatsApp"}</span>
+                                </div>,
+                                {
+                                  duration: 4000,
+                                  position: 'top-center',
+                                  style: {
+                                    background: '#ef4444',
+                                    color: '#fff',
+                                    padding: '16px',
+                                    borderRadius: '8px',
+                                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                                    zIndex: 9999,
+                                    maxWidth: '500px',
+                                  },
+                                  iconTheme: {
+                                    primary: '#fff',
+                                    secondary: '#ef4444',
+                                  },
+                                }
+                              );
+                            }
+                          }} 
+                          className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-semibold hover:bg-gray-50 disabled:opacity-40"
+                        >
+                          {sendMsgLoading ? (
+                            <>
+                              <RefreshCw size={13} className="animate-spin" /> Sending...
+                            </>
+                          ) : (
+                            <>
+                              <Send size={13} /> Send via WhatsApp
+                            </>
+                          )}
+                        </button>
+                      </div>
+
                       {/* Treatment & Billing - Enhanced Modern UI */}
                       <div id="treatment-billing-section" className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
                         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
@@ -5378,342 +5715,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             </div>
                           )}
                         </div>
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-sm font-semibold text-gray-800">Prescribed Medicines <span className="text-red-500">*</span></h3>
-                          <button type="button" onClick={() => setMedicines((prev) => [...prev, emptyMedicine()])}
-                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700"
-                          >
-                            <Plus size={13} /> Add Medicine
-                          </button>
-                        </div>
-                        <div className="space-y-2">
-                          {medicines.map((med) => (
-                            <div key={med.id} className="rounded-xl border border-gray-200 bg-white px-4 py-3 flex flex-col sm:flex-row gap-3 items-start sm:items-center shadow-sm">
-                              <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase">Medicine</label>
-                                <input type="text" value={med.medicineName} onChange={(e) => setMedicines((prev) => prev.map((m) => m.id === med.id ? { ...m, medicineName: e.target.value } : m))} placeholder="Medicine name (required)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300 text-gray-800 placeholder-gray-400" />
-                              </div>
-                              <div className="flex flex-col gap-0.5 w-full sm:w-28">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase">Dosage</label>
-                                <input type="text" value={med.dosage} onChange={(e) => setMedicines((prev) => prev.map((m) => m.id === med.id ? { ...m, dosage: e.target.value } : m))} placeholder="2x/day" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300" />
-                              </div>
-                              <div className="flex flex-col gap-0.5 w-full sm:w-24">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase">Duration</label>
-                                <input type="text" value={med.duration} onChange={(e) => setMedicines((prev) => prev.map((m) => m.id === med.id ? { ...m, duration: e.target.value } : m))} placeholder="7 days" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300" />
-                              </div>
-                              <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase">Notes</label>
-                                <input type="text" value={med.notes} onChange={(e) => setMedicines((prev) => prev.map((m) => m.id === med.id ? { ...m, notes: e.target.value } : m))} placeholder="After meals" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300" />
-                              </div>
-                              <button type="button" onClick={() => { if (medicines.length === 1) { setMedicines([emptyMedicine()]); } else { setMedicines((prev) => prev.filter((m) => m.id !== med.id)); } }} className="mt-4 sm:mt-0 text-gray-300 hover:text-red-500 flex-shrink-0"><Trash2 size={15} /></button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-800 mb-2">Aftercare Instructions</h3>
-                        <textarea value={aftercareInstructions} onChange={(e) => setAftercareInstructions(e.target.value)} rows={4} placeholder="Enter aftercare instructions..." className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none" />
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <button type="button" role="switch" aria-checked={includeInPdf} onClick={() => setIncludeInPdf((v) => !v)}
-                          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${includeInPdf ? "bg-blue-500" : "bg-gray-300"}`}
-                        >
-                          <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${includeInPdf ? "translate-x-5" : "translate-x-0"}`} />
-                        </button>
-                        <span className="text-sm text-gray-700 font-medium">Include in patient PDF</span>
-                      </div>
-
-                      {prescriptionError && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{prescriptionError}</div>}
-                      {prescriptionSaved && <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 flex items-center gap-2"><Check size={14} /> Prescription saved.</div>}
-
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <button type="button" disabled={savingPrescription}
-                          onClick={async () => {
-                            const validMeds = medicines.filter((m) => m.medicineName.trim());
-                            if (!details) return;
-                            setSavingPrescription(true); setPrescriptionError(""); setPrescriptionSaved(false);
-                            try {
-                              const headers = getAuthHeaders();
-                              await axios.post("/api/clinic/prescriptions", { appointmentId: details.appointmentId, patientId: details.patientId, medicines: validMeds, aftercareInstructions, includeInPdf }, { headers });
-                              setPrescriptionSaved(true);
-                              const histRes = await axios.get("/api/clinic/prescriptions", { headers, params: { patientId: details.patientId } });
-                              if (histRes.data?.success) setPrescriptionHistory(histRes.data.prescriptions || []);
-                            } catch (err: any) { setPrescriptionError(err.response?.data?.message || "Failed to save prescription"); }
-                            finally { setSavingPrescription(false); }
-                          }}
-                          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 shadow-sm"
-                        >
-                          {savingPrescription ? <><RefreshCw size={13} className="animate-spin" /> Saving...</> : <><Check size={13} /> Save Prescription</>}
-                        </button>
-                        <button type="button" onClick={() => {
-                          const validMeds = medicines.filter((m) => m.medicineName.trim());
-                          if (!details) return;
-                         
-                          const doc = new jsPDF();
-                          const pageWidth = doc.internal.pageSize.getWidth();
-                         
-                          // Header - Clinic Name
-                          doc.setFontSize(18);
-                          doc.setFont("helvetica", "bold");
-                          doc.text("PRESCRIPTION", pageWidth / 2, 20, { align: "center" });
-                         
-                          // Patient Information
-                          doc.setFontSize(12);
-                          doc.setFont("helvetica", "normal");
-                          doc.text(`Patient Name: ${details.patientName || "N/A"}`, 20, 35);
-                          doc.text(`Doctor: Dr. ${details.doctorName || "N/A"}`, 20, 43);
-                          const appointmentDate = details.startDate ? new Date(details.startDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A";
-                          const appointmentTime = details.fromTime || "N/A";
-                          doc.text(`Date: ${appointmentDate} at ${appointmentTime}`, 20, 51);
-                         
-                          // Divider line
-                          doc.setLineWidth(0.5);
-                          doc.line(20, 58, pageWidth - 20, 58);
-                         
-                          // Prescribed Medicines Section
-                          doc.setFontSize(14);
-                          doc.setFont("helvetica", "bold");
-                          doc.text("Prescribed Medicines", 20, 68);
-                         
-                          // Medicines table header
-                          doc.setFontSize(10);
-                          doc.setFont("helvetica", "bold");
-                          doc.setFillColor(240, 240, 240);
-                          doc.rect(20, 73, pageWidth - 40, 8, "F");
-                          doc.text("#", 22, 78);
-                          doc.text("Medicine", 30, 78);
-                          doc.text("Dosage", 90, 78);
-                          doc.text("Duration", 120, 78);
-                          doc.text("Notes", 150, 78);
-                         
-                          // Medicines table rows
-                          doc.setFont("helvetica", "normal");
-                          let yPos = 83;
-                          validMeds.forEach((med, index) => {
-                            doc.text(String(index + 1), 22, yPos);
-                            doc.text(med.medicineName || "-", 30, yPos);
-                            doc.text(med.dosage || "-", 90, yPos);
-                            doc.text(med.duration || "-", 120, yPos);
-                            doc.text(med.notes || "-", 150, yPos);
-                            yPos += 8;
-                          });
-                         
-                          // Aftercare Instructions Section
-                          if (aftercareInstructions.trim()) {
-                            yPos += 10;
-                            doc.setFontSize(14);
-                            doc.setFont("helvetica", "bold");
-                            doc.text("Aftercare Instructions", 20, yPos);
-                            yPos += 8;
-                           
-                            doc.setFontSize(10);
-                            doc.setFont("helvetica", "normal");
-                            const aftercareLines = doc.splitTextToSize(aftercareInstructions, pageWidth - 40);
-                            doc.text(aftercareLines, 20, yPos);
-                          }
-                         
-                          // Footer
-                          doc.setFontSize(8);
-                          doc.setTextColor(128, 128, 128);
-                          doc.text(`Generated on: ${new Date().toLocaleString()}`, pageWidth / 2, 285, { align: "center" });
-                         
-                          // Save the PDF
-                          doc.save(`Prescription_${details.patientName?.replace(/\s+/g, "_") || "Patient"}_${new Date().toISOString().split("T")[0]}.pdf`);
-                        }} className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gray-800 text-white text-sm font-semibold hover:bg-gray-900 disabled:opacity-40 shadow-sm"><FileText size={13} /> Generate PDF</button>
-                        <button 
-                          type="button" 
-                          disabled={sendMsgLoading} 
-                          onClick={async () => {
-                            const validMeds = medicines.filter((m) => m.medicineName.trim());
-                            if (!details) return;
-                           
-                            // Show loader immediately on click
-                            setSendMsgLoading(true);
-                           
-                            try {
-                              const headers = getAuthHeaders();
-                             
-                              // Generate PDF
-                              const doc = new jsPDF();
-                              const pageWidth = doc.internal.pageSize.getWidth();
-                             
-                              doc.setFontSize(18);
-                              doc.setFont("helvetica", "bold");
-                              doc.text("PRESCRIPTION", pageWidth / 2, 20, { align: "center" });
-                             
-                              doc.setFontSize(12);
-                              doc.setFont("helvetica", "normal");
-                              doc.text(`Patient Name: ${details.patientName || "N/A"}`, 20, 35);
-                              doc.text(`Doctor: Dr. ${details.doctorName || "N/A"}`, 20, 43);
-                              const appointmentDate = details.startDate ? new Date(details.startDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A";
-                              const appointmentTime = details.fromTime || "N/A";
-                              doc.text(`Date: ${appointmentDate} at ${appointmentTime}`, 20, 51);
-                             
-                              doc.setLineWidth(0.5);
-                              doc.line(20, 58, pageWidth - 20, 58);
-                             
-                              doc.setFontSize(14);
-                              doc.setFont("helvetica", "bold");
-                              doc.text("Prescribed Medicines", 20, 68);
-                             
-                              doc.setFontSize(10);
-                              doc.setFont("helvetica", "bold");
-                              doc.setFillColor(240, 240, 240);
-                              doc.rect(20, 73, pageWidth - 40, 8, "F");
-                              doc.text("#", 22, 78);
-                              doc.text("Medicine", 30, 78);
-                              doc.text("Dosage", 90, 78);
-                              doc.text("Duration", 120, 78);
-                              doc.text("Notes", 150, 78);
-                             
-                              doc.setFont("helvetica", "normal");
-                              let yPos = 83;
-                              validMeds.forEach((med, index) => {
-                                doc.text(String(index + 1), 22, yPos);
-                                doc.text(med.medicineName || "-", 30, yPos);
-                                doc.text(med.dosage || "-", 90, yPos);
-                                doc.text(med.duration || "-", 120, yPos);
-                                doc.text(med.notes || "-", 150, yPos);
-                                yPos += 8;
-                              });
-                             
-                              if (aftercareInstructions.trim()) {
-                                yPos += 10;
-                                doc.setFontSize(14);
-                                doc.setFont("helvetica", "bold");
-                                doc.text("Aftercare Instructions", 20, yPos);
-                                yPos += 8;
-                               
-                                doc.setFontSize(10);
-                                doc.setFont("helvetica", "normal");
-                                const aftercareLines = doc.splitTextToSize(aftercareInstructions, pageWidth - 40);
-                                doc.text(aftercareLines, 20, yPos);
-                              }
-                             
-                              doc.setFontSize(8);
-                              doc.setTextColor(128, 128, 128);
-                              doc.text(`Generated on: ${new Date().toLocaleString()}`, pageWidth / 2, 285, { align: "center" });
-                             
-                              // Convert PDF to base64
-                              const pdfBase64 = doc.output("datauristring");
-                             
-                              // Upload PDF to server using FormData
-                              const pdfFileName = `Prescription_${details.patientName?.replace(/\s+/g, "_") || "Patient"}_${Date.now()}.pdf`;
-                              const formData = new FormData();
-                             
-                              // Convert base64 to blob
-                              const base64Response = await fetch(pdfBase64);
-                              const pdfBlob = await base64Response.blob();
-                              formData.append("file", pdfBlob, pdfFileName);
-                             
-                              const uploadRes = await axios.post("/api/upload", formData, {
-                                headers: {
-                                  ...headers,
-                                  "Content-Type": "multipart/form-data",
-                                },
-                              });
-                             
-                              let pdfUrl = "";
-                              if (uploadRes.data?.url) {
-                                pdfUrl = uploadRes.data.url;
-                              } else if (uploadRes.data?.success && uploadRes.data?.fileUrl) {
-                                pdfUrl = uploadRes.data.fileUrl;
-                              }
-                             
-                              // Save prescription with PDF URL
-                              const saveRes = await axios.post("/api/clinic/prescriptions", {
-                                appointmentId: details.appointmentId,
-                                patientId: details.patientId,
-                                medicines: validMeds,
-                                aftercareInstructions,
-                                includeInPdf: true,
-                                pdfUrl,
-                              }, { headers });
-                             
-                              if (pdfUrl) {
-                                // Generate public prescription link
-                                const baseUrl = window.location.origin;
-                                const prescriptionId = saveRes.data?.prescription?._id;
-                                const prescriptionLink = prescriptionId ? `${baseUrl}/prescription/${prescriptionId}` : pdfUrl;
-                               
-                                // Log the prescription link to console
-                                console.log("=== PRESCRIPTION LINK GENERATED ===");
-                                console.log("Prescription Link:", prescriptionLink);
-                                console.log("Prescription ID:", prescriptionId);
-                                console.log("Base URL:", baseUrl);
-                                console.log("PDF URL:", pdfUrl);
-                                console.log("===================================");
-                               
-                                // Send WhatsApp message using the dedicated function
-                                await handleSendPrescriptionWhatsapp(prescriptionLink);
-                              } else {
-                                toast.error(
-                                  <div className="flex flex-col gap-1">
-                                    <span className="font-semibold">  Upload Failed</span>
-                                    <span className="text-xs opacity-80">Prescription saved but failed to send WhatsApp message.</span>
-                                  </div>,
-                                  {
-                                    duration: 4000,
-                                    position: 'top-center',
-                                    style: {
-                                      background: '#ef4444',
-                                      color: '#fff',
-                                      padding: '16px',
-                                      borderRadius: '8px',
-                                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                                      zIndex: 9999,
-                                      maxWidth: '500px',
-                                    },
-                                    iconTheme: {
-                                      primary: '#fff',
-                                      secondary: '#ef4444',
-                                    },
-                                  }
-                                );
-                              }
-                            } catch (err: any) {
-                              console.error("Error sending prescription:", err);
-                              toast.error(
-                                <div className="flex flex-col gap-1">
-                                  <span className="font-semibold"> Send Failed</span>
-                                  <span className="text-xs opacity-80">{err.response?.data?.message || "Failed to send prescription via WhatsApp"}</span>
-                                </div>,
-                                {
-                                  duration: 4000,
-                                  position: 'top-center',
-                                  style: {
-                                    background: '#ef4444',
-                                    color: '#fff',
-                                    padding: '16px',
-                                    borderRadius: '8px',
-                                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                                    zIndex: 9999,
-                                    maxWidth: '500px',
-                                  },
-                                  iconTheme: {
-                                    primary: '#fff',
-                                    secondary: '#ef4444',
-                                  },
-                                }
-                              );
-                            }
-                          }} 
-                          className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-semibold hover:bg-gray-50 disabled:opacity-40"
-                        >
-                          {sendMsgLoading ? (
-                            <>
-                              <RefreshCw size={13} className="animate-spin" /> Sending...
-                            </>
-                          ) : (
-                            <>
-                              <Send size={13} /> Send via WhatsApp
-                            </>
-                          )}
-                        </button>
                       </div>
 
                       {/* Prescription History */}

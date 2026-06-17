@@ -584,6 +584,11 @@
 
           setTotal(response.data.total || 0);
           setTotalPages(response.data.totalPages || 1);
+          
+          // Update status counts from API (day-wise, not page-wise)
+          if (response.data.statusCounts) {
+            setStatusCounts(response.data.statusCounts);
+          }
         } else {
           setError(response.data.message || "Failed to fetch appointments");
         }
@@ -594,20 +599,6 @@
         setLoading(false);
       }
     }, [filters, page, getAuthHeaders, permissionsLoaded, permissions.canRead]);
-
-    // Calculate status counts from appointments
-    const calculateStatusCounts = useCallback(() => {
-      const counts: Record<string, number> = {};
-      appointments.forEach((apt) => {
-        const status = apt.status;
-        counts[status] = (counts[status] || 0) + 1;
-      });
-      setStatusCounts(counts);
-    }, [appointments]);
-
-    useEffect(() => {
-      calculateStatusCounts();
-    }, [appointments, calculateStatusCounts]);
 
     useEffect(() => {
       fetchFilterData();

@@ -56,7 +56,8 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
   const [deptData, setDeptData] = useState<DepartmentRow[]>([]);
   const [appointmentsByDept, setAppointmentsByDept] = useState<{ departmentName: string; totalAppointments: number }[]>([]);
   const [topServices, setTopServices] = useState<TopServicesMap>({});
-  const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null);
+  const [topServicesAll, setTopServicesAll] = useState<ServiceRow[]>([]);
+  const [selectedDeptId, setSelectedDeptId] = useState<string | "all" | null>(null);
   const [services, setServices] = useState<ServiceRow[]>([]);
   const [serviceSort, setServiceSort] = useState<"revenue" | "bookings">("revenue");
 
@@ -84,22 +85,34 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
         return;
       }
       const departments: DepartmentRow[] = json?.data?.departments || [];
-      const topDepartments: DepartmentRow[] = json?.data?.topDepartments || [];
       const servicesByDepartment: TopServicesMap = json?.data?.servicesByDepartment || {};
       const appointmentsByDeptData = json?.data?.appointmentsByDept || [];
+      const topServicesAllData: ServiceRow[] = (json?.data?.topServicesAll || []).map((s: any) => ({
+        serviceName: s.serviceName,
+        totalRevenue: Math.round(s.totalRevenue || 0),
+        totalBookings: s.totalBookings || 0,
+        averagePrice: Math.round(s.averagePrice || 0),
+      }));
       setDeptData(departments);
       setTopServices(servicesByDepartment);
       setAppointmentsByDept(appointmentsByDeptData);
-      if (!selectedDeptId && topDepartments.length) {
-        setSelectedDeptId(String(topDepartments[0].departmentId));
+      setTopServicesAll(topServicesAllData);
+      // Default to "All Departments" to show all services across all departments
+      if (!selectedDeptId) {
+        setSelectedDeptId("all");
       }
     } finally {
       setLoading(false);
     }
   }
 
-  async function fetchServices(departmentId: string, sortBy: "revenue" | "bookings") {
-    const qs = new URLSearchParams({ departmentId, sortBy, startDate, endDate }).toString();
+  async function fetchServices(departmentId: string | null, sortBy: "revenue" | "bookings") {
+    const params: Record<string, string> = { sortBy, startDate, endDate };
+    // Only include departmentId if a specific department is selected (not "all")
+    if (departmentId && departmentId !== "all") {
+      params.departmentId = departmentId;
+    }
+    const qs = new URLSearchParams(params).toString();
     const res = await fetch(`/api/clinic/reports/service-performance?${qs}`, {
       headers,
     });
@@ -152,8 +165,19 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
       })),
     };
 
-    return [deptSection, serviceSection];
-  }, [deptData, topServices, services]);
+    const top5AllSection = {
+      title: "Top 5 Services by Revenue (All Departments)",
+      headers: ["Service Name", "Total Bookings", "Total Revenue (AED)", "Average Price (AED)"],
+      data: topServicesAll.map(s => ({
+        "Service Name": s.serviceName,
+        "Total Bookings": s.totalBookings,
+        "Total Revenue (AED)": Math.round(s.totalRevenue || 0),
+        "Average Price (AED)": Math.round(s.averagePrice || 0),
+      })),
+    };
+
+    return [deptSection, serviceSection, top5AllSection];
+  }, [deptData, topServices, services, topServicesAll]);
 
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d", "#ffc658", "#8dd1e1", "#a4de6c", "#d0ed57"];
 
@@ -273,7 +297,7 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
-                data={services.slice(0, 5).map(s => ({ name: s.serviceName, value: Math.round(s.totalRevenue || 0) }))}
+                data={topServicesAll.slice(0, 5).map(s => ({ name: s.serviceName, value: Math.round(s.totalRevenue || 0) }))}
                 cx="50%"
                 cy="50%"
                 innerRadius={50}
@@ -283,7 +307,7 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
                 label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                 labelLine={{ fontSize: 9 }}
               >
-                {services.slice(0, 5).map((_, index) => (
+                {topServicesAll.slice(0, 5).map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
@@ -291,6 +315,9 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
               <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: 10 }} />
             </PieChart>
           </ResponsiveContainer>
+          {!topServicesAll.length && (
+            <div className="text-center text-gray-500 text-sm py-8">No service data for the selected date range</div>
+          )}
         </div>
       </div>
 
@@ -304,11 +331,11 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <label className="text-xs sm:text-sm text-gray-700 whitespace-nowrap">Department</label>
             <select
-              value={selectedDeptId || ""}
-              onChange={(e) => setSelectedDeptId(e.target.value || null)}
+              value={selectedDeptId || "all"}
+              onChange={(e) => setSelectedDeptId(e.target.value || "all")}
               className="border rounded px-2 py-1 bg-white text-xs sm:text-sm w-full sm:w-auto focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="">Select</option>
+              <option value="all">All Departments</option>
               {deptData
                 .filter((d) => d.departmentId)
                 .map((d) => (
@@ -358,7 +385,9 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
               {!services.length && (
                 <tr>
                   <td className="px-4 py-4 text-xs sm:text-sm text-gray-500 text-center" colSpan={4}>
-                    Select a department to view service performance
+                    {selectedDeptId === "all"
+                      ? "No services found for the selected date range"
+                      : "Select a department to view service performance"}
                   </td>
                 </tr>
               )}

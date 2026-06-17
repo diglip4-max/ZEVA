@@ -49,37 +49,73 @@ export default async function handler(req, res) {
     const PatientRegistration = (await import("../../../../models/PatientRegistration")).default;
     const patient = await PatientRegistration.findById(patientId).lean();
     
-    // Get transferred packages info
+    // Get original transfers first
     const transfersIn = Array.isArray(patient?.packageTransfers)
       ? patient.packageTransfers.filter(t => t.type === 'in')
       : [];
-         
-    // Get packages transferred OUT by this patient
     const transfersOut = Array.isArray(patient?.packageTransfers)
       ? patient.packageTransfers.filter(t => t.type === 'out')
       : [];
+    
+    // Aggregate transfersIn by package key (sum sessions if multiple transfers for same package)
+    const transfersInAggregated = {};
+    transfersIn.forEach(t => {
+      const key = t.packageName || String(t.packageId || "");
+      if (!transfersInAggregated[key]) {
+        transfersInAggregated[key] = {
+          ...t,
+          transferredSessions: t.transferredSessions || 0,
+        };
+      } else {
+        transfersInAggregated[key].transferredSessions += t.transferredSessions || 0;
+        // Keep the latest transfer date
+        if (t.transferDate && (!transfersInAggregated[key].transferDate || new Date(t.transferDate) > new Date(transfersInAggregated[key].transferDate))) {
+          transfersInAggregated[key].transferDate = t.transferDate;
+        }
+      }
+    });
+    const aggregatedTransfersIn = Object.values(transfersInAggregated);
+         
+    // Get packages transferred OUT by this patient, aggregated by package key
+    const transfersOutAggregated = {};
+    transfersOut.forEach(t => {
+      const key = t.packageName || String(t.packageId || "");
+      if (!transfersOutAggregated[key]) {
+        transfersOutAggregated[key] = {
+          ...t,
+          transferredSessions: t.transferredSessions || 0,
+        };
+      } else {
+        transfersOutAggregated[key].transferredSessions += t.transferredSessions || 0;
+        // Keep the latest transfer date
+        if (t.transferDate && (!transfersOutAggregated[key].transferDate || new Date(t.transferDate) > new Date(transfersOutAggregated[key].transferDate))) {
+          transfersOutAggregated[key].transferDate = t.transferDate;
+        }
+      }
+    });
+    const aggregatedTransfersOut = Object.values(transfersOutAggregated);
 
     // Import Package model early so we can fill in missing packageNames
     const Package = (await import("../../../../models/Package")).default;
 
     // Fill in missing packageNames for transfers that only have packageId
     const allMissingNameIds = [
-      ...transfersIn.filter(t => !t.packageName && t.packageId).map(t => t.packageId),
-      ...transfersOut.filter(t => !t.packageName && t.packageId).map(t => t.packageId),
+      ...aggregatedTransfersIn.filter(t => !t.packageName && t.packageId).map(t => t.packageId),
+      ...aggregatedTransfersOut.filter(t => !t.packageName && t.packageId).map(t => t.packageId),
     ];
     if (allMissingNameIds.length > 0) {
       const pkgsForNames = await Package.find({ _id: { $in: allMissingNameIds } }).select('name').lean();
       const pkgIdToName = {};
       pkgsForNames.forEach(p => { pkgIdToName[String(p._id)] = p.name; });
-      [...transfersIn, ...transfersOut].forEach(t => {
+      [...aggregatedTransfersIn, ...aggregatedTransfersOut].forEach(t => {
         if (!t.packageName && t.packageId) {
           t.packageName = pkgIdToName[String(t.packageId)] || null;
         }
       });
     }
 
-    const transferredOutPackageIds = transfersOut.map(t => String(t.packageId));
-    const transferredOutPackageNames = transfersOut.map(t => t.packageName).filter(Boolean);
+    const transferredOutPackageIds = aggregatedTransfersOut.map(t => String(t.packageId));
+    const transferredOutPackageNames = aggregatedTransfersOut.map(t => t.packageName).filter(Boolean);
     
     // Build a map of packageId -> payment info for normal packages
     const patientPackageMap = {};
@@ -95,7 +131,7 @@ export default async function handler(req, res) {
 
     // Build a map of packageName -> source patient info for transfers
     const transferSourceMap = {};
-    transfersIn.forEach(t => {
+    aggregatedTransfersIn.forEach(t => {
       const key = t.packageName || String(t.packageId || "");
       transferSourceMap[key] = {
         fromPatientId: t.fromPatientId,
@@ -109,7 +145,7 @@ export default async function handler(req, res) {
     });
 
     // Fetch names for all source patients in transfers
-    const sourceIds = Array.from(new Set(transfersIn.map(t => String(t.fromPatientId || "")).filter(Boolean)));
+    const sourceIds = Array.from(new Set(aggregatedTransfersIn.map(t => String(t.fromPatientId || "")).filter(Boolean)));
     const sourcePatients = sourceIds.length
       ? await PatientRegistration.find({ _id: { $in: sourceIds } }).select("firstName lastName").lean()
       : [];
@@ -122,7 +158,7 @@ export default async function handler(req, res) {
 
     // Collect all patient IDs to query (current patient + source patients from transfers)
     const patientIdsToQuery = [patientId];
-    transfersIn.forEach(t => {
+    aggregatedTransfersIn.forEach(t => {
       if (t.fromPatientId && !patientIdsToQuery.includes(String(t.fromPatientId))) {
         patientIdsToQuery.push(String(t.fromPatientId));
       }
@@ -141,7 +177,7 @@ export default async function handler(req, res) {
     }
 
     // Fetch names for all target patients in transfersOut
-    const targetIds = Array.from(new Set(transfersOut.map(t => String(t.toPatientId || "")).filter(Boolean)));
+    const targetIds = Array.from(new Set(aggregatedTransfersOut.map(t => String(t.toPatientId || "")).filter(Boolean)));
     const targetPatients = targetIds.length
       ? await PatientRegistration.find({ _id: { $in: targetIds } }).select("firstName lastName").lean()
       : [];
@@ -154,7 +190,7 @@ export default async function handler(req, res) {
 
     // Build transferredOut map for quick lookup
     const transferredOutMap = {};
-    transfersOut.forEach(t => {
+    aggregatedTransfersOut.forEach(t => {
       const key = t.packageName || String(t.packageId || "");
       transferredOutMap[key] = {
         toPatientId: t.toPatientId,
@@ -168,58 +204,113 @@ export default async function handler(req, res) {
     // Fetch all package billing records for this patient and source patients
     const billings = await Billing.find(query)
       .sort({ createdAt: -1 }) // Most recent first
-      .select("package selectedPackageTreatments sessions createdAt invoiceNumber amount paid pending patientId originalAmount isDoctorDiscountApplied isAgentDiscountApplied membershipDiscountApplied discountPercent paymentMethod multiplePayments")
+      .select("package selectedPackageTreatments sessions createdAt invoiceNumber amount paid pending patientId originalAmount isDoctorDiscountApplied isAgentDiscountApplied membershipDiscountApplied discountPercent paymentMethod multiplePayments advanceUsed")
       .lean();
 
-    // Fetch package definitions to get max sessions for each treatment
-    const packageNames = [...new Set(billings.map(b => b.package).filter(Boolean))];
+    // Fetch package definitions to get max sessions for each treatment (include packages from patient.packages too)
+    const patientPackageIds = (Array.isArray(patient?.packages) ? patient.packages.map(p => String(p.packageId)) : []);
+    const billingPackageNames = [...new Set(billings.map(b => b.package).filter(Boolean))];
+    const allPackageIds = [...new Set([...patientPackageIds, ...aggregatedTransfersIn.map(t => String(t.packageId)), ...aggregatedTransfersOut.map(t => String(t.packageId))])].filter(Boolean);
     const packageDefinitions = await Package.find({
-      clinicId: clinicId,
-      name: { $in: packageNames }
-    }).select("name treatments").lean();
+      $or: [
+        { clinicId: clinicId, name: { $in: billingPackageNames } },
+        { clinicId: clinicId, _id: { $in: allPackageIds } }
+      ]
+    }).select("_id name treatments totalSessions totalPrice").lean();
 
-    // Create a map of package name to its treatment definitions
+    // Create a map of package name to its treatment definitions and totalSessions
     const packageDefMap = {};
+    const packageIdToNameMap = {};
     packageDefinitions.forEach(pkg => {
-      packageDefMap[pkg.name] = pkg.treatments || [];
+      packageDefMap[pkg.name] = {
+        treatments: pkg.treatments || [],
+        totalSessions: pkg.totalSessions || 0,
+        totalPrice: pkg.totalPrice || 0
+      };
+      packageIdToNameMap[String(pkg._id)] = pkg.name;
     });
 
     // Aggregate usage by package and treatment
     const packageUsage = {};
 
-    // Initialize packageUsage with all transferred-in packages to ensure they show up even without billings
-    transfersIn.forEach(t => {
-      const pkgName = t.packageName;
+    // Initialize packageUsage with all packages from patient.packages first
+    if (Array.isArray(patient?.packages)) {
+      patient.packages.forEach(p => {
+        const pkgName = p.packageName || packageIdToNameMap[String(p.packageId)];
+        if (!pkgName) return;
+        const pkgDef = packageDefMap[pkgName];
+        
+        // Initialize treatments object
+        const treatments = {};
+        if (pkgDef?.treatments) {
+          pkgDef.treatments.forEach(treatment => {
+            treatments[treatment.treatmentSlug] = {
+              treatmentName: treatment.treatmentName,
+              treatmentSlug: treatment.treatmentSlug,
+              totalUsedSessions: 0,
+              maxSessions: treatment.sessions || 0,
+              usageDetails: []
+            };
+          });
+        }
+
+        packageUsage[pkgName] = {
+          packageName: pkgName,
+          treatments: treatments,
+          totalSessions: 0,
+          billingHistory: [],
+          isTransferred: false,
+          transferredFrom: null,
+          transferredFromName: null,
+          transferredPackageName: null,
+          transferredSessions: 0,
+          paymentStatus: p.paymentStatus || "Unpaid",
+          paidAmount: p.paidAmount || 0,
+          paymentMethod: p.paymentMethod || ""
+        };
+      });
+    }
+
+    // Initialize packageUsage with all transferred-in packages to ensure they show up even without billings, and update existing ones
+    aggregatedTransfersIn.forEach(t => {
+      const pkgName = t.packageName || packageIdToNameMap[String(t.packageId)];
       if (!pkgName) return;
       
       const fromPatientName = sourceNameMap[String(t.fromPatientId)] || null;
       
-      packageUsage[pkgName] = {
-        packageName: pkgName,
-        treatments: [],
-        totalSessions: 0,
-        billingHistory: [],
-        isTransferred: true,
-        transferredFrom: t.fromPatientId,
-        transferredFromName: fromPatientName,
-        transferredPackageName: pkgName,
-        transferredSessions: t.transferredSessions || 0,
-        paymentStatus: t.paymentStatus || "Unpaid",
-        paidAmount: t.paidAmount || 0,
-        paymentMethod: t.paymentMethod || "",
-        totalAllowedSessions: t.transferredSessions || 0,
-        remainingSessions: t.transferredSessions || 0
-      };
+      if (packageUsage[pkgName]) {
+        // If package already exists (from patient.packages), update it with transferred-in details (sum sessions)
+        packageUsage[pkgName].isTransferred = true;
+        packageUsage[pkgName].transferredFrom = t.fromPatientId;
+        packageUsage[pkgName].transferredFromName = fromPatientName;
+        packageUsage[pkgName].transferredPackageName = pkgName;
+        packageUsage[pkgName].transferredSessions = (packageUsage[pkgName].transferredSessions || 0) + (t.transferredSessions || 0);
+        packageUsage[pkgName].totalAllowedSessions = packageUsage[pkgName].transferredSessions;
+        packageUsage[pkgName].remainingSessions = packageUsage[pkgName].transferredSessions;
+      } else {
+        // If package doesn't exist yet, initialize it
+        packageUsage[pkgName] = {
+          packageName: pkgName,
+          treatments: {},
+          totalSessions: 0,
+          billingHistory: [],
+          isTransferred: true,
+          transferredFrom: t.fromPatientId,
+          transferredFromName: fromPatientName,
+          transferredPackageName: pkgName,
+          transferredSessions: t.transferredSessions || 0,
+          paymentStatus: t.paymentStatus || "Unpaid",
+          paidAmount: t.paidAmount || 0,
+          paymentMethod: t.paymentMethod || "",
+          totalAllowedSessions: t.transferredSessions || 0,
+          remainingSessions: t.transferredSessions || 0
+        };
+      }
     });
 
     billings.forEach((billing) => {
       const pkgName = billing.package;
       if (!pkgName) return;
-
-      // Skip packages that were transferred OUT by this patient
-      if (transferredOutPackageNames.includes(pkgName)) {
-        return;
-      }
 
       // Check if this billing is from a transfer source patient
       const isFromSourcePatient = String(billing.patientId) !== String(patientId);
@@ -266,49 +357,53 @@ export default async function handler(req, res) {
         sourcePatientId: isFromSourcePatient ? billing.patientId : null,
       });
 
-      // Aggregate treatment sessions
-      if (Array.isArray(billing.selectedPackageTreatments)) {
-        billing.selectedPackageTreatments.forEach((treatment) => {
-          const slug = treatment.treatmentSlug;
-          if (!slug) return;
+      // Only count usage for this patient, not source patients of transfers!
+      if (!isFromSourcePatient) {
+        // Aggregate treatment sessions
+        if (Array.isArray(billing.selectedPackageTreatments)) {
+          billing.selectedPackageTreatments.forEach((treatment) => {
+            const slug = treatment.treatmentSlug;
+            if (!slug) return;
 
-          if (!packageUsage[pkgName].treatments[slug]) {
-            // Get max sessions from package definition
-            const pkgTreatments = packageDefMap[pkgName] || [];
-            const treatmentDef = pkgTreatments.find(t => t.treatmentSlug === slug);
+            if (!packageUsage[pkgName].treatments[slug]) {
+              // Get max sessions from package definition
+              const pkgDef = packageDefMap[pkgName] || { treatments: [] };
+              const pkgTreatments = pkgDef.treatments || [];
+              const treatmentDef = pkgTreatments.find(t => t.treatmentSlug === slug);
+              
+              packageUsage[pkgName].treatments[slug] = {
+                treatmentName: treatment.treatmentName,
+                treatmentSlug: treatment.treatmentSlug,
+                totalUsedSessions: 0,
+                maxSessions: treatmentDef?.sessions || 0,
+                usageDetails: [], // Track each billing's usage
+              };
+            }
+
+            packageUsage[pkgName].treatments[slug].totalUsedSessions += treatment.sessions || 0;
             
-            packageUsage[pkgName].treatments[slug] = {
-              treatmentName: treatment.treatmentName,
-              treatmentSlug: treatment.treatmentSlug,
-              totalUsedSessions: 0,
-              maxSessions: treatmentDef?.sessions || 0,
-              usageDetails: [], // Track each billing's usage
-            };
-          }
-
-          packageUsage[pkgName].treatments[slug].totalUsedSessions += treatment.sessions || 0;
-          
-          // Add usage detail for this billing with source patient info
-          packageUsage[pkgName].treatments[slug].usageDetails.push({
-            invoiceNumber: billing.invoiceNumber,
-            sessions: treatment.sessions || 0,
-            date: billing.createdAt,
-            amount: billing.amount || 0,
-            paid: billing.paid || 0,
-            originalAmount: billing.originalAmount || billing.amount || 0,
-            isDoctorDiscountApplied: billing.isDoctorDiscountApplied || false,
-            isAgentDiscountApplied: billing.isAgentDiscountApplied || false,
-            membershipDiscountApplied: billing.membershipDiscountApplied || 0,
-            discountPercent: billing.discountPercent || 0,
-            paymentMethod: billing.paymentMethod || "",
-            multiplePayments: billing.multiplePayments || [],
-            isFromSourcePatient: isFromSourcePatient,
-            sourcePatientId: isFromSourcePatient ? billing.patientId : null,
+            // Add usage detail for this billing with source patient info
+            packageUsage[pkgName].treatments[slug].usageDetails.push({
+              invoiceNumber: billing.invoiceNumber,
+              sessions: treatment.sessions || 0,
+              date: billing.createdAt,
+              amount: billing.amount || 0,
+              paid: billing.paid || 0,
+              originalAmount: billing.originalAmount || billing.amount || 0,
+              isDoctorDiscountApplied: billing.isDoctorDiscountApplied || false,
+              isAgentDiscountApplied: billing.isAgentDiscountApplied || false,
+              membershipDiscountApplied: billing.membershipDiscountApplied || 0,
+              discountPercent: billing.discountPercent || 0,
+              paymentMethod: billing.paymentMethod || "",
+              multiplePayments: billing.multiplePayments || [],
+              isFromSourcePatient: isFromSourcePatient,
+              sourcePatientId: isFromSourcePatient ? billing.patientId : null,
+            });
           });
-        });
-      }
+        }
 
-      packageUsage[pkgName].totalSessions += billing.sessions || 0;
+        packageUsage[pkgName].totalSessions += billing.sessions || 0;
+      }
     });
 
     // Convert treatments object to array
@@ -316,34 +411,88 @@ export default async function handler(req, res) {
       packageUsage[pkgName].treatments = Object.values(packageUsage[pkgName].treatments);
     });
 
-    // Apply transferred allowances if present; calculate remaining for regular packages
+    // Build a map of transferred out packages and total sessions transferred
+    const transferredOutSessionsMap = {};
+    aggregatedTransfersOut.forEach(t => {
+      const key = t.packageName || String(t.packageId || "");
+      if (!transferredOutSessionsMap[key]) {
+        transferredOutSessionsMap[key] = 0;
+      }
+      transferredOutSessionsMap[key] += t.transferredSessions || 0;
+    });
+
+    // Calculate payment status from billing history and apply transferred allowances
     Object.keys(packageUsage).forEach((pkgName) => {
-      const transferInfo = transferSourceMap[pkgName];
-      if (transferInfo && typeof transferInfo.transferredSessions === 'number') {
+      const pkgData = packageUsage[pkgName];
+      const pkgDef = packageDefMap[pkgName];
+      
+      if (!pkgData.isTransferred) {
+        // Calculate payment status from billing history for regular packages
+        // Filter billings for this package and current patient
+        const packageBillingsForPkg = billings.filter((billing) =>
+          String(billing.patientId) === String(patientId) && billing.package === pkgName
+        );
+        
+        const totalCashPaidFromBillings = packageBillingsForPkg.reduce(
+          (sum, billing) => sum + (Number(billing.paid) || 0), 0
+        );
+        const totalAdvanceUsedFromBillings = packageBillingsForPkg.reduce(
+          (sum, billing) => sum + (Number(billing.advanceUsed) || 0), 0
+        );
+        const totalPaidIncludingAdvance = totalCashPaidFromBillings + totalAdvanceUsedFromBillings;
+        
+        // Get package total price - try to get from patient.packages first, then packageDef
+        let packagePrice = 0;
+        const patientPkgEntry = (patient?.packages || []).find(p => {
+          const entryPkgName = p.packageName || packageIdToNameMap[String(p.packageId)];
+          return entryPkgName === pkgName;
+        });
+        if (patientPkgEntry?.totalPrice) {
+          packagePrice = patientPkgEntry.totalPrice;
+        } else if (pkgDef?.totalPrice) {
+          packagePrice = pkgDef.totalPrice;
+        }
+        
+        if (packagePrice > 0) {
+          if (totalPaidIncludingAdvance >= packagePrice) {
+            pkgData.paymentStatus = "Full";
+          } else if (totalPaidIncludingAdvance > 0) {
+            pkgData.paymentStatus = "Partial";
+          }
+        }
+      }
+      
+      if (pkgData.isTransferred) {
         // Transferred package — use transferred sessions as the allowance
-        const used = packageUsage[pkgName].totalSessions || 0;
-        const remaining = Math.max(0, transferInfo.transferredSessions - used);
-        packageUsage[pkgName].totalAllowedSessions = transferInfo.transferredSessions;
-        packageUsage[pkgName].remainingSessions = remaining;
+        const used = pkgData.totalSessions || 0;
+        const remaining = Math.max(0, (pkgData.transferredSessions || 0) - used);
+        pkgData.totalAllowedSessions = pkgData.transferredSessions || 0;
+        pkgData.remainingSessions = remaining;
       } else {
-        // Regular package — sum maxSessions across all treatments from package definition
-        const treatments = packageUsage[pkgName].treatments || [];
-        const totalAllowed = treatments.reduce((sum, t) => sum + (t.maxSessions || 0), 0);
+        // Regular package — calculate total allowed sessions
+        const treatments = pkgData.treatments || [];
+        let totalAllowed = treatments.reduce((sum, t) => sum + (t.maxSessions || 0), 0);
+        
+        // If treatment sum is 0, use pkgDef.totalSessions
+        if (totalAllowed === 0 && pkgDef?.totalSessions) {
+          totalAllowed = pkgDef.totalSessions;
+        }
+
         const used = treatments.reduce((sum, t) => sum + (t.totalUsedSessions || 0), 0);
+        const transferredOutSessions = transferredOutSessionsMap[pkgName] || 0;
 
         if (totalAllowed > 0) {
-          // Treatment-level sessions available from package definition
-          packageUsage[pkgName].totalAllowedSessions = totalAllowed;
-          packageUsage[pkgName].remainingSessions = Math.max(0, totalAllowed - used);
+          pkgData.totalAllowedSessions = totalAllowed - transferredOutSessions;
+          pkgData.remainingSessions = Math.max(0, totalAllowed - used - transferredOutSessions);
         } else {
           // Fallback: use top-level billing.sessions as total allowed
-          const billingHistory = packageUsage[pkgName].billingHistory || [];
+          const billingHistory = pkgData.billingHistory || [];
           const totalBilledSessions = billingHistory.reduce((sum, b) => sum + (b.sessions || 0), 0);
           const usedFallback = billingHistory.reduce((sum, b) => {
             return sum + (b.treatments || []).reduce((s, t) => s + (t.sessions || 0), 0);
           }, 0);
-          packageUsage[pkgName].totalAllowedSessions = totalBilledSessions;
-          packageUsage[pkgName].remainingSessions = Math.max(0, totalBilledSessions - usedFallback);
+          pkgData.totalAllowedSessions = totalBilledSessions - transferredOutSessions;
+          pkgData.remainingSessions = Math.max(0, totalBilledSessions - usedFallback - transferredOutSessions);
         }
       }
     });

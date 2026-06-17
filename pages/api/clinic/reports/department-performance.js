@@ -45,26 +45,56 @@ export default async function handler(req, res) {
     const { startDate, endDate, top = "3" } = req.query;
     const topN = Math.max(1, Math.min(10, parseInt(top, 10) || 3));
 
+    // End date = end-of-day to include records on the last day
+    const endDateEod = endDate
+      ? new Date(new Date(endDate).getFullYear(), new Date(endDate).getMonth(), new Date(endDate).getDate(), 23, 59, 59, 999)
+      : null;
+
     const match = {
-      service: "Treatment",
+      service: { $in: ["Treatment", "Service"] },
     };
     if (user.role !== "admin") {
       match.clinicId = new mongoose.Types.ObjectId(String(clinicId));
     } else if (req.query.clinicId) {
       match.clinicId = new mongoose.Types.ObjectId(String(req.query.clinicId));
     }
-    if (startDate || endDate) {
+    if (startDate || endDateEod) {
       match.invoicedDate = {};
       if (startDate) match.invoicedDate.$gte = new Date(startDate);
-      if (endDate) match.invoicedDate.$lte = new Date(endDate);
+      if (endDateEod) match.invoicedDate.$lte = endDateEod;
       if (Object.keys(match.invoicedDate).length === 0) delete match.invoicedDate;
     }
 
     const pipeline = [
       { $match: match },
       {
+        $lookup: {
+          from: "appointments",
+          localField: "appointmentId",
+          foreignField: "_id",
+          as: "appt",
+        },
+      },
+      { $unwind: { path: "$appt", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "services",
+          localField: "appt.serviceId",
+          foreignField: "_id",
+          as: "apptSvc",
+        },
+      },
+      { $unwind: { path: "$apptSvc", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          resolvedServiceName: {
+            $ifNull: ["$treatment", { $ifNull: ["$apptSvc.name", "Unknown"] }],
+          },
+        },
+      },
+      {
         $group: {
-          _id: "$treatment",
+          _id: "$resolvedServiceName",
           clinicId: { $first: "$clinicId" },
           totalRevenue: { $sum: { $ifNull: ["$paid", 0] } },
           totalBookings: { $sum: 1 },
@@ -146,8 +176,33 @@ export default async function handler(req, res) {
       const serviceAgg = await Billing.aggregate([
         { $match: match },
         {
+          $lookup: {
+            from: "appointments",
+            localField: "appointmentId",
+            foreignField: "_id",
+            as: "appt",
+          },
+        },
+        { $unwind: { path: "$appt", preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: "services",
+            localField: "appt.serviceId",
+            foreignField: "_id",
+            as: "apptSvc",
+          },
+        },
+        { $unwind: { path: "$apptSvc", preserveNullAndEmptyArrays: true } },
+        {
+          $addFields: {
+            resolvedServiceName: {
+              $ifNull: ["$treatment", { $ifNull: ["$apptSvc.name", "Unknown"] }],
+            },
+          },
+        },
+        {
           $group: {
-            _id: "$treatment",
+            _id: "$resolvedServiceName",
             clinicId: { $first: "$clinicId" },
             totalRevenue: { $sum: { $ifNull: ["$paid", 0] } },
             totalBookings: { $sum: 1 },
@@ -207,6 +262,54 @@ export default async function handler(req, res) {
       });
     }
 
+    // Top 5 services across ALL departments (for the pie chart)
+    const topServicesAllAgg = await Billing.aggregate([
+      { $match: match },
+      {
+        $lookup: {
+          from: "appointments",
+          localField: "appointmentId",
+          foreignField: "_id",
+          as: "appt",
+        },
+      },
+      { $unwind: { path: "$appt", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "services",
+          localField: "appt.serviceId",
+          foreignField: "_id",
+          as: "apptSvc",
+        },
+      },
+      { $unwind: { path: "$apptSvc", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          resolvedServiceName: {
+            $ifNull: ["$treatment", { $ifNull: ["$apptSvc.name", "Unknown"] }],
+          },
+        },
+      },
+      {
+        $group: {
+          _id: "$resolvedServiceName",
+          totalRevenue: { $sum: { $ifNull: ["$paid", 0] } },
+          totalBookings: { $sum: 1 },
+          avgPrice: { $avg: { $ifNull: ["$amount", 0] } },
+        },
+      },
+      { $sort: { totalRevenue: -1 } },
+      { $limit: 5 },
+      {
+        $project: {
+          serviceName: "$_id",
+          totalRevenue: 1,
+          totalBookings: 1,
+          averagePrice: "$avgPrice",
+        },
+      },
+    ]);
+
     // Aggregation for appointments by department
     const appointmentMatch = {};
     if (user.role !== "admin") {
@@ -214,10 +317,10 @@ export default async function handler(req, res) {
     } else if (req.query.clinicId) {
       appointmentMatch.clinicId = new mongoose.Types.ObjectId(String(req.query.clinicId));
     }
-    if (startDate || endDate) {
+    if (startDate || endDateEod) {
       appointmentMatch.startDate = {};
       if (startDate) appointmentMatch.startDate.$gte = new Date(startDate);
-      if (endDate) appointmentMatch.startDate.$lte = new Date(endDate);
+      if (endDateEod) appointmentMatch.startDate.$lte = endDateEod;
       if (Object.keys(appointmentMatch.startDate).length === 0) delete appointmentMatch.startDate;
     }
 
@@ -267,6 +370,7 @@ export default async function handler(req, res) {
         topDepartments,
         servicesByDepartment,
         appointmentsByDept,
+        topServicesAll: topServicesAllAgg,
       },
     });
   } catch (error) {
