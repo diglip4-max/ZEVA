@@ -4,9 +4,10 @@ python-dotenv
 httpx
 pydantic
 redis
-psycopg[binary]
+psycopg[binary,pool]
 langchain-openai
 langchain-core
 langgraph
 langgraph-checkpoint-postgres
 tiktoken
+asyncpg

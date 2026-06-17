@@ -62,7 +62,7 @@ async def check_patient(state: AppointmentState):
 
 async def check_doctor(state: AppointmentState):
     header = get_header(state["clinicToken"])
-    url = "{AGENT_URL}/api/lead-ms/get-agents-options?role=doctorStaff"
+    url = f"{AGENT_URL}/api/lead-ms/get-agents-options?role=doctorStaff"
 
     async with httpx.AsyncClient() as client:
         search_doctor = await client.get(url, headers=header)
@@ -95,7 +95,7 @@ async def check_doctor(state: AppointmentState):
 
 async def check_treatments(state: AppointmentState):
     header = get_header(state["clinicToken"])
-    url = "{AGENT_URL}/api/clinic/services"
+    url = f"{AGENT_URL}/api/clinic/services"
 
     async with httpx.AsyncClient() as client:
         search_treatments = await client.get(url, headers=header)
@@ -178,7 +178,7 @@ def handle_error(state: AppointmentState):
 
 async def book_appointment(state: AppointmentState):
     header = get_header(state["clinicToken"])
-    url = "{AGENT_URL}/api/clinic/appointments"
+    url = f"{AGENT_URL}/api/clinic/appointments"
     payload = {
         "patientId": state["patientId"],
         "doctorId": state["selectedDoctorId"],
@@ -219,8 +219,6 @@ def after_check_doctor(
     return "check_treatments" if state["doctorExists"] else "handle_error"
 
 
-# def after_check_room(state: AppointmentState) -> Literal["check_treatments", "handle_error"]:
-#     return "check_treatments" if state["roomExists"] else "handle_error"
 
 
 def after_check_treatments(
@@ -267,7 +265,6 @@ def buildGraph(clinicToken: str, payload: dict):
     graph.add_edge(START, "check_patient")
     graph.add_conditional_edges("check_patient", after_check_patient)
     graph.add_conditional_edges("check_doctor", after_check_doctor)
-    # graph.add_conditional_edges("check_room", after_check_room)
     graph.add_conditional_edges("check_treatments", after_check_treatments)
     graph.add_edge("confirm_time", "book_appointment")
     graph.add_edge("handle_error", END)

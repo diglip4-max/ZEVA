@@ -1,7 +1,6 @@
 from datetime import datetime
 import os
 import re
-from sched import scheduler
 from typing import Annotated, TypedDict
 import httpx
 from langchain_openai import ChatOpenAI
@@ -43,9 +42,9 @@ llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 async def lifespan(app: FastAPI):
     global redis_client
     redis_client = aioredis.from_url(
-        os.getenv("REDIS_URL"), encoding="utf-8", decode_responses=True
+        os.getenv("REDIS_URL"), encoding="utf-8", decode_responses=True, protocol=2
     )
-    conn = await AsyncConnection.connect(os.getenv("DATABASE_URL"))
+    conn = await AsyncConnection.connect(os.getenv("DATABASE_URL"),autocommit=True,prepare_threshold=None)
     await conn.set_autocommit(True)
     checkpointer = AsyncPostgresSaver(conn)
     await checkpointer.setup()
@@ -59,7 +58,7 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["{AGENT_URL}", "https://zeva360.com"],
+    allow_origins=[f"{AGENT_URL}", "https://zeva360.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1043,7 +1042,7 @@ async def fetch_clinic_name(clinicToken: str) -> str:
         header = get_header(clinicToken)
         async with httpx.AsyncClient() as client:
             resp = await client.get(
-                "{AGENT_URL}/api/clinics/myallClinic", headers=header
+                f"{AGENT_URL}/api/clinics/myallClinic", headers=header
             )
             data = resp.json()
             return data.get("clinic", {}).get("name")
@@ -1075,7 +1074,7 @@ async def fetch_scheduler_link_tool() -> dict:
     """
     clinicToken = clinic_token_var.get()
     header = get_header(clinicToken)
-    url = "{AGENT_URL}/api/clinics/myallClinic"
+    url = f"{AGENT_URL}/api/clinics/myallClinic"
 
     async with httpx.AsyncClient() as client:
         resp = await client.get(url, headers=header)
@@ -1352,7 +1351,7 @@ def generate_scheduler_link(token):
 
     header = get_header(clinic_token)
 
-    url = "{AGENT_URL}/api/clinics/myallClinic"
+    url = f"{AGENT_URL}/api/clinics/myallClinic"
     resp = httpx.get(url, headers=header)
 
     data = resp.json()
