@@ -7535,10 +7535,10 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
                             </div>
                         </div>
 
-                        {/* Summary Section - Total Billed, Total Paid, Outstanding */}
+                        {/* Summary Section - Total Billed, Total Paid, Outstanding, Advance */}
                         {(billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Historical Advance Balance").length > 0 && (
                           <div className="px-5 py-4 border-t border-gray-200 bg-gray-50">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                               {/* Total Billed */}
                               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
                                 <div className="text-[10px] sm:text-xs text-blue-600 mb-1">Total Billed</div>
@@ -7564,6 +7564,13 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
                                 <div className="text-[10px] sm:text-xs text-red-600 mb-1">Outstanding</div>
                                 <div className="text-lg sm:text-xl md:text-2xl font-bold text-red-800">
                                   {formatAED(balance.pendingBalance)}
+                                </div>
+                              </div>
+                              {/* Advance Balance */}
+                              <div className="bg-teal-50 border border-teal-200 rounded-lg p-3 text-center">
+                                <div className="text-[10px] sm:text-xs text-teal-600 mb-1">Advance Balance</div>
+                                <div className="text-lg sm:text-xl md:text-2xl font-bold text-teal-800">
+                                  {formatAED(balance.advanceBalance)}
                                 </div>
                               </div>
                             </div>

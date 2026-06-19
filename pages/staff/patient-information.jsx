@@ -1546,7 +1546,11 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
           const apiEndpoint = "/api/clinic/patient-information";
           const { data } = await axios.get(apiEndpoint, { headers: refreshHeaders });
           setPatients(data.success ? data.data : []);
-          setPage(1);
+          // Stay on current page after deletion; if page is now empty, go to previous page
+          const newTotalPages = Math.ceil((data.success ? data.data : []).length / pageSize);
+          if (newTotalPages > 0 && page > newTotalPages) {
+            setPage(newTotalPages);
+          }
           // Changed message to show patient deletion success
           addToast("Patient deleted successfully", "success");
         } catch (err) {

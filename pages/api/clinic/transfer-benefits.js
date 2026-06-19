@@ -243,43 +243,37 @@ export default async function handler(req, res) {
           return res.status(400).json({ success: false, message: `Only ${remaining} sessions available to transfer` });
         }
 
-        // Check if doing partial transfer, then verify package is fully paid
-        if (sessionsToTransfer < remaining) {
-          // Calculate payment status from billing history for accuracy
-          let packagePaymentStatus = "Unpaid";
-          
-          if (isUserPackage) {
-            packagePaymentStatus = pkg.paymentStatus;
-          } else {
-            // Get all package billings for this patient
-            const packageBillingsForPkg = await Billing.find({
-              clinicId: source.clinicId,
-              patientId: sourcePatientId,
-              service: "Package",
-              package: pkg.name,
-            });
-            
-            // Calculate total paid (cash + advance)
-            const totalCashPaidFromBillings = packageBillingsForPkg.reduce((sum, b) => sum + (Number(b.paid) || 0), 0);
-            const totalAdvanceUsedFromBillings = packageBillingsForPkg.reduce((sum, b) => sum + (Number(b.advanceUsed) || 0), 0);
-            const totalPaidIncludingAdvance = totalCashPaidFromBillings + totalAdvanceUsedFromBillings;
-            
-            // Get package price
+        // Calculate actual payment status from billing records for standard packages
+        // This ensures we use the real billing status instead of the stale patient package entry status
+        let actualPaymentStatus = paymentStatus; // default to entry status
+        if (!isUserPackage && clinicId) {
+          const packageBillingsForStatus = await Billing.find({
+            clinicId,
+            patientId: sourcePatientId,
+            service: "Package",
+            package: packageName,
+          });
+          if (packageBillingsForStatus.length > 0) {
+            const totalCashPaid = packageBillingsForStatus.reduce((sum, b) => sum + (Number(b.paid) || 0), 0);
+            const totalAdvanceUsed = packageBillingsForStatus.reduce((sum, b) => sum + (Number(b.advanceUsed) || 0), 0);
+            const totalClaimUsed = packageBillingsForStatus.reduce((sum, b) => sum + (Number(b.claimAmountUsed) || 0), 0);
+            const totalPaidIncludingAdvance = totalCashPaid + totalAdvanceUsed + totalClaimUsed;
             const packagePrice = pkg.totalPrice || 0;
-            
-            // Determine payment status
             if (packagePrice > 0 && totalPaidIncludingAdvance >= packagePrice) {
-              packagePaymentStatus = "Full";
+              actualPaymentStatus = "Full";
             } else if (totalPaidIncludingAdvance > 0) {
-              packagePaymentStatus = "Partial";
+              actualPaymentStatus = "Partial";
             } else {
-              // Fall back to patient package entry if no billings
-              const sourcePackageEntry = (source.packages || []).find(p => String(p.packageId) === String(packageId));
-              packagePaymentStatus = sourcePackageEntry?.paymentStatus || "Unpaid";
+              actualPaymentStatus = "Unpaid";
             }
           }
-          
-          if (packagePaymentStatus !== "Full") {
+        } else if (isUserPackage) {
+          actualPaymentStatus = pkg.paymentStatus || paymentStatus;
+        }
+        
+        // Check if doing partial transfer, then verify package is fully paid
+        if (sessionsToTransfer < remaining) {
+          if (actualPaymentStatus !== "Full") {
             return res.status(400).json({ success: false, message: "Only fully paid package sessions can be transferred" });
           }
         }
@@ -429,8 +423,8 @@ export default async function handler(req, res) {
               packageName,
               packageSoldBy: sourcePackage.packageSoldBy || user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown',
               assignedDate: new Date(),
-              paymentStatus: pendingPackageAmount > 0 ? (totalPaidBySource >= (pkg.totalPrice || 0) ? 'Full' : (totalPaidBySource > 0 ? 'Partial' : 'Unpaid')) : paymentStatus,
-              paidAmount: pendingPackageAmount > 0 ? totalPaidBySource : paidAmount, // Total paid (cash + advance) by source patient
+              paymentStatus: actualPaymentStatus,
+              paidAmount: pendingPackageAmount > 0 ? totalPaidBySource : (actualPaymentStatus === "Full" ? (pkg.totalPrice || 0) : paidAmount),
               paymentMethod,
               totalPrice: pkg.totalPrice || 0, // Add totalPrice for payment status calculation
             });
@@ -447,8 +441,8 @@ export default async function handler(req, res) {
           isUserPackage,
           toPatientId: target._id,
           transferredSessions: sessionsToTransfer,
-          paymentStatus,
-          paidAmount,
+          paymentStatus: actualPaymentStatus,
+          paidAmount: actualPaymentStatus === "Full" ? (pkg.totalPrice || 0) : paidAmount,
           paymentMethod,
           transferDate: new Date(),
         });
@@ -462,8 +456,8 @@ export default async function handler(req, res) {
           isUserPackage,
           fromPatientId: source._id,
           transferredSessions: sessionsToTransfer,
-          paymentStatus,
-          paidAmount,
+          paymentStatus: actualPaymentStatus,
+          paidAmount: actualPaymentStatus === "Full" ? (pkg.totalPrice || 0) : paidAmount,
           paymentMethod,
           transferDate: new Date(),
         });

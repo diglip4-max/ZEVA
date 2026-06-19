@@ -204,8 +204,12 @@ export default async function handler(req, res) {
     // Fetch all package billing records for this patient and source patients
     const billings = await Billing.find(query)
       .sort({ createdAt: -1 }) // Most recent first
-      .select("package selectedPackageTreatments sessions createdAt invoiceNumber amount paid pending patientId originalAmount isDoctorDiscountApplied isAgentDiscountApplied membershipDiscountApplied discountPercent paymentMethod multiplePayments advanceUsed")
+      .select("package selectedPackageTreatments sessions createdAt invoiceNumber amount paid pending patientId originalAmount isDoctorDiscountApplied isAgentDiscountApplied membershipDiscountApplied discountPercent paymentMethod multiplePayments advanceUsed claimAmountUsed")
       .lean();
+    console.log(`[PKG_USAGE_DEBUG] Billing query: patientIds=${JSON.stringify(patientIdsToQuery)}, service=Package, packageName=${packageName || 'ALL'}, found=${billings.length} billings`);
+    billings.forEach((b) => {
+      console.log(`[PKG_USAGE_DEBUG]   Billing: invoice=${b.invoiceNumber}, package="${b.package}", sessions=${b.sessions}, patientId=${b.patientId}`);
+    });
 
     // Fetch package definitions to get max sessions for each treatment (include packages from patient.packages too)
     const patientPackageIds = (Array.isArray(patient?.packages) ? patient.packages.map(p => String(p.packageId)) : []);
@@ -307,7 +311,15 @@ export default async function handler(req, res) {
         };
       }
     });
+    console.log(`[PKG_USAGE_DEBUG] After transfersIn init, packageUsage keys: ${Object.keys(packageUsage).join(', ')}`);
+    Object.keys(packageUsage).forEach((pkgName) => {
+      const d = packageUsage[pkgName];
+      if (d.isTransferred) {
+        console.log(`[PKG_USAGE_DEBUG]   "${pkgName}": isTransferred=true, transferredSessions=${d.transferredSessions}, totalAllowedSessions=${d.totalAllowedSessions}, remainingSessions=${d.remainingSessions}`);
+      }
+    });
 
+    console.log(`[PKG_USAGE_DEBUG] Processing ${billings.length} billings...`);
     billings.forEach((billing) => {
       const pkgName = billing.package;
       if (!pkgName) return;
@@ -315,6 +327,13 @@ export default async function handler(req, res) {
       // Check if this billing is from a transfer source patient
       const isFromSourcePatient = String(billing.patientId) !== String(patientId);
       const transferInfo = transferSourceMap[pkgName];
+
+      // Skip source patient billings for packages that were NOT transferred to this patient.
+      // Source patient billings are only relevant when there's an actual transfer record.
+      // Without a transfer, these are unrelated billings that create phantom packageUsage entries.
+      if (isFromSourcePatient && !transferInfo) {
+        return;
+      }
       
       // Also check if it's a normal package assigned to this patient
       const packageIdForName = packageDefinitions.find(pd => pd.name === pkgName)?._id;
@@ -359,6 +378,7 @@ export default async function handler(req, res) {
 
       // Only count usage for this patient, not source patients of transfers!
       if (!isFromSourcePatient) {
+        console.log(`[PKG_USAGE_DEBUG] Billing for "${pkgName}": patient=${billing.patientId}, sessions=${billing.sessions}, invoice=${billing.invoiceNumber}`);
         // Aggregate treatment sessions
         if (Array.isArray(billing.selectedPackageTreatments)) {
           billing.selectedPackageTreatments.forEach((treatment) => {
@@ -403,12 +423,46 @@ export default async function handler(req, res) {
         }
 
         packageUsage[pkgName].totalSessions += billing.sessions || 0;
+        console.log(`[PKG_USAGE_DEBUG] After increment: "${pkgName}" totalSessions=${packageUsage[pkgName].totalSessions} (added ${billing.sessions || 0})`);
       }
     });
 
     // Convert treatments object to array
     Object.keys(packageUsage).forEach((pkgName) => {
       packageUsage[pkgName].treatments = Object.values(packageUsage[pkgName].treatments);
+    });
+
+    // For transferred packages, scale down per-treatment maxSessions proportionally
+    // to match the transferred sessions. Without this, treatments show the full package
+    // definition sessions instead of the transferred amount.
+    Object.keys(packageUsage).forEach((pkgName) => {
+      const pkgData = packageUsage[pkgName];
+      if (pkgData.isTransferred && pkgData.transferredSessions !== undefined) {
+        const totalPkgSessions = pkgData.treatments.reduce(
+          (sum, t) => sum + (t.maxSessions || 0), 0
+        );
+        const transferredSessions = pkgData.transferredSessions || 0;
+        console.log(`[PKG_USAGE_DEBUG] Scaling "${pkgName}": totalPkgSessions=${totalPkgSessions}, transferredSessions=${transferredSessions}, treatments=${pkgData.treatments.map(t => `${t.treatmentName}(${t.maxSessions})`).join(', ')}`);
+        if (totalPkgSessions > 0 && transferredSessions < totalPkgSessions) {
+          const scale = transferredSessions / totalPkgSessions;
+          console.log(`[PKG_USAGE_DEBUG]   Scale factor: ${scale.toFixed(4)}`);
+          pkgData.treatments.forEach((t) => {
+            const oldMax = t.maxSessions || 0;
+            t.maxSessions = Math.max(0, Math.round(oldMax * scale));
+            console.log(`[PKG_USAGE_DEBUG]   ${t.treatmentName}: ${oldMax} -> ${t.maxSessions}`);
+          });
+        } else if (totalPkgSessions === 0 && transferredSessions > 0) {
+          const perTreatment = Math.floor(transferredSessions / Math.max(1, pkgData.treatments.length));
+          pkgData.treatments.forEach((t) => {
+            t.maxSessions = perTreatment;
+          });
+        }
+      }
+    });
+    console.log(`[PKG_USAGE_DEBUG] After scaling, FINAL packageUsage:`);
+    Object.keys(packageUsage).forEach((pkgName) => {
+      const d = packageUsage[pkgName];
+      console.log(`[PKG_USAGE_DEBUG]   "${pkgName}": totalAllowed=${d.totalAllowedSessions}, remaining=${d.remainingSessions}, transferred=${d.transferredSessions}, totalSessions=${d.totalSessions}, treatments=${Array.isArray(d.treatments) ? d.treatments.map(t => `${t.treatmentName}(max=${t.maxSessions},used=${t.totalUsedSessions})`).join(', ') : 'N/A'}`);
     });
 
     // Build a map of transferred out packages and total sessions transferred
@@ -426,23 +480,44 @@ export default async function handler(req, res) {
       const pkgData = packageUsage[pkgName];
       const pkgDef = packageDefMap[pkgName];
       
-      if (!pkgData.isTransferred) {
-        // Calculate payment status from billing history for regular packages
-        // Filter billings for this package and current patient
-        const packageBillingsForPkg = billings.filter((billing) =>
+      // Calculate payment status from billing history for ALL packages (regular and transferred)
+      // For regular packages: use current patient's billings
+      // For transferred packages: use source patient's billings (the original purchaser)
+      let relevantBillings = [];
+      if (pkgData.isTransferred && pkgData.transferredFrom) {
+        // For transferred-in packages, use the source (original) patient's billing records
+        relevantBillings = billings.filter((billing) =>
+          String(billing.patientId) === String(pkgData.transferredFrom) && billing.package === pkgName
+        );
+      } else {
+        // For regular packages, use current patient's billing records
+        relevantBillings = billings.filter((billing) =>
           String(billing.patientId) === String(patientId) && billing.package === pkgName
         );
-        
-        const totalCashPaidFromBillings = packageBillingsForPkg.reduce(
-          (sum, billing) => sum + (Number(billing.paid) || 0), 0
-        );
-        const totalAdvanceUsedFromBillings = packageBillingsForPkg.reduce(
-          (sum, billing) => sum + (Number(billing.advanceUsed) || 0), 0
-        );
-        const totalPaidIncludingAdvance = totalCashPaidFromBillings + totalAdvanceUsedFromBillings;
-        
-        // Get package total price - try to get from patient.packages first, then packageDef
-        let packagePrice = 0;
+      }
+      
+      const totalCashPaidFromBillings = relevantBillings.reduce(
+        (sum, billing) => sum + (Number(billing.paid) || 0), 0
+      );
+      const totalAdvanceUsedFromBillings = relevantBillings.reduce(
+        (sum, billing) => sum + (Number(billing.advanceUsed) || 0), 0
+      );
+      const totalClaimUsedFromBillings = relevantBillings.reduce(
+        (sum, billing) => sum + (Number(billing.claimAmountUsed) || 0), 0
+      );
+      const totalPaidIncludingAdvance = totalCashPaidFromBillings + totalAdvanceUsedFromBillings + totalClaimUsedFromBillings;
+      
+      // Get package total price
+      let packagePrice = 0;
+      if (pkgData.isTransferred) {
+        // For transferred packages, get price from billing record or package definition
+        if (relevantBillings.length > 0) {
+          packagePrice = relevantBillings[0].amount || relevantBillings[0].originalAmount || 0;
+        }
+        if (!packagePrice && pkgDef?.totalPrice) {
+          packagePrice = pkgDef.totalPrice;
+        }
+      } else {
         const patientPkgEntry = (patient?.packages || []).find(p => {
           const entryPkgName = p.packageName || packageIdToNameMap[String(p.packageId)];
           return entryPkgName === pkgName;
@@ -452,13 +527,15 @@ export default async function handler(req, res) {
         } else if (pkgDef?.totalPrice) {
           packagePrice = pkgDef.totalPrice;
         }
-        
-        if (packagePrice > 0) {
-          if (totalPaidIncludingAdvance >= packagePrice) {
-            pkgData.paymentStatus = "Full";
-          } else if (totalPaidIncludingAdvance > 0) {
-            pkgData.paymentStatus = "Partial";
-          }
+      }
+      
+      if (packagePrice > 0) {
+        if (totalPaidIncludingAdvance >= packagePrice) {
+          pkgData.paymentStatus = "Full";
+        } else if (totalPaidIncludingAdvance > 0) {
+          pkgData.paymentStatus = "Partial";
+        } else {
+          pkgData.paymentStatus = "Unpaid";
         }
       }
       
@@ -468,6 +545,7 @@ export default async function handler(req, res) {
         const remaining = Math.max(0, (pkgData.transferredSessions || 0) - used);
         pkgData.totalAllowedSessions = pkgData.transferredSessions || 0;
         pkgData.remainingSessions = remaining;
+        console.log(`[PKG_USAGE_DEBUG] TRANSFERRED "${pkgName}": totalSessions=${pkgData.totalSessions}, transferredSessions=${pkgData.transferredSessions}, used=${used}, remaining=${remaining}, billingHistoryCount=${pkgData.billingHistory?.length||0}`);
       } else {
         // Regular package — calculate total allowed sessions
         const treatments = pkgData.treatments || [];
@@ -496,6 +574,11 @@ export default async function handler(req, res) {
         }
       }
     });
+
+    // Prevent browser/HTTP caching — package usage data must always be fresh
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
 
     return res.status(200).json({
       success: true,

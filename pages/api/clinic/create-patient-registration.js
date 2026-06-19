@@ -572,6 +572,37 @@ export default async function handler(req, res) {
             maxSessionsMap.set(t.treatmentSlug, parseInt(t.sessions) || 0);
           }
         });
+        console.log(`[BILLING_DEBUG] Step 1 - maxSessionsMap from pkgDef:`, Object.fromEntries(maxSessionsMap));
+
+        // For transferred packages, scale down max sessions proportionally to the transferred amount.
+        const transferredInRecord = (patientRegistration.packageTransfers || []).find(
+          (t) => t.type === "in" && t.packageName === packageName
+        );
+        console.log(`[BILLING_DEBUG] Step 2 - transferredInRecord:`, transferredInRecord ? { packageName: transferredInRecord.packageName, transferredSessions: transferredInRecord.transferredSessions, type: transferredInRecord.type } : 'NOT FOUND');
+        if (transferredInRecord) {
+          const totalPkgSessions = (pkgDoc.treatments || []).reduce(
+            (sum, t) => sum + (parseInt(t.sessions) || 0), 0
+          );
+          const transferredSessions = transferredInRecord.transferredSessions || 0;
+          console.log(`[BILLING_DEBUG] Step 2b - totalPkgSessions=${totalPkgSessions}, transferredSessions=${transferredSessions}`);
+          if (totalPkgSessions > 0 && transferredSessions < totalPkgSessions) {
+            const scale = transferredSessions / totalPkgSessions;
+            console.log(`[BILLING_DEBUG] Step 2c - Scaling by factor ${scale.toFixed(4)}`);
+            maxSessionsMap.forEach((sessions, slug) => {
+              const scaled = Math.max(0, Math.round(sessions * scale));
+              console.log(`[BILLING_DEBUG]   treatment ${slug}: ${sessions} -> ${scaled}`);
+              maxSessionsMap.set(slug, scaled);
+            });
+          } else if (totalPkgSessions > 0 && transferredSessions >= totalPkgSessions) {
+            console.log(`[BILLING_DEBUG] Step 2c - transferredSessions >= totalPkgSessions, no scaling needed`);
+          } else if (totalPkgSessions === 0) {
+            console.log(`[BILLING_DEBUG] Step 2c - totalPkgSessions=0, setting each treatment to ${transferredSessions}`);
+            maxSessionsMap.forEach((_, slug) => {
+              maxSessionsMap.set(slug, transferredSessions);
+            });
+          }
+        }
+        console.log(`[BILLING_DEBUG] Step 3 - Final maxSessionsMap:`, Object.fromEntries(maxSessionsMap));
 
         // Previous billings that consumed this package's sessions.
         // Treatments and a Package can now coexist on a single billing, so we no longer
@@ -604,10 +635,13 @@ export default async function handler(req, res) {
             );
           });
         });
+        console.log(`[BILLING_DEBUG] Step 4 - previousBillings count: ${previousBillings.length}, previouslyUsedMap:`, Object.fromEntries(previouslyUsedMap));
+        console.log(`[BILLING_DEBUG] Step 5 - selectedPackageTreatments:`, selectedPackageTreatments.map(t => ({ name: t.treatmentName, slug: t.treatmentSlug, sessions: t.sessions })));
         for (const t of selectedPackageTreatments) {
           const slug = t.treatmentSlug;
           const newSessions = parseInt(t.sessions) || 0;
           const maxSessions = maxSessionsMap.get(slug);
+          console.log(`[BILLING_DEBUG] Step 5b - Validating "${t.treatmentName}": maxSessions=${maxSessions}, previouslyUsed=${previouslyUsedMap.get(slug) || 0}, newSessions=${newSessions}`);
           if (maxSessions === undefined) {
             return res.status(400).json({
               success: false,
@@ -644,6 +678,29 @@ export default async function handler(req, res) {
             });
           }
         }
+
+        // For transferred packages, also enforce a total sessions cap across all treatments.
+        // Per-treatment scaling with rounding could allow more total sessions than transferred.
+        if (transferredInRecord) {
+          const transferredSessions = transferredInRecord.transferredSessions || 0;
+          const totalPreviouslyUsed = Array.from(previouslyUsedMap.values()).reduce((sum, v) => sum + v, 0);
+          const totalRequested = selectedPackageTreatments.reduce((sum, it) => sum + (parseInt(it.sessions) || 0), 0);
+          const totalRemaining = Math.max(0, transferredSessions - totalPreviouslyUsed);
+          console.log(`[BILLING_DEBUG] Step 6 - Total cap check: transferredSessions=${transferredSessions}, totalPreviouslyUsed=${totalPreviouslyUsed}, totalRequested=${totalRequested}, totalRemaining=${totalRemaining}`);
+          if (totalRemaining <= 0) {
+            return res.status(400).json({
+              success: false,
+              message: `All ${transferredSessions} transferred session(s) of "${packageName}" have already been used.`,
+            });
+          }
+          if (totalRequested > totalRemaining) {
+            return res.status(400).json({
+              success: false,
+              message: `Invalid total session count. You can bill at most ${totalRemaining} more session(s) out of ${transferredSessions} transferred.`,
+            });
+          }
+        }
+
         const sumSessions = selectedPackageTreatments.reduce(
           (sum, it) => sum + (parseInt(it.sessions) || 0),
           0,
