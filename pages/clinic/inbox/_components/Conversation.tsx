@@ -40,7 +40,9 @@ const Conversation: React.FC<IProps> = ({
           <div className="flex justify-between items-start">
             <div className="flex items-center space-x-2">
               <span className="font-semibold text-gray-800 truncate">
-                {conversation?.leadId?.name}
+                {conversation?.leadId?.name?.length > 0
+                  ? truncateText(conversation?.leadId?.name, 12)
+                  : conversation?.leadId?.name}
               </span>
             </div>
             <span className="text-xs text-gray-500 font-medium mt-1">

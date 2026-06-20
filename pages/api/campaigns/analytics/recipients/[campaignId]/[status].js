@@ -18,7 +18,7 @@ const statusToFieldMap = {
 };
 
 export default async function handler(req, res) {
-  const { campaignId, status } = req.query;
+  const { campaignId, status, search } = req.query;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
 
@@ -49,7 +49,24 @@ export default async function handler(req, res) {
     // Map status to the correct field
     const normalizedStatus = status?.toString().toLowerCase().trim();
     const field = statusToFieldMap[normalizedStatus] || "sentLeads";
-    const contactsForStatus = campaign[field] || [];
+    let contactsForStatus = campaign[field] || [];
+
+    // Apply search filter
+    if (search) {
+      const searchLower = search.toLowerCase();
+      contactsForStatus = contactsForStatus.filter((leadEntry) => {
+        const lead = leadEntry.lead;
+        if (!lead) return false;
+        const name = (lead.name || "").toLowerCase();
+        const email = (lead.email || "").toLowerCase();
+        const phone = (lead.phone || "").toLowerCase();
+        return (
+          name.includes(searchLower) ||
+          email.includes(searchLower) ||
+          phone.includes(searchLower)
+        );
+      });
+    }
 
     // Simple pagination
     const start = (page - 1) * limit;
@@ -59,7 +76,7 @@ export default async function handler(req, res) {
     // Format the data to match the expected structure
     const data = paginatedLeads.map((leadEntry) => {
       let result = {
-        contact: leadEntry.lead || { name: "Unknown", email: "", phone: "" },
+        lead: leadEntry.lead || { name: "Unknown", email: "", phone: "" },
         message: { status: status || "sent" },
       };
 

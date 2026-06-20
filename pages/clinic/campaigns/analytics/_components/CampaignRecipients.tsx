@@ -17,6 +17,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
+import debounce from "lodash.debounce";
 
 export type StatusType =
   | "Sent"
@@ -98,12 +99,32 @@ const CampaignRecipientsPage = () => {
   const [selectedStatus, setSelectedStatus] = useState<StatusType>("Sent");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState("10");
-
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [contacts, setContacts] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
   const [loadingCounts, setLoadingCounts] = useState(true);
+
+  // Debounce search query
+  const debounceSearch = useCallback(
+    debounce((query: string) => {
+      setDebouncedSearchQuery(query);
+    }, 300), // 300ms delay
+    [],
+  );
+
+  // Update debounced search when search query changes
+  useEffect(() => {
+    debounceSearch(searchQuery);
+    return () => debounceSearch.cancel();
+  }, [searchQuery, debounceSearch]);
+
+  // Reset page when debounced search query changes
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearchQuery]);
 
   // Static data for development/demo
   const useStaticData = false;
@@ -120,36 +141,36 @@ const CampaignRecipientsPage = () => {
     "Spam reports": 18,
   };
 
-  const staticContactsByStatus: Record<string, any[]> = {
+  const staticLeadsByStatus: Record<string, any[]> = {
     Sent: [
       {
-        contact: { name: "John Doe", email: "john@example.com" },
+        lead: { name: "John Doe", email: "john@example.com" },
         message: { status: "sent" },
       },
       {
-        contact: { name: "Jane Smith", email: "jane@example.com" },
+        lead: { name: "Jane Smith", email: "jane@example.com" },
         message: { status: "sent" },
       },
       {
-        contact: { name: "Robert Wilson", email: "robert.w@example.com" },
+        lead: { name: "Robert Wilson", email: "robert.w@example.com" },
         message: { status: "sent" },
       },
     ],
     Clicked: [
       {
-        contact: { name: "Sarah Johnson", email: "sarah@example.com" },
+        lead: { name: "Sarah Johnson", email: "sarah@example.com" },
         link: "https://example.com/summer-sale",
         message: { status: "clicked" },
       },
       {
-        contact: { name: "Michael Chen", email: "michael@example.com" },
+        lead: { name: "Michael Chen", email: "michael@example.com" },
         link: "https://example.com/new-arrivals",
         message: { status: "clicked" },
       },
     ],
     Delivered: [
       {
-        contact: { name: "Emily Rodriguez", email: "emily@example.com" },
+        lead: { name: "Emily Rodriguez", email: "emily@example.com" },
         message: { status: "delivered" },
       },
     ],
@@ -195,7 +216,16 @@ const CampaignRecipientsPage = () => {
 
       if (useStaticData) {
         await new Promise((resolve) => setTimeout(resolve, 600));
-        const staticData = staticContactsByStatus[selectedStatus] || [];
+        let staticData = staticLeadsByStatus[selectedStatus] || [];
+        // Apply search filter for static data
+        if (debouncedSearchQuery) {
+          const query = debouncedSearchQuery.toLowerCase();
+          staticData = staticData.filter((item) => {
+            const name = item?.lead?.name?.toLowerCase() || "";
+            const email = item?.lead?.email?.toLowerCase() || "";
+            return name.includes(query) || email.includes(query);
+          });
+        }
         const start = (page - 1) * parseInt(limit);
         const end = start + parseInt(limit);
         const paginatedData = staticData.slice(start, end);
@@ -203,8 +233,13 @@ const CampaignRecipientsPage = () => {
         setTotal(staticData.length);
       } else {
         const { data } = await axios.get(
-          `/api/campaigns/analytics/recipients/${campaignId}/${status}?page=${page}&limit=${limit}`,
+          `/api/campaigns/analytics/recipients/${campaignId}/${status}`,
           {
+            params: {
+              page,
+              limit,
+              search: debouncedSearchQuery || undefined,
+            },
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -218,7 +253,7 @@ const CampaignRecipientsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [campaignId, selectedStatus, page, limit]);
+  }, [campaignId, selectedStatus, page, limit, debouncedSearchQuery]);
 
   useEffect(() => {
     fetchCounts();
@@ -380,7 +415,7 @@ const CampaignRecipientsPage = () => {
                   </div>
                   <div>
                     <h2 className="text-lg font-bold text-gray-900">
-                      {selectedStatus} Recipients
+                      {selectedStatus} Leads
                     </h2>
                     <p className="text-xs text-gray-500 font-medium">
                       {total.toLocaleString()} found in this category
@@ -392,8 +427,10 @@ const CampaignRecipientsPage = () => {
                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
                       type="text"
-                      placeholder="Search recipients..."
-                      className="pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all w-full sm:w-64"
+                      placeholder="Search leads..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9 pr-4 py-2 bg-white border border-gray-200 text-gray-500 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all w-full sm:w-64"
                     />
                   </div>
                 </div>
@@ -452,14 +489,14 @@ const CampaignRecipientsPage = () => {
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-700 font-bold text-sm group-hover:scale-110 transition-transform">
-                                {item?.contact?.name?.charAt(0) || "U"}
+                                {item?.lead?.name?.charAt(0) || "U"}
                               </div>
                               <div className="overflow-hidden">
                                 <p className="text-sm font-bold text-gray-900 truncate">
-                                  {item?.contact?.name || "Unknown"}
+                                  {item?.lead?.name || "Unknown"}
                                 </p>
                                 <p className="text-xs text-gray-400 font-medium truncate">
-                                  {item?.contact?.email || "No email"}
+                                  {item?.lead?.email || "No email"}
                                 </p>
                               </div>
                             </div>
@@ -491,9 +528,9 @@ const CampaignRecipientsPage = () => {
                                     item?.message?.status || selectedStatus,
                                   )}
                                 </span>
-                                <span className="text-[10px] text-gray-400 font-medium">
+                                {/* <span className="text-[10px] text-gray-400 font-medium">
                                   Just now
-                                </span>
+                                </span> */}
                               </div>
                             )}
                           </td>

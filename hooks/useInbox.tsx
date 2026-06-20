@@ -1220,6 +1220,21 @@ const useInbox = () => {
     setMessage("");
   };
 
+  // Refresh conversations
+  const handleRefreshConversations = async () => {
+    if (!token) return;
+    try {
+      const { data } = await axios.get(`/api/conversations/refresh`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (data && data?.success) {
+        toast.success("Conversations refreshed successfully");
+      }
+    } catch (error) {
+      handleError(error);
+    }
+  };
+
   // select agent by default based on selected conversation
   useEffect(() => {
     if (selectedConversation && agents?.length > 0) {
@@ -1591,6 +1606,7 @@ const useInbox = () => {
     setIsFilterModalOpen,
     setIsOpenBookAppointmentModal,
     setIsLocationPickerOpen,
+    setEditValue,
 
     fetchConversations,
     fetchMessages,
@@ -1611,7 +1627,7 @@ const useInbox = () => {
     handleEditLead,
     cancelEditLead,
     handleUpdateLead,
-    setEditValue,
+    handleRefreshConversations,
   };
 };
 
