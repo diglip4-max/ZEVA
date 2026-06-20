@@ -1107,8 +1107,12 @@ function ServicesSetupPage() {
       setMessage({ type: "error", text: "Please enter a package name" });
       return;
     }
-    if (!pkgPrice || parseFloat(pkgPrice) < 0) {
-      setMessage({ type: "error", text: "Please enter a valid price" });
+    if (!pkgPrice || parseFloat(pkgPrice) <= 0) {
+      setMessage({ type: "error", text: "Please enter Total Package Price" });
+      return;
+    }
+    if (!pkgStartDate || !pkgEndDate) {
+      setMessage({ type: "error", text: "Please enter both Start Date and End Date" });
       return;
     }
     if (selectedTreatments.length === 0) {
@@ -2972,6 +2976,12 @@ function ServicesSetupPage() {
                           <Calendar className="w-2.5 h-2.5" />
                           {new Date(pkg.createdAt).toLocaleDateString()}
                         </span>
+                        {pkg.createdByName && (
+                          <span className="text-[9px] text-slate-500 flex items-center gap-0.5" title={`Created by ${pkg.createdByName} (${pkg.createdByRole || 'unknown'})`}>
+                            <User className="w-2.5 h-2.5" />
+                            {pkg.createdByName}
+                          </span>
+                        )}
                         <span className="text-[9px] bg-blue-100 text-slate-800 px-1.5 py-0.5 rounded-full">
                           {pkg.treatments && pkg.treatments.length} T
                         </span>

@@ -189,6 +189,8 @@ const patientRegistrationSchema = new mongoose.Schema(
         paidAmount: { type: Number, default: 0 },
         paymentMethod: { type: String, default: "" },
         transferDate: { type: Date, default: Date.now },
+        transferredByName: { type: String, default: "" },
+        transferredByRole: { type: String, default: "" },
       },
     ],
     packageTransfers: [
@@ -213,6 +215,8 @@ const patientRegistrationSchema = new mongoose.Schema(
         paidAmount: { type: Number, default: 0 },
         paymentMethod: { type: String, default: "" },
         transferDate: { type: Date, default: Date.now },
+        transferredByName: { type: String, default: "" },
+        transferredByRole: { type: String, default: "" },
       },
     ],
     hasTransferredOut: { type: Boolean, default: false },

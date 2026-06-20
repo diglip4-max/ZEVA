@@ -141,6 +141,7 @@ export default async function handler(req, res) {
         paymentStatus: t.paymentStatus || "Unpaid",
         paidAmount: t.paidAmount || 0,
         paymentMethod: t.paymentMethod || "",
+        transferredByName: t.transferredByName || "",
       };
     });
 
@@ -197,7 +198,8 @@ export default async function handler(req, res) {
         transferredToName: targetNameMap[String(t.toPatientId)] || null,
         transferredSessions: t.transferredSessions || 0,
         packageId: t.packageId,
-        packageName: t.packageName
+        packageName: t.packageName,
+        transferredByName: t.transferredByName || "",
       };
     });
 
@@ -268,6 +270,7 @@ export default async function handler(req, res) {
           transferredFromName: null,
           transferredPackageName: null,
           transferredSessions: 0,
+          transferredByName: "",
           paymentStatus: p.paymentStatus || "Unpaid",
           paidAmount: p.paidAmount || 0,
           paymentMethod: p.paymentMethod || ""
@@ -289,6 +292,7 @@ export default async function handler(req, res) {
         packageUsage[pkgName].transferredFromName = fromPatientName;
         packageUsage[pkgName].transferredPackageName = pkgName;
         packageUsage[pkgName].transferredSessions = (packageUsage[pkgName].transferredSessions || 0) + (t.transferredSessions || 0);
+        packageUsage[pkgName].transferredByName = t.transferredByName || "";
         packageUsage[pkgName].totalAllowedSessions = packageUsage[pkgName].transferredSessions;
         packageUsage[pkgName].remainingSessions = packageUsage[pkgName].transferredSessions;
       } else {
@@ -303,6 +307,7 @@ export default async function handler(req, res) {
           transferredFromName: fromPatientName,
           transferredPackageName: pkgName,
           transferredSessions: t.transferredSessions || 0,
+          transferredByName: t.transferredByName || "",
           paymentStatus: t.paymentStatus || "Unpaid",
           paidAmount: t.paidAmount || 0,
           paymentMethod: t.paymentMethod || "",
@@ -350,6 +355,7 @@ export default async function handler(req, res) {
           transferredFromName: transferInfo && transferInfo.fromPatientId ? (sourceNameMap[String(transferInfo.fromPatientId)] || null) : null,
           transferredPackageName: transferInfo ? transferInfo.packageName || null : null,
           transferredSessions: transferInfo ? transferInfo.transferredSessions : 0,
+          transferredByName: transferInfo ? (transferInfo.transferredByName || "") : "",
           paymentStatus: transferInfo ? transferInfo.paymentStatus : (normalPackageInfo ? normalPackageInfo.paymentStatus : "Unpaid"),
           paidAmount: transferInfo ? transferInfo.paidAmount : (normalPackageInfo ? normalPackageInfo.paidAmount : 0),
           paymentMethod: transferInfo ? transferInfo.paymentMethod : (normalPackageInfo ? normalPackageInfo.paymentMethod : ""),

@@ -128,6 +128,8 @@ export default async function handler(req, res) {
           paidAmount,
           paymentMethod,
           transferDate: new Date(),
+          transferredByName: user.name || "",
+          transferredByRole: user.role || "",
         });
         await source.save({ session });
 
@@ -159,6 +161,8 @@ export default async function handler(req, res) {
           paidAmount,
           paymentMethod,
           transferDate: new Date(),
+          transferredByName: user.name || "",
+          transferredByRole: user.role || "",
         });
         await target.save({ session });
 
@@ -445,6 +449,8 @@ export default async function handler(req, res) {
           paidAmount: actualPaymentStatus === "Full" ? (pkg.totalPrice || 0) : paidAmount,
           paymentMethod,
           transferDate: new Date(),
+          transferredByName: user.name || "",
+          transferredByRole: user.role || "",
         });
         await source.save({ session });
 
@@ -460,6 +466,8 @@ export default async function handler(req, res) {
           paidAmount: actualPaymentStatus === "Full" ? (pkg.totalPrice || 0) : paidAmount,
           paymentMethod,
           transferDate: new Date(),
+          transferredByName: user.name || "",
+          transferredByRole: user.role || "",
         });
         await target.save({ session });
 

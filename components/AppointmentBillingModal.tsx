@@ -196,6 +196,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   };
 
   const [loading, setLoading] = useState(false);
+  const [complaintExists, setComplaintExists] = useState<boolean | null>(null); // null = loading, true/false = result
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [userPackages, setUserPackages] = useState<any[]>([]);
@@ -673,6 +674,27 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       if (!headers.Authorization) return;
 
       try {
+        // Check if complaint exists for this appointment
+        if (appointment?._id) {
+          try {
+            const complaintsRes = await axios.get("/api/clinic/patient-complaints", {
+              headers,
+              params: { appointmentId: appointment._id },
+            });
+            if (complaintsRes.data?.success) {
+              const complaints = complaintsRes.data.complaints || [];
+              setComplaintExists(complaints.length > 0);
+            } else {
+              setComplaintExists(false);
+            }
+          } catch (err) {
+            console.error("Error checking complaint:", err);
+            setComplaintExists(false);
+          }
+        } else {
+          setComplaintExists(false);
+        }
+
         // Fetch treatments
         const treatmentsRes = await axios.get("/api/clinic/treatments", {
           headers,
@@ -4986,6 +5008,18 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                 </div>
               )}
 
+              {complaintExists === false && (
+                <div className="bg-orange-50 border-l-2 border-orange-500 rounded p-2 flex items-start gap-2 text-orange-700 shadow-sm animate-in slide-in-from-top-2 fade-in" role="alert">
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 animate-pulse" />
+                  <div className="flex-1">
+                    <p className="text-xs font-bold">Create Complaint First</p>
+                    <p className="text-[10px]">
+                      No complaint has been created for this appointment yet. Please create a complaint in the Complaint Module before creating billing.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {isAlreadyBilled && (
                 <div className={`${canRebill ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-amber-50 border-amber-500 text-amber-700'} border-l-2 rounded p-2 flex items-start gap-2 shadow-sm animate-in slide-in-from-top-2 fade-in`} role="alert">
                   <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 animate-pulse" />
@@ -6671,10 +6705,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                     >
                       Cancel
                     </button>
-                    <button type="submit" disabled={loading || (selectedPackage !== null && (selectedPackageRemaining ?? 0) <= 0)}
+                    <button type="submit" disabled={loading || complaintExists === false || (selectedPackage !== null && (selectedPackageRemaining ?? 0) <= 0)}
                       className="px-4 py-2.5 sm:py-2 text-xs font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {loading ? "Creating..." : (selectedPackage !== null && (selectedPackageRemaining ?? 0) <= 0) ? "No Remaining Sessions" : isAlreadyBilled ? "Create Additional Billing" : "Create Billing"}
+                      {loading ? "Creating..." : complaintExists === false ? "Create Complaint First" : (selectedPackage !== null && (selectedPackageRemaining ?? 0) <= 0) ? "No Remaining Sessions" : isAlreadyBilled ? "Create Additional Billing" : "Create Billing"}
                     </button>
                   </div>
                 </div>

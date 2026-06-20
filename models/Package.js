@@ -64,6 +64,16 @@ const PackageSchema = new mongoose.Schema(
       required: true,
     },
 
+    createdByName: {
+      type: String,
+      default: "",
+    },
+
+    createdByRole: {
+      type: String,
+      default: "",
+    },
+
     validityInMonths: {
       type: Number,
       default: 0,
