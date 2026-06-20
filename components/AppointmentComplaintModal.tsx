@@ -205,6 +205,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     uom?: string;
   };
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string>("");
   const [currency, setCurrency] = useState('INR');
   const [details, setDetails] = useState<AppointmentDetails | null>(null);
@@ -1044,6 +1045,197 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
     fetchDetails();
   }, [isOpen, appointment, getAuthHeaders]);
+
+  // Refresh all server-side data while preserving user-entered (unsaved) inputs
+  // in complaint, progress, and prescription sections.
+  const handleRefresh = async () => {
+    if (!appointment || !details) return;
+
+    // Snapshot user-entered data so it survives the re-fetch
+    const preserved = {
+      complaints,
+      beforeImage,
+      afterImage,
+      items,
+      currentItem,
+      selectedServices,
+      newEntryText,
+      newEntryDate,
+      medicines,
+      aftercareInstructions,
+      includeInPdf,
+      checklist,
+      isDoctorDiscountApplied,
+      activeTab,
+      selectedConsentId,
+      nextSessionDate,
+      nextSessionTime,
+      nextSessionRoom,
+      addingNewEntry,
+      customServiceName,
+      customServicePrice,
+      customServiceClinicPrice,
+      customServiceDuration,
+      customServiceDepartment,
+      pkgModalName,
+      pkgModalPrice,
+      pkgModalValidityInMonths,
+      pkgModalStartDate,
+      pkgModalEndDate,
+      pkgSelectedTreatments,
+    };
+
+    setRefreshing(true);
+    setError("");
+    try {
+      const headers = getAuthHeaders();
+      const response = await axios.get("/api/clinic/appointment-reports", {
+        headers,
+        params: { appointmentId: appointment._id },
+      });
+
+      if (!response.data?.success) {
+        setError(response.data?.message || "Failed to refresh data");
+        return;
+      }
+
+      setDetails(response.data.appointment || null);
+
+      if (response.data.report) {
+        const r = response.data.report;
+        setReport({
+          reportId: r.reportId,
+          temperatureCelsius: r.temperatureCelsius,
+          pulseBpm: r.pulseBpm,
+          systolicBp: r.systolicBp,
+          diastolicBp: r.diastolicBp,
+          heightCm: r.heightCm,
+          weightKg: r.weightKg,
+          waistCm: r.waistCm,
+          respiratoryRate: r.respiratoryRate,
+          spo2Percent: r.spo2Percent,
+          hipCircumference: r.hipCircumference,
+          headCircumference: r.headCircumference,
+          bmi: r.bmi,
+          sugar: r.sugar,
+          urinalysis: r.urinalysis,
+          otherDetails: r.otherDetails,
+          updatedAt: r.updatedAt,
+        });
+      } else {
+        setReport(null);
+        setShowVitalsWarning(true);
+      }
+
+      setPatientReports(
+        Array.isArray(response.data.patientReports)
+          ? response.data.patientReports
+          : [],
+      );
+
+      // Re-fetch related data in parallel
+      if (response.data.appointment?.patientId) {
+        const patientId = response.data.appointment.patientId;
+        await Promise.allSettled([
+          fetchPreviousComplaints(patientId),
+          fetchPatientStats(patientId),
+          fetchPatientBalance(patientId),
+          fetchUpcomingAppointments(patientId),
+          fetchConsentStatuses(patientId),
+        ]);
+
+        // Refresh progress notes if the progress tab is active
+        if (preserved.activeTab === "progress") {
+          try {
+            setLoadingProgressNotes(true);
+            const res = await axios.get("/api/clinic/progress-notes", {
+              headers,
+              params: { patientId },
+            });
+            if (res.data?.success) {
+              setProgressNotes(res.data.notes || []);
+            }
+          } catch {
+            // ignore
+          } finally {
+            setLoadingProgressNotes(false);
+          }
+        }
+
+        // Refresh prescription history if the prescription tab is active
+        if (preserved.activeTab === "prescription") {
+          try {
+            setLoadingPrescriptionHistory(true);
+            const res = await axios.get("/api/clinic/prescriptions", {
+              headers,
+              params: { patientId },
+            });
+            if (res.data?.success) {
+              setPrescriptionHistory(res.data.prescriptions || []);
+            }
+          } catch {
+            // ignore
+          } finally {
+            setLoadingPrescriptionHistory(false);
+          }
+        }
+      }
+
+      // Re-fetch smart recommendations + doctor discount
+      if (response.data.appointment?.doctorId) {
+        const docId =
+          typeof response.data.appointment.doctorId === "object"
+            ? response.data.appointment.doctorId._id
+            : response.data.appointment.doctorId;
+
+        if (docId) {
+          await Promise.allSettled([
+            fetchSmartRecommendations(docId, headers),
+            fetchDoctorDiscount(docId, headers),
+          ]);
+        }
+      }
+
+      // Restore all user-entered data so nothing the user typed is lost
+      setComplaints(preserved.complaints);
+      setBeforeImage(preserved.beforeImage);
+      setAfterImage(preserved.afterImage);
+      setItems(preserved.items);
+      setCurrentItem(preserved.currentItem);
+      setSelectedServices(preserved.selectedServices);
+      setNewEntryText(preserved.newEntryText);
+      setNewEntryDate(preserved.newEntryDate);
+      setMedicines(preserved.medicines);
+      setAftercareInstructions(preserved.aftercareInstructions);
+      setIncludeInPdf(preserved.includeInPdf);
+      setChecklist(preserved.checklist);
+      setIsDoctorDiscountApplied(preserved.isDoctorDiscountApplied);
+      setActiveTab(preserved.activeTab);
+      setSelectedConsentId(preserved.selectedConsentId);
+      setNextSessionDate(preserved.nextSessionDate);
+      setNextSessionTime(preserved.nextSessionTime);
+      setNextSessionRoom(preserved.nextSessionRoom);
+      setAddingNewEntry(preserved.addingNewEntry);
+      setCustomServiceName(preserved.customServiceName);
+      setCustomServicePrice(preserved.customServicePrice);
+      setCustomServiceClinicPrice(preserved.customServiceClinicPrice);
+      setCustomServiceDuration(preserved.customServiceDuration);
+      setCustomServiceDepartment(preserved.customServiceDepartment);
+      setPkgModalName(preserved.pkgModalName);
+      setPkgModalPrice(preserved.pkgModalPrice);
+      setPkgModalValidityInMonths(preserved.pkgModalValidityInMonths);
+      setPkgModalStartDate(preserved.pkgModalStartDate);
+      setPkgModalEndDate(preserved.pkgModalEndDate);
+      setPkgSelectedTreatments(preserved.pkgSelectedTreatments);
+
+      toast.success("Data refreshed");
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to refresh data");
+      toast.error("Failed to refresh data");
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Fetch doctor departments + services for smart recommendations
   const fetchSmartRecommendations = async (doctorStaffId: string, headers: Record<string, string>) => {
@@ -2276,6 +2468,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       onClick={() => { if (activeTab !== "complaint") setActiveTab("complaint"); setTimeout(() => { previousComplaintsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); }}
                       className="flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg border border-gray-200 text-[10px] sm:text-xs font-medium text-gray-600 hover:bg-gray-50 whitespace-nowrap">
                       <Clock size={10} className="sm:w-[11px] sm:h-[11px]" /> History {previousComplaints.length > 0 && `(${previousComplaints.length})`}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRefresh}
+                      disabled={refreshing || loading}
+                      title="Refresh data (keeps unsaved entries)"
+                      className="flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg border border-gray-200 text-[10px] sm:text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                    >
+                      <RefreshCw size={10} className={`sm:w-[11px] sm:h-[11px] ${refreshing ? "animate-spin" : ""}`} />
+                      {refreshing ? "Refreshing..." : "Refresh"}
                     </button>
                     <button onClick={onClose} className="ml-1 text-gray-400 hover:text-gray-600 p-1 sm:p-1.5 rounded-lg hover:bg-gray-100 flex-shrink-0">
                       <X className="w-4 h-4 sm:w-5 sm:h-5" />

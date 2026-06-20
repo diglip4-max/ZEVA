@@ -1593,7 +1593,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       return;
     }
 
-    const baseTotal = paidTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
+    // For NEW packages (not yet assigned to patient), use full package totalPrice instead of session-based
+    const assignedPkgForOfferMatch = (patientDetails?.packages || []).find((p: any) => String(p.packageId) === String(selectedPackage?._id));
+    const isMainPkgForOfferMatch = String(patientDetails?.packageId) === String(selectedPackage?._id);
+    const existingPkgUsageForOfferMatch = selectedPackage ? activePackageUsage.find((p: any) => p.packageName === selectedPackage.name) : null;
+    const isNewPkgForOfferMatch = selectedPackage && !assignedPkgForOfferMatch && !isMainPkgForOfferMatch && !existingPkgUsageForOfferMatch;
+
+    let baseTotal = paidTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
+    if (isNewPkgForOfferMatch) {
+      const sessionBasedPkgTotal = packageTreatmentSessions.filter(t => t.isSelected).reduce((sum, t) => sum + (t.sessionPrice || 0) * (t.usedSessions || 0), 0);
+      baseTotal = baseTotal - sessionBasedPkgTotal + (selectedPackage.totalPrice || 0);
+    }
     
     // Appointment-level context for matching
     const currentDoctorId = typeof appointment?.doctorId === 'object'
@@ -1843,7 +1853,18 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       ...packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ price: t.sessionPrice, quantity: t.usedSessions })),
     ];
     
-    const baseTotal = currentTreatments.reduce((sum, t) => sum + (t.price || 0) * (t.quantity || 1), 0);
+    // For NEW packages (not yet assigned to patient), use full package totalPrice instead of session-based
+    const assignedPkgForOffer = (patientDetails?.packages || []).find((p: any) => String(p.packageId) === String(selectedPackage?._id));
+    const isMainPkgForOffer = String(patientDetails?.packageId) === String(selectedPackage?._id);
+    const existingPkgUsageForOffer = selectedPackage ? activePackageUsage.find((p: any) => p.packageName === selectedPackage.name) : null;
+    const isNewPkgForOffer = selectedPackage && !assignedPkgForOffer && !isMainPkgForOffer && !existingPkgUsageForOffer;
+    
+    let baseTotal = currentTreatments.reduce((sum, t) => sum + (t.price || 0) * (t.quantity || 1), 0);
+    if (isNewPkgForOffer) {
+      // Replace session-based package total with full package price
+      const sessionBasedPkgTotal = packageTreatmentSessions.filter(t => t.isSelected).reduce((sum, t) => sum + (t.sessionPrice || 0) * (t.usedSessions || 0), 0);
+      baseTotal = baseTotal - sessionBasedPkgTotal + (selectedPackage.totalPrice || 0);
+    }
     if (baseTotal === 0) {
       // console.log('[AutoApply] Base total is 0 - skipping auto-apply');
       return;
@@ -2000,7 +2021,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       return;
     }
 
-    const baseTotal = paidTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
+    // For NEW packages (not yet assigned to patient), use full package totalPrice instead of session-based
+    const assignedPkgForBundle = (patientDetails?.packages || []).find((p: any) => String(p.packageId) === String(selectedPackage?._id));
+    const isMainPkgForBundle = String(patientDetails?.packageId) === String(selectedPackage?._id);
+    const existingPkgUsageForBundle = selectedPackage ? activePackageUsage.find((p: any) => p.packageName === selectedPackage.name) : null;
+    const isNewPkgForBundle = selectedPackage && !assignedPkgForBundle && !isMainPkgForBundle && !existingPkgUsageForBundle;
+
+    let baseTotal = paidTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
+    if (isNewPkgForBundle) {
+      const sessionBasedPkgTotal = packageTreatmentSessions.filter(t => t.isSelected).reduce((sum, t) => sum + (t.sessionPrice || 0) * (t.usedSessions || 0), 0);
+      baseTotal = baseTotal - sessionBasedPkgTotal + (selectedPackage.totalPrice || 0);
+    }
     
     billingDebugLog("[BundleMatching] Checking for bundle offers. Selected treatments:", currentTreatments, "Paid treatments:", paidTreatments);
 
@@ -2254,7 +2285,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       return;
     }
 
-    const baseTotal = currentTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
+    // For NEW packages (not yet assigned to patient), use full package totalPrice instead of session-based
+    const assignedPkgForCashback = (patientDetails?.packages || []).find((p: any) => String(p.packageId) === String(selectedPackage?._id));
+    const isMainPkgForCashback = String(patientDetails?.packageId) === String(selectedPackage?._id);
+    const existingPkgUsageForCashback = selectedPackage ? activePackageUsage.find((p: any) => p.packageName === selectedPackage.name) : null;
+    const isNewPkgForCashback = selectedPackage && !assignedPkgForCashback && !isMainPkgForCashback && !existingPkgUsageForCashback;
+
+    let baseTotal = currentTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
+    if (isNewPkgForCashback) {
+      const sessionBasedPkgTotal = packageTreatmentSessions.filter(t => t.isSelected).reduce((sum, t) => sum + (t.sessionPrice || 0) * (t.usedSessions || 0), 0);
+      baseTotal = baseTotal - sessionBasedPkgTotal + (selectedPackage.totalPrice || 0);
+    }
     
     billingDebugLog('[CashbackMatching] Checking for cashback offers. Selected treatments:', currentTreatments);
     billingDebugLog('[CashbackMatching] Base total:', baseTotal);
@@ -2739,9 +2780,24 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     // ===== Package portion (always considered, since treatments & package can now be billed together) =====
     let packageBaseTotal = 0;
     if (selectedPackage) {
-      // Package Payment Handling (New Requirement)
-      const paidAmount = selectedPackage.paidAmount || 0;
-      const paymentStatus = selectedPackage.paymentStatus || "Unpaid";
+      // Check if this is a NEW package (not yet assigned to the patient)
+      // A package is "new" if it's NOT in patientDetails.packages AND NOT in activePackageUsage
+      const assignedPkg = (patientDetails?.packages || []).find((p: any) => String(p.packageId) === String(selectedPackage._id));
+      const mainPackageId = patientDetails?.packageId;
+      const isMainPackage = String(mainPackageId) === String(selectedPackage._id);
+      const existingPkgUsage = activePackageUsage.find((p: any) => p.packageName === selectedPackage.name);
+      const isNewPackage = !assignedPkg && !isMainPackage && !existingPkgUsage;
+
+      if (isNewPackage) {
+        // NEW PACKAGE: Use the full package totalPrice — patient is purchasing the whole package.
+        // Even if only 1 session is consumed, the full package amount is billed.
+        packageBaseTotal = selectedPackage.totalPrice || 0;
+        console.log(`[NewPackageBilling] New package "${selectedPackage.name}" — using full package price: ${packageBaseTotal}`);
+      } else {
+        // EXISTING PACKAGE: Use session-based calculation (current behavior)
+        // Package Payment Handling (New Requirement)
+        const paidAmount = selectedPackage.paidAmount || 0;
+        const paymentStatus = selectedPackage.paymentStatus || "Unpaid";
       
       // Calculate how much has already been consumed from the paidAmount
       // by looking at activePackageUsage.billingHistory
@@ -2813,6 +2869,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       }
 
       packageBaseTotal = finalPackageTotal;
+      } // end else (existing package session-based calculation)
     }
 
     // Combined base total = treatments + package portions
@@ -3250,6 +3307,19 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       pendingVal = netDue - paidNum;
     }
 
+    console.log('[AdvanceDebugFrontend] Calculation:', {
+      discountedAmount,
+      cashbackDeduction,
+      finalAmountAfterCashback,
+      pendingUsed,
+      pendingBeingRolledIn,
+      amountForCredits,
+      netDue,
+      paidNum,
+      advanceVal,
+      pendingVal
+    });
+
     setFormData((prev) => {
       const updates: any = {
         pending: pendingVal.toFixed(2),
@@ -3559,6 +3629,18 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     setPackageTreatmentSessions(sessions);
     console.log(`[FE_DEBUG] Treatment sessions initialized:`, sessions.map((t: any) => ({ name: t.treatmentName, maxSessions: t.maxSessions, previouslyUsed: t.previouslyUsedSessions, remaining: t.maxSessions - t.previouslyUsedSessions })));
     console.log(`[FE_DEBUG] selectedPackageTotalAllowed=${selectedPackageTotalAllowed}, selectedPackageRemaining=${selectedPackageRemaining}`);
+    setPackageSearchQuery("");
+    setPackageDropdownOpen(false);
+  };
+
+  // Remove selected package — clears all package-related state
+  const handleRemovePackage = () => {
+    setSelectedPackage(null);
+    setPackageTreatmentSessions([]);
+    setSelectedPackageTotalAllowed(null);
+    setSelectedPackageRemaining(null);
+    setPackageUsageData(null);
+    setLoadingPackageUsage(false);
     setPackageSearchQuery("");
     setPackageDropdownOpen(false);
   };
@@ -4017,8 +4099,15 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       }
 
       if (hasPackageSelection && !hasPendingAmount) {
-        // Check if at least one treatment is selected from the package
-        if (!hasPackageSessionSelected) {
+        // Check if this is a NEW package (not yet assigned to the patient)
+        const assignedPkgForValidation = (patientDetails?.packages || []).find((p: any) => String(p.packageId) === String(selectedPackage?._id));
+        const isMainPkgForValidation = String(patientDetails?.packageId) === String(selectedPackage?._id);
+        const existingPkgUsageForValidation = selectedPackage ? activePackageUsage.find((p: any) => p.packageName === selectedPackage.name) : null;
+        const isNewPkgForValidation = selectedPackage && !assignedPkgForValidation && !isMainPkgForValidation && !existingPkgUsageForValidation;
+
+        // For NEW packages: skip treatment selection requirement — patient can purchase the package without consuming sessions
+        // For EXISTING packages: require at least one treatment session to be selected
+        if (!isNewPkgForValidation && !hasPackageSessionSelected) {
           setErrors({
             general: "Please select at least one treatment from the package",
             packageTreatments: "Select at least one treatment",
@@ -4351,6 +4440,15 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       console.log("[CashbackDebug] isCashbackApplied in payload:", payload.isCashbackApplied);
       console.log("[CashbackDebug] cashbackAmount in payload:", payload.cashbackAmount);
       console.log("[CashbackDebug] cashbackOfferName in payload:", payload.cashbackOfferName);
+
+      console.log('[AdvanceDebugFrontend] Payload being sent:', {
+        amount: payload.amount,
+        paid: payload.paid,
+        advance: payload.advance,
+        pending: payload.pending,
+        pendingUsed: payload.pendingUsed,
+        advanceUsed: payload.advanceUsed
+      });
 
       const response = await axios.post(
         "/api/clinic/create-patient-registration",
@@ -5103,6 +5201,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                         );
                                         const remaining = pkgUsage?.remainingSessions ?? pkg.remainingSessions ?? pkg.totalSessions;
                                         const total = pkgUsage?.totalAllowedSessions ?? pkg.totalSessions;
+                                        // Determine if this package exists in patient's profile
+                                        const hasPatientStatus = pkg.paymentStatus && pkg.paymentStatus !== null;
                                         return (
                                           <button 
                                             key={pkg._id} 
@@ -5121,11 +5221,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                           >
                                             <div className="flex items-center justify-between">
                                               <div className="font-medium">{pkg.name}</div>
-                                              <div className="flex items-center gap-1">
+                                              <div className="flex items-center gap-1 flex-wrap justify-end">
                                                 {pkg.isTransferred && (
                                                   <span className="px-1 py-0.5 rounded bg-blue-50 text-blue-600 text-[8px] font-bold uppercase border border-blue-100">Transferred</span>
                                                 )}
-                                                {isUnpaid && (
+                                                {hasPatientStatus && pkg.paymentStatus === "Full" && (
+                                                  <span className="px-1 py-0.5 rounded bg-green-50 text-green-600 text-[8px] font-bold uppercase border border-green-100">Full Paid</span>
+                                                )}
+                                                {hasPatientStatus && pkg.paymentStatus === "Partial" && (
+                                                  <span className="px-1 py-0.5 rounded bg-yellow-50 text-yellow-600 text-[8px] font-bold uppercase border border-yellow-100">Partial</span>
+                                                )}
+                                                {hasPatientStatus && pkg.paymentStatus === "Unpaid" && (
                                                   <span className="px-1 py-0.5 rounded bg-red-50 text-red-500 text-[8px] font-bold uppercase border border-red-100">Unpaid</span>
                                                 )}
                                               </div>
@@ -5264,6 +5370,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                       </div>
                                     </div>
                                     <div className="text-right">
+                                      <button
+                                        type="button"
+                                        onClick={handleRemovePackage}
+                                        className="p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors mb-1"
+                                        title="Remove package"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
                                       {selectedPackageTotalAllowed !== null && (
                                         <div className="text-[10px] text-gray-600">
                                           Total Allowed: <span className="font-semibold">{selectedPackageTotalAllowed}</span>
