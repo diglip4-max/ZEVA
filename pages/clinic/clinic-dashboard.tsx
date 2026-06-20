@@ -6418,10 +6418,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         borderRadius: '6px',
                         fontSize: '11px'
                       }}
-                        formatter={(value: number | undefined, name: string | undefined, props: any) => {
+                        formatter={(value: any, name: any, props: any) => {
                           const displayValue = value ?? 0;
                           const displayName = name ?? '';
-                          if (props.payload?.fullName) {
+                          if (props?.payload?.fullName) {
                             return [`${displayValue}`, props.payload.fullName];
                           }
                           return [displayValue, displayName];

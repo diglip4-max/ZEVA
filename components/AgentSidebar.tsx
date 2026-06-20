@@ -181,16 +181,6 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
       order: 0,
     };
 
-    // All Claims item
-    const allClaimsItem: NavItem = {
-      label: 'All Claims',
-      path: '/staff/all-claims',
-      icon: '📋',
-      description: 'Review Insurance Claims',
-      moduleKey: 'agent_all_claims',
-      order: 9,
-    };
-
     // Filter navigation items based on permissions
     const apiItems = navigationItems.map(item => {
       // Filter out sub-modules with no permissions
@@ -229,8 +219,8 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
       return true;
     });
 
-    // Prepend Dashboard item at the beginning, insert All Claims
-    return [dashboardItem, allClaimsItem, ...apiItems];
+    // Prepend Dashboard item at the beginning
+    return [dashboardItem, ...apiItems];
   }, [navigationItems]);
 
   return (

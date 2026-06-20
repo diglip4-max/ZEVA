@@ -32,7 +32,6 @@ interface EditAppointmentModalProps {
   rooms: Array<{ _id: string; name: string }>;
   doctors: Array<{ _id: string; name: string }>;
   getAuthHeaders: () => Record<string, string>;
-  clinicEndTime?: string; // Global clinic closing time (e.g., "23:00")
 }
 
 export default function EditAppointmentModal({
@@ -43,7 +42,6 @@ export default function EditAppointmentModal({
   rooms,
   doctors,
   getAuthHeaders,
-  clinicEndTime,
 }: EditAppointmentModalProps) {
   const [roomId, setRoomId] = useState<string>("");
   const [doctorId, setDoctorId] = useState<string>("");
@@ -63,12 +61,6 @@ export default function EditAppointmentModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-
-  const timeStringToMinutes = (time24: string): number => {
-    if (!time24) return 0;
-    const [hourStr, minuteStr] = time24.split(":");
-    return parseInt(hourStr, 10) * 60 + parseInt(minuteStr, 10);
-  };
 
   const [referrals, setReferrals] = useState<Array<{ _id: string; firstName: string; lastName: string }>>([]);
 
@@ -176,21 +168,12 @@ export default function EditAppointmentModal({
   useEffect(() => {
     if (fromTime && !toTime) {
       const [hour, min] = fromTime.split(":").map(Number);
-      let totalMinutes = hour * 60 + min + 15;
-
-      // Cap at clinic closing time
-      if (clinicEndTime) {
-        const closingMins = timeStringToMinutes(clinicEndTime);
-        if (totalMinutes > closingMins) {
-          totalMinutes = closingMins;
-        }
-      }
-
+      const totalMinutes = hour * 60 + min + 15;
       const newHour = Math.floor(totalMinutes / 60);
       const newMin = totalMinutes % 60;
       setToTime(`${String(newHour).padStart(2, "0")}:${String(newMin).padStart(2, "0")}`);
     }
-  }, [fromTime, toTime, clinicEndTime]);
+  }, [fromTime, toTime]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -199,34 +182,6 @@ export default function EditAppointmentModal({
     setLoading(true);
     setError("");
     setFieldErrors({});
-
-    // Client-side validation
-    const clientErrors: Record<string, string> = {};
-    if (!fromTime) clientErrors.fromTime = "From time is required";
-    if (!toTime) clientErrors.toTime = "To time is required";
-
-    if (clinicEndTime && (fromTime || toTime)) {
-      const closingMins = timeStringToMinutes(clinicEndTime);
-      if (fromTime) {
-        const fromMins = timeStringToMinutes(fromTime);
-        if (fromMins >= closingMins) {
-          clientErrors.fromTime = `Appointment cannot start after clinic closing time (${clinicEndTime})`;
-        }
-      }
-      if (toTime) {
-        const toMins = timeStringToMinutes(toTime);
-        if (toMins > closingMins) {
-          clientErrors.toTime = `Appointment cannot end after clinic closing time (${clinicEndTime})`;
-        }
-      }
-    }
-
-    if (Object.keys(clientErrors).length > 0) {
-      setFieldErrors(clientErrors);
-      setError("Please fix the errors below");
-      setLoading(false);
-      return;
-    }
 
     try {
       const headers = getAuthHeaders();

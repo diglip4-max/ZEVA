@@ -2,6 +2,10 @@ import dbConnect from "../../../../lib/database";
 import Billing from "../../../../models/Billing";
 import InsuranceClaim from "../../../../models/InsuranceClaim";
 import { getUserFromReq } from "../../lead-ms/auth";
+import {
+  aggregatePatientPending,
+  pendingLedgerPreview,
+} from "../../../../lib/pendingLedger";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -71,8 +75,7 @@ export default async function handler(req, res) {
       .lean();
 
     // Debug logging
-    console.log(`[Patient Balance] Found ${billings.length} billing records for patient ${patientId}`);
-    console.log(`[Patient Balance] Query match:`, JSON.stringify(match));
+   
     
     // Log all billing records to see their pending amounts
     if (billings.length > 0) {
@@ -149,14 +152,7 @@ export default async function handler(req, res) {
       }
     }
 
-    console.log(`[Patient Balance] Totals calculated:`, {
-      totalPending,
-      totalPendingUsed,
-      totalAdvanceGenerated,
-      totalAdvanceUsed,
-      totalPastAdvanceGenerated,
-      totalPastAdvanceUsed
-    });
+    
 
     // Pending balance is sum of actual pending fields from each invoice
     const pendingBalance = Math.max(
@@ -205,47 +201,33 @@ export default async function handler(req, res) {
     // Aggregate insurance claim amounts - ONLY include "Released" claims
     const claimMatch = { patientId, status: "Released" };
     // Don't filter by clinicId for now to see all claims
-    console.log(`[Patient Balance] Querying claims with:`, claimMatch);
     const claims = await InsuranceClaim.find(claimMatch)
       .select("claimAmount advanceAmount claimType status pendingClaim")
       .lean();
     
-    console.log(`[Patient Balance] Found ${claims.length} insurance claims for patient ${patientId}`);
-    console.log(`[Patient Balance] Claims data:`, JSON.stringify(claims));
+    
     
     let totalClaimAmount = 0;
     for (const c of claims) {
-      console.log(`[Patient Balance] Processing claim ${c._id}:`, {
-        claimType: c.claimType,
-        claimAmount: c.claimAmount,
-        advanceAmount: c.advanceAmount,
-        status: c.status
-      });
+     
       // For Advance type: use claimAmount, for Paid type: use advanceAmount
       if (c.claimType === "Advance") {
         totalClaimAmount += Number(c.claimAmount || 0);
-        console.log(`[Patient Balance] Added claimAmount for Advance type:`, c.claimAmount);
       } else if (c.claimType === "Paid") {
         totalClaimAmount += Number(c.advanceAmount || 0);
-        console.log(`[Patient Balance] Added advanceAmount for Paid type:`, c.advanceAmount);
       } else {
-        console.log(`[Patient Balance] Unknown claimType:`, c.claimType);
       }
     }
     
-    console.log(`[Patient Balance] Total original claim amount: ${totalClaimAmount}`);
     
     // Calculate total claimAmountUsed from all billings
     const totalClaimAmountUsed = billings.reduce(
       (sum, b) => sum + Number(b.claimAmountUsed || 0), 0
     );
     
-    console.log(`[Patient Balance] Total claim amount used: ${totalClaimAmountUsed}`);
-    console.log(`[Patient Balance] Individual billing claimAmountUsed values:`, billings.map(b => ({ _id: b._id, claimAmountUsed: b.claimAmountUsed })));
     
     // Calculate remaining claim amount
     const claimAmount = Math.max(0, Number((totalClaimAmount - totalClaimAmountUsed).toFixed(2)));
-    console.log(`[Patient Balance] Final claim amount: ${claimAmount}`);
     
     // Calculate total pending claim amount from released claims
     // The claim's pendingClaim field is the authoritative source - it is directly updated
@@ -255,11 +237,40 @@ export default async function handler(req, res) {
     const totalPendingClaim = claims.reduce(
       (sum, c) => sum + Number(c.pendingClaim || 0), 0
     );
-    console.log(`[Patient Balance] Total pending claim from claims: ${totalPendingClaim}`);
     
     // Final pending claim = direct sum from claim records (already reduced by billing/payment APIs)
     const finalPendingClaim = Math.max(0, Number(totalPendingClaim.toFixed(2)));
-    console.log(`[Patient Balance] Final pending claim: ${finalPendingClaim}`);
+
+    // ============================================================
+    // Enterprise Pending Ledger aggregation (additive layer).
+    // We query the PatientPendingLedger collection for the same
+    // patient and clinic and produce:
+    //   - ledgerPendingBalance: sum(remainingAmount) over Open|Partial
+    //   - ledgerOpenCount:      count of Open|Partial rows
+    //   - ledgerTotalCleared:   lifetime sum(paidAmount) across all rows
+    //   - ledgerPreview:        oldest 5 Open|Partial rows for the UI
+    // These run independently of the legacy aggregation above so a
+    // failure here cannot break the existing patient-balance card.
+    // ============================================================
+    let ledgerPendingBalance = 0;
+    let ledgerOpenCount = 0;
+    let ledgerTotalCleared = 0;
+    let ledgerPreview = [];
+    try {
+      const agg = await aggregatePatientPending(patientId, clinicId || null);
+      ledgerPendingBalance = Number(agg.totalPending || 0);
+      ledgerOpenCount = Number(agg.openCount || 0);
+      ledgerTotalCleared = Number(agg.totalCleared || 0);
+      ledgerPreview = await pendingLedgerPreview(patientId, clinicId || null, {
+        limit: 5,
+      });
+      
+    } catch (ledgerErr) {
+      console.warn(
+        "[Patient Balance] Ledger aggregation failed (using legacy only):",
+        ledgerErr.message,
+      );
+    }
 
     return res.status(200).json({
       success: true,
@@ -273,6 +284,21 @@ export default async function handler(req, res) {
         pastAdvance54PercentBalance,
         pastAdvance159FlatBalance,
         pendingBalanceImages: allPendingBalanceImages,
+        // ============================================================
+        // Enterprise Pending Ledger (additive, non-breaking).
+        // The legacy pendingBalance above (computed from billing.pending)
+        // is preserved as-is for backward compatibility with every UI
+        // that reads `balances.pendingBalance`.
+        // The new fields below come from the PatientPendingLedger
+        // collection and give the UI per-treatment / per-package
+        // granularity, status counts, and a small preview list.
+        // UI can prefer ledger* when available, otherwise fall back
+        // to the legacy value.
+        // ============================================================
+        ledgerPendingBalance,
+        ledgerOpenCount,
+        ledgerTotalCleared,
+        ledgerPreview,
       },
       count: billings.length,
     });

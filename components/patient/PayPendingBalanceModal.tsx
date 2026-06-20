@@ -9,6 +9,9 @@ import {
   Zap,
   
   Wallet,
+  ChevronDown,
+  ChevronUp,
+  Receipt,
  
 } from "lucide-react";
 import axios from "axios";
@@ -87,6 +90,31 @@ const PayPendingBalanceModal: React.FC<PayPendingBalanceModalProps> = ({
   const [advanceBalance, setAdvanceBalance] = useState<number>(0);
   const [advanceUsed, setAdvanceUsed] = useState<number>(0);
 
+  // ============================================================
+  // Enterprise Pending Ledger (additive UI state).
+  // We render a read-only "per-treatment / per-package" breakdown
+  // of the pending balance. The actual payment submission still
+  // goes through the existing endpoint which already runs FIFO
+  // distribution server-side, so the user does not lose any of
+  // the existing flow. Breakdown is purely visual.
+  // ============================================================
+  interface LedgerRow {
+    ledgerId: string;
+    invoiceNumber: string;
+    service: "Treatment" | "Package" | "Service";
+    treatmentName?: string | null;
+    packageName?: string | null;
+    remainingAmount: number;
+    originalAmount: number;
+    paidAmount: number;
+    status: string;
+    createdAt?: string;
+  }
+  const [ledgerRows, setLedgerRows] = useState<LedgerRow[]>([]);
+  const [ledgerOpenCount, setLedgerOpenCount] = useState<number>(0);
+  const [showBreakdown, setShowBreakdown] = useState<boolean>(true);
+  const [loadingLedger, setLoadingLedger] = useState<boolean>(false);
+
   useEffect(() => {
     if (isOpen) {
       setAmount("");
@@ -96,8 +124,40 @@ const PayPendingBalanceModal: React.FC<PayPendingBalanceModalProps> = ({
       setAdvanceUsed(0);
       fetchClinicCurrency();
       fetchPatientBalance();
+      fetchPendingLedger();
     }
   }, [isOpen]);
+
+  // Fetch per-treatment / per-package ledger breakdown for the
+  // pending balance. Pure read-only; does not change submission flow.
+  const fetchPendingLedger = async () => {
+    try {
+      if (!patientId) return;
+      setLoadingLedger(true);
+      const token = getTokenByPath();
+      if (!token) return;
+      const res = await axios.get(
+        `/api/clinic/pending-ledgers/${patientId}?includeClosed=false&previewLimit=50`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (res.data?.success) {
+        const rows: LedgerRow[] = Array.isArray(res.data.openLedgers)
+          ? res.data.openLedgers
+          : Array.isArray(res.data.preview)
+            ? res.data.preview
+            : [];
+        setLedgerRows(rows);
+        setLedgerOpenCount(
+          Number(res.data?.summary?.openCount || res.data?.counts?.open || rows.length),
+        );
+      }
+    } catch (e) {
+      // Silent fallback: legacy flow still works without the breakdown.
+      console.warn("Pending ledger preview not available:", e);
+    } finally {
+      setLoadingLedger(false);
+    }
+  };
 
   const fetchClinicCurrency = async () => {
     try {
@@ -308,6 +368,105 @@ const PayPendingBalanceModal: React.FC<PayPendingBalanceModalProps> = ({
               </button>
             </div>
           </div>
+
+          {/* ============================================================
+              Pending Ledger Breakdown (additive, read-only).
+              Shows which treatments / packages contribute to the
+              total pending balance so the cashier knows exactly
+              which amounts will be cleared (FIFO) when they submit.
+              Hides itself silently when no ledger data is available.
+              ============================================================ */}
+          {(ledgerRows.length > 0 || loadingLedger) && (
+            <div className="border border-gray-200 rounded-2xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowBreakdown((s) => !s)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Receipt className="w-4 h-4 text-teal-600" />
+                  <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Pending Breakdown
+                  </span>
+                  {ledgerOpenCount > 0 && (
+                    <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-teal-100 text-teal-700">
+                      {ledgerOpenCount} item{ledgerOpenCount > 1 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
+                {showBreakdown ? (
+                  <ChevronUp className="w-4 h-4 text-gray-500" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                )}
+              </button>
+              {showBreakdown && (
+                <div className="max-h-52 overflow-y-auto divide-y divide-gray-100">
+                  {loadingLedger && (
+                    <div className="flex items-center justify-center py-4 text-xs text-gray-500">
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Loading breakdown...
+                    </div>
+                  )}
+                  {!loadingLedger && ledgerRows.length === 0 && (
+                    <div className="py-4 text-center text-xs text-gray-500">
+                      No pending items found.
+                    </div>
+                  )}
+                  {ledgerRows.map((row) => {
+                    const label =
+                      row.service === "Package"
+                        ? row.packageName || "Package"
+                        : row.treatmentName || row.service || "Service";
+                    const isPartial = row.status === "Partial";
+                    return (
+                      <div
+                        key={row.ledgerId}
+                        className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-bold text-gray-800 truncate">
+                            {label}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] text-gray-500 font-mono">
+                              {row.invoiceNumber}
+                            </span>
+                            <span
+                              className={cn(
+                                "px-1.5 py-0.5 text-[9px] font-bold rounded uppercase tracking-wide",
+                                isPartial
+                                  ? "bg-amber-100 text-amber-700"
+                                  : "bg-rose-100 text-rose-700",
+                              )}
+                            >
+                              {row.status}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0 ml-3">
+                          <div className="text-sm font-bold text-rose-600">
+                            {formatCurrency(Number(row.remainingAmount || 0))}
+                          </div>
+                          {isPartial &&
+                            Number(row.paidAmount || 0) > 0 && (
+                              <div className="text-[9px] text-emerald-600 font-semibold">
+                                Paid {formatCurrency(Number(row.paidAmount))}
+                              </div>
+                            )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {ledgerRows.length > 0 && showBreakdown && (
+                <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-[10px] text-gray-500 italic">
+                  Payments are auto-distributed FIFO (oldest first).
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Enter Amount Input */}
           {payType && (

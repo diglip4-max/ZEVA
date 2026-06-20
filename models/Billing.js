@@ -4,7 +4,7 @@ const multiplePaymentSchema = new mongoose.Schema(
   {
     paymentMethod: {
       type: String,
-      enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Advance Balance", "Insurance Claim", "Pending Claim", "Cashback Wallet"],
+      enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Advance Balance", "Insurance Claim", "Pending Claim", "Cashback Wallet", "Package Full Paid"],
       required: true,
     },
     amount: { type: Number, required: true, min: 0 },
@@ -26,7 +26,7 @@ const paymentHistorySchema = new mongoose.Schema(
     pending: { type: Number, required: true, min: 0 },
     paymentMethod: {
       type: String,
-      enum: ["Cash", "Card", "BT", "Tabby", "Tamara"],
+      enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Package Full Paid"],
     },
     multiplePayments: [multiplePaymentSchema],
     status: {
@@ -110,7 +110,7 @@ const billingSchema = new mongoose.Schema(
     quantity: {
       type: Number,
       default: 1,
-      min: 1,
+      min: 0,
     },
     sessions: {
       type: Number,
@@ -123,6 +123,18 @@ const billingSchema = new mongoose.Schema(
         treatmentName: { type: String, trim: true },
         treatmentSlug: { type: String, trim: true },
         sessions: { type: Number, min: 0, default: 0 },
+        _id: false,
+      },
+    ],
+    // Selected treatments with details (slugs, service IDs, quantities)
+    selectedTreatments: [
+      {
+        treatmentName: { type: String, trim: true },
+        treatmentSlug: { type: String, trim: true },
+        treatmentServiceId: { type: String, trim: true },
+        quantity: { type: Number, min: 0, default: 1 },
+        price: { type: Number, min: 0, default: 0 },
+        originalAppointmentQuantity: { type: Number, min: 0 }, // Original quantity from the appointment (if any)
         _id: false,
       },
     ],
@@ -176,6 +188,41 @@ const billingSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    // Enterprise Pending Ledger: denormalized cache of total remainingAmount
+    // across all Open/Partial ledger rows in PatientPendingLedger collection
+    // for THIS billing. Source of truth lives in PatientPendingLedger.
+    // This cached field is updated by lib/pendingLedger.applyClearance.
+    pendingLedgerCached: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    // Number of Open/Partial ledger rows attached to this billing (for fast list rendering)
+    pendingLedgerOpenCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    // Enterprise Pending Ledger: per-line breakdown of which ledger rows
+    // THIS billing record cleared. Populated only on audit billings
+    // created by /api/clinic/pending-ledgers/clear. Each entry references
+    // a PatientPendingLedger row by ledgerId so the UI can render the
+    // per-treatment breakdown of a pending payment.
+    pendingClearedBreakdown: [
+      {
+        ledgerId: { type: String, trim: true, index: true },
+        invoiceNumber: { type: String, trim: true },
+        service: { type: String, enum: ["Treatment", "Package", "Service"] },
+        treatmentSlug: { type: String, trim: true },
+        treatmentName: { type: String, trim: true },
+        packageId: { type: mongoose.Schema.Types.ObjectId, ref: "Package" },
+        packageName: { type: String, trim: true },
+        amountCleared: { type: Number, min: 0 },
+        newStatus: { type: String },
+        newRemaining: { type: Number, min: 0 },
+        _id: false,
+      },
+    ],
     advance: {
       type: Number,
       default: 0,
@@ -200,7 +247,7 @@ const billingSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["Cash", "Card", "BT", "Tabby", "Tamara"],
+      enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Package Full Paid"],
       required: false,
     },
     // Multiple payment methods for split payments

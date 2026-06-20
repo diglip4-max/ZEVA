@@ -390,11 +390,11 @@ export default async function handler(req, res) {
         "6889d13363b3ba38a2318a6a"
       ).lean();
       if (testClinic) {
-        console.log("Test clinic found:", testClinic.name);
-        console.log("Test clinic location:", testClinic.location);
-        console.log("Test clinic has location field:", !!testClinic.location);
+        // console.log("Test clinic found:", testClinic.name);
+        // console.log("Test clinic location:", testClinic.location);
+        // console.log("Test clinic has location field:", !!testClinic.location);
         if (testClinic.location) {
-          console.log("Location coordinates:", testClinic.location.coordinates);
+          // console.log("Location coordinates:", testClinic.location.coordinates);
 
           // Calculate distance between search location and clinic
           const searchLat = latitude;

@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import axios from "axios";
 import { NextPageWithLayout } from "../../_app";
 import AvatarComponent from "@/components/shared/AvatarComponent";
+import AiAgentChat from "@/components/AiAgentChat";
 import {
   Search,
   Filter,
@@ -91,6 +92,7 @@ const InboxPage: NextPageWithLayout = () => {
     canUpdate: false,
     canDelete: false,
   });
+  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [hasAgentToken, setHasAgentToken] = useState(false);
   const [isAgentRoute, setIsAgentRoute] = useState(false);
@@ -1350,6 +1352,19 @@ const InboxPage: NextPageWithLayout = () => {
                         )}
                       </>
                     )}
+                    <div className="relative">
+                      <button
+                        onClick={() => setIsAiChatOpen((prev) => !prev)}
+                        className="bg-white text-gray-700 border border-gray-200 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed p-2.5 rounded-xl font-semibold flex items-center space-x-2 transition-all hover:shadow-md"
+                      >
+                        Talk to an AI Agent
+                      </button>
+                      <AiAgentChat
+                        isOpen={isAiChatOpen}
+                        onClose={() => setIsAiChatOpen(false)}
+                        conversationId={selectedConversation?._id ?? null} // 👈 add this
+                      />
+                    </div>
 
                     {/* <EmojiPickerModal
                     triggerButton={

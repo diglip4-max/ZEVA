@@ -27,6 +27,30 @@ const getStoredToken = () => {
   return null;
 };
 
+const getUserRole = () => {
+  if (typeof window === "undefined") return null;
+  for (const key of TOKEN_PRIORITY) {
+    try {
+      const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+      if (token) {
+        const base64Url = token.split(".")[1];
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const jsonPayload = decodeURIComponent(
+          atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")
+        );
+        const decoded = JSON.parse(jsonPayload);
+        return decoded.role || decoded.userRole || null;
+      }
+    } catch { continue; }
+  }
+  return null;
+};
+
+const maskPhoneNumber = (number) => {
+  if (!number) return '***';
+  return '*'.repeat(number.length);
+};
+
 const getAuthHeaders = () => {
   const token = getStoredToken();
   return token ? { Authorization: `Bearer ${token}` } : null;
@@ -319,7 +343,7 @@ const PackageUsageModal = ({ isOpen, onClose, patient, packageUsageData, loading
   );
 };
 
-const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packages = [], onViewPackageUsage, transferNameMap = {}, membershipUsageMap = {} }) => {
+const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packages = [], onViewPackageUsage, transferNameMap = {}, membershipUsageMap = {}, isDoctorStaff = false }) => {
   const [balance, setBalance] = useState({
     pendingBalance: 0,
     advanceBalance: 0,
@@ -481,7 +505,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                 <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Full Name</span> <span className="font-medium text-gray-900 text-sm">{patient.firstName} {patient.lastName}</span></div>
                 <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Gender</span> <span className="font-medium text-gray-900 text-sm">{patient.gender || '-'}</span></div>
                 <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Email</span> <span className="font-medium text-blue-600 text-sm">{patient.email}</span></div>
-                <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Mobile</span> <span className="font-medium text-gray-900 text-sm">{patient.mobileNumber}</span></div>
+                <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Mobile</span> <span className="font-medium text-gray-900 text-sm">{isDoctorStaff ? maskPhoneNumber(patient.mobileNumber) : patient.mobileNumber}</span></div>
                 <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Patient Type</span> <span className="font-medium text-gray-900 text-sm">{patient.patientType}</span></div>
                 <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Referred By</span> <span className="font-medium text-gray-900 text-sm">{patient.referredBy || 'N/A'}</span></div>
                 {patient.doctor && <div className="flex flex-col md:col-span-2"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Doctor</span> <span className="font-medium text-gray-900 text-sm">{patient.doctor}</span></div>}
@@ -1103,12 +1127,12 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
   );
 };
 
-const PatientCard = ({ patient, onUpdate, onViewDetails, canUpdate = true }) => (
+const PatientCard = ({ patient, onUpdate, onViewDetails, canUpdate = true, isDoctorStaff = false }) => (
   <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
     <div className="flex items-start justify-between mb-3">
       <div className="flex-1 min-w-0">
         <h3 className="text-base font-semibold text-gray-900 truncate">{patient.firstName} {patient.lastName}</h3>
-        <p className="text-sm text-gray-700">{patient.mobileNumber}</p>
+        <p className="text-sm text-gray-700">{isDoctorStaff ? maskPhoneNumber(patient.mobileNumber) : patient.mobileNumber}</p>
         <p className="text-xs text-gray-700">{patient.email}</p>
       </div>
       <div className="flex flex-col gap-1 ml-2">
@@ -1143,6 +1167,7 @@ const PatientCard = ({ patient, onUpdate, onViewDetails, canUpdate = true }) => 
 
 function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { canRead: true, canUpdate: true, canDelete: true, canCreate: true }, routeContext = "clinic" }) {
   const router = useRouter();
+  const isDoctorStaff = useMemo(() => getUserRole() === 'doctorStaff', []);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPreviousMemberships, setFilterPreviousMemberships] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
@@ -1521,7 +1546,11 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
           const apiEndpoint = "/api/clinic/patient-information";
           const { data } = await axios.get(apiEndpoint, { headers: refreshHeaders });
           setPatients(data.success ? data.data : []);
-          setPage(1);
+          // Stay on current page after deletion; if page is now empty, go to previous page
+          const newTotalPages = Math.ceil((data.success ? data.data : []).length / pageSize);
+          if (newTotalPages > 0 && page > newTotalPages) {
+            setPage(newTotalPages);
+          }
           // Changed message to show patient deletion success
           addToast("Patient deleted successfully", "success");
         } catch (err) {
@@ -1564,6 +1593,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
         onViewPackageUsage={fetchPackageUsage}
         transferNameMap={transferNameMap}
         membershipUsageMap={membershipUsageMap}
+        isDoctorStaff={isDoctorStaff}
       />
 
       {/* Package Usage Modal */}
@@ -1805,7 +1835,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                               <p className="text-xs text-gray-900">{patient.email || '-'}</p>
                             </td>
                             <td className="py-3 px-3">
-                              <p className="text-xs text-gray-900">{patient.mobileNumber || '-'}</p>
+                              <p className="text-xs text-gray-900">{isDoctorStaff ? maskPhoneNumber(patient.mobileNumber) : (patient.mobileNumber || '-')}</p>
                             </td>
                             <td className="py-3 px-3">
                               <p className="text-xs text-gray-900">{patient.patientType || '-'}</p>

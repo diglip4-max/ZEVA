@@ -60,14 +60,10 @@ export default async function handler(req, res) {
     if (!appointmentId || !patientId) {
       return res.status(400).json({ success: false, message: "appointmentId and patientId are required" });
     }
-    if (!Array.isArray(medicines) || medicines.length === 0) {
-      return res.status(400).json({ success: false, message: "At least one medicine is required" });
-    }
-    // Validate each medicine has a name
-    for (const m of medicines) {
-      if (!m.medicineName || !m.medicineName.trim()) {
-        return res.status(400).json({ success: false, message: "Each medicine must have a name" });
-      }
+    // Medicines are now optional - prescription can be saved with just aftercare instructions
+    if (!Array.isArray(medicines)) {
+      // If medicines is not provided, initialize as empty array
+      req.body.medicines = [];
     }
 
     try {
@@ -87,12 +83,16 @@ export default async function handler(req, res) {
           $set: {
             patientId,
             doctorId,
-            medicines: medicines.map((m) => ({
-              medicineName: m.medicineName.trim(),
-              dosage: m.dosage?.trim() || "",
-              duration: m.duration?.trim() || "",
-              notes: m.notes?.trim() || "",
-            })),
+            medicines: Array.isArray(medicines) 
+              ? medicines
+                  .filter((m) => m.medicineName && m.medicineName.trim()) // Only save medicines with names
+                  .map((m) => ({
+                    medicineName: m.medicineName.trim(),
+                    dosage: m.dosage?.trim() || "",
+                    duration: m.duration?.trim() || "",
+                    notes: m.notes?.trim() || "",
+                  }))
+              : [], // Empty array if no medicines provided
             aftercareInstructions: aftercareInstructions?.trim() || "",
             includeInPdf: includeInPdf !== undefined ? !!includeInPdf : true,
             pdfUrl: pdfUrl || null,
@@ -130,6 +130,64 @@ export default async function handler(req, res) {
     }
   }
 
-  res.setHeader("Allow", ["GET", "POST", "DELETE"]);
+  // ── PUT (update existing prescription) ───────────────────────────────────────
+  if (req.method === "PUT") {
+    const { prescriptionId, medicines, aftercareInstructions } = req.body || {};
+
+    if (!prescriptionId) {
+      return res.status(400).json({ success: false, message: "prescriptionId is required" });
+    }
+
+    try {
+      // Find the prescription first to verify it belongs to this clinic
+      const existingPrescription = await Prescription.findOne({ _id: prescriptionId, clinicId });
+      if (!existingPrescription) {
+        return res.status(404).json({ success: false, message: "Prescription not found" });
+      }
+
+      // Check if prescription was created within the last 24 hours
+      const createdAt = new Date(existingPrescription.createdAt);
+      const now = new Date();
+      const hoursDiff = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+      if (hoursDiff >= 24) {
+        return res.status(403).json({ 
+          success: false, 
+          message: "Prescription can only be edited within 24 hours of creation" 
+        });
+      }
+
+      // Update the prescription
+      const updatedPrescription = await Prescription.findByIdAndUpdate(
+        prescriptionId,
+        {
+          $set: {
+            medicines: Array.isArray(medicines)
+              ? medicines
+                  .filter((m) => m.medicineName && m.medicineName.trim()) // Only save medicines with names
+                  .map((m) => ({
+                    medicineName: m.medicineName.trim(),
+                    dosage: m.dosage?.trim() || "",
+                    duration: m.duration?.trim() || "",
+                    notes: m.notes?.trim() || "",
+                  }))
+              : [], // Empty array if no medicines provided
+            aftercareInstructions: aftercareInstructions?.trim() || "",
+          },
+        },
+        { new: true },
+      ).populate("doctorId", "name email");
+
+      return res.status(200).json({
+        success: true,
+        message: "Prescription updated successfully",
+        prescription: updatedPrescription,
+      });
+    } catch (error) {
+      console.error("Error updating prescription:", error);
+      return res.status(500).json({ success: false, message: "Failed to update prescription" });
+    }
+  }
+
+  res.setHeader("Allow", ["GET", "POST", "PUT", "DELETE"]);
   return res.status(405).json({ success: false, message: "Method Not Allowed" });
 }

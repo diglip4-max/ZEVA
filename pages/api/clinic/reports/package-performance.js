@@ -44,10 +44,19 @@ export default async function handler(req, res) {
     } else if (req.query.clinicId) {
       match.clinicId = new mongoose.Types.ObjectId(String(req.query.clinicId));
     }
-    if (startDate || endDate) {
+    // Normalize dates to local start-of-day / end-of-day so billings made later
+    // in the day are still included (matches revenue.js behavior)
+    const startAt = startDate
+      ? new Date(new Date(startDate).getFullYear(), new Date(startDate).getMonth(), new Date(startDate).getDate(), 0, 0, 0, 0)
+      : null;
+    const endAt = endDate
+      ? new Date(new Date(endDate).getFullYear(), new Date(endDate).getMonth(), new Date(endDate).getDate(), 23, 59, 59, 999)
+      : null;
+
+    if (startAt || endAt) {
       match.invoicedDate = {};
-      if (startDate) match.invoicedDate.$gte = new Date(startDate);
-      if (endDate) match.invoicedDate.$lte = new Date(endDate);
+      if (startAt) match.invoicedDate.$gte = startAt;
+      if (endAt) match.invoicedDate.$lte = endAt;
       if (Object.keys(match.invoicedDate).length === 0) delete match.invoicedDate;
     }
 
