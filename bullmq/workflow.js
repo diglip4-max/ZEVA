@@ -99,9 +99,9 @@ export const executeWorkflows = async (payload) => {
         }
   */
   const { entity, trigger, clinicId } = payload;
-  console.log({ payload });
+  // console.log({ payload });
   const workflows = await Workflow.find({ clinicId, entity, status: "Active" });
-  console.log({ workflows });
+  // console.log({ workflows });
   for (const workflow of workflows) {
     const workflowTriggerData = workflow.nodes.find(
       (node) => node.type === "trigger",

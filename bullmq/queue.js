@@ -54,6 +54,14 @@ export const bookAppointmentActionQueue = new Queue(
   },
 );
 
+// ----------------------------------- SMTP FETCH INCOMING EMAILS QUEUE -----------------------------------//
+export const listImapIncomingEmailQueue = new Queue(
+  "listImapIncomingEmailQueue",
+  {
+    connection: redis,
+  },
+);
+
 // ----------------------------------- SCHEDULED CAMPAIGNS QUEUE -----------------------------------//
 
 export const scheduleWhatsappCampaignQueue = new Queue(
@@ -78,5 +86,10 @@ export const sendSmtpEmailBatchQueue = new Queue("sendSmtpEmailBatchQueue", {
   connection: redis,
 });
 export const sendGmailEmailBatchQueue = new Queue("sendGmailEmailBatchQueue", {
+  connection: redis,
+});
+
+// ----------------------------------- GMAIL WATCH RENEWAL QUEUE -----------------------------------//
+export const gmailWatchRenewalQueue = new Queue("gmailWatchRenewalQueue", {
   connection: redis,
 });

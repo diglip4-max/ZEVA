@@ -4,6 +4,7 @@ import Clinic from "../../../models/Clinic";
 import Provider from "../../../models/Provider";
 import dbConnect from "../../../lib/database";
 import { sendTestEmailBySmtp } from "../../../services/smtp";
+import { listImapIncomingEmailQueue } from "../../../bullmq/queue";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -146,6 +147,18 @@ export default async function handler(req, res) {
       secrets,
     });
     await newProvider.save();
+
+    // Add job to refresh email conversations
+    const job = await listImapIncomingEmailQueue.add(
+      "listImapIncomingEmailJob",
+      {
+        providerIds: [newProvider._id],
+      },
+    );
+    console.log(
+      "SMTP Email conversations refresh job added to queue. Job ID:",
+      job.id,
+    );
 
     const findProvider = await Provider.findById(newProvider._id)
       .select("-secrets -_ac -_ct")

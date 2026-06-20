@@ -73,8 +73,6 @@ export default async function handler(req, res) {
     if (me.role !== "admin" && clinic._id) {
     }
 
-    console.log({ clinic });
-
     try {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 20;
