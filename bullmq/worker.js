@@ -56,8 +56,12 @@ import {
   sendBatchWhatsappMessageQueue,
   sendGmailEmailBatchQueue,
   sendSmtpEmailBatchQueue,
+  gmailWatchRenewalQueue,
 } from "./queue.js";
-import { sendEmailViaGmailMultiple } from "../services/gmail.js";
+import {
+  sendEmailViaGmailMultiple,
+  getGmailClientForUser,
+} from "../services/gmail.js";
 import {
   replaceUrlsWithTrackingUrlsInContent,
   sendBatchEmailBySmtp,
@@ -2889,3 +2893,64 @@ const sendSmtpEmailBatchWorker = new Worker(
     },
   },
 );
+
+// ----------------------------------- GMAIL WATCH RENEWAL WORKER -----------------------------------//
+const gmailWatchRenewalWorker = new Worker(
+  "gmailWatchRenewalQueue",
+  async (job) => {
+    console.log("Processing gmail watch renewal worker: ", job.data);
+    const { providerId } = job.data;
+    try {
+      const provider = await Provider.findById(providerId);
+      if (!provider) {
+        console.error("Provider not found");
+        return;
+      }
+
+      if (provider.emailProviderType !== "gmail") {
+        console.error("Provider is not gmail");
+        return;
+      }
+
+      const gmail = await getGmailClientForUser(providerId);
+
+      if (!gmail) {
+        console.error("Gmail client not found");
+        return;
+      }
+
+      const resWatchData = await gmail.users.watch({
+        userId: "me",
+        requestBody: {
+          labelIds: ["INBOX"],
+          topicName: "projects/zeva360/topics/gmail-sync-topic",
+        },
+      });
+
+      provider.gmailWatchExpiration = resWatchData?.data?.expiration || "";
+      await provider.save();
+
+      console.log("Gmail Watch Response:", resWatchData.data);
+
+      // Schedule Gmail Watch Renewal
+      const expirationTime = Number(resWatchData.data.expiration);
+      const rewatchTime = expirationTime - 1000 * 60 * 60; // 1 hour before expiration
+
+      console.log("Expiration Time:", expirationTime);
+      console.log("Rewatch Time:", rewatchTime);
+
+      console.log(
+        `✅ Completed gmail watch renewal worker for providerId:  ${providerId}`,
+      );
+    } catch (error) {
+      console.error("Error in gmail watch renewal worker:", error?.message);
+      throw error; // Re-throw so the job is marked as failed
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 5, // Reduced from 10 to be safer
+  },
+);
+
+addWorkerListeners(gmailWatchRenewalWorker, "gmailWatchRenewalQueue");

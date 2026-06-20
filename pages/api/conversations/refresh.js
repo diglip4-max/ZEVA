@@ -1,3 +1,4 @@
+import { listImapIncomingEmailQueue } from "../../../bullmq/queue";
 import dbConnect from "../../../lib/database";
 import Clinic from "../../../models/Clinic";
 import Provider from "../../../models/Provider";
@@ -9,11 +10,11 @@ export default async function handler(req, res) {
       .status(405)
       .json({ success: false, message: `${req.method} - Method not allowed` });
   }
+
   try {
     await dbConnect();
 
     const me = await getUserFromReq(req);
-    // console.log({ me });
     if (
       !requireRole(me, [
         "clinic",
@@ -70,69 +71,42 @@ export default async function handler(req, res) {
 
     // ✅TODO: Check permission for reading leads (only for clinic, agent, doctor, and doctorStaff/staff; admin bypasses)
     if (me.role !== "admin" && clinic._id) {
-      // For Get Provider Permissions
     }
 
-    try {
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 20;
-      const skip = (page - 1) * limit;
-      const search = req.query.search
-        ? req.query.search.trim().toLowerCase()
-        : null;
-      const status = req.query.status || "all";
-      const type = req.query.type || "all";
+    // Refresh email conversations
+    const emailSmtpProviders = await Provider.find({
+      clinicId: clinic._id,
+      type: { $in: ["email"] },
+      emailProviderType: "other",
+    })
+      .select("_id")
+      .exec();
+    const emailProviderIds = emailSmtpProviders.map((provider) =>
+      provider._id.toString(),
+    );
 
-      let query = { clinicId: clinic._id };
-      if (search) {
-        query.$or = [
-          { label: { $regex: search, $options: "i" } },
-          { phone: { $regex: search, $options: "i" } },
-          { email: { $regex: search, $options: "i" } },
-        ];
-      }
-
-      if (status !== "all") {
-        query.status = status;
-      }
-
-      if (type !== "all") {
-        query.type = { $in: [type] };
-      }
-
-      const totalProviders = await Provider.countDocuments(query);
-
-      const providers = await Provider.find(query)
-        .select("-secrets -_ac -_ct")
-        .sort({ updatedAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean();
-
-      const totalPages = Math.ceil(totalProviders / limit);
-      const hasMore = page * limit < totalProviders;
-
-      return res.status(200).json({
-        success: true,
-        message: "Providers fetched successfully",
-        data: providers,
-        pagination: {
-          totalResults: totalProviders,
-          totalPages,
-          currentPage: page,
-          limit,
-          hasMore,
-        },
-      });
-    } catch (error) {
-      console.error("Error fetching provider:", error);
-      return res
-        .status(500)
-        .json({ success: false, message: "Failed to fetch providers" });
-    }
+    // Add emailProviderIds to listImapIncomingEmailQueue
+    console.log(
+      "Adding emailProviderIds to listImapIncomingEmailQueue: ",
+      emailProviderIds,
+    );
+    const job = await listImapIncomingEmailQueue.add(
+      "listImapIncomingEmailJob",
+      {
+        providerIds: emailProviderIds,
+      },
+    );
+    console.log(
+      "SMTP Email conversations refresh job added to queue. Job ID:",
+      job.id,
+    );
+    return res.status(200).json({
+      success: true,
+      message: "Email conversations refresh job added to queue",
+    });
   } catch (error) {
-    // console.error("Get Providers error: ", error);
-    return res.status(500).json({
+    console.error("❌ Error refreshing conversations: ", error);
+    res.status(500).json({
       success: false,
       message: error?.message || "Internal server error",
     });

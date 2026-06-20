@@ -22,23 +22,19 @@ export default async function handler(req, res) {
     // console.log('[sidebar-permissions API] me:', me);
     // console.log('[sidebar-permissions API] me.role:', me.role);
     if (!me) {
-      return res
-        .status(401)
-        .json({
-          success: false,
-          message: "Unauthorized: Missing or invalid token",
-        });
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized: Missing or invalid token",
+      });
     }
 
     // Only clinic, agent, doctor, doctorStaff can fetch clinic navigation
     if (!["clinic", "agent", "doctor", "doctorStaff"].includes(me.role)) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message:
-            "Access denied. Clinic role or agent with clinic permissions required",
-        });
+      return res.status(403).json({
+        success: false,
+        message:
+          "Access denied. Clinic role or agent with clinic permissions required",
+      });
     }
 
     let clinic = null;
@@ -71,9 +67,17 @@ export default async function handler(req, res) {
     }
 
     // Get clinic permissions
-    const clinicPermission = await ClinicPermission.findOne({ clinicId: clinic._id });
-    // console.log('[sidebar-permissions API] clinicPermission:', clinicPermission);
-    // console.log('[sidebar-permissions API] clinicPermission.permissions:', clinicPermission?.permissions);
+    const clinicPermission = await ClinicPermission.findOne({
+      clinicId: clinic._id,
+    });
+    // console.log(
+    //   "[sidebar-permissions API] clinicPermission:",
+    //   clinicPermission,
+    // );
+    // console.log(
+    //   "[sidebar-permissions API] clinicPermission.permissions:",
+    //   clinicPermission?.permissions,
+    // );
 
     // Get navigation items for clinic role
     const navigationItems = await ClinicNavigationItem.find({

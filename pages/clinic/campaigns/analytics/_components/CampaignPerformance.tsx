@@ -458,9 +458,7 @@ const CampaignPerformancePage = () => {
             <div>
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-purple-600" />
-                <h2 className="text-base font-bold text-gray-900">
-                  Top Contacts
-                </h2>
+                <h2 className="text-base font-bold text-gray-900">Top Leads</h2>
               </div>
               <p className="text-xs text-gray-500 font-medium mt-0.5">
                 Most active recipients

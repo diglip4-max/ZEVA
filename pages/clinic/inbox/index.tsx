@@ -29,6 +29,7 @@ import {
   Edit2,
   Check,
   Loader2,
+  RefreshCcw,
 } from "lucide-react";
 import { useAgentPermissions } from "../../../hooks/useAgentPermissions";
 import CreateNewConversation from "./_components/CreateNewConversation";
@@ -539,6 +540,7 @@ const InboxPage: NextPageWithLayout = () => {
     setIsProfileView,
     setIsOpenBookAppointmentModal,
     setIsLocationPickerOpen,
+    setEditValue,
     handleSendMessage,
     handleScheduleMessage,
     handleConvScroll,
@@ -555,7 +557,7 @@ const InboxPage: NextPageWithLayout = () => {
     handleEditLead,
     cancelEditLead,
     handleUpdateLead,
-    setEditValue,
+    handleRefreshConversations,
   } = useInbox();
   const {
     user,
@@ -670,9 +672,15 @@ const InboxPage: NextPageWithLayout = () => {
               <h2 className="text-xl font-semibold text-gray-800">
                 All customer chats
               </h2>
-              <span className="text-gray-600 py-1 text-sm font-medium">
-                {totalConversations} chats
-              </span>
+              <div className="text-gray-600 py-1 text-sm font-medium flex items-center gap-2">
+                <span>{totalConversations} chats</span>
+                <button
+                  onClick={handleRefreshConversations}
+                  className="bg-white text-gray-600 border border-gray-300 hover:bg-gray-100 cursor-pointer px-2 py-1 rounded-lg text-sm font-medium shadow-sm inline-flex items-center gap-2"
+                >
+                  <RefreshCcw className="h-3 w-3" />
+                </button>
+              </div>
             </div>
 
             {permissions.canCreate && (
