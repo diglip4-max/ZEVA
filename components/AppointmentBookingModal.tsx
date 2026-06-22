@@ -187,6 +187,18 @@ export default function AppointmentBookingModal({
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [isServicesOpen, setIsServicesOpen] = useState(false);
   const [servicesSearch, setServicesSearch] = useState("");
+  // Inline "Add Referral" popup state
+  const [showAddReferral, setShowAddReferral] = useState(false);
+  const [referralForm, setReferralForm] = useState({
+    firstName: "",
+    lastName: "",
+    phone: "",
+    email: "",
+    referralPercent: 0,
+    addExpense: false,
+  });
+  const [referralErrors, setReferralErrors] = useState<Record<string, string>>({});
+  const [savingReferral, setSavingReferral] = useState(false);
   const servicesSearchRef = React.useRef<HTMLInputElement>(null);
  
   // Filter services based on search
@@ -466,6 +478,97 @@ export default function AppointmentBookingModal({
       fetchReferrals();
     }
   }, [isOpen]);
+
+  // Inline Add Referral popup helpers
+  const resetReferralForm = () => {
+    setReferralForm({
+      firstName: "",
+      lastName: "",
+      phone: "",
+      email: "",
+      referralPercent: 0,
+      addExpense: false,
+    });
+    setReferralErrors({});
+  };
+
+  const closeAddReferral = () => {
+    setShowAddReferral(false);
+    resetReferralForm();
+  };
+
+  const handleReferralFieldChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    setReferralForm((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+    if (referralErrors[name]) {
+      setReferralErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  const validateReferralForm = () => {
+    const errs: Record<string, string> = {};
+    if (!String(referralForm.firstName).trim()) {
+      errs.firstName = "First name is required";
+    }
+    if (!String(referralForm.phone).trim()) {
+      errs.phone = "Phone is required";
+    }
+    const pct = Number(referralForm.referralPercent);
+    if (Number.isNaN(pct) || pct < 0 || pct > 100) {
+      errs.referralPercent = "Referral % must be between 0 and 100";
+    }
+    setReferralErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const handleSaveReferral = async () => {
+    if (!validateReferralForm()) {
+      toast.error("Please fix the highlighted errors");
+      return;
+    }
+    const headers = getAuthHeaders();
+    if (!headers) {
+      toast.error("Authentication required");
+      return;
+    }
+    setSavingReferral(true);
+    try {
+      const res = await axios.post(
+        "/api/clinic/referrals",
+        {
+          firstName: referralForm.firstName,
+          lastName: referralForm.lastName,
+          phone: referralForm.phone,
+          email: referralForm.email,
+          referralPercent: Number(referralForm.referralPercent),
+          addExpense: referralForm.addExpense,
+        },
+        { headers },
+      );
+      if (res.data.success) {
+        toast.success("Referral created");
+        // Refetch the referral list to include the new referral
+        await fetchReferrals();
+        // Auto-select the newly created referral in the add-patient form
+        const created = res.data.referral;
+        const fullName = `${created?.firstName || referralForm.firstName} ${
+          created?.lastName || referralForm.lastName
+        }`.trim();
+        setAddPatientForm((prev) => ({ ...prev, referredBy: fullName }));
+        closeAddReferral();
+      } else {
+        toast.error(res.data?.message || "Failed to create referral");
+      }
+    } catch (err: any) {
+      console.error("Error creating referral:", err);
+      toast.error(err?.response?.data?.message || "Failed to create referral");
+    } finally {
+      setSavingReferral(false);
+    }
+  };
 
   useEffect(() => {
     if (isOpen && selectedDoctorId) {
@@ -1426,6 +1529,13 @@ export default function AppointmentBookingModal({
                         </option>
                       ))}
                     </select>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddReferral(true)}
+                      className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-teal-700 hover:text-teal-800 dark:text-teal-600 dark:hover:text-teal-700 underline underline-offset-2 transition-colors"
+                    >
+                      <Plus className="w-3 h-3" /> Add Referral
+                    </button>
                   </div>
                   <div>
                     <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
@@ -1629,6 +1739,196 @@ export default function AppointmentBookingModal({
           </div>
         </div>
       </div>
+
+      {/* Inline "Add Referral" popup (same as Create Referral on /clinic/referal) */}
+      {showAddReferral && (
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm transition-all duration-300 animate-in fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              closeAddReferral();
+            }
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-referral-title"
+        >
+          <div
+            className="bg-white dark:bg-gray-50 rounded-2xl shadow-2xl max-w-[500px] w-full max-h-[90vh] overflow-hidden flex flex-col transform transition-all duration-300 scale-100 opacity-100 animate-in slide-in-from-bottom-4 zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-gray-800 dark:bg-gray-700 border-b border-gray-700 dark:border-gray-600 px-4 py-3 flex items-center justify-between z-10 shadow-lg">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-gray-700 dark:bg-gray-600 rounded-lg">
+                  <Plus className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h2
+                    id="add-referral-title"
+                    className="text-base font-bold text-white"
+                  >
+                    Create Referral
+                  </h2>
+                  <p className="text-[10px] text-gray-300 mt-0.5">
+                    Add a new referral contact
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeAddReferral}
+                className="p-1.5 hover:bg-gray-800 dark:hover:bg-gray-600 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 text-white hover:scale-110 active:scale-95"
+                aria-label="Close add referral modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3 overflow-y-auto flex-1">
+              <div>
+                <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
+                  First Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="firstName"
+                  value={referralForm.firstName}
+                  onChange={handleReferralFieldChange}
+                  className={`w-full border rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
+                    referralErrors.firstName
+                      ? "border-red-500 bg-red-50"
+                      : "border-gray-300 dark:border-gray-300"
+                  }`}
+                  placeholder="Enter first name"
+                />
+                {referralErrors.firstName && (
+                  <p className="mt-0.5 text-[10px] text-red-600 dark:text-red-700">
+                    {referralErrors.firstName}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  name="lastName"
+                  value={referralForm.lastName}
+                  onChange={handleReferralFieldChange}
+                  className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                  placeholder="Enter last name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
+                  Phone <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={referralForm.phone}
+                  onChange={handleReferralFieldChange}
+                  className={`w-full border rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
+                    referralErrors.phone
+                      ? "border-red-500 bg-red-50"
+                      : "border-gray-300 dark:border-gray-300"
+                  }`}
+                  placeholder="Enter phone number"
+                />
+                {referralErrors.phone && (
+                  <p className="mt-0.5 text-[10px] text-red-600 dark:text-red-700">
+                    {referralErrors.phone}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={referralForm.email}
+                  onChange={handleReferralFieldChange}
+                  className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                  placeholder="Enter email (optional)"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
+                  Referral %
+                </label>
+                <input
+                  type="number"
+                  name="referralPercent"
+                  value={referralForm.referralPercent}
+                  onChange={handleReferralFieldChange}
+                  min={0}
+                  max={100}
+                  className={`w-full border rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
+                    referralErrors.referralPercent
+                      ? "border-red-500 bg-red-50"
+                      : "border-gray-300 dark:border-gray-300"
+                  }`}
+                  placeholder="0"
+                />
+                {referralErrors.referralPercent && (
+                  <p className="mt-0.5 text-[10px] text-red-600 dark:text-red-700">
+                    {referralErrors.referralPercent}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  id="addExpenseInline"
+                  type="checkbox"
+                  name="addExpense"
+                  checked={!!referralForm.addExpense}
+                  onChange={handleReferralFieldChange}
+                  className="h-3 w-3 border-gray-300 rounded"
+                />
+                <label
+                  htmlFor="addExpenseInline"
+                  className="text-[10px] text-gray-700 dark:text-gray-800"
+                >
+                  Add an expense
+                </label>
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 left-0 right-0 z-30 pt-3 pb-3 px-4 border-t border-gray-200 dark:border-gray-300 bg-white dark:bg-gray-50 shadow-[0_-4px_8px_-2px_rgba(0,0,0,0.1)] dark:shadow-[0_-4px_8px_-2px_rgba(0,0,0,0.2)]">
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={closeAddReferral}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-400 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-900 bg-white dark:bg-gray-100 hover:bg-gray-50 dark:hover:bg-gray-200 hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-400 dark:focus:ring-gray-500 transition-all duration-200 hover:scale-105 active:scale-95 shadow-sm hover:shadow-md"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveReferral}
+                  disabled={savingReferral}
+                  className={`px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all duration-200 shadow-md ${
+                    savingReferral
+                      ? "bg-gray-400 dark:bg-gray-500 text-gray-200 dark:text-gray-300 cursor-not-allowed opacity-60"
+                      : "bg-teal-600 hover:bg-teal-700 text-white hover:scale-105 active:scale-95 hover:shadow-lg focus:ring-teal-500"
+                  }`}
+                >
+                  {savingReferral && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  {savingReferral ? "Creating..." : "Create"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </ModalPortal>
   );
 }

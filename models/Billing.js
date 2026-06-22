@@ -495,7 +495,18 @@ billingSchema.pre("save", function (next) {
   if (this.pendingUsed < 0) this.pendingUsed = 0;
   if (this.pendingClaimUsed < 0) this.pendingClaimUsed = 0;
 
-  // Check if pending was directly modified, if so skip calculation
+  // For NEW documents, calculate advance without subtracting pendingUsed/pendingClaimUsed
+  // because the amount field already includes the pending being cleared.
+  // Example: amount=400 (100 current + 300 pending), paid=900, pendingUsed=300
+  // Correct: advance = 900 - 400 = 500 (NOT 900 - 400 - 300 = 200)
+  if (this.isNew) {
+    const totalCreditsUsed = this.advanceUsed + this.claimAmountUsed;
+    const effectiveDue = Math.max(0, this.amount - totalCreditsUsed);
+    this.advance = Math.max(0, this.paid - effectiveDue);
+    return next();
+  }
+
+  // Check if pending was directly modified (for existing documents), if so skip other calculations
   // This allows explicit pending updates from APIs like pay-invoice-pending
   if (this.isModified('pending')) {
     // Only recalculate advance based on paid and pendingUsed/pendingClaimUsed
@@ -504,20 +515,6 @@ billingSchema.pre("save", function (next) {
     // New advance generated if paid exceeds effective due (minus pending cleared)
     // pendingClaimUsed is subtracted because clearing insurance pending claim is past debt, not new advance
     this.advance = Math.max(0, this.paid - effectiveDue - this.pendingUsed - this.pendingClaimUsed);
-    return next();
-  }
-
-  // For new documents (isNew), use the provided pending value if it's a partial payment
-  // This prevents recalculation when creating billing records with explicit pending amounts
-  if (this.isNew) {
-    // For partial payments, the pending was already set correctly
-    // We still need to ensure paid, advanceUsed, etc. are properly reflected
-    const totalCreditsUsed = this.advanceUsed + this.claimAmountUsed;
-    const effectiveDue = Math.max(0, this.amount - totalCreditsUsed);
-    // Only recalculate pending if it wasn't explicitly set (i.e., equals effectiveDue - paid)
-    // For package billing with partial payment, pending is already set correctly
-    // Calculate advance: new advance generated if paid exceeds effective due
-    this.advance = Math.max(0, this.paid - effectiveDue);
     return next();
   }
 

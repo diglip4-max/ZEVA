@@ -82,6 +82,8 @@ export default async function handler(req, res) {
             validityInMonths: pkg.validityInMonths || 0,
             startDate: pkg.startDate,
             endDate: pkg.endDate,
+            createdByName: pkg.createdByName || "",
+            createdByRole: pkg.createdByRole || "",
             createdAt: pkg.createdAt,
             updatedAt: pkg.updatedAt,
           };
@@ -191,6 +193,8 @@ export default async function handler(req, res) {
         startDate: startDate ? new Date(startDate) : undefined,
         endDate: endDate ? new Date(endDate) : undefined,
         createdBy: user._id,
+        createdByName: user.name || "",
+        createdByRole: user.role || "",
       });
 
       return res.status(201).json({
@@ -207,6 +211,8 @@ export default async function handler(req, res) {
           startDate: newPackage.startDate,
           endDate: newPackage.endDate,
           treatments: newPackage.treatments || [],
+          createdByName: newPackage.createdByName || "",
+          createdByRole: newPackage.createdByRole || "",
           createdAt: newPackage.createdAt,
           updatedAt: newPackage.updatedAt,
         },

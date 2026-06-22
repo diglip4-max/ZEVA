@@ -2504,6 +2504,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         .map((u: any) => ({
           packageName: u.packageName,
           transferredFromName: u.transferredFromName,
+          transferredByName: u.transferredByName || "",
           transferredSessions: u.transferredSessions || 0,
           totalAllowedSessions: u.totalAllowedSessions || 0,
           remainingSessions: u.remainingSessions || 0,
@@ -6267,6 +6268,17 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     </div>
                                   </div>
                                 )}
+                                {pkg.transferredByName && (
+                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred By</div>
+                                    <div className="flex items-center gap-1.5">
+                                      <User className="w-3.5 h-3.5 text-green-600" />
+                                      <span className="text-xs font-bold text-green-900">
+                                        {pkg.transferredByName}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
                                 {pkg.transferredSessions > 0 && (
                                   <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
                                     <div className="text-[10px] text-gray-500 mb-0.5">Transferred Sessions</div>
@@ -6359,6 +6371,17 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                       <User className="w-3.5 h-3.5 text-amber-600" />
                                       <span className="text-xs font-bold text-amber-900">
                                         {pkg.transferredToName}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                                {pkg.transferredByName && (
+                                  <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred By</div>
+                                    <div className="flex items-center gap-1.5">
+                                      <User className="w-3.5 h-3.5 text-amber-600" />
+                                      <span className="text-xs font-bold text-amber-900">
+                                        {pkg.transferredByName}
                                       </span>
                                     </div>
                                   </div>
