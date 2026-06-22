@@ -84,12 +84,22 @@ export default async function handler(req, res) {
       const type = req.query.type || "all";
 
       let query = { clinicId: clinic._id };
-      if (search) {
+
+      // If user is not clinic or admin, only return providers assigned to them or created by them
+      if (me.role !== "clinic" && me.role !== "admin") {
         query.$or = [
-          { label: { $regex: search, $options: "i" } },
-          { phone: { $regex: search, $options: "i" } },
-          { email: { $regex: search, $options: "i" } },
+          { userId: me._id },
+          { owners: me._id }
         ];
+      }
+
+      if (search) {
+        if (!query.$or) {
+          query.$or = [];
+        }
+        query.$or.push({ label: { $regex: search, $options: "i" } });
+        query.$or.push({ phone: { $regex: search, $options: "i" } });
+        query.$or.push({ email: { $regex: search, $options: "i" } });
       }
 
       if (status !== "all") {
@@ -104,6 +114,7 @@ export default async function handler(req, res) {
 
       const providers = await Provider.find(query)
         .select("-secrets -_ac -_ct")
+        .populate("owners", "_id name email role")
         .sort({ updatedAt: -1 })
         .skip(skip)
         .limit(limit)
