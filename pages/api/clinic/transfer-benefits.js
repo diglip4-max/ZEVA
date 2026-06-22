@@ -194,8 +194,28 @@ export default async function handler(req, res) {
       const hasStandardPackage = Array.isArray(source.packages) && source.packages.some(p => String(p.packageId) === String(packageId));
       
       if (hasStandardPackage) {
+        // First try to get from master Package model
         pkg = await Package.findById(packageId);
         sourcePkgEntry = source.packages.find(p => String(p.packageId) === String(packageId)) || {};
+        
+        // If master package was deleted, reconstruct from source patient's package entry
+        if (!pkg) {
+          const assignedPackage = source.packages.find(p => String(p.packageId) === String(packageId));
+          if (assignedPackage) {
+            const snap = assignedPackage.packageSnapshot;
+            pkg = {
+              _id: packageId,
+              name: snap?.name || assignedPackage.packageName,
+              totalPrice: snap?.totalPrice ?? assignedPackage.totalPrice ?? 0,
+              totalSessions: snap?.totalSessions ?? 0,
+              sessionPrice: snap?.sessionPrice ?? 0,
+              validityInMonths: snap?.validityInMonths ?? assignedPackage.validityInMonths ?? 0,
+              startDate: snap?.startDate ?? assignedPackage.startDate ?? null,
+              endDate: snap?.endDate ?? assignedPackage.endDate ?? null,
+              treatments: snap?.treatments ?? [],
+            };
+          }
+        }
       } else {
         // Check UserPackage model for user-created packages
         const userPkg = await UserPackage.findOne({ _id: packageId, patientId: sourcePatientId });
@@ -422,15 +442,33 @@ export default async function handler(req, res) {
           target.packages = Array.isArray(target.packages) ? target.packages : [];
           const existingTargetPkg = target.packages.find(p => String(p.packageId) === String(packageId));
           if (!existingTargetPkg) {
+            // Build the package snapshot to store with the transferred package
+            const snap = sourcePackage.packageSnapshot;
+            const transferredPackageSnapshot = {
+              name: snap?.name || pkg.name || sourcePackage.packageName,
+              totalPrice: snap?.totalPrice ?? pkg.totalPrice ?? sourcePackage.totalPrice ?? 0,
+              totalSessions: snap?.totalSessions ?? pkg.totalSessions ?? 0,
+              sessionPrice: snap?.sessionPrice ?? pkg.sessionPrice ?? 0,
+              validityInMonths: snap?.validityInMonths ?? sourcePackage.validityInMonths ?? 0,
+              startDate: snap?.startDate ?? sourcePackage.startDate ?? null,
+              endDate: snap?.endDate ?? sourcePackage.endDate ?? null,
+              treatments: snap?.treatments ?? pkg.treatments ?? [],
+              snapshotCreatedAt: new Date(),
+            };
+            
             target.packages.push({ 
               packageId, 
-              packageName,
+              packageName: transferredPackageSnapshot.name,
               packageSoldBy: sourcePackage.packageSoldBy || user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown',
               assignedDate: new Date(),
               paymentStatus: actualPaymentStatus,
               paidAmount: pendingPackageAmount > 0 ? totalPaidBySource : (actualPaymentStatus === "Full" ? (pkg.totalPrice || 0) : paidAmount),
               paymentMethod,
               totalPrice: pkg.totalPrice || 0, // Add totalPrice for payment status calculation
+              validityInMonths: sourcePackage.validityInMonths ?? 0,
+              startDate: sourcePackage.startDate ?? new Date(),
+              endDate: sourcePackage.endDate ?? null,
+              packageSnapshot: transferredPackageSnapshot,
             });
           }
         }

@@ -1,5 +1,6 @@
 import dbConnect from "../../../lib/database";
 import Package from "../../../models/Package";
+import PatientRegistration from "../../../models/PatientRegistration";
 import Clinic from "../../../models/Clinic";
 import User from "../../../models/Users";
 import { getUserFromReq } from "../lead-ms/auth";
@@ -399,6 +400,29 @@ export default async function handler(req, res) {
       if (!pkg) {
         return res.status(404).json({ success: false, message: "Package not found" });
       }
+
+      // ---------------------------------------------------------------
+      // Enterprise guard: check if this package has been sold to patients
+      // ---------------------------------------------------------------
+      // Count how many patient registrations in this clinic have this packageId
+      // in their packages[] array — indicating it was already sold.
+      const soldCount = await PatientRegistration.countDocuments({
+        clinicId,
+        "packages.packageId": pkg._id,
+      });
+
+      // Allow deletion only if the caller explicitly confirms with ?force=true.
+      // Without ?force=true, return a 409 with the count so the UI can show a warning.
+      if (soldCount > 0 && req.query.force !== "true") {
+        return res.status(409).json({
+          success: false,
+          soldToPatients: true,
+          soldCount,
+          packageName: pkg.name,
+          message: `This package has already been sold to ${soldCount} patient(s). Deleting it from the catalogue will NOT remove their benefits — they will retain full access via stored snapshot data. To proceed, confirm the deletion.`,
+        });
+      }
+      // ---------------------------------------------------------------
 
       await Package.findByIdAndDelete(packageId);
 
