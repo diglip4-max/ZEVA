@@ -109,9 +109,12 @@ export type MessageType = {
   updatedAt: string;
 };
 
+import { User } from "./users";
+
 export type Provider = {
   _id: string;
   clinicId: string;
+  owners: (string | User)[];
   name: string;
   label: string;
   phone: string;
