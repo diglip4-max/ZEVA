@@ -14,7 +14,13 @@ const ProviderSchema = new mongoose.Schema(
       ref: "User",
       required: true,
       index: true,
-    },
+    }, // Original creator/owner
+    owners: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: "User",
+      default: [],
+      index: true,
+    }, // Assigned users who can access this provider
 
     name: { type: String, required: true }, // eg: "whatsappCloud", "twilio"
     label: { type: String, required: true },

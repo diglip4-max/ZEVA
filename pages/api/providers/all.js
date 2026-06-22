@@ -74,8 +74,16 @@ export default async function handler(req, res) {
     }
 
     try {
-      const providers = await Provider.find({ clinicId: clinic._id })
+      let query = { clinicId: clinic._id };
+
+      // If user is not clinic or admin, only return providers assigned to them or created by them
+      if (me.role !== "clinic" && me.role !== "admin") {
+        query.$or = [{ userId: me._id }, { owners: me._id }];
+      }
+
+      const providers = await Provider.find(query)
         .select("-secrets -_ac -_ct")
+        .populate("owners", "_id name email role")
         .lean();
 
       return res.status(200).json({

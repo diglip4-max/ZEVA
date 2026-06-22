@@ -111,6 +111,8 @@ export default async function handler(req, res) {
       smtpPassword,
     });
 
+    console.log("isValidSmtp:", isValidSmtp);
+
     if (!isValidSmtp) {
       return res.status(400).json({
         success: false,
@@ -170,7 +172,7 @@ export default async function handler(req, res) {
       data: findProvider,
     });
   } catch (err) {
-    // console.error("Error adding provider:", err);
+    console.error("Error adding email provider:", err);
 
     if (err.name === "ValidationError") {
       return res.status(400).json({
