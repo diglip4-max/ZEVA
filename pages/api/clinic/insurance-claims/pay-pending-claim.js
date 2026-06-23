@@ -51,26 +51,39 @@ export default async function handler(req, res) {
     claim.pendingClaim = newPendingClaim;
 
     // If fully paid, update advanceStatus to Full Pay
+    // and set advanceAmount to finalClaimAmount for Paid type claims
     if (newPendingClaim === 0) {
       claim.advanceStatus = "Full Pay";
+      if (claim.claimType === "Paid") {
+        claim.advanceAmount = Number(claim.finalClaimAmount || claim.claimAmount || 0);
+      }
     }
 
     await claim.save();
 
-    // Create a billing record for this pending claim payment
+    // Generate invoice number
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    const randomNum = Math.floor(100000 + Math.random() * 900000);
+    const invoiceNumber = `INV-${dateStr}-${randomNum}`;
+
+    // Create a billing record for this pending claim payment with proper tracking
     try {
       await Billing.create({
         clinicId: clinicId || claim.clinicId,
-        userId: claim.patientId,
+        patientId: claim.patientId,
+        invoiceNumber,
+        invoicedDate: now,
+        invoicedBy: user.name || user.firstName || "Clinic Staff",
+        invoicedById: user._id,
+        service: "Treatment",
         treatment: "Insurance Pending Claim Payment",
         amount: payAmount,
         paid: payAmount,
         pending: 0,
+        pendingClaimUsed: payAmount, // Track pending claim amount paid
         paymentMethod: paymentMethod || "Cash",
-        status: "paid",
         notes: notes || `Pending claim payment for insurance claim`,
-        invoicedBy: user._id,
-        invoicedDate: new Date(),
         isAdvanceOnly: false,
       });
     } catch (billingErr) {

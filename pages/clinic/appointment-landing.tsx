@@ -7,7 +7,11 @@ import Image from "next/image";
 import { Calendar, Clock, Users, Shield, CheckCircle2, ArrowRight, Star,FileText, Bell } from "lucide-react";
 import AuthModal from "../../components/AuthModal";
 
-const SLIDES = ["/image1.png", "/image2.png"] as const;
+// Simple SVG placeholders for slides (data URLs)
+const SLIDES = [
+  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjgwMCIgdmlld0JveD0iMCAwIDEyMDAgODAwIj48cmVjdCB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI4MDAiIGZpbGw9IiNlNWU3ZWIiLz48dGV4dCB4PSI2MDAiIHk9IjQwMCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjYwIiBmaWxsPSIjOWNhM2FiIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj5TbGlkZSAxPC90ZXh0Pjwvc3ZnPg==",
+  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjgwMCIgdmlld0JveD0iMCAwIDEyMDAgODAwIj48cmVjdCB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI4MDAiIGZpbGw9IiNkMGUxZjEiLz48dGV4dCB4PSI2MDAiIHk9IjQwMCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjYwIiBmaWxsPSIjN2I4MmFhIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj5TbGlkZSAyPC90ZXh0Pjwvc3ZnPg=="
+] as const;
 
 export default function AppointmentLandingPage(): React.ReactElement {
   const [imgOk, setImgOk] = useState(true);
@@ -15,7 +19,7 @@ export default function AppointmentLandingPage(): React.ReactElement {
 
   const title = useMemo(() => "ZEVA | Appointment Schedule", []);
   const currentSlideSrc = SLIDES[slideIndex] || SLIDES[0];
-  const isMobileSlide = currentSlideSrc === "/image2.png";
+  const isMobileSlide = slideIndex === 1;
 const [showAuthModal, setShowAuthModal] = useState(false);
 const [authMode, setAuthMode] = useState<"login" | "register">("login");
 

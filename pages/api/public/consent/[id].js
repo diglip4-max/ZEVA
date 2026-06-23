@@ -13,7 +13,9 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, message: "Consent ID is required" });
       }
 
-      const consent = await Consent.findById(id).lean();
+      const consent = await Consent.findById(id)
+        .populate({ path: "clinicId", select: "name", strictPopulate: false })
+        .lean();
 
       if (!consent) {
         return res.status(404).json({ success: false, message: "Consent form not found" });
@@ -34,6 +36,9 @@ export default async function handler(req, res) {
           version: consent.version,
           enableDigitalSignature: consent.enableDigitalSignature,
           requireNameConfirmation: consent.requireNameConfirmation,
+          fileUrl: consent.fileUrl || null,
+          fileName: consent.fileName || null,
+          clinicName: consent.clinicId?.name || null,
         },
       });
     } catch (error) {

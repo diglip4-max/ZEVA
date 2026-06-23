@@ -31,7 +31,6 @@ import Loader from "@/components/Loader";
 
 const TEMPLATE_MODULE_KEY = "clinic_templates";
 
-
 const TemplatesPage: NextPageWithLayout = () => {
   const router = useRouter();
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -41,7 +40,6 @@ const TemplatesPage: NextPageWithLayout = () => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isMounted, setIsMounted] = useState(false);
-
 
   const [permissions, setPermissions] = useState({
     canCreate: false,
@@ -72,7 +70,8 @@ const TemplatesPage: NextPageWithLayout = () => {
   const token = getTokenByPath();
 
   // Check if on agent route
-  const currentPath = typeof window !== "undefined" ? window.location.pathname : "";
+  const currentPath =
+    typeof window !== "undefined" ? window.location.pathname : "";
   const isAgentRoute = currentPath.startsWith("/agent/");
 
   // Use agent permissions hook for agent routes
@@ -87,7 +86,6 @@ const TemplatesPage: NextPageWithLayout = () => {
     canAll: false,
   };
   const agentPermissionsLoading = agentPermissionsHook?.loading || false;
-
 
   // Handle agent permissions
   useEffect(() => {
@@ -148,7 +146,6 @@ const TemplatesPage: NextPageWithLayout = () => {
     return { role: null, id: null };
   };
 
-
   // Helper function to get user role from token
   const getUserRole = (): string | null => {
     return getUserInfo().role;
@@ -173,7 +170,6 @@ const TemplatesPage: NextPageWithLayout = () => {
     if (isAgentRoute) return;
     if (!isMounted) return;
     let isMountedFlag = true;
-
 
     // Check which token type is being used
     const clinicToken =
@@ -205,7 +201,6 @@ const TemplatesPage: NextPageWithLayout = () => {
     const userRole = getUserRole();
     const authToken =
       clinicToken || doctorToken || agentToken || staffToken || userToken;
-
 
     // For admin role, grant full access (bypass permission checks)
     if (userRole === "admin") {
@@ -242,9 +237,7 @@ const TemplatesPage: NextPageWithLayout = () => {
             headers: { Authorization: `Bearer ${authToken}` },
           });
 
-
           if (!isMountedFlag) return;
-
 
           if (res.data.success) {
             // Check if permissions array exists and is not null
@@ -280,13 +273,18 @@ const TemplatesPage: NextPageWithLayout = () => {
               // If not found at top level, check in subModules of parent modules
               if (!modulePermission) {
                 for (const parentModule of res.data.permissions) {
-                  if (parentModule.subModules && parentModule.subModules.length > 0) {
-                    const foundInSubModule = parentModule.subModules.find((sm: any) => {
-                      if (sm.moduleKey === "clinic_templates") return true;
-                      if (sm.moduleKey === "clinic_Templates") return true;
-                      if (sm.moduleKey === "templates") return true;
-                      return false;
-                    });
+                  if (
+                    parentModule.subModules &&
+                    parentModule.subModules.length > 0
+                  ) {
+                    const foundInSubModule = parentModule.subModules.find(
+                      (sm: any) => {
+                        if (sm.moduleKey === "clinic_templates") return true;
+                        if (sm.moduleKey === "clinic_Templates") return true;
+                        if (sm.moduleKey === "templates") return true;
+                        return false;
+                      },
+                    );
                     if (foundInSubModule) {
                       modulePermission = { actions: foundInSubModule.actions };
                       break;
@@ -297,7 +295,6 @@ const TemplatesPage: NextPageWithLayout = () => {
 
               if (modulePermission) {
                 const actions = modulePermission.actions || {};
-
 
                 // Check if "all" is true, which grants all permissions
                 const moduleAll =
@@ -368,7 +365,6 @@ const TemplatesPage: NextPageWithLayout = () => {
         }
       };
 
-
       fetchClinicPermissions();
       return;
     }
@@ -392,7 +388,9 @@ const TemplatesPage: NextPageWithLayout = () => {
       const fetchPermissions = async () => {
         try {
           console.log(
-            "Fetching Agent/Staff Permissions for", TEMPLATE_MODULE_KEY, "...",
+            "Fetching Agent/Staff Permissions for",
+            TEMPLATE_MODULE_KEY,
+            "...",
           );
           setPermissionsLoaded(false);
           // Use agent permissions API for agent/doctorStaff
@@ -403,9 +401,7 @@ const TemplatesPage: NextPageWithLayout = () => {
           const data = res.data;
           console.log("Agent Permissions API Response:", data);
 
-
           if (!isMountedFlag) return;
-
 
           // Default to true if module not found in permissions (matches backend logic)
           if (
@@ -442,7 +438,6 @@ const TemplatesPage: NextPageWithLayout = () => {
             canAssign: canAll,
           };
 
-
           console.log("Final Agent/Staff Permissions:", newPerms);
           setPermissions(newPerms);
         } catch (err: any) {
@@ -462,7 +457,6 @@ const TemplatesPage: NextPageWithLayout = () => {
         }
       };
 
-
       fetchPermissions();
     } else {
       // Unknown token type - default to full access (likely clinic/doctor)
@@ -481,7 +475,6 @@ const TemplatesPage: NextPageWithLayout = () => {
       isMountedFlag = false;
     };
   }, [isAgentRoute, isMounted]);
-
 
   // Set mounted flag
   useEffect(() => {
@@ -614,6 +607,7 @@ const TemplatesPage: NextPageWithLayout = () => {
 
   // Get category badge
   const getCategoryBadge = (category: string) => {
+    if (category === "undefined") return null;
     const colors: Record<string, string> = {
       Healthcare: "bg-purple-50 text-purple-700 border-purple-100",
       Onboarding: "bg-blue-50 text-blue-700 border-blue-100",
@@ -705,7 +699,6 @@ const TemplatesPage: NextPageWithLayout = () => {
     permissions.canRead,
     fetchTemplates,
   ]);
-
 
   // Show loading while permissions are being fetched
   if (!permissionsLoaded) {
@@ -941,9 +934,11 @@ const TemplatesPage: NextPageWithLayout = () => {
                   {/* Category and Language */}
                   <div className="flex items-center gap-2 mt-3">
                     {template.category && getCategoryBadge(template.category)}
-                    <span className="text-xs text-gray-500 px-2 py-1 bg-gray-50 rounded">
-                      {template.language.toUpperCase()}
-                    </span>
+                    {template?.language && (
+                      <span className="text-xs text-gray-500 px-2 py-1 bg-gray-50 rounded">
+                        {template.language.toUpperCase()}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -1009,7 +1004,9 @@ const TemplatesPage: NextPageWithLayout = () => {
                   <div className="flex items-center gap-2">
                     {permissions.canUpdate && (
                       <button
-                        onClick={() => handleTemplateAction("edit", template._id)}
+                        onClick={() =>
+                          handleTemplateAction("edit", template._id)
+                        }
                         className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
                         title="Edit"
                       >
@@ -1313,169 +1310,265 @@ const TemplatesPage: NextPageWithLayout = () => {
                     )}
 
                     {/* Message Body Preview */}
-                    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                      <div className="p-4">
-                        {/* Variable Placeholders */}
-                        {previewTemplate?.variables &&
-                          previewTemplate.variables.length > 0 && (
-                            <div className="mb-3">
-                              <div className="text-xs font-medium text-gray-500 mb-2">
-                                Variables will appear as:
+                    {previewTemplate?.templateType === "email" ? (
+                      <div className="bg-gradient-to-b from-red-50 to-white rounded-2xl p-6 border border-red-100">
+                        {/* Email Client Header */}
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                          {/* Email Header */}
+                          <div className="border-b border-gray-200 p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <Mail className="w-5 h-5 text-red-600" />
+                              <span className="font-semibold text-gray-900">
+                                Email Preview
+                              </span>
+                            </div>
+
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm font-medium text-gray-500 w-16">
+                                  From:
+                                </span>
+                                <span className="text-sm text-gray-900">
+                                  clinic@example.com
+                                </span>
                               </div>
-                              <div className="flex flex-wrap gap-2">
-                                {previewTemplate?.variables?.map(
-                                  (variable: string, index: number) => (
-                                    <span
-                                      key={index}
-                                      className="inline-flex items-center px-2 py-1 rounded-md bg-blue-50 text-blue-700 text-xs font-medium"
-                                    >
-                                      {variable}
-                                    </span>
-                                  ),
-                                )}
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm font-medium text-gray-500 w-16">
+                                  To:
+                                </span>
+                                <span className="text-sm text-gray-900">
+                                  recipient@example.com
+                                </span>
+                              </div>
+                              {previewTemplate?.subject && (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-sm font-medium text-gray-500 w-16">
+                                    Subject:
+                                  </span>
+                                  <span className="text-sm font-semibold text-gray-900">
+                                    {previewTemplate?.subject}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Email Content */}
+                          <div className="p-6 bg-white min-h-[300px]">
+                            {/* Variable Placeholders */}
+                            {previewTemplate?.variables &&
+                              previewTemplate.variables.length > 0 && (
+                                <div className="mb-3">
+                                  <div className="text-xs font-medium text-gray-500 mb-2">
+                                    Variables will appear as:
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                    {previewTemplate?.variables?.map(
+                                      (variable: string, index: number) => (
+                                        <span
+                                          key={index}
+                                          className="inline-flex items-center px-2 py-1 rounded-md bg-blue-50 text-blue-700 text-xs font-medium"
+                                        >
+                                          {variable}
+                                        </span>
+                                      ),
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                            {/* Email HTML Content */}
+                            <div
+                              className="text-sm text-gray-800 leading-relaxed"
+                              dangerouslySetInnerHTML={{
+                                __html: previewTemplate?.content || "",
+                              }}
+                            />
+                          </div>
+
+                          {/* Email Footer */}
+                          <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                            <div className="text-xs text-gray-500 text-center">
+                              <p>
+                                This is a preview of how your email will appear
+                                to recipients.
+                              </p>
+                              <p className="mt-1">
+                                Actual rendering may vary depending on email
+                                client.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                        <div className="p-4">
+                          {/* Variable Placeholders */}
+                          {previewTemplate?.variables &&
+                            previewTemplate.variables.length > 0 && (
+                              <div className="mb-3">
+                                <div className="text-xs font-medium text-gray-500 mb-2">
+                                  Variables will appear as:
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {previewTemplate?.variables?.map(
+                                    (variable: string, index: number) => (
+                                      <span
+                                        key={index}
+                                        className="inline-flex items-center px-2 py-1 rounded-md bg-blue-50 text-blue-700 text-xs font-medium"
+                                      >
+                                        {variable}
+                                      </span>
+                                    ),
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                          {previewTemplate?.subject && (
+                            <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
+                              <span className="font-semibold text-gray-900">
+                                Subject
+                              </span>{" "}
+                              : {previewTemplate?.subject}
+                            </div>
+                          )}
+                          {previewTemplate?.preheader && (
+                            <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
+                              <span className="font-semibold text-gray-900">
+                                Preheader
+                              </span>{" "}
+                              : {previewTemplate?.preheader}
+                            </div>
+                          )}
+
+                          {/* Content Preview */}
+                          <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
+                            {previewTemplate?.content}
+                          </div>
+                        </div>
+
+                        {/* Footer Preview */}
+                        {previewTemplate?.isFooter &&
+                          previewTemplate?.footer && (
+                            <div className="border-t border-gray-100 p-4 bg-gray-50">
+                              <div className="text-sm text-gray-600">
+                                {previewTemplate.footer}
                               </div>
                             </div>
                           )}
 
-                        {previewTemplate?.subject && (
-                          <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
-                            <span className="font-semibold text-gray-900">
-                              Subject
-                            </span>{" "}
-                            : {previewTemplate?.subject}
-                          </div>
-                        )}
-                        {previewTemplate?.preheader && (
-                          <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
-                            <span className="font-semibold text-gray-900">
-                              Preheader
-                            </span>{" "}
-                            : {previewTemplate?.preheader}
-                          </div>
-                        )}
-
-                        {/* Content Preview */}
-                        <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
-                          {previewTemplate?.content}
-                        </div>
-                      </div>
-
-                      {/* Footer Preview */}
-                      {previewTemplate?.isFooter && previewTemplate?.footer && (
-                        <div className="border-t border-gray-100 p-4 bg-gray-50">
-                          <div className="text-sm text-gray-600">
-                            {previewTemplate.footer}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Buttons Preview */}
-                      {previewTemplate?.isButton &&
-                        previewTemplate?.templateButtons?.length > 0 && (
-                          <div className="border-t border-gray-100">
-                            {previewTemplate?.templateButtons
-                              ?.slice(0, 2)
-                              .map((button, index) => (
-                                <div
-                                  key={index}
-                                  className={`flex items-center gap-3 px-4 py-3 ${
-                                    index > 0 ? "border-t border-gray-100" : ""
-                                  } hover:bg-gray-50 transition-colors`}
-                                >
-                                  {button?.type === "QUICK_REPLY" && (
-                                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                                      <svg
-                                        className="w-4 h-4 text-green-600"
-                                        fill="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z" />
-                                      </svg>
-                                    </div>
-                                  )}
-                                  {button?.type === "URL" && (
-                                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                      <svg
-                                        className="w-4 h-4 text-blue-600"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                                        />
-                                      </svg>
-                                    </div>
-                                  )}
-                                  {button?.type === "PHONE_NUMBER" && (
-                                    <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
-                                      <svg
-                                        className="w-4 h-4 text-purple-600"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                                        />
-                                      </svg>
-                                    </div>
-                                  )}
-                                  <div className="flex-1">
-                                    <div className="font-medium text-gray-900">
-                                      {button?.text}
-                                    </div>
+                        {/* Buttons Preview */}
+                        {previewTemplate?.isButton &&
+                          previewTemplate?.templateButtons?.length > 0 && (
+                            <div className="border-t border-gray-100">
+                              {previewTemplate?.templateButtons
+                                ?.slice(0, 2)
+                                .map((button, index) => (
+                                  <div
+                                    key={index}
+                                    className={`flex items-center gap-3 px-4 py-3 ${
+                                      index > 0
+                                        ? "border-t border-gray-100"
+                                        : ""
+                                    } hover:bg-gray-50 transition-colors`}
+                                  >
+                                    {button?.type === "QUICK_REPLY" && (
+                                      <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                                        <svg
+                                          className="w-4 h-4 text-green-600"
+                                          fill="currentColor"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z" />
+                                        </svg>
+                                      </div>
+                                    )}
                                     {button?.type === "URL" && (
-                                      <div className="text-xs text-gray-500">
-                                        Tap to open link
+                                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                        <svg
+                                          className="w-4 h-4 text-blue-600"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                          />
+                                        </svg>
                                       </div>
                                     )}
                                     {button?.type === "PHONE_NUMBER" && (
-                                      <div className="text-xs text-gray-500">
-                                        Call phone number
+                                      <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                                        <svg
+                                          className="w-4 h-4 text-purple-600"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                                          />
+                                        </svg>
                                       </div>
                                     )}
+                                    <div className="flex-1">
+                                      <div className="font-medium text-gray-900">
+                                        {button?.text}
+                                      </div>
+                                      {button?.type === "URL" && (
+                                        <div className="text-xs text-gray-500">
+                                          Tap to open link
+                                        </div>
+                                      )}
+                                      {button?.type === "PHONE_NUMBER" && (
+                                        <div className="text-xs text-gray-500">
+                                          Call phone number
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
+                                ))}
 
-                            {previewTemplate?.templateButtons &&
-                              previewTemplate.templateButtons.length >= 3 && (
-                                <div className="border-t border-gray-100 px-4 py-3 bg-gray-50">
-                                  <div className="flex items-center gap-3 text-gray-600">
-                                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                                      <svg
-                                        className="w-4 h-4 text-gray-500"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M4 6h16M4 12h16M4 18h16"
-                                        />
-                                      </svg>
-                                    </div>
-                                    <div className="text-sm font-medium">
-                                      +
-                                      {previewTemplate?.templateButtons
-                                        ?.length! - 2}{" "}
-                                      more options
+                              {previewTemplate?.templateButtons &&
+                                previewTemplate.templateButtons.length >= 3 && (
+                                  <div className="border-t border-gray-100 px-4 py-3 bg-gray-50">
+                                    <div className="flex items-center gap-3 text-gray-600">
+                                      <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                                        <svg
+                                          className="w-4 h-4 text-gray-500"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M4 6h16M4 12h16M4 18h16"
+                                          />
+                                        </svg>
+                                      </div>
+                                      <div className="text-sm font-medium">
+                                        +
+                                        {previewTemplate?.templateButtons
+                                          ?.length! - 2}{" "}
+                                        more options
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              )}
-                          </div>
-                        )}
-                    </div>
+                                )}
+                            </div>
+                          )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Template Info (Right - 1/3 width) */}

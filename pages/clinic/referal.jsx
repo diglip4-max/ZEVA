@@ -23,7 +23,6 @@ function ClinicReferralPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [migrating, setMigrating] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({
     firstName: "",
@@ -517,29 +516,6 @@ function ClinicReferralPage() {
     setShowModal(true);
   };
 
-  const handleMigrate = async () => {
-    const headers = getAuthHeaders();
-    if (!headers) {
-      showToast("Authentication required", "error");
-      return;
-    }
-    setMigrating(true);
-    try {
-      const res = await axios.post("/api/clinic/migrate-patient-clinicid", {}, { headers });
-      console.log("Migration API response:", res.data);
-      if (res.data.success) {
-        showToast(res.data.message, "success");
-      } else {
-        showToast(res.data.message || "Migration failed", "error");
-      }
-    } catch (err) {
-      console.error("Migration error:", err);
-      showToast("Network error during migration", "error");
-    } finally {
-      setMigrating(false);
-    }
-  };
-
   const handleDelete = async (id) => {
     const headers = getAuthHeaders();
     if (!headers) {
@@ -562,8 +538,8 @@ function ClinicReferralPage() {
     }
   };
 
-  // Show access denied message if no permission
-  if (!permissions.canRead) {
+  // Show access denied message only if BOTH read and create are false
+  if (!permissions.canRead && !permissions.canCreate) {
     console.log("Rendering Access Denied - permissions:", permissions);
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -575,7 +551,7 @@ function ClinicReferralPage() {
             Access Denied
           </h3>
           <p className="text-sm text-gray-700">
-            You do not have permission to view referrals. Please contact your administrator.
+            You do not have permission to view or create referrals. Please contact your administrator.
           </p>
         </div>
       </div>
@@ -602,13 +578,6 @@ function ClinicReferralPage() {
             </div>
             <div className="flex gap-2">
               <button
-                className={`px-3 py-1.5 text-white text-xs rounded-md flex items-center gap-1 ${migrating ? "bg-gray-500 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
-                onClick={handleMigrate}
-                disabled={migrating}
-              >
-                {migrating ? "Migrating..." : "Migrate Clinic ID"}
-              </button>
-              <button
                 className={`px-3 py-1.5 text-white text-xs rounded-md flex items-center gap-1 ${permissions.canCreate ? "bg-teal-600 hover:bg-teal-700" : "bg-gray-400 cursor-not-allowed"}`}
                 onClick={() => {
                   console.log("New button clicked, canCreate:", permissions.canCreate);
@@ -625,6 +594,8 @@ function ClinicReferralPage() {
             </div>
           </div>
 
+          {/* READ-ONLY SECTION: Table and data - Only shown when canRead is true */}
+          {permissions.canRead && (
           <div>
             <div className="border rounded-lg p-3">
               <div className="flex items-center justify-between mb-2">
@@ -678,6 +649,7 @@ function ClinicReferralPage() {
               )}
             </div>
           </div>
+          )}
         </div>
       </div>
 

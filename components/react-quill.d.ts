@@ -1,5 +1,6 @@
 declare module "react-quill" {
-  const ReactQuill: unknown;
+  import { ComponentType } from "react";
+  const ReactQuill: ComponentType<any>;
   export default ReactQuill;
 }
 

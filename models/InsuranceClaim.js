@@ -19,6 +19,14 @@ const InsuranceClaimSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
+    createdByName: {
+      type: String,
+      default: "",
+    },
+    createdByRole: {
+      type: String,
+      default: "",
+    },
 
     // Insurance Details (mandatory when insurance=Yes)
     insuranceProvider: {
@@ -86,6 +94,11 @@ const InsuranceClaimSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    // Final claim amount after co-pay adjustment (for "Patient Pays" co-pay type)
+    finalClaimAmount: {
+      type: Number,
+      default: null,
+    },
     claimType: {
       type: String,
       enum: ["Paid", "Advance"],
@@ -134,7 +147,7 @@ const InsuranceClaimSchema = new mongoose.Schema(
     // Status & Approval
     status: {
       type: String,
-      enum: ["Under Review", "Approved", "Rejected", "Released"],
+      enum: ["Under Review", "Approved", "Rejected", "Released", "Ready", "Completed"],
       default: "Under Review",
       index: true,
     },
@@ -238,6 +251,67 @@ const InsuranceClaimSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Ready tracking (by clinic/agent in pass-claims)
+    readyBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    readyByName: {
+      type: String,
+      default: "",
+    },
+    readyByRole: {
+      type: String,
+      default: "",
+    },
+    readyAt: {
+      type: Date,
+      default: null,
+    },
+
+    // Rejection tracking from release-requested-claims
+    rejectedFromReleaseRequested: {
+      type: Boolean,
+      default: false,
+    },
+    rejectedFromReleaseRequestedAt: {
+      type: Date,
+      default: null,
+    },
+    rejectedFromReleaseRequestedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    rejectedFromReleaseRequestedByName: {
+      type: String,
+      default: "",
+    },
+    rejectedFromReleaseRequestedByRole: {
+      type: String,
+      default: "",
+    },
+
+    // Completed tracking (by finance staff in all-claims)
+    completedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    completedByName: {
+      type: String,
+      default: "",
+    },
+    completedByRole: {
+      type: String,
+      default: "",
+    },
+    completedAt: {
+      type: Date,
+      default: null,
+    },
+
     // Pending claim amount (remaining amount for Advance + Partial Pay type)
     pendingClaim: {
       type: Number,
@@ -270,8 +344,9 @@ InsuranceClaimSchema.index({ clinicId: 1, status: 1 });
 InsuranceClaimSchema.index({ doctorId: 1, status: 1 });
 InsuranceClaimSchema.index({ patientId: 1, createdAt: -1 });
 
-// Pre-save hook: auto-calculate advanceAmount
+// Pre-save hook: auto-calculate advanceAmount and pendingClaim
 InsuranceClaimSchema.pre("save", function (next) {
+  // Auto-calculate advanceAmount for Advance type claims
   if (this.claimType === "Advance" && this.advanceStatus) {
     if (this.advanceStatus === "Full Pay") {
       this.advanceAmount = this.claimAmount;
@@ -279,6 +354,16 @@ InsuranceClaimSchema.pre("save", function (next) {
       this.advanceAmount = this.claimAmount * 0.5;
     }
   }
+
+  // Auto-calculate pendingClaim on new claims only.
+  // We skip this on existing docs to avoid overwriting payment reductions
+  // made by pay-pending-claim and create-patient-registration APIs.
+  if (this.isNew) {
+    const baseAmount = Number(this.finalClaimAmount || this.claimAmount || 0);
+    const paidAmount = Number(this.advanceAmount || 0);
+    this.pendingClaim = Math.max(0, baseAmount - paidAmount);
+  }
+
   next();
 });
 

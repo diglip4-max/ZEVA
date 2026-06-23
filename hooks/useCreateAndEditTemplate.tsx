@@ -468,6 +468,7 @@ const useCreateAndEditTemplate = () => {
 
       if (data && data.success) {
         toast.success(data.message);
+        const updatedTemplateId = data?.data?._id || templateId;
         setValues({
           templateType: "sms",
           emailTemplateType: "sales",
@@ -491,7 +492,12 @@ const useCreateAndEditTemplate = () => {
         setVariableSampleValues([]);
         setHeaderVariables([]);
         setHeaderVariableSampleValues([]);
-        router.back();
+
+        if (redirectPath === "none") {
+          return updatedTemplateId;
+        }
+        router.push(`/clinic/all-templates`);
+        return updatedTemplateId;
       }
     } catch (error) {
       handleError(error);
@@ -610,6 +616,7 @@ const useCreateAndEditTemplate = () => {
       );
 
       toast.success(data.message);
+      const createdTemplateId = data?.data?._id;
       setValues({
         templateType: "sms",
         emailTemplateType: "sales",
@@ -634,9 +641,14 @@ const useCreateAndEditTemplate = () => {
       setHeaderVariables([]);
       setHeaderVariableSampleValues([]);
 
-      if (values.templateType !== "email") {
-        router.back();
+      if (redirectPath === "none") {
+        return createdTemplateId;
       }
+
+      if (values.templateType !== "email") {
+        router.push(`/clinic/all-templates`);
+      }
+      return createdTemplateId;
     } catch (error: any) {
       toast.error(error?.response?.data?.message || "Error creating template");
     } finally {

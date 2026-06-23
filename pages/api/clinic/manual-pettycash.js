@@ -51,16 +51,10 @@ export default async function handler(req, res) {
       const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10)));
       const skip = (pageNum - 1) * limitNum;
 
-      // agent / doctorStaff see only their own entries
-      const isRestrictedRole = ["agent", "doctorStaff"].includes(me.role);
-
+      // No role-based restrictions - all clinic entries are visible
       const baseFilter = clinicId
         ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)), isExpense: false }
         : { isExpense: false };
-
-      if (isRestrictedRole) {
-        baseFilter.addedBy = new mongoose.Types.ObjectId(String(me._id));
-      }
 
       const listFilter = { ...baseFilter };
       const dateFilter = {};

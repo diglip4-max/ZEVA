@@ -33,8 +33,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false, message: "claimId and action are required" });
     }
 
-    if (!["release", "reject"].includes(action)) {
-      return res.status(400).json({ success: false, message: "Action must be 'release' or 'reject'" });
+    if (!["release", "reject", "ready"].includes(action)) {
+      return res.status(400).json({ success: false, message: "Action must be 'release', 'reject', or 'ready'" });
     }
 
     if (action === "reject" && (!rejectionNote || !rejectionNote.trim())) {
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
     // Get clinicId for access control
     const { clinicId: userClinicId, isAdmin } = await getClinicIdFromUser(user);
 
-    // Only Approved or Rejected claims can be released/rejected back
+    // Only Approved or Rejected claims can be released/rejected/readied back
     if (!["Approved", "Rejected"].includes(claim.status)) {
       return res.status(400).json({
         success: false,
@@ -71,6 +71,13 @@ export default async function handler(req, res) {
       claim.releasedByName = user.name || user.firstName || "";
       claim.releasedByRole = user.role;
       claim.releasedAt = new Date();
+    } else if (action === "ready") {
+      // Mark claim as Ready for finance verification
+      claim.status = "Ready";
+      claim.readyBy = user._id;
+      claim.readyByName = user.name || user.firstName || "";
+      claim.readyByRole = user.role;
+      claim.readyAt = new Date();
     } else if (action === "reject") {
       // Reject claim back to doctor - reset to Under Review
       claim.status = "Under Review";
@@ -90,7 +97,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      message: action === "release" ? "Claim released successfully" : "Claim rejected back to doctor successfully",
+      message: action === "release" ? "Claim released successfully" : action === "ready" ? "Claim marked as ready successfully" : "Claim rejected back to doctor successfully",
       data: claim,
     });
   } catch (error) {

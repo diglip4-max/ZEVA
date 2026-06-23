@@ -109,8 +109,6 @@ export default async function handler(req, res) {
       subject,
       preheader,
       content,
-      designJson,
-      editorType,
       provider,
       variables,
       bodyVariableSampleValues,
@@ -118,6 +116,10 @@ export default async function handler(req, res) {
       headerVariableSampleValues,
       templateButtons,
       emailTemplateType, // for email editor type
+
+      // for email template block editor
+      designJson,
+      editorType,
       ...rest
     } = body;
 

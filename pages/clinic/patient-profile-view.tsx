@@ -8,7 +8,7 @@ import {
   ExternalLink,
   AlertTriangle, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck,
   ChevronDown, Search, Loader2, Check,  Camera, Image as ImageIcon, Eye, Edit2, Trash2, Paperclip,
-  Filter, AlertCircle as UserPlus
+  Filter, AlertCircle as UserPlus, Calculator, Info
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -101,6 +101,11 @@ const getUserRole = () => {
   return getUserInfo().role;
 };
 
+const maskPhoneNumber = (number: string | undefined | null) => {
+  if (!number) return '***';
+  return '*'.repeat(number.length);
+};
+
 const getCurrentUserName = () => {
   try {
     const token = getStoredToken();
@@ -113,6 +118,57 @@ const getCurrentUserName = () => {
     console.error('Error getting user name:', error);
     return null;
   }
+};
+
+/**
+ * Enterprise Package Resilience Helper
+ *
+ * Merges master packages (from API) with snapshot-reconstructed entries for any
+ * patient-assigned packages whose master has since been deleted from services_setup.
+ * This guarantees patients always retain full access to package benefits (treatments,
+ * sessions, pricing) regardless of whether the clinic deletes the master package.
+ *
+ * @param masterPackages   - Packages returned by /api/clinic/packages
+ * @param patientPackages  - patientData.packages array (contains packageSnapshot sub-docs)
+ * @returns Merged array — master packages first, then snapshots for orphaned assignments
+ */
+const buildEffectivePackageList = (masterPackages: any[], patientPackages: any[]): any[] => {
+  const masterIds = new Set(masterPackages.map((p: any) => String(p._id)));
+  const snapshotPackages: any[] = [];
+
+  if (Array.isArray(patientPackages)) {
+    patientPackages.forEach((assigned: any) => {
+      const pkgIdStr = String(assigned.packageId || '');
+      if (!pkgIdStr || masterIds.has(pkgIdStr)) return; // master still exists, no need
+
+      // Use snapshot if available (new assignments), else fall back to stored fields
+      const snap = assigned.packageSnapshot;
+      const name = snap?.name || assigned.packageName;
+      if (!name) return; // cannot reconstruct without a name
+
+      snapshotPackages.push({
+        _id: pkgIdStr,
+        name,
+        totalPrice: snap?.totalPrice ?? assigned.totalPrice ?? 0,
+        totalSessions: snap?.totalSessions ?? 0,
+        sessionPrice: snap?.sessionPrice ?? 0,
+        validityInMonths: snap?.validityInMonths ?? assigned.validityInMonths ?? 0,
+        startDate: snap?.startDate ?? assigned.startDate ?? null,
+        endDate: snap?.endDate ?? assigned.endDate ?? null,
+        treatments: snap?.treatments ?? [],
+        isDeletedMaster: true, // UI flag — package was deleted from master catalogue
+      });
+    });
+  }
+
+  // Deduplicate by _id in case same packageId appears twice in patient packages
+  const seen = new Set<string>();
+  return [...masterPackages, ...snapshotPackages].filter((p: any) => {
+    const id = String(p._id);
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
 };
 
 // Transfer Section Component - Updated to use parent patientData and trigger refresh
@@ -130,6 +186,8 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
   const [transferSubmitting, setTransferSubmitting] = useState(false);
   const [localMemberships, setLocalMemberships] = useState<any[]>([]);
   const [localPackages, setLocalPackages] = useState<any[]>([]);
+  const [sessionsToTransfer, setSessionsToTransfer] = useState("");
+  const [sessionsTransferError, setSessionsTransferError] = useState("");
   // COMMENTED OUT: Public packages no longer used - only patient packages are fetched
   // const [publicPackages, setPublicPackages] = useState<any[]>([]);
 
@@ -148,7 +206,10 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
         // Fetch packages
         const packagesRes = await axios.get('/api/clinic/packages', { headers });
         if (packagesRes.data.success) {
-          setLocalPackages(packagesRes.data.packages || []);
+          const masterPackages: any[] = packagesRes.data.packages || [];
+          // Enterprise resilience: include snapshot-reconstructed entries for packages
+          // that were deleted from the master catalogue but still assigned to this patient.
+          setLocalPackages(buildEffectivePackageList(masterPackages, patientData?.packages || []));
         }
 
         // Fetch public packages - COMMENTED OUT: Only fetch patient packages now
@@ -225,6 +286,19 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
     }
   }, [transferType, selectedPackageId, patientId, localPackages]);
 
+  // Show error if partial transfer and package not fully paid
+  useEffect(() => {
+    if (sessionsToTransfer && packageUsage) {
+      if (packageUsage.paymentStatus !== "Full") {
+        setSessionsTransferError("Only fully paid package sessions can be transferred");
+      } else {
+        setSessionsTransferError("");
+      }
+    } else {
+      setSessionsTransferError("");
+    }
+  }, [sessionsToTransfer, packageUsage]);
+
   // Search for target patients
   useEffect(() => {
     const timer = setTimeout(async () => {
@@ -299,12 +373,38 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
           setTransferSubmitting(false);
           return;
         }
+        const pkg = localPackages.find((p: any) => p._id === selectedPackageId);
+        const totalSess = pkg ? pkg.totalSessions : 0;
+        const usedSess = packageUsage?.totalSessions || 0;
+        const remainingSess = Math.max(0, (packageUsage?.totalAllowedSessions || totalSess) - usedSess);
+        
+        let sessionsToSend = remainingSess;
+        if (sessionsToTransfer) {
+          const parsed = parseInt(sessionsToTransfer, 10);
+          if (isNaN(parsed) || parsed <= 0 || parsed > remainingSess) {
+            alert(`Please enter a valid number of sessions between 1 and ${remainingSess}`);
+            setTransferSubmitting(false);
+            return;
+          }
+          sessionsToSend = parsed;
+        }
+
+        // Check if we're doing a partial transfer, then verify package is fully paid
+        if (sessionsToSend < remainingSess) {
+          if (packageUsage?.paymentStatus !== "Full") {
+            alert('Only fully paid package sessions can be transferred');
+            setTransferSubmitting(false);
+            return;
+          }
+        }
+        
         // Use the same endpoint as PatientUpdateForm
         const res = await axios.post('/api/clinic/transfer-benefits', {
           type: "package",
           sourcePatientId: patientId,
           targetPatientId: selectedTargetPatient._id,
           packageId: selectedPackageId,
+          sessionsToTransfer: sessionsToSend,
         }, { headers });
         const data = res.data;
         if (res.status === 200 || res.status === 201) {
@@ -344,6 +444,7 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                 setSelectedTargetPatient(null);
                 setSelectedPackageId("");
                 setSelectedMembershipId("");
+                setSessionsToTransfer("");
                 // Keep searchQuery and searchResults to preserve user's search
               }
             }}
@@ -455,7 +556,10 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                 <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Select Package</label>
                 <select
                   value={selectedPackageId}
-                  onChange={(e) => setSelectedPackageId(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedPackageId(e.target.value);
+                    setSessionsToTransfer("");
+                  }}
                   className="text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 border-gray-300 hover:border-indigo-400"
                 >
                   <option value="">Select package</option>
@@ -481,27 +585,47 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                 const totalSess = pkg ? pkg.totalSessions : 0;
                 const usedSess = packageUsage?.totalSessions || 0;
                 // Always calculate remaining from total and used to ensure consistency
-                const remainingSess = Math.max(0, totalSess - usedSess);
+                const remainingSess = Math.max(0, (packageUsage?.totalAllowedSessions || totalSess) - usedSess);
                
                 return (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="text-[11px]">
-                      <div className="font-semibold text-gray-700">Total Sessions</div>
-                      <div className="text-gray-900">{totalSess}</div>
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="text-[11px]">
+                        <div className="font-semibold text-gray-700">Total Sessions</div>
+                        <div className="text-gray-900">{totalSess}</div>
+                      </div>
+                      <div className="text-[11px]">
+                        <div className="font-semibold text-gray-700">Used Sessions</div>
+                        <div className="text-gray-900">{usedSess}</div>
+                      </div>
+                      <div className="text-[11px]">
+                        <div className="font-semibold text-gray-700">Remaining</div>
+                        <div className="text-gray-900">{remainingSess}</div>
+                      </div>
+                      <div className="text-[11px]">
+                        <div className="font-semibold text-gray-700">Package</div>
+                        <div className="text-gray-900">{pkg ? pkg.name : "-"}</div>
+                      </div>
                     </div>
-                    <div className="text-[11px]">
-                      <div className="font-semibold text-gray-700">Used Sessions</div>
-                      <div className="text-gray-900">{usedSess}</div>
+                    <div>
+                      <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Sessions to Transfer (leave blank for all)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max={remainingSess}
+                        value={sessionsToTransfer}
+                        onChange={(e) => setSessionsToTransfer(e.target.value)}
+                        placeholder={`1 to ${remainingSess}`}
+                        className={`text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 ${sessionsTransferError ? "border-red-500" : "border-gray-300 hover:border-indigo-400"}`}
+                      />
+                      {sessionsTransferError && (
+                        <div className="mt-1 text-[10px] text-red-600 font-medium flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          {sessionsTransferError}
+                        </div>
+                      )}
                     </div>
-                    <div className="text-[11px]">
-                      <div className="font-semibold text-gray-700">Remaining</div>
-                      <div className="text-gray-900">{remainingSess}</div>
-                    </div>
-                    <div className="text-[11px]">
-                      <div className="font-semibold text-gray-700">Package</div>
-                      <div className="text-gray-900">{pkg ? pkg.name : "-"}</div>
-                    </div>
-                  </div>
+                  </>
                 );
               })()}
             </div>
@@ -535,7 +659,7 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                   {searchResults.map((p: any) => (
                     <li key={p._id} className="p-2 hover:bg-gray-50 cursor-pointer text-[11px]" onClick={() => setSelectedTargetPatient(p)}>
                       <div className="font-medium text-gray-900">{p.fullName || `${p.firstName} ${p.lastName}`}</div>
-                      <div className="text-gray-600">{p.emrNumber} • {p.mobileNumber}</div>
+                      <div className="text-gray-600">{p.emrNumber} • {getUserRole() === 'doctorStaff' ? maskPhoneNumber(p.mobileNumber) : p.mobileNumber}</div>
                     </li>
                   ))}
                 </ul>
@@ -557,7 +681,8 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
                   transferSubmitting ||
                   !selectedTargetPatient ||
                   (transferType === "membership" && (!selectedMembershipId)) ||
-                  (transferType === "package" && (!selectedPackageId))
+                  (transferType === "package" && (!selectedPackageId)) ||
+                  Boolean(sessionsTransferError)
                 }
                 className="px-4 py-2 text-[11px] bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 transition-all duration-300 font-bold shadow-lg"
               >
@@ -626,7 +751,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
     { key: 'Rejected',     label: 'Rejected' },
     { key: 'No Show',      label: 'No Show' },
   ];
-    const [packages, setPackages] = useState([]);
+    const [packages, setPackages] = useState<any[]>([]);
   const [userPackages, setUserPackages] = useState<any[]>([]);
   const [memberships, setMemberships] = useState([]);
   const [transferredInPackages, setTransferredInPackages] = useState<any[]>([]);
@@ -649,6 +774,20 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
     // Return from cache if available
     if (packageNameCache[packageId]) {
       return packageNameCache[packageId];
+    }
+
+    // Check patient's own package list (snapshot fallback for deleted master packages)
+    if (Array.isArray(patientData?.packages)) {
+      const assigned = patientData.packages.find(
+        (p: any) => String(p.packageId) === String(packageId)
+      );
+      if (assigned) {
+        const name = assigned.packageSnapshot?.name || assigned.packageName;
+        if (name) {
+          setPackageNameCache((prev: Record<string, string>) => ({ ...prev, [packageId]: name }));
+          return name;
+        }
+      }
     }
 
     // If we haven't loaded all packages yet, load them now
@@ -793,6 +932,30 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     pastAdvance159FlatBalance: Number(patientData?.initialBalance?.pastAdvance159FlatBalance || 0),
     pendingBalanceImages: [] as string[],
   });
+
+  // ============================================================
+  // Enterprise Pending Ledger (additive, read-only).
+  // Per-treatment / per-package breakdown of the pending balance.
+  // Displayed under the Pending Payment card in the overview tab
+  // so the user knows exactly which treatment / package amount
+  // contributes to the pending balance. The existing balance.pendingBalance
+  // remains the source for ALL existing calculations and the Pay button.
+  // ============================================================
+  const [pendingLedgerRows, setPendingLedgerRows] = useState<
+    Array<{
+      ledgerId: string;
+      invoiceNumber: string;
+      service: string;
+      treatmentName?: string | null;
+      packageName?: string | null;
+      remainingAmount: number;
+      originalAmount: number;
+      paidAmount: number;
+      status: string;
+      createdAt?: string;
+    }>
+  >([]);
+  const [showPendingLedgerPanel, setShowPendingLedgerPanel] = useState<boolean>(false);
   // Patient is risky if they have pending claim from balance (authoritative source from patient-balance API)
   const isRiskyPatient = balance.pendingClaim > 0;
   const [balanceLoading, setBalanceLoading] = useState(false);
@@ -1109,7 +1272,13 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           axios.get('/api/clinic/packages', { headers }),
         ]);
         if (mRes.data.success) setAllAvailableMemberships(mRes.data.memberships || []);
-        if (pRes.data.success) setAllAvailablePackages(pRes.data.packages || []);
+        if (pRes.data.success) {
+          // Enterprise resilience: include snapshot-reconstructed entries for packages
+          // deleted from master catalogue but already sold/assigned to this patient.
+          setAllAvailablePackages(
+            buildEffectivePackageList(pRes.data.packages || [], patientData?.packages || [])
+          );
+        }
       } catch (e) { console.error('Error fetching available memberships/packages:', e); }
     };
     fetchAvailable();
@@ -1125,8 +1294,13 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         if (res.data.success && res.data.clinic?.currency) {
           setCurrency(res.data.clinic.currency);
         }
-      } catch (e) {
-        console.error('Error fetching clinic currency:', e);
+      } catch (e: any) {
+        // Silently ignore 403 permission errors and other failures
+        // User may not have permission to access clinic_health_center module
+        if (e?.response?.status !== 403) {
+          console.error('Error fetching clinic currency:', e);
+        }
+        // Default currency will be used if fetch fails
       }
     };
     fetchClinicCurrency();
@@ -1311,7 +1485,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
           const realPackageId = createRes.data.package?._id || createRes.data.packageId;
          
-          // Step 2: Assign the package to patient
+          // Step 2: Assign the package to patient (pass full package data for snapshot)
           await axios.post("/api/clinic/assign-package-to-patient", {
             patientId: patientData._id,
             packageId: realPackageId,
@@ -1324,6 +1498,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
             paymentMethod: paymentMethod,
             advanceBalanceUsed: pkgAdvanceUsedAmount,
             claimAmountUsed: pkgClaimUsedAmount,
+            // Snapshot fields — ensures correct data even if DB read races with write
+            packageName: pkgPendingToCreate.name,
+            packageTotalSessions: pkgPendingToCreate.totalSessions ||
+              (pkgPendingToCreate.treatments || []).reduce((s: number, t: any) => s + (parseInt(t.sessions) || 0), 0),
+            packageSessionPrice: pkgPendingToCreate.sessionPrice || 0,
+            packageTreatments: pkgPendingToCreate.treatments || [],
           }, { headers });
 
           // Step 3: Create billing record if balance was used or payment was made
@@ -1426,7 +1606,11 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
            
             // Also refresh the available packages list
             const pRes = await axios.get('/api/clinic/packages', { headers });
-            if (pRes.data.success) setAllAvailablePackages(pRes.data.packages || []);
+            if (pRes.data.success) {
+              setAllAvailablePackages(
+                buildEffectivePackageList(pRes.data.packages || [], patientData?.packages || [])
+              );
+            }
           } catch (err) {
             console.error('Error refreshing data:', err);
           }
@@ -1512,6 +1696,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         ...(prev.packages || []),
         {
           packageId: pkgPendingToAssign._id,
+          packageName: pkgPendingToAssign.name || '',
           packageSoldBy: getCurrentUserName(),
           assignedDate: new Date().toISOString(),
           validityInMonths: validity,
@@ -1524,6 +1709,22 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           // Track balance usage
           advanceBalanceUsed: pkgAdvanceUsedAmount,
           claimAmountUsed: pkgClaimUsedAmount,
+          // Pass snapshot data so server can persist it even if master is later deleted
+          packageSnapshot: {
+            name: pkgPendingToAssign.name || '',
+            totalPrice: pkgPendingToAssign.totalPrice || 0,
+            totalSessions: pkgPendingToAssign.totalSessions ||
+              (pkgPendingToAssign.treatments || []).reduce((s: number, t: any) => s + (parseInt(t.sessions) || 0), 0),
+            sessionPrice: pkgPendingToAssign.sessionPrice || 0,
+            validityInMonths: validity,
+            treatments: (pkgPendingToAssign.treatments || []).map((t: any) => ({
+              treatmentName: t.treatmentName || '',
+              treatmentSlug: t.treatmentSlug || '',
+              allocatedPrice: t.allocatedPrice || 0,
+              sessions: t.sessions || 1,
+              sessionPrice: t.sessionPrice || 0,
+            })),
+          },
         }
       ],
     }));
@@ -1659,6 +1860,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   paidAmount: newPkg.paidAmount,
                   paymentStatus: newPkg.paymentStatus,
                   paymentMethod: newPkg.paymentMethod,
+                  // Snapshot fields — ensures correct data even if DB read races with write
+                  packageName: newPkg.packageName || newPkg.name,
+                  packageTotalSessions: newPkg.totalSessions ||
+                    (newPkg.treatments || []).reduce((s: number, t: any) => s + (parseInt(t.sessions) || 0), 0),
+                  packageSessionPrice: newPkg.sessionPrice || 0,
+                  packageTreatments: newPkg.treatments || [],
                 }, { headers });
 
                 // Create billing record if balance was used or payment was made
@@ -1883,7 +2090,11 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         // Refresh available packages list
         try {
           const pRes = await axios.get('/api/clinic/packages', { headers });
-          if (pRes.data.success) setAllAvailablePackages(pRes.data.packages || []);
+          if (pRes.data.success) {
+            setAllAvailablePackages(
+              buildEffectivePackageList(pRes.data.packages || [], patientData?.packages || [])
+            );
+          }
         } catch (err) {
           console.error('Error refreshing packages:', err);
         }
@@ -2262,6 +2473,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           packageUsageData = usageRes.data.packageUsage || [];
           packageTransferredOutData = usageRes.data.transferredOut || [];
         }
+
       } catch (err: any) {
         console.error('Error fetching package usage:', err.message);
       }
@@ -2281,16 +2493,121 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       }
      
       // Process packages with usage data - separate active, transferred-in, and transferred-out
-      const transferredOutPackageIds = new Set(packageTransferredOutData.map(p => String(p.packageId)));
+      // Create a map of packageId to total transferred-out sessions
+      const transferredOutSessionsByPackageId = new Map();
+      packageTransferredOutData.forEach(p => {
+        const pkgIdStr = String(p.packageId);
+        const current = transferredOutSessionsByPackageId.get(pkgIdStr) || 0;
+        transferredOutSessionsByPackageId.set(pkgIdStr, current + (p.transferredSessions || 0));
+      });
      
-      // Filter patientPackageIds to exclude transferred-out packages
-      patientPackageIds = patientPackageIds.filter((pkgId: any) =>
-        !transferredOutPackageIds.has(String(pkgId))
-      );
+      // Filter patientPackageIds to only exclude packages where ALL sessions are transferred out
+      patientPackageIds = patientPackageIds.filter((pkgId: any) => {
+        const pkgIdStr = String(pkgId);
+        const pkg = allPackages.find((p: any) => String(p._id) === pkgIdStr);
+
+        if (!pkg) return true;
+        
+        // Get total allowed sessions for the package
+        const totalSessions = pkg.totalSessions || 
+                             pkg.treatments?.reduce((sum: number, t: any) => sum + (parseInt(t.sessions) || 0), 0) || 0;
+        
+        // Get total transferred-out sessions
+        const transferredOut = transferredOutSessionsByPackageId.get(pkgIdStr) || 0;
+        
+        // Only exclude if ALL sessions are transferred out
+        return transferredOut < totalSessions;
+      });
      
-      const patientPackages = allPackages.filter((pkg: any) =>
-        patientPackageIds.includes(pkg._id)
-      ).map((pkg: any) => {
+      // -----------------------------------------------------------------------
+      // Enterprise resilience: build master-match packages + snapshot fallbacks
+      // For any patient package whose master was deleted from services_setup,
+      // reconstruct the package data from the stored snapshot (or stored fields).
+      // -----------------------------------------------------------------------
+      const currentPackagesForBuild = freshPatientData?.packages || patientData?.packages || [];
+      const masterPackageIds = new Set(allPackages.map((p: any) => String(p._id)));
+
+      // Reconstruct snapshot-based packages for deleted masters
+      const snapshotReconstructed: any[] = [];
+      currentPackagesForBuild.forEach((assigned: any) => {
+        const pkgIdStr = String(assigned.packageId || '');
+        if (!pkgIdStr || masterPackageIds.has(pkgIdStr)) return;
+
+        const snap = assigned.packageSnapshot;
+        // Use snapshot if available, otherwise fall back to the stored assignment fields.
+        // For old records that predate the snapshot feature, try to recover the name from
+        // the billing history (billing records always store the package name at invoice time).
+        const nameFromBill = (() => {
+          const match = billings.find((b: any) =>
+            b.service === 'Package' && b.package &&
+            (String(b.packageId) === pkgIdStr || (b.notes && b.notes.includes(pkgIdStr)))
+          );
+          return match?.package || null;
+        })();
+        const name = snap?.name || assigned.packageName || nameFromBill
+          // Last resort: if no name at all but we have a price/ID, still show the package
+          || (assigned.totalPrice > 0 ? `Package (${pkgIdStr.slice(-6)})` : null);
+        if (!name) return; // cannot reconstruct without any identifying data
+
+        const usage = packageUsageData.find((u: any) => u.packageName === name);
+        const packageBillingsForPkg = billings.filter((b: any) =>
+          b.service === "Package" && b.package === name
+        );
+        const totalAdvanceUsed = packageBillingsForPkg.reduce((sum: number, b: any) => sum + (Number(b.advanceUsed) || 0), 0);
+        const totalCashPaid = packageBillingsForPkg.reduce((sum: number, b: any) => sum + (Number(b.paid) || 0), 0);
+        const totalPrice = snap?.totalPrice ?? assigned.totalPrice ?? 0;
+        const totalPaidIncl = (assigned.paidAmount || 0) + totalAdvanceUsed;
+        let calcStatus = assigned.paymentStatus || 'Unpaid';
+        if (totalPrice > 0 && totalPaidIncl >= totalPrice) calcStatus = 'Full';
+        else if (totalPaidIncl > 0) calcStatus = 'Partial';
+
+        const totalSessions = snap?.totalSessions ?? 0;
+        const usedSessions = usage?.totalSessions ?? 0;
+        const remainingSessions = usage?.remainingSessions ?? Math.max(0, totalSessions - usedSessions);
+
+        snapshotReconstructed.push({
+          _id: pkgIdStr,
+          packageId: pkgIdStr,
+          name,
+          packageName: name,
+          totalPrice,
+          totalSessions,
+          sessionPrice: snap?.sessionPrice ?? 0,
+          validityInMonths: snap?.validityInMonths ?? assigned.validityInMonths ?? 0,
+          startDate: assigned.startDate ?? snap?.startDate ?? null,
+          endDate: assigned.endDate ?? snap?.endDate ?? null,
+          treatments: (snap?.treatments ?? []).map((t: any) => {
+            const tUsage = usage?.treatments?.find((ut: any) => ut.treatmentSlug === t.treatmentSlug);
+            return {
+              ...t,
+              usedSessions: tUsage?.totalUsedSessions ?? 0,
+              maxSessions: tUsage?.maxSessions ?? t.sessions ?? 0,
+              usageDetails: tUsage?.usageDetails ?? [],
+            };
+          }),
+          usedSessions,
+          remainingSessions,
+          totalAllowedSessions: usage?.totalAllowedSessions ?? totalSessions,
+          status: 'active',
+          assignedDate: assigned.assignedDate ?? null,
+          paymentStatus: calcStatus,
+          paidAmount: totalCashPaid || assigned.paidAmount || 0,
+          advanceUsed: totalAdvanceUsed,
+          totalPaid: totalPaidIncl,
+          paymentMethod: assigned.paymentMethod || '',
+          packageSoldBy: assigned.packageSoldBy || '',
+          billingHistory: usage?.billingHistory ?? [],
+          isTransferred: usage?.isTransferred ?? false,
+          transferredFrom: usage?.transferredFrom ?? null,
+          transferredFromName: usage?.transferredFromName ?? null,
+          isDeletedMaster: true, // flag for "Catalogue Removed" badge
+        });
+      });
+
+      const patientPackages = [
+        ...allPackages.filter((pkg: any) =>
+          patientPackageIds.includes(pkg._id)
+        ).map((pkg: any) => {
         const calculatedTotalSessions = pkg.treatments?.reduce((sum: number, t: any) => sum + (parseInt(t.sessions) || 0), 0) || 0;
        
         // Find the patient's package assignment to get assigned date
@@ -2340,12 +2657,25 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           calculatedPaymentStatus = 'Partial';
         }
        
+        // For transferred packages, use usage data's totalAllowed and remaining instead of package's own totals!
+        let effectiveTotalSessions = pkg.totalSessions || calculatedTotalSessions || 0;
+        let effectiveRemainingSessions: number | null = null;
+        
+        if (usage?.isTransferred) {
+          effectiveTotalSessions = usage.totalAllowedSessions || effectiveTotalSessions;
+          effectiveRemainingSessions = usage.remainingSessions || 0;
+        } else {
+          effectiveRemainingSessions = (usage?.remainingSessions !== null && usage?.remainingSessions !== undefined) 
+            ? usage.remainingSessions 
+            : (effectiveTotalSessions - usedSessions);
+        }
+       
         return {
           ...pkg,
           validityInMonths: patientPackage?.validityInMonths || pkg.validityInMonths || 0,
           startDate: patientPackage?.startDate || pkg.startDate || patientPackage?.assignedDate || pkg.createdAt,
           endDate: patientPackage?.endDate || pkg.endDate || null,
-          totalSessions: pkg.totalSessions || calculatedTotalSessions || 0,
+          totalSessions: effectiveTotalSessions,
           usedSessions: usedSessions,
           status: 'active',
           assignedDate: patientPackage?.assignedDate || pkg.createdAt,
@@ -2361,10 +2691,13 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           transferredFromName: usage?.transferredFromName || null,
           transferredPackageName: usage?.transferredPackageName || (usage?.isTransferred ? usage?.packageName : null) || null,
           totalAllowedSessions: usage?.totalAllowedSessions || null,
-          remainingSessions: usage?.remainingSessions || null,
+          remainingSessions: effectiveRemainingSessions,
           packageSoldBy: patientPackage?.packageSoldBy // <-- Include packageSoldBy!
         };
-      });
+      }),
+        // Append snapshot-reconstructed entries for packages deleted from master catalogue
+        ...snapshotReconstructed,
+      ];
      
       // Separate transferred-in packages from usage data
       const transferredInPkgs = packageUsageData
@@ -2372,6 +2705,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         .map((u: any) => ({
           packageName: u.packageName,
           transferredFromName: u.transferredFromName,
+          transferredByName: u.transferredByName || "",
           transferredSessions: u.transferredSessions || 0,
           totalAllowedSessions: u.totalAllowedSessions || 0,
           remainingSessions: u.remainingSessions || 0,
@@ -2381,7 +2715,6 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           treatments: u.treatments || [],
           billingHistory: u.billingHistory || []
         }));
-     
       // Process memberships with usage data - separate active, transferred-in, and transferred-out
       // Filter patientMembershipIds to exclude transferred-out memberships
       const transferredOutMembershipIds = new Set(
@@ -3247,6 +3580,30 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     try {
       const res = await axios.get(`/api/clinic/patient-balance/${patientId}`, { headers });
       const data = res?.data?.balances || {};
+
+      // Side effect: refresh the pending ledger breakdown (additive,
+      // non-breaking). Fire and forget; failure is silent.
+      (async () => {
+        try {
+          const ledgerRes = await axios.get(
+            `/api/clinic/pending-ledgers/${patientId}?includeClosed=false&previewLimit=50`,
+            { headers },
+          );
+          if (ledgerRes.data?.success) {
+            const rows = Array.isArray(ledgerRes.data.openLedgers)
+              ? ledgerRes.data.openLedgers
+              : Array.isArray(ledgerRes.data.preview)
+                ? ledgerRes.data.preview
+                : [];
+            setPendingLedgerRows(rows);
+          } else {
+            setPendingLedgerRows([]);
+          }
+        } catch {
+          setPendingLedgerRows([]);
+        }
+      })();
+
       return {
         pendingBalance: Number(data.pendingBalance || 0),
         advanceBalance: Number(data.advanceBalance || 0),
@@ -3373,6 +3730,19 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       advanceStatus: claim.advanceStatus || "Full Pay",
       advanceAmount: claim.advanceAmount || 0,
     });
+    // Calculate co-pay amounts for edit modal
+    const claimAmt = parseFloat(claim.claimAmount) || 0;
+    const copPct = parseFloat(claim.coPayPercent) || 0;
+    const copType = claim.coPayType || 'Patient Pays';
+    const advStatus = claim.advanceStatus || 'Full Pay';
+    const advAmt = claim.advanceAmount || 0;
+    const calculated = calculateCoPayAmounts(claimAmt, copPct, copType, advStatus, advAmt);
+    setClaimEditData((prev: any) => ({
+      ...prev,
+      totalClaimAmount: claim.totalClaimAmount || calculated.totalClaimAmount,
+      pendingClaimAmount: claim.pendingClaimAmount || calculated.pendingClaimAmount,
+      coPayAmount: claim.coPayAmount || calculated.coPayAmount,
+    }));
     setClaimEditModal(claim);
     fetchClaimDropdowns();
   };
@@ -3395,11 +3765,38 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     }
   };
 
+  // Calculate co-pay adjusted amounts for insurance claims
+  const calculateCoPayAmounts = (claimAmount: number, coPayPercent: number, coPayType: string, advanceStatus: string, paidOrAdvanceAmount: number) => {
+    const coPayAmount = claimAmount * (coPayPercent / 100);
+    let totalClaimAmount = claimAmount;
+    let pendingClaimAmount = 0;
+
+    // If co-pay type is Patient Pays, add co-pay amount to total claim
+    if (coPayType === 'Patient Pays') {
+      totalClaimAmount = claimAmount + coPayAmount;
+    }
+    // If co-pay type is Clinic Adjusts, no adjustment to claim amount (keep as is)
+    // coPayAmount is still tracked for reference but doesn't affect claim amount
+
+    // Calculate pending amount based on advance status
+    if (advanceStatus === 'Partial Pay') {
+      // For partial pay, remaining amount goes to pending claim
+      pendingClaimAmount = totalClaimAmount - paidOrAdvanceAmount;
+    }
+
+    return {
+      coPayAmount: Math.round(coPayAmount * 100) / 100,
+      totalClaimAmount: Math.round(totalClaimAmount * 100) / 100,
+      pendingClaimAmount: Math.round(Math.max(0, pendingClaimAmount) * 100) / 100,
+    };
+  };
+
   // Handle new claim field changes
   const handleNewClaimChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setNewClaimData((prev: any) => {
-      const updated = { ...prev, [name]: value };
+      let updated = { ...prev, [name]: value };
+
       // Handle direct advanceAmount input (for both Advance and Paid types)
       if (name === "advanceAmount") {
         updated.advanceAmount = parseFloat(value) || 0;
@@ -3412,6 +3809,34 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         updated.advanceStatus = "Full Pay";
         updated.advanceAmount = 0;
       }
+
+
+      // Get current values for calculation
+      const claimAmt = name === "claimAmount" ? parseFloat(value) || 0 : parseFloat(updated.claimAmount) || 0;
+      const copPct = name === "coPayPercent" ? parseFloat(value) || 0 : parseFloat(updated.coPayPercent) || 0;
+      const copType = name === "coPayType" ? value : updated.coPayType;
+      const advStatus = name === "advanceStatus" ? value : updated.advanceStatus;
+      
+      // Auto-calculate paid amount based on advance status
+      let advAmt = name === "advanceAmount" ? parseFloat(value) || 0 : (updated.advanceAmount || 0);
+      if (name === "advanceStatus") {
+        if (value === "Partial Pay") {
+          const calculated = calculateCoPayAmounts(claimAmt, copPct, copType, "Partial Pay", 0);
+          advAmt = calculated.totalClaimAmount / 2;
+          updated.advanceAmount = Math.round(advAmt * 100) / 100;
+        } else if (value === "Full Pay") {
+          const calculated = calculateCoPayAmounts(claimAmt, copPct, copType, "Full Pay", 0);
+          advAmt = calculated.totalClaimAmount;
+          updated.advanceAmount = Math.round(advAmt * 100) / 100;
+        }
+      }
+
+      // Calculate amounts
+      const calculated = calculateCoPayAmounts(claimAmt, copPct, copType, advStatus, advAmt);
+      updated.totalClaimAmount = calculated.totalClaimAmount;
+      updated.pendingClaimAmount = calculated.pendingClaimAmount;
+      updated.coPayAmount = calculated.coPayAmount;
+
       return updated;
     });
   };
@@ -3616,6 +4041,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           documentFiles: newClaimData.documentFiles,
           advanceStatus: newClaimData.advanceStatus,
           advanceAmount: newClaimData.advanceAmount,
+          // Include calculated co-pay amounts for enterprise billing logic
+          finalClaimAmount: newClaimData.totalClaimAmount || parseFloat(newClaimData.claimAmount) || 0,
+          pendingClaim: newClaimData.pendingClaimAmount || 0,
+          coPayAmount: newClaimData.coPayAmount || 0,
         }),
       });
       const data = await res.json();
@@ -3874,7 +4303,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   <div className="flex items-center gap-1.5 min-w-0">
                     <Phone className="w-3 h-3 text-gray-400 flex-shrink-0" />
                     <span className="text-gray-500 font-medium flex-shrink-0">Mobile:</span>
-                    <span className="text-gray-800">{patientData.countryCode || ''} {patientData.mobileNumber || 'N/A'}</span>
+                    <span className="text-gray-800">{patientData.countryCode || ''} {getUserRole() === 'doctorStaff' ? maskPhoneNumber(patientData.mobileNumber) : (patientData.mobileNumber || 'N/A')}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <User className="w-3 h-3 text-gray-400 flex-shrink-0" />
@@ -4688,14 +5117,51 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                           </div>
                         )}
 
-                        {/* Added Packages List — hide transferred-out packages */}
+                        {/* Added Packages List — hide transferred-out packages only if ALL sessions are transferred */}
                         {(() => {
-                          const txOutPackageIds = new Set(
-                            transferredOutPackages.map((p: any) => String(p.packageId))
-                          );
+                          // Create a map: packageId → total transferred out sessions
+                          const txOutSessionsByPackageId = new Map();
+                          transferredOutPackages.forEach((p: any) => {
+                            const pkgIdStr = String(p.packageId);
+                            const current = txOutSessionsByPackageId.get(pkgIdStr) || 0;
+                            txOutSessionsByPackageId.set(pkgIdStr, current + (p.transferredSessions || 0));
+                          });
+                          
                           const visiblePackages = (editFormData.packages || [])
                             .map((p: any, originalIdx: number) => ({ p, originalIdx }))
-                            .filter(({ p }: any) => !txOutPackageIds.has(String(p.packageId)));
+                            .filter(({ p }: any) => {
+                              const pkgIdStr = String(p.packageId);
+                              const pkg = allAvailablePackages.find((x: any) => String(x._id) === pkgIdStr);
+
+                              // Resolve effective package data: master first, then snapshot fallback,
+                              // then packages state (which includes snapshot-reconstructed entries),
+                              // for backward-compat with old records that predate snapshot feature.
+                              const effectivePkg = pkg || (() => {
+                                const snap = p.packageSnapshot;
+                                const pkgIdStr2 = String(p.packageId);
+                                const nameFromPkgsState = packages.find((x: any) => String(x._id) === pkgIdStr2 || String(x.packageId) === pkgIdStr2);
+                                const resolvedName = snap?.name || p.packageName || nameFromPkgsState?.name
+                                  // Last resort: still show if we have a price
+                                  || (p.totalPrice > 0 ? `Package (${pkgIdStr.slice(-6)})` : null);
+                                if (!resolvedName) return null;
+                                return {
+                                  _id: pkgIdStr,
+                                  name: resolvedName,
+                                  totalSessions: snap?.totalSessions ?? nameFromPkgsState?.totalSessions ?? 0,
+                                  treatments: snap?.treatments ?? [],
+                                  isDeletedMaster: true,
+                                };
+                              })();
+
+                              if (!effectivePkg) return true; // cannot determine, show it
+                              
+                              const totalSessions = effectivePkg.totalSessions || 
+                                                   effectivePkg.treatments?.reduce((sum: number, t: any) => sum + (parseInt(t.sessions) || 0), 0) || 0;
+                              const transferredOut = txOutSessionsByPackageId.get(pkgIdStr) || 0;
+                              
+                              // Only hide if ALL sessions are transferred out
+                              return transferredOut < totalSessions;
+                            });
                           if (visiblePackages.length === 0) return null;
                          
                           // Check if more than 3 packages to enable scroll
@@ -4706,12 +5172,77 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               <div className="text-[10px] font-semibold text-gray-900 mb-1">Added Packages</div>
                               <div className={shouldScroll ? "space-y-1 max-h-[350px] overflow-y-auto pr-1" : "space-y-1"}>
                                 {visiblePackages.map(({ p, originalIdx }: any) => {
-                                  const pkg = allAvailablePackages.find((x: any) => x._id === p.packageId);
+                                  // Resolve effective package: master from allAvailablePackages first,
+                                  // then fall back to packageSnapshot if the master was deleted.
+                                  const masterPkg = allAvailablePackages.find((x: any) => String(x._id) === String(p.packageId));
+                                  const snap = p.packageSnapshot;
+
+                                  // For old records that predate the snapshot feature, try to recover
+                                  // the package name from:
+                                  // 1. packageSnapshot.name  (new records)
+                                  // 2. p.packageName         (stored on assignment — sometimes blank for old records)
+                                  // 3. billing history       (billing was recorded with the package name)
+                                  // 4. "packages" state      (populated by fetchPackagesAndMemberships, includes snapshot-reconstructed)
+                                  const pkgIdStr = String(p.packageId);
+                                  const nameFromBilling = (() => {
+                                    if (!billingHistory) return null;
+                                    const match = billingHistory.find((b: any) =>
+                                      b.service === 'Package' &&
+                                      b.package &&
+                                      (String(b.packageId) === pkgIdStr || (b.notes && b.notes.includes(pkgIdStr)))
+                                    );
+                                    return match?.package || null;
+                                  })();
+                                  const nameFromPackagesState = packages.find((x: any) => String(x._id) === pkgIdStr || String(x.packageId) === pkgIdStr)?.name;
+
+                                  const resolvedName = snap?.name || p.packageName || nameFromBilling || nameFromPackagesState
+                                    // Last resort: still display a package card if we have price/ID
+                                    || (p.totalPrice > 0 ? `Package (${pkgIdStr.slice(-6)})` : null);
+                                  const pkg = masterPkg || (resolvedName
+                                    ? {
+                                        _id: pkgIdStr,
+                                        name: resolvedName,
+                                        totalPrice: snap?.totalPrice ?? p.totalPrice ?? 0,
+                                        totalSessions: snap?.totalSessions ?? 0,
+                                        sessionPrice: snap?.sessionPrice ?? 0,
+                                        validityInMonths: snap?.validityInMonths ?? p.validityInMonths ?? 0,
+                                        startDate: snap?.startDate ?? p.startDate ?? null,
+                                        endDate: snap?.endDate ?? p.endDate ?? null,
+                                        treatments: snap?.treatments ?? [],
+                                        isDeletedMaster: true, // visual indicator — master was deleted
+                                      }
+                                    : null);
+
                                   const validity = p.validityInMonths || pkg?.validityInMonths;
                                   const startDate = p.startDate || pkg?.startDate;
                                   const endDate = p.endDate || pkg?.endDate;
                                   const isExpired = endDate && new Date(endDate) < new Date();
-                                  const paymentStatus = p.paymentStatus || 'Unpaid';
+                                  
+                                  // Calculate payment status from billing history (same logic as AppointmentBillingModal)
+                                  const packagePrice = pkg?.totalPrice || p.totalPrice || 0;
+                                  const packageBillingsForPkg = billingHistory?.filter((billing: any) =>
+                                    billing.service === "Package" && billing.package === pkg?.name
+                                  ) || [];
+                                  const totalCashPaidFromBillings = packageBillingsForPkg.reduce(
+                                    (sum: number, billing: any) => sum + (Number(billing.paid) || 0), 0
+                                  );
+                                  const totalAdvanceUsedFromBillings = packageBillingsForPkg.reduce(
+                                    (sum: number, billing: any) => sum + (Number(billing.advanceUsed) || 0), 0
+                                  );
+                                  // Fall back to package's own payment data when billing history has no matching records
+                                  const totalPaidFromBillings = (totalCashPaidFromBillings + totalAdvanceUsedFromBillings) > 0
+                                    ? totalCashPaidFromBillings + totalAdvanceUsedFromBillings
+                                    : (p.paidAmount || 0) + (p.advanceBalanceUsed || 0);
+                                  
+                                  // Determine correct payment status based on total paid (cash + advance) vs price
+                                  let calculatedPaymentStatus = p.paymentStatus || 'Unpaid';
+                                  if (packagePrice > 0 && totalPaidFromBillings >= packagePrice) {
+                                    calculatedPaymentStatus = 'Full';
+                                  } else if (totalPaidFromBillings > 0) {
+                                    calculatedPaymentStatus = 'Partial';
+                                  }
+                                  
+                                  const paymentStatus = calculatedPaymentStatus;
                                   const paymentMethod = p.paymentMethod || 'N/A';
                                  
                                   return (
@@ -4721,11 +5252,18 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                           Expired
                                         </div>
                                       )}
+                                      {/* Badge shown when the master package was deleted from services_setup
+                                          but the patient retains all benefits via the stored snapshot */}
+                                      {pkg?.isDeletedMaster && !isExpired && (
+                                        <div className="absolute top-0 left-0 px-2 py-0.5 bg-orange-500 text-white text-[7px] font-black uppercase tracking-tighter z-10 rounded-br-lg shadow-sm">
+                                          Catalogue Removed
+                                        </div>
+                                      )}
                                       <div className="flex items-center justify-between">
-                                        <div className={`font-bold ${isExpired ? 'text-red-900 line-through' : 'text-gray-800'} flex items-center gap-1.5`}>
+                                        <div className={`font-bold ${isExpired ? 'text-red-900 line-through' : 'text-gray-800'} flex items-center gap-1.5 ${pkg?.isDeletedMaster ? 'mt-3' : ''}`}>
                                           {pkg?.name || p.packageId} • {getCurrencySymbol(currency)}{pkg?.totalPrice}
                                           {paymentStatus === 'Full' && <span className="px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[7px] font-black uppercase">Full Paid</span>}
-                                          {paymentStatus === 'Partial' && <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[7px] font-black uppercase">Partial ({getCurrencySymbol(currency)}{p.paidAmount})</span>}
+                                          {paymentStatus === 'Partial' && <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[7px] font-black uppercase">Partial ({getCurrencySymbol(currency)}{totalPaidFromBillings})</span>}
                                           {paymentStatus === 'Unpaid' && <span className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-[7px] font-black uppercase">Unpaid</span>}
                                         </div>
                                         <button
@@ -5228,9 +5766,32 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                      
                       // Price calculation
                       const totalPrice = pkg.totalPrice || pkg.price || 0;
-                      const paidAmount = pkg.paidAmount || 0;
-                      const advanceUsed = pkg.advanceUsed || 0;
+                      // const paidAmount = pkg.paidAmount || 0;
+                      // const advanceUsed = pkg.advanceUsed || 0;
                       const formattedTotalPrice = typeof totalPrice === 'number' ? `${getCurrencySymbol(currency)}${totalPrice.toFixed(2)}` : `${getCurrencySymbol(currency)}${totalPrice || 0}`;
+                      
+                      // Calculate payment status from billing history (same logic as AppointmentBillingModal)
+                      const packageBillingsForPkg = billingHistory?.filter((billing: any) =>
+                        billing.service === "Package" && billing.package === packageName
+                      ) || [];
+                      const totalCashPaidFromBillings = packageBillingsForPkg.reduce(
+                        (sum: number, billing: any) => sum + (Number(billing.paid) || 0), 0
+                      );
+                      const totalAdvanceUsedFromBillings = packageBillingsForPkg.reduce(
+                        (sum: number, billing: any) => sum + (Number(billing.advanceUsed) || 0), 0
+                      );
+                      // Fall back to package's own payment data when billing history has no matching records
+                      const totalPaidFromBillings = (totalCashPaidFromBillings + totalAdvanceUsedFromBillings) > 0
+                        ? totalCashPaidFromBillings + totalAdvanceUsedFromBillings
+                        : (pkg.totalPaid || (pkg.paidAmount || 0) + (pkg.advanceUsed || 0));
+                      
+                      // Determine correct payment status based on total paid (cash + advance) vs price
+                      let calculatedPaymentStatus = pkg.paymentStatus || 'Unpaid';
+                      if (totalPrice > 0 && totalPaidFromBillings >= totalPrice) {
+                        calculatedPaymentStatus = 'Full';
+                      } else if (totalPaidFromBillings > 0) {
+                        calculatedPaymentStatus = 'Partial';
+                      }
 
                       return (
                         <div key={pkg._id || packageId || index} className={`bg-white rounded-lg border ${isExpired ? 'border-red-200 shadow-sm' : 'border-gray-200 shadow-md'} overflow-hidden hover:shadow-lg transition-all duration-300 relative`}>
@@ -5238,6 +5799,14 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                             <div className="absolute top-0 right-0 z-10">
                               <div className="bg-red-600 text-white text-[8px] font-black uppercase tracking-widest px-2 py-0.5 shadow-md transform translate-x-1 translate-y-0 rounded-bl-lg border-l border-b border-red-700">
                                 Expired
+                              </div>
+                            </div>
+                          )}
+                          {/* Badge: package was deleted from services_setup but patient retains all benefits */}
+                          {pkg.isDeletedMaster && !isExpired && (
+                            <div className="absolute top-0 left-0 z-10">
+                              <div className="bg-orange-500 text-white text-[7px] font-black uppercase tracking-widest px-2 py-0.5 shadow-md rounded-br-lg border-r border-b border-orange-600" title="This package was removed from the clinic catalogue. The patient retains all purchased benefits.">
+                                Catalogue Removed
                               </div>
                             </div>
                           )}
@@ -5264,20 +5833,20 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     </div>
                                   </div>
                                   <div className="flex flex-wrap items-center gap-2 text-[10px]">
-                                    {/* Payment Status & Method Tags */}
-                                    {pkg.paymentStatus === 'Full' && (
+                                    {/* Payment Status & Method Tags - Use calculated status from billing */}
+                                    {calculatedPaymentStatus === 'Full' && (
                                       <span className="px-2 py-0.5 rounded-lg bg-green-100 text-green-700 font-black uppercase text-[7px] shadow-sm flex items-center gap-1">
                                         <CheckCircle className="w-2 h-2" />
                                         Full Paid
                                       </span>
                                     )}
-                                    {pkg.paymentStatus === 'Partial' && (
+                                    {calculatedPaymentStatus === 'Partial' && (
                                       <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 font-black uppercase text-[7px] shadow-sm flex items-center gap-1">
                                         <Activity className="w-2 h-2" />
-                                        Partial
+                                        Partial ({getCurrencySymbol(currency)}{totalPaidFromBillings})
                                       </span>
                                     )}
-                                    {pkg.paymentStatus === 'Unpaid' && (
+                                    {calculatedPaymentStatus === 'Unpaid' && (
                                       <span className="px-2 py-0.5 rounded-lg bg-red-100 text-red-700 font-black uppercase text-[7px] shadow-sm flex items-center gap-1">
                                         <XCircle className="w-2 h-2" />
                                         Unpaid
@@ -5323,33 +5892,33 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               <div className="space-y-1.5">
                                 <div className="flex items-center justify-between">
                                   <span className="text-[9px] text-gray-600 font-medium">Cash/Card Paid:</span>
-                                  <span className="text-[10px] font-bold text-green-700">{getCurrencySymbol(currency)}{paidAmount.toFixed(2)}</span>
+                                  <span className="text-[10px] font-bold text-green-700">{getCurrencySymbol(currency)}{totalCashPaidFromBillings.toFixed(2)}</span>
                                 </div>
-                                {(pkg.totalPaid || 0) > paidAmount && (
+                                {totalAdvanceUsedFromBillings > 0 && (
                                   <div className="flex items-center justify-between">
                                     <span className="text-[9px] text-gray-600 font-medium">Advance Used:</span>
-                                    <span className="text-[10px] font-bold text-emerald-700">{getCurrencySymbol(currency)}{((pkg.totalPaid || 0) - paidAmount).toFixed(2)}</span>
+                                    <span className="text-[10px] font-bold text-emerald-700">{getCurrencySymbol(currency)}{totalAdvanceUsedFromBillings.toFixed(2)}</span>
                                   </div>
                                 )}
-                                {(pkg.totalPaid || 0) > 0 && (
+                                {totalPaidFromBillings > 0 && (
                                   <div className="flex items-center justify-between bg-green-50 px-1.5 py-0.5 rounded">
                                     <span className="text-[9px] text-green-700 font-medium">Total Paid:</span>
-                                    <span className="text-[10px] font-bold text-green-800">{getCurrencySymbol(currency)}{(pkg.totalPaid || 0).toFixed(2)}</span>
+                                    <span className="text-[10px] font-bold text-green-800">{getCurrencySymbol(currency)}{totalPaidFromBillings.toFixed(2)}</span>
                                   </div>
                                 )}
                                 <div className="flex items-center justify-between">
                                   <span className="text-[9px] text-gray-600 font-medium">Status:</span>
-                                  <span className={`text-[9px] font-bold ${pkg.paymentStatus === 'Full' ? 'text-green-700' : pkg.paymentStatus === 'Partial' ? 'text-amber-700' : 'text-gray-600'}`}>
-                                    {pkg.paymentStatus === 'Full' ? 'Full' : pkg.paymentStatus === 'Partial' ? 'Partial' : 'Unpaid'}
+                                  <span className={`text-[9px] font-bold ${calculatedPaymentStatus === 'Full' ? 'text-green-700' : calculatedPaymentStatus === 'Partial' ? 'text-amber-700' : 'text-gray-600'}`}>
+                                    {calculatedPaymentStatus === 'Full' ? 'Full' : calculatedPaymentStatus === 'Partial' ? 'Partial' : 'Unpaid'}
                                   </span>
                                 </div>
-                                {advanceUsed > 0 && (
+                                {totalAdvanceUsedFromBillings > 0 && (
                                   <div className="pt-1.5 border-t border-gray-200 mt-1.5">
                                     <div className="flex items-center justify-between">
                                       <div className="flex items-center gap-1">
                                         <span className="text-[9px] text-gray-600 font-medium">Advance Used:</span>
                                       </div>
-                                      <span className="text-[10px] font-bold text-emerald-700">{getCurrencySymbol(currency)}{advanceUsed.toFixed(2)}</span>
+                                      <span className="text-[10px] font-bold text-emerald-700">{getCurrencySymbol(currency)}{totalAdvanceUsedFromBillings.toFixed(2)}</span>
                                     </div>
                                   </div>
                                 )}
@@ -5976,6 +6545,17 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     </div>
                                   </div>
                                 )}
+                                {pkg.transferredByName && (
+                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred By</div>
+                                    <div className="flex items-center gap-1.5">
+                                      <User className="w-3.5 h-3.5 text-green-600" />
+                                      <span className="text-xs font-bold text-green-900">
+                                        {pkg.transferredByName}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
                                 {pkg.transferredSessions > 0 && (
                                   <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
                                     <div className="text-[10px] text-gray-500 mb-0.5">Transferred Sessions</div>
@@ -6068,6 +6648,17 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                       <User className="w-3.5 h-3.5 text-amber-600" />
                                       <span className="text-xs font-bold text-amber-900">
                                         {pkg.transferredToName}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                                {pkg.transferredByName && (
+                                  <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred By</div>
+                                    <div className="flex items-center gap-1.5">
+                                      <User className="w-3.5 h-3.5 text-amber-600" />
+                                      <span className="text-xs font-bold text-amber-900">
+                                        {pkg.transferredByName}
                                       </span>
                                     </div>
                                   </div>
@@ -6270,13 +6861,13 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
               /* Billing Tab Content - Modern Two-Column Dashboard */
               <div className="space-y-4">
                 {/* Billing Overview Stats - Top Row for Mobile */}
-                {!loadingBilling && billingHistory && (billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length > 0 && (
+                {!loadingBilling && billingHistory && (billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Historical Advance Balance").length > 0 && (
                   <div className="grid grid-cols-2 lg:hidden gap-3">
                     <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
                       <div className="text-[10px] text-blue-600 font-bold uppercase tracking-wider mb-1">Total Billed</div>
                       <div className="text-lg font-bold text-blue-800">
                         {formatAED((billingHistory || []).filter((b: any) =>
-                          (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") ||
+                          (!b.isAdvanceOnly && b.treatment !== "Historical Advance Balance") ||
                           b.treatment === "Pending Balance Payment"
                         ).reduce((acc: number, b: any) => acc + (Number(b.amount) || 0), 0))}
                       </div>
@@ -6295,7 +6886,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     <div className="col-span-1 lg:col-span-3 flex items-center justify-center py-12">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
                     </div>
-                  ) : !billingHistory || (billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length === 0 ? (
+                  ) : !billingHistory || (billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Historical Advance Balance").length === 0 ? (
                     <div className="col-span-1 lg:col-span-3">
                       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                         {/* Top gradient banner */}
@@ -6421,6 +7012,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   <th className="px-2 py-2 text-right text-[9px] font-bold text-gray-600 uppercase tracking-wider">Adv.U</th>
                                   <th className="px-2 py-2 text-right text-[9px] font-bold text-gray-600 uppercase tracking-wider">Claim</th>
                                   <th className="px-2 py-2 text-right text-[9px] font-bold text-gray-600 uppercase tracking-wider">Pend.U</th>
+                                  <th className="px-2 py-2 text-right text-[9px] font-bold text-gray-600 uppercase tracking-wider">Pend.Cl</th>
                                   <th className="px-2 py-2 text-center text-[9px] font-bold text-gray-600 uppercase tracking-wider">Qty</th>
                                   <th className="px-2 py-2 text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider">Method</th>
                                   <th className="px-2 py-2 text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider">Refund</th>
@@ -6429,7 +7021,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               </thead>
                               <tbody className="bg-white divide-y divide-gray-100">
                                 {(billingHistory || [])
-                                  .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
+                                  .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Historical Advance Balance")
                                   .filter((b: any) => {
                                     if (!billingSearchQuery.trim()) return true;
                                     const query = billingSearchQuery.toLowerCase();
@@ -6440,14 +7032,17 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     return invoiceMatch || treatmentMatch;
                                   })
                                   .map((billing: any, index: number) => {
-                                    // Calculate discount
+                                    // Check if this is an advance payment (should not show discount calculation)
+                                    const isAdvancePayment = billing.treatment === "Advance Payment" || billing.isAdvanceOnly;
+                                                                      
+                                    // Calculate discount (exclude advance payments from discount calculation)
                                     const originalAmt = billing.originalAmount || billing.amount || 0;
-                                    const totalDiscount = originalAmt > billing.amount ? (originalAmt - billing.amount) : 0;
+                                    const totalDiscount = (!isAdvancePayment && originalAmt > billing.amount) ? (originalAmt - billing.amount) : 0;
                                     const discountPercent = originalAmt > 0 ? (totalDiscount / originalAmt * 100) : 0;
                                     const isDoctorDiscount = billing.isDoctorDiscountApplied;
                                     const isAgentDiscount = billing.isAgentDiscountApplied;
                                     const isMembershipDiscount = (billing.membershipDiscountApplied || 0) > 0;
-                                   
+                                                                      
                                     // Refund info
                                     const isRefunded = billing.isOfferRefunded || false;
                                     const refundedOffers = billing.refundedOffers || [];
@@ -6455,9 +7050,23 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     // const refundedBy = billing.refundedBy;
                                     // const refundedAmount = billing.refundedAmount || 0;
                                    
-                                    // Payment methods
-                                    const paymentMethods = billing.multiplePayments && billing.multiplePayments.length > 0
-                                      ? billing.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ")
+                                    // Payment methods - collect from multiplePayments, paymentHistory top-level,
+                                    // AND paymentHistory[].multiplePayments (for invoices created with multi-pay)
+                                    const mpMethods = billing.multiplePayments && billing.multiplePayments.length > 0
+                                      ? billing.multiplePayments.map((mp: any) => mp.paymentMethod)
+                                      : [];
+                                    const phMethods = billing.paymentHistory && billing.paymentHistory.length > 0
+                                      ? billing.paymentHistory.flatMap((ph: any) => {
+                                          // Top-level paymentMethod
+                                          const top = ph.paymentMethod ? [ph.paymentMethod] : [];
+                                          // Sub-payments inside paymentHistory entry
+                                          const sub = (ph.multiplePayments || []).map((mp: any) => mp.paymentMethod);
+                                          return [...top, ...sub];
+                                        }).filter(Boolean)
+                                      : [];
+                                    const allMethods = [...new Set([...mpMethods, ...phMethods])];
+                                    const paymentMethods = allMethods.length > 0
+                                      ? allMethods.join(" + ")
                                       : (billing.paymentMethod || "–");
                                    
                                     // Offer type
@@ -6486,6 +7095,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     const advanceUsed = billing.advanceUsed || 0;
                                     const claimUsed = billing.claimAmountUsed || 0;
                                     const pendingUsed = billing.pendingUsed || 0;
+const pendingClaimUsed = billing.pendingClaimUsed || 0;
                                    
                                     return (
                                       <tr key={billing._id || index} className={`transition-colors ${isRefunded ? 'bg-red-50 hover:bg-red-100 border-l-4 border-l-red-500' : `hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}`}>
@@ -6734,6 +7344,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                             {formatAED(pendingUsed)}
                                           </span>
                                         </td>
+                                        {/* Pending Claim Used */}
+                                        <td className="px-2 py-2 text-right">
+                                          <span className={`text-[10px] ${pendingClaimUsed > 0 ? 'text-purple-600 font-medium' : 'text-gray-400'}`}>
+                                            {formatAED(pendingClaimUsed)}
+                                          </span>
+                                        </td>
                                         {/* Qty */}
                                         <td className="px-2 py-2 text-center">
                                           <span className="text-[10px] text-gray-600">{billing.quantity || 1}</span>
@@ -6823,6 +7439,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   <th className="px-2 py-2 text-right text-[8px] font-bold text-gray-600 uppercase tracking-wider">Adv.U</th>
                                   <th className="px-2 py-2 text-right text-[8px] font-bold text-gray-600 uppercase tracking-wider">Claim</th>
                                   <th className="px-2 py-2 text-right text-[8px] font-bold text-gray-600 uppercase tracking-wider">Pend.U</th>
+                                  <th className="px-2 py-2 text-right text-[8px] font-bold text-gray-600 uppercase tracking-wider">Pend.Cl</th>
                                   <th className="px-2 py-2 text-center text-[8px] font-bold text-gray-600 uppercase tracking-wider">Qty</th>
                                   <th className="px-2 py-2 text-left text-[8px] font-bold text-gray-600 uppercase tracking-wider">Method</th>
                                   <th className="px-2 py-2 text-left text-[8px] font-bold text-gray-600 uppercase tracking-wider">Refund</th>
@@ -6831,7 +7448,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               </thead>
                               <tbody className="bg-white divide-y divide-gray-100">
                                 {(billingHistory || [])
-                                  .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
+                                  .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Historical Advance Balance")
                                   .filter((b: any) => {
                                     if (!billingSearchQuery.trim()) return true;
                                     const query = billingSearchQuery.toLowerCase();
@@ -6842,26 +7459,41 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     return invoiceMatch || treatmentMatch;
                                   })
                                   .map((billing: any, index: number) => {
-                                    // Calculate discount
+                                    // Check if this is an advance payment (should not show discount calculation)
+                                    const isAdvancePayment = billing.treatment === "Advance Payment" || billing.isAdvanceOnly;
+                                                                      
+                                    // Calculate discount (exclude advance payments from discount calculation)
                                     const originalAmt = billing.originalAmount || billing.amount || 0;
-                                    const totalDiscount = originalAmt > billing.amount ? (originalAmt - billing.amount) : 0;
+                                    const totalDiscount = (!isAdvancePayment && originalAmt > billing.amount) ? (originalAmt - billing.amount) : 0;
                                     const discountPercent = originalAmt > 0 ? (totalDiscount / originalAmt * 100) : 0;
-                                   
+                                                                      
                                     // Refund info
                                     const isRefunded = billing.isOfferRefunded || false;
-                                   
-                                    // Payment methods
-                                    const paymentMethods = billing.multiplePayments && billing.multiplePayments.length > 0
-                                      ? billing.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ")
+                                                                      
+                                    // Payment methods - collect from multiplePayments, paymentHistory top-level,
+                                    // AND paymentHistory[].multiplePayments (for invoices created with multi-pay)
+                                    const mpMethods2 = billing.multiplePayments && billing.multiplePayments.length > 0
+                                      ? billing.multiplePayments.map((mp: any) => mp.paymentMethod)
+                                      : [];
+                                    const phMethods2 = billing.paymentHistory && billing.paymentHistory.length > 0
+                                      ? billing.paymentHistory.flatMap((ph: any) => {
+                                          const top = ph.paymentMethod ? [ph.paymentMethod] : [];
+                                          const sub = (ph.multiplePayments || []).map((mp: any) => mp.paymentMethod);
+                                          return [...top, ...sub];
+                                        }).filter(Boolean)
+                                      : [];
+                                    const allMethods2 = [...new Set([...mpMethods2, ...phMethods2])];
+                                    const paymentMethods = allMethods2.length > 0
+                                      ? allMethods2.join(" + ")
                                       : (billing.paymentMethod || "–");
-                                   
+                                                                      
                                     // Offer type
                                     const offerType = billing.offerType || null;
-                                    
+                                                                      
                                     // Free sessions
                                     const usedFreeSessionCount = billing.usedFreeSessionCount || 0;
                                     const earnedFreeSessions = billing.freeOfferSessionCount || 0;
-                                   
+                                                                      
                                     // Cashback
                                     const cashbackEarnedAmt = billing.cashbackEarned || 0;
                                     const cashbackEarnedFromOffer = billing.cashbackAmount || 0;
@@ -6874,6 +7506,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     const advanceUsed = billing.advanceUsed || 0;
                                     const claimUsed = billing.claimAmountUsed || 0;
                                     const pendingUsed = billing.pendingUsed || 0;
+const pendingClaimUsed = billing.pendingClaimUsed || 0;
                                     return (
                                       <tr key={billing._id || index} className={`transition-colors ${isRefunded ? 'bg-red-50 hover:bg-red-100 border-l-4 border-l-red-500' : `hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}`}>
                                         {/* Invoice */}
@@ -6955,6 +7588,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                         <td className="px-2 py-2 text-right">
                                           <span className={`text-[9px] ${pendingUsed > 0 ? 'text-orange-600 font-medium' : 'text-gray-400'}`}>{formatAED(pendingUsed)}</span>
                                         </td>
+                                        {/* Pend.Cl */}
+                                        <td className="px-2 py-2 text-right">
+                                          <span className={`text-[9px] ${pendingClaimUsed > 0 ? 'text-purple-600 font-medium' : 'text-gray-400'}`}>{formatAED(pendingClaimUsed)}</span>
+                                        </td>
                                         {/* Qty */}
                                         <td className="px-2 py-2 text-center"><span className="text-[9px] text-gray-600">{billing.quantity || 1}</span></td>
                                         {/* Method */}
@@ -6987,7 +7624,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                             {/* Mobile List View */}
                             <div className="md:hidden divide-y divide-gray-100">
                               {(billingHistory || [])
-                                .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
+                                .filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Historical Advance Balance")
                                 .filter((b: any) => {
                                   if (!billingSearchQuery.trim()) return true;
                                   const query = billingSearchQuery.toLowerCase();
@@ -7000,8 +7637,21 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                 .map((billing: any, index: number) => {
                                   const originalAmt = billing.originalAmount || billing.amount || 0;
                                   const discountPct = originalAmt > 0 && billing.amount < originalAmt ? ((originalAmt - billing.amount) / originalAmt * 100) : 0;
-                                  const paymentMethods = billing.multiplePayments && billing.multiplePayments.length > 0
-                                    ? billing.multiplePayments.map((mp: any) => mp.paymentMethod).join(" + ")
+                                  // Payment methods - collect from multiplePayments, paymentHistory top-level,
+                                  // AND paymentHistory[].multiplePayments (for invoices created with multi-pay)
+                                  const mpMethodsM = billing.multiplePayments && billing.multiplePayments.length > 0
+                                    ? billing.multiplePayments.map((mp: any) => mp.paymentMethod)
+                                    : [];
+                                  const phMethodsM = billing.paymentHistory && billing.paymentHistory.length > 0
+                                    ? billing.paymentHistory.flatMap((ph: any) => {
+                                        const top = ph.paymentMethod ? [ph.paymentMethod] : [];
+                                        const sub = (ph.multiplePayments || []).map((mp: any) => mp.paymentMethod);
+                                        return [...top, ...sub];
+                                      }).filter(Boolean)
+                                    : [];
+                                  const allMethodsM = [...new Set([...mpMethodsM, ...phMethodsM])];
+                                  const paymentMethods = allMethodsM.length > 0
+                                    ? allMethodsM.join(" + ")
                                     : (billing.paymentMethod || "–");
                                   const offerType = billing.offerType || null;
                                   const cashbackEarnedAmt = billing.cashbackEarned || 0;
@@ -7185,16 +7835,16 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                             </div>
                         </div>
 
-                        {/* Summary Section - Total Billed, Total Paid, Outstanding */}
-                        {(billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance").length > 0 && (
+                        {/* Summary Section - Total Billed, Total Paid, Outstanding, Advance */}
+                        {(billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Historical Advance Balance").length > 0 && (
                           <div className="px-5 py-4 border-t border-gray-200 bg-gray-50">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                               {/* Total Billed */}
                               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
                                 <div className="text-[10px] sm:text-xs text-blue-600 mb-1">Total Billed</div>
                                 <div className="text-lg sm:text-xl md:text-2xl font-bold text-blue-800">
                                   {formatAED((billingHistory || []).filter((b: any) =>
-                                    (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") ||
+                                    (!b.isAdvanceOnly && b.treatment !== "Historical Advance Balance") ||
                                     b.treatment === "Pending Balance Payment"
                                   ).reduce((acc: number, b: any) => acc + (Number(b.amount) || 0), 0))}
                                 </div>
@@ -7204,7 +7854,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                 <div className="text-[10px] sm:text-xs text-green-600 mb-1">Total Paid</div>
                                 <div className="text-lg sm:text-xl md:text-2xl font-bold text-green-800">
                                   {formatAED((billingHistory || []).filter((b: any) =>
-                                    (!b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance") ||
+                                    (!b.isAdvanceOnly && b.treatment !== "Historical Advance Balance") ||
                                     b.treatment === "Pending Balance Payment"
                                   ).reduce((acc: number, b: any) => acc + (Number(b.paid) || 0), 0))}
                                 </div>
@@ -7214,6 +7864,13 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                 <div className="text-[10px] sm:text-xs text-red-600 mb-1">Outstanding</div>
                                 <div className="text-lg sm:text-xl md:text-2xl font-bold text-red-800">
                                   {formatAED(balance.pendingBalance)}
+                                </div>
+                              </div>
+                              {/* Advance Balance */}
+                              <div className="bg-teal-50 border border-teal-200 rounded-lg p-3 text-center">
+                                <div className="text-[10px] sm:text-xs text-teal-600 mb-1">Advance Balance</div>
+                                <div className="text-lg sm:text-xl md:text-2xl font-bold text-teal-800">
+                                  {formatAED(balance.advanceBalance)}
                                 </div>
                               </div>
                             </div>
@@ -7254,29 +7911,59 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         setShowNewClaimForm(opening);
                         if (opening) {
                           fetchNewClaimDropdowns();
-                          // Reset form to empty values - no prefilling
-                          setNewClaimData({
-                            insuranceProvider: "",
-                            policyNumber: "",
-                            expiryDate: "",
-                            insuranceCardFile: "",
-                            tableOfBenefitsFile: "",
-                            departmentId: "",
-                            departmentName: "",
-                            serviceId: "",
-                            serviceName: "",
-                            services: [],
-                            doctorId: "",
-                            doctorName: "",
-                            claimAmount: "",
-                            claimType: "Paid",
-                            coPayPercent: "",
-                            coPayType: "Patient Pays",
-                            notes: "",
-                            documentFiles: [],
-                            advanceStatus: "Full Pay",
-                            advanceAmount: 0,
-                          });
+                          
+                          // Get most recent claim for prefill if exists
+                          const mostRecentClaim = insuranceClaims.length > 0 ? insuranceClaims[0] : null;
+                          
+                          if (mostRecentClaim) {
+                            // Prefill insurance details from most recent claim
+                            setNewClaimData({
+                              insuranceProvider: mostRecentClaim.insuranceProvider || "",
+                              policyNumber: mostRecentClaim.policyNumber || "",
+                              expiryDate: mostRecentClaim.expiryDate ? new Date(mostRecentClaim.expiryDate).toISOString().split('T')[0] : "",
+                              insuranceCardFile: mostRecentClaim.insuranceCardFile || "",
+                              tableOfBenefitsFile: mostRecentClaim.tableOfBenefitsFile || "",
+                              departmentId: "",
+                              departmentName: "",
+                              serviceId: "",
+                              serviceName: "",
+                              services: [],
+                              doctorId: "",
+                              doctorName: "",
+                              claimAmount: "",
+                              claimType: "Paid",
+                              coPayPercent: mostRecentClaim.coPayPercent || "",
+                              coPayType: mostRecentClaim.coPayType || "Patient Pays",
+                              notes: "",
+                              documentFiles: [],
+                              advanceStatus: "Full Pay",
+                              advanceAmount: 0,
+                            });
+                          } else {
+                            // No existing claims - start with empty form
+                            setNewClaimData({
+                              insuranceProvider: "",
+                              policyNumber: "",
+                              expiryDate: "",
+                              insuranceCardFile: "",
+                              tableOfBenefitsFile: "",
+                              departmentId: "",
+                              departmentName: "",
+                              serviceId: "",
+                              serviceName: "",
+                              services: [],
+                              doctorId: "",
+                              doctorName: "",
+                              claimAmount: "",
+                              claimType: "Paid",
+                              coPayPercent: "",
+                              coPayType: "Patient Pays",
+                              notes: "",
+                              documentFiles: [],
+                              advanceStatus: "Full Pay",
+                              advanceAmount: 0,
+                            });
+                          }
                         }
                       }}
                       className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-semibold transition-colors"
@@ -7637,6 +8324,58 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                             </div>
                           </div>
                         )}
+
+                        {/* Co-Pay Calculated Summary */}
+                        {(newClaimData.claimAmount && parseFloat(newClaimData.claimAmount) > 0 && newClaimData.coPayPercent) && (
+                          <div className="mt-2 pt-2 border-t border-purple-200">
+                            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-3 border border-indigo-200">
+                              <div className="text-[10px] font-bold text-indigo-800 mb-2 flex items-center gap-1">
+                                <Calculator className="w-3 h-3" />
+                                Co-Pay Calculation Summary
+                              </div>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[9px]">
+                                <div className="bg-white rounded p-1.5 shadow-sm">
+                                  <span className="text-gray-500">Base Claim:</span>
+                                  <span className="ml-1 font-semibold text-gray-800">{formatAED(parseFloat(newClaimData.claimAmount) || 0)}</span>
+                                </div>
+                                {newClaimData.coPayType === 'Patient Pays' && (
+                                  <div className="bg-white rounded p-1.5 shadow-sm">
+                                    <span className="text-gray-500">Co-Pay ({newClaimData.coPayPercent}%):</span>
+                                    <span className="ml-1 font-semibold text-orange-600">+{formatAED(newClaimData.coPayAmount || 0)}</span>
+                                  </div>
+                                )}
+                                <div className={`rounded p-1.5 shadow-sm ${newClaimData.coPayType === 'Patient Pays' ? 'bg-indigo-100' : 'bg-white'}`}>
+                                  <span className={`${newClaimData.coPayType === 'Patient Pays' ? 'text-indigo-700' : 'text-gray-500'}`}>Total Claim:</span>
+                                  <span className={`ml-1 font-bold ${newClaimData.coPayType === 'Patient Pays' ? 'text-indigo-800' : 'text-gray-800'}`}>{formatAED(newClaimData.totalClaimAmount || parseFloat(newClaimData.claimAmount) || 0)}</span>
+                                </div>
+                                {newClaimData.advanceStatus === 'Full Pay' && (
+                                  <div className="bg-green-100 rounded p-1.5 shadow-sm">
+                                    <span className="text-green-700">Paid Amount:</span>
+                                    <span className="ml-1 font-semibold text-green-800">{formatAED(newClaimData.totalClaimAmount || parseFloat(newClaimData.claimAmount) || 0)}</span>
+                                  </div>
+                                )}
+                                {newClaimData.advanceStatus === 'Partial Pay' && (
+                                  <>
+                                    <div className="bg-green-100 rounded p-1.5 shadow-sm">
+                                      <span className="text-green-700">Paid Amount:</span>
+                                      <span className="ml-1 font-semibold text-green-800">{formatAED(newClaimData.advanceAmount || 0)}</span>
+                                    </div>
+                                    <div className="bg-orange-100 rounded p-1.5 shadow-sm">
+                                      <span className="text-orange-700">Pending Amount:</span>
+                                      <span className="ml-1 font-semibold text-orange-800">{formatAED(newClaimData.pendingClaimAmount || 0)}</span>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                              {newClaimData.coPayType === 'Clinic Adjusts' && (
+                                <div className="mt-1.5 text-[9px] text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-200">
+                                  <Info className="w-3 h-3 inline mr-1" />
+                                  Co-Pay will be adjusted by clinic. No amount added to claim.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Form action buttons */}
@@ -7746,25 +8485,41 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     </td>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{claim.doctorName || '-'}</td>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">
-                                      {getCurrencySymbol(currency)} {claim.claimAmount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      {getCurrencySymbol(currency)} {(claim.finalClaimAmount || claim.claimAmount)?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </td>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-green-700">
                                       {claim.advanceAmount ? `${getCurrencySymbol(currency)} ${claim.advanceAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                                     </td>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-orange-700">
-                                      {/* Show pending claim only if balance.pendingClaim > 0 (meaning there's still pending claim to collect) */}
-                                      {balance.pendingClaim > 0 && claim.pendingClaim > 0 ? `${getCurrencySymbol(currency)} ${claim.pendingClaim.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                                      {claim.pendingClaim > 0 ? `${getCurrencySymbol(currency)} ${claim.pendingClaim.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                                     </td>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{claim.coPayPercent}%</td>
                                     <td className="px-4 py-3 whitespace-nowrap">
-                                      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                                        claim.status === 'Under Review' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
-                                        claim.status === 'Approved' ? 'bg-green-100 text-green-800 border-green-300' :
-                                        claim.status === 'Rejected' ? 'bg-red-100 text-red-800 border-red-300' :
-                                        'bg-blue-100 text-blue-800 border-blue-300'
-                                      }`}>
-                                        {claim.status}
-                                      </span>
+                                      {(() => {
+                                        const events: { date: string; status: string }[] = [];
+                                        if (claim.rejectedFromReleaseRequestedAt) events.push({ date: claim.rejectedFromReleaseRequestedAt, status: 'Rejected' });
+                                        if (claim.rejectedFromPassClaimsAt) events.push({ date: claim.rejectedFromPassClaimsAt, status: 'Rejected' });
+                                        if (claim.approvedAt) events.push({ date: claim.approvedAt, status: 'Approved' });
+                                        if (claim.rejectedAt) events.push({ date: claim.rejectedAt, status: 'Rejected' });
+                                        if (claim.releasedAt) events.push({ date: claim.releasedAt, status: 'Released' });
+                                        if (claim.completedAt) events.push({ date: claim.completedAt, status: 'Completed' });
+                                        if (claim.readyAt) events.push({ date: claim.readyAt, status: 'Ready' });
+                                        events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                                        const effectiveStatus = events.length > 0 ? events[0].status : (claim.status || 'Under Review');
+                                        return (
+                                          <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                                            effectiveStatus === 'Under Review' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
+                                            effectiveStatus === 'Approved' ? 'bg-green-100 text-green-800 border-green-300' :
+                                            effectiveStatus === 'Rejected' ? 'bg-red-100 text-red-800 border-red-300' :
+                                            effectiveStatus === 'Ready' ? 'bg-indigo-100 text-indigo-800 border-indigo-300' :
+                                            effectiveStatus === 'Completed' ? 'bg-purple-100 text-purple-800 border-purple-300' :
+                                            effectiveStatus === 'Released' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                                            'bg-gray-100 text-gray-800 border-gray-300'
+                                          }`}>
+                                            {effectiveStatus}
+                                          </span>
+                                        );
+                                      })()}
                                     </td>
                                     <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{new Date(claim.createdAt).toLocaleDateString()}</td>
                                     <td className="px-4 py-3 whitespace-nowrap">
@@ -8067,133 +8822,77 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         {/* Timeline Container */}
                         <div className="relative">
                           {/* Vertical Line */}
-                          <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-purple-300 via-blue-300 to-green-300"></div>
+                          <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-100"></div>
                          
                           {/* Timeline Items */}
                           <div className="space-y-6">
-                            {/* 1. Claim Created */}
-                            <div className="relative flex items-start gap-4">
-                              <div className="relative z-10 w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
-                                <FileText className="w-5 h-5 text-white" />
-                              </div>
-                              <div className="flex-1 bg-purple-50 border border-purple-200 rounded-xl p-4 ml-2">
-                                <div className="flex items-center justify-between mb-2">
-                                  <h3 className="text-sm font-bold text-purple-900">Claim Created</h3>
-                                  <span className="text-xs font-semibold text-purple-600 bg-purple-100 px-2 py-1 rounded-full">
-                                    {new Date(claimTrackingModal.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                  </span>
+                            {(() => {
+                              const ctm = claimTrackingModal || {};
+                              const allSteps = [];
+                              if (ctm.createdAt) allSteps.push({ type: "created", date: ctm.createdAt, title: "Claim Created", badge: "Created", icon: <FileText className="w-5 h-5 text-white" />, bg: "from-purple-500 to-purple-600", cardBg: "bg-purple-50", border: "border-purple-200", titleColor: "text-purple-900", badgeColor: "text-purple-600 bg-purple-100", reviewer: ctm.createdByName, role: ctm.createdByRole || "Staff", content: <><p className="text-xs text-purple-700">Insurance claim created with amount <strong>{ctm.claimAmount?.toLocaleString()}</strong></p><p className="text-xs text-purple-600 mt-1">Type: <span className="font-semibold">{ctm.claimType}</span></p></> });
+                              if (ctm.rejectedFromPassClaims) allSteps.push({ type: "rejectPass", date: ctm.rejectedFromPassClaimsAt, title: "Rejected from Pass Claims", badge: "Pass Reject", icon: <XCircle className="w-5 h-5 text-white" />, bg: "from-orange-500 to-red-500", cardBg: "bg-red-50", border: "border-red-200", titleColor: "text-red-900", badgeColor: "text-red-600 bg-red-100", reviewer: ctm.rejectedFromPassClaimsByName, role: ctm.rejectedFromPassClaimsByRole });
+                              if (ctm.approvedAt || ctm.approvedBy) allSteps.push({ type: "approved", date: ctm.approvedAt, title: "Claim Approved by Doctor", badge: "Approved", icon: <CheckCircle className="w-5 h-5 text-white" />, bg: "from-green-500 to-emerald-500", cardBg: "bg-green-50", border: "border-green-200", titleColor: "text-green-900", badgeColor: "text-green-600 bg-green-100", reviewer: ctm.approvedByName, role: ctm.approvedByRole });
+                              if (ctm.rejectedAt || ctm.rejectedBy) allSteps.push({ type: "rejected", date: ctm.rejectedAt, title: "Claim Rejected", badge: "Rejected", icon: <XCircle className="w-5 h-5 text-white" />, bg: "from-red-500 to-rose-500", cardBg: "bg-red-50", border: "border-red-200", titleColor: "text-red-900", badgeColor: "text-red-600 bg-red-100", reviewer: ctm.rejectedByName, role: ctm.rejectedByRole });
+                              if (ctm.readyAt || ctm.readyBy) allSteps.push({ type: "ready", date: ctm.readyAt, title: "Claim Checked by Financial Department", subtitle: "Ready", badge: "Ready", icon: <CheckCircle className="w-5 h-5 text-white" />, bg: "from-indigo-500 to-violet-500", cardBg: "bg-indigo-50", border: "border-indigo-200", titleColor: "text-indigo-900", badgeColor: "text-indigo-600 bg-indigo-100", reviewer: ctm.readyByName, role: ctm.readyByRole });
+                              if (ctm.completedAt || ctm.completedBy) allSteps.push({ type: "completed", date: ctm.completedAt, title: "Claim Completed with Treatment Plan by Doctor", badge: "Completed", icon: <CheckCircle className="w-5 h-5 text-white" />, bg: "from-purple-500 to-pink-500", cardBg: "bg-purple-50", border: "border-purple-200", titleColor: "text-purple-900", badgeColor: "text-purple-600 bg-purple-100", reviewer: ctm.completedByName, role: ctm.completedByRole });
+                              if (ctm.releasedAt || ctm.releasedBy) allSteps.push({ type: "released", date: ctm.releasedAt, title: "Claim Released", badge: "Released", icon: <DollarSign className="w-5 h-5 text-white" />, bg: "from-blue-500 to-cyan-500", cardBg: "bg-blue-50", border: "border-blue-200", titleColor: "text-blue-900", badgeColor: "text-blue-600 bg-blue-100", reviewer: ctm.releasedByName, role: ctm.releasedByRole, extra: <><p className="text-xs text-blue-700 mt-2 pt-2 border-t border-blue-200"><strong>Advance Amount:</strong> {ctm.advanceAmount?.toLocaleString() || 'N/A'}</p></> });
+                              if (ctm.rejectedFromReleaseRequested) allSteps.push({ type: "rejectRelease", date: ctm.rejectedFromReleaseRequestedAt, title: "Rejected from Release", badge: "Release Reject", icon: <XCircle className="w-5 h-5 text-white" />, bg: "from-orange-500 to-red-500", cardBg: "bg-red-50", border: "border-red-200", titleColor: "text-red-900", badgeColor: "text-red-600 bg-red-100", reviewer: ctm.rejectedFromReleaseRequestedByName, role: ctm.rejectedFromReleaseRequestedByRole });
+                              allSteps.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                              const iconMap: Record<string, React.ReactNode> = { approved: <CheckCircle className="w-4 h-4 text-green-600" />, rejected: <XCircle className="w-4 h-4 text-red-600" />, rejectPass: <AlertCircle className="w-4 h-4 text-orange-600" />, rejectRelease: <AlertCircle className="w-4 h-4 text-orange-600" />, ready: <CheckCircle className="w-4 h-4 text-indigo-600" />, released: <CheckCircle className="w-4 h-4 text-blue-600" />, completed: <CheckCircle className="w-4 h-4 text-purple-600" />, created: <FileText className="w-4 h-4 text-purple-600" /> };
+                              const bgMap: Record<string, string> = { approved: "bg-green-100", rejected: "bg-red-100", rejectPass: "bg-orange-100", rejectRelease: "bg-orange-100", ready: "bg-indigo-100", released: "bg-blue-100", completed: "bg-purple-100", created: "bg-purple-100" };
+                              const badgeColorMap: Record<string, string> = { approved: "text-green-600 bg-green-50", rejected: "text-red-600 bg-red-50", rejectPass: "text-orange-600 bg-orange-50", rejectRelease: "text-orange-600 bg-orange-50", ready: "text-indigo-600 bg-indigo-50", released: "text-blue-600 bg-blue-50", completed: "text-purple-600 bg-purple-50", created: "text-purple-600 bg-purple-50" };
+                              
+                              return allSteps.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-12 text-center">
+                                  <Activity className="w-12 h-12 text-gray-200 mb-4" />
+                                  <p className="text-gray-500 font-medium">No tracking history available for this claim</p>
                                 </div>
-                                <p className="text-xs text-purple-700">
-                                  Insurance claim created with amount <strong>{claimTrackingModal.claimAmount?.toLocaleString()}</strong>
-                                </p>
-                                <p className="text-xs text-purple-600 mt-1">
-                                  Type: <span className="font-semibold">{claimTrackingModal.claimType}</span>
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* 2. Pass Claims Review (if rejected from pass claims) */}
-                            {claimTrackingModal.rejectedFromPassClaims && (
-                              <div className="relative flex items-start gap-4">
-                                <div className="relative z-10 w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-lg">
-                                  <XCircle className="w-5 h-5 text-white" />
-                                </div>
-                                <div className="flex-1 bg-red-50 border border-red-200 rounded-xl p-4 ml-2">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-sm font-bold text-red-900">Rejected from Pass Claims</h3>
-                                    <span className="text-xs font-semibold text-red-600 bg-red-100 px-2 py-1 rounded-full">
-                                      {claimTrackingModal.rejectedFromPassClaimsAt ? new Date(claimTrackingModal.rejectedFromPassClaimsAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                                    </span>
+                              ) : (
+                                allSteps.map((step, idx) => (
+                                  <div key={step.type} className="flex gap-4 group">
+                                    <div className={`relative z-10 w-8 h-8 rounded-full ${bgMap[step.type]} border-4 border-white flex items-center justify-center shadow-sm`}>
+                                      {iconMap[step.type]}
+                                    </div>
+                                    <div className="flex-1 pt-0.5">
+                                      <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm group-hover:shadow-md transition-shadow">
+                                        <div className="flex items-center justify-between mb-2">
+                                          <div>
+                                            <h4 className="text-sm font-bold text-gray-900">{step.title}</h4>
+                                            {step.subtitle && <p className="text-[10px] font-semibold text-indigo-600 mt-0.5">Status: {step.subtitle}</p>}
+                                          </div>
+                                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${badgeColorMap[step.type]}`}>Step {idx + 1}</span>
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                                          <div className="flex items-center gap-2">
+                                            <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center"><User className="w-3.5 h-3.5 text-gray-400" /></div>
+                                            <div>
+                                              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">{step.type === 'released' ? 'Released By' : step.type === 'approved' ? 'Approved By' : step.type === 'rejected' ? 'Rejected By' : step.type === 'ready' ? 'Checked By' : step.type === 'completed' ? 'Completed By' : step.type === 'created' ? 'Created By' : 'Rejected By'}</p>
+                                              <p className="text-xs font-semibold text-gray-700">{step.reviewer || "N/A"}</p>
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center"><Shield className="w-3.5 h-3.5 text-gray-400" /></div>
+                                            <div>
+                                              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">Role</p>
+                                              <p className="text-xs font-semibold text-gray-700 capitalize">{step.role || "N/A"}</p>
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-2 col-span-full">
+                                            <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center"><Clock className="w-3.5 h-3.5 text-gray-400" /></div>
+                                            <div>
+                                              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">Date & Time</p>
+                                              <p className="text-xs font-semibold text-gray-700">{step.date ? new Date(step.date).toLocaleString() : "N/A"}</p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        {step.content}
+                                        {step.extra}
+                                      </div>
+                                    </div>
                                   </div>
-                                  <div className="space-y-1">
-                                    <p className="text-xs text-red-700">
-                                      <strong>Rejected By:</strong> {claimTrackingModal.rejectedFromPassClaimsByName || 'N/A'}
-                                    </p>
-                                    <p className="text-xs text-red-700">
-                                      <strong>Role:</strong> <span className="font-semibold capitalize">{claimTrackingModal.rejectedFromPassClaimsByRole || 'N/A'}</span>
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* 3. Approval (if approved) */}
-                            {claimTrackingModal.approvedBy && (
-                              <div className="relative flex items-start gap-4">
-                                <div className="relative z-10 w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-lg">
-                                  <CheckCircle className="w-5 h-5 text-white" />
-                                </div>
-                                <div className="flex-1 bg-green-50 border border-green-200 rounded-xl p-4 ml-2">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-sm font-bold text-green-900">Claim Approved</h3>
-                                    <span className="text-xs font-semibold text-green-600 bg-green-100 px-2 py-1 rounded-full">
-                                      {claimTrackingModal.approvedAt ? new Date(claimTrackingModal.approvedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                                    </span>
-                                  </div>
-                                  <div className="space-y-1">
-                                    <p className="text-xs text-green-700">
-                                      <strong>Approved By:</strong> {claimTrackingModal.approvedByName || 'N/A'}
-                                    </p>
-                                    <p className="text-xs text-green-700">
-                                      <strong>Role:</strong> <span className="font-semibold capitalize">{claimTrackingModal.approvedByRole || 'N/A'}</span>
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* 4. Rejection (if rejected) */}
-                            {claimTrackingModal.rejectedBy && (
-                              <div className="relative flex items-start gap-4">
-                                <div className="relative z-10 w-12 h-12 rounded-full bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center shadow-lg">
-                                  <XCircle className="w-5 h-5 text-white" />
-                                </div>
-                                <div className="flex-1 bg-red-50 border border-red-200 rounded-xl p-4 ml-2">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-sm font-bold text-red-900">Claim Rejected</h3>
-                                    <span className="text-xs font-semibold text-red-600 bg-red-100 px-2 py-1 rounded-full">
-                                      {claimTrackingModal.rejectedAt ? new Date(claimTrackingModal.rejectedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                                    </span>
-                                  </div>
-                                  <div className="space-y-1">
-                                    <p className="text-xs text-red-700">
-                                      <strong>Rejected By:</strong> {claimTrackingModal.rejectedByName || 'N/A'}
-                                    </p>
-                                    <p className="text-xs text-red-700">
-                                      <strong>Role:</strong> <span className="font-semibold capitalize">{claimTrackingModal.rejectedByRole || 'N/A'}</span>
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* 5. Release (if released) */}
-                            {claimTrackingModal.releasedBy && (
-                              <div className="relative flex items-start gap-4">
-                                <div className="relative z-10 w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                                  <DollarSign className="w-5 h-5 text-white" />
-                                </div>
-                                <div className="flex-1 bg-blue-50 border border-blue-200 rounded-xl p-4 ml-2">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-sm font-bold text-blue-900">Claim Released</h3>
-                                    <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
-                                      {claimTrackingModal.releasedAt ? new Date(claimTrackingModal.releasedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                                    </span>
-                                  </div>
-                                  <div className="space-y-1">
-                                    <p className="text-xs text-blue-700">
-                                      <strong>Released By:</strong> {claimTrackingModal.releasedByName || 'N/A'}
-                                    </p>
-                                    <p className="text-xs text-blue-700">
-                                      <strong>Role:</strong> <span className="font-semibold capitalize">{claimTrackingModal.releasedByRole || 'N/A'}</span>
-                                    </p>
-                                    <p className="text-xs text-blue-700 mt-2 pt-2 border-t border-blue-200">
-                                      <strong>Advance Amount:</strong> {claimTrackingModal.advanceAmount?.toLocaleString() || 'N/A'}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
+                                ))
+                              );
+                            })()}
 
                             {/* Current Status Badge */}
                             <div className="relative flex items-start gap-4">
@@ -8202,14 +8901,32 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               </div>
                               <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-4 ml-2">
                                 <h3 className="text-sm font-bold text-gray-900 mb-2">Current Status</h3>
-                                <span className={`inline-flex px-3 py-1.5 rounded-full text-xs font-bold border ${
-                                  claimTrackingModal.status === 'Under Review' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
-                                  claimTrackingModal.status === 'Approved' ? 'bg-green-100 text-green-800 border-green-300' :
-                                  claimTrackingModal.status === 'Rejected' ? 'bg-red-100 text-red-800 border-red-300' :
-                                  'bg-blue-100 text-blue-800 border-blue-300'
-                                }`}>
-                                  {claimTrackingModal.status}
-                                </span>
+                                {(() => {
+                                  const ctm = claimTrackingModal || {};
+                                  const events: { date: string; status: string }[] = [];
+                                  if (ctm.rejectedFromReleaseRequestedAt) events.push({ date: ctm.rejectedFromReleaseRequestedAt, status: 'Rejected' });
+                                  if (ctm.rejectedFromPassClaimsAt) events.push({ date: ctm.rejectedFromPassClaimsAt, status: 'Rejected' });
+                                  if (ctm.approvedAt) events.push({ date: ctm.approvedAt, status: 'Approved' });
+                                  if (ctm.rejectedAt) events.push({ date: ctm.rejectedAt, status: 'Rejected' });
+                                  if (ctm.releasedAt) events.push({ date: ctm.releasedAt, status: 'Released' });
+                                  if (ctm.completedAt) events.push({ date: ctm.completedAt, status: 'Completed' });
+                                  if (ctm.readyAt) events.push({ date: ctm.readyAt, status: 'Ready' });
+                                  events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                                  const effectiveStatus = events.length > 0 ? events[0].status : (ctm.status || 'Under Review');
+                                  return (
+                                    <span className={`inline-flex px-3 py-1.5 rounded-full text-xs font-bold border ${
+                                      effectiveStatus === 'Under Review' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
+                                      effectiveStatus === 'Approved' ? 'bg-green-100 text-green-800 border-green-300' :
+                                      effectiveStatus === 'Rejected' ? 'bg-red-100 text-red-800 border-red-300' :
+                                      effectiveStatus === 'Ready' ? 'bg-indigo-100 text-indigo-800 border-indigo-300' :
+                                      effectiveStatus === 'Completed' ? 'bg-purple-100 text-purple-800 border-purple-300' :
+                                      effectiveStatus === 'Released' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                                      'bg-gray-100 text-gray-800 border-gray-300'
+                                    }`}>
+                                      {effectiveStatus}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             </div>
                           </div>
@@ -8232,7 +8949,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                 {/* Claim Edit Modal */}
                 {claimEditModal && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
                       <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
                         <h2 className="text-lg font-bold text-gray-900">Edit Claim</h2>
                         <button onClick={() => setClaimEditModal(null)} className="p-2 hover:bg-gray-100 rounded-lg">
@@ -8243,7 +8960,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         {/* Insurance Details */}
                         <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                           <h3 className="text-sm font-semibold text-blue-800 mb-3">Insurance Details</h3>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                             <div>
                               <label className="block text-xs font-medium text-gray-700 mb-1">Insurance Provider <span className="text-red-500">*</span></label>
                               <input type="text" value={claimEditData.insuranceProvider || ''} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, insuranceProvider: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
@@ -8330,7 +9047,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         {/* Claim Source & Type */}
                         <div className="bg-green-50 rounded-lg p-4 border border-green-200">
                           <h3 className="text-sm font-semibold text-green-800 mb-3">Claim Source & Type</h3>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 items-start">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-start">
                             <div className="flex flex-col">
                               <label className="block text-xs font-medium text-gray-700 mb-1">
                                 Department
@@ -8451,14 +9168,48 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                         {/* Claim Details */}
                         <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
                           <h3 className="text-sm font-semibold text-purple-800 mb-3">Claim Details</h3>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 items-start">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-start">
                             <div className="flex flex-col">
                               <label className="block text-xs font-medium text-gray-700 mb-1">Co-Pay %</label>
-                              <input type="number" value={claimEditData.coPayPercent ?? ''} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, coPayPercent: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 h-[38px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" min="0" max="100" />
+                              <input type="number" value={claimEditData.coPayPercent ?? ''} onChange={(e) => {
+                                const newCopPct = e.target.value;
+                                setClaimEditData((prev: any) => {
+                                  const claimAmt = parseFloat(prev.claimAmount) || 0;
+                                  const copPct = parseFloat(newCopPct) || 0;
+                                  const copType = prev.coPayType || 'Patient Pays';
+                                  const advStatus = prev.advanceStatus || 'Full Pay';
+                                  const advAmt = prev.advanceAmount || 0;
+                                  const calculated = calculateCoPayAmounts(claimAmt, copPct, copType, advStatus, advAmt);
+                                  return {
+                                    ...prev,
+                                    coPayPercent: newCopPct,
+                                    totalClaimAmount: calculated.totalClaimAmount,
+                                    pendingClaimAmount: calculated.pendingClaimAmount,
+                                    coPayAmount: calculated.coPayAmount,
+                                  };
+                                });
+                              }} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 h-[38px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" min="0" max="100" />
                             </div>
                             <div className="flex flex-col">
                               <label className="block text-xs font-medium text-gray-700 mb-1">Co-Pay Type</label>
-                              <select value={claimEditData.coPayType || 'Patient Pays'} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, coPayType: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 h-[38px]">
+                              <select value={claimEditData.coPayType || 'Patient Pays'} onChange={(e) => {
+                                const newCopType = e.target.value;
+                                setClaimEditData((prev: any) => {
+                                  const claimAmt = parseFloat(prev.claimAmount) || 0;
+                                  const copPct = parseFloat(prev.coPayPercent) || 0;
+                                  const copType = newCopType;
+                                  const advStatus = prev.advanceStatus || 'Full Pay';
+                                  const advAmt = prev.advanceAmount || 0;
+                                  const calculated = calculateCoPayAmounts(claimAmt, copPct, copType, advStatus, advAmt);
+                                  return {
+                                    ...prev,
+                                    coPayType: newCopType,
+                                    totalClaimAmount: calculated.totalClaimAmount,
+                                    pendingClaimAmount: calculated.pendingClaimAmount,
+                                    coPayAmount: calculated.coPayAmount,
+                                  };
+                                });
+                              }} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 h-[38px]">
                                 <option value="Patient Pays">Patient Pays</option>
                                 <option value="Deduct from Claim">Deduct from Claim</option>
                                 <option value="Clinic Adjusts">Clinic Adjusts</option>
@@ -8509,24 +9260,92 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                </div>
                             </div>
                             {(claimEditData.claimType === 'Advance' || claimEditData.claimType === 'Paid') && (
-                              <div className="grid grid-cols-2 gap-2 lg:col-span-1">
+                              <>
                                 <div className="flex flex-col">
-                                  <label className="block text-[10px] font-medium text-gray-700 mb-1 truncate">{claimEditData.claimType} Status</label>
+                                  <label className="block text-xs font-medium text-gray-700 mb-1 truncate">{claimEditData.claimType} Status</label>
                                   <select value={claimEditData.advanceStatus || 'Full Pay'} onChange={(e) => {
-                                    const amt = parseFloat(claimEditData.claimAmount) || 0;
-                                    setClaimEditData((prev: any) => ({
-                                      ...prev,
-                                      advanceStatus: e.target.value,
-                                      advanceAmount: e.target.value === 'Full Pay' ? amt : amt * 0.5,
-                                    }));
-                                  }} className="w-full px-2 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 h-[38px]">
+                                    const claimAmt = parseFloat(claimEditData.claimAmount) || 0;
+                                    const copPct = parseFloat(claimEditData.coPayPercent) || 0;
+                                    const copType = claimEditData.coPayType || 'Patient Pays';
+                                    let amtToPay = claimAmt;
+                                    if (copType === 'Patient Pays') {
+                                      amtToPay = claimAmt + (claimAmt * copPct / 100);
+                                    }
+                                    setClaimEditData((prev: any) => {
+                                      const newStatus = e.target.value;
+                                      let newAdvanceAmount = amtToPay;
+                                      if (newStatus === 'Partial Pay') {
+                                        newAdvanceAmount = amtToPay / 2;
+                                      }
+                                      const calculated = calculateCoPayAmounts(claimAmt, copPct, copType, newStatus, newAdvanceAmount);
+                                      return {
+                                        ...prev,
+                                        advanceStatus: newStatus,
+                                        advanceAmount: newAdvanceAmount,
+                                        totalClaimAmount: calculated.totalClaimAmount,
+                                        pendingClaimAmount: calculated.pendingClaimAmount,
+                                        coPayAmount: calculated.coPayAmount,
+                                      };
+                                    });
+                                  }} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 h-[38px]">
                                     <option value="Full Pay">Full</option>
                                     <option value="Partial Pay">Partial</option>
                                   </select>
                                 </div>
                                 <div className="flex flex-col">
-                                  <label className="block text-[10px] font-medium text-gray-700 mb-1 truncate">Amount</label>
-                                  <input type="number" value={claimEditData.advanceAmount ?? ''} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, advanceAmount: parseFloat(e.target.value) || 0 }))} className="w-full px-2 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-semibold h-[38px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" placeholder="0" min="0" step="0.01" />
+                                  <label className="block text-xs font-medium text-gray-700 mb-1 truncate">Amount</label>
+                                  <input type="number" value={claimEditData.advanceAmount ?? ''} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, advanceAmount: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-semibold h-[38px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" placeholder="0" min="0" step="0.01" />
+                                </div>
+                              </>
+                            )}
+                            {/* Co-Pay Calculated Summary for Edit Modal */}
+                            {(claimEditData.claimAmount && parseFloat(claimEditData.claimAmount) > 0 && claimEditData.coPayPercent) && (
+                              <div className="mt-3 pt-3 border-t border-purple-200">
+                                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-3 border border-indigo-200">
+                                  <div className="text-[10px] font-bold text-indigo-800 mb-2 flex items-center gap-1">
+                                    <Calculator className="w-3 h-3" />
+                                    Co-Pay Calculation Summary
+                                  </div>
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 text-xs">
+                                    <div className="bg-white rounded p-2 shadow-sm">
+                                      <span className="text-gray-500 block text-[10px]">Base Claim:</span>
+                                      <span className="font-semibold text-gray-800 text-xs">{formatAED(parseFloat(claimEditData.claimAmount) || 0)}</span>
+                                    </div>
+                                    {claimEditData.coPayType === 'Patient Pays' && (
+                                      <div className="bg-white rounded p-2 shadow-sm">
+                                        <span className="text-gray-500 block text-[10px]">Co-Pay ({claimEditData.coPayPercent}%):</span>
+                                        <span className="font-semibold text-orange-600 text-xs">+{formatAED(claimEditData.coPayAmount || 0)}</span>
+                                      </div>
+                                    )}
+                                    <div className={`rounded p-2 shadow-sm ${claimEditData.coPayType === 'Patient Pays' ? 'bg-indigo-100' : 'bg-white'}`}>
+                                      <span className={`${claimEditData.coPayType === 'Patient Pays' ? 'text-indigo-700' : 'text-gray-500'} block text-[10px]`}>Total Claim:</span>
+                                      <span className={`font-bold ${claimEditData.coPayType === 'Patient Pays' ? 'text-indigo-800' : 'text-gray-800'} text-xs`}>{formatAED(claimEditData.totalClaimAmount || parseFloat(claimEditData.claimAmount) || 0)}</span>
+                                    </div>
+                                    {claimEditData.advanceStatus === 'Full Pay' && (
+                                      <div className="bg-green-100 rounded p-2 shadow-sm">
+                                        <span className="text-green-700 block text-[10px]">Paid Amount:</span>
+                                        <span className="font-semibold text-green-800 text-xs">{formatAED(claimEditData.totalClaimAmount || parseFloat(claimEditData.claimAmount) || 0)}</span>
+                                      </div>
+                                    )}
+                                    {claimEditData.advanceStatus === 'Partial Pay' && (
+                                      <>
+                                        <div className="bg-green-100 rounded p-2 shadow-sm">
+                                          <span className="text-green-700 block text-[10px]">Paid Amount:</span>
+                                          <span className="font-semibold text-green-800 text-xs">{formatAED(claimEditData.advanceAmount || 0)}</span>
+                                        </div>
+                                        <div className="bg-orange-100 rounded p-2 shadow-sm">
+                                          <span className="text-orange-700 block text-[10px]">Pending Amount:</span>
+                                          <span className="font-semibold text-orange-800 text-xs">{formatAED(claimEditData.pendingClaimAmount || 0)}</span>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                  {claimEditData.coPayType === 'Clinic Adjusts' && (
+                                    <div className="mt-1.5 text-[9px] text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-200">
+                                      <Info className="w-3 h-3 inline mr-1" />
+                                      Co-Pay will be adjusted by clinic. No amount added to claim.
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             )}
@@ -8869,8 +9688,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     const amount = parseFloat(billing.amount) || 0;
                     const originalAmount = parseFloat(billing.originalAmount) || amount;
                     const paid = parseFloat(billing.paid || billing.paidAmount || 0) || 0;
+                    const advanceUsed = parseFloat(billing.advanceUsed || 0) || 0;
                     const pending = parseFloat(billing.pending || 0) || 0;
                     const pendingUsed = parseFloat(billing.pendingUsed || 0) || 0;
+                    const totalPaid = paid + advanceUsed; // Total paid including advance balance
                    
                     // Get invoice number early (needed for manuallyPaidInvoices check)
                     const invoiceNumber = billing.invoiceNumber || billing.invoiceNo || billing._id?.slice(-8).toUpperCase() || '';
@@ -8930,6 +9751,8 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                       treatmentStatus,
                       amount,
                       paid,
+                      advanceUsed, // Add advance used for UI display
+                      totalPaid, // Add total paid (cash + advance) for UI display
                       pendingAmount: remainingPending, // Use remaining pending after pendingUsed deduction
                       isFullyPaid,
                       invoiceNumber,
@@ -9301,7 +10124,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   </div>
                                   <div className="flex items-center justify-between text-sm">
                                     <span className="text-gray-500">Paid:</span>
-                                    <span className="font-semibold text-green-600">{getCurrencySymbol(currency)} {(item.paid || 0).toFixed(2)}</span>
+                                    <span className="font-semibold text-green-600">{getCurrencySymbol(currency)} {(item.totalPaid || item.paid || 0).toFixed(2)}</span>
                                   </div>
                                   {hasPendingAmount && (
                                     <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-100">
@@ -10033,6 +10856,84 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                           </div>
                         )}
                       </div>
+
+                      {/* ============================================================
+                          Pending Ledger Breakdown (additive, read-only).
+                          Shows the per-treatment / per-package contributions to
+                          the total pending balance shown above. Pure UI - the
+                          existing Pay button and balance.pendingBalance value
+                          remain the source of truth for all calculations and
+                          for the existing PayPendingBalanceModal.
+                          ============================================================ */}
+                      {balance.pendingBalance > 0 && pendingLedgerRows.length > 0 && (
+                        <div className="rounded-md border border-amber-200 bg-amber-50/50 overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => setShowPendingLedgerPanel((s) => !s)}
+                            className="w-full flex items-center justify-between px-3 py-2 hover:bg-amber-100/50 transition-colors"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">
+                                Pending Breakdown
+                              </span>
+                              <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-amber-200 text-amber-900">
+                                {pendingLedgerRows.length}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-amber-700 font-semibold">
+                              {showPendingLedgerPanel ? "Hide" : "Show details"}
+                            </span>
+                          </button>
+                          {showPendingLedgerPanel && (
+                            <div className="max-h-48 overflow-y-auto divide-y divide-amber-100 border-t border-amber-200">
+                              {pendingLedgerRows.map((row) => {
+                                const label =
+                                  row.service === "Package"
+                                    ? row.packageName || "Package"
+                                    : row.treatmentName || row.service || "Service";
+                                const isPartial = row.status === "Partial";
+                                return (
+                                  <div
+                                    key={row.ledgerId}
+                                    className="flex items-center justify-between px-3 py-1.5"
+                                  >
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-[11px] font-bold text-gray-800 truncate">
+                                        {label}
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[9px] text-gray-500 font-mono">
+                                          {row.invoiceNumber}
+                                        </span>
+                                        <span
+                                          className={
+                                            "px-1 py-0.5 text-[8px] font-bold rounded uppercase tracking-wide " +
+                                            (isPartial
+                                              ? "bg-amber-200 text-amber-800"
+                                              : "bg-rose-200 text-rose-800")
+                                          }
+                                        >
+                                          {row.status}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="text-right shrink-0 ml-2">
+                                      <div className="text-xs font-bold text-rose-600">
+                                        {formatAED(Number(row.remainingAmount || 0))}
+                                      </div>
+                                      {isPartial && Number(row.paidAmount || 0) > 0 && (
+                                        <div className="text-[9px] text-emerald-600 font-semibold">
+                                          Paid {formatAED(Number(row.paidAmount))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
                                          
                       {/* Advance Balance */}
                       <div className="flex items-center justify-between p-2 bg-teal-50 border border-teal-100 rounded-md">
@@ -10204,6 +11105,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           patientId={patientData._id}
           patientName={`${patientData.firstName} ${patientData.lastName}`}
           onSuccess={async () => {
+            // Refresh billing history to show advance payment in billing section
+            await fetchBillingHistory();
+            // Also refresh patient balance
             const updated = await fetchPatientBalance(patientData._id);
             if (updated) setBalance(updated as typeof balance);
           }}
@@ -10299,7 +11203,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         {showPaymentHistoryModal && selectedPaymentHistoryBilling && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-md" onClick={() => setShowPaymentHistoryModal(false)} />
-            <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+            <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
               {/* Header */}
               <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4 flex items-center justify-between">
                 <div>
@@ -10314,8 +11218,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                 </button>
               </div>
 
-              {/* Invoice Summary Card */}
-              <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-slate-50 border-b border-gray-200">
+              {/* Scrollable Body */}
+              <div className="flex-1 overflow-y-auto">
+                {/* Invoice Summary Card */}
+                <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-slate-50 border-b border-gray-200">
                 {/* <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="text-center">
                     <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Total Amount</p>
@@ -10381,7 +11287,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                 )}
 
                 {/* Discount & Offer Info */}
-                {(selectedPaymentHistoryBilling.discountPercent > 0 || selectedPaymentHistoryBilling.membershipDiscountApplied > 0 || selectedPaymentHistoryBilling.doctorDiscountAmount > 0 || selectedPaymentHistoryBilling.agentDiscountAmount > 0) && (
+                {/* {(selectedPaymentHistoryBilling.discountPercent > 0 || selectedPaymentHistoryBilling.membershipDiscountApplied > 0 || selectedPaymentHistoryBilling.doctorDiscountAmount > 0 || selectedPaymentHistoryBilling.agentDiscountAmount > 0) && (
                   <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
                     {selectedPaymentHistoryBilling.discountPercent > 0 && (
                       <div className="p-2 bg-amber-50 rounded-lg">
@@ -10408,7 +11314,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                       </div>
                     )}
                   </div>
-                )}
+                )} */}
 
                 {/* Cashback Info */}
                 {selectedPaymentHistoryBilling.cashbackEarned > 0 && (
@@ -10425,294 +11331,233 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
               </div>
 
               {/* Payment Details Section */}
-              <div className="px-6 py-4 overflow-y-auto max-h-[calc(90vh-300px)]">
-                {/* All Payments from multiplePayments array */}
-                {selectedPaymentHistoryBilling.multiplePayments && selectedPaymentHistoryBilling.multiplePayments.length > 0 && (
-                  <div className="mb-4">
-                    <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                      <div className="p-1.5 bg-indigo-100 rounded-full">
-                        <CreditCard className="w-4 h-4 text-indigo-600" />
+              <div className="px-6 py-4">
+                {/* Build complete payment timeline from paymentHistory */}
+                {(() => {
+                  const billing = selectedPaymentHistoryBilling;
+                  const history = billing.paymentHistory || [];
+                                
+                  // Derive individual payments from paymentHistory
+                  // If a history entry has multiplePayments with >1 item,
+                  // expand each sub-payment as its own entry.
+                  const allPayments = [];
+                  let prevPaid = 0;
+                                  
+                  for (let i = 0; i < history.length; i++) {
+                    const entry = history[i];
+                    const currentPaid = Number(entry.paid || 0);
+                    const paymentAmount = currentPaid - prevPaid;
+                    const subPayments = entry.multiplePayments || [];
+                    const isMultiPay = subPayments.length > 1;
+
+                    if (paymentAmount > 0) {
+                      if (isMultiPay) {
+                        // Expand each sub-payment as its own entry
+                        for (let j = 0; j < subPayments.length; j++) {
+                          const sub = subPayments[j];
+                          allPayments.push({
+                            paymentMethod: sub.paymentMethod || 'Cash',
+                            amount: Number(sub.amount || 0),
+                            paidAt: entry.updatedAt,
+                            status: entry.status,
+                            transactionType: sub.transactionType || (i === 0 ? 'INITIAL_PAYMENT' : 'PENDING_CLEARANCE'),
+                            paidByName: sub.paidByName || entry.paidByName || billing.invoicedBy || 'N/A',
+                            isSubPayment: true,
+                            parentIndex: i,
+                          });
+                        }
+                      } else {
+                        // Single payment method — use the entry directly
+                        allPayments.push({
+                          paymentMethod: entry.paymentMethod || subPayments[0]?.paymentMethod || 'Cash',
+                          amount: paymentAmount,
+                          paidAt: entry.updatedAt,
+                          status: entry.status,
+                          transactionType: subPayments[0]?.transactionType || (i === 0 ? 'INITIAL_PAYMENT' : 'PENDING_CLEARANCE'),
+                          paidByName: subPayments[0]?.paidByName || entry.paidByName || billing.invoicedBy || 'N/A',
+                        });
+                      }
+                    }
+                    prevPaid = currentPaid;
+                  }
+                                
+                  // If no payments derived from history, fall back to multiplePayments
+                  const paymentsToShow = allPayments.length > 0 ? allPayments : (billing.multiplePayments || []);
+                                
+                  if (paymentsToShow.length === 0) {
+                    return (
+                      <div className="mb-4">
+                        <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                          <div className="p-1.5 bg-indigo-100 rounded-full">
+                            <CreditCard className="w-4 h-4 text-indigo-600" />
+                          </div>
+                          Payment Details
+                        </h4>
+                        <div className="p-4 rounded-xl border-2 border-gray-200 bg-gray-50">
+                          <p className="text-sm text-gray-600">No payments recorded yet</p>
+                        </div>
                       </div>
-                      All Payments ({selectedPaymentHistoryBilling.multiplePayments.length})
-                    </h4>
-                    <div className="space-y-3">
-                      {selectedPaymentHistoryBilling.multiplePayments.map((payment: any, idx: number) => (
-                        <div key={idx} className="relative">
-                          {/* Payment Card */}
-                          <div className={`p-4 rounded-xl border-2 ${
-                            payment.transactionType === 'ADVANCE_USAGE'
-                              ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200'
-                              : payment.transactionType === 'CLAIM_USAGE'
-                                ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
-                                : payment.transactionType === 'PENDING_CLEARANCE'
-                                  ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
-                                  : 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200'
-                          }`}>
-                            <div className="flex items-start justify-between">
-                              <div className="flex items-center gap-3">
-                                {/* Payment Method Icon */}
-                                <div className={`p-2.5 rounded-xl ${
-                                  payment.paymentMethod === 'Cash' ? 'bg-green-100' :
-                                  payment.paymentMethod === 'Card' ? 'bg-blue-100' :
-                                  payment.paymentMethod === 'Advance Balance' ? 'bg-amber-100' :
-                                  payment.paymentMethod === 'Insurance' || payment.paymentMethod === 'Claim' ? 'bg-purple-100' :
-                                  'bg-gray-100'
-                                }`}>
-                                  {payment.paymentMethod === 'Cash' && <span className="text-lg">💵</span>}
-                                  {payment.paymentMethod === 'Card' && <span className="text-lg">💳</span>}
-                                  {payment.paymentMethod === 'Advance Balance' && <Wallet className="w-5 h-5 text-amber-600" />}
-                                  {(payment.paymentMethod === 'Insurance' || payment.paymentMethod === 'Claim') && <span className="text-lg">🏥</span>}
-                                  {!['Cash', 'Card', 'Advance Balance', 'Insurance', 'Claim'].includes(payment.paymentMethod) && <CreditCard className="w-5 h-5 text-gray-600" />}
+                    );
+                  }
+                                
+                  return (
+                    <div className="mb-4">
+                      <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                        <div className="p-1.5 bg-indigo-100 rounded-full">
+                          <CreditCard className="w-4 h-4 text-indigo-600" />
+                        </div>
+                        All Payments ({paymentsToShow.length})
+                      </h4>
+                      <div className="space-y-3">
+                        {paymentsToShow.map((payment: any, idx: number) => (
+                          <div key={idx} className="relative">
+                            {/* Payment Card */}
+                            <div className={`p-4 rounded-xl border-2 ${
+                              payment.transactionType === 'ADVANCE_USAGE'
+                                ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200'
+                                : payment.transactionType === 'CLAIM_USAGE'
+                                  ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
+                                  : payment.transactionType === 'PENDING_CLEARANCE'
+                                    ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
+                                    : 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200'
+                            }`}>
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-3">
+                                  {/* Payment Method Icon */}
+                                  <div className={`p-2.5 rounded-xl ${
+                                    payment.paymentMethod === 'Cash' ? 'bg-green-100' :
+                                    payment.paymentMethod === 'Card' ? 'bg-blue-100' :
+                                    payment.paymentMethod === 'BT' ? 'bg-purple-100' :
+                                    payment.paymentMethod === 'Advance Balance' ? 'bg-amber-100' :
+                                    payment.paymentMethod === 'Insurance' || payment.paymentMethod === 'Claim' ? 'bg-purple-100' :
+                                    'bg-gray-100'
+                                  }`}>
+                                    {payment.paymentMethod === 'Cash' && <span className="text-lg">💵</span>}
+                                    {payment.paymentMethod === 'Card' && <span className="text-lg">💳</span>}
+                                    {payment.paymentMethod === 'BT' && <span className="text-lg">🏦</span>}
+                                    {payment.paymentMethod === 'Advance Balance' && <Wallet className="w-5 h-5 text-amber-600" />}
+                                    {(payment.paymentMethod === 'Insurance' || payment.paymentMethod === 'Claim') && <span className="text-lg">🏥</span>}
+                                    {!['Cash', 'Card', 'BT', 'Advance Balance', 'Insurance', 'Claim'].includes(payment.paymentMethod) && <CreditCard className="w-5 h-5 text-gray-600" />}
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-bold text-gray-800">{payment.paymentMethod}</p>
+                                    <p className="text-[10px] text-gray-500">
+                                      {payment.paidAt ? new Date(payment.paidAt).toLocaleString('en-US', {
+                                        month: 'short', day: 'numeric', year: 'numeric',
+                                        hour: '2-digit', minute: '2-digit'
+                                      }) : 'N/A'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-xl font-bold text-gray-900">{getCurrencySymbol(currency)}{Number(payment.amount || 0).toLocaleString()}</p>
+                                  <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                    payment.transactionType === 'ADVANCE_USAGE' ? 'bg-amber-100 text-amber-700' :
+                                    payment.transactionType === 'CLAIM_USAGE' ? 'bg-blue-100 text-blue-700' :
+                                    payment.transactionType === 'PENDING_CLEARANCE' ? 'bg-green-100 text-green-700' :
+                                    payment.status === 'Completed' ? 'bg-green-100 text-green-700' :
+                                    'bg-gray-100 text-gray-600'
+                                  }`}>
+                                    {payment.transactionType === 'ADVANCE_USAGE' ? 'Advance' :
+                                     payment.transactionType === 'CLAIM_USAGE' ? 'Claim' :
+                                     payment.transactionType === 'PENDING_CLEARANCE' ? 'Pending Clear' :
+                                     payment.status === 'Completed' ? 'Paid' :
+                                     'Payment'}
+                                  </span>
+                                </div>
+                              </div>
+                              {/* Transaction Details */}
+                              <div className="mt-3 pt-3 border-t border-gray-200/50 grid grid-cols-3 gap-2">
+                                <div>
+                                  <p className="text-[9px] text-gray-400 uppercase">Transaction Type</p>
+                                  <p className="text-xs font-semibold text-gray-600">{payment.transactionType || 'PAYMENT'}</p>
                                 </div>
                                 <div>
-                                  <p className="text-sm font-bold text-gray-800">{payment.paymentMethod}</p>
-                                  <p className="text-[10px] text-gray-500">
-                                    {payment.paidAt ? new Date(payment.paidAt).toLocaleString('en-US', {
-                                      month: 'short', day: 'numeric', year: 'numeric',
-                                      hour: '2-digit', minute: '2-digit'
-                                    }) : 'N/A'}
-                                  </p>
+                                  <p className="text-[9px] text-gray-400 uppercase">Paid By</p>
+                                  <p className="text-xs font-semibold text-gray-600">{payment.paidByName || 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[9px] text-gray-400 uppercase">Payment #</p>
+                                  <p className="text-xs font-semibold text-gray-600">#{idx + 1}</p>
                                 </div>
                               </div>
-                              <div className="text-right">
-                                <p className="text-xl font-bold text-gray-900">{getCurrencySymbol(currency)}{Number(payment.amount || 0).toLocaleString()}</p>
-                                <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                                  payment.transactionType === 'ADVANCE_USAGE' ? 'bg-amber-100 text-amber-700' :
-                                  payment.transactionType === 'CLAIM_USAGE' ? 'bg-blue-100 text-blue-700' :
-                                  payment.transactionType === 'PENDING_CLEARANCE' ? 'bg-green-100 text-green-700' :
-                                  'bg-gray-100 text-gray-600'
-                                }`}>
-                                  {payment.transactionType === 'ADVANCE_USAGE' ? 'Advance' :
-                                   payment.transactionType === 'CLAIM_USAGE' ? 'Claim' :
-                                   payment.transactionType === 'PENDING_CLEARANCE' ? 'Pending Clear' :
-                                   'Payment'}
-                                </span>
+                            </div>
+                            {/* Timeline connector */}
+                            {idx < paymentsToShow.length - 1 && (
+                              <div className="absolute left-1/2 -bottom-3 w-0.5 h-3 bg-gray-300"></div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+                {/* Pending Cleared Breakdown - from PatientPendingLedger */}
+                {selectedPaymentHistoryBilling.pendingClearedBreakdown && selectedPaymentHistoryBilling.pendingClearedBreakdown.length > 0 && (
+                  <div className="border-t border-gray-200 pt-4">
+                    <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                      <div className="p-1.5 bg-emerald-100 rounded-full">
+                        <CheckCircle className="w-4 h-4 text-emerald-600" />
+                      </div>
+                      Pending Cleared Breakdown ({selectedPaymentHistoryBilling.pendingClearedBreakdown.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {selectedPaymentHistoryBilling.pendingClearedBreakdown.map((item: any, idx: number) => (
+                        <div key={idx} className="p-3 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">
+                                {item.service === 'Treatment' ? '🩺' : item.service === 'Package' ? '📦' : '🧾'}
+                              </span>
+                              <div>
+                                <p className="text-xs font-bold text-gray-800">
+                                  {item.treatmentName || item.packageName || item.service || 'N/A'}
+                                </p>
+                                <p className="text-[10px] text-gray-500">
+                                  {item.service || 'Service'}{item.invoiceNumber ? ` • ${item.invoiceNumber}` : ''}
+                                </p>
                               </div>
                             </div>
-                            {/* Transaction Details */}
-                            <div className="mt-3 pt-3 border-t border-gray-200/50 grid grid-cols-3 gap-2">
-                              <div>
-                                <p className="text-[9px] text-gray-400 uppercase">Transaction Type</p>
-                                <p className="text-xs font-semibold text-gray-600">{payment.transactionType || 'PAYMENT'}</p>
-                              </div>
-                              <div>
-                                <p className="text-[9px] text-gray-400 uppercase">Paid By</p>
-                                <p className="text-xs font-semibold text-gray-600">{payment.paidByName || 'N/A'}</p>
-                              </div>
-                              <div>
-                                <p className="text-[9px] text-gray-400 uppercase">Method Index</p>
-                                <p className="text-xs font-semibold text-gray-600">#{idx + 1}</p>
-                              </div>
+                            <div className="text-right">
+                              <p className="text-sm font-bold text-emerald-700">{getCurrencySymbol(currency)}{Number(item.amountCleared || 0).toLocaleString()}</p>
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                item.newStatus === 'Closed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                              }`}>
+                                {item.newStatus === 'Closed' ? '✓ Closed' : '⏳ Partial'}
+                              </span>
                             </div>
                           </div>
-                          {/* Timeline connector */}
-                          {idx < selectedPaymentHistoryBilling.multiplePayments.length - 1 && (
-                            <div className="absolute left-1/2 -bottom-3 w-0.5 h-3 bg-gray-300"></div>
+                          {item.newRemaining > 0 && (
+                            <div className="mt-2 pt-2 border-t border-emerald-200/50">
+                              <p className="text-[10px] text-gray-500">Remaining: <span className="font-bold text-amber-600">{getCurrencySymbol(currency)}{Number(item.newRemaining).toLocaleString()}</span></p>
+                            </div>
+                          )}
+                          {item.paymentMethod && (
+                            <div className="mt-1.5 flex items-center gap-1.5">
+                              <span className="text-[10px]">
+                                {item.paymentMethod === 'Cash' ? '💵' : item.paymentMethod === 'Card' ? '💳' : item.paymentMethod === 'BT' ? '🏦' : '💰'}
+                              </span>
+                              <span className="text-[10px] font-semibold text-gray-600">Paid via {item.paymentMethod}</span>
+                            </div>
+                          )}
+                          {!item.paymentMethod && selectedPaymentHistoryBilling.multiplePayments && selectedPaymentHistoryBilling.multiplePayments.length > 0 && (
+                            <div className="mt-1.5 flex items-center gap-1.5">
+                              <span className="text-[10px]">
+                                {selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod === 'Cash' ? '💵' : selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod === 'Card' ? '💳' : selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod === 'BT' ? '🏦' : '💰'}
+                              </span>
+                              <span className="text-[10px] font-semibold text-gray-600">Paid via {selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod || 'Cash'}</span>
+                            </div>
                           )}
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
-
-                {/* [COMMENTED OUT] Payment History from billing records */}
-                {false && selectedPaymentHistoryBilling.paymentHistory && selectedPaymentHistoryBilling.paymentHistory.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                      <div className="p-1.5 bg-purple-100 rounded-full">
-                        <ClipboardList className="w-4 h-4 text-purple-600" />
-                      </div>
-                      Payment History Timeline ({selectedPaymentHistoryBilling.paymentHistory.length})
-                    </h4>
-                    <div className="relative pl-6 space-y-4 border-l-2 border-purple-200">
-                      {selectedPaymentHistoryBilling.paymentHistory.map((history: any, hIdx: number) => (
-                        <div key={hIdx} className="relative">
-                          {/* Timeline dot */}
-                          <div className={`absolute -left-[25px] w-4 h-4 rounded-full border-2 ${
-                            history.status === 'Completed' ? 'bg-green-500 border-green-500' :
-                            history.status === 'Active' ? 'bg-amber-500 border-amber-500' :
-                            'bg-gray-400 border-gray-400'
-                          }`}>
-                            {history.status === 'Completed' && (
-                              <Check className="w-3 h-3 text-white absolute top-0.5 left-0.5" />
-                            )}
-                          </div>
-                         
-                          {/* History Card */}
-                          <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100">
-                            <div className="flex items-center justify-between mb-3">
-                              <div>
-                                <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                                  history.transactionType === 'PENDING_CLEARANCE' ? 'bg-green-100 text-green-700' :
-                                  history.transactionType === 'PARTIAL_PAYMENT' ? 'bg-amber-100 text-amber-700' :
-                                  'bg-gray-100 text-gray-600'
-                                }`}>
-                                  {history.transactionType === 'PENDING_CLEARANCE' ? '✓ Completed' :
-                                   history.transactionType === 'PARTIAL_PAYMENT' ? '⏳ Partial' :
-                                   history.transactionType || 'Payment'}
-                                </span>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-lg font-bold text-gray-900">{getCurrencySymbol(currency)}{Number(history.amountPaid || history.paid || 0).toLocaleString()}</p>
-                                <p className="text-[9px] text-gray-400">
-                                  {history.updatedAt ? new Date(history.updatedAt).toLocaleString('en-US', {
-                                    month: 'short', day: 'numeric', year: 'numeric',
-                                    hour: '2-digit', minute: '2-digit'
-                                  }) : 'N/A'}
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Payment Summary */}
-                            <div className="grid grid-cols-4 gap-2 mb-3">
-                              <div className="bg-white/50 rounded-lg p-2 text-center">
-                                <p className="text-[9px] text-gray-400 uppercase">Total</p>
-                                <p className="text-xs font-bold text-gray-700">{getCurrencySymbol(currency)}{Number(history.amount || 0).toLocaleString()}</p>
-                              </div>
-                              {/* <div className="bg-white/50 rounded-lg p-2 text-center">
-                                <p className="text-[9px] text-gray-400 uppercase">Paid</p>
-                                <p className="text-xs font-bold text-green-600">{getCurrencySymbol(currency)}{Number(history.paid || 0).toLocaleString()}</p>
-                              </div>
-                              <div className="bg-white/50 rounded-lg p-2 text-center">
-                                <p className="text-[9px] text-gray-400 uppercase">Pending</p>
-                                <p className="text-xs font-bold text-red-600">{getCurrencySymbol(currency)}{Number(history.pending || 0).toLocaleString()}</p>
-                              </div>
-                              <div className="bg-white/50 rounded-lg p-2 text-center">
-                                <p className="text-[9px] text-gray-400 uppercase">Remaining</p>
-                                <p className="text-xs font-bold text-amber-600">{getCurrencySymbol(currency)}{Number(history.remainingPending || 0).toLocaleString()}</p>
-                              </div> */}
-                            </div>
-
-                            {/* Payment Methods in this history */}
-                            {history.multiplePayments && history.multiplePayments.length > 0 && (
-                              <div className="mt-3 pt-3 border-t border-purple-100">
-                                <p className="text-[10px] text-purple-600 font-bold mb-2">Payment Breakdown:</p>
-                                <div className="flex flex-wrap gap-2">
-                                  {history.multiplePayments.map((mp: any, mpIdx: number) => (
-                                    <div key={mpIdx} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs ${
-                                      mp.transactionType === 'ADVANCE_USAGE' ? 'bg-amber-100 text-amber-700' :
-                                      mp.transactionType === 'CLAIM_USAGE' ? 'bg-blue-100 text-blue-700' :
-                                      'bg-green-100 text-green-700'
-                                    }`}>
-                                      {mp.paymentMethod}
-                                      <span className="font-bold">{getCurrencySymbol(currency)}{Number(mp.amount || 0).toLocaleString()}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                                {history.advanceAmountUsed > 0 && (
-                                  <div className="mt-2 flex items-center gap-1 text-[9px] text-amber-600">
-                                    <Wallet className="w-3 h-3" />
-                                    <span>Advance Used: {getCurrencySymbol(currency)}{history.advanceAmountUsed}</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Paid By Info */}
-                            <div className="mt-3 pt-3 border-t border-purple-100/50 flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-purple-200 flex items-center justify-center">
-                                  <span className="text-[10px] font-bold text-purple-700">
-                                    {(history.paidByName || 'U').charAt(0).toUpperCase()}
-                                  </span>
-                                </div>
-                                <span className="text-xs text-gray-600">{history.paidByName || 'Unknown'}</span>
-                              </div>
-                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                                history.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                              }`}>
-                                {history.status || 'Active'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* [COMMENTED OUT] Additional Billing Info */}
-                {false && (
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <h4 className="text-sm font-bold text-gray-800 mb-3">Additional Information</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-[10px] text-gray-500 uppercase mb-1">Advance Balance Used</p>
-                      <p className="text-sm font-bold text-gray-700">{getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.advanceUsed || 0).toLocaleString()}</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-[10px] text-gray-500 uppercase mb-1">Claim Amount Used</p>
-                      <p className="text-sm font-bold text-gray-700">{getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.claimAmountUsed || 0).toLocaleString()}</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-[10px] text-gray-500 uppercase mb-1">Pending Used</p>
-                      <p className="text-sm font-bold text-gray-700">{getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.pendingUsed || 0).toLocaleString()}</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-[10px] text-gray-500 uppercase mb-1">Cashback Wallet Used</p>
-                      <p className="text-sm font-bold text-gray-700">{getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.cashbackWalletUsed || 0).toLocaleString()}</p>
-                    </div>
-                  </div>
-                 
-                  {/* Notes */}
-                  {selectedPaymentHistoryBilling.notes && (
-                    <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-100">
-                      <p className="text-[10px] text-amber-600 uppercase font-bold mb-1">Notes</p>
-                      <p className="text-sm text-gray-700">{selectedPaymentHistoryBilling.notes}</p>
-                    </div>
-                  )}
-
-                  {/* Offer Applied */}
-                  {selectedPaymentHistoryBilling.offerApplied && (
-                    <div className="mt-3 p-3 bg-indigo-50 rounded-lg border border-indigo-100">
-                      <p className="text-[10px] text-indigo-600 uppercase font-bold mb-1">Offer Applied</p>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-indigo-700">{selectedPaymentHistoryBilling.offerName || selectedPaymentHistoryBilling.offerType || 'Special Offer'}</span>
-                        {selectedPaymentHistoryBilling.offerDiscountAmount > 0 && (
-                          <span className="text-xs text-indigo-600">({getCurrencySymbol(currency)}{selectedPaymentHistoryBilling.offerDiscountAmount} off)</span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Bundle Sessions */}
-                  {selectedPaymentHistoryBilling.bundleSessionsAdded > 0 && (
-                    <div className="mt-3 p-3 bg-teal-50 rounded-lg border border-teal-100">
-                      <p className="text-[10px] text-teal-600 uppercase font-bold mb-1">Bundle Sessions Added</p>
-                      <p className="text-lg font-bold text-teal-700">{selectedPaymentHistoryBilling.bundleSessionsAdded} Free Sessions</p>
-                    </div>
-                  )}
-
-                  {/* Refund Info */}
-                  {selectedPaymentHistoryBilling.isOfferRefunded && (
-                    <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <XCircle className="w-4 h-4 text-red-600" />
-                        <span className="text-sm font-bold text-red-700">Offer Refunded</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <p className="text-[9px] text-red-400">Refunded Amount</p>
-                          <p className="font-bold text-red-700">{getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.refundedAmount || 0).toLocaleString()}</p>
-                        </div>
-                        {selectedPaymentHistoryBilling.refundedAt && (
-                          <div>
-                            <p className="text-[9px] text-red-400">Refunded Date</p>
-                            <p className="font-bold text-red-700">
-                              {new Date(selectedPaymentHistoryBilling.refundedAt).toLocaleDateString('en-US', {
-                                month: 'short', day: 'numeric', year: 'numeric'
-                              })}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                )}
               </div>
+              </div>
+
               {/* Footer */}
-              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+              <div className="shrink-0 px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
                 <div className="text-xs text-gray-500">
                   <p>Invoice: {selectedPaymentHistoryBilling.invoiceNumber}</p>
                   <p>Created: {selectedPaymentHistoryBilling.createdAt ? new Date(selectedPaymentHistoryBilling.createdAt).toLocaleString() : 'N/A'}</p>
@@ -10872,7 +11717,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   </div>
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-xs text-amber-700 font-semibold">Paid:</span>
-                    <span className="text-sm font-bold text-green-700">{getCurrencySymbol(currency)} {(selectedInvoiceForPayment.paid || 0).toFixed(2)}</span>
+                    <span className="text-sm font-bold text-green-700">{getCurrencySymbol(currency)} {(selectedInvoiceForPayment.totalPaid || selectedInvoiceForPayment.paid || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center pt-2 border-t border-amber-200">
                     <span className="text-xs text-red-700 font-bold">Pending:</span>

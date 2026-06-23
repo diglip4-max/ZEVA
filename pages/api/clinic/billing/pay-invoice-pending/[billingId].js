@@ -159,6 +159,88 @@ export default async function handler(req, res) {
 
     await billing.save();
 
+    // ============================================================
+    // Enterprise Pending Ledger: clear the ledger row(s) for this
+    // specific billing so the per-treatment/package audit trail
+    // stays in sync with the legacy Billing.pending update above.
+    // ============================================================
+    let ledgerBreakdown = [];
+    try {
+      const PatientPendingLedger = (await import("../../../../../models/PatientPendingLedger")).default;
+      const { applyClearance } = await import("../../../../../lib/pendingLedger");
+
+      // Find Open/Partial ledger rows for THIS billing
+      const openLedgers = await PatientPendingLedger.find({
+        parentBillingId: billing._id,
+        status: { $in: ["Open", "Partial"] },
+      })
+        .sort({ createdAt: 1 })
+        .lean();
+
+      if (openLedgers.length > 0 && totalPayment > 0) {
+        // Build allocations against this billing's ledger rows
+        const allocations = [];
+        let remaining = totalPayment;
+        for (const l of openLedgers) {
+          if (remaining <= 0) break;
+          const take = Math.min(remaining, Number(l.remainingAmount || 0));
+          if (take > 0) {
+            allocations.push({ ledgerId: l.ledgerId, amount: take });
+            remaining = Number((remaining - take).toFixed(2));
+          }
+        }
+
+        if (allocations.length > 0) {
+          const clearanceResult = await applyClearance({
+            allocations,
+            clearingBillingId: billing._id,
+            clearingInvoiceNumber: billing.invoiceNumber,
+            paymentMethod: paymentMethod || "Cash",
+            paidBy: clinicUser._id,
+            paidByName: clinicUser.name || "Staff",
+            transactionType: "PENDING_CLEARANCE",
+            notes: notes || `Payment towards invoice ${billing.invoiceNumber}`,
+            useTransaction: false,
+          });
+
+          ledgerBreakdown = Array.isArray(clearanceResult?.breakdown)
+            ? clearanceResult.breakdown
+            : [];
+
+          if (ledgerBreakdown.length > 0) {
+            // Persist the breakdown on the billing for audit trail
+            await Billing.findByIdAndUpdate(
+              billing._id,
+              {
+                $set: {
+                  pendingClearedBreakdown: ledgerBreakdown.map((b) => ({
+                    ledgerId: b.ledgerId,
+                    invoiceNumber: b.invoiceNumber,
+                    service: b.service,
+                    treatmentSlug: b.treatmentSlug || null,
+                    treatmentName: b.treatmentName || null,
+                    packageId: b.packageId || null,
+                    packageName: b.packageName || null,
+                    amountCleared: b.amountCleared,
+                    newStatus: b.newStatus,
+                    newRemaining: b.newRemaining,
+                    paymentMethod: b.paymentMethod || paymentMethod || null,
+                  })),
+                },
+              },
+            );
+            console.log(
+              "[PayInvoicePending] ✓ Cleared", ledgerBreakdown.length, "ledger row(s) for billing", billing._id,
+            );
+          }
+        }
+      } else {
+        console.log("[PayInvoicePending] No Open/Partial ledger rows found for billing", billing._id);
+      }
+    } catch (ledgerErr) {
+      console.error("[PayInvoicePending] ✗ Ledger clearance failed:", ledgerErr.message);
+    }
+
     // Add to PettyCash if payment method is Cash
     if (paymentMethod === "Cash" && Number(amount) > 0) {
       try {
@@ -235,7 +317,23 @@ export default async function handler(req, res) {
               break;
             }
             
-            // Check 2: Match by package name from Package model
+            // Check 2: Match by packageId field in billing (for transferred packages)
+            if (billing.packageId && String(pkg.packageId) === String(billing.packageId)) {
+              matchingPackageIndex = i;
+              matchingPackage = pkg;
+              console.log('[PayInvoicePending] Match by billing.packageId found at index', i);
+              break;
+            }
+            
+            // Check 3: Match by packageName field directly (fallback for transferred packages)
+            if (pkg.packageName && String(pkg.packageName).toLowerCase() === String(billing.package).toLowerCase()) {
+              matchingPackageIndex = i;
+              matchingPackage = pkg;
+              console.log('[PayInvoicePending] Match by packageName found at index', i);
+              break;
+            }
+            
+            // Check 4: Match by package name from Package model
             if (pkg.packageId) {
               try {
                 const pkgModel = await Package.findById(pkg.packageId);
@@ -248,6 +346,21 @@ export default async function handler(req, res) {
                 }
               } catch (pkgErr) {
                 console.log('[PayInvoicePending] Error fetching package model:', pkgErr);
+              }
+            }
+            
+            // Check 5: Match by packageId name (for transferred packages where packageName might not match)
+            if (pkg.packageId && billing.package) {
+              try {
+                const pkgModel = await Package.findById(pkg.packageId);
+                if (pkgModel && pkgModel.name && String(pkgModel.name).toLowerCase() === String(billing.package).toLowerCase()) {
+                  matchingPackageIndex = i;
+                  matchingPackage = pkg;
+                  console.log('[PayInvoicePending] Match by packageId name found at index', i);
+                  break;
+                }
+              } catch (pkgErr) {
+                // Ignore errors
               }
             }
           }
@@ -287,6 +400,9 @@ export default async function handler(req, res) {
             
             console.log('[PayInvoicePending] Updated package object in array:', patient.packages[matchingPackageIndex]);
             
+            // Mark the packages array as modified to ensure mongoose saves the changes
+            patient.markModified('packages');
+            
             // Also update the top-level package fields in PatientRegistration
             patient.packageId = patient.packageId || pkg.packageId;
             patient.packageTotalPrice = patient.packageTotalPrice || totalPrice;
@@ -321,10 +437,21 @@ export default async function handler(req, res) {
       }
     }
 
+    // Refresh billing from DB to include updated ledger cached fields
+    let billingForResponse = billing;
+    try {
+      const refreshed = await Billing.findById(billing._id).lean();
+      if (refreshed) billingForResponse = refreshed;
+    } catch (refreshErr) {
+      console.warn("[PayInvoicePending] Billing refresh failed:", refreshErr.message);
+    }
+
     return res.status(200).json({
       success: true,
       message: "Payment recorded successfully",
-      data: billing,
+      data: billingForResponse,
+      pendingClearedBreakdown: ledgerBreakdown,
+      totalCleared: ledgerBreakdown.reduce((sum, b) => sum + (b.amountCleared || 0), 0),
     });
   } catch (error) {
     console.error("Error recording invoice payment:", error);

@@ -29,6 +29,7 @@ import {
   Eye,
   X,
   ExternalLink,
+  Mail,
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { useRouter } from "next/router";
@@ -48,13 +49,15 @@ function cn(...inputs: ClassValue[]) {
 const CampaignEditPage: NextPageWithLayout = () => {
   const router = useRouter();
   const { campaignId } = router.query;
-  const { whatsappProviders, smsProviders } = useProvider();
+  const { whatsappProviders, smsProviders, emailProviders } = useProvider();
 
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedProviderId, setSelectedProviderId] = useState<string>("");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [name, setName] = useState<string>("");
+  const [subject, setSubject] = useState<string>("");
+  const [preheader, setPreheader] = useState<string>("");
   const [description, setDescription] = useState<string>("");
   const [whatsappMsgType, setWhatsappMsgType] =
     useState<string>("template-message");
@@ -109,7 +112,9 @@ const CampaignEditPage: NextPageWithLayout = () => {
       ? whatsappProviders
       : campaign?.type === "sms"
         ? smsProviders
-        : []
+        : campaign?.type === "email"
+          ? emailProviders
+          : []
   ).find((p) => p._id === selectedProviderId);
 
   const handleRemoveDuplicates = () => {
@@ -158,15 +163,15 @@ const CampaignEditPage: NextPageWithLayout = () => {
         };
       case "email":
         return {
-          primary: "red",
-          primaryBg: "bg-red-600",
-          primaryHover: "hover:bg-red-700",
-          primaryShadow: "shadow-red-200",
-          primaryLight: "bg-red-50",
-          primaryBorder: "border-red-400",
-          primaryText: "text-red-600",
-          primaryTextHover: "hover:text-red-700",
-          icon: <MessageSquare className="w-5 h-5 text-red-500" />,
+          primary: "purple",
+          primaryBg: "bg-purple-600",
+          primaryHover: "hover:bg-purple-700",
+          primaryShadow: "shadow-purple-200",
+          primaryLight: "bg-purple-50",
+          primaryBorder: "border-purple-400",
+          primaryText: "text-purple-600",
+          primaryTextHover: "hover:text-purple-700",
+          icon: <Mail className="w-5 h-5 text-purple-500" />,
         };
       default:
         return {
@@ -191,12 +196,17 @@ const CampaignEditPage: NextPageWithLayout = () => {
       ? whatsappProviders
       : campaign?.type === "sms"
         ? smsProviders
-        : []
+        : campaign?.type === "email"
+          ? emailProviders
+          : []
   ).filter(
     (p) =>
       p.name.toLowerCase().includes(providerSearchTerm.toLowerCase()) ||
       p.label.toLowerCase().includes(providerSearchTerm.toLowerCase()) ||
-      p.phone.toLowerCase().includes(providerSearchTerm.toLowerCase()),
+      (p.phone &&
+        p.phone.toLowerCase().includes(providerSearchTerm.toLowerCase())) ||
+      (p.email &&
+        p.email.toLowerCase().includes(providerSearchTerm.toLowerCase())),
   );
 
   // Filter templates based on search and provider
@@ -270,6 +280,8 @@ const CampaignEditPage: NextPageWithLayout = () => {
         const camp = data.campaign;
         setCampaign(camp);
         setName(camp.name || "");
+        setSubject(camp.subject || "");
+        setPreheader(camp.preheader || "");
         setDescription(camp.description || "");
         setSelectedProviderId(camp.sender?._id || camp.sender || "");
         setSelectedSegmentId(camp.segmentId?._id || camp.segmentId || "");
@@ -288,7 +300,7 @@ const CampaignEditPage: NextPageWithLayout = () => {
         setButtonVariableMappings(camp.buttonVariableMappings || {});
 
         setRecipientType(camp.recipientType || "segment");
-        setManualNumbers(camp.manualNumbers || "");
+        setManualNumbers(camp.manualNumbers || camp.manualEmails || "");
       }
     } catch (err) {
       console.error("Error fetching campaign:", err);
@@ -530,6 +542,8 @@ const CampaignEditPage: NextPageWithLayout = () => {
         `/api/campaigns/${campaignId}`,
         {
           name,
+          subject,
+          preheader,
           description,
           sender: selectedProviderId,
           template: selectedTemplateId,
@@ -552,7 +566,13 @@ const CampaignEditPage: NextPageWithLayout = () => {
           recipientType, // Add this
           segmentId:
             recipientType === "segment" ? selectedSegmentId : undefined,
-          manualNumbers: recipientType === "manual" ? manualNumbers : undefined,
+          ...(campaign?.type === "email" && recipientType === "manual"
+            ? { manualEmails: manualNumbers }
+            : {}),
+          ...((campaign?.type === "sms" || campaign?.type === "whatsapp") &&
+          recipientType === "manual"
+            ? { manualNumbers }
+            : undefined),
         },
         { headers: { Authorization: `Bearer ${token}` } },
       );
@@ -598,6 +618,8 @@ const CampaignEditPage: NextPageWithLayout = () => {
         `/api/campaigns/${campaignId}`,
         {
           name,
+          subject,
+          preheader,
           description,
           sender: selectedProviderId,
           template: selectedTemplateId,
@@ -625,7 +647,13 @@ const CampaignEditPage: NextPageWithLayout = () => {
           recipientType, // Add this
           segmentId:
             recipientType === "segment" ? selectedSegmentId : undefined,
-          manualNumbers: recipientType === "manual" ? manualNumbers : undefined,
+          ...(campaign?.type === "email" && recipientType === "manual"
+            ? { manualEmails: manualNumbers }
+            : {}),
+          ...((campaign?.type === "sms" || campaign?.type === "whatsapp") &&
+          recipientType === "manual"
+            ? { manualNumbers }
+            : undefined),
         },
         { headers: { Authorization: `Bearer ${token}` } },
       );
@@ -650,9 +678,13 @@ const CampaignEditPage: NextPageWithLayout = () => {
     if (selectedTemplate && selectedTemplate?.headerFileUrl) {
       setMediaUrl(selectedTemplate?.headerFileUrl || "");
       setMediaType(selectedTemplate?.headerType || "");
+      setSubject(selectedTemplate?.subject || "");
+      setPreheader(selectedTemplate?.preheader || "");
     } else {
       setMediaUrl("");
       setMediaType("");
+      setSubject("");
+      setPreheader("");
     }
 
     // Reset variable mappings when template changes
@@ -722,6 +754,7 @@ const CampaignEditPage: NextPageWithLayout = () => {
                   !name ||
                   !selectedProviderId ||
                   !selectedTemplateId ||
+                  (campaign?.type === "email" && !subject) ||
                   (recipientType === "segment" && !selectedSegmentId) ||
                   (recipientType === "manual" &&
                     (!manualNumbers.trim() ||
@@ -746,6 +779,7 @@ const CampaignEditPage: NextPageWithLayout = () => {
                   !name ||
                   !selectedProviderId ||
                   !selectedTemplateId ||
+                  (campaign?.type === "email" && !subject) ||
                   (recipientType === "segment" && !selectedSegmentId) ||
                   (recipientType === "manual" &&
                     (!manualNumbers.trim() ||
@@ -833,7 +867,9 @@ const CampaignEditPage: NextPageWithLayout = () => {
             </div>
 
             {/* WhatsApp Configuration */}
-            {(campaign?.type === "whatsapp" || campaign?.type === "sms") && (
+            {(campaign?.type === "whatsapp" ||
+              campaign?.type === "sms" ||
+              campaign?.type === "email") && (
               <div
                 className={`bg-white rounded-2xl border border-gray-200 p-6 space-y-4`}
               >
@@ -846,6 +882,40 @@ const CampaignEditPage: NextPageWithLayout = () => {
                       : "Email"}{" "}
                   Configuration
                 </h2>
+
+                {/* Email Subject and Preheader */}
+                {campaign?.type === "email" && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Subject <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={subject}
+                        onChange={(e) => setSubject(e.target.value)}
+                        placeholder="Enter email subject"
+                        className={`w-full px-4 py-2.5 bg-gray-50 text-gray-500 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-${theme.primary}-500 focus:border-${theme.primary}-400 hover:border-${theme.primary}-400 outline-none transition-all`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Preheader
+                      </label>
+                      <input
+                        type="text"
+                        value={preheader}
+                        onChange={(e) => setPreheader(e.target.value)}
+                        placeholder="Enter email preheader"
+                        className={`w-full px-4 py-2.5 bg-gray-50 text-gray-500 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-${theme.primary}-500 focus:border-${theme.primary}-400 hover:border-${theme.primary}-400 outline-none transition-all`}
+                      />
+                      <p className="text-[10px] text-gray-500 mt-1">
+                        The short summary text that follows the subject line
+                        when viewing an email in an inbox.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Provider Selection */}
                 <div className="space-y-3 relative" ref={providerDropdownRef}>
@@ -969,8 +1039,18 @@ const CampaignEditPage: NextPageWithLayout = () => {
                           : "text-gray-500 hover:text-gray-700",
                       )}
                     >
-                      <Phone className="w-4 h-4 inline mr-2" />
-                      Manual Numbers
+                      {campaign?.type === "sms" ||
+                      campaign?.type === "whatsapp" ? (
+                        <>
+                          <Phone className="w-4 h-4 inline mr-2" />
+                          Manual Numbers
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="w-4 h-4 inline mr-2" />
+                          Manual Emails
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -1079,17 +1159,26 @@ const CampaignEditPage: NextPageWithLayout = () => {
                   </div>
                 )}
 
-                {/* Manual Numbers Input (shown when recipientType is "manual") */}
+                {/* Manual Numbers/Emails Input (shown when recipientType is "manual") */}
                 {recipientType === "manual" && (
                   <div className="space-y-3">
                     <label className="text-sm font-bold text-gray-900 flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <Phone className="w-4 h-4 text-gray-400" /> WhatsApp
-                        Numbers
+                        {campaign?.type === "email" ? (
+                          <Mail className="w-4 h-4 text-gray-400" />
+                        ) : (
+                          <Phone className="w-4 h-4 text-gray-400" />
+                        )}
+                        {campaign?.type === "email"
+                          ? "Email Addresses"
+                          : campaign?.type === "whatsapp"
+                            ? "WhatsApp Numbers"
+                            : "Phone Numbers"}
                         <span className="text-red-500">*</span>
                       </div>
                       <span className="text-xs text-gray-500">
-                        Max 5000 numbers
+                        Max 5000{" "}
+                        {campaign?.type === "email" ? "emails" : "numbers"}
                       </span>
                     </label>
 
@@ -1097,8 +1186,11 @@ const CampaignEditPage: NextPageWithLayout = () => {
                       <textarea
                         value={manualNumbers}
                         onChange={(e) => setManualNumbers(e.target.value)}
-                        placeholder="Enter phone numbers with country code (e.g., 919876543210)
-One number per line Max 5000 numbers"
+                        placeholder={
+                          campaign?.type === "email"
+                            ? "Enter email addresses, one per line"
+                            : "Enter phone numbers with country code (e.g., 919876543210), one per line"
+                        }
                         rows={8}
                         className={cn(
                           `w-full px-4 py-3 bg-gray-50 text-gray-500 border rounded-xl text-sm font-mono focus:ring-2 focus:ring-${theme.primary}-500 focus:border-${theme.primary}-400 outline-none transition-all resize-y`,
@@ -1121,11 +1213,12 @@ One number per line Max 5000 numbers"
                       )}
                     </div>
 
-                    {/* Numbers Counter */}
+                    {/* Counter */}
                     {manualNumbers.trim() && (
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-gray-500">
-                          Total numbers:{" "}
+                          Total{" "}
+                          {campaign?.type === "email" ? "emails" : "items"}:{" "}
                           <strong className="text-gray-700">
                             {
                               manualNumbers.split("\n").filter((n) => n.trim())
@@ -1144,10 +1237,18 @@ One number per line Max 5000 numbers"
                       </div>
                     )}
 
-                    <div className="p-3 bg-blue-50 rounded-lg text-xs text-blue-700">
-                      💡 Numbers must include country code (e.g., 91 for India).
-                      Example: 919876543210
-                    </div>
+                    {/* Tip */}
+                    {campaign?.type === "email" ? (
+                      <div className="p-3 bg-blue-50 rounded-lg text-xs text-blue-700">
+                        💡 Enter valid email addresses. Example:
+                        contact@zeva.app
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-blue-50 rounded-lg text-xs text-blue-700">
+                        💡 Numbers must include country code (e.g., 91 for
+                        India). Example: 919876543210
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1203,7 +1304,7 @@ One number per line Max 5000 numbers"
                       <span className="truncate">
                         {selectedTemplate
                           ? selectedTemplate.name
-                          : `Choose a ${campaign?.type === "whatsapp" ? "WhatsApp" : "SMS"} template`}
+                          : `Choose a ${campaign?.type || ""} template`}
                       </span>
                       <ChevronDown
                         className={cn(
@@ -1264,8 +1365,8 @@ One number per line Max 5000 numbers"
                                         {t.name}
                                       </span>
                                       <span className="text-[10px] text-gray-500 font-medium">
-                                        {t.category.toUpperCase()} •{" "}
-                                        {t.language}
+                                        {t.category?.toUpperCase() || ""} •{" "}
+                                        {t.language || ""}
                                       </span>
                                     </div>
                                     {selectedTemplateId === t._id && (
@@ -1346,7 +1447,7 @@ One number per line Max 5000 numbers"
                           </h4>
                           <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                             <pre className="text-sm text-gray-800 whitespace-pre-wrap font-sans">
-                              {selectedTemplate?.content}
+                              {selectedTemplate?.content || ""}
                             </pre>
                           </div>
                         </div>
@@ -1617,274 +1718,255 @@ One number per line Max 5000 numbers"
             )}
           </div>
 
-          {/* Right Column - WhatsApp Preview */}
-          {campaign?.type === "whatsapp" && (
-            <div className="lg:sticky lg:top-24 h-fit space-y-3">
-              <label className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                <Smartphone className="w-4 h-4 text-gray-400" />
-                WhatsApp Preview
-              </label>
-              <div className="bg-[#e5ddd5] rounded-2xl p-4 min-h-[400px]">
-                <div className="relative bg-[#e5ddd5] rounded-lg overflow-hidden">
-                  {/* Message Bubble */}
-                  <div className="max-w-[85%] ml-auto bg-[#dcf8c6] rounded-lg shadow-sm p-3 mb-2">
-                    {/* Message Header */}
-                    <div className="text-xs text-gray-500 font-medium mb-1">
-                      You
+          {/* Right Column - Preview */}
+          <div className="space-y-6">
+            <div className="sticky top-24">
+              <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Eye className="w-5 h-5 text-gray-400" />
+                Live Preview
+              </h2>
+
+              {campaign?.type === "email" ? (
+                /* Email Preview */
+                <div className="bg-white rounded-3xl border border-gray-200 shadow-xl overflow-hidden flex flex-col h-[700px]">
+                  {/* Browser Header */}
+                  <div className="bg-gray-100 px-4 py-3 flex items-center gap-2 border-b border-gray-200">
+                    <div className="flex gap-1.5">
+                      <div className="w-3 h-3 rounded-full bg-red-400" />
+                      <div className="w-3 h-3 rounded-full bg-yellow-400" />
+                      <div className="w-3 h-3 rounded-full bg-green-400" />
+                    </div>
+                    <div className="flex-1 ml-2">
+                      <div className="bg-white rounded-lg px-3 py-1 text-[10px] text-gray-400 flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-gray-100" />
+                        zeva.app/campaign/preview
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Email Inbox Preview */}
+                  <div className="bg-white border-b border-gray-100 p-4">
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`w-10 h-10 rounded-full ${theme.primaryBg} flex items-center justify-center text-white font-bold text-lg shadow-lg`}
+                      >
+                        {selectedProvider?.label?.[0] || "Z"}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center mb-0.5">
+                          <span className="font-bold text-gray-900 truncate">
+                            {selectedProvider?.label || "Sender Name"}
+                          </span>
+                          <span className="text-[10px] text-gray-400">
+                            10:30 AM
+                          </span>
+                        </div>
+                        <div className="text-xs font-bold text-gray-900 truncate mb-0.5">
+                          {subject || "Email Subject"}
+                        </div>
+                        <div className="text-[11px] text-gray-500 truncate">
+                          {preheader || "Email preheader summary..."}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Email Content Area */}
+                  <div className="flex-1 bg-gray-50 overflow-y-auto p-4 sm:p-4">
+                    <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                      {/* Email Body Content */}
+                      <div className="p-0">
+                        {/* <div className="flex justify-center mb-8">
+                          <div
+                            className={`px-4 py-2 rounded-lg border-2 border-dashed ${theme.primaryBorder} ${theme.primaryText} text-xs font-bold`}
+                          >
+                            YOUR LOGO
+                          </div>
+                        </div> */}
+
+                        {selectedTemplate ? (
+                          <div className="prose prose-sm max-w-none">
+                            <div
+                              dangerouslySetInnerHTML={{
+                                __html: selectedTemplate.content.replace(
+                                  /\{\{(.*?)\}\}/g,
+                                  (match, key) => {
+                                    return (
+                                      variableMappings[key] ||
+                                      `<span class="bg-yellow-100 text-yellow-800 px-1 rounded">${match}</span>`
+                                    );
+                                  },
+                                ),
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="text-center py-20">
+                            <Mail className="w-12 h-12 text-gray-200 mx-auto mb-4" />
+                            <p className="text-sm text-gray-400 font-medium">
+                              Select a template to preview content
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="mt-12 p-4 border-t border-gray-100 text-center">
+                          <p className="text-[10px] text-gray-400 mb-4">
+                            Sent by {selectedProvider?.label || "Your Clinic"}
+                            <br />
+                            {selectedProvider?.email || "contact@zeva.app"}
+                          </p>
+                          <div className="flex justify-center gap-4">
+                            <button className="text-[10px] text-blue-500 hover:underline">
+                              Unsubscribe
+                            </button>
+                            <button className="text-[10px] text-blue-500 hover:underline">
+                              Privacy Policy
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : campaign?.type === "whatsapp" ? (
+                /* WhatsApp Preview */
+                <div className="relative mx-auto w-[300px] h-[600px] bg-gray-900 rounded-[3rem] border-[8px] border-gray-800 shadow-2xl overflow-hidden">
+                  {/* Phone Notch */}
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-gray-800 rounded-b-2xl z-20" />
+
+                  {/* Screen Content */}
+                  <div className="absolute inset-0 bg-[#e5ddd5] overflow-hidden flex flex-col">
+                    {/* App Header */}
+                    <div
+                      className={cn(
+                        "px-4 pt-8 pb-3 flex items-center gap-3 text-white bg-[#075e54]",
+                      )}
+                    >
+                      <ArrowLeft className="w-5 h-5" />
+                      <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                        <FaWhatsapp className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold truncate">
+                          {selectedProvider?.label || "Sender"}
+                        </p>
+                        <p className="text-[10px] opacity-80">Online</p>
+                      </div>
                     </div>
 
-                    {/* Media Header */}
-                    {whatsappMsgType === "template-message" &&
-                      selectedTemplate?.isHeader &&
-                      ["image", "video", "document"].includes(
-                        selectedTemplate.headerType || "",
-                      ) &&
-                      mediaUrl && (
-                        <div className="mb-2 rounded-lg overflow-hidden bg-gray-100">
-                          {selectedTemplate.headerType === "image" && (
-                            <div className="w-full h-44 bg-gray-300 flex items-center justify-center text-gray-500 text-xs">
+                    {/* Chat Area */}
+                    <div className="flex-1 p-3 space-y-2 overflow-y-auto">
+                      <div className="bg-white rounded-lg rounded-tl-none p-2 shadow-sm max-w-[85%] relative">
+                        {/* Media Preview */}
+                        {mediaUrl && (
+                          <div className="mb-2 rounded-lg overflow-hidden bg-gray-100">
+                            {mediaType === "image" ? (
                               <img
                                 src={mediaUrl}
-                                alt="Media"
-                                className="w-full h-full object-cover"
+                                alt="Header"
+                                className="w-full h-32 object-cover"
                               />
-                            </div>
-                          )}
-                          {selectedTemplate.headerType === "video" && (
-                            <div className="w-full h-44 bg-gray-800 flex items-center justify-center text-white text-xs">
-                              <video
-                                src={mediaUrl}
-                                className="w-full h-full object-cover"
-                                controls
-                              />
-                            </div>
-                          )}
-                          {selectedTemplate.headerType === "document" && (
-                            <div className="p-3 bg-white flex items-center gap-2">
-                              <div className="w-10 h-10 bg-red-100 rounded flex items-center justify-center text-red-600 text-xs font-bold">
-                                PDF
+                            ) : mediaType === "video" ? (
+                              <div className="w-full h-32 flex items-center justify-center bg-gray-200">
+                                <Smartphone className="w-8 h-8 text-gray-400" />
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium text-gray-700 truncate">
+                            ) : (
+                              <div className="p-3 flex items-center gap-2 bg-gray-50">
+                                <FileText className="w-5 h-5 text-blue-500" />
+                                <span className="text-xs text-gray-600 truncate">
                                   Document
-                                </p>
-                                <p className="text-[10px] text-gray-500 truncate">
-                                  {mediaUrl}
-                                </p>
+                                </span>
                               </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                    {/* Text Header */}
-                    {whatsappMsgType === "template-message" &&
-                      selectedTemplate?.isHeader &&
-                      selectedTemplate.headerType === "text" &&
-                      selectedTemplate.headerText && (
-                        <div className="font-bold text-gray-900 text-sm mb-1 pb-1 border-b border-gray-300/50">
-                          {selectedTemplate.headerText}
-                        </div>
-                      )}
-
-                    {whatsappMsgType === "list-message" && headerText && (
-                      <div className="font-bold text-gray-900 text-sm mb-1 pb-1 border-b border-gray-300/50">
-                        {headerText}
-                      </div>
-                    )}
-
-                    {/* Message Content */}
-                    <div className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">
-                      {whatsappMsgType === "template-message"
-                        ? selectedTemplate?.content ||
-                          "Template content will appear here"
-                        : message || "Your message will appear here..."}
-                    </div>
-
-                    {/* Footer */}
-                    {whatsappMsgType === "template-message" &&
-                      selectedTemplate?.isFooter &&
-                      selectedTemplate.footer && (
-                        <div className="mt-2 text-[11px] text-gray-500 italic">
-                          {selectedTemplate.footer}
-                        </div>
-                      )}
-
-                    {whatsappMsgType === "list-message" && footerText && (
-                      <div className="mt-2 text-[11px] text-gray-500 italic">
-                        {footerText}
-                      </div>
-                    )}
-
-                    {/* Reply Buttons */}
-                    {whatsappMsgType === "reply-button-message" &&
-                      replyButtons.length > 0 && (
-                        <div className="mt-3 space-y-1">
-                          {replyButtons.map((button, idx) => (
-                            <button
-                              key={idx}
-                              className={`w-full flex items-center justify-center py-2 px-3 bg-white/80 hover:bg-white rounded text-center text-sm font-medium ${theme.primaryText} border border-gray-200 transition-colors`}
-                            >
-                              <Reply className="w-4 h-4 mr-2" />
-                              {button.reply.title || `Button ${idx + 1}`}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                    {/* Template Buttons */}
-                    {whatsappMsgType === "template-message" &&
-                      selectedTemplate?.isButton &&
-                      selectedTemplate.templateButtons &&
-                      selectedTemplate.templateButtons.length > 0 && (
-                        <div className="mt-3 space-y-1">
-                          {selectedTemplate.templateButtons.map(
-                            (btn: any, idx: number) => (
-                              <button
-                                key={idx}
-                                className={`w-full flex items-center justify-center py-2 px-3 bg-white/80 hover:bg-white rounded text-center text-sm font-medium ${theme.primaryText} border border-gray-200 transition-colors`}
-                              >
-                                <Reply className="w-4 h-4 mr-2" />
-                                {btn.text}
-                              </button>
-                            ),
-                          )}
-                        </div>
-                      )}
-
-                    {/* List Message Button */}
-                    {whatsappMsgType === "list-message" && (
-                      <div className="mt-3">
-                        <button className="w-full py-2 px-3 bg-white/80 hover:bg-white rounded text-center text-sm font-medium text-gray-700 border border-gray-200 transition-colors flex items-center justify-between">
-                          <span>📋 Menu</span>
-                          <span className="text-xs">▼</span>
-                        </button>
-
-                        {/* List Sections Preview */}
-                        {listSections.length > 0 && (
-                          <div className="mt-2 bg-white rounded-lg border border-gray-200 overflow-hidden">
-                            {listSections.map(
-                              (section: any, sectionIdx: number) => (
-                                <div
-                                  key={sectionIdx}
-                                  className="border-b border-gray-200 last:border-b-0"
-                                >
-                                  {section.title && (
-                                    <div className="px-3 py-2 bg-gray-50 text-xs font-bold text-gray-700 uppercase">
-                                      {section.title}
-                                    </div>
-                                  )}
-                                  {section.rows.map(
-                                    (row: any, rowIdx: number) => (
-                                      <div
-                                        key={rowIdx}
-                                        className="px-3 py-2 hover:bg-gray-50 border-t border-gray-100"
-                                      >
-                                        <div className="text-sm font-medium text-gray-800">
-                                          {row.title || "Row title"}
-                                        </div>
-                                        {row.description && (
-                                          <div className="text-xs text-gray-500 mt-0.5">
-                                            {row.description}
-                                          </div>
-                                        )}
-                                      </div>
-                                    ),
-                                  )}
-                                </div>
-                              ),
                             )}
                           </div>
                         )}
-                      </div>
-                    )}
 
-                    {/* Message Timestamp */}
-                    <div className="mt-1 text-[10px] text-gray-500 text-right flex items-center justify-end gap-1">
-                      12:00 PM
-                      <svg
-                        className="w-3 h-3 text-blue-500"
-                        fill="currentColor"
-                        viewBox="0 0 16 15"
-                        width="16"
-                        height="15"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.88 5.644 6.3a.365.365 0 0 0-.51.063l-.477.372a.365.365 0 0 0-.063.51l3.547 4.197a.365.365 0 0 0 .51.063l6.353-7.563a.365.365 0 0 0 .063-.51zm-3.51 3.192l-.478-.372a.365.365 0 0 0-.51.063L5.644 9.88 4.32 8.32a.365.365 0 0 0-.51.063l-.477.372a.365.365 0 0 0-.063.51l1.646 1.944a.365.365 0 0 0 .51.063l5.533-6.563a.365.365 0 0 0 .063-.51z" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+                        {/* Header Text */}
+                        {selectedTemplate?.headerType === "text" &&
+                          selectedTemplate?.headerText && (
+                            <p className="text-sm font-bold mb-1">
+                              {selectedTemplate.headerText.replace(
+                                /\{\{(.*?)\}\}/g,
+                                (match, key) =>
+                                  headerVariableMappings[key] || match,
+                              )}
+                            </p>
+                          )}
 
-          {/* Right Column - SMS Preview */}
-          {campaign?.type === "sms" && (
-            <div className="lg:sticky lg:top-24 h-fit space-y-3">
-              <label className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                <Smartphone className="w-4 h-4 text-gray-400" />
-                SMS Preview
-              </label>
-              <div className="bg-gradient-to-b from-blue-50 to-white rounded-2xl p-6 min-h-[400px] border border-blue-100">
-                {/* Phone Header */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                  <div className="bg-blue-600 text-white px-4 py-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <MessageSquare className="w-5 h-5" />
-                        <span className="font-semibold text-sm">Messages</span>
-                      </div>
-                      <div className="text-xs opacity-80">Recipient</div>
-                    </div>
-                  </div>
+                        {/* Body Text */}
+                        <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                          {selectedTemplate
+                            ? selectedTemplate.content.replace(
+                                /\{\{(.*?)\}\}/g,
+                                (match, key) => variableMappings[key] || match,
+                              )
+                            : message || "Type your message..."}
+                        </p>
 
-                  {/* Message Content */}
-                  <div className="p-4 bg-gray-50 min-h-[250px]">
-                    <div className="max-w-[85%] ml-auto bg-blue-500 text-white rounded-lg rounded-tr-sm p-3 shadow-sm">
-                      <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                        {whatsappMsgType === "template-message"
-                          ? selectedTemplate?.content ||
-                            "Template content will appear here"
-                          : message || "Your SMS message will appear here..."}
-                      </div>
-                      <div className="mt-2 text-[10px] text-blue-100 text-right">
-                        12:00 PM ✓✓
-                      </div>
-                    </div>
-                  </div>
+                        {/* Footer Text */}
+                        {selectedTemplate?.footer && (
+                          <p className="text-[10px] text-gray-400 mt-1">
+                            {selectedTemplate.footer}
+                          </p>
+                        )}
 
-                  {/* SMS Info */}
-                  <div className="px-4 py-3 bg-white border-t border-gray-200">
-                    <div className="flex items-center justify-between text-xs text-gray-600">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">Characters:</span>
-                        <span className="font-bold text-blue-600">
-                          {
-                            (whatsappMsgType === "template-message"
-                              ? selectedTemplate?.content || ""
-                              : message
-                            ).length
-                          }
+                        <span className="text-[9px] text-gray-400 float-right mt-1">
+                          10:30 AM
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">Messages:</span>
-                        <span className="font-bold text-blue-600">
-                          {Math.ceil(
-                            (whatsappMsgType === "template-message"
-                              ? selectedTemplate?.content || ""
-                              : message
-                            ).length / 160,
-                          ) || 1}
-                        </span>
+
+                      {/* Reply Buttons Preview */}
+                      {selectedTemplate?.buttons?.map((btn: any, i: number) => (
+                        <div
+                          key={i}
+                          className="bg-white rounded-lg p-2 shadow-sm text-center text-sm text-blue-500 font-medium"
+                        >
+                          {btn.text}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Input Area */}
+                    <div className="p-2 bg-white flex items-center gap-2">
+                      <div className="flex-1 h-8 bg-gray-100 rounded-full" />
+                      <div className="w-8 h-8 rounded-full bg-[#075e54] flex items-center justify-center">
+                        <Reply className="w-4 h-4 text-white rotate-180" />
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                /* SMS Preview */
+                <div className="bg-gradient-to-b from-blue-50 to-white rounded-2xl p-6 min-h-[400px] border border-blue-100">
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="bg-blue-600 text-white px-4 py-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="w-5 h-5" />
+                          <span className="font-semibold text-sm">
+                            Messages
+                          </span>
+                        </div>
+                        <div className="text-xs opacity-80">Recipient</div>
+                      </div>
+                    </div>
+                    <div className="p-4 bg-gray-50 min-h-[250px]">
+                      <div className="max-w-[85%] ml-auto bg-blue-500 text-white rounded-lg rounded-tr-sm p-3 shadow-sm">
+                        <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                          {selectedTemplate?.content ||
+                            message ||
+                            "Your SMS message will appear here..."}
+                        </div>
+                        <div className="mt-2 text-[10px] text-blue-100 text-right">
+                          12:00 PM ✓✓
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
 

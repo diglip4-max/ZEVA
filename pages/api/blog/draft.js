@@ -4,7 +4,6 @@ import User from "../../../models/Users";
 import Clinic from "../../../models/Clinic";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 import { getClinicIdFromUser } from "../lead-ms/permissions-helper";
-import { checkAgentPermission } from "../agent/permissions-helper";
 
 export const config = {
   api: {
@@ -14,44 +13,7 @@ export const config = {
   },
 };
 
-/**
- * Common function to check blog permissions for agent/doctorStaff roles
- * Clinic, doctor, and admin roles bypass permission checks
- * @param {Object} me - User object from request
- * @param {String} clinicId - Clinic ID
- * @param {String} action - Action to check ("read", "create", "update", "delete")
- * @param {String} errorMessage - Custom error message if permission denied
- * @returns {Object|null} - Returns error response object if denied, null if granted
- */
-async function checkBlogPermission(me, clinicId, action, errorMessage) {
-  // Bypass permission check for clinic, doctor, and admin roles
-  if (!["admin", "clinic", "doctor"].includes(me.role) && clinicId) {
-    const isAgent = me.role === "agent";
-    const isDoctorStaff = me.role === "doctorStaff";
-    
-    if (isAgent || isDoctorStaff) {
-      const result = await checkAgentPermission(
-        me._id,
-        "clinic_write_blog", // Use clinic_write_blog to match the module key format
-        action,
-        null // No submodule - this is a module-level check
-      );
-      
-      if (!result.hasPermission) {
-        return {
-          status: 403,
-          response: {
-            success: false,
-            message: result.error || errorMessage
-          }
-        };
-      }
-    }
-    // Clinic, admin, and doctor users bypass permission checks
-  }
-  
-  return null; // Permission granted
-}
+
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -74,16 +36,7 @@ export default async function handler(req, res) {
             return res.status(404).json({ success: false, message: error });
           }
 
-          // ✅ Check permission for reading drafts (only for agent/doctorStaff, clinic/admin/doctor bypass)
-          const permissionError = await checkBlogPermission(
-            me,
-            clinicId,
-            "read",
-            "You do not have permission to view drafts"
-          );
-          if (permissionError) {
-            return res.status(permissionError.status).json(permissionError.response);
-          }
+          // ✅ No permission checks - all authenticated users with clinic access can read drafts
 
           const { id } = req.query;
 
@@ -303,16 +256,7 @@ export default async function handler(req, res) {
             return res.status(404).json({ success: false, message: error });
           }
 
-          // ✅ Check permission for creating drafts (only for agent/doctorStaff, clinic/admin/doctor bypass)
-          const permissionError = await checkBlogPermission(
-            me,
-            clinicId,
-            "create",
-            "You do not have permission to create drafts"
-          );
-          if (permissionError) {
-            return res.status(permissionError.status).json(permissionError.response);
-          }
+          // ✅ No permission checks - all authenticated users with clinic access can create drafts
 
           const { title, content, paramlink, isAutoSave } = req.body;
 
@@ -415,18 +359,7 @@ export default async function handler(req, res) {
               .json({ success: false, message: "Draft not found" });
           }
 
-          // Check if user owns the draft or is admin
-          if (
-            existingDraft.postedBy.toString() !== me._id.toString() &&
-            me.role !== "admin"
-          ) {
-            return res.status(403).json({
-              success: false,
-              message:
-                "You can only edit your own drafts unless you are an admin",
-            });
-          }
-
+          // Get clinic ID to check if draft belongs to user's clinic
           const { clinicId, error, isAdmin } = await getClinicIdFromUser(me);
           const isDoctor = me.role === "doctor";
           const isDoctorStaff = me.role === "doctorStaff";
@@ -435,16 +368,34 @@ export default async function handler(req, res) {
             return res.status(404).json({ success: false, message: error });
           }
 
-          // ✅ Check permission for updating drafts (only for agent/doctorStaff, clinic/admin/doctor bypass)
-          const permissionError = await checkBlogPermission(
-            me,
-            clinicId,
-            "update",
-            "You do not have permission to update drafts"
-          );
-          if (permissionError) {
-            return res.status(permissionError.status).json(permissionError.response);
+          // Check if user owns the draft, is from the same clinic, or is admin
+          const isDraftAuthor = existingDraft.postedBy.toString() === me._id.toString();
+          
+          // For agent/doctorStaff/clinic, check if draft is from their clinic
+          let isClinicDraft = false;
+          if ((isAgent || isDoctorStaff || me.role === "clinic") && clinicId && !isDraftAuthor) {
+            const clinic = await Clinic.findById(clinicId).select("owner");
+            if (clinic) {
+              const clinicUsers = await User.find({
+                $or: [
+                  { _id: clinic.owner },
+                  { clinicId: clinicId, role: "doctor" },
+                ],
+              }).select("_id");
+              const clinicUserIds = clinicUsers.map(u => u._id.toString());
+              isClinicDraft = clinicUserIds.includes(existingDraft.postedBy.toString());
+            }
           }
+
+          // Only allow if user owns the draft, is from the same clinic, or is admin
+          if (!isDraftAuthor && !isClinicDraft && !isAdmin) {
+            return res.status(403).json({
+              success: false,
+              message: "You can only edit your own drafts unless you are an admin",
+            });
+          }
+
+          // ✅ No permission checks - all authenticated users with clinic access can update drafts
 
           // If paramlink is being updated, only conflict with published blogs
           if (paramlink) {
@@ -518,17 +469,7 @@ export default async function handler(req, res) {
               .json({ success: false, message: "Draft not found" });
           }
 
-          // Check if user owns the draft or is admin
-          if (
-            existingDraft.postedBy.toString() !== me._id.toString() &&
-            me.role !== "admin"
-          ) {
-            return res.status(403).json({
-              success: false,
-              message: "Not allowed to access this draft",
-            });
-          }
-
+          // Get clinic ID to check if draft belongs to user's clinic
           const { clinicId, error, isAdmin } = await getClinicIdFromUser(me);
           const isDoctor = me.role === "doctor";
           const isDoctorStaff = me.role === "doctorStaff";
@@ -538,16 +479,34 @@ export default async function handler(req, res) {
             return res.status(404).json({ success: false, message: error });
           }
 
-          // ✅ Check permission for deleting drafts (only for agent/doctorStaff, clinic/admin/doctor bypass)
-          const permissionError = await checkBlogPermission(
-            me,
-            clinicId,
-            "delete",
-            "You do not have permission to delete drafts"
-          );
-          if (permissionError) {
-            return res.status(permissionError.status).json(permissionError.response);
+          // Check if user owns the draft, is from the same clinic, or is admin
+          const isDraftAuthor = existingDraft.postedBy.toString() === me._id.toString();
+          
+          // For agent/doctorStaff/clinic, check if draft is from their clinic
+          let isClinicDraft = false;
+          if ((isAgent || isDoctorStaff || me.role === "clinic") && clinicId && !isDraftAuthor) {
+            const clinic = await Clinic.findById(clinicId).select("owner");
+            if (clinic) {
+              const clinicUsers = await User.find({
+                $or: [
+                  { _id: clinic.owner },
+                  { clinicId: clinicId, role: "doctor" },
+                ],
+              }).select("_id");
+              const clinicUserIds = clinicUsers.map(u => u._id.toString());
+              isClinicDraft = clinicUserIds.includes(existingDraft.postedBy.toString());
+            }
           }
+
+          // Only allow if user owns the draft, is from the same clinic, or is admin
+          if (!isDraftAuthor && !isClinicDraft && !isAdmin) {
+            return res.status(403).json({
+              success: false,
+              message: "Not allowed to access this draft",
+            });
+          }
+
+          // ✅ No permission checks - all authenticated users with clinic access can delete drafts
 
           await Blog.findByIdAndDelete(id);
           res

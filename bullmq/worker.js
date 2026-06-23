@@ -52,7 +52,27 @@ import { generateAiResponse } from "./ai.js";
 import Users from "../models/Users.js";
 import "./queue.js";
 import Campaign from "../models/Campaign.js";
-import { sendBatchWhatsappMessageQueue } from "./queue.js";
+import {
+  sendBatchWhatsappMessageQueue,
+  sendGmailEmailBatchQueue,
+  sendSmtpEmailBatchQueue,
+  gmailWatchRenewalQueue,
+} from "./queue.js";
+import {
+  sendEmailViaGmailMultiple,
+  getGmailClientForUser,
+  getMediaTypeFromMime,
+} from "../services/gmail.js";
+import {
+  formatFileSize,
+  replaceUrlsWithTrackingUrlsInContent,
+  sendBatchEmailBySmtp,
+  sendEmailViaSmtpMultiple,
+} from "../services/smtp.js";
+import { validateEmail } from "../services/validate.js";
+import { ImapFlow } from "imapflow";
+import { simpleParser } from "mailparser";
+import { uploadMedia } from "../services/upload.js";
 
 // --- Helper to add listeners to all workers ---
 const addWorkerListeners = (worker, queueName) => {
@@ -383,7 +403,7 @@ const whatsappTemplateWorker = new Worker(
 const scheduleMessageWorker = new Worker(
   "scheduleMessageQueue",
   async (job) => {
-    console.log("Processing schedule message worker job: ", job.data);
+    console.log("Processing schedule message worker job: ");
     const { msgData } = job.data;
 
     try {
@@ -392,20 +412,59 @@ const scheduleMessageWorker = new Worker(
         // resData = await handleSendS
       } else if (msgData?.channel === "whatsapp") {
         resData = await handleWhatsappSendMessage(msgData);
-      }
 
-      if (resData && msgData?.clientMessageId) {
-        const message = await Message.findById(msgData?.clientMessageId);
-        console.log({ message });
-        if (message) {
-          message.status = "queued";
-          message.providerMessageId = resData?.messages?.[0]?.id || "";
-          await message.save();
+        if (resData && msgData?.clientMessageId) {
+          const message = await Message.findById(msgData?.clientMessageId);
+          console.log({ message });
+          if (message) {
+            message.status = "queued";
+            message.providerMessageId = resData?.messages?.[0]?.id || "";
+            await message.save();
+          }
         }
-      }
 
-      console.log("Schedule message response: ", resData);
-      return resData;
+        console.log("Schedule message response: ", resData);
+      } else if (msgData?.channel === "email") {
+        let emailSent = false;
+        const message = await Message.findById(msgData?.messageId);
+        if (msgData?.emailProviderType === "gmail") {
+          const emailResponse = await sendEmailViaGmailMultiple(msgData);
+          if (emailResponse.id && emailResponse.threadId) {
+            // If the email is sent successfully, update the message status
+            emailSent = true;
+            message.providerMessageId = emailResponse.id;
+            message.threadId = emailResponse.threadId;
+            await message.save();
+            console.log(`Email sent to ${toEmail}`);
+          } else {
+            console.error(`Failed to send email to ${toEmail}`);
+          }
+
+          console.log("Schedule message response: ", emailResponse);
+        } else if (msgData?.emailProviderType === "other") {
+          const emailResponse = await sendEmailViaSmtpMultiple(msgData);
+
+          if (emailResponse?.messageId) {
+            const providerMsgId = emailResponse?.messageId;
+            emailSent = true;
+            message.providerMessageId = providerMsgId;
+            await message.save();
+            console.log(`Email sent to ${toEmail}`);
+          } else {
+            console.error(`Failed to send email to ${toEmail}`);
+          }
+
+          console.log("Schedule email message response: ", emailResponse);
+        }
+
+        // Update the message status based on whether the email was successfully sent
+        if (emailSent) {
+          message.status = "sent";
+        } else {
+          message.status = "failed";
+        }
+        await message.save();
+      }
     } catch (error) {
       console.log("Error in send schedule message worker: ", error?.message);
     }
@@ -2447,6 +2506,790 @@ export const sendBatchWhatsappMessageWorker = new Worker(
           status: "sent",
           providerMessageId,
         });
+      }
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 10,
+  },
+);
+
+// Scheduled Email Campaign Worker
+export const scheduleEmailCampaignWorker = new Worker(
+  "scheduleEmailCampaignQueue",
+  async (job) => {
+    console.log("Processing Email campaign worker: ", job.data);
+    const { campaignId } = job.data;
+
+    try {
+      const campaign = await Campaign.findById(campaignId).select(
+        "name recipients status userId clinicId sender type template subject preheader content mediaType mediaUrl lastProcessedBatch totalMessages sentMessages failedMessages source",
+      );
+      if (!campaign) {
+        console.log("Campaign not found for campaignId: ", campaignId);
+        return;
+      }
+
+      const recipientIds = campaign.recipients;
+      const totalRecipients = recipientIds.length;
+      const batchSize = 10;
+      const totalBatches = Math.ceil(totalRecipients / batchSize);
+      campaign.totalMessages = recipientIds.length;
+      campaign.totalBatches = totalBatches;
+      await campaign.save();
+
+      // If campaign is paused, skip further processing
+      if (campaign.status === "paused") {
+        console.log(
+          `Campaign ${campaignId} is paused. Skipping further processing.`,
+        );
+        return;
+      }
+
+      // Update campaign state before starting the process
+      if (campaign.status !== "processing") {
+        campaign.status = "processing";
+        campaign.processedBatches = 0; // Reset the processed batches when restarting
+        await campaign.save();
+      }
+
+      const provider = await Provider.findById(campaign.sender);
+      if (!provider) {
+        console.log("Provider not found for this campaignId: ", campaign._id);
+        await Campaign.findByIdAndUpdate(campaignId, {
+          status: "failed",
+          errorMessage: "Provider not found for this campaignId",
+        });
+        return;
+      }
+
+      const { smtpUsername, smtpPassword, smtpHost, smtpPort, smtpSecure } =
+        provider.secrets;
+      let emailProviderType = provider?.emailProviderType;
+      console.log({ emailProviderType });
+
+      if (
+        emailProviderType === "other" &&
+        (!smtpUsername || !smtpPassword || !smtpHost || !smtpPort)
+      ) {
+        console.log("Valid Provider credentials not found");
+        await Campaign.findByIdAndUpdate(campaignId, {
+          status: "failed",
+          errorMessage: "Valid Provider credentials not found",
+        });
+        return;
+      } else if (emailProviderType === "gmail" && true) {
+        console.log("Valid Provider credentials not found");
+        await Campaign.findByIdAndUpdate(campaignId, {
+          status: "failed",
+          errorMessage: "Valid Provider credentials not found",
+        });
+        return;
+      }
+
+      const template = await Template.findById(campaign.template);
+
+      if (!template || template.status !== "approved") {
+        console.log("Template is not found or not approved");
+        await Campaign.findByIdAndUpdate(campaignId, {
+          status: "failed",
+          errorMessage: "Template is not found or not approved",
+        });
+        return;
+      }
+
+      // Check the last processed batch and continue from there
+      const lastProcessedBatch = campaign.lastProcessedBatch || 0;
+      for (
+        let batchIndex = lastProcessedBatch;
+        batchIndex < totalBatches;
+        batchIndex++
+      ) {
+        const start = batchIndex * batchSize;
+        const end = start + batchSize;
+        const batchRecipients = recipientIds.slice(start, end);
+
+        // If the campaign has been paused or canceled, exit the loop
+        const currentCampaign =
+          await Campaign.findById(campaignId).select("status");
+        if (currentCampaign && currentCampaign.status !== "processing") {
+          console.log(
+            "Campaign stopped or paused for campaignId: ",
+            campaignId,
+          );
+          break;
+        }
+
+        // Process the current batch
+        const recipients = await Lead.find({
+          _id: { $in: batchRecipients },
+        });
+        let batchMsgs = [];
+        let updatedSentLeadEntries = [];
+        let updatedFailedLeadEntries = [];
+
+        let msgData = [];
+        let failedMessages = 0;
+        for (const recipient of recipients) {
+          try {
+            let conversation = await Conversation.findOne({
+              leadId: recipient._id,
+              clinicId: campaign.clinicId,
+            });
+
+            if (!conversation) {
+              conversation = await Conversation.create({
+                clinicId: campaign.clinicId,
+                ownerId: campaign.userId,
+                leadId: recipient._id,
+              });
+            }
+
+            // Generate a unique message ID
+            const messageId = new mongoose.Types.ObjectId(); // Generates a new ObjectId
+
+            const leadPayload = await getLeadDetails(recipient?._id);
+            let content = campaign.content || "";
+            let subject = campaign.subject || "";
+            let preheader = campaign.preheader || "";
+            let attachments = campaign.attachments || [];
+
+            subject = replaceVariableInObject(subject, "lead", leadPayload);
+            content = replaceVariableInString(content, "lead", leadPayload);
+
+            // Replace header, button and body variables with actual system data
+            const systemPayload = getSystemDetails();
+
+            content = replaceVariableInString(content, "system", systemPayload);
+            subject = replaceVariableInString(subject, "system", systemPayload);
+
+            // check toPhoneNumber is valid or not if seeting enabled
+            let toEmail = recipient?.email;
+
+            // campaign content
+            const openTrackUrl = `https://zeva360.com/api/email/track/open?emailId=${messageId}`;
+            const unsubscribeLink = `https://zeva360.com/api/unsubscribe/${
+              recipient?._id
+            }/${encodeURIComponent(provider?.email)}/${encodeURIComponent(
+              toEmail,
+            )}?emailId=${messageId}`;
+
+            const sanitizedContent = replaceUrlsWithTrackingUrlsInContent(
+              content,
+              messageId,
+            );
+
+            const htmlContent = `
+      <div>
+        ${
+          preheader
+            ? `<div style="display: none; visibility: hidden;">${preheader}</div>`
+            : ""
+        }
+        ${sanitizedContent}
+        <div class="container" style="text-align: center;">
+          <a href="${unsubscribeLink}" style="font-size: 14px; color: #555; text-decoration: underline; cursor: pointer;">
+            Unsubscribe
+          </a>
+        </div>
+        <img src="${openTrackUrl}" width="1" height="1" style="display:none;" alt="tracking pixel"  />
+      </div>
+      `;
+
+            msgData.push({
+              _id: messageId, // Assign generated messageId
+              clinicId: campaign.clinicId,
+              conversationId: conversation._id,
+              leadId: recipient._id,
+              campaignId: campaign._id,
+              senderId: campaign.userId,
+              recipientId: recipient._id,
+              provider: campaign.sender,
+              channel: "email",
+              messageType: "bulk",
+              direction: "outgoing",
+              subject,
+              preheader,
+              content: content,
+              attachments: attachments,
+              mediaType: campaign.mediaType,
+              mediaUrl: campaign.mediaUrl,
+              status: !toEmail || !validateEmail(toEmail) ? "failed" : "sent",
+              source: "Zeva Campaign",
+              errorCode: !toEmail || !validateEmail(toEmail) ? "70001" : "",
+              errorMessage:
+                !toEmail || !validateEmail(toEmail)
+                  ? "Recipient email is invalid."
+                  : "",
+            });
+
+            // push msg data to batch if phoneNumber exist and consentStatus is optIn
+            if (toEmail && validateEmail(toEmail)) {
+              batchMsgs.push({
+                channel: "email",
+                to: toEmail,
+                from: provider?.email,
+                senderName:
+                  provider?.emailType === "marketing"
+                    ? provider?.label
+                    : provider?.label && !validateEmail(provider?.label)
+                      ? provider.label
+                      : ``,
+                subject,
+                content: htmlContent,
+                attachments,
+                originalMessageId: "",
+                threadId: "",
+                campaignId: campaign._id,
+                messageId,
+                leadId: recipient?._id,
+              });
+
+              updatedSentLeadEntries.push({
+                lead: recipient?._id,
+                message: messageId,
+                sentAt: new Date(),
+              });
+            } else {
+              updatedFailedLeadEntries.push({
+                lead: recipient?._id,
+                message: messageId,
+                errorCode: "70001",
+                errorMessage: "Recipient email is invalid.",
+                failedAt: new Date(),
+              });
+              failedMessages += 1;
+            }
+          } catch (error) {
+            console.log(
+              "Failed to create bulk message for leadId: ",
+              recipient._id,
+              error.message,
+            );
+          }
+        }
+
+        try {
+          // Insert messages in bulk
+          const insertedMessages = await Message.insertMany(msgData, {
+            ordered: false,
+          });
+          console.log("Bulk insert result length: ", insertedMessages.length);
+          // Prepare bulk update operations for conversation.recentMessage
+          let bulkUpdateOperations = insertedMessages.map((msg) => ({
+            updateOne: {
+              filter: { _id: msg.conversationId }, // Find the conversation
+              update: { $set: { recentMessage: msg._id } }, // Set the recentMessage field
+            },
+          }));
+
+          // Perform bulk update
+          if (bulkUpdateOperations.length > 0) {
+            await Conversation.bulkWrite(bulkUpdateOperations);
+            console.log("Updated recentMessage for conversations.");
+          }
+        } catch (error) {
+          console.log("Error in bulk write operation: ", error.message);
+        }
+
+        // now call the crm bulk api
+        let queueJob;
+        if (emailProviderType === "gmail") {
+          queueJob = await sendGmailEmailBatchQueue.add(
+            "email-gmail-batch",
+            formData,
+          );
+        } else if (emailProviderType === "other") {
+          const formData = {
+            messages: batchMsgs,
+            smtpHost,
+            smtpPort,
+            smtpUsername,
+            smtpPassword,
+            smtpSecure,
+          };
+          queueJob = await sendSmtpEmailBatchQueue.add(
+            "email-smtp-batch",
+            formData,
+          );
+          console.log("Job smtp batch added");
+        }
+        // Update processed batch count and save the campaign state
+        campaign.lastProcessedBatch = batchIndex + 1; // Update to the next batch to be processed
+        campaign.sentMessages += recipients?.length - failedMessages;
+        campaign.failedMessages += failedMessages;
+        campaign.processedBatches = batchIndex + 1;
+        await campaign.save();
+
+        // update sent delivered and failedContacts
+        await Campaign.findByIdAndUpdate(
+          campaignId,
+          {
+            $push: {
+              sentLeads: { $each: updatedSentLeadEntries },
+              failedLeads: { $each: updatedFailedLeadEntries },
+            },
+          },
+          { new: true },
+        );
+        console.log(
+          `Processed batch ${batchIndex + 1}/${totalBatches} and jobID is `,
+          queueJob.id,
+        );
+
+        // Optional: add a delay between batches (e.g., to avoid rate limiting)
+        await new Promise((resolve) => setTimeout(resolve, 5000)); // 15 second delay
+      }
+
+      // Mark the campaign as completed once all batches are processed
+      campaign.status = "completed";
+      await campaign.save();
+      // await sendCampaignCompleteEmail(campaign._id);
+      console.log(`Campaign ${campaignId} completed successfully.`);
+    } catch (error) {
+      console.log(
+        "Error in schedule whatsapp campaign worker: ",
+        error.message,
+      );
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 10,
+  },
+);
+
+const sendSmtpEmailBatchWorker = new Worker(
+  "sendSmtpEmailBatchQueue",
+  async (job) => {
+    console.log("Processing smtp batch email worker: ");
+    const {
+      messages,
+      smtpHost,
+      smtpPort,
+      smtpUsername,
+      smtpPassword,
+      smtpSecure,
+    } = job.data;
+
+    try {
+      // Process messages with controlled timing
+      await sendBatchEmailBySmtp({
+        messages,
+        smtpHost,
+        smtpPort,
+        smtpUsername,
+        smtpPassword,
+        smtpSecure,
+      });
+
+      console.log(`Completed batch ${job.id} with ${messages.length} emails`);
+    } catch (error) {
+      console.error("Error in smtp email batch worker:", error?.message);
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 5, // Reduced from 10 to be safer
+    limiter: {
+      max: 5, // Max 5 job per duration
+      duration: 50000, // 50 seconds between jobs
+    },
+  },
+);
+
+// ----------------------------------- GMAIL WATCH RENEWAL WORKER -----------------------------------//
+const gmailWatchRenewalWorker = new Worker(
+  "gmailWatchRenewalQueue",
+  async (job) => {
+    console.log("Processing gmail watch renewal worker: ", job.data);
+    const { providerId } = job.data;
+    try {
+      const provider = await Provider.findById(providerId);
+      if (!provider) {
+        console.error("Provider not found");
+        return;
+      }
+
+      if (provider.emailProviderType !== "gmail") {
+        console.error("Provider is not gmail");
+        return;
+      }
+
+      const gmail = await getGmailClientForUser(providerId);
+
+      if (!gmail) {
+        console.error("Gmail client not found");
+        return;
+      }
+
+      const resWatchData = await gmail.users.watch({
+        userId: "me",
+        requestBody: {
+          labelIds: ["INBOX"],
+          topicName: "projects/zeva360/topics/gmail-sync-topic",
+        },
+      });
+
+      provider.gmailWatchExpiration = resWatchData?.data?.expiration || "";
+      await provider.save();
+
+      console.log("Gmail Watch Response:", resWatchData.data);
+
+      // Schedule Gmail Watch Renewal
+      const expirationTime = Number(resWatchData.data.expiration);
+      const rewatchTime = expirationTime - 1000 * 60 * 60; // 1 hour before expiration
+
+      console.log("Expiration Time:", expirationTime);
+      console.log("Rewatch Time:", rewatchTime);
+
+      console.log(
+        `✅ Completed gmail watch renewal worker for providerId:  ${providerId}`,
+      );
+    } catch (error) {
+      console.error("Error in gmail watch renewal worker:", error?.message);
+      throw error; // Re-throw so the job is marked as failed
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 5, // Reduced from 10 to be safer
+  },
+);
+
+addWorkerListeners(gmailWatchRenewalWorker, "gmailWatchRenewalQueue");
+
+// ----------------------------------- SMTP FETCH INCOMING EMAILS WORKER -----------------------------------//
+const listImapIncomingEmailWorker = new Worker(
+  "listImapIncomingEmailQueue",
+  async (job) => {
+    console.log("Processing listImapIncomingEmailQueue worker: ", job.data);
+    const { providerIds } = job.data;
+
+    for (const providerId of providerIds) {
+      try {
+        const provider = await Provider.findById(providerId);
+        if (!provider) {
+          console.log("Provider not found for this providerId: ", providerId);
+          continue;
+        }
+
+        if (provider.emailProviderType !== "other") {
+          console.log(
+            "Provider type is not other, skipping further processing.",
+          );
+          continue;
+        }
+
+        const { imapHost, imapPort, imapUsername, imapPassword } =
+          provider.secrets || {};
+        if (!imapHost || !imapPort || !imapUsername || !imapPassword) {
+          console.log(
+            "❌ Error fetching incoming emails: Missing required secrets.",
+          );
+          continue;
+        }
+
+        const client = new ImapFlow({
+          host: imapHost,
+          port: imapPort,
+          secure: imapPort === 993,
+          auth: {
+            user: imapUsername,
+            pass: imapPassword,
+          },
+          logger: false,
+          tls: {
+            rejectUnauthorized: false, // For self-signed certificates
+          },
+        });
+
+        await client.connect();
+        let lock = await client.getMailboxLock("INBOX");
+        try {
+          // Select the mailbox (INBOX)
+          const mailbox = await client.mailboxOpen("INBOX");
+          console.log(
+            `Mailbox opened: INBOX, total messages: ${mailbox.exists}`,
+          );
+
+          // Fetch last 20 messages
+          const messagesToFetch = Math.min(20, mailbox.exists);
+          const startUid = mailbox.exists - messagesToFetch + 1;
+
+          // Fetch messages
+          const messages = [];
+
+          // Fetch messages from last 20 to most recent
+          for (let i = startUid; i <= mailbox.exists; i++) {
+            try {
+              // Fetch the message by UID
+              const message = await client.fetchOne(i, {
+                source: true,
+                bodyStructure: true,
+                envelope: true,
+                uid: true,
+                internalDate: true,
+                size: true,
+              });
+
+              if (message && message.source) {
+                // Parse the email source
+                const parsed = await simpleParser(message.source);
+
+                messages.push({
+                  uid: message.uid,
+                  seq: i,
+                  parsed,
+                  internalDate: message.internalDate,
+                  size: message.size,
+                });
+              }
+            } catch (err) {
+              console.error(`Error fetching message ${i}:`, err);
+            }
+          }
+
+          console.log(`Fetched ${messages.length} emails from IMAP`);
+          messages.reverse(); // Process oldest first
+
+          // process all messages
+          // Process each email
+          for (const msg of messages) {
+            try {
+              const parsed = msg.parsed;
+
+              // Extract email details
+              const messageId = parsed.messageId;
+              const threadId =
+                parsed.references || parsed.inReplyTo || messageId;
+              const subject = parsed.subject || "(No subject)";
+              const from = parsed.from?.text || "";
+              const to = parsed.to?.text || "";
+              const cc = parsed.cc?.text || "";
+              const inReplyTo = parsed.inReplyTo;
+              const references = parsed.references;
+              const receivedAt = parsed.date || msg.internalDate || new Date();
+
+              // Extract from name and email
+              let fromName = "";
+              let fromEmail = "";
+              if (parsed.from?.value?.[0]) {
+                fromName = parsed.from.value[0].name || "";
+                fromEmail = parsed.from.value[0].address || "";
+              }
+
+              // Get plain text body (fallback to HTML)
+              let body = parsed.text || parsed.htmlAsText || parsed.html || "";
+
+              // Determine if it's a reply
+              const isReply = !!(inReplyTo || references);
+
+              // Extract reply body (remove quoted content)
+              if (isReply && body) {
+                const lines = body.split("\n");
+                const cleanedLines = [];
+                let inQuote = false;
+
+                for (const line of lines) {
+                  if (
+                    line.startsWith(">") ||
+                    (line.startsWith("On ") && line.includes(" wrote:"))
+                  ) {
+                    inQuote = true;
+                  }
+                  if (!inQuote && line.trim()) {
+                    cleanedLines.push(line);
+                  }
+                  if (inQuote && line.trim() === "") {
+                    inQuote = false;
+                  }
+                }
+                body = cleanedLines.join("\n").trim();
+                if (!body) {
+                  // If no content after cleaning, try to get plain text without quotes
+                  body = parsed.text?.replace(/^>.*$/gm, "").trim() || "";
+                }
+              }
+
+              // Check if message already exists
+              const existingMessage = await Message.findOne({
+                clinicId: provider.clinicId,
+                providerMessageId: messageId,
+              });
+
+              if (existingMessage) {
+                console.log(`Message ${messageId} already processed, skipping`);
+                continue;
+              }
+
+              // Find or create lead
+              let lead = await Lead.findOne({
+                email: fromEmail,
+                clinicId: provider.clinicId,
+              });
+
+              if (!lead) {
+                lead = new Lead({
+                  clinicId: provider.clinicId,
+                  name: fromName || fromEmail,
+                  email: fromEmail,
+                  source: "Other",
+                  customSource: "IMAP Email",
+                });
+                await lead.save();
+                console.log(`Created new lead for ${fromEmail}`);
+              }
+
+              // Find or create conversation
+              let conversation = await Conversation.findOne({
+                clinicId: provider.clinicId,
+                leadId: lead._id,
+              });
+
+              if (!conversation) {
+                conversation = new Conversation({
+                  clinicId: provider.clinicId,
+                  leadId: lead._id,
+                });
+                await conversation.save();
+                console.log(`Created new conversation for lead ${lead._id}`);
+              }
+
+              // Find reply-to message if this is a reply
+              let replyToMessageId = null;
+              if (isReply && (inReplyTo || references)) {
+                const replyMessage = await Message.findOne({
+                  clinicId: provider.clinicId,
+                  $or: [
+                    { providerMessageId: inReplyTo },
+                    { threadId: references || inReplyTo },
+                  ],
+                });
+                replyToMessageId = replyMessage?._id || null;
+              }
+
+              // Extract CC emails
+              const extractEmailsFromCC = (ccString) => {
+                if (!ccString) return [];
+                const emailRegex =
+                  /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+                return ccString.match(emailRegex) || [];
+              };
+
+              const ccEmails = extractEmailsFromCC(cc);
+
+              // Process attachments
+              let attachments = [];
+              if (parsed.attachments && parsed.attachments.length > 0) {
+                for (const attachment of parsed.attachments) {
+                  try {
+                    const fileSizeInBytes = attachment.size;
+                    const formattedFileSize = formatFileSize(fileSizeInBytes);
+
+                    // Extract extension from filename
+                    const ext =
+                      attachment.filename && attachment.filename.includes(".")
+                        ? attachment.filename.split(".").pop()
+                        : null;
+
+                    // Get attachment content as buffer
+                    let attachmentBuffer = attachment.content;
+                    if (
+                      attachment.content &&
+                      !Buffer.isBuffer(attachment.content)
+                    ) {
+                      attachmentBuffer = Buffer.from(attachment.content);
+                    }
+
+                    // Upload attachment
+                    const url = await uploadMedia(
+                      attachmentBuffer,
+                      ext,
+                      attachment.filename,
+                    );
+
+                    attachments.push({
+                      fileName: attachment.filename,
+                      fileSize: formattedFileSize,
+                      mimeType: attachment.contentType,
+                      mediaUrl: url,
+                      mediaType: getMediaTypeFromMime(attachment.contentType),
+                    });
+                  } catch (attachmentErr) {
+                    console.error(
+                      "Error processing attachment:",
+                      attachmentErr,
+                    );
+                  }
+                }
+              }
+
+              // Create new message
+              const newMessage = new Message({
+                clinicId: provider.clinicId,
+                conversationId: conversation._id,
+                leadId: lead._id,
+                provider: provider._id,
+                channel: "email",
+                messageType: "conversational",
+                senderId: provider.userId?.toString(),
+                recipientId: lead._id,
+                direction: "incoming",
+                subject: subject,
+                cc: ccEmails,
+                content: body || "",
+                status: "received",
+                providerMessageId: messageId,
+                replyToMessageId: replyToMessageId,
+                mediaType:
+                  attachments.length > 0 ? attachments[0].mediaType : "",
+                mediaUrl: attachments.length > 0 ? attachments[0].mediaUrl : "",
+                threadId: threadId,
+                attachments: attachments,
+                emailReceivedAt: receivedAt,
+                source: "Zeva",
+              });
+
+              // Update conversation
+              conversation.recentMessage = newMessage._id;
+              if (!conversation.unreadMessages) {
+                conversation.unreadMessages = [];
+              }
+              conversation.unreadMessages.push(newMessage._id);
+
+              await Promise.all([newMessage.save(), conversation.save()]);
+              console.log(`Saved message ${messageId} for lead ${lead._id}`);
+
+              // Execute workflow for the incoming message
+              // await executeWorkflows({
+              //   entity: WORKFLOW_ENTITY_TYPE.MESSAGE,
+              //   trigger: WORKFLOW_TRIGGER_TYPE.INCOMING_MESSAGE,
+              //   leadId: lead._id?.toString(),
+              //   clinicId: provider.clinicId?.toString(),
+              //   channel: "email",
+              //   providerId: provider._id?.toString(),
+              //   messageId: newMessage._id?.toString(),
+              //   conversationId: conversation._id?.toString(),
+              // });
+            } catch (emailError) {
+              console.error(`Error processing email:`, emailError);
+              continue;
+            }
+          }
+        } finally {
+          // always release the lock
+          lock.release();
+        }
+
+        // close this connection
+        console.log(
+          `SMTP Email Inbox fetched successfully for providerId: ${providerId}`,
+        );
+        await client.logout();
+      } catch (error) {
+        console.error("❌ Error fetching incoming emails: ", error);
       }
     }
   },

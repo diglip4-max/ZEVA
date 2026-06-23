@@ -6,6 +6,7 @@ import Clinic from "../../../models/Clinic";
 import { getUserFromReq } from "../lead-ms/auth";
 import AllocatedStockItem from "../../../models/stocks/AllocatedStockItem";
 import { calculateTotalAmount, reduceQuantity } from "../../../lib/stockUtils";
+import ConsentLog from "../../../models/ConsentLog";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -157,7 +158,27 @@ export default async function handler(req, res) {
         isDoctorDiscountApplied: isDoctorDiscountApplied || false,
         doctorDiscountType: doctorDiscountType || null,
         doctorDiscountAmount: doctorDiscountAmount || 0,
+        consentLogs: req.body.consentLogIds || [], // Initialize with sent consent log IDs
       });
+      
+      // Link the consent logs to the new complaint
+      const consentLogIds = req.body.consentLogIds || [];
+      if (consentLogIds.length > 0) {
+        // Update all consent logs to set complaintId
+        await ConsentLog.updateMany(
+          { _id: { $in: consentLogIds } },
+          { $set: { complaintId: complaint._id } }
+        );
+        
+        // Refresh the complaint document with populated consentLogs
+        await complaint.populate({
+          path: 'consentLogs',
+          populate: {
+            path: 'consentFormId',
+            select: 'formName description'
+          }
+        });
+      }
 
       return res.status(200).json({
         success: true,
@@ -176,6 +197,7 @@ export default async function handler(req, res) {
           isDoctorDiscountApplied: complaint.isDoctorDiscountApplied,
           doctorDiscountType: complaint.doctorDiscountType,
           doctorDiscountAmount: complaint.doctorDiscountAmount,
+          consentLogs: complaint.consentLogs || [], // Include consentLogs in response
           createdAt: complaint.createdAt,
           updatedAt: complaint.updatedAt,
         },
@@ -205,6 +227,14 @@ export default async function handler(req, res) {
           "appointmentReportId",
           "temperatureCelsius pulseBpm systolicBp diastolicBp updatedAt",
         )
+        .populate({
+          path: "consentLogs",
+          populate: {
+            path: "consentFormId",
+            select: "formName description",
+          },
+          select: "_id consentFormId consentFormName status sentAt createdAt signedAt",
+        })
         .sort({ createdAt: -1 })
         .lean();
 
@@ -223,6 +253,7 @@ export default async function handler(req, res) {
           isDoctorDiscountApplied: c.isDoctorDiscountApplied,
           doctorDiscountType: c.doctorDiscountType,
           doctorDiscountAmount: c.doctorDiscountAmount,
+          consentLogs: c.consentLogs || [], // Include linked consent forms
           createdAt: c.createdAt,
           updatedAt: c.updatedAt,
         })),
@@ -291,6 +322,16 @@ export default async function handler(req, res) {
       }
       await existing.save();
 
+      // Populate consentLogs
+      await existing.populate({
+        path: "consentLogs",
+        populate: {
+          path: "consentFormId",
+          select: "formName description",
+        },
+        select: "_id consentFormId consentFormName status sentAt createdAt signedAt",
+      });
+
       return res.status(200).json({
         success: true,
         message: "Complaint updated successfully",
@@ -308,6 +349,7 @@ export default async function handler(req, res) {
           isDoctorDiscountApplied: existing.isDoctorDiscountApplied,
           doctorDiscountType: existing.doctorDiscountType,
           doctorDiscountAmount: existing.doctorDiscountAmount,
+          consentLogs: existing.consentLogs || [], // Include consent logs
           createdAt: existing.createdAt,
           updatedAt: existing.updatedAt,
         },

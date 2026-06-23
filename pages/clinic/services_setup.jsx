@@ -539,20 +539,29 @@ function ServicesSetupPage() {
     }
     try {
       setDepartmentsLoading(true);
+      console.log("Loading departments with module:", MODULE_KEY);
       const res = await axios.get("/api/clinic/departments", {
         headers,
         params: { module: MODULE_KEY },
       });
+      console.log("Departments API response:", res.data);
       if (res.data.success) {
+        console.log("Departments loaded:", res.data.departments);
         setDepartments(res.data.departments || []);
       } else {
         const errorMsg = res.data.message || "Failed to load departments";
+        console.error("Departments API error:", errorMsg);
         setMessage({ type: "error", text: errorMsg });
         toast.error(errorMsg, { duration: 3000 });
       }
     } catch (error) {
       const status = error.response?.status;
-      if (status !== 401 && status !== 403) {
+      console.error("Departments load error - status:", status, error.response?.data);
+      if (status === 403) {
+        console.warn("403 Forbidden - departments may not be accessible");
+        // Still set empty array to allow form to work
+        setDepartments([]);
+      } else if (status !== 401) {
         const errorMsg = error.response?.data?.message || "Failed to load departments";
         setMessage({ type: "error", text: errorMsg });
         toast.error(errorMsg, { duration: 3000 });
@@ -634,9 +643,12 @@ function ServicesSetupPage() {
 
   useEffect(() => {
     if (!permissionsLoaded) return;
-    if (!permissions.canRead) return;
-    loadServices();
+    // Always load departments (needed for create form even when canRead is false)
     loadDepartments();
+    // Only load services if canRead is true
+    if (permissions.canRead) {
+      loadServices();
+    }
   }, [permissionsLoaded, permissions.canRead]);
 
   useEffect(() => {
@@ -1095,8 +1107,12 @@ function ServicesSetupPage() {
       setMessage({ type: "error", text: "Please enter a package name" });
       return;
     }
-    if (!pkgPrice || parseFloat(pkgPrice) < 0) {
-      setMessage({ type: "error", text: "Please enter a valid price" });
+    if (!pkgPrice || parseFloat(pkgPrice) <= 0) {
+      setMessage({ type: "error", text: "Please enter Total Package Price" });
+      return;
+    }
+    if (!pkgStartDate || !pkgEndDate) {
+      setMessage({ type: "error", text: "Please enter both Start Date and End Date" });
       return;
     }
     if (selectedTreatments.length === 0) {
@@ -1295,20 +1311,26 @@ function ServicesSetupPage() {
     );
   };
 
-  const handleDeletePackage = async (packageId) => {
+  // ---- Package deletion confirmation state (for packages already sold to patients) ----
+  const [pkgDeleteConfirm, setPkgDeleteConfirm] = useState(null);
+  // pkgDeleteConfirm = { packageId, packageName, soldCount } when we need to ask user to confirm
+
+  const handleDeletePackage = async (packageId, force = false) => {
     const headers = getAuthHeaders();
     if (!headers) {
       setMessage({ type: "error", text: "Authentication required. Please log in again." });
       return;
     }
     try {
-      const res = await axios.delete(`/api/clinic/packages?packageId=${packageId}`, {
-        headers,
-      });
+      const url = force
+        ? `/api/clinic/packages?packageId=${packageId}&force=true`
+        : `/api/clinic/packages?packageId=${packageId}`;
+      const res = await axios.delete(url, { headers });
       if (res.data.success) {
         const successMsg = res.data.message || "Package deleted successfully";
         setMessage({ type: "success", text: successMsg });
         toast.success(successMsg, { duration: 3000 });
+        setPkgDeleteConfirm(null);
         await loadPackages();
       } else {
         const errorMsg = res.data.message || "Failed to delete package";
@@ -1316,6 +1338,17 @@ function ServicesSetupPage() {
         toast.error(errorMsg, { duration: 3000 });
       }
     } catch (error) {
+      // 409 = package has been sold to patients — show confirmation prompt
+      if (error.response?.status === 409 && error.response?.data?.soldToPatients) {
+        const data = error.response.data;
+        setPkgDeleteConfirm({
+          packageId,
+          packageName: data.packageName,
+          soldCount: data.soldCount,
+          message: data.message,
+        });
+        return;
+      }
       const errorMessage = error.response?.data?.message || "Failed to delete package";
       setMessage({ type: "error", text: errorMessage });
       toast.error(errorMessage, { duration: 3000 });
@@ -1348,8 +1381,8 @@ function ServicesSetupPage() {
 
 
 
-  // Show access denied message if no permission
-  if (!permissions.canRead) {
+  // Show access denied message only if BOTH read and create are false
+  if (!permissions.canRead && !permissions.canCreate) {
     console.log("Rendering Access Denied - permissions:", permissions);
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -1361,16 +1394,69 @@ function ServicesSetupPage() {
             Access Denied
           </h3>
           <p className="text-sm text-gray-700">
-            You do not have permission to view services setup. Please contact your administrator.
+            You do not have permission to view or create services. Please contact your administrator.
           </p>
         </div>
       </div>
     );
   }
 
+  // Helper to check if we should show list data (only when canRead is true)
+  const shouldShowData = permissions.canRead;
+
   return (
     <>
       <Toaster position="top-right" />
+
+      {/* ----------------------------------------------------------------
+          Package Sold-To-Patients Delete Confirmation Modal
+          Shown when clinic tries to delete a package that has already
+          been sold to patients. Warns them but allows force-delete
+          since patient benefits are preserved via snapshot data.
+      ---------------------------------------------------------------- */}
+      {pkgDeleteConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-orange-200 w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="w-5 h-5 text-orange-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">Package Already Sold to Patients</h3>
+                <p className="text-xs text-gray-500 mt-0.5">"{pkgDeleteConfirm.packageName}"</p>
+              </div>
+            </div>
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+              <p className="text-xs text-orange-800 leading-relaxed">
+                This package has been sold to <span className="font-bold">{pkgDeleteConfirm.soldCount} patient(s)</span>.
+              </p>
+              <p className="text-xs text-orange-700 leading-relaxed mt-1.5">
+                <span className="font-semibold">Important:</span> Deleting this package from the catalogue will <span className="font-bold underline">NOT</span> remove benefits from patients who already purchased it. They will retain full access to all sessions and treatments via stored package data.
+              </p>
+            </div>
+            <p className="text-xs text-gray-600 mb-5">
+              Do you want to proceed with removing this package from the clinic catalogue?
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setPkgDeleteConfirm(null)}
+                className="flex-1 px-4 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeletePackage(pkgDeleteConfirm.packageId, true)}
+                className="flex-1 px-4 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+              >
+                Yes, Remove from Catalogue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="p-4 space-y-4 w-full lg:w-[95%] xl:w-[90%] mx-auto">
         <div className="flex border-b border-gray-200 mb-2">
           <button
@@ -1561,6 +1647,7 @@ function ServicesSetupPage() {
             )}
             
             {/* Service Display Section - Modern Healthcare UI */}
+            {shouldShowData && (
             <div className="bg-white border border-teal-200 rounded-xl p-4 shadow-sm">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                 <div className="flex items-center gap-2.5">
@@ -1648,6 +1735,9 @@ function ServicesSetupPage() {
                                 </span>
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-teal-100 text-teal-700 shadow-xs">
                                   {(() => {
+                                    if (s.departmentId && typeof s.departmentId === 'object' && s.departmentId.name) {
+                                      return s.departmentId.name;
+                                    }
                                     const d = departments.find((dd) => dd._id === String(s.departmentId || ""));
                                     return d ? d.name : "Unassigned";
                                   })()}
@@ -1705,6 +1795,9 @@ function ServicesSetupPage() {
                               </div>
                               <span className="text-xs font-medium text-gray-900">
                                 {(() => {
+                                  if (s.departmentId && typeof s.departmentId === 'object' && s.departmentId.name) {
+                                    return s.departmentId.name;
+                                  }
                                   const d = departments.find((dd) => dd._id === String(s.departmentId || ""));
                                   return d ? d.name : "Unassigned";
                                 })()}
@@ -1892,6 +1985,7 @@ function ServicesSetupPage() {
                 </div>
               )}
             </div>
+            )}
           </>
         )}
                {activeTab === "memberships" && (
@@ -2031,6 +2125,7 @@ function ServicesSetupPage() {
             )}
 
             {/* Membership Display Section - Compact Healthcare UI */}
+            {shouldShowData && (
             <div className="bg-white border border-teal-200 rounded-xl p-4 shadow-sm">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                 <div className="flex items-center gap-2.5">
@@ -2449,6 +2544,7 @@ function ServicesSetupPage() {
                 </div>
               )}
             </div>
+            )}
           </>
         )}
         {activeTab === "packages" && (
@@ -2792,6 +2888,7 @@ function ServicesSetupPage() {
             </div>
             )}
             
+            {shouldShowData && (
             <div className="mt-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
                 <div className="flex items-center gap-3">
@@ -2952,6 +3049,12 @@ function ServicesSetupPage() {
                           <Calendar className="w-2.5 h-2.5" />
                           {new Date(pkg.createdAt).toLocaleDateString()}
                         </span>
+                        {pkg.createdByName && (
+                          <span className="text-[9px] text-slate-500 flex items-center gap-0.5" title={`Created by ${pkg.createdByName} (${pkg.createdByRole || 'unknown'})`}>
+                            <User className="w-2.5 h-2.5" />
+                            {pkg.createdByName}
+                          </span>
+                        )}
                         <span className="text-[9px] bg-blue-100 text-slate-800 px-1.5 py-0.5 rounded-full">
                           {pkg.treatments && pkg.treatments.length} T
                         </span>
@@ -2961,6 +3064,7 @@ function ServicesSetupPage() {
                 </div>
               )}
             </div>
+            )}
           </>
         )}
       </div>

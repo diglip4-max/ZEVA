@@ -36,6 +36,13 @@ interface Appointment {
   serviceName?: string | null;
   serviceIds?: string[] | Array<{ _id: string }>;
   serviceNames?: string[];
+  services?: Array<{
+    serviceId: string;
+    quantity: number;
+    name?: string;
+    price?: number;
+    clinicPrice?: number;
+  }>;
   status: string;
   followType: string;
   referral: string;
@@ -62,6 +69,7 @@ interface Package {
   totalSessions: number;
   sessionPrice?: number;
   isUserPackage?: boolean;
+  isTransferred?: boolean;
   remainingSessions?: number;
   patientPackageId?: string;
   patientPackageSubId?: string;
@@ -69,6 +77,7 @@ interface Package {
   paymentStatus?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
+  isDeletedMaster?: boolean;
   treatments: Array<{
     treatmentName: string;
     treatmentSlug: string;
@@ -89,6 +98,7 @@ interface SelectedTreatment {
   usesFreeConsultation?: boolean;
   usesMembershipDiscount?: boolean;
   isFreeSession?: boolean;
+  originalAppointmentQuantity?: number; // Original quantity from the appointment (if any)
 }
 
 interface PackageTreatmentSession {
@@ -187,6 +197,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   };
 
   const [loading, setLoading] = useState(false);
+  const [complaintExists, setComplaintExists] = useState<boolean | null>(null); // null = loading, true/false = result
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [userPackages, setUserPackages] = useState<any[]>([]);
@@ -202,6 +213,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [packageTreatmentSessions, setPackageTreatmentSessions] = useState<
     PackageTreatmentSession[]
   >([]);
+  const [selectedPackageTotalAllowed, setSelectedPackageTotalAllowed] = useState<number | null>(null);
+  const [selectedPackageRemaining, setSelectedPackageRemaining] = useState<number | null>(null);
   const [treatmentDropdownOpen, setTreatmentDropdownOpen] = useState(false);
   const [packageDropdownOpen, setPackageDropdownOpen] = useState(false);
   const [treatmentSearchQuery, setTreatmentSearchQuery] = useState("");
@@ -320,6 +333,66 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     return { role: null, id: null };
   };
 
+  // Helper function to check if a treatment is eligible for an offer
+  const isTreatmentEligibleForOffer = (offer: Offer, treatment: OfferMatchTreatment): boolean => {
+    if (offer.applyOnAllServices) {
+      return true;
+    }
+    
+    // Check doctor-specific
+    const currentDoctorId = typeof appointment?.doctorId === 'object'
+      ? (appointment.doctorId as any)._id
+      : appointment?.doctorId;
+    if (offer.doctorIds && Array.isArray(offer.doctorIds) && currentDoctorId) {
+      if (offer.doctorIds.some(id => String(id) === String(currentDoctorId))) {
+        return true;
+      }
+    }
+    
+    // Check service-specific
+    let isEligible = false;
+    
+    // Check serviceIds
+    if (offer.serviceIds && Array.isArray(offer.serviceIds)) {
+      isEligible = offer.serviceIds.some(svc => {
+        if (typeof svc === 'string') {
+          return (
+            String(svc) === String(treatment.slug) ||
+            (treatment.serviceId && String(svc) === String(treatment.serviceId)) ||
+            String(svc).toLowerCase() === String(treatment.name).toLowerCase()
+          );
+        } else if (svc && typeof svc === 'object') {
+          return (
+            String(svc._id) === String(treatment.slug) || 
+            (treatment.serviceId && String(svc._id) === String(treatment.serviceId)) ||
+            (svc.serviceSlug && String(svc.serviceSlug) === String(treatment.slug)) ||
+            (svc.name && String(svc.name).toLowerCase() === String(treatment.name).toLowerCase())
+          );
+        }
+        return false;
+      });
+    }
+    
+    // Check serviceNames as fallback
+    if (!isEligible && offer.serviceNames && Array.isArray(offer.serviceNames)) {
+      isEligible = offer.serviceNames.some((name: string) => 
+        String(name).toLowerCase() === String(treatment.name).toLowerCase()
+      );
+    }
+    
+    return isEligible;
+  };
+
+  // Helper function to calculate eligible total for an offer
+  const calculateEligibleTotal = (offer: Offer, treatments: OfferMatchTreatment[]): number => {
+    return treatments.reduce((sum, t) => {
+      if (isTreatmentEligibleForOffer(offer, t)) {
+        return sum + t.price * t.quantity;
+      }
+      return sum;
+    }, 0);
+  };
+
   // Balances and advance usage
   const [balances, setBalances] = useState<{
     advanceBalance: number;
@@ -340,6 +413,30 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     pastAdvance54PercentBalance: 0,
     pastAdvance159FlatBalance: 0,
   });
+
+  // ============================================================
+  // Enterprise Pending Ledger (additive, read-only UI).
+  // Holds the per-treatment / per-package breakdown of the
+  // patient's pending balance. Populated alongside the legacy
+  // pendingBalance number above. Used purely for display so the
+  // cashier can see WHICH treatment amount is being rolled in.
+  // The existing pending rollup logic (balances.pendingBalance)
+  // is completely unchanged.
+  // ============================================================
+  const [pendingLedgerRows, setPendingLedgerRows] = useState<
+    Array<{
+      ledgerId: string;
+      invoiceNumber: string;
+      service: string;
+      treatmentName?: string | null;
+      packageName?: string | null;
+      remainingAmount: number;
+      originalAmount: number;
+      paidAmount: number;
+      status: string;
+    }>
+  >([]);
+  const [showPendingLedger, setShowPendingLedger] = useState<boolean>(false);
   const [applyAdvance, setApplyAdvance] = useState(false);
   const [applyPastAdvance50Percent] = useState(false);
   const [applyPastAdvance54Percent] = useState(false);
@@ -389,7 +486,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     pending: "0.00",
     advance: "0.00",
     pastAdvance: "0.00",
-    paymentMethod: "Cash",
+    paymentMethod: "",
     insurance: "No",
     advanceGivenAmount: "",
     coPayPercent: "",
@@ -451,6 +548,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       setSelectedTreatments([]);
       setSelectedPackage(null);
       setPackageTreatmentSessions([]);
+      setSelectedPackageTotalAllowed(null);
+      setSelectedPackageRemaining(null);
       setErrors({});
       setTotalPrice(0);
       setBillingHistory([]);
@@ -521,7 +620,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         pending: "0.00",
         advance: "0.00",
         pastAdvance: "0.00",
-        paymentMethod: "Cash",
+        paymentMethod: "",
         insurance: "No",
         advanceGivenAmount: "",
         coPayPercent: "",
@@ -557,8 +656,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         if (res.data.success && res.data.clinic?.currency) {
           setCurrency(res.data.clinic.currency);
         }
-      } catch (e) { 
-        console.error('Error fetching clinic currency:', e); 
+      } catch (e: any) {
+        // Silently ignore 403 permission errors
+        if (e?.response?.status !== 403) {
+          console.error('Error fetching clinic currency:', e);
+        }
       }
     };
     fetchClinicCurrency();
@@ -573,6 +675,27 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       if (!headers.Authorization) return;
 
       try {
+        // Check if complaint exists for this appointment
+        if (appointment?._id) {
+          try {
+            const complaintsRes = await axios.get("/api/clinic/patient-complaints", {
+              headers,
+              params: { appointmentId: appointment._id },
+            });
+            if (complaintsRes.data?.success) {
+              const complaints = complaintsRes.data.complaints || [];
+              setComplaintExists(complaints.length > 0);
+            } else {
+              setComplaintExists(false);
+            }
+          } catch (err) {
+            console.error("Error checking complaint:", err);
+            setComplaintExists(false);
+          }
+        } else {
+          setComplaintExists(false);
+        }
+
         // Fetch treatments
         const treatmentsRes = await axios.get("/api/clinic/treatments", {
           headers,
@@ -632,7 +755,83 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           headers,
         });
         if (packagesRes.data.success) {
-          setPackages(packagesRes.data.packages || []);
+          const masterPackages = packagesRes.data.packages || [];
+
+          // Enterprise resilience: reconstruct package data from patient-stored snapshots
+          // for any packages that were deleted from the master catalogue AFTER being sold
+          // to the patient. This ensures the patient can still consume all package benefits
+          // (select package in billing, view treatments, generate session invoices).
+          if (appointment?.patientId) {
+            try {
+              // Fetch patient data and billing history in parallel for robust snapshot reconstruction
+              const [patRes, billRes] = await Promise.all([
+                axios.get(`/api/clinic/patient-registration?id=${appointment.patientId}`, { headers }),
+                axios.get(`/api/clinic/billing-history/${appointment.patientId}`, { headers }).catch(() => ({ data: { success: false } })),
+              ]);
+              const patientPkgs: any[] = patRes.data?.patient?.packages || [];
+              const billings: any[] = (billRes as any).data?.success ? (billRes as any).data.billings || [] : [];
+              const masterIds = new Set(masterPackages.map((p: any) => String(p._id)));
+
+              const snapshotPackages: any[] = [];
+              patientPkgs.forEach((assigned: any) => {
+                const pkgIdStr = String(assigned.packageId || '');
+                if (!pkgIdStr || masterIds.has(pkgIdStr)) return;
+
+                const snap = assigned.packageSnapshot;
+
+                // Name resolution (4 levels): snapshot → packageName → billing history → last resort
+                const nameFromBilling = billings.find(
+                  (b: any) => b.service === 'Package' && b.package &&
+                    (String(b.packageId) === pkgIdStr || (b.notes && String(b.notes).includes(pkgIdStr)))
+                )?.package || null;
+                const resolvedName = snap?.name || assigned.packageName || nameFromBilling
+                  || (assigned.totalPrice > 0 ? `Package (${pkgIdStr.slice(-6)})` : null);
+                if (!resolvedName) return;
+
+                // Treatment resolution: snapshot → billing history treatments
+                const resolvedTreatments = (Array.isArray(snap?.treatments) && snap.treatments.length > 0)
+                  ? snap.treatments
+                  : (() => {
+                      const pkgBill = billings.find(
+                        (b: any) => b.service === 'Package' && b.package === resolvedName
+                          && Array.isArray(b.treatments) && b.treatments.length > 0
+                      );
+                      return pkgBill?.treatments || [];
+                    })();
+
+                const resolvedTotalSessions = (snap?.totalSessions ?? 0)
+                  || resolvedTreatments.reduce((s: number, t: any) => s + (parseInt(t.sessions) || 0), 0);
+
+                snapshotPackages.push({
+                  _id: pkgIdStr,
+                  name: resolvedName,
+                  totalPrice: snap?.totalPrice ?? assigned.totalPrice ?? 0,
+                  totalSessions: resolvedTotalSessions,
+                  sessionPrice: snap?.sessionPrice ?? 0,
+                  validityInMonths: snap?.validityInMonths ?? assigned.validityInMonths ?? 0,
+                  startDate: snap?.startDate ?? assigned.startDate ?? null,
+                  endDate: snap?.endDate ?? assigned.endDate ?? null,
+                  treatments: resolvedTreatments,
+                  isDeletedMaster: true,
+                });
+              });
+
+              // Merge and deduplicate
+              const seen = new Set<string>();
+              const merged = [...masterPackages, ...snapshotPackages].filter((p: any) => {
+                const id = String(p._id);
+                if (seen.has(id)) return false;
+                seen.add(id);
+                return true;
+              });
+              setPackages(merged);
+            } catch (snapErr) {
+              console.warn('[BillingModal] Snapshot package reconstruction skipped:', snapErr);
+              setPackages(masterPackages);
+            }
+          } else {
+            setPackages(masterPackages);
+          }
         }
 
         // Fetch userPackages (packages created via public form) for this patient
@@ -662,6 +861,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         patientPackageId: pkg.packageId, // Use the actual UserPackage ID
                         patientPackageSubId: pkg._id, // Keep the sub-document ID just in case
                         isUserPackage: true,
+                        paymentStatus: pkg.paymentStatus || 'Unpaid',
                       });
                     }
                   }
@@ -950,6 +1150,35 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       }
     };
     fetchBalances();
+
+    // Pending Ledger (additive, read-only).
+    // Runs in parallel with fetchBalances and is non-blocking: if
+    // the endpoint fails or the data is empty, the UI silently
+    // hides the breakdown panel and the existing pending flow
+    // continues to work unchanged.
+    const fetchPendingLedger = async () => {
+      try {
+        const headers = getAuthHeaders();
+        if (!headers.Authorization) return;
+        const res = await axios.get(
+          `/api/clinic/pending-ledgers/${appointment.patientId}?includeClosed=false&previewLimit=50`,
+          { headers },
+        );
+        if (res.data?.success) {
+          const rows = Array.isArray(res.data.openLedgers)
+            ? res.data.openLedgers
+            : Array.isArray(res.data.preview)
+              ? res.data.preview
+              : [];
+          setPendingLedgerRows(rows);
+        } else {
+          setPendingLedgerRows([]);
+        }
+      } catch {
+        setPendingLedgerRows([]);
+      }
+    };
+    fetchPendingLedger();
   }, [isOpen, appointment?.patientId, getAuthHeaders]);
 
   // Fetch consent forms
@@ -1306,9 +1535,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   useEffect(() => {
     if (!isOpen || !appointment || treatments.length === 0) return;
     
+    
+    
     // Create a unique key based on appointment ID and its services to detect changes
     const serviceIdsStr = (appointment.serviceIds || []).map(s => typeof s === 'string' ? s : s?._id).sort().join(',');
-    const initKey = `${appointment._id}-${serviceIdsStr}`;
+    const servicesStr = (appointment.services || []).map(s => `${s.serviceId}-${s.quantity}`).sort().join(',');
+    const initKey = `${appointment._id}-${serviceIdsStr}-${servicesStr}`;
 
     // Only auto-initialize if we haven't already initialized for this specific appointment and its services
     if (initializedAppointmentId.current === initKey) return;
@@ -1328,20 +1560,44 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     // Only pre-select treatments if NO billing exists yet for this appointment
     const initialTreatments: SelectedTreatment[] = [];
 
-    // Handle multiple services (serviceNames / serviceIds)
-    if (appointment.serviceNames && appointment.serviceNames.length > 0) {
+    // First try to use services array with quantities
+    if (appointment.services && appointment.services.length > 0) {
+      appointment.services.forEach((svc) => {
+        const matchingTreatment = treatments.find(
+          (t) => 
+            t.slug === svc.serviceId || 
+            t.serviceId === svc.serviceId || 
+            t.name === svc.name
+        );
+        const price = matchingTreatment?.price || svc.price || 0;
+        const originalQty = svc.quantity || 1;
+        initialTreatments.push({
+          treatmentName: svc.name || matchingTreatment?.name || '',
+          treatmentSlug: svc.serviceId || matchingTreatment?.slug || '',
+          treatmentServiceId: matchingTreatment?.serviceId || svc.serviceId,
+          price: price,
+          quantity: originalQty,
+          totalPrice: price * originalQty,
+          originalAppointmentQuantity: originalQty,
+        });
+      });
+    }
+    // Handle multiple services (serviceNames / serviceIds) as fallback
+    else if (appointment.serviceNames && appointment.serviceNames.length > 0) {
       appointment.serviceNames.forEach((name, index) => {
         const serviceIdItem = appointment.serviceIds?.[index];
         const slug = typeof serviceIdItem === 'string' ? serviceIdItem : serviceIdItem?._id;
         if (name && slug) {
           const matchingTreatment = treatments.find(t => t.slug === slug || t.name === name);
+          const originalQty = 1;
           initialTreatments.push({
             treatmentName: name,
             treatmentSlug: slug,
             treatmentServiceId: matchingTreatment?.serviceId || slug,
             price: matchingTreatment?.price || 0,
-            quantity: 1,
+            quantity: originalQty,
             totalPrice: matchingTreatment?.price || 0,
+            originalAppointmentQuantity: originalQty,
           });
         }
       });
@@ -1350,13 +1606,15 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     else if (appointment.serviceName && appointment.serviceId) {
       const slug = typeof appointment.serviceId === 'string' ? appointment.serviceId : (appointment.serviceId as { _id: string })._id;
       const matchingTreatment = treatments.find(t => t.slug === slug || t.name === appointment.serviceName);
+      const originalQty = 1;
       initialTreatments.push({
         treatmentName: appointment.serviceName,
         treatmentSlug: slug,
         treatmentServiceId: matchingTreatment?.serviceId || slug,
         price: matchingTreatment?.price || 0,
-        quantity: 1,
+        quantity: originalQty,
         totalPrice: matchingTreatment?.price || 0,
+        originalAppointmentQuantity: originalQty,
       });
     }
 
@@ -1398,9 +1656,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
     offersClearedRef.current = false;
 
-    const currentTreatments: OfferMatchTreatment[] = selectedService === "Treatment" 
-      ? selectedTreatments.map(t => ({ slug: t.treatmentSlug, serviceId: t.treatmentServiceId, name: t.treatmentName, price: t.price, quantity: t.quantity }))
-      : packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, serviceId: undefined, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions }));
+    // Combined source: include selected treatments AND selected package treatments together
+    // so both can participate in offer matching at the same time.
+    const currentTreatments: OfferMatchTreatment[] = [
+      ...selectedTreatments.map(t => ({ slug: t.treatmentSlug, serviceId: t.treatmentServiceId, name: t.treatmentName, price: t.price, quantity: t.quantity })),
+      ...packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, serviceId: undefined as string | undefined, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions })),
+    ];
 
     if (currentTreatments.length === 0) {
       setMatchedOffers((prev) => (prev.length > 0 ? [] : prev));
@@ -1431,7 +1692,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       return;
     }
 
-    const baseTotal = paidTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
+    // For NEW packages (not yet assigned to patient), use full package totalPrice instead of session-based
+    const assignedPkgForOfferMatch = (patientDetails?.packages || []).find((p: any) => String(p.packageId) === String(selectedPackage?._id));
+    const isMainPkgForOfferMatch = String(patientDetails?.packageId) === String(selectedPackage?._id);
+    const existingPkgUsageForOfferMatch = selectedPackage ? activePackageUsage.find((p: any) => p.packageName === selectedPackage.name) : null;
+    const isNewPkgForOfferMatch = selectedPackage && !assignedPkgForOfferMatch && !isMainPkgForOfferMatch && !existingPkgUsageForOfferMatch;
+
+    let baseTotal = paidTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
+    if (isNewPkgForOfferMatch) {
+      const sessionBasedPkgTotal = packageTreatmentSessions.filter(t => t.isSelected).reduce((sum, t) => sum + (t.sessionPrice || 0) * (t.usedSessions || 0), 0);
+      baseTotal = baseTotal - sessionBasedPkgTotal + (selectedPackage.totalPrice || 0);
+    }
     
     // Appointment-level context for matching
     const currentDoctorId = typeof appointment?.doctorId === 'object'
@@ -1516,8 +1787,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       applicableOffers.sort((a, b) => {
         const getDiscountAmount = (offer: Offer) => {
           let amount = 0;
+          const eligibleTotal = calculateEligibleTotal(offer, paidTreatments);
           if (offer.discountMode === "percentage") {
-            amount = (baseTotal * offer.discountValue) / 100;
+            amount = (eligibleTotal * offer.discountValue) / 100;
             if (offer.maxBenefitCap > 0) amount = Math.min(amount, offer.maxBenefitCap);
           } else {
             amount = offer.discountValue;
@@ -1662,7 +1934,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     
     // If no eligible offers remain after filtering, skip auto-apply
     if (eligibleOffersForAutoApply.length === 0) {
-      console.log('[AutoApply] All offers created after package - skipping auto-apply');
       return;
     }
     
@@ -1675,12 +1946,24 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
     // console.log('[AutoApply] Auto-apply enabled - calculating best discount');
     
-    // Calculate base total from selected treatments
-    const currentTreatments = selectedService === "Treatment" 
-      ? selectedTreatments.map(t => ({ price: t.price, quantity: t.quantity }))
-      : packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ price: t.sessionPrice, quantity: t.usedSessions }));
+    // Calculate base total from selected treatments (combined: treatments + selected package sessions)
+    const currentTreatments = [
+      ...selectedTreatments.map(t => ({ price: t.price, quantity: t.quantity })),
+      ...packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ price: t.sessionPrice, quantity: t.usedSessions })),
+    ];
     
-    const baseTotal = currentTreatments.reduce((sum, t) => sum + (t.price || 0) * (t.quantity || 1), 0);
+    // For NEW packages (not yet assigned to patient), use full package totalPrice instead of session-based
+    const assignedPkgForOffer = (patientDetails?.packages || []).find((p: any) => String(p.packageId) === String(selectedPackage?._id));
+    const isMainPkgForOffer = String(patientDetails?.packageId) === String(selectedPackage?._id);
+    const existingPkgUsageForOffer = selectedPackage ? activePackageUsage.find((p: any) => p.packageName === selectedPackage.name) : null;
+    const isNewPkgForOffer = selectedPackage && !assignedPkgForOffer && !isMainPkgForOffer && !existingPkgUsageForOffer;
+    
+    let baseTotal = currentTreatments.reduce((sum, t) => sum + (t.price || 0) * (t.quantity || 1), 0);
+    if (isNewPkgForOffer) {
+      // Replace session-based package total with full package price
+      const sessionBasedPkgTotal = packageTreatmentSessions.filter(t => t.isSelected).reduce((sum, t) => sum + (t.sessionPrice || 0) * (t.usedSessions || 0), 0);
+      baseTotal = baseTotal - sessionBasedPkgTotal + (selectedPackage.totalPrice || 0);
+    }
     if (baseTotal === 0) {
       // console.log('[AutoApply] Base total is 0 - skipping auto-apply');
       return;
@@ -1703,20 +1986,27 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         const packageDate = new Date(selectedPackage.createdAt || 0);
         const offerDate = new Date(offer.createdAt || offer.updatedAt || 0);
         if (offerDate > packageDate) {
-          console.log(`[AutoApply] Skipping offer "${offer.title}" - created after package`);
           return;
         }
       }
       
       let discountAmount = 0;
-      if (offer.discountMode === 'percentage') {
-        discountAmount = (baseTotal * offer.discountValue) / 100;
-        if (offer.maxBenefitCap > 0) {
-          discountAmount = Math.min(discountAmount, offer.maxBenefitCap);
-        }
-      } else {
-        discountAmount = offer.discountValue || 0;
-      }
+          // Get current treatments for eligible total calculation (combined: treatments + selected package sessions)
+          const currentTreatmentsForOffer = [
+            ...selectedTreatments.map(t => ({ slug: t.treatmentSlug, serviceId: t.treatmentServiceId, name: t.treatmentName, price: t.price, quantity: t.quantity })),
+            ...packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, serviceId: undefined as string | undefined, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions })),
+          ];
+          const paidTreatmentsForOffer = currentTreatmentsForOffer.filter(t => t.price > 0);
+          const eligibleTotal = calculateEligibleTotal(offer, paidTreatmentsForOffer);
+          
+          if (offer.discountMode === 'percentage') {
+            discountAmount = (eligibleTotal * offer.discountValue) / 100;
+            if (offer.maxBenefitCap > 0) {
+              discountAmount = Math.min(discountAmount, offer.maxBenefitCap);
+            }
+          } else {
+            discountAmount = offer.discountValue || 0;
+          }
       
       // console.log(`[AutoApply] Offer "${offer.title}": ${offer.discountMode} ${offer.discountValue} = ${discountAmount}`);
       eligibleDiscounts.push({ 
@@ -1800,10 +2090,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
     bundleClearedRef.current = false;
 
-    const currentTreatments: OfferMatchTreatment[] = selectedService === "Treatment" 
-      ? selectedTreatments.map(t => ({ slug: t.treatmentSlug, serviceId: t.treatmentServiceId, name: t.treatmentName, price: t.price, quantity: t.quantity }))
-      : packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, serviceId: undefined, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions }));
+    // Combined source for bundle matching: include selected treatments AND selected package treatments
+    const currentTreatments: OfferMatchTreatment[] = [
+      ...selectedTreatments.map(t => ({ slug: t.treatmentSlug, serviceId: t.treatmentServiceId, name: t.treatmentName, price: t.price, quantity: t.quantity })),
+      ...packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, serviceId: undefined as string | undefined, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions })),
+    ];
 
+    // If nothing selected at all, clear bundle state
     if (currentTreatments.length === 0) {
       clearBundleStateOnce();
       return;
@@ -1827,7 +2120,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       return;
     }
 
-    const baseTotal = paidTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
+    // For NEW packages (not yet assigned to patient), use full package totalPrice instead of session-based
+    const assignedPkgForBundle = (patientDetails?.packages || []).find((p: any) => String(p.packageId) === String(selectedPackage?._id));
+    const isMainPkgForBundle = String(patientDetails?.packageId) === String(selectedPackage?._id);
+    const existingPkgUsageForBundle = selectedPackage ? activePackageUsage.find((p: any) => p.packageName === selectedPackage.name) : null;
+    const isNewPkgForBundle = selectedPackage && !assignedPkgForBundle && !isMainPkgForBundle && !existingPkgUsageForBundle;
+
+    let baseTotal = paidTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
+    if (isNewPkgForBundle) {
+      const sessionBasedPkgTotal = packageTreatmentSessions.filter(t => t.isSelected).reduce((sum, t) => sum + (t.sessionPrice || 0) * (t.usedSessions || 0), 0);
+      baseTotal = baseTotal - sessionBasedPkgTotal + (selectedPackage.totalPrice || 0);
+    }
     
     billingDebugLog("[BundleMatching] Checking for bundle offers. Selected treatments:", currentTreatments, "Paid treatments:", paidTreatments);
 
@@ -1943,16 +2246,16 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         ));
       }
 
-      console.log(`[BundleMatching] Bundle "${offer.title}": ${eligibleTreatments.length} eligible treatments from ${paidTreatments.length} paid treatments (need ${offer.buyQty}), Match type: ${offer.doctorIds?.length ? 'DOCTOR' : offer.serviceIds?.length ? 'SERVICE' : 'ALL_SERVICES'}, Eligible: ${hasBundleServicesSelected}`);
-      console.log(`[BundleDeepDebug] offer-evaluation-result`, {
-        offerId: offer._id,
-        offerTitle: offer.title,
-        eligibleTreatments: eligibleTreatments.map(t => ({ name: t.name, slug: t.slug, serviceId: t.serviceId })),
-        eligibleCount: eligibleTreatments.length,
-        requiredBuyQty: offer.buyQty,
-        hasBundleServicesSelected,
-        willQualify: hasBundleServicesSelected && eligibleTreatments.length >= offer.buyQty
-      });
+      // console.log(`[BundleMatching] Bundle "${offer.title}": ${eligibleTreatments.length} eligible treatments from ${paidTreatments.length} paid treatments (need ${offer.buyQty}), Match type: ${offer.doctorIds?.length ? 'DOCTOR' : offer.serviceIds?.length ? 'SERVICE' : 'ALL_SERVICES'}, Eligible: ${hasBundleServicesSelected}`);
+      // console.log(`[BundleDeepDebug] offer-evaluation-result`, {
+      //   offerId: offer._id,
+      //   offerTitle: offer.title,
+      //   eligibleTreatments: eligibleTreatments.map(t => ({ name: t.name, slug: t.slug, serviceId: t.serviceId })),
+      //   eligibleCount: eligibleTreatments.length,
+      //   requiredBuyQty: offer.buyQty,
+      //   hasBundleServicesSelected,
+      //   willQualify: hasBundleServicesSelected && eligibleTreatments.length >= offer.buyQty
+      // });
       
       // Check if we have enough eligible treatments from the bundle
       // The bundle applies when at least buyQty treatments from the bundle are selected
@@ -1964,17 +2267,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         const freeSessions = sortedByPrice.slice(0, offer.freeQty).map(t => t.name);
         const freeCount = Math.min(offer.freeQty, eligibleTreatments.length);
 
-        console.log(`[BundleMatching] Bundle "${offer.title}" QUALIFIED! Free sessions:`, freeSessions);
-        console.log(`[BundleDeepDebug] bundle-qualified`, {
-          offerId: offer._id,
-          offerTitle: offer.title,
-          offerType: offer.offerType,
-          freeSessions,
-          freeCount,
-          currentBestOffer: bestBundleOffer?.title || 'none',
-          currentBestFreeCount: bestFreeCount,
-          willReplace: !bestBundleOffer || freeCount > bestFreeCount
-        });
+        // console.log(`[BundleMatching] Bundle "${offer.title}" QUALIFIED! Free sessions:`, freeSessions);
+        // console.log(`[BundleDeepDebug] bundle-qualified`, {
+        //   offerId: offer._id,
+        //   offerTitle: offer.title,
+        //   offerType: offer.offerType,
+        //   freeSessions,
+        //   freeCount,
+        //   currentBestOffer: bestBundleOffer?.title || 'none',
+        //   currentBestFreeCount: bestFreeCount,
+        //   willReplace: !bestBundleOffer || freeCount > bestFreeCount
+        // });
         
         // Store this as the best bundle offer (you could add logic to compare multiple bundles)
         if (!bestBundleOffer || freeCount > bestFreeCount) {
@@ -2001,21 +2304,21 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       }
     }
 
-    console.log(`[BundleDeepDebug] bundle-matching-final-result`, {
-      bestBundleOfferId: bestBundleOffer?._id || 'none',
-      bestBundleOfferTitle: bestBundleOffer?.title || 'none',
-      bestFreeSessions,
-      bestFreeCount,
-      allBundleOffersChecked: bundleOffers.length,
-      willSetMatchedBundle: !!bestBundleOffer
-    });
+    // console.log(`[BundleDeepDebug] bundle-matching-final-result`, {
+    //   bestBundleOfferId: bestBundleOffer?._id || 'none',
+    //   bestBundleOfferTitle: bestBundleOffer?.title || 'none',
+    //   bestFreeSessions,
+    //   bestFreeCount,
+    //   allBundleOffersChecked: bundleOffers.length,
+    //   willSetMatchedBundle: !!bestBundleOffer
+    // });
 
     if (bestBundleOffer) {
-      console.log(`[BundleMatching] Best bundle offer: ${bestBundleOffer.title}, Free sessions: ${bestFreeSessions.join(', ')}`);
-      console.log(`[BundleMatching] Current matchedBundleOffer:`, matchedBundleOffer?._id, 'New bestBundleOffer:', bestBundleOffer._id);
-      console.log(`[BundleMatching] Setting matchedBundleOffer to:`, bestBundleOffer.title);
-      console.log(`[BundleMatching] Setting bundleFreeSessions to:`, bestFreeSessions);
-      console.log(`[BundleMatching] Setting bundleFreeSessionCount to:`, bestFreeCount);
+      // console.log(`[BundleMatching] Best bundle offer: ${bestBundleOffer.title}, Free sessions: ${bestFreeSessions.join(', ')}`);
+      // console.log(`[BundleMatching] Current matchedBundleOffer:`, matchedBundleOffer?._id, 'New bestBundleOffer:', bestBundleOffer._id);
+      // console.log(`[BundleMatching] Setting matchedBundleOffer to:`, bestBundleOffer.title);
+      // console.log(`[BundleMatching] Setting bundleFreeSessions to:`, bestFreeSessions);
+      // console.log(`[BundleMatching] Setting bundleFreeSessionCount to:`, bestFreeCount);
       
       setMatchedBundleOffer((prev) => {
         console.log(`[BundleMatching] setMatchedBundleOffer callback - prev:`, prev?._id, 'new:', bestBundleOffer._id, 'same?', prev?._id === bestBundleOffer._id);
@@ -2069,9 +2372,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       return;
     }
 
-    const currentTreatments: OfferMatchTreatment[] = selectedService === "Treatment" 
-      ? selectedTreatments.map(t => ({ slug: t.treatmentSlug, serviceId: t.treatmentServiceId, name: t.treatmentName, price: t.price, quantity: t.quantity }))
-      : packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, serviceId: undefined, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions }));
+    const currentTreatments: OfferMatchTreatment[] = [
+      ...selectedTreatments.map(t => ({ slug: t.treatmentSlug, serviceId: t.treatmentServiceId, name: t.treatmentName, price: t.price, quantity: t.quantity })),
+      ...packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, serviceId: undefined as string | undefined, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions })),
+    ];
 
     if (currentTreatments.length === 0) {
       // console.log('[CashbackMatching] Skipped: No treatments selected');
@@ -2080,7 +2384,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       return;
     }
 
-    const baseTotal = currentTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
+    // For NEW packages (not yet assigned to patient), use full package totalPrice instead of session-based
+    const assignedPkgForCashback = (patientDetails?.packages || []).find((p: any) => String(p.packageId) === String(selectedPackage?._id));
+    const isMainPkgForCashback = String(patientDetails?.packageId) === String(selectedPackage?._id);
+    const existingPkgUsageForCashback = selectedPackage ? activePackageUsage.find((p: any) => p.packageName === selectedPackage.name) : null;
+    const isNewPkgForCashback = selectedPackage && !assignedPkgForCashback && !isMainPkgForCashback && !existingPkgUsageForCashback;
+
+    let baseTotal = currentTreatments.reduce((sum, t) => sum + t.price * t.quantity, 0);
+    if (isNewPkgForCashback) {
+      const sessionBasedPkgTotal = packageTreatmentSessions.filter(t => t.isSelected).reduce((sum, t) => sum + (t.sessionPrice || 0) * (t.usedSessions || 0), 0);
+      baseTotal = baseTotal - sessionBasedPkgTotal + (selectedPackage.totalPrice || 0);
+    }
     
     billingDebugLog('[CashbackMatching] Checking for cashback offers. Selected treatments:', currentTreatments);
     billingDebugLog('[CashbackMatching] Base total:', baseTotal);
@@ -2363,33 +2677,27 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
           // If offers with allowReceptionistDiscount: false are matched, remove agent discount if it was auto-applied
           if (hasOffersWithReceptionistDiscountFalse && isAgentDiscountApplied) {
-            console.log(`[MaxDiscount] Offers with allowReceptionistDiscount: false detected. Removing auto-applied agent discount.`);
             setIsAgentDiscountApplied(false);
           }
 
           if (!isAgentDiscountApplied && !isDoctorDiscountApplied) {
             // If offers exist with allowReceptionistDiscount: false, skip auto-apply
             if (hasOffersWithReceptionistDiscountFalse) {
-              console.log(`[MaxDiscount] Matched offers have allowReceptionistDiscount: false. NOT auto-applying agent discount.`);
               // Skip auto-apply - user must manually apply agent discount if needed
             } else {
               // No offers OR offers have allowReceptionistDiscount: true - run max discount logic
               if (doctorEffectiveDisc && agentEffectiveDisc) {
                 // Assuming same types for simple comparison (usually %)
                 if (agentEffectiveDisc.amount > doctorEffectiveDisc.amount) {
-                  console.log(`[MaxDiscount] Agent discount (${agentEffectiveDisc.amount}) > Doctor discount (${doctorEffectiveDisc.amount}). Auto-applying agent discount.`);
                   setIsAgentDiscountApplied(true);
                   setIsDoctorDiscountApplied(false);
                 } else {
-                  console.log(`[MaxDiscount] Doctor discount (${doctorEffectiveDisc.amount}) >= Agent discount (${agentEffectiveDisc.amount}). Auto-applying doctor discount.`);
                   setIsDoctorDiscountApplied(true);
                   setIsAgentDiscountApplied(false);
                 }
               } else if (doctorEffectiveDisc) {
-                console.log(`[MaxDiscount] Only doctor discount exists. Auto-applying doctor discount.`);
                 setIsDoctorDiscountApplied(true);
               } else if (agentEffectiveDisc) {
-                console.log(`[MaxDiscount] Only agent discount exists. Auto-applying agent discount.`);
                 setIsAgentDiscountApplied(true);
               }
             }
@@ -2445,13 +2753,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       setLoadingActivePackageUsage(true);
       try {
         const response = await axios.get(
-          `/api/clinic/package-usage/${appointment.patientId}`,
+          `/api/clinic/package-usage/${appointment.patientId}?_t=${Date.now()}`,
           { headers }
         );
        
         if (response.data.success && response.data.packageUsage) {
           setActivePackageUsage(response.data.packageUsage);
-         
+                 
           // Auto-expand first package
           const firstPkg = response.data.packageUsage[0]?.packageName;
           if (firstPkg) {
@@ -2565,12 +2873,30 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   useEffect(() => {
     let baseTotal = 0;
 
-    if (selectedService === "Treatment") {
-      baseTotal = selectedTreatments.reduce((sum, t) => sum + t.totalPrice, 0);
-    } else if (selectedPackage) {
-      // Package Payment Handling (New Requirement)
-      const paidAmount = selectedPackage.paidAmount || 0;
-      const paymentStatus = selectedPackage.paymentStatus || "Unpaid";
+    // ===== Treatment portion (always considered, since treatments & package can now be billed together) =====
+    const treatmentBaseTotal = selectedTreatments.reduce((sum, t) => sum + t.totalPrice, 0);
+
+    // ===== Package portion (always considered, since treatments & package can now be billed together) =====
+    let packageBaseTotal = 0;
+    if (selectedPackage) {
+      // Check if this is a NEW package (not yet assigned to the patient)
+      // A package is "new" if it's NOT in patientDetails.packages AND NOT in activePackageUsage
+      const assignedPkg = (patientDetails?.packages || []).find((p: any) => String(p.packageId) === String(selectedPackage._id));
+      const mainPackageId = patientDetails?.packageId;
+      const isMainPackage = String(mainPackageId) === String(selectedPackage._id);
+      const existingPkgUsage = activePackageUsage.find((p: any) => p.packageName === selectedPackage.name);
+      const isNewPackage = !assignedPkg && !isMainPackage && !existingPkgUsage;
+
+      if (isNewPackage) {
+        // NEW PACKAGE: Use the full package totalPrice — patient is purchasing the whole package.
+        // Even if only 1 session is consumed, the full package amount is billed.
+        packageBaseTotal = selectedPackage.totalPrice || 0;
+        console.log(`[NewPackageBilling] New package "${selectedPackage.name}" — using full package price: ${packageBaseTotal}`);
+      } else {
+        // EXISTING PACKAGE: Use session-based calculation (current behavior)
+        // Package Payment Handling (New Requirement)
+        const paidAmount = selectedPackage.paidAmount || 0;
+        const paymentStatus = selectedPackage.paymentStatus || "Unpaid";
       
       // Calculate how much has already been consumed from the paidAmount
       // by looking at activePackageUsage.billingHistory
@@ -2627,7 +2953,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       // For now, let's just use the computedTotal for baseTotal
       
       // Round to 2 decimal places
-      let finalTotal = Number(computedTotal.toFixed(2));
+      let finalPackageTotal = Number(computedTotal.toFixed(2));
 
       // Check if all treatments are selected with their max sessions (Legacy logic)
       const allTreatmentsSelected = packageTreatmentSessions.every(
@@ -2635,14 +2961,18 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       );
 
       if (allTreatmentsSelected && selectedPackage.totalPrice && paymentStatus === "Unpaid") {
-        const difference = Math.abs(finalTotal - selectedPackage.totalPrice);
+        const difference = Math.abs(finalPackageTotal - selectedPackage.totalPrice);
         if (difference > 0 && difference <= 2) {
-          finalTotal = selectedPackage.totalPrice;
+          finalPackageTotal = selectedPackage.totalPrice;
         }
       }
 
-      baseTotal = finalTotal;
+      packageBaseTotal = finalPackageTotal;
+      } // end else (existing package session-based calculation)
     }
+
+    // Combined base total = treatments + package portions
+    baseTotal = treatmentBaseTotal + packageBaseTotal;
 
     // Apply membership benefits (skip if membership was transferred out)
     let finalTotal = baseTotal;
@@ -2668,9 +2998,15 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       const remainingFreeConsultations = membershipUsage.remainingFreeConsultations || 0;
       const discountPercentage = membershipUsage.discountPercentage || 0;
 
-      if (selectedService === "Treatment" && selectedTreatments.length > 0) {
+      // Shared counter so a single membership free-consultation pool can cover BOTH
+      // selected treatments AND selected package sessions when billed together.
+      let freeAvailable = remainingFreeConsultations;
+      let combinedFree = 0;
+      let combinedDiscount = 0;
+
+      // ---- Treatments branch (runs when treatments are selected) ----
+      if (selectedTreatments.length > 0) {
         const sortedTreatments = [...selectedTreatments].sort((a, b) => a.price - b.price);
-        let freeAvailable = remainingFreeConsultations;
         let totalFree = 0;
         let totalDiscount = 0;
 
@@ -2715,14 +3051,25 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           });
           return changed ? next : prev;
         });
-        membershipDiscountAmount = totalFree + totalDiscount;
-      } else if (selectedService === "Package" && packageTreatmentSessions.some(t => t.isSelected)) {
+        combinedFree += totalFree;
+        combinedDiscount += totalDiscount;
+      } else {
+        // No treatments selected — ensure any leftover treatment flags are cleared
+        setSelectedTreatments((prev) => {
+          if (prev.every((t) => !t.usesFreeConsultation && !t.usesMembershipDiscount)) {
+            return prev;
+          }
+          return prev.map((t) => ({ ...t, usesFreeConsultation: false, usesMembershipDiscount: false }));
+        });
+      }
+
+      // ---- Package branch (runs when package sessions are selected) ----
+      if (packageTreatmentSessions.some(t => t.isSelected)) {
         const hasSessions = packageTreatmentSessions.some(t => t.isSelected && (t.usedSessions || 0) > 0);
         if (hasSessions) {
           const selectedSessions = packageTreatmentSessions
             .filter((t: any) => t.isSelected && (t.usedSessions || 0) > 0)
             .sort((a, b) => a.sessionPrice - b.sessionPrice);
-          let freeAvailable = remainingFreeConsultations;
           let totalFree = 0;
           let totalDiscount = 0;
 
@@ -2768,23 +3115,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             return changed ? next : prev;
           });
 
-          membershipDiscountAmount = totalFree + totalDiscount;
+          combinedFree += totalFree;
+          combinedDiscount += totalDiscount;
         }
-      } else if (remainingFreeConsultations > 0 && baseTotal > 0) {
-        membershipDiscountAmount = baseTotal;
-      } else if (discountPercentage > 0 && baseTotal > 0) {
-        membershipDiscountAmount = (baseTotal * discountPercentage) / 100;
-      }
-    } else {
-      // Reset membership flags if not applied
-      if (selectedService === "Treatment") {
-        setSelectedTreatments((prev) => {
-          if (prev.every((t) => !t.usesFreeConsultation && !t.usesMembershipDiscount)) {
-            return prev;
-          }
-          return prev.map((t) => ({ ...t, usesFreeConsultation: false, usesMembershipDiscount: false }));
-        });
-      } else if (selectedService === "Package") {
+      } else {
+        // No package sessions selected — ensure any leftover package flags are cleared
         setPackageTreatmentSessions((prev) => {
           if (prev.every((t) => !t.usesFreeConsultation && !t.usesMembershipDiscount)) {
             return prev;
@@ -2792,6 +3127,28 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           return prev.map((t) => ({ ...t, usesFreeConsultation: false, usesMembershipDiscount: false }));
         });
       }
+
+      if (selectedTreatments.length > 0 || packageTreatmentSessions.some(t => t.isSelected)) {
+        membershipDiscountAmount = combinedFree + combinedDiscount;
+      } else if (remainingFreeConsultations > 0 && baseTotal > 0) {
+        membershipDiscountAmount = baseTotal;
+      } else if (discountPercentage > 0 && baseTotal > 0) {
+        membershipDiscountAmount = (baseTotal * discountPercentage) / 100;
+      }
+    } else {
+      // Reset membership flags if not applied — reset BOTH treatment and package flags
+      setSelectedTreatments((prev) => {
+        if (prev.every((t) => !t.usesFreeConsultation && !t.usesMembershipDiscount)) {
+          return prev;
+        }
+        return prev.map((t) => ({ ...t, usesFreeConsultation: false, usesMembershipDiscount: false }));
+      });
+      setPackageTreatmentSessions((prev) => {
+        if (prev.every((t) => !t.usesFreeConsultation && !t.usesMembershipDiscount)) {
+          return prev;
+        }
+        return prev.map((t) => ({ ...t, usesFreeConsultation: false, usesMembershipDiscount: false }));
+      });
     }
 
     // 2. Calculate Offer Discount
@@ -2828,9 +3185,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             }
           } else if (offer.offerType !== "bundle") {
             // Regular instant discount
+            // Get current treatments for eligible total calculation (include BOTH treatments and package sessions)
+            const currentTreatmentsForOffer = [
+              ...selectedTreatments.map(t => ({ slug: t.treatmentSlug, serviceId: t.treatmentServiceId, name: t.treatmentName, price: t.price, quantity: t.quantity })),
+              ...packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, serviceId: undefined as string | undefined, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions })),
+            ];
+            const paidTreatmentsForOffer = currentTreatmentsForOffer.filter(t => t.price > 0);
+            const eligibleTotal = calculateEligibleTotal(offer, paidTreatmentsForOffer);
+            
             if (offer.discountMode === "percentage") {
-              currentOfferDiscount = (baseTotal * offer.discountValue) / 100;
-              console.log(`[OfferDiscountCalc] Before cap: baseTotal=${baseTotal}, discountValue=${offer.discountValue}, calculated=${currentOfferDiscount}, maxBenefitCap=${offer.maxBenefitCap}`);
+              currentOfferDiscount = (eligibleTotal * offer.discountValue) / 100;
+              console.log(`[OfferDiscountCalc] Before cap: eligibleTotal=${eligibleTotal}, discountValue=${offer.discountValue}, calculated=${currentOfferDiscount}, maxBenefitCap=${offer.maxBenefitCap}`);
               if (offer.maxBenefitCap > 0) {
                 currentOfferDiscount = Math.min(currentOfferDiscount, offer.maxBenefitCap);
                 console.log(`[OfferDiscountCalc] After cap applied: ${currentOfferDiscount}`);
@@ -3041,6 +3406,19 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       pendingVal = netDue - paidNum;
     }
 
+    console.log('[AdvanceDebugFrontend] Calculation:', {
+      discountedAmount,
+      cashbackDeduction,
+      finalAmountAfterCashback,
+      pendingUsed,
+      pendingBeingRolledIn,
+      amountForCredits,
+      netDue,
+      paidNum,
+      advanceVal,
+      pendingVal
+    });
+
     setFormData((prev) => {
       const updates: any = {
         pending: pendingVal.toFixed(2),
@@ -3235,37 +3613,64 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     const mainPackageId = patientDetails?.packageId;
     const isMainPackage = String(mainPackageId) === String(pkg._id);
     
+    // Check if we already have this package's usage in activePackageUsage
+    const existingPkgUsage = activePackageUsage.find((p: any) => p.packageName === pkg.name);
+    
+    console.log(`[FE_DEBUG] Package selected: "${pkg.name}" | isTransferred=${!!pkg.isTransferred} | pkg.totalSessions=${pkg.totalSessions} | pkg.remainingSessions=${pkg.remainingSessions}`);
+    console.log(`[FE_DEBUG] existingPkgUsage found: ${!!existingPkgUsage} | totalAllowed=${existingPkgUsage?.totalAllowedSessions} | remaining=${existingPkgUsage?.remainingSessions} | transferredSessions=${existingPkgUsage?.transferredSessions}`);
+    console.log(`[FE_DEBUG] activePackageUsage entries:`, activePackageUsage.map((p: any) => ({ name: p.packageName, totalAllowed: p.totalAllowedSessions, remaining: p.remainingSessions, isTransferred: p.isTransferred, transferredSessions: p.transferredSessions })));
+    
     const pkgWithPaymentInfo = {
       ...pkg,
-      paidAmount: assignedPkg?.paidAmount || (isMainPackage ? patientDetails?.packagePaidAmount : 0) || 0,
-      paymentStatus: assignedPkg?.paymentStatus || (isMainPackage ? patientDetails?.packagePaymentStatus : "Unpaid") || "Unpaid",
+      paidAmount: existingPkgUsage?.paidAmount || assignedPkg?.paidAmount || (isMainPackage ? patientDetails?.packagePaidAmount : 0) || 0,
+      paymentStatus: existingPkgUsage?.paymentStatus || assignedPkg?.paymentStatus || (isMainPackage ? patientDetails?.packagePaymentStatus : "Unpaid") || "Unpaid",
     };
     setSelectedPackage(pkgWithPaymentInfo);
     setLoadingPackageUsage(true);
 
-    // Fetch package usage for this patient and package
+    // Always fetch fresh package usage from API — never rely on cached activePackageUsage
+    // This ensures remaining sessions are accurate after billing
     let fetchedUsageData = null;
     if (appointment?.patientId) {
       try {
         const headers = getAuthHeaders();
         const response = await axios.get(
-          `/api/clinic/package-usage/${appointment.patientId}?packageName=${encodeURIComponent(pkg.name)}`,
+          `/api/clinic/package-usage/${appointment.patientId}?packageName=${encodeURIComponent(pkg.name)}&_t=${Date.now()}`,
           { headers },
         );
 
         if (response.data.success && response.data.packageUsage.length > 0) {
-          fetchedUsageData = response.data.packageUsage[0];
-          setPackageUsageData(fetchedUsageData);
+          // Find the matching package by name — don't blindly use [0] as the API may return all patient packages
+          const matchedUsage = response.data.packageUsage.find((p: any) => p.packageName === pkg.name);
+          if (matchedUsage) {
+            fetchedUsageData = matchedUsage;
+            setPackageUsageData(fetchedUsageData);
+            setSelectedPackageTotalAllowed(fetchedUsageData.totalAllowedSessions ?? pkg.totalSessions);
+            setSelectedPackageRemaining(fetchedUsageData.remainingSessions ?? (pkg.totalSessions || 0));
+            console.log(`[FE_DEBUG] API fresh data for "${pkg.name}": totalAllowed=${fetchedUsageData.totalAllowedSessions}, remaining=${fetchedUsageData.remainingSessions}, transferredSessions=${fetchedUsageData.transferredSessions}, totalSessions=${fetchedUsageData.totalSessions}`);
+          } else {
+            setPackageUsageData(null);
+            setSelectedPackageTotalAllowed(pkg.totalSessions || null);
+            setSelectedPackageRemaining(pkg.totalSessions || null);
+            console.log(`[FE_DEBUG] API response does NOT contain "${pkg.name}" — FALLING BACK to pkg.totalSessions=${pkg.totalSessions}`);
+          }
         } else {
           setPackageUsageData(null);
+          setSelectedPackageTotalAllowed(pkg.totalSessions || null);
+          setSelectedPackageRemaining(pkg.totalSessions || null);
+          console.log(`[FE_DEBUG] API returned EMPTY for "${pkg.name}" — FALLING BACK to pkg.totalSessions=${pkg.totalSessions}`);
         }
       } catch (error) {
         console.error("Error fetching package usage:", error);
         setPackageUsageData(null);
+        setSelectedPackageTotalAllowed(pkg.totalSessions || null);
+        setSelectedPackageRemaining(pkg.totalSessions || null);
       } finally {
         setLoadingPackageUsage(false);
       }
     } else {
+      setSelectedPackageTotalAllowed(pkg.totalSessions || null);
+      setSelectedPackageRemaining(pkg.totalSessions || null);
       setLoadingPackageUsage(false);
     }
 
@@ -3278,6 +3683,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         sessions: number;
         date: string;
       }> = [];
+      let maxSessionsForTreatment = t.sessions;
 
       if (fetchedUsageData?.treatments) {
         const usageInfo = fetchedUsageData.treatments.find(
@@ -3286,16 +3692,30 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         if (usageInfo) {
           previouslyUsed = usageInfo.totalUsedSessions || 0;
           usageDetails = usageInfo.usageDetails || [];
+          if (usageInfo.maxSessions !== undefined) {
+            maxSessionsForTreatment = usageInfo.maxSessions;
+          }
         }
       }
 
       const tName = t.treatmentName;
-      const isAlreadyBilledForThisAppointment = isTreatmentBilledRecently(tName);
+      const isBilledRecently = isTreatmentBilledRecently(tName);
+      
+      // For packages, only mark as "already billed" if:
+      // 1. It was billed recently (within 24 hours), AND
+      // 2. There are NO remaining sessions available
+      // If there are remaining sessions, patient can still bill for them
+      let isAlreadyBilledForThisAppointment = false;
+      if (isBilledRecently) {
+        const remainingSessions = maxSessionsForTreatment - previouslyUsed;
+        // Only mark as already billed if NO sessions remain
+        isAlreadyBilledForThisAppointment = remainingSessions <= 0;
+      }
 
       return {
         treatmentName: tName,
         treatmentSlug: t.treatmentSlug,
-        maxSessions: t.sessions,
+        maxSessions: maxSessionsForTreatment,
         usedSessions: 0,
         previouslyUsedSessions: previouslyUsed,
         usageDetails: usageDetails,
@@ -3306,58 +3726,165 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     });
 
     setPackageTreatmentSessions(sessions);
+    console.log(`[FE_DEBUG] Treatment sessions initialized:`, sessions.map((t: any) => ({ name: t.treatmentName, maxSessions: t.maxSessions, previouslyUsed: t.previouslyUsedSessions, remaining: t.maxSessions - t.previouslyUsedSessions })));
+    console.log(`[FE_DEBUG] selectedPackageTotalAllowed=${selectedPackageTotalAllowed}, selectedPackageRemaining=${selectedPackageRemaining}`);
     setPackageSearchQuery("");
     setPackageDropdownOpen(false);
   };
 
+  // Remove selected package — clears all package-related state
+  const handleRemovePackage = () => {
+    setSelectedPackage(null);
+    setPackageTreatmentSessions([]);
+    setSelectedPackageTotalAllowed(null);
+    setSelectedPackageRemaining(null);
+    setPackageUsageData(null);
+    setLoadingPackageUsage(false);
+    setPackageSearchQuery("");
+    setPackageDropdownOpen(false);
+  };
+
+  // Helper function to adjust package treatment sessions to fit within remaining
+  const adjustPackageSessionsToFitRemaining = (sessions: any[], maxRemaining: number) => {
+    let totalSelected = sessions.reduce((sum, t) => 
+      sum + (t.isSelected ? (t.usedSessions || 0) : 0), 
+    0);
+    
+    if (totalSelected <= maxRemaining) {
+      return sessions; // Already fits
+    }
+    
+    // We need to reduce sessions
+    let sessionsToCut = totalSelected - maxRemaining;
+    let newSessions = [...sessions];
+    
+    // First cut sessions from the last selected treatment
+    for (let i = newSessions.length - 1; i >= 0 && sessionsToCut > 0; i--) {
+      const t = newSessions[i];
+      if (!t.isSelected) continue;
+      
+      const usedNow = t.usedSessions || 0;
+      if (usedNow > sessionsToCut) {
+        newSessions[i] = { ...t, usedSessions: usedNow - sessionsToCut };
+        sessionsToCut = 0;
+      } else {
+        newSessions[i] = { ...t, usedSessions: 0, isSelected: false };
+        sessionsToCut -= usedNow;
+      }
+    }
+    
+    return newSessions;
+  };
+
   // Handle package treatment selection toggle
   const handlePackageTreatmentToggle = (slug: string) => {
-    setPackageTreatmentSessions((prev) =>
-      prev.map((t) => {
+    setPackageTreatmentSessions((prev) => {
+      // Calculate total selected sessions from all other treatments
+      const totalOtherSessions = prev.reduce((sum, t) => {
+        if (t.treatmentSlug !== slug && t.isSelected) {
+          return sum + (t.usedSessions || 0);
+        }
+        return sum;
+      }, 0);
+      
+      let tempSessions = prev.map((t) => {
         if (t.treatmentSlug === slug) {
           const newSelected = !t.isSelected;
-          // If unselecting, reset sessions to 0
+          let newUsedSessions = newSelected ? (t.usedSessions || 0) || 1 : 0;
+          
+          // Check if adding sessions would exceed total package remaining
+          if (newSelected && selectedPackageRemaining !== null) {
+            const totalWithNew = totalOtherSessions + newUsedSessions;
+            if (totalWithNew > selectedPackageRemaining) {
+              newUsedSessions = selectedPackageRemaining - totalOtherSessions;
+              if (newUsedSessions < 0) newUsedSessions = 0;
+            }
+          }
+          
+          // Also check if treatment itself has enough sessions
+          const availableForTreatment = t.maxSessions - t.previouslyUsedSessions;
+          if (newUsedSessions > availableForTreatment) {
+            newUsedSessions = availableForTreatment;
+          }
+          
           return {
             ...t,
             isSelected: newSelected,
-            usedSessions: newSelected ? t.usedSessions : 0,
+            usedSessions: newUsedSessions,
           };
         }
         return t;
-      }),
-    );
+      });
+      
+      // Now adjust all sessions to fit within remaining
+      if (selectedPackageRemaining !== null) {
+        tempSessions = adjustPackageSessionsToFitRemaining(tempSessions, selectedPackageRemaining);
+      }
+      
+      return tempSessions;
+    });
   };
 
   // Handle package treatment session change
   const handlePackageSessionChange = (slug: string, sessions: number) => {
-    setPackageTreatmentSessions((prev) =>
-      prev.map((t) => {
+    setPackageTreatmentSessions((prev) => {
+      // Calculate total selected sessions from all other treatments
+      const totalOtherSessions = prev.reduce((sum, t) => {
+        if (t.treatmentSlug !== slug && t.isSelected) {
+          return sum + (t.usedSessions || 0);
+        }
+        return sum;
+      }, 0);
+      
+      let tempSessions = prev.map((t) => {
         if (t.treatmentSlug === slug) {
           const availableSessions = t.maxSessions - t.previouslyUsedSessions;
-          if (sessions > availableSessions) {
-            setErrors((prevErrors) => ({
-              ...prevErrors,
-              [`packageSession_${slug}`]: `Only ${availableSessions} session(s) remaining (${t.previouslyUsedSessions} already used)`,
-            }));
-            return { ...t, usedSessions: availableSessions };
+          
+          // Check if adding the new sessions would exceed the package's total remaining
+          let adjustedSessions = sessions;
+          if (selectedPackageRemaining !== null) {
+            const totalWithNew = totalOtherSessions + sessions;
+            if (totalWithNew > selectedPackageRemaining) {
+              adjustedSessions = selectedPackageRemaining - totalOtherSessions;
+              if (adjustedSessions < 0) adjustedSessions = 0;
+              setErrors((prevErrors) => ({
+                ...prevErrors,
+                [`packageSession_${slug}`]: `Only ${selectedPackageRemaining - totalOtherSessions} additional session(s) available for this package (total remaining: ${selectedPackageRemaining})`,
+              }));
+            }
           }
-          if (sessions < 1 && t.isSelected && availableSessions > 0) {
+          
+          if (adjustedSessions > availableSessions) {
             setErrors((prevErrors) => ({
               ...prevErrors,
-              [`packageSession_${slug}`]: `Enter at least 1 session (max ${availableSessions})`,
+              [`packageSession_${slug}`]: `Only ${availableSessions} session(s) remaining for this treatment (${t.previouslyUsedSessions} already used)`,
             }));
-            return { ...t, usedSessions: 1 };
+            adjustedSessions = availableSessions;
+          }
+          if (adjustedSessions < 1 && t.isSelected && availableSessions > 0) {
+            setErrors((prevErrors) => ({
+              ...prevErrors,
+              [`packageSession_${slug}`]: `Enter at least 1 session (max ${Math.min(availableSessions, selectedPackageRemaining !== null ? (selectedPackageRemaining - totalOtherSessions) : availableSessions)})`,
+            }));
+            adjustedSessions = 1;
           }
           setErrors((prevErrors) => {
             const newErrors = { ...prevErrors };
             delete newErrors[`packageSession_${slug}`];
             return newErrors;
           });
-          return { ...t, usedSessions: sessions };
+          return { ...t, usedSessions: adjustedSessions };
         }
         return t;
-      }),
-    );
+      });
+      
+      // Now adjust all sessions to fit within remaining
+      if (selectedPackageRemaining !== null) {
+        tempSessions = adjustPackageSessionsToFitRemaining(tempSessions, selectedPackageRemaining);
+      }
+      
+      return tempSessions;
+    });
   };
 
   // Handle form submission
@@ -3428,7 +3955,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
       // Billing Details Table
       const tableRows = [];
-      if (selectedService === "Treatment") {
+      // Treatments rows (always added if any selected, so treatments & package can be billed together)
+      if (selectedTreatments.length > 0) {
         selectedTreatments.forEach((t) => {
           tableRows.push([
             t.treatmentName,
@@ -3438,7 +3966,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             `${getCurrencySymbol(currency)} ${t.totalPrice.toFixed(2)}`,
           ]);
         });
-      } else if (selectedService === "Package") {
+      }
+      // Package rows (always added if a package + sessions are selected, so they can appear together with treatments)
+      if (selectedPackage) {
         const selectedPackageTreatments = packageTreatmentSessions.filter(
           (t) => t.isSelected,
         );
@@ -3592,6 +4122,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       pending: formData.pending,
       pendingUsed: formData.pendingUsed,
     });
+    console.log(`[FE_DEBUG] Submitting package billing: packageName=${selectedPackage?.name}, isTransferred=${!!selectedPackage?.isTransferred}, totalAllowed=${selectedPackageTotalAllowed}, remaining=${selectedPackageRemaining}`);
+    console.log(`[FE_DEBUG] Package treatments being billed:`, packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ name: t.treatmentName, sessions: t.usedSessions, maxSessions: t.maxSessions, previouslyUsed: t.previouslyUsedSessions })));
 
     try {
       const headers = getAuthHeaders();
@@ -3607,6 +4139,25 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       if (!formData.firstName) fieldErrors.firstName = "Required";
       if (!formData.mobileNumber) fieldErrors.mobileNumber = "Required";
       if (!formData.doctor) fieldErrors.doctor = "Required";
+      if (!useMultiplePayments && !formData.paymentMethod) fieldErrors.paymentMethod = "Choose payment method";
+      
+      // Validate multiple payments if enabled
+      if (useMultiplePayments) {
+        const validPayments = multiplePayments.filter(p => 
+          p.paymentMethod && parseFloat(p.amount) > 0
+        );
+        if (validPayments.length === 0) {
+          fieldErrors.paymentMethod = "Please add at least one payment method with an amount";
+        }
+        // Check for any payment with empty payment method
+        const hasEmptyPaymentMethod = multiplePayments.some(p => 
+          parseFloat(p.amount) > 0 && !p.paymentMethod
+        );
+        if (hasEmptyPaymentMethod) {
+          fieldErrors.paymentMethod = "Please select a payment method for all payment entries";
+        }
+      }
+      
       if (Object.keys(fieldErrors).length > 0) {
         const missingList = Object.keys(fieldErrors)
           .map((k) => {
@@ -3627,30 +4178,35 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
       const hasPendingAmount = balances.pendingBalance > 0 || balances.pendingClaim > 0 || unpaidPackagesTotal > 0;
 
-      if (selectedService === "Treatment" && selectedTreatments.length === 0 && !hasPendingAmount) {
+      // ===== Combined selection validation =====
+      // We now allow billing BOTH treatments and a package together. So the rule is:
+      //  - User must have at least ONE selection (treatments OR a package with sessions)
+      //    unless there's already a pending amount to clear.
+      //  - If a package IS selected, at least one of its treatment sessions must be selected.
+      const hasTreatmentSelection = selectedTreatments.length > 0;
+      const hasPackageSelection = !!selectedPackage;
+      const hasPackageSessionSelected = packageTreatmentSessions.some((t) => t.isSelected);
+
+      if (!hasTreatmentSelection && !hasPackageSelection && !hasPendingAmount) {
         setErrors({
-          general: "Please select at least one treatment",
+          general: "Please select at least one treatment or a package",
           treatment: "Select at least one treatment",
+          package: "Or select a package",
         });
         setLoading(false);
         return;
       }
 
-      if (selectedService === "Package" && !selectedPackage && !hasPendingAmount) {
-        setErrors({
-          general: "Please select a package",
-          package: "Select a package",
-        });
-        setLoading(false);
-        return;
-      }
+      if (hasPackageSelection && !hasPendingAmount) {
+        // Check if this is a NEW package (not yet assigned to the patient)
+        const assignedPkgForValidation = (patientDetails?.packages || []).find((p: any) => String(p.packageId) === String(selectedPackage?._id));
+        const isMainPkgForValidation = String(patientDetails?.packageId) === String(selectedPackage?._id);
+        const existingPkgUsageForValidation = selectedPackage ? activePackageUsage.find((p: any) => p.packageName === selectedPackage.name) : null;
+        const isNewPkgForValidation = selectedPackage && !assignedPkgForValidation && !isMainPkgForValidation && !existingPkgUsageForValidation;
 
-      if (selectedService === "Package" && selectedPackage && !hasPendingAmount) {
-        // Check if at least one treatment is selected
-        const hasSelectedTreatment = packageTreatmentSessions.some(
-          (t) => t.isSelected,
-        );
-        if (!hasSelectedTreatment) {
+        // For NEW packages: skip treatment selection requirement — patient can purchase the package without consuming sessions
+        // For EXISTING packages: require at least one treatment session to be selected
+        if (!isNewPkgForValidation && !hasPackageSessionSelected) {
           setErrors({
             general: "Please select at least one treatment from the package",
             packageTreatments: "Select at least one treatment",
@@ -3716,12 +4272,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         if (hasRemainingFreeConsultations) {
           // This is a free consultation
           isFreeConsultation = true;
-          freeConsultationCount =
-            selectedService === "Treatment"
-              ? selectedTreatments.reduce((sum, t) => sum + t.quantity, 0)
-              : packageTreatmentSessions
-                  .filter((t) => t.isSelected)
-                  .reduce((sum, t) => sum + t.usedSessions, 0);
+          // Combine quantities from BOTH selected treatments and selected package sessions
+          const treatmentQty = selectedTreatments.reduce((sum, t) => sum + t.quantity, 0);
+          const packageSessionQty = packageTreatmentSessions
+            .filter((t) => t.isSelected)
+            .reduce((sum, t) => sum + t.usedSessions, 0);
+          freeConsultationCount = treatmentQty + packageSessionQty;
         } else if (discountPercentage > 0 && baseAmount > 0) {
           // Calculate discount applied
           membershipDiscountApplied = (baseAmount * discountPercentage) / 100;
@@ -3744,12 +4300,20 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       // Calculate offer discount applied
       let offerDiscountApplied = 0;
       const appliedOffers = matchedOffers.filter(o => appliedOfferIds.includes(o._id));
+      // Get current treatments for eligible total calculation (include BOTH treatments and package sessions)
+      const currentTreatmentsForOffer = [
+        ...selectedTreatments.map(t => ({ slug: t.treatmentSlug, serviceId: t.treatmentServiceId, name: t.treatmentName, price: t.price, quantity: t.quantity })),
+        ...packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, serviceId: undefined as string | undefined, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions })),
+      ];
+      const paidTreatmentsForOffer = currentTreatmentsForOffer.filter(t => t.price > 0);
+      
       if (appliedOffers.length > 0) {
         appliedOffers.forEach(offer => {
           if (offer.minimumBillAmount === 0 || baseAmount >= offer.minimumBillAmount) {
             let currentOfferDiscount = 0;
+            const eligibleTotal = calculateEligibleTotal(offer, paidTreatmentsForOffer);
             if (offer.discountMode === "percentage") {
-              currentOfferDiscount = (baseAmount * offer.discountValue) / 100;
+              currentOfferDiscount = (eligibleTotal * offer.discountValue) / 100;
               if (offer.maxBenefitCap && offer.maxBenefitCap > 0) {
                 currentOfferDiscount = Math.min(currentOfferDiscount, offer.maxBenefitCap);
               }
@@ -3870,16 +4434,30 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         cashbackOfferId: isCashbackApplied && matchedCashbackOffer ? matchedCashbackOffer._id : null,
         cashbackOfferName: isCashbackApplied && matchedCashbackOffer ? matchedCashbackOffer.title : null,
         cashbackAmount: isCashbackApplied && matchedCashbackOffer ? appliedCashbackAmount : 0,
-        discountPercent: (calcMembershipDiscount > 0 || calcOfferDiscount > 0 || calcReceptionistDiscount > 0)
-          ? (baseAmount > 0
-              ? ((baseAmount - finalAmount) / baseAmount * 100)
-              : 0)
-          : 0,
+        discountPercent: (() => {
+          if (calcMembershipDiscount > 0) {
+            return membershipUsage?.discountPercentage || 0;
+          } else if (calcOfferDiscount > 0 && appliedOffers.length > 0) {
+            const mainOffer = appliedOffers[0];
+            if (mainOffer.discountMode === "percentage") {
+              return mainOffer.discountValue;
+            }
+          } else if (calcReceptionistDiscount > 0) {
+            if (isDoctorDiscountApplied && doctorComplaintDiscount?.discountType === "percentage") {
+              return doctorComplaintDiscount.discountAmount;
+            } else if (isAgentDiscountApplied && agentDiscount?.discountType === "percentage") {
+              return agentDiscount.discountAmount;
+            }
+          }
+          return (baseAmount > 0 ? ((baseAmount - finalAmount) / baseAmount * 100) : 0);
+        })(),
         originalAmount: baseAmount,
       };
 
-      if (selectedService === "Treatment" && selectedTreatments.length > 0) {
-        // For treatment, send all selected treatments with their quantities
+      // ===== Combined payload =====
+      // Both Treatment and Package sections can be billed together. Set whichever fields are applicable.
+      if (selectedTreatments.length > 0) {
+        // For treatment, send all selected treatments with their quantities and details
         const totalQuantity = selectedTreatments.reduce(
           (sum, t) => sum + t.quantity,
           0,
@@ -3888,7 +4466,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           .map((t) => t.treatmentName)
           .join(", ");
         payload.quantity = totalQuantity;
-      } else if (selectedService === "Package" && selectedPackage) {
+        // Send the full selected treatments array with slugs and service IDs
+        payload.selectedTreatments = selectedTreatments.map(t => ({
+          treatmentName: t.treatmentName,
+          treatmentSlug: t.treatmentSlug,
+          treatmentServiceId: t.treatmentServiceId,
+          quantity: t.quantity,
+          price: t.price,
+          originalAppointmentQuantity: t.originalAppointmentQuantity
+        }));
+      }
+      if (selectedPackage) {
         // For package, only send selected treatments and their sessions
         const selectedTreatmentsFromPackage = packageTreatmentSessions.filter(
           (t) => t.isSelected,
@@ -3918,7 +4506,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             isUserPackage: true
           });
         }
-      } else {
+      }
+      if (selectedTreatments.length === 0 && !selectedPackage) {
         // If there's a pending amount but no treatment/package selected,
         // still allow the billing - it will just be for the pending amount
         // No need to set treatment/package fields, the backend handles it
@@ -3951,6 +4540,15 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       console.log("[CashbackDebug] cashbackAmount in payload:", payload.cashbackAmount);
       console.log("[CashbackDebug] cashbackOfferName in payload:", payload.cashbackOfferName);
 
+      console.log('[AdvanceDebugFrontend] Payload being sent:', {
+        amount: payload.amount,
+        paid: payload.paid,
+        advance: payload.advance,
+        pending: payload.pending,
+        pendingUsed: payload.pendingUsed,
+        advanceUsed: payload.advanceUsed
+      });
+
       const response = await axios.post(
         "/api/clinic/create-patient-registration",
         payload,
@@ -3962,13 +4560,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         if (appointment?.patientId) {
           try {
             const headers = getAuthHeaders();
-            const [historyResponse, balanceResponse] = await Promise.all([
+            const [historyResponse, balanceResponse, packageUsageResponse] = await Promise.all([
               axios.get(
                 `/api/clinic/billing-history/${appointment.patientId}`,
                 { headers },
               ),
               axios.get(
                 `/api/clinic/patient-balance/${appointment.patientId}`,
+                { headers },
+              ),
+              axios.get(
+                `/api/clinic/package-usage/${appointment.patientId}?_t=${Date.now()}`,
                 { headers },
               ),
             ]);
@@ -4000,6 +4602,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                 pastAdvance159FlatBalance:
                   balanceResponse.data.balances.pastAdvance159FlatBalance || 0,
               });
+            }
+
+            // Refresh active package usage after billing to update remaining sessions
+            if (packageUsageResponse.data?.success && packageUsageResponse.data?.packageUsage) {
+              console.log(`[FE_DEBUG] Post-billing refresh - packageUsageResponse:`, packageUsageResponse.data.packageUsage.map((p: any) => ({ name: p.packageName, totalAllowed: p.totalAllowedSessions, remaining: p.remainingSessions, transferredSessions: p.transferredSessions, totalSessions: p.totalSessions, isTransferred: p.isTransferred })));
+              setActivePackageUsage(packageUsageResponse.data.packageUsage);
+            } else {
+              console.log(`[FE_DEBUG] Post-billing refresh - packageUsageResponse NOT successful or empty`);
             }
             
             // ✅ IMPORTANT: Refresh available free sessions after billing
@@ -4156,10 +4766,45 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     return false;
   });
 
-  // Combine regular packages with userPackages for the dropdown
+  // Build set of transferred-in package names to avoid duplicates in dropdown
+  const transferredInNamesForDropdown = new Set(
+    activePackageUsage
+      .filter((u: any) => u.isTransferred && u.transferredFrom)
+      .map((u: any) => u.packageName)
+  );
+
+  // Combine regular packages with userPackages and transferred-in packages for the dropdown
   const allPackagesForDropdown: Package[] = [
-    ...packages.map((pkg: any) => ({ ...pkg, isUserPackage: false })),
-    ...userPackages.map((pkg: any) => ({
+    ...packages
+      .filter((pkg: any) => !transferredInNamesForDropdown.has(pkg.name))
+      .map((pkg: any) => {
+      // Find if this package is already assigned to the patient
+      const assignedPkg = (patientDetails?.packages || []).find((p: any) => String(p.packageId) === String(pkg._id));
+      const mainPackageId = patientDetails?.packageId;
+      const isMainPackage = String(mainPackageId) === String(pkg._id);
+      
+      // Use activePackageUsage (billing-based) for accurate payment status
+      const pkgUsage = activePackageUsage.find((u: any) => u.packageName === pkg.name);
+      
+      let paymentStatus = null;
+      if (pkgUsage) {
+        // Use billing-calculated status from package-usage API (source of truth)
+        paymentStatus = pkgUsage.paymentStatus || null;
+      } else if (assignedPkg) {
+        paymentStatus = assignedPkg.paymentStatus || "Unpaid";
+      } else if (isMainPackage) {
+        paymentStatus = patientDetails?.packagePaymentStatus || "Unpaid";
+      }
+      
+      return { 
+        ...pkg, 
+        isUserPackage: false,
+        paymentStatus
+      };
+    }),
+    ...userPackages
+      .filter((pkg: any) => !transferredInNamesForDropdown.has(pkg.packageName))
+      .map((pkg: any) => ({
       _id: pkg._id,
       name: pkg.packageName,
       totalPrice: pkg.totalPrice,
@@ -4170,17 +4815,113 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       remainingSessions: pkg.remainingSessions,
       patientPackageId: pkg.patientPackageId,
       patientPackageSubId: pkg.patientPackageSubId,
+      paymentStatus: pkg.paymentStatus || "Unpaid"
     })),
+    ...activePackageUsage
+      .filter((u: any) => u.isTransferred && u.transferredFrom)
+      .map((u: any) => {
+        const pkgDef = packages.find(p => p.name === u.packageName);
+        return {
+          _id: `transferred-${u.packageName}`,
+          name: u.packageName,
+          totalPrice: u.packagePrice || pkgDef?.totalPrice || 0,
+          totalSessions: u.transferredSessions || u.totalAllowedSessions || 0,
+          sessionPrice: u.packagePrice && u.totalAllowedSessions ? u.packagePrice / u.totalAllowedSessions : 0,
+          treatments: u.treatments || pkgDef?.treatments || [],
+          isUserPackage: false,
+          remainingSessions: u.remainingSessions ?? u.transferredSessions ?? 0,
+          patientPackageId: null,
+          patientPackageSubId: null,
+          paymentStatus: u.paymentStatus || "Unpaid",
+          isTransferred: true
+        };
+      })
   ];
 
   const filteredAllPackages = allPackagesForDropdown.filter((pkg) => {
-    const hasUnbilledTreatments = pkg.treatments?.some((t: any) => {
+    // Check if package has any treatments that can still be billed
+    // For packages, we need to check BOTH:
+    // 1. If treatment was NOT billed recently (within 24 hours), OR
+    // 2. If treatment WAS billed but package still has remaining sessions available
+    const hasBillableTreatments = pkg.treatments?.some((t: any) => {
       const tName = t.treatmentName || t.name;
-      return tName && !isTreatmentBilledRecently(tName);
+      if (!tName) return false;
+      
+      const isBilledRecently = isTreatmentBilledRecently(tName);
+      
+      // If not billed recently, it's billable
+      if (!isBilledRecently) return true;
+      
+      // If billed recently, check if this is a package with remaining sessions
+      // For packages, even if billed, patient can use remaining sessions
+      const totalAllowed = pkg.isTransferred ? pkg.totalSessions : (pkg.totalSessions || 0);
+      if (totalAllowed > 0) {
+        // Check activePackageUsage for this package
+        const pkgUsage = activePackageUsage.find((p: any) => 
+          p.packageName === pkg.name
+        );
+        
+        if (pkgUsage) {
+          // Check overall package remaining sessions
+          // For transferred packages, always show them even if remaining=0 (so user can see usage history)
+          if (pkgUsage.remainingSessions <= 0 && !pkg.isTransferred) return false;
+          
+          // Check if this specific treatment has remaining sessions
+          const treatmentUsage = pkgUsage.treatments?.find((pt: any) => 
+            (pt.treatmentName || pt.name || "").toLowerCase() === tName.toLowerCase()
+          );
+          
+          if (treatmentUsage) {
+            const maxSessions = treatmentUsage.sessions || treatmentUsage.maxSessions || 0;
+            const usedSessions = treatmentUsage.usedSessions || 0;
+            const remainingSessions = maxSessions - usedSessions;
+            
+            // For transferred packages, always show treatments even if remaining=0 (so user can see usage)
+            if (pkg.isTransferred) return true;
+            // If there are remaining sessions, this treatment is still billable
+            return remainingSessions > 0;
+          }
+          
+          // If no specific treatment usage found, assume available if overall package has remaining
+          return true;
+        }
+        
+        // If no usage data found, fall back to packageUsageData (legacy check)
+        if (packageUsageData && packageUsageData.packages) {
+          const legacyPkgUsage = packageUsageData.packages.find((p: any) => 
+            String(p.packageId) === String(pkg._id)
+          );
+          
+          if (legacyPkgUsage) {
+            const treatmentUsage = legacyPkgUsage.treatments?.find((pt: any) => 
+              (pt.treatmentName || pt.name || "").toLowerCase() === tName.toLowerCase()
+            );
+            
+            if (treatmentUsage) {
+              const maxSessions = treatmentUsage.sessions || treatmentUsage.maxSessions || 0;
+              const usedSessions = treatmentUsage.usedSessions || 0;
+              return (maxSessions - usedSessions) > 0;
+            }
+          }
+        }
+        
+        // If no usage data found, assume sessions are available
+        return true;
+      }
+      
+      // Not a package with sessions, respect the billed recently check
+      return false;
     });
-    if (!hasUnbilledTreatments) return false;
+    
+    if (!hasBillableTreatments) {
+      // Enterprise resilience: still show deleted-master packages that belong to this patient
+      // even if treatments couldn't be recovered from snapshot/billing history.
+      // The patient paid for the package and must be able to use it in billing.
+      if (pkg.isDeletedMaster) return true;
+      return false;
+    }
 
-    // If search query is empty, show all packages with unbilled treatments
+    // If search query is empty, show all packages with billable treatments
     if (!packageSearchQuery.trim()) return true;
     
     // Otherwise, filter by search query
@@ -4350,6 +5091,18 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                 </div>
               )}
 
+              {complaintExists === false && (
+                <div className="bg-orange-50 border-l-2 border-orange-500 rounded p-2 flex items-start gap-2 text-orange-700 shadow-sm animate-in slide-in-from-top-2 fade-in" role="alert">
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 animate-pulse" />
+                  <div className="flex-1">
+                    <p className="text-xs font-bold">Create Complaint First</p>
+                    <p className="text-[10px]">
+                      No complaint has been created for this appointment yet. Please create a complaint in the Complaint Module before creating billing.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {isAlreadyBilled && (
                 <div className={`${canRebill ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-amber-50 border-amber-500 text-amber-700'} border-l-2 rounded p-2 flex items-start gap-2 shadow-sm animate-in slide-in-from-top-2 fade-in`} role="alert">
                   <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 animate-pulse" />
@@ -4375,7 +5128,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       Service Type <span className="text-red-500">*</span>
                     </h3>
 
-                    {/* Radio toggle */}
+                    {/* Radio toggle (kept for backward compatibility - indicates primary service type; both sections always render so Treatment and Package can be billed together) */}
                     <div className="flex gap-4 mb-4">
                       <label className="flex items-center gap-2 cursor-pointer group">
                         <input
@@ -4397,6 +5150,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         />
                         <span className="text-xs font-medium text-gray-700 group-hover:text-gray-900">Package</span>
                       </label>
+                      <span className="text-[10px] text-gray-500 italic self-center">(You can select treatments and a package together in the same bill)</span>
                     </div>
 
                     {/* Membership Free Consultation banner (hide if transferred out) */}
@@ -4457,72 +5211,185 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       </div>
                     )}
 
-                    {/* Treatment Selection */}
-                    {selectedService === "Treatment" && (
-                      <div className="relative z-20">
-                        <label className="block text-[10px] font-semibold text-gray-600 mb-1">Select Treatment <span className="text-red-500">*</span></label>
-                        <div className="relative" ref={treatmentDropdownRef}>
-                          <button
-                            type="button"
-                            onClick={() => { setTreatmentDropdownOpen(!treatmentDropdownOpen); if (!treatmentDropdownOpen) setTreatmentSearchQuery(""); }}
-                            className="w-full flex items-center justify-between px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-xs text-gray-700 hover:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                          >
-                            <span className="text-gray-500">
-                              {selectedTreatments.length > 0 ? `${selectedTreatments.length} treatment(s) selected` : "Click to select treatments..."}
-                            </span>
-                            <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${treatmentDropdownOpen ? "rotate-180" : ""}`} />
-                          </button>
-                          {treatmentDropdownOpen && (
-                            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-hidden flex flex-col">
-                              <div className="p-1.5 border-b border-gray-200 sticky top-0 bg-white">
-                                <input
-                                  type="text" placeholder="Search treatments..."
-                                  value={treatmentSearchQuery}
-                                  onChange={(e) => { e.stopPropagation(); setTreatmentSearchQuery(e.target.value); }}
-                                  onClick={(e) => e.stopPropagation()}
-                                  onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Escape") setTreatmentDropdownOpen(false); }}
-                                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                  autoFocus
-                                />
+                    {/* Service Selection slider — content toggles based on the Treatment / Package radio; selected items from BOTH render together in the section below */}
+                    <div className="relative z-20">
+                      {selectedService === "Treatment" ? (
+                        <>
+                          <label className="block text-[10px] font-semibold text-gray-600 mb-1">Select Treatment <span className="text-red-500">*</span></label>
+                          <div className="relative" ref={treatmentDropdownRef}>
+                            <button
+                              type="button"
+                              onClick={() => { setTreatmentDropdownOpen(!treatmentDropdownOpen); if (!treatmentDropdownOpen) setTreatmentSearchQuery(""); }}
+                              className="w-full flex items-center justify-between px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-xs text-gray-700 hover:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                            >
+                              <span className="text-gray-500">
+                                {selectedTreatments.length > 0 ? `${selectedTreatments.length} treatment(s) selected` : "Click to select treatments..."}
+                              </span>
+                              <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${treatmentDropdownOpen ? "rotate-180" : ""}`} />
+                            </button>
+                            {treatmentDropdownOpen && (
+                              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-hidden flex flex-col">
+                                <div className="p-1.5 border-b border-gray-200 sticky top-0 bg-white">
+                                  <input
+                                    type="text" placeholder="Search treatments..."
+                                    value={treatmentSearchQuery}
+                                    onChange={(e) => { e.stopPropagation(); setTreatmentSearchQuery(e.target.value); }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Escape") setTreatmentDropdownOpen(false); }}
+                                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
+                                    autoFocus
+                                  />
+                                </div>
+                                <div className="overflow-y-auto max-h-56">
+                                  {filteredTreatments.length === 0 ? (
+                                    <div className="p-2 text-center text-xs text-gray-500">
+                                      {treatmentSearchQuery.trim() ? "No treatments found" : "No treatments available"}
+                                    </div>
+                                  ) : (
+                                    <div className="p-1">
+                                      {filteredTreatments.map((treatment) => {
+                                        const isSelected = selectedTreatments.some((t) => t.treatmentSlug === treatment.slug);
+                                        return (
+                                          <button
+                                            key={treatment.slug} type="button"
+                                            onClick={(e) => { e.stopPropagation(); handleTreatmentToggle(treatment); }}
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            className={`w-full text-left px-2 py-1.5 rounded text-xs transition-colors ${isSelected ? "bg-teal-50 text-teal-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+                                          >
+                                            <div className="flex items-center justify-between">
+                                              <span>
+                                                {treatment.name}
+                                                {treatment.mainTreatment && <span className="text-gray-400 ml-1">({treatment.mainTreatment})</span>}
+                                              </span>
+                                              {isSelected && <span className="text-teal-600">✓</span>}
+                                            </div>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                              <div className="overflow-y-auto max-h-56">
-                                {filteredTreatments.length === 0 ? (
-                                  <div className="p-2 text-center text-xs text-gray-500">
-                                    {treatmentSearchQuery.trim() ? "No treatments found" : "No treatments available"}
-                                  </div>
-                                ) : (
-                                  <div className="p-1">
-                                    {filteredTreatments.map((treatment) => {
-                                      const isSelected = selectedTreatments.some((t) => t.treatmentSlug === treatment.slug);
-                                      return (
-                                        <button
-                                          key={treatment.slug} type="button"
-                                          onClick={(e) => { e.stopPropagation(); handleTreatmentToggle(treatment); }}
-                                          onMouseDown={(e) => e.preventDefault()}
-                                          className={`w-full text-left px-2 py-1.5 rounded text-xs transition-colors ${isSelected ? "bg-teal-50 text-teal-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
-                                        >
-                                          <div className="flex items-center justify-between">
-                                            <span>
-                                              {treatment.name}
-                                              {treatment.mainTreatment && <span className="text-gray-400 ml-1">({treatment.mainTreatment})</span>}
-                                            </span>
-                                            {isSelected && <span className="text-teal-600">✓</span>}
-                                          </div>
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <label className="block text-[10px] font-semibold text-gray-600 mb-1">Select Package <span className="text-red-500">*</span></label>
+                          <div className="relative" ref={packageDropdownRef}>
+                            <button
+                              type="button"
+                              onClick={() => setPackageDropdownOpen(!packageDropdownOpen)}
+                              className="w-full flex items-center justify-between px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-xs text-gray-700 hover:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                            >
+                              <span className="text-gray-500 flex items-center gap-2">
+                                {selectedPackage ? selectedPackage.name : "Search packages..."}
+                                {selectedPackage?.paymentStatus === "Full" && (
+                                  <span className="px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[8px] font-bold uppercase">Full Paid</span>
                                 )}
+                                {selectedPackage?.paymentStatus === "Partial" && (
+                                  <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[8px] font-bold uppercase">Partial Paid (${selectedPackage.paidAmount})</span>
+                                )}
+                              </span>
+                              <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${packageDropdownOpen ? "rotate-180" : ""}`} />
+                            </button>
+                            {packageDropdownOpen && (
+                              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-hidden flex flex-col">
+                                <div className="p-1.5 border-b border-gray-200">
+                                  <input type="text" placeholder="Search packages..."
+                                    value={packageSearchQuery}
+                                    onChange={(e) => { e.stopPropagation(); setPackageSearchQuery(e.target.value); }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500" autoFocus
+                                  />
+                                </div>
+                                <div className="overflow-y-auto max-h-40">
+                                  {filteredAllPackages.length === 0 ? (
+                                    <div className="p-2 text-center text-xs text-gray-500">
+                                      {packageSearchQuery.trim() ? "No packages found" : "No packages available"}
+                                    </div>
+                                  ) : (
+                                    <div className="p-1">
+                                      {filteredAllPackages.map((pkg: any) => {
+                                        const isUnpaid = pkg.paymentStatus === "Unpaid";
+                                        // Find usage data for this package
+                                        const pkgUsage = activePackageUsage.find((p: any) => 
+                                          p.packageName === pkg.name
+                                        );
+                                        const remaining = pkgUsage?.remainingSessions ?? pkg.remainingSessions ?? pkg.totalSessions;
+                                        const total = pkgUsage?.totalAllowedSessions ?? pkg.totalSessions;
+                                        // Determine if this package exists in patient's profile
+                                        const hasPatientStatus = pkg.paymentStatus && pkg.paymentStatus !== null;
+                                        return (
+                                          <button 
+                                            key={pkg._id} 
+                                            type="button"
+                                            disabled={isUnpaid}
+                                            onClick={(e) => { 
+                                              if (isUnpaid) return;
+                                              e.stopPropagation(); 
+                                              handlePackageSelect(pkg); 
+                                            }}
+                                            className={`w-full text-left px-2 py-1.5 rounded text-xs transition-colors border-b border-gray-100 last:border-b-0 ${
+                                              isUnpaid 
+                                                ? "bg-gray-50 text-gray-400 cursor-not-allowed opacity-60" 
+                                                : "text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                            }`}
+                                          >
+                                            <div className="flex items-center justify-between">
+                                              <div className="font-medium flex items-center gap-1">
+                                                {pkg.name}
+                                                {pkg.isDeletedMaster && (
+                                                  <span className="px-1 py-0.5 rounded bg-orange-50 text-orange-600 text-[7px] font-bold uppercase border border-orange-200" title="This package was removed from the clinic catalogue but the patient retains full benefits">Catalogue Removed</span>
+                                                )}
+                                              </div>
+                                              <div className="flex items-center gap-1 flex-wrap justify-end">
+                                                {pkg.isTransferred && (
+                                                  <span className="px-1 py-0.5 rounded bg-blue-50 text-blue-600 text-[8px] font-bold uppercase border border-blue-100">Transferred</span>
+                                                )}
+                                                {hasPatientStatus && pkg.paymentStatus === "Full" && (
+                                                  <span className="px-1 py-0.5 rounded bg-green-50 text-green-600 text-[8px] font-bold uppercase border border-green-100">Full Paid</span>
+                                                )}
+                                                {hasPatientStatus && pkg.paymentStatus === "Partial" && (
+                                                  <span className="px-1 py-0.5 rounded bg-yellow-50 text-yellow-600 text-[8px] font-bold uppercase border border-yellow-100">Partial</span>
+                                                )}
+                                                {hasPatientStatus && pkg.paymentStatus === "Unpaid" && (
+                                                  <span className="px-1 py-0.5 rounded bg-red-50 text-red-500 text-[8px] font-bold uppercase border border-red-100">Unpaid</span>
+                                                )}
+                                              </div>
+                                            </div>
+                                            <div className="text-[10px] text-gray-500 mt-0.5">
+                                              Total: {getCurrencySymbol(currency)} {Number(pkg.totalPrice).toFixed(2)} | {total} sessions | {remaining} remaining
+                                            </div>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          )}
-                        </div>
+                            )}
+                          </div>
+                        </>
+                      )}
 
                         {/* Selected treatments with quantity & toggle */}
                         {selectedTreatments.length > 0 && (
                           <div className="mt-3 space-y-2">
                             {selectedTreatments.map((treatment) => {
                               const isJustAdded = justAddedServiceName && treatment.treatmentName === justAddedServiceName;
+                              const treatmentForOffer = {
+                                slug: treatment.treatmentSlug,
+                                serviceId: treatment.treatmentServiceId,
+                                name: treatment.treatmentName,
+                                price: treatment.price,
+                                quantity: treatment.quantity,
+                              };
+                              const appliedOffersForTreatment = matchedOffers.filter(
+                                (offer) => 
+                                  appliedOfferIds.includes(offer._id) && 
+                                  isTreatmentEligibleForOffer(offer, treatmentForOffer)
+                              );
                               return (
                                 <div
                                   key={treatment.treatmentSlug}
@@ -4549,8 +5416,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                           )}
                                         </div>
                                         <div className="text-[10px] text-gray-500">Dr. {appointment.doctorName}</div>
-                                        {(treatment.usesFreeConsultation || treatment.usesMembershipDiscount || treatment.isFreeSession) && (
-                                          <div className="flex items-center gap-1 mt-0.5">
+                                        {(treatment.usesFreeConsultation || treatment.usesMembershipDiscount || treatment.isFreeSession || appliedOffersForTreatment.length > 0) && (
+                                          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                                             {treatment.usesFreeConsultation && (
                                               <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-semibold">Free Consultation</span>
                                             )}
@@ -4565,6 +5432,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                                 Bundle Offer
                                               </span>
                                             )}
+                                            {appliedOffersForTreatment.map((offer) => (
+                                              <span key={offer._id} className="text-[9px] px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded font-semibold flex items-center gap-0.5">
+                                                🎁 Offer Applied
+                                              </span>
+                                            ))}
                                           </div>
                                         )}
                                         {isJustAdded && (
@@ -4594,68 +5466,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             </div>
                           </div>
                         )}
-                      </div>
-                    )}
 
-                    {/* Package Selection */}
-                    {selectedService === "Package" && (
-                      <div className="space-y-2 relative z-20">
-                        <label className="block text-[10px] font-semibold text-gray-600 mb-1">Select Package <span className="text-red-500">*</span></label>
-                        <div className="relative" ref={packageDropdownRef}>
-                          <button
-                            type="button"
-                            onClick={() => setPackageDropdownOpen(!packageDropdownOpen)}
-                            className="w-full flex items-center justify-between px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-xs text-gray-700 hover:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                          >
-                            <span className="text-gray-500 flex items-center gap-2">
-                              {selectedPackage ? selectedPackage.name : "Search packages..."}
-                              {selectedPackage?.paymentStatus === "Full" && (
-                                <span className="px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[8px] font-bold uppercase">Full Paid</span>
-                              )}
-                              {selectedPackage?.paymentStatus === "Partial" && (
-                                <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[8px] font-bold uppercase">Partial Paid (${selectedPackage.paidAmount})</span>
-                              )}
-                            </span>
-                            <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${packageDropdownOpen ? "rotate-180" : ""}`} />
-                          </button>
-                          {packageDropdownOpen && (
-                            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-hidden flex flex-col">
-                              <div className="p-1.5 border-b border-gray-200">
-                                <input type="text" placeholder="Search packages..."
-                                  value={packageSearchQuery}
-                                  onChange={(e) => { e.stopPropagation(); setPackageSearchQuery(e.target.value); }}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500" autoFocus
-                                />
-                              </div>
-                              <div className="overflow-y-auto max-h-40">
-                                {filteredAllPackages.length === 0 ? (
-                                  <div className="p-2 text-center text-xs text-gray-500">
-                                    {packageSearchQuery.trim() ? "No packages found" : "No packages available"}
-                                  </div>
-                                ) : (
-                                  <div className="p-1">
-                                    {filteredAllPackages.map((pkg) => (
-                                      <button key={pkg._id} type="button"
-                                        onClick={(e) => { e.stopPropagation(); handlePackageSelect(pkg); }}
-                                        className="w-full text-left px-2 py-1.5 rounded text-xs text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
-                                      >
-                                        <div className="font-medium">{pkg.name}</div>
-                                        <div className="text-[10px] text-gray-500 mt-0.5">
-                                          Total: {getCurrencySymbol(currency)} {Number(pkg.totalPrice).toFixed(2)} | {pkg.totalSessions} sessions
-                                        </div>
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Package treatment sessions */}
+                        {/* Selected package + treatment sessions (rendered in the SAME section as selected treatments, so treatments and a package can be billed together) */}
                         {selectedPackage && packageTreatmentSessions.length > 0 && (
-                          <div className="mt-2">
+                          <div className="mt-3 space-y-2">
                             {loadingPackageUsage ? (
                               <div className="flex items-center justify-center py-4">
                                 <Loader2 className="w-4 h-4 animate-spin text-gray-400 mr-2" />
@@ -4663,10 +5477,81 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                               </div>
                             ) : (
                               <>
+                                {/* Package session summary */}
+                                <div className="p-3 bg-teal-50 border border-teal-200 rounded-lg">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center">
+                                        <span className="text-[10px] font-bold text-white">P</span>
+                                      </div>
+                                      <div>
+                                        <div className="text-xs font-semibold text-gray-900">{selectedPackage.name}</div>
+                                        {selectedPackage.isTransferred && (
+                                          <div className="text-[9px] text-blue-700 font-medium">Transferred Package</div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <button
+                                        type="button"
+                                        onClick={handleRemovePackage}
+                                        className="p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors mb-1"
+                                        title="Remove package"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                      {selectedPackageTotalAllowed !== null && (
+                                        <div className="text-[10px] text-gray-600">
+                                          Total Allowed: <span className="font-semibold">{selectedPackageTotalAllowed}</span>
+                                        </div>
+                                      )}
+                                      {selectedPackageRemaining !== null && (
+                                        <div className="text-[10px] text-teal-700 font-semibold">
+                                          Remaining: {selectedPackageRemaining}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                      {(() => {
+                                        const usedFromPrev = packageTreatmentSessions.reduce((sum, t) => sum + (t.previouslyUsedSessions || 0), 0);
+                                        const selectedNow = packageTreatmentSessions.reduce((sum, t) => sum + (t.isSelected ? (t.usedSessions || 0) : 0), 0);
+                                        const totalAllowed = selectedPackageTotalAllowed || 0;
+                                        const usedPrevPercent = Math.min((usedFromPrev / totalAllowed) * 100, 100);
+                                        const selectedPercent = Math.min((selectedNow / totalAllowed) * 100, 100 - usedPrevPercent);
+                                        return (
+                                          <>
+                                            <div
+                                              className="h-full bg-teal-400"
+                                              style={{ width: `${usedPrevPercent}%` }}
+                                            />
+                                            <div
+                                              className="h-full bg-teal-600"
+                                              style={{ width: `${selectedPercent}%` }}
+                                            />
+                                          </>
+                                        );
+                                      })()}
+                                    </div>
+                                    <div className="text-[9px] text-gray-600 whitespace-nowrap">
+                                      {(() => {
+                                        const selectedNow = packageTreatmentSessions.reduce((sum, t) => sum + (t.isSelected ? (t.usedSessions || 0) : 0), 0);
+                                        return `${selectedNow} selected`;
+                                      })()}
+                                    </div>
+                                  </div>
+                                </div>
                                 {packageUsageData && packageUsageData.totalSessions > 0 && (
                                   <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800">
                                     <AlertCircle className="w-3 h-3 inline mr-1" />
                                     <span className="font-semibold">Package Usage History</span> — {packageUsageData.totalSessions} sessions used from previous billings
+                                  </div>
+                                )}
+                                {(selectedPackageRemaining ?? 0) <= 0 && (
+                                  <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
+                                    <XCircle className="w-3 h-3 inline mr-1" />
+                                    <span className="font-semibold">No remaining sessions</span> — All {selectedPackageTotalAllowed || 0} sessions have been used
                                   </div>
                                 )}
                                 <div className="space-y-2">
@@ -4693,7 +5578,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                       const remainingSessions = treatment.maxSessions - treatment.previouslyUsedSessions;
                                       const isFullyUsed = remainingSessions <= 0;
                                       const isBilledToday = treatment.isAlreadyBilledForThisAppointment;
-                                      
+                                      // Disable all treatments if the overall package has no remaining sessions
+                                      const isPackageExhausted = (selectedPackageRemaining ?? 0) <= 0;
+
                                       // Determine if this specific treatment session is prepaid
                                       let isPrepaid = false;
                                       if (treatment.isSelected && treatment.usedSessions > 0) {
@@ -4705,7 +5592,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                             isPrepaid = true;
                                             availablePrepaid -= cost;
                                           } else if (availablePrepaid > 0) {
-                                            // Partially prepaid - we can show a special tag or just count it as free-ish
                                             isPrepaid = true;
                                             availablePrepaid = 0;
                                           }
@@ -4718,15 +5604,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                             isFullyUsed || isBilledToday ? "border-red-200 opacity-80" : treatment.isSelected ? "border-teal-300" : "border-gray-200"
                                           }`}
                                         >
-                                          <div className="flex items-start justify-between gap-2">
+                                          <div className={`flex items-start justify-between gap-2`}>
                                             <div className="flex items-start gap-2 flex-1">
-                                              {/* Toggle */}
                                               <button
                                                 type="button"
-                                                disabled={isFullyUsed || isBilledToday}
+                                                disabled={isFullyUsed || isBilledToday || isPackageExhausted}
                                                 onClick={() => handlePackageTreatmentToggle(treatment.treatmentSlug)}
                                                 className={`relative mt-0.5 w-8 h-5 rounded-full transition-colors flex-shrink-0 ${
-                                                  isFullyUsed || isBilledToday ? "bg-gray-200 cursor-not-allowed" : treatment.isSelected ? "bg-teal-500" : "bg-gray-200"
+                                                  isFullyUsed || isBilledToday || isPackageExhausted ? "bg-gray-200 cursor-not-allowed" : treatment.isSelected ? "bg-teal-500" : "bg-gray-200"
                                                 }`}
                                               >
                                                 <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${
@@ -4738,17 +5623,15 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                                   isFullyUsed || isBilledToday ? "text-red-600" : treatment.isSelected ? "text-gray-900" : "text-gray-700"
                                                 }`}>{treatment.treatmentName}</div>
                                                 <div className="text-[10px] text-teal-600 font-medium">{getCurrencySymbol(currency)} {treatment.sessionPrice.toFixed(2)}/session</div>
-                                                
                                                 {isBilledToday && (
-                                                  <div className="flex items-center gap-1 mt-0.5">
+                                                  <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                                                     <span className="text-[9px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-semibold flex items-center gap-1">
                                                       <AlertCircle className="w-2.5 h-2.5" /> Already Billed for this Appointment
                                                     </span>
                                                   </div>
                                                 )}
-
                                                 {(isPrepaid || treatment.usesMembershipDiscount) && !isBilledToday && (
-                                                  <div className="flex items-center gap-1 mt-0.5">
+                                                  <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                                                     {isPrepaid && (
                                                       <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-semibold">
                                                         {selectedPackage?.paymentStatus === "Full" ? "Prepaid (Full)" : "Prepaid (Partial)"}
@@ -4767,39 +5650,38 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                                       <><XCircle className="w-3 h-3" /> All sessions used</>
                                                     ) : (
                                                       <><AlertCircle className="w-3 h-3" /> {treatment.previouslyUsedSessions}/{treatment.maxSessions} used · {remainingSessions} left</>
-                                                  )}
-                                                </div>
-                                              ) : (
-                                                <div className="text-[10px] text-emerald-600 font-medium flex items-center gap-1 mt-0.5">
-                                                  <CheckCircle className="w-3 h-3" /> All {treatment.maxSessions} sessions available
-                                                </div>
-                                              )}
+                                                    )}
+                                                  </div>
+                                                ) : (
+                                                  <div className="text-[10px] text-emerald-600 font-medium flex items-center gap-1 mt-0.5">
+                                                    <CheckCircle className="w-3 h-3" /> All {treatment.maxSessions} sessions available
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                              <button type="button"
+                                                disabled={!treatment.isSelected || isFullyUsed || isBilledToday || isPackageExhausted}
+                                                onClick={() => handlePackageSessionChange(treatment.treatmentSlug, Math.max(1, treatment.usedSessions - 1))}
+                                                className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-xs font-bold disabled:opacity-40"
+                                              >−</button>
+                                              <span className="text-xs font-bold w-5 text-center">{treatment.isSelected ? treatment.usedSessions : 0}</span>
+                                              <button type="button"
+                                                disabled={!treatment.isSelected || isFullyUsed || isBilledToday || isPackageExhausted}
+                                                onClick={() => handlePackageSessionChange(treatment.treatmentSlug, Math.min(remainingSessions, treatment.usedSessions + 1))}
+                                                className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-xs font-bold disabled:opacity-40"
+                                              >+</button>
                                             </div>
                                           </div>
-                                          {/* Session input */}
-                                          <div className="flex items-center gap-2 flex-shrink-0">
-                                            <button type="button"
-                                              disabled={!treatment.isSelected || isFullyUsed || isBilledToday}
-                                              onClick={() => handlePackageSessionChange(treatment.treatmentSlug, Math.max(1, treatment.usedSessions - 1))}
-                                              className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-xs font-bold disabled:opacity-40"
-                                            >−</button>
-                                            <span className="text-xs font-bold w-5 text-center">{treatment.isSelected ? treatment.usedSessions : 0}</span>
-                                            <button type="button"
-                                              disabled={!treatment.isSelected || isFullyUsed || isBilledToday}
-                                              onClick={() => handlePackageSessionChange(treatment.treatmentSlug, Math.min(remainingSessions, treatment.usedSessions + 1))}
-                                              className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-xs font-bold disabled:opacity-40"
-                                            >+</button>
-                                          </div>
+                                          {errors[`packageSession_${treatment.treatmentSlug}`] && (
+                                            <div className="mt-1.5 text-[10px] text-red-600 flex items-center gap-1">
+                                              <AlertCircle className="w-3 h-3" />
+                                              {errors[`packageSession_${treatment.treatmentSlug}`]}
+                                            </div>
+                                          )}
                                         </div>
-                                        {errors[`packageSession_${treatment.treatmentSlug}`] && (
-                                          <div className="mt-1.5 text-[10px] text-red-600 flex items-center gap-1">
-                                            <AlertCircle className="w-3 h-3" />
-                                            {errors[`packageSession_${treatment.treatmentSlug}`]}
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })})()}
+                                      );
+                                    })})()}
                                 </div>
                                 {errors.packageTreatments && (
                                   <div className="mt-1 text-xs text-red-600">{errors.packageTreatments}</div>
@@ -4816,7 +5698,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           </div>
                         )}
                       </div>
-                    )}
 
                     {/* Membership discount breakdown in service area */}
                     {(() => {
@@ -5067,9 +5948,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                       // Remove cashback
                                       appliedCashbackRef.current = null;
                                       setMatchedCashbackOffer(null);
+                                    
                                       setIsCashbackApplied(false);
                                       setAppliedCashbackAmount(0);
-                                      console.log("[Cashback] Cashback removed from offer button");
+                           
                                     } else {
                                       // Apply cashback - update matchedCashbackOffer to this specific offer
                                       const cashbackAmount = offer.cashbackAmount || 0;
@@ -5080,7 +5962,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                       setMatchedCashbackOffer(offer);
                                       setAppliedCashbackAmount(cashbackAmount);
                                       setIsCashbackApplied(true);
-                                      console.log("[Cashback] Applied from offer button:", { amount: cashbackAmount, offerTitle: offer.title });
                                     }
                                     return;
                                   }
@@ -5091,7 +5972,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                     
                                     // If removing a bundle offer, clear matchedBundleOffer if it was this one
                                     if (offer.offerType === 'bundle' && matchedBundleOffer?._id === offer._id) {
-                                      console.log(`[BundleManual] Removing bundle offer "${offer.title}" - clearing matchedBundleOffer`);
                                       setMatchedBundleOffer(null);
                                       setBundleFreeSessions([]);
                                       setBundleFreeSessionCount(0);
@@ -5100,14 +5980,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                   } else {
                                     // USER CLICKED ON AN OFFER - This should take PRIORITY
                                     if (offer.offerType === 'bundle') {
-                                      console.log(`[BundleManual] User manually applied bundle "${offer.title}" - setting as matchedBundleOffer`);
                                       // Set this bundle as the matched bundle (user's explicit choice)
                                       setMatchedBundleOffer(offer);
                                       
-                                      // Recalculate free sessions for this bundle
-                                      const currentTreatmentsForBundle = selectedService === "Treatment" 
-                                        ? selectedTreatments.map(t => ({ slug: t.treatmentSlug, serviceId: t.treatmentServiceId, name: t.treatmentName, price: t.price, quantity: t.quantity }))
-                                        : packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, serviceId: undefined, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions }));
+                                      // Recalculate free sessions for this bundle (combine BOTH treatments and package sessions)
+                                      const currentTreatmentsForBundle = [
+                                        ...selectedTreatments.map(t => ({ slug: t.treatmentSlug, serviceId: t.treatmentServiceId, name: t.treatmentName, price: t.price, quantity: t.quantity })),
+                                        ...packageTreatmentSessions.filter(t => t.isSelected).map(t => ({ slug: t.treatmentSlug, serviceId: undefined as string | undefined, name: t.treatmentName, price: t.sessionPrice, quantity: t.usedSessions })),
+                                      ];
                                       
                                       const paidTreatmentsForBundle = currentTreatmentsForBundle.filter(t => t.price > 0);
                                       const eligibleTreatments: typeof currentTreatmentsForBundle = [];
@@ -5156,7 +6036,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                         const freeSessions = sortedByPrice.slice(0, offer.freeQty || 0).map(t => t.name);
                                         const freeCount = Math.min(offer.freeQty || 0, eligibleTreatments.length);
                                         
-                                        console.log(`[BundleManual] Calculated free sessions for "${offer.title}":`, freeSessions);
                                         setBundleFreeSessions(freeSessions);
                                         setBundleFreeSessionCount(freeCount);
                                         
@@ -5444,16 +6323,21 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       <div>
                         <label className="block text-[10px] font-semibold text-gray-600 mb-1">Payment Method <span className="text-red-500">*</span></label>
                         <select value={formData.paymentMethod}
-                          onChange={(e) => setFormData((prev) => ({ ...prev, paymentMethod: e.target.value }))}
-                          className={`w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-1 focus:ring-teal-500 outline-none ${useMultiplePayments ? "opacity-50" : ""}`}
+                          onChange={(e) => { setFormData((prev) => ({ ...prev, paymentMethod: e.target.value })); if (errors.paymentMethod) setErrors((prev) => { const n = { ...prev }; delete n.paymentMethod; return n; }); }}
+                          className={`w-full px-2.5 py-1.5 text-xs border rounded-lg bg-white text-gray-900 focus:ring-1 focus:ring-teal-500 outline-none ${errors.paymentMethod ? "border-2 border-red-500" : "border-gray-300"} ${useMultiplePayments ? "opacity-50" : ""}`}
                           required disabled={useMultiplePayments}
                         >
+                          <option value="" disabled>Select Payment Method</option>
                           <option value="Cash">Cash</option>
                           <option value="Card">Card</option>
                           <option value="BT">BT</option>
                           <option value="Tabby">Tabby</option>
                           <option value="Tamara">Tamara</option>
+                           <option value="Package Full Paid">package Full Paid</option>
                         </select>
+                        {errors.paymentMethod && (
+                          <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.paymentMethod}</p>
+                        )}
                       </div>
                     </div>
 
@@ -5475,7 +6359,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                 checked={useCashback}
                                 onChange={(e) => {
                                   setUseCashback(e.target.checked);
-                                  console.log('[CashbackModal] Use cashback:', e.target.checked);
                                 }}
                                 className="w-3.5 h-3.5 text-green-600 rounded focus:ring-green-500 border-gray-300"
                               />
@@ -5803,6 +6686,49 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         </div>
                       )}
 
+                      {/* ============================================================
+                          Pending Ledger Breakdown (additive, read-only).
+                          Lists which treatments / packages the rolled-in pending
+                          amount actually came from. Pure display, no impact on
+                          calculations or submission. Auto-hides if no ledger data.
+                          ============================================================ */}
+                      {parseFloat(formData.pendingUsed || "0") > 0 &&
+                        pendingLedgerRows.length > 0 && (
+                          <div className="pl-3 mt-1 mb-1 border-l-2 border-amber-200">
+                            <button
+                              type="button"
+                              onClick={() => setShowPendingLedger((s) => !s)}
+                              className="text-[10px] font-semibold text-amber-700 hover:text-amber-800 underline decoration-dotted"
+                            >
+                              {showPendingLedger ? "Hide" : "Show"} pending breakdown ({pendingLedgerRows.length})
+                            </button>
+                            {showPendingLedger && (
+                              <div className="mt-1 space-y-1">
+                                {pendingLedgerRows.map((row) => {
+                                  const label =
+                                    row.service === "Package"
+                                      ? row.packageName || "Package"
+                                      : row.treatmentName || row.service || "Service";
+                                  return (
+                                    <div
+                                      key={row.ledgerId}
+                                      className="flex items-center justify-between text-[10px] text-gray-600"
+                                    >
+                                      <div className="min-w-0 flex-1 truncate">
+                                        <span className="font-medium text-gray-700">{label}</span>
+                                        <span className="text-gray-400 ml-1">({row.invoiceNumber})</span>
+                                      </div>
+                                      <span className="font-semibold text-amber-600 shrink-0 ml-2">
+                                        {getCurrencySymbol(currency)} {Number(row.remainingAmount || 0).toFixed(2)}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                       {/* Advance Balance Used */}
                       {parseFloat(formData.advanceUsed || "0") > 0 && (
                         <div className="flex items-center justify-between text-[11px]">
@@ -5867,10 +6793,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                     >
                       Cancel
                     </button>
-                    <button type="submit" disabled={loading}
+                    <button type="submit" disabled={loading || complaintExists === false || (selectedPackage !== null && (selectedPackageRemaining ?? 0) <= 0)}
                       className="px-4 py-2.5 sm:py-2 text-xs font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {loading ? "Creating..." : isAlreadyBilled ? "Create Additional Billing" : "Create Billing"}
+                      {loading ? "Creating..." : complaintExists === false ? "Create Complaint First" : (selectedPackage !== null && (selectedPackageRemaining ?? 0) <= 0) ? "No Remaining Sessions" : isAlreadyBilled ? "Create Additional Billing" : "Create Billing"}
                     </button>
                   </div>
                 </div>
@@ -6045,28 +6971,95 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {/* Combine regular packages and userPackages */}
+                        {/* Combine regular packages, userPackages, and transferred-in packages */}
                         {(() => {
+                          // Create a map of active package usage for quick lookup
+                          const usageMap = new Map();
+                          activePackageUsage.forEach(u => usageMap.set(u.packageName, u));
+
+                          // Build set of transferred-in package names to avoid duplicates
+                          const transferredInPackageNames = new Set(
+                            activePackageUsage
+                              .filter((u: any) => u.isTransferred && u.transferredFrom)
+                              .map((u: any) => u.packageName)
+                          );
+
+                          // Filter purchased packages: only remove if all sessions are transferred out
+                          // Also exclude packages that already appear as transferred-in (to avoid duplicates)
                           const purchasedPackages = (patientDetails?.packages || []).filter((p: any) => {
+                            // Get package definition — use String comparison to handle ObjectId vs string
+                            const packageDef = packages.find((pkg: any) => String(pkg._id) === String(p.packageId));
+                            // Name: from master def, or snapshot, or stored packageName, or billing history fallback
+                            const snap = p.packageSnapshot;
+                            const nameFromBillingHist = (billingHistory || []).find(
+                              (b: any) => b.service === 'Package' && b.package &&
+                                (String(b.packageId) === String(p.packageId) || (b.notes && String(b.notes).includes(String(p.packageId))))
+                            )?.package || null;
+                            const packageName = packageDef?.name || snap?.name || p.packageName
+                              || nameFromBillingHist
+                              || (p.totalPrice > 0 ? `Package (${String(p.packageId).slice(-6)})` : String(p.packageId));
+
+                            // Skip if this package already appears as transferred-in (will be shown with tag)
+                            if (transferredInPackageNames.has(packageName)) {
+                              return false;
+                            }
+
+                            const usageData = usageMap.get(packageName);
+
+                            // Check if there are any remaining sessions (if we have usage data)
+                            if (usageData && typeof usageData.remainingSessions === 'number') {
+                              // Only hide if sessions were actually consumed (totalSessions > 0 means billing happened)
+                              // If totalAllowedSessions === 0 AND totalSessions === 0, the API had no master definition
+                              // to compute from — don't hide the package in that case (patient paid for it).
+                              const hasBeenUsed = (usageData.totalSessions || 0) > 0;
+                              if (usageData.totalAllowedSessions === 0 && !hasBeenUsed) {
+                                // Broken usage data (deleted master with old snapshot): keep it visible
+                                return !patientDetails.packageTransfers?.some((t: any) => t.type === "out" && String(t.packageId) === String(p.packageId));
+                              }
+                              return usageData.remainingSessions > 0;
+                            }
+
+                            // Fallback to original check if no usage data
                             return !patientDetails.packageTransfers?.some((t: any) => t.type === "out" && String(t.packageId) === String(p.packageId));
                           });
                          
                           // Add userPackages (approved packages from PatientRegistration.userPackages)
+                          // Also exclude packages that already appear as transferred-in (to avoid duplicates)
                           const approvedUserPackages = (patientDetails?.userPackages || []).filter(
-                            (pkg: any) => pkg.approvalStatus === 'approved'
+                            (pkg: any) => pkg.approvalStatus === 'approved' && !transferredInPackageNames.has(pkg.packageName)
                           );
+
+                          // Add transferred-in packages from activePackageUsage
+                          const transferredInPackages = activePackageUsage
+                            .filter((u: any) => u.isTransferred && u.transferredFrom)
+                            .map((u: any) => ({
+                              packageName: u.packageName,
+                              packageId: u.packageName,
+                              isUserPackage: false,
+                              isTransferredIn: true,
+                              transferredFrom: u.transferredFrom,
+                              transferredFromName: u.transferredFromName,
+                              transferredSessions: u.transferredSessions,
+                              paymentStatus: u.paymentStatus || 'Unpaid',
+                              paidAmount: u.paidAmount || 0,
+                              totalPrice: (u.totalAllowedSessions || 0) * (u.packagePrice || 0), // Estimate
+                              treatments: u.treatments || []
+                            }));
                          
                           const allPackages = [
-                            ...purchasedPackages.map((p: any) => ({ ...p, isUserPackage: false })),
-                            ...approvedUserPackages.map((p: any) => ({ ...p, isUserPackage: true }))
+                            ...purchasedPackages.map((p: any) => ({
+                              ...p,
+                              isUserPackage: false,
+                              // Flag as deleted master so the card can show the 'Catalogue Removed' badge
+                              isDeletedMaster: !packages.some((pkg: any) => String(pkg._id) === String(p.packageId)),
+                            })),
+                            ...approvedUserPackages.map((p: any) => ({ ...p, isUserPackage: true })),
+                            ...transferredInPackages
                           ];
                          
                           if (allPackages.length === 0) {
                             return <div className="text-[10px] text-gray-400 py-1">No active packages</div>;
                           }
-                         
-                          const usageMap = new Map();
-                          activePackageUsage.forEach(u => usageMap.set(u.packageName, u));
 
                           return allPackages.map((pkg: any, pkgIndex: number) => {
                             let packageName: string;
@@ -6074,17 +7067,41 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             let treatments: any[] = [];
                             let totalSessions = 0;
                            
-                            if (pkg.isUserPackage) {
+                            if (pkg.isTransferredIn) {
+                              // Handle transferred-in package
+                              packageName = pkg.packageName;
+                              // Find package definition by name
+                              packageDef = packages.find(p => p.name === packageName);
+                              treatments = pkg.treatments || packageDef?.treatments || [];
+                              totalSessions = pkg.transferredSessions || 0;
+                            } else if (pkg.isUserPackage) {
                               // Handle userPackage
                               packageName = pkg.packageName;
                               treatments = pkg.treatments || [];
                               totalSessions = pkg.totalSessions || 0;
                             } else {
-                              // Handle regular package
-                              packageDef = packages.find(p => p._id === pkg.packageId);
-                              packageName = packageDef?.name || pkg.packageId;
-                              treatments = packageDef?.treatments || [];
-                              totalSessions = packageDef?.treatments?.reduce((s: number, t: any) => s + (t.sessions || 0), 0) || 0;
+                              // Handle regular package — use String comparison to match both ObjectId and string _id
+                              packageDef = packages.find((p: any) => String(p._id) === String(pkg.packageId));
+                              if (packageDef) {
+                                packageName = packageDef.name;
+                                treatments = packageDef.treatments || [];
+                                totalSessions = packageDef.treatments?.reduce((s: number, t: any) => s + (parseInt(t.sessions) || t.sessions || 0), 0) || 0;
+                              } else {
+                                // Deleted master: resolve from the stored assignment data itself
+                                const pkgIdStr = String(pkg.packageId || '');
+                                const assignedSnap = pkg.packageSnapshot;
+                                const nameFromBillingHistory = (billingHistory || []).find(
+                                  (b: any) => b.service === 'Package' && b.package &&
+                                    (String(b.packageId) === pkgIdStr || (b.notes && String(b.notes).includes(pkgIdStr)))
+                                )?.package || null;
+                                packageName = assignedSnap?.name || pkg.packageName || nameFromBillingHistory
+                                  || (pkg.totalPrice > 0 ? `Package (${pkgIdStr.slice(-6)})` : pkg.packageId);
+                                treatments = (Array.isArray(assignedSnap?.treatments) && assignedSnap.treatments.length > 0)
+                                  ? assignedSnap.treatments
+                                  : [];
+                                totalSessions = assignedSnap?.totalSessions
+                                  || treatments.reduce((s: number, t: any) => s + (parseInt(t.sessions) || 0), 0);
+                              }
                             }
                            
                             const usageData = usageMap.get(packageName);
@@ -6123,13 +7140,23 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             // const paidAmount = totalCashPaidFromBillings || pkg.paidAmount || 0;
                             const advanceUsed = totalAdvanceUsedFromBillings;
                             const totalPaid = totalPaidFromBillings;
-                            const isUnpaid = paymentStatus === 'Unpaid' || totalPaid === 0;
+                            const isUnpaid = paymentStatus === 'Unpaid';
 
                             return (
                               <div key={`${pkg.packageId || pkg._id}-${pkgIndex}`} className={`border ${isExpired ? 'border-red-200 bg-red-50' : 'border-teal-200 bg-gradient-to-br from-teal-50 to-cyan-50'} rounded-xl overflow-hidden relative shadow-sm`}>
                                 {isExpired && (
                                   <div className="absolute top-0 right-0 px-2 py-1 bg-red-600 text-white text-[8px] font-black uppercase tracking-tighter z-10 rounded-bl-lg shadow-sm">
                                     Expired
+                                  </div>
+                                )}
+                                {pkg.isDeletedMaster && !isExpired && (
+                                  <div className="absolute top-0 left-0 px-2 py-0.5 bg-orange-500 text-white text-[7px] font-black uppercase tracking-tighter z-10 rounded-br-lg shadow-sm" title="This package was removed from the clinic catalogue but the patient retains all purchased benefits.">
+                                    Catalogue Removed
+                                  </div>
+                                )}
+                                {pkg.isTransferredIn && (
+                                  <div className="absolute top-0 right-0 px-2 py-1 bg-blue-600 text-white text-[8px] font-black uppercase tracking-tighter z-10 rounded-bl-lg shadow-sm">
+                                    Transferred In from {pkg.transferredFromName || 'Patient'}
                                   </div>
                                 )}
                                 <button type="button"
@@ -6157,7 +7184,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                         )}
                                       </div>
                                       <div className="text-[8px] text-gray-500 flex items-center gap-2">
-                                        <span>{displayData.treatments?.length || 0} treatments · {displayData.totalSessions || 0} sessions</span>
+                                        <span>
+                                          {displayData.treatments?.length || 0} treatments · 
+                                          {(usageData?.totalAllowedSessions ?? displayData.totalSessions ?? 0)} total · 
+                                          {(usageData?.remainingSessions ?? displayData.totalSessions ?? 0)} remaining
+                                        </span>
                                         {(pkg.startDate || pkg.endDate) && (
                                           <>
                                             <span className="text-gray-300">|</span>
@@ -6181,7 +7212,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                     {displayData.treatments && displayData.treatments.length > 0 ? (
                                       displayData.treatments.map((treatment: any, tIndex: number) => {
                                         const treatmentUsage = usageData?.treatments?.find((t: any) => t.treatmentSlug === treatment.treatmentSlug);
-                                        const maxSessions = treatment.sessions || treatment.maxSessions || 0;
+                                        const maxSessions = treatmentUsage?.maxSessions || treatment.sessions || treatment.maxSessions || 0;
                                         const totalUsedSessions = treatmentUsage?.totalUsedSessions || 0;
                                         const remainingSessions = maxSessions - totalUsedSessions;
                                         const isFullyUsed = maxSessions > 0 && totalUsedSessions >= maxSessions;

@@ -73,8 +73,6 @@ export default async function handler(req, res) {
     if (me.role !== "admin" && clinic._id) {
     }
 
-    console.log({ clinic });
-
     try {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 20;
@@ -175,7 +173,7 @@ export default async function handler(req, res) {
       let conversations = await Conversation.find(query)
         .populate({
           path: "leadId",
-          select: "_id name phone patientId createdAt",
+          select: "_id name phone email patientId createdAt",
           model: "Lead",
         })
         .populate(

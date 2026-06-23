@@ -2994,26 +2994,47 @@ const ClinicDashboard: NextPageWithLayout = () => {
           endDateReadable: endDate.toLocaleDateString()
         });
         
-        // Fetch clinic financials + doctor-performance trend together
-        const [resFinancial, resPerf] = await Promise.all([
-          axios.get('/api/clinics/financialReports', {
+        // Fetch clinic financials + doctor-performance trend independently
+        // Using separate try-catch to handle permission errors gracefully
+        let finData: any = {};
+        let perfData: any = {};
+        
+        // Fetch financial reports
+        try {
+          const resFinancial = await axios.get('/api/clinics/financialReports', {
             headers: { Authorization: `Bearer ${token}` },
             params: {
               startDate: startDate.toISOString(),
               endDate: endDate.toISOString(),
               filter: timeRangeFilter
             }
-          }),
-          axios.get('/api/clinics/doctor-performance', {
+          });
+          finData = resFinancial.data || {};
+          console.log('✅ Financial Reports Response:', finData);
+        } catch (financialError: any) {
+          console.error('❌ Error fetching financial reports:', financialError);
+          if (financialError.response?.status === 403) {
+            console.warn('🔒 Financial reports access denied - showing empty data');
+          }
+        }
+        
+        // Fetch doctor performance
+        try {
+          const resPerf = await axios.get('/api/clinics/doctor-performance', {
             headers: { Authorization: `Bearer ${token}` },
             params: { filter: timeRangeFilter }
-          })
-        ]);
+          });
+          perfData = resPerf.data || {};
+          console.log('✅ Doctor Performance Trend Response:', perfData);
+        } catch (perfError: any) {
+          console.error('❌ Error fetching doctor performance:', perfError);
+          if (perfError.response?.status === 403) {
+            console.warn('🔒 Doctor performance access denied - showing empty data');
+          }
+        }
 
-        const fin = resFinancial.data || {};
-        const perf = resPerf.data || {};
-        console.log('✅ Financial Reports Response:', fin);
-        console.log('✅ Doctor Performance Trend Response:', perf);
+        const fin = finData;
+        const perf = perfData;
 
         if (fin.success || perf.success) {
           // Handle mock data flag
@@ -6397,10 +6418,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         borderRadius: '6px',
                         fontSize: '11px'
                       }}
-                        formatter={(value: number | undefined, name: string | undefined, props: any) => {
+                        formatter={(value: any, name: any, props: any) => {
                           const displayValue = value ?? 0;
                           const displayName = name ?? '';
-                          if (props.payload?.fullName) {
+                          if (props?.payload?.fullName) {
                             return [`${displayValue}`, props.payload.fullName];
                           }
                           return [displayValue, displayName];

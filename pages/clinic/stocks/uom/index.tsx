@@ -9,6 +9,10 @@ import AddUomModal from "./_components/AddUomModal";
 import DeleteUomModal from "./_components/DeleteUomModal";
 import EditUomModal from "./_components/EditUomModal";
 import { UOM } from "@/types/stocks";
+import { Lock, Home, LogOut } from "lucide-react";
+import { useRouter } from "next/router";
+
+const MODULE_KEY = "clinic_stock_uom";
 
 interface ApiResponse {
   success: boolean;
@@ -31,6 +35,7 @@ interface ApiResponse {
 }
 
 const UOMPage: NextPageWithLayout = () => {
+  const router = useRouter();
   const [uoms, setUoms] = useState<UOM[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -51,6 +56,17 @@ const UOMPage: NextPageWithLayout = () => {
     mainCategory: 0,
     subCategory: 0,
   });
+
+  // Permission state
+  const [permissions, setPermissions] = useState({
+    canRead: true,
+    canCreate: true,
+    canUpdate: true,
+    canDelete: true,
+  });
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [_isAgentStaff, setIsAgentStaff] = useState(false);
+  const [_role, setRole] = useState<string | null>(null);
 
   // Fetch UOMs with proper error handling
   const fetchUOMs = useCallback(
@@ -98,6 +114,209 @@ const UOMPage: NextPageWithLayout = () => {
     fetchUOMs(1);
   }, []);
 
+  // Fetch permissions
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      try {
+        const token = getTokenByPath();
+        if (!token) {
+          setPermissionsLoaded(true);
+          return;
+        }
+
+        // Decode JWT to get role
+        const decoded = JSON.parse(atob(token.split(".")[1]));
+        setRole(decoded.role);
+        setIsAgentStaff(
+          decoded.role === "agent" ||
+            decoded.role === "staff" ||
+            decoded.role === "doctorstaff"
+        );
+
+        if (
+          decoded.role === "agent" ||
+          decoded.role === "staff" ||
+          decoded.role === "doctorstaff"
+        ) {
+          // Agent/Staff/DoctorStaff permissions
+          console.log("Fetching Agent/Staff Permissions for clinic_stock_uom...");
+          setPermissionsLoaded(false);
+          const agentRes = await axios.get("/api/agent/get-module-permissions", {
+            params: { moduleKey: MODULE_KEY },
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const data = agentRes.data;
+          console.log("Agent Permissions API Response (UOM):", data);
+
+          // Default to true if module not found in permissions (matches backend logic)
+          if (
+            !data?.permissions &&
+            data?.error?.includes("No permissions found for module")
+          ) {
+            console.log("Module not found in permissions, granting full access by default (UOM)");
+            setPermissions({
+              canRead: true,
+              canCreate: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+          } else if (agentRes.data.success) {
+            const actions = data?.permissions?.actions || {};
+            const isTrue = (val: any) =>
+              val === true ||
+              val === "true" ||
+              String(val || "").toLowerCase() === "true";
+
+            const canAll = isTrue(actions.all);
+            const newPerms = {
+              canRead: canAll || isTrue(actions.read),
+              canCreate: canAll || isTrue(actions.create),
+              canUpdate: canAll || isTrue(actions.update),
+              canDelete: canAll || isTrue(actions.delete),
+            };
+            console.log("Setting permissions (UOM):", newPerms);
+            setPermissions(newPerms);
+          }
+        } else {
+          // Clinic/Doctor permissions
+          const clinicRes = await axios.get("/api/clinic/sidebar-permissions", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (clinicRes.data.success) {
+            console.log("Clinic Sidebar Permissions Response (UOM):", clinicRes.data);
+            if (
+              clinicRes.data.permissions === null ||
+              !Array.isArray(clinicRes.data.permissions) ||
+              clinicRes.data.permissions.length === 0
+            ) {
+              console.log("No permissions set, granting full access (UOM)");
+              setPermissions({
+                canRead: true,
+                canCreate: true,
+                canUpdate: true,
+                canDelete: true,
+              });
+            } else {
+              let modulePermission = clinicRes.data.permissions.find((p: any) => {
+                if (!p?.module) return false;
+                if (p.module === "clinic_stock_uom") return true;
+                return false;
+              });
+
+              console.log("Direct module permission found (UOM):", modulePermission);
+
+              if (!modulePermission) {
+                const parentStockModule = clinicRes.data.permissions.find((p: any) => 
+                  p?.module === "clinic_stock" && Array.isArray(p.subModules)
+                );
+                
+                console.log("Parent stock module found (UOM):", parentStockModule);
+                
+                if (parentStockModule) {
+                  modulePermission = parentStockModule.subModules.find((sm: any) => 
+                    sm?.moduleKey === "clinic_stock_uom"
+                  );
+                  console.log("Submodule permission found (UOM):", modulePermission);
+                }
+              }
+
+              if (modulePermission) {
+                const actions = modulePermission.actions || {};
+                console.log("Module permission actions (UOM):", actions);
+
+                const moduleAll =
+                  actions.all === true ||
+                  actions.all === "true" ||
+                  String(actions.all).toLowerCase() === "true";
+                const moduleCreate =
+                  actions.create === true ||
+                  actions.create === "true" ||
+                  String(actions.create).toLowerCase() === "true";
+                const moduleRead =
+                  actions.read === true ||
+                  actions.read === "true" ||
+                  String(actions.read).toLowerCase() === "true";
+                const moduleUpdate =
+                  actions.update === true ||
+                  actions.update === "true" ||
+                  String(actions.update).toLowerCase() === "true";
+                const moduleDelete =
+                  actions.delete === true ||
+                  actions.delete === "true" ||
+                  String(actions.delete).toLowerCase() === "true";
+
+                const newPermissions = {
+                  canRead: moduleAll || moduleRead,
+                  canCreate: moduleAll || moduleCreate,
+                  canUpdate: moduleAll || moduleUpdate,
+                  canDelete: moduleAll || moduleDelete,
+                };
+                console.log("Setting permissions (UOM):", newPermissions);
+                setPermissions(newPermissions);
+              } else {
+                setPermissions({
+                  canRead: true,
+                  canCreate: false,
+                  canUpdate: false,
+                  canDelete: false,
+                });
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching permissions (UOM):", err);
+      } finally {
+        setPermissionsLoaded(true);
+      }
+    };
+
+
+    fetchPermissions();
+  }, []);
+
+  // Access Denied Component (defined AFTER all hooks as a regular function)
+  const AccessDenied = () => (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+          <div className="p-8 md:p-12 text-center">
+            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-red-50 flex items-center justify-center">
+              <Lock className="w-12 h-12 text-red-500" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-3">
+              Access Denied
+            </h2>
+            <p className="text-gray-600 mb-8 max-w-md mx-auto">
+              You don't have permission to view this page. Please contact your
+              clinic administrator for access.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={() => router.push("/clinic/clinic-dashboard")}
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gray-800 hover:bg-gray-900 text-white rounded-lg font-medium transition-all"
+              >
+                <Home className="w-5 h-5" />
+                Go to Dashboard
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.removeItem("token");
+                  router.push("/");
+                }}
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-medium transition-all"
+              >
+                <LogOut className="w-5 h-5" />
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   // Handle page change
   const handlePageChange = useCallback(
     (page: number) => {
@@ -132,7 +351,6 @@ const UOMPage: NextPageWithLayout = () => {
         );
 
         if (response.data?.success) {
-          // Refresh the list
           fetchUOMs(pagination.currentPage, searchTerm);
           setIsAddModalOpen(false);
         }
@@ -164,7 +382,6 @@ const UOMPage: NextPageWithLayout = () => {
       );
 
       if (response.data.success) {
-        // Refresh the list
         fetchUOMs(pagination.currentPage, searchTerm);
         setIsDeleteModalOpen(false);
         setUomToDelete(null);
@@ -210,7 +427,6 @@ const UOMPage: NextPageWithLayout = () => {
         );
 
         if (response.data.success) {
-          // Refresh the list
           fetchUOMs(pagination.currentPage, searchTerm);
           setIsEditModalOpen(false);
           setUomToEdit(null);
@@ -228,6 +444,22 @@ const UOMPage: NextPageWithLayout = () => {
     setUomToEdit(null);
   }, []);
 
+  // ALL HOOKS MUST BE DECLARED BEFORE THIS LINE - Conditional early returns AFTER all hooks
+  if (!permissionsLoaded) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!permissions.canRead && !permissions.canCreate) {
+    return <AccessDenied />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
       {/* Header Section */}
@@ -242,13 +474,15 @@ const UOMPage: NextPageWithLayout = () => {
                 Manage measurement units for your inventory items
               </p>
             </div>
-            <button
-              className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
-              onClick={handleAddUom}
-            >
-              <PlusIcon className="h-5 w-5 mr-2" />
-              Add UOM
-            </button>
+            {permissions.canCreate && (
+              <button
+                className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                onClick={handleAddUom}
+              >
+                <PlusIcon className="h-5 w-5 mr-2" />
+                Add UOM
+              </button>
+            )}
 
             {/* Add UOM Modal */}
             <AddUomModal
@@ -276,93 +510,95 @@ const UOMPage: NextPageWithLayout = () => {
         </div>
       </div>
 
-      {/* Enhanced Stats Cards */}
-      <div className="max-w-9xl mx-auto mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Total UOMs Card */}
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-            <div className="p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
-                    <span className="text-white text-xl font-bold">U</span>
+      {permissions.canRead && (
+        <>
+          {/* Enhanced Stats Cards */}
+          <div className="max-w-9xl mx-auto mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Total UOMs Card */}
+              <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                <div className="p-6">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
+                        <span className="text-white text-xl font-bold">U</span>
+                      </div>
+                    </div>
+                    <div className="ml-5 flex-1">
+                      <div className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+                        Total UOMs
+                      </div>
+                      <div className="text-3xl font-bold text-gray-900 mt-1">
+                        {stats.total}
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="ml-5 flex-1">
-                  <div className="text-sm font-medium text-gray-500 uppercase tracking-wide">
-                    Total UOMs
-                  </div>
-                  <div className="text-3xl font-bold text-gray-900 mt-1">
-                    {stats.total}
+                <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
+                  <div className="text-xs text-gray-500">
+                    Active measurement units
                   </div>
                 </div>
               </div>
-            </div>
-            <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
-              <div className="text-xs text-gray-500">
-                Active measurement units
+
+              {/* Main Category Card */}
+              <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                <div className="p-6">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-md">
+                        <span className="text-white text-xl font-bold">M</span>
+                      </div>
+                    </div>
+                    <div className="ml-5 flex-1">
+                      <div className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+                        Main Category
+                      </div>
+                      <div className="text-3xl font-bold text-gray-900 mt-1">
+                        {stats.mainCategory}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
+                  <div className="text-xs text-gray-500">
+                    Primary measurement units
+                  </div>
+                </div>
+              </div>
+
+              {/* Sub Category Card */}
+              <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                <div className="p-6">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-md">
+                        <span className="text-white text-xl font-bold">S</span>
+                      </div>
+                    </div>
+                    <div className="ml-5 flex-1">
+                      <div className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+                        Sub Category
+                      </div>
+                      <div className="text-3xl font-bold text-gray-900 mt-1">
+                        {stats.subCategory}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
+                  <div className="text-xs text-gray-500">
+                    Secondary measurement units
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Main Category Card */}
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-            <div className="p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-md">
-                    <span className="text-white text-xl font-bold">M</span>
-                  </div>
-                </div>
-                <div className="ml-5 flex-1">
-                  <div className="text-sm font-medium text-gray-500 uppercase tracking-wide">
-                    Main Category
-                  </div>
-                  <div className="text-3xl font-bold text-gray-900 mt-1">
-                    {stats.mainCategory}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
-              <div className="text-xs text-gray-500">
-                Primary measurement units
-              </div>
-            </div>
-          </div>
-
-          {/* Sub Category Card */}
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-            <div className="p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-md">
-                    <span className="text-white text-xl font-bold">S</span>
-                  </div>
-                </div>
-                <div className="ml-5 flex-1">
-                  <div className="text-sm font-medium text-gray-500 uppercase tracking-wide">
-                    Sub Category
-                  </div>
-                  <div className="text-3xl font-bold text-gray-900 mt-1">
-                    {stats.subCategory}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
-              <div className="text-xs text-gray-500">
-                Secondary measurement units
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Enhanced Data Table Section */}
-      <div className="max-w-9xl mx-auto">
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-          {/* Table Header */}
+          {/* Enhanced Data Table Section */}
+          <div className="max-w-9xl mx-auto">
+            <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+              {/* Table Header */}
           <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <h2 className="text-xl font-semibold text-gray-900">
@@ -444,13 +680,15 @@ const UOMPage: NextPageWithLayout = () => {
               <p className="text-gray-500 mb-6">
                 Get started by adding your first unit of measurement.
               </p>
-              <button
-                onClick={handleAddUom}
-                className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
-              >
-                <PlusIcon className="h-5 w-5 mr-2" />
-                Add First UOM
-              </button>
+              {permissions.canCreate && (
+                <button
+                  onClick={handleAddUom}
+                  className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                >
+                  <PlusIcon className="h-5 w-5 mr-2" />
+                  Add First UOM
+                </button>
+              )}
             </div>
           ) : (
             /* Data Table */
@@ -541,20 +779,24 @@ const UOMPage: NextPageWithLayout = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end space-x-2">
-                          <button
-                            onClick={() => handleEditClick(uom)}
-                            className="text-blue-600 hover:text-blue-900 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200"
-                            title="Edit"
-                          >
-                            <PencilIcon className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteClick(uom)}
-                            className="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-50 transition-all duration-200"
-                            title="Delete"
-                          >
-                            <TrashIcon className="h-5 w-5" />
-                          </button>
+                          {permissions.canUpdate && (
+                            <button
+                              onClick={() => handleEditClick(uom)}
+                              className="text-blue-600 hover:text-blue-900 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200"
+                              title="Edit"
+                            >
+                              <PencilIcon className="h-5 w-5" />
+                            </button>
+                          )}
+                          {permissions.canDelete && (
+                            <button
+                              onClick={() => handleDeleteClick(uom)}
+                              className="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-50 transition-all duration-200"
+                              title="Delete"
+                            >
+                              <TrashIcon className="h-5 w-5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -623,6 +865,8 @@ const UOMPage: NextPageWithLayout = () => {
           )}
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };

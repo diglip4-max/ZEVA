@@ -30,6 +30,7 @@ import {
   Mailbox,
   Trash2,
   Calendar,
+  Users,
 } from "lucide-react";
 import axios from "axios";
 import { Provider } from "@/types/conversations";
@@ -40,6 +41,9 @@ import DeleteProviderModal from "./_components/DeleteProviderModal";
 import toast from "react-hot-toast";
 import Loader from "@/components/Loader";
 import { useAgentPermissions } from "@/hooks/useAgentPermissions";
+import AddEmailProvider from "./_components/AddEmailProvider";
+import EditEmailProviderModal from "./_components/EditEmailProviderModal";
+import AssignProviderModal from "./_components/AssignProviderModal";
 
 const PROVIDER_MODULE_KEY = "clinic_providers";
 
@@ -47,6 +51,7 @@ const ProvidersPage: NextPageWithLayout = () => {
   const token = getTokenByPath();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showWhatsappModal, setShowWhatsappModal] = useState<boolean>(false);
+  const [showEmailModal, setShowEmailModal] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [searchQuery, setSearchQuery] = useState("");
@@ -58,10 +63,12 @@ const ProvidersPage: NextPageWithLayout = () => {
   const [totalProviders, setTotalProviders] = useState<number>(0);
   const [isMounted, setIsMounted] = useState(false);
 
-
   const [isOpenEditWhatsappModal, setIsOpenEditWhatsappModal] =
     useState<boolean>(false);
+  const [isOpenEditEmailModal, setIsOpenEditEmailModal] =
+    useState<boolean>(false);
   const [isOpenDeleteModal, setIsOpenDeleteModal] = useState<boolean>(false);
+  const [isOpenAssignModal, setIsOpenAssignModal] = useState<boolean>(false);
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(
     null,
   );
@@ -79,7 +86,8 @@ const ProvidersPage: NextPageWithLayout = () => {
   const providersPerPage = 9;
 
   // Check if on agent route
-  const currentPath = typeof window !== "undefined" ? window.location.pathname : "";
+  const currentPath =
+    typeof window !== "undefined" ? window.location.pathname : "";
   const isAgentRoute = currentPath.startsWith("/agent/");
   // Use agent permissions hook for agent routes
   const agentPermissionsHook: any = useAgentPermissions(
@@ -117,8 +125,14 @@ const ProvidersPage: NextPageWithLayout = () => {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, currentPage, selectedType, searchQuery, token, providersPerPage]);
-
+  }, [
+    activeTab,
+    currentPage,
+    selectedType,
+    searchQuery,
+    token,
+    providersPerPage,
+  ]);
 
   // Handle agent permissions
   useEffect(() => {
@@ -132,7 +146,6 @@ const ProvidersPage: NextPageWithLayout = () => {
       canDelete: Boolean(agentPermissions.canAll || agentPermissions.canDelete),
       canAssign: Boolean(agentPermissions.canAll),
     };
-
 
     setPermissions(newPermissions);
     setPermissionsLoaded(true);
@@ -299,13 +312,18 @@ const ProvidersPage: NextPageWithLayout = () => {
               // If not found at top level, check in subModules of parent modules
               if (!modulePermission) {
                 for (const parentModule of res.data.permissions) {
-                  if (parentModule.subModules && parentModule.subModules.length > 0) {
-                    const foundInSubModule = parentModule.subModules.find((sm: any) => {
-                      if (sm.moduleKey === "clinic_providers") return true;
-                      if (sm.moduleKey === "clinic_Providers") return true;
-                      if (sm.moduleKey === "providers") return true;
-                      return false;
-                    });
+                  if (
+                    parentModule.subModules &&
+                    parentModule.subModules.length > 0
+                  ) {
+                    const foundInSubModule = parentModule.subModules.find(
+                      (sm: any) => {
+                        if (sm.moduleKey === "clinic_providers") return true;
+                        if (sm.moduleKey === "clinic_Providers") return true;
+                        if (sm.moduleKey === "providers") return true;
+                        return false;
+                      },
+                    );
                     if (foundInSubModule) {
                       modulePermission = { actions: foundInSubModule.actions };
                       break;
@@ -400,7 +418,9 @@ const ProvidersPage: NextPageWithLayout = () => {
       const fetchPermissions = async () => {
         try {
           console.log(
-            "Fetching Agent/Staff Permissions for", PROVIDER_MODULE_KEY, "...",
+            "Fetching Agent/Staff Permissions for",
+            PROVIDER_MODULE_KEY,
+            "...",
           );
           setPermissionsLoaded(false);
           const res = await axios.get("/api/agent/get-module-permissions", {
@@ -489,8 +509,14 @@ const ProvidersPage: NextPageWithLayout = () => {
       return;
     }
     fetchAllProviders();
-  }, [activeTab, currentPage, selectedType, searchQuery, permissionsLoaded, permissions.canRead]);
-
+  }, [
+    activeTab,
+    currentPage,
+    selectedType,
+    searchQuery,
+    permissionsLoaded,
+    permissions.canRead,
+  ]);
 
   // Show loading while permissions are being fetched
   if (!permissionsLoaded) {
@@ -642,6 +668,18 @@ const ProvidersPage: NextPageWithLayout = () => {
     } else {
       return date.toLocaleDateString();
     }
+  };
+
+  const getOwnerName = (owner: any) => {
+    if (typeof owner === "object" && owner.name) {
+      return owner.name;
+    }
+    return "Owner";
+  };
+
+  const getOwnerInitial = (owner: any) => {
+    const name = getOwnerName(owner);
+    return name.charAt(0).toUpperCase();
   };
 
   const stats = {
@@ -948,6 +986,35 @@ const ProvidersPage: NextPageWithLayout = () => {
                       )}
                     </div>
 
+                    {/* Owners */}
+                    {provider.owners && provider.owners.length > 0 && (
+                      <div className="mb-6">
+                        <span className="text-gray-500 text-sm mb-2 block">
+                          Owners
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          {provider.owners.slice(0, 4).map((owner, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-full text-xs text-gray-700"
+                            >
+                              <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-semibold">
+                                {getOwnerInitial(owner)}
+                              </div>
+                              <span className="truncate max-w-[80px]">
+                                {getOwnerName(owner)}
+                              </span>
+                            </div>
+                          ))}
+                          {provider.owners.length > 4 && (
+                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold">
+                              +{provider.owners.length - 4}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Details */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between text-sm">
@@ -975,6 +1042,18 @@ const ProvidersPage: NextPageWithLayout = () => {
                         Created {formatDate(provider.createdAt)}
                       </div>
                       <div className="flex items-center gap-2">
+                        {permissions.canAssign && (
+                          <button
+                            className="cursor-pointer p-2 border border-inherit hover:bg-white hover:border hover:border-gray-300 rounded-lg transition-colors"
+                            title="Assign"
+                            onClick={() => {
+                              setIsOpenAssignModal(true);
+                              setSelectedProvider(provider);
+                            }}
+                          >
+                            <Users className="w-4 h-4 text-gray-500" />
+                          </button>
+                        )}
                         {permissions.canUpdate && (
                           <button
                             className="cursor-pointer p-2 border border-inherit hover:bg-white hover:border hover:border-gray-300 rounded-lg transition-colors"
@@ -982,6 +1061,9 @@ const ProvidersPage: NextPageWithLayout = () => {
                             onClick={() => {
                               if (provider?.type?.includes("whatsapp")) {
                                 setIsOpenEditWhatsappModal(true);
+                                setSelectedProvider(provider);
+                              } else if (provider?.type?.includes("email")) {
+                                setIsOpenEditEmailModal(true);
                                 setSelectedProvider(provider);
                               }
                             }}
@@ -1024,7 +1106,9 @@ const ProvidersPage: NextPageWithLayout = () => {
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Status
                     </th>
-
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Owners
+                    </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Contact
                     </th>
@@ -1082,6 +1166,33 @@ const ProvidersPage: NextPageWithLayout = () => {
                         </td>
 
                         <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            {provider.owners && provider.owners.length > 0 ? (
+                              <div className="flex -space-x-2">
+                                {provider.owners
+                                  .slice(0, 3)
+                                  .map((owner, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-semibold border-2 border-white"
+                                      title={getOwnerName(owner)}
+                                    >
+                                      {getOwnerInitial(owner)}
+                                    </div>
+                                  ))}
+                                {provider.owners.length > 3 && (
+                                  <div className="w-7 h-7 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center text-xs font-semibold border-2 border-white">
+                                    +{provider.owners.length - 3}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 text-xs">—</span>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-4">
                           <div className="text-sm">
                             {provider.phone && (
                               <div className="text-gray-900">
@@ -1113,6 +1224,18 @@ const ProvidersPage: NextPageWithLayout = () => {
                             >
                               <Eye className="w-4 h-4 text-gray-500" />
                             </button>
+                            {permissions.canAssign && (
+                              <button
+                                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                title="Assign"
+                                onClick={() => {
+                                  setIsOpenAssignModal(true);
+                                  setSelectedProvider(provider);
+                                }}
+                              >
+                                <Users className="w-4 h-4 text-blue-500" />
+                              </button>
+                            )}
                             {permissions.canUpdate && (
                               <button
                                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -1120,6 +1243,11 @@ const ProvidersPage: NextPageWithLayout = () => {
                                 onClick={() => {
                                   if (provider?.type?.includes("whatsapp")) {
                                     setIsOpenEditWhatsappModal(true);
+                                    setSelectedProvider(provider);
+                                  } else if (
+                                    provider?.type?.includes("email")
+                                  ) {
+                                    setIsOpenEditEmailModal(true);
                                     setSelectedProvider(provider);
                                   }
                                 }}
@@ -1212,7 +1340,7 @@ const ProvidersPage: NextPageWithLayout = () => {
       {/* Add Provider Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50 animate-fadeIn backdrop-blur-sm">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden animate-slideUp">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden animate-slideUp">
             <div className="p-8">
               <div className="flex items-center justify-between mb-8">
                 <div>
@@ -1275,7 +1403,13 @@ const ProvidersPage: NextPageWithLayout = () => {
                 </div>
 
                 {/* Email Card */}
-                <div className="group border-2 border-gray-200 rounded-2xl p-6 hover:border-purple-500 hover:shadow-xl transition-all duration-300 cursor-pointer">
+                <div
+                  onClick={() => {
+                    setShowEmailModal(true);
+                    setShowAddModal(false);
+                  }}
+                  className="group border-2 border-gray-200 rounded-2xl p-6 hover:border-purple-500 hover:shadow-xl transition-all duration-300 cursor-pointer"
+                >
                   <div className="flex flex-col items-center text-center">
                     <div className="p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl mb-4 group-hover:from-purple-100 group-hover:to-pink-100 transition-colors duration-300">
                       <Mail className="w-10 h-10 text-purple-600" />
@@ -1331,6 +1465,28 @@ const ProvidersPage: NextPageWithLayout = () => {
         token={token as string}
       />
 
+      <EditEmailProviderModal
+        providerId={selectedProvider!?._id}
+        isOpen={isOpenEditEmailModal}
+        onClose={() => setIsOpenEditEmailModal(false)}
+        onUpdate={() => {
+          fetchAllProviders();
+          setSelectedProvider(null);
+        }}
+        token={token as string}
+      />
+
+      {/* Add WhatsApp Provider Modal */}
+      <AddEmailProvider
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        onSuccess={() => {
+          fetchAllProviders();
+          setShowEmailModal(false);
+        }}
+        token={token as string}
+      />
+
       {/* Delete Provider Modal */}
       <DeleteProviderModal
         isOpen={isOpenDeleteModal}
@@ -1342,6 +1498,15 @@ const ProvidersPage: NextPageWithLayout = () => {
           selectedProvider?.email
         }
         loading={isDeleting}
+      />
+      {/* Assign Provider Modal */}
+      <AssignProviderModal
+        isOpen={isOpenAssignModal}
+        onClose={() => setIsOpenAssignModal(false)}
+        provider={selectedProvider}
+        onSuccess={() => {
+          fetchAllProviders();
+        }}
       />
     </div>
   );

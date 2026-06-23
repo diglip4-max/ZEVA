@@ -42,25 +42,92 @@ export async function checkAgentPermission(agentId, moduleKey, action, subModule
     );
 
     // Find the module permission using any of the candidate keys
-    let modulePermission = agentPermission.permissions.find(
+    let modulePermission = null;
+
+
+    // COMPREHENSIVE SEARCH STRATEGY (in order of precision):
+    
+    // Strategy 1: EXACT direct module match (highest priority)
+    modulePermission = agentPermission.permissions.find(
       (p) => {
         const permModule = p.module || '';
-        return moduleCandidates.some(candidate => 
-          permModule === candidate || 
-          permModule.replace(/^(admin|clinic|doctor)_/, '') === candidate.replace(/^(admin|clinic|doctor)_/, '')
-        );
+        const found = moduleCandidates.some(candidate => permModule === candidate);
+        if (found) 
+        return found;
       }
     );
 
-    // If not found as direct module, check all modules' subModules
     if (!modulePermission) {
+      // Strategy 2: SubModule by EXACT moduleKey match
+      for (const permission of agentPermission.permissions) {
+        if (Array.isArray(permission.subModules) && permission.subModules.length > 0) {
+          const subModule = permission.subModules.find((sm) => {
+            if (!sm.moduleKey) return false;
+            const found = moduleCandidates.some(candidate => sm.moduleKey === candidate);
+            if (found) {
+             
+            }
+            return found;
+          });
+          if (subModule) {
+            modulePermission = subModule;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!modulePermission) {
+      // Strategy 3: Direct module with prefix normalization (only if prefixes match)
+      modulePermission = agentPermission.permissions.find(
+        (p) => {
+          const permModule = p.module || '';
+          const found = moduleCandidates.some(candidate => {
+            // Only match if they have the same prefix
+            const permPrefix = permModule.match(/^(admin|clinic|doctor)_/)?.[0] || '';
+            const candidatePrefix = candidate.match(/^(admin|clinic|doctor)_/)?.[0] || '';
+            return permPrefix === candidatePrefix && permModule === candidate;
+          });
+          if (found) 
+          return found;
+        }
+      );
+    }
+
+    if (!modulePermission) {
+      // Strategy 4: SubModule by normalized moduleKey (fallback)
+      for (const permission of agentPermission.permissions) {
+        if (Array.isArray(permission.subModules) && permission.subModules.length > 0) {
+          const subModule = permission.subModules.find((sm) => {
+            if (!sm.moduleKey) return false;
+            const found = moduleCandidates.some(candidate => 
+              sm.moduleKey.replace(/^(admin|clinic|doctor)_/, '') === candidate.replace(/^(admin|clinic|doctor)_/, '')
+            );
+            if (found) {
+              
+            }
+            return found;
+          });
+          if (subModule) {
+            modulePermission = subModule;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!modulePermission) {
+      // Strategy 5: SubModule by name fuzzy match (last resort)
       for (const permission of agentPermission.permissions) {
         if (Array.isArray(permission.subModules) && permission.subModules.length > 0) {
           const subModule = permission.subModules.find((sm) => 
-            sm.moduleKey && moduleCandidates.some(candidate => 
-              sm.moduleKey === candidate || 
-              sm.moduleKey.replace(/^(admin|clinic|doctor)_/, '') === candidate.replace(/^(admin|clinic|doctor)_/, '')
-            )
+            sm.name && moduleCandidates.some(candidate => {
+              const candidateName = candidate.replace(/^(admin|clinic|doctor)_/, '').replace(/_/g, ' ').toLowerCase();
+              const subModuleName = sm.name.toLowerCase();
+              const found = subModuleName.includes(candidateName) || candidateName.includes(subModuleName);
+              if (found) 
+              return found;
+            })
           );
           if (subModule) {
             modulePermission = subModule;
@@ -71,7 +138,6 @@ export async function checkAgentPermission(agentId, moduleKey, action, subModule
     }
 
     if (!modulePermission) {
-      return { hasPermission: false, error: `Module ${moduleKey} not found in agent permissions` };
     }
 
     // Check module-level "all" permission first (before submodule checks)
@@ -156,26 +222,39 @@ export async function checkAgentPermission(agentId, moduleKey, action, subModule
 export async function getAgentModulePermissions(agentId, moduleKey) {
   await dbConnect();
 
+  
+
   if (!agentId) {
+   
     return { permissions: null, error: "Agent ID is required" };
   }
 
   try {
-    console.log("[getAgentModulePermissions] Looking up permissions for agentId:", agentId, "moduleKey:", moduleKey);
-    
+    // Step 1: Fetch all agent permissions from database
     const agentPermission = await AgentPermission.findOne({
       agentId,
       isActive: true
     });
 
-    console.log("[getAgentModulePermissions] Full agentPermission from DB:", JSON.stringify(agentPermission, null, 2));
-
+    
+    
     if (!agentPermission || !agentPermission.permissions || agentPermission.permissions.length === 0) {
-      console.log("[getAgentModulePermissions] No permissions found for this agent");
+     
       return { permissions: null, error: "No permissions found for this agent" };
     }
 
-    // Handle module key matching (with or without role prefix)
+    // Step 2: Log ALL stored permissions to see what's in the database
+   
+    agentPermission.permissions.forEach((perm, index) => {
+     
+      if (perm.subModules?.length > 0) {
+        perm.subModules.forEach((sm, smIndex) => {
+         
+        });
+      }
+    });
+
+    // Step 3: Generate all module candidate variations
     const moduleCandidates = Array.from(
       new Set([
         moduleKey,
@@ -185,39 +264,39 @@ export async function getAgentModulePermissions(agentId, moduleKey) {
         moduleKey ? `doctor_${moduleKey}` : null,
       ].filter(Boolean))
     );
-    
-    console.log("[getAgentModulePermissions] Module candidates:", moduleCandidates);
 
-    let modulePermission = agentPermission.permissions.find(
+    moduleCandidates.forEach((candidate, index) => {
+     
+    });
+
+    // COMPREHENSIVE SEARCH STRATEGY (in order of precision):
+    let modulePermission = null;
+    
+    // Strategy 1: EXACT direct module match (highest priority)
+    modulePermission = agentPermission.permissions.find(
       (p) => {
         const permModule = p.module || '';
-        const found = moduleCandidates.some(candidate => 
-          permModule === candidate || 
-          permModule.replace(/^(admin|clinic|doctor)_/, '') === candidate.replace(/^(admin|clinic|doctor)_/, '')
-        );
-        console.log("[getAgentModulePermissions] Checking direct module:", permModule, "found:", found);
+        const found = moduleCandidates.some(candidate => permModule === candidate);
+        if (found) {
+         
+        }
         return found;
       }
     );
 
-    // If not found as direct module, check all modules' subModules
     if (!modulePermission) {
-      console.log("[getAgentModulePermissions] Not found as direct module, checking subModules of all modules");
+      // Strategy 2: SubModule by EXACT moduleKey match
       for (const permission of agentPermission.permissions) {
-        console.log("[getAgentModulePermissions] Checking parent module:", permission.module);
         if (Array.isArray(permission.subModules) && permission.subModules.length > 0) {
-          console.log("[getAgentModulePermissions] Parent module has subModules:", JSON.stringify(permission.subModules, null, 2));
           const subModule = permission.subModules.find((sm) => {
-            console.log("[getAgentModulePermissions] Checking subModule:", JSON.stringify(sm, null, 2));
-            const found = sm.moduleKey && moduleCandidates.some(candidate => 
-              sm.moduleKey === candidate || 
-              sm.moduleKey.replace(/^(admin|clinic|doctor)_/, '') === candidate.replace(/^(admin|clinic|doctor)_/, '')
-            );
-            console.log("[getAgentModulePermissions] subModule found:", found);
+            if (!sm.moduleKey) return false;
+            const found = moduleCandidates.some(candidate => sm.moduleKey === candidate);
+            if (found) {
+            
+            }
             return found;
           });
           if (subModule) {
-            console.log("[getAgentModulePermissions] Found matching subModule in parent:", permission.module, "subModule:", JSON.stringify(subModule, null, 2));
             modulePermission = subModule;
             break;
           }
@@ -226,14 +305,90 @@ export async function getAgentModulePermissions(agentId, moduleKey) {
     }
 
     if (!modulePermission) {
-      console.log("[getAgentModulePermissions] No matching module found at all");
+      // Strategy 3: Direct module with SAME prefix only
+      modulePermission = agentPermission.permissions.find(
+        (p) => {
+          const permModule = p.module || '';
+          const found = moduleCandidates.some(candidate => {
+            const permPrefix = permModule.match(/^(admin|clinic|doctor)_/)?.[0] || '';
+            const candidatePrefix = candidate.match(/^(admin|clinic|doctor)_/)?.[0] || '';
+            return permPrefix === candidatePrefix && permModule === candidate;
+          });
+          if (found) {
+          
+          }
+          return found;
+        }
+      );
+    }
+
+    if (!modulePermission) {
+      // Strategy 4: SubModule by normalized moduleKey (fallback)
+      for (const permission of agentPermission.permissions) {
+        if (Array.isArray(permission.subModules) && permission.subModules.length > 0) {
+          const subModule = permission.subModules.find((sm) => {
+            if (!sm.moduleKey) return false;
+            const found = moduleCandidates.some(candidate => 
+              sm.moduleKey.replace(/^(admin|clinic|doctor)_/, '') === candidate.replace(/^(admin|clinic|doctor)_/, '')
+            );
+            if (found) {
+            }
+            return found;
+          });
+          if (subModule) {
+            modulePermission = subModule;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!modulePermission) {
+      // Strategy 5: SubModule by name fuzzy match (last resort)
+      for (const permission of agentPermission.permissions) {
+        if (Array.isArray(permission.subModules) && permission.subModules.length > 0) {
+          const subModule = permission.subModules.find((sm) => {
+            if (!sm.name) return false;
+            const found = moduleCandidates.some(candidate => {
+              const candidateName = candidate.replace(/^(admin|clinic|doctor)_/, '').replace(/_/g, ' ').toLowerCase();
+              const subModuleName = sm.name.toLowerCase();
+              return subModuleName.includes(candidateName) || candidateName.includes(subModuleName);
+            });
+            if (found) {
+            }
+            return found;
+          });
+          if (subModule) {
+            modulePermission = subModule;
+            break;
+          }
+        }
+      }
+    }
+
+    // Step 9: Final result
+
+    if (!modulePermission) {
+      
       return { permissions: null, error: `No permissions found for module: ${moduleKey}` };
     }
 
-    console.log("[getAgentModulePermissions] Found modulePermission:", JSON.stringify(modulePermission, null, 2));
+    if (modulePermission.name) {
+    }
+    if (modulePermission.moduleKey) {
+    }
+   
+
+    if (!modulePermission) {
+     
+      return { permissions: null, error: `No permissions found for module: ${moduleKey}` };
+    }
+
+    
+    
     return { permissions: modulePermission, error: null };
   } catch (error) {
-    console.error("[getAgentModulePermissions] Error:", error);
+   
     return { permissions: null, error: "Error getting permissions" };
   }
 }

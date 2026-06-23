@@ -268,6 +268,8 @@ const BillingHistoryPage = () => {
           formatCurrency(item.pending || 0),
           formatCurrency(item.advance || 0),
           formatCurrency(item.advanceUsed || 0),
+          formatCurrency(item.claimAmountUsed || 0),
+          formatCurrency(item.pendingClaimUsed || 0),
           formatCurrency(item.pastAdvance || 0),
           formatCurrency(item.pastAdvanceUsed || 0),
           item.quantity || 1,
@@ -280,7 +282,7 @@ const BillingHistoryPage = () => {
 
       autoTable(doc, {
         startY: 65,
-        head: [['Date', 'Invoice ID', 'Treatment/Package', 'Disc.', 'Offer Applied', 'Orig. Amt', 'Total', 'Paid', 'Pending', 'Adv.', 'Adv.Used', 'PastAdv.', 'P.Adv.Used', 'Qty', 'Sess.', 'Method']],
+        head: [['Date', 'Invoice ID', 'Treatment/Package', 'Disc.', 'Offer Applied', 'Orig. Amt', 'Total', 'Paid', 'Pending', 'Adv.', 'Adv.Used', 'Claim Used', 'Pend.Cl Paid', 'PastAdv.', 'P.Adv.Used', 'Qty', 'Sess.', 'Method']],
         body: tableRows,
         theme: 'striped',
         headStyles: { 
@@ -371,10 +373,11 @@ const BillingHistoryPage = () => {
       // Extract billings array from response (response.data.billings or response.data)
       let billingData = response.data?.billings || response.data;
       if (billingData && Array.isArray(billingData)) {
-        // Include all billing records except pure balance adjustments
-        // Advance payment records are now included for tracking
+        // Include all billing records including advance payments
+        // Advance payment records are included for tracking
         billingData = billingData.filter((b: any) => 
           !b.isAdvanceOnly ||
+          b.treatment === "Advance Payment" ||
           b.treatment === "Pending Balance Payment"
         );
         
@@ -507,6 +510,7 @@ const BillingHistoryPage = () => {
                   <th className="px-4 py-3 text-right font-semibold">Advance</th>
                   <th className="px-4 py-3 text-right font-semibold">Advance Used</th>
                   <th className="px-4 py-3 text-right font-semibold">Claim Amount Used</th>
+                  <th className="px-4 py-3 text-right font-semibold">Pending Claim Paid</th>
                   <th className="px-4 py-3 text-right font-semibold">Past Advance</th>
                   <th className="px-4 py-3 text-right font-semibold">Past Advance Used</th>
                   <th className="px-4 py-3 text-center font-semibold">Qty</th>
@@ -518,7 +522,7 @@ const BillingHistoryPage = () => {
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan={17} className="px-4 py-12">
+                    <td colSpan={18} className="px-4 py-12">
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin text-teal-600" />
                         <span className="text-sm text-gray-500">Loading billing history...</span>
@@ -527,7 +531,7 @@ const BillingHistoryPage = () => {
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan={17} className="px-4 py-12">
+                    <td colSpan={18} className="px-4 py-12">
                       <div className="text-center">
                         <div className="text-sm text-red-600 font-medium mb-2">{error}</div>
                         <button
@@ -541,7 +545,7 @@ const BillingHistoryPage = () => {
                   </tr>
                 ) : billingHistory.length === 0 ? (
                   <tr>
-                    <td colSpan={17} className="px-4 py-12">
+                    <td colSpan={18} className="px-4 py-12">
                       <div className="text-center text-sm text-gray-500">
                         No billing history found for this appointment
                       </div>
@@ -637,12 +641,17 @@ const BillingHistoryPage = () => {
                           const cashbackEarnedAmt = billing.cashbackAmount || 0;
                           const cashbackOfferName = billing.cashbackOfferName || '';
                           
+                          // Check if this is an advance payment (should not show discount calculation)
+                          const isAdvancePayment = billing.treatment === "Advance Payment" || billing.isAdvanceOnly;
+                          
                           const originalAmount = billing.originalAmount || 0;
                           const finalAmount = billing.amount || 0;
-                          const totalDiscountAmount = originalAmount > finalAmount ? (originalAmount - finalAmount) : 0;
-                          const totalPercent = totalDiscountAmount > 0 && originalAmount > 0 ? (totalDiscountAmount / originalAmount * 100) : 0;
+                          // Exclude advance payments from discount calculation
+                          const totalDiscountAmount = (!isAdvancePayment && originalAmount > finalAmount) ? (originalAmount - finalAmount) : 0;
+                          // Use stored discountPercent if available, otherwise calculate
+                          const totalPercent = billing.discountPercent > 0 ? billing.discountPercent : (totalDiscountAmount > 0 && originalAmount > 0 ? (totalDiscountAmount / originalAmount * 100) : 0);
                           const membershipPercent = isMembershipDiscount && originalAmount > 0 ? (membershipDiscountAmount / originalAmount * 100) : 0;
-
+                          
                           if (!isDoctorDiscount && !isAgentDiscount && !isMembershipDiscount && !isFreeSessionEarned && !isFreeSessionUsed && !isCashbackUsed && !isCashbackApplied && totalPercent <= 0) {
                             return <div className="text-xs text-gray-400">—</div>;
                           }
@@ -851,6 +860,15 @@ const BillingHistoryPage = () => {
                         {(billing.claimAmountUsed || 0) > 0 ? (
                           <div className="text-xs font-semibold text-blue-700">
                             {formatCurrency(billing.claimAmountUsed)}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-gray-400">—</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {(billing.pendingClaimUsed || 0) > 0 ? (
+                          <div className="text-xs font-semibold text-purple-700">
+                            {formatCurrency(billing.pendingClaimUsed)}
                           </div>
                         ) : (
                           <div className="text-xs text-gray-400">—</div>

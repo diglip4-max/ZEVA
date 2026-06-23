@@ -336,12 +336,11 @@ export default async function handler(req, res) {
       // Admin can only modify agents/doctorStaff they created
       agentQuery.createdBy = me._id;
     } else if (me.role === 'clinic') {
-      // Clinic can modify agents from their clinic OR agents they created
-      // For doctorStaff, they can ONLY modify ones they created
+      // Clinic can modify agents/doctorStaff from their clinic OR agents/doctorStaff they created
       const clinic = await Clinic.findOne({ owner: me._id });
       if (clinic) {
         agentQuery.$or = [
-          { role: 'agent', clinicId: clinic._id },
+          { clinicId: clinic._id },
           { createdBy: me._id }
         ];
       } else {

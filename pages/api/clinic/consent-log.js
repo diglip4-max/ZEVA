@@ -1,6 +1,7 @@
 import dbConnect from "../../../lib/database";
 import ConsentLog from "../../../models/ConsentLog";
 import Consent from "../../../models/Consent";
+import PatientComplains from "../../../models/PatientComplains";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -17,6 +18,7 @@ export default async function handler(req, res) {
         clinicId,
         sentVia,
         sentBy,
+        complaintId, // New optional field
       } = req.body;
 
       if (!consentFormId || !patientId) {
@@ -35,6 +37,32 @@ export default async function handler(req, res) {
         });
       }
 
+      // If complaintId is provided, validate it exists and belongs to the patient/appointment
+      let validatedComplaintId = null;
+      if (complaintId) {
+        const complaint = await PatientComplains.findById(complaintId).lean();
+        if (!complaint) {
+          return res.status(404).json({
+            success: false,
+            message: "Complaint not found",
+          });
+        }
+        // Ensure complaint is for the same patient and appointment (if provided)
+        if (complaint.patientId.toString() !== patientId.toString()) {
+          return res.status(400).json({
+            success: false,
+            message: "Complaint does not belong to this patient",
+          });
+        }
+        if (appointmentId && complaint.appointmentId.toString() !== appointmentId.toString()) {
+          return res.status(400).json({
+            success: false,
+            message: "Complaint does not belong to this appointment",
+          });
+        }
+        validatedComplaintId = complaintId;
+      }
+
       // Create consent log
       const consentLog = await ConsentLog.create({
         consentFormId,
@@ -42,16 +70,29 @@ export default async function handler(req, res) {
         patientId,
         patientName,
         appointmentId: appointmentId || null,
+        complaintId: validatedComplaintId,
         clinicId: clinicId || null,
         sentVia: sentVia || "whatsapp",
         sentBy: sentBy || null,
         status: "sent",
       });
 
+      // If complaintId is provided, push consent log ID to complaint's consentLogs array
+      if (validatedComplaintId) {
+        await PatientComplains.findByIdAndUpdate(
+          validatedComplaintId,
+          { $addToSet: { consentLogs: consentLog._id } }, // $addToSet prevents duplicates
+          { new: true }
+        );
+      }
+
       return res.status(201).json({
         success: true,
         message: "Consent form sent logged successfully",
         logId: consentLog._id,
+        consentLog: {
+          ...consentLog.toObject(),
+        },
       });
     } catch (error) {
       console.error("Error logging consent form sent:", error);
@@ -62,15 +103,15 @@ export default async function handler(req, res) {
     }
   }
 
-  // GET: Fetch consent logs for a patient/appointment
+  // GET: Fetch consent logs for a patient/appointment/complaint
   if (req.method === "GET") {
     try {
-      const { patientId, appointmentId } = req.query;
+      const { patientId, appointmentId, complaintId } = req.query;
 
-      if (!patientId && !appointmentId) {
+      if (!patientId && !appointmentId && !complaintId) {
         return res.status(400).json({
           success: false,
-          message: "Either patientId or appointmentId is required",
+          message: "Either patientId, appointmentId, or complaintId is required",
         });
       }
 
@@ -78,10 +119,12 @@ export default async function handler(req, res) {
       const query = {};
       if (patientId) query.patientId = patientId;
       if (appointmentId) query.appointmentId = appointmentId;
+      if (complaintId) query.complaintId = complaintId;
 
       // Fetch all consent logs
       const logs = await ConsentLog.find(query)
         .populate("consentFormId", "formName description")
+        .populate({ path: "complaintId", select: "_id complaints", strictPopulate: false }) // Optional: populate complaint details with strictPopulate false
         .sort({ createdAt: -1 })
         .lean();
 
@@ -94,6 +137,8 @@ export default async function handler(req, res) {
         patientId: log.patientId,
         patientName: log.patientName,
         appointmentId: log.appointmentId,
+        complaintId: log.complaintId?._id || log.complaintId || null, // Return complaintId
+        complaintText: log.complaintId?.complaints || null, // Optional: return complaint text
         sentVia: log.sentVia,
         sentBy: log.sentBy,
         status: log.status,

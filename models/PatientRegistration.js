@@ -135,6 +135,7 @@ const patientRegistrationSchema = new mongoose.Schema(
         packageId: { type: mongoose.Schema.Types.ObjectId, ref: "Package" },
         packageName: { type: String, trim: true }, // Store package name for quick display
         packageSoldBy: { type: String, trim: true }, // Name of the person who added the package
+        packageSoldByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // User ID of the person who added the package
         assignedDate: { type: Date, default: Date.now },
         validityInMonths: { type: Number, default: 0 },
         startDate: { type: Date },
@@ -143,6 +144,29 @@ const patientRegistrationSchema = new mongoose.Schema(
         paidAmount: { type: Number, default: 0 },
         paymentStatus: { type: String, enum: ["Unpaid", "Partial", "Full"], default: "Unpaid" },
         paymentMethod: { type: String, default: "" },
+        // --- Enterprise Package Snapshot ---
+        // Full copy of the Package master data at the time of assignment.
+        // Ensures all package benefits remain accessible even if the master Package
+        // is later deleted from the services_setup page.
+        packageSnapshot: {
+          name: { type: String, default: "" },
+          totalPrice: { type: Number, default: 0 },
+          totalSessions: { type: Number, default: 0 },
+          sessionPrice: { type: Number, default: 0 },
+          validityInMonths: { type: Number, default: 0 },
+          startDate: { type: Date },
+          endDate: { type: Date },
+          treatments: [
+            {
+              treatmentName: { type: String, default: "" },
+              treatmentSlug: { type: String, default: "" },
+              allocatedPrice: { type: Number, default: 0 },
+              sessions: { type: Number, default: 1 },
+              sessionPrice: { type: Number, default: 0 },
+            },
+          ],
+          snapshotCreatedAt: { type: Date, default: Date.now },
+        },
       },
     ],
     userPackages: [
@@ -150,6 +174,7 @@ const patientRegistrationSchema = new mongoose.Schema(
         packageId: { type: mongoose.Schema.Types.ObjectId, ref: "UserPackage" },
         packageName: { type: String, trim: true },
         packageSoldBy: { type: String, trim: true }, // Name of the person who added the package
+        packageSoldByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // User ID of the person who added the package
         totalSessions: { type: Number, min: 0 },
         remainingSessions: { type: Number, min: 0 },
         totalPrice: { type: Number, min: 0 },
@@ -187,6 +212,8 @@ const patientRegistrationSchema = new mongoose.Schema(
         paidAmount: { type: Number, default: 0 },
         paymentMethod: { type: String, default: "" },
         transferDate: { type: Date, default: Date.now },
+        transferredByName: { type: String, default: "" },
+        transferredByRole: { type: String, default: "" },
       },
     ],
     packageTransfers: [
@@ -211,6 +238,8 @@ const patientRegistrationSchema = new mongoose.Schema(
         paidAmount: { type: Number, default: 0 },
         paymentMethod: { type: String, default: "" },
         transferDate: { type: Date, default: Date.now },
+        transferredByName: { type: String, default: "" },
+        transferredByRole: { type: String, default: "" },
       },
     ],
     hasTransferredOut: { type: Boolean, default: false },

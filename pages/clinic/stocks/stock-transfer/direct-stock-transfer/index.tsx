@@ -4,13 +4,14 @@ import { NextPageWithLayout } from "@/pages/_app";
 import React, { ReactElement, useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
+import { useRouter } from "next/router";
 import {
   PlusIcon,
   PencilIcon,
   TrashIcon,
   EllipsisVerticalIcon,
 } from "@heroicons/react/24/outline";
-import { ArrowRight, Filter, Info } from "lucide-react";
+import { ArrowRight, Filter, Info, Loader2, Building2 } from "lucide-react";
 import debounce from "lodash.debounce";
 import AddDirectStockTransferModal from "./_components/AddDirectStockTransferModal";
 import EditDirectStockTransferModal from "./_components/EditDirectStockTransferModal";
@@ -18,7 +19,38 @@ import DeleteDirectStockTransferModal from "./_components/DeleteDirectStockTrans
 import FilterModal from "./_components/FilterModal";
 import DirectStockTransferDetailModal from "./_components/DirectStockTransferDetailModal";
 
+const MODULE_KEY = "clinic_stock_direct_transfer";
+
+const TOKEN_PRIORITY = [
+  "clinicToken",
+  "doctorToken",
+  "agentToken",
+  "staffToken",
+  "userToken",
+  "adminToken",
+];
+
+const getStoredToken = () => {
+  if (typeof window === "undefined") return null;
+  for (const key of TOKEN_PRIORITY) {
+    const value =
+      window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+    if (value) return value;
+  }
+  return null;
+};
+
 const DirectStockTransferPage: NextPageWithLayout = () => {
+  const router = useRouter();
+  const [permissions, setPermissions] = useState({
+    canRead: false,
+    canCreate: false,
+    canUpdate: false,
+    canDelete: false,
+  });
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [hasAgentToken, setHasAgentToken] = useState(false);
+  const [isAgentRoute, setIsAgentRoute] = useState(false);
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -99,6 +131,328 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
     fetchRecords(1, searchTerm, filterData);
   }, [searchTerm, filterData, fetchRecords]);
 
+  // Detect agent route and token
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const syncTokens = () => {
+      const hasAgent =
+        Boolean(
+          localStorage.getItem("agentToken") ||
+            sessionStorage.getItem("agentToken"),
+        ) ||
+        Boolean(
+          localStorage.getItem("staffToken") ||
+            sessionStorage.getItem("staffToken"),
+        ) ||
+        Boolean(
+          localStorage.getItem("userToken") ||
+            sessionStorage.getItem("userToken"),
+        );
+      setHasAgentToken(hasAgent);
+    };
+    syncTokens();
+    window.addEventListener("storage", syncTokens);
+    return () => window.removeEventListener("storage", syncTokens);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const agentPath =
+      router?.pathname?.startsWith("/agent/") ||
+      window.location.pathname?.startsWith("/agent/");
+    setIsAgentRoute(agentPath && hasAgentToken);
+  }, [router.pathname, hasAgentToken]);
+
+  // Helper function to get user info from token
+  const getUserInfo = (): { role: string | null; id: string | null } => {
+    if (typeof window === "undefined") return { role: null, id: null };
+    try {
+      for (const key of TOKEN_PRIORITY) {
+        const token =
+          window.localStorage.getItem(key) ||
+          window.sessionStorage.getItem(key);
+        if (token) {
+          try {
+            const base64Url = token.split(".")[1];
+            const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+            const jsonPayload = decodeURIComponent(
+              atob(base64)
+                .split("")
+                .map(
+                  (c) =>
+                    "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2),
+                )
+                .join(""),
+            );
+            const decoded = JSON.parse(jsonPayload);
+            return {
+              role: decoded.role || decoded.userRole || null,
+              id: decoded.userId || decoded.id || null,
+            };
+          } catch (e) {
+            continue;
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error getting user info:", error);
+    }
+    return { role: null, id: null };
+  };
+
+  // Helper function to get user role from token
+  const getUserRole = (): string | null => {
+    return getUserInfo().role;
+  };
+
+  // Handle permissions - clinic, doctor have admin-level permissions; agent/doctorStaff need checks
+  useEffect(() => {
+    let isMounted = true;
+
+    const clinicToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("clinicToken") ||
+          sessionStorage.getItem("clinicToken")
+        : null;
+    const doctorToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("doctorToken") ||
+          sessionStorage.getItem("doctorToken")
+        : null;
+    const agentToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("agentToken") ||
+          sessionStorage.getItem("agentToken")
+        : null;
+    const staffToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("staffToken") ||
+          sessionStorage.getItem("staffToken")
+        : null;
+    const userToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("userToken") ||
+          sessionStorage.getItem("userToken")
+        : null;
+
+    const userRole = getUserRole();
+    const authToken =
+      clinicToken || doctorToken || agentToken || staffToken || userToken;
+
+    // ✅ For admin role, grant full access (bypass permission checks)
+    if (userRole === "admin") {
+      if (!isMounted) return;
+      setPermissions({
+        canRead: true,
+        canCreate: true,
+        canUpdate: true,
+        canDelete: true,
+      });
+      setPermissionsLoaded(true);
+      return;
+    }
+
+    // ✅ For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
+    if (userRole === "clinic" || userRole === "doctor") {
+      const fetchClinicPermissions = async () => {
+        try {
+          if (!authToken) {
+            if (!isMounted) return;
+            setPermissions({
+              canRead: false,
+              canCreate: false,
+              canUpdate: false,
+              canDelete: false,
+            });
+            setPermissionsLoaded(true);
+            return;
+          }
+
+          const res = await axios.get("/api/clinic/sidebar-permissions", {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+
+          if (!isMounted) return;
+
+          if (res.data.success) {
+            if (
+              res.data.permissions === null ||
+              !Array.isArray(res.data.permissions) ||
+              res.data.permissions.length === 0
+            ) {
+              setPermissions({
+                canRead: true,
+                canCreate: true,
+                canUpdate: true,
+                canDelete: true,
+              });
+            } else {
+              let modulePermission = res.data.permissions.find((p: any) => {
+                if (!p?.module) return false;
+                if (p.module === "clinic_stock_direct_transfer") return true;
+                if (p.module === "stock_direct_transfer") return true;
+                return false;
+              });
+
+              if (!modulePermission) {
+                const parentStockModule = res.data.permissions.find((p: any) => 
+                  p?.module === "clinic_stock" && Array.isArray(p.subModules)
+                );
+                
+                if (parentStockModule) {
+                  modulePermission = parentStockModule.subModules.find((sm: any) => 
+                    sm?.moduleKey === "clinic_stock_direct_transfer"
+                  );
+                }
+              }
+
+              if (modulePermission) {
+                const actions = modulePermission.actions || {};
+                const moduleAll =
+                  actions.all === true ||
+                  actions.all === "true" ||
+                  String(actions.all).toLowerCase() === "true";
+                const moduleCreate =
+                  actions.create === true ||
+                  actions.create === "true" ||
+                  String(actions.create).toLowerCase() === "true";
+                const moduleRead =
+                  actions.read === true ||
+                  actions.read === "true" ||
+                  String(actions.read).toLowerCase() === "true";
+                const moduleUpdate =
+                  actions.update === true ||
+                  actions.update === "true" ||
+                  String(actions.update).toLowerCase() === "true";
+                const moduleDelete =
+                  actions.delete === true ||
+                  actions.delete === "true" ||
+                  String(actions.delete).toLowerCase() === "true";
+
+                setPermissions({
+                  canRead: moduleAll || moduleRead,
+                  canCreate: moduleAll || moduleCreate,
+                  canUpdate: moduleAll || moduleUpdate,
+                  canDelete: moduleAll || moduleDelete,
+                });
+              } else {
+                setPermissions({
+                  canRead: true,
+                  canCreate: false,
+                  canUpdate: false,
+                  canDelete: false,
+                });
+              }
+            }
+          } else {
+            setPermissions({
+              canRead: true,
+              canCreate: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+          }
+        } catch (err: any) {
+          if (isMounted) {
+            setPermissions({
+              canRead: true,
+              canCreate: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+          }
+        } finally {
+          if (isMounted) {
+            setPermissionsLoaded(true);
+          }
+        }
+      };
+
+      fetchClinicPermissions();
+      return;
+    }
+
+    const agentStaffToken = getStoredToken();
+    if (!agentStaffToken) {
+      setPermissions({
+        canRead: false,
+        canCreate: false,
+        canUpdate: false,
+        canDelete: false,
+      });
+      setPermissionsLoaded(true);
+      return;
+    }
+
+    if (agentToken || staffToken || userToken) {
+      const fetchPermissions = async () => {
+        try {
+          setPermissionsLoaded(false);
+          const res = await axios.get("/api/agent/get-module-permissions", {
+            params: { moduleKey: MODULE_KEY },
+            headers: { Authorization: `Bearer ${agentStaffToken}` },
+          });
+          const data = res.data;
+
+          if (!isMounted) return;
+
+          if (
+            !data?.permissions &&
+            data?.error?.includes("not found in agent permissions")
+          ) {
+            setPermissions({
+              canRead: true,
+              canCreate: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+            return;
+          }
+
+          const actions =
+            data?.permissions?.actions || data?.data?.moduleActions || {};
+          const isTrue = (val: any) =>
+            val === true ||
+            val === "true" ||
+            String(val || "").toLowerCase() === "true";
+
+          const canAll = isTrue(actions.all);
+
+          setPermissions({
+            canRead: canAll || isTrue(actions.read),
+            canCreate: canAll || isTrue(actions.create),
+            canUpdate: canAll || isTrue(actions.update),
+            canDelete: canAll || isTrue(actions.delete),
+          });
+        } catch (err: any) {
+          if (isMounted) {
+            setPermissions({
+              canRead: true,
+              canCreate: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+          }
+        } finally {
+          if (isMounted) {
+            setPermissionsLoaded(true);
+          }
+        }
+      };
+
+      fetchPermissions();
+      return;
+    }
+
+    setPermissions({
+      canRead: true,
+      canCreate: true,
+      canUpdate: true,
+      canDelete: true,
+    });
+    setPermissionsLoaded(true);
+  }, [isAgentRoute]);
+
   const displayData = records.slice(0, pagination.limit || 10);
 
   const handlePageChange = (newPage: number) => {
@@ -156,8 +510,21 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
     }));
   };
 
-  return (
-    <div>
+  // If permissions are not loaded yet, show loading state
+  if (!permissionsLoaded) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6 flex items-center justify-center">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 text-center text-gray-700">
+          <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
+          <p className="text-xs sm:text-sm">Checking your permissions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If canRead is false but canCreate is true, show only new transfer button
+  if (!permissions.canRead && permissions.canCreate) {
+    return (
       <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
@@ -169,14 +536,6 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setIsFilterOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors border border-white/30"
-            >
-              <Filter className="h-4 w-4" />
-              Filter
-            </button>
-
             <button
               onClick={handleAdd}
               className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-indigo-600 hover:bg-gray-50 rounded-lg font-medium transition-colors"
@@ -190,24 +549,94 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
               onClose={() => setIsAddOpen(false)}
               onSuccess={() => fetchRecords(1, searchTerm, filterData)}
             />
-            <DeleteDirectStockTransferModal
-              isOpen={isDeleteOpen}
-              onClose={() => setIsDeleteOpen(false)}
-              onConfirm={handleDeleteConfirm}
-              loading={isDeleting}
-              dstNo={recordToDelete?.directStockTransferNo || ""}
-            />
-            <EditDirectStockTransferModal
-              isOpen={isEditOpen}
-              onClose={() => {
-                setIsEditOpen(false);
-                setRecordToEdit(null);
-              }}
-              record={recordToEdit}
-              onSuccess={() =>
-                fetchRecords(pagination.currentPage, searchTerm, filterData)
-              }
-            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // If canRead is false (and canCreate is also false), show access denied
+  if (!permissions.canRead) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Building2 className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-sm text-gray-700 mb-4">
+            You do not have permission to view direct stock transfers.
+          </p>
+          <p className="text-xs text-gray-600">
+            Please contact your administrator to request access.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-8 sm:px-6 lg:px-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-white">
+              Direct Stock Transfer
+            </h1>
+            <p className="text-indigo-100 mt-2">
+              Manage and track direct stock transfers between branches
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {permissions.canRead && (
+              <button
+                onClick={() => setIsFilterOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors border border-white/30"
+              >
+                <Filter className="h-4 w-4" />
+                Filter
+              </button>
+            )}
+
+            {permissions.canCreate && (
+              <button
+                onClick={handleAdd}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-indigo-600 hover:bg-gray-50 rounded-lg font-medium transition-colors"
+              >
+                <PlusIcon className="h-5 w-5" />
+                New Transfer
+              </button>
+            )}
+
+            {permissions.canCreate && (
+              <AddDirectStockTransferModal
+                isOpen={isAddOpen}
+                onClose={() => setIsAddOpen(false)}
+                onSuccess={() => fetchRecords(1, searchTerm, filterData)}
+              />
+            )}
+            {permissions.canDelete && (
+              <DeleteDirectStockTransferModal
+                isOpen={isDeleteOpen}
+                onClose={() => setIsDeleteOpen(false)}
+                onConfirm={handleDeleteConfirm}
+                loading={isDeleting}
+                dstNo={recordToDelete?.directStockTransferNo || ""}
+              />
+            )}
+            {permissions.canUpdate && (
+              <EditDirectStockTransferModal
+                isOpen={isEditOpen}
+                onClose={() => {
+                  setIsEditOpen(false);
+                  setRecordToEdit(null);
+                }}
+                record={recordToEdit}
+                onSuccess={() =>
+                  fetchRecords(pagination.currentPage, searchTerm, filterData)
+                }
+              />
+            )}
             <DirectStockTransferDetailModal
               isOpen={isDetailOpen}
               onClose={() => {
@@ -232,6 +661,8 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
         title="Filter Direct Stock Transfers"
       />
 
+      {permissions.canRead && (
+        <>
       {/* Stats */}
       <div className="max-w-9xl mx-auto mb-8 px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -527,24 +958,26 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
                               className={`hidden absolute ${idx >= displayData?.length - 2 ? "bottom-0 right-0" : "right-0"} z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-gray-200 ring-opacity-5 focus:outline-none`}
                             >
                               <div className="py-1" role="none">
-                                <button
-                                  onClick={() => {
-                                    handleEdit(r);
-                                    const menuEl = document.getElementById(
-                                      `menu-${r._id}`,
-                                    );
-                                    if (menuEl) {
-                                      menuEl.classList.remove("block");
-                                      menuEl.classList.add("hidden");
-                                    }
-                                  }}
-                                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                                >
-                                  <div className="flex items-center">
-                                    <PencilIcon className="h-4 w-4 mr-2" />
-                                    Edit
-                                  </div>
-                                </button>
+                                {permissions.canUpdate && (
+                                  <button
+                                    onClick={() => {
+                                      handleEdit(r);
+                                      const menuEl = document.getElementById(
+                                        `menu-${r._id}`,
+                                      );
+                                      if (menuEl) {
+                                        menuEl.classList.remove("block");
+                                        menuEl.classList.add("hidden");
+                                      }
+                                    }}
+                                    className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                  >
+                                    <div className="flex items-center">
+                                      <PencilIcon className="h-4 w-4 mr-2" />
+                                      Edit
+                                    </div>
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => {
                                     toggleRowExpansion(r._id);
@@ -614,24 +1047,26 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
                                     Details
                                   </div>
                                 </button>
-                                <button
-                                  onClick={() => {
-                                    handleDelete(r);
-                                    const menuEl = document.getElementById(
-                                      `menu-${r._id}`,
-                                    );
-                                    if (menuEl) {
-                                      menuEl.classList.remove("block");
-                                      menuEl.classList.add("hidden");
-                                    }
-                                  }}
-                                  className="block w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50"
-                                >
-                                  <div className="flex items-center">
-                                    <TrashIcon className="h-4 w-4 mr-2" />
-                                    Delete
-                                  </div>
-                                </button>
+                                {permissions.canDelete && (
+                                  <button
+                                    onClick={() => {
+                                      handleDelete(r);
+                                      const menuEl = document.getElementById(
+                                        `menu-${r._id}`,
+                                      );
+                                      if (menuEl) {
+                                        menuEl.classList.remove("block");
+                                        menuEl.classList.add("hidden");
+                                      }
+                                    }}
+                                    className="block w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50"
+                                  >
+                                    <div className="flex items-center">
+                                      <TrashIcon className="h-4 w-4 mr-2" />
+                                      Delete
+                                    </div>
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -820,6 +1255,8 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
           )}
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };

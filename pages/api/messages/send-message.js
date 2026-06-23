@@ -14,6 +14,7 @@ import {
   replaceVariableInObject,
   replaceVariableInString,
 } from "../../../bullmq/workflow";
+import { cancelAIReply } from "../whatsapp/aiAutoReply";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -22,7 +23,6 @@ export default async function handler(req, res) {
     res.setHeader("Allow", ["POST"]);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
-
   const me = await getUserFromReq(req);
   if (!me) {
     return res
@@ -33,7 +33,15 @@ export default async function handler(req, res) {
   if (!requireRole(me, ["clinic", "agent", "admin", "doctor", "doctorStaff"])) {
     return res.status(403).json({ success: false, message: "Access denied" });
   }
-
+  const { conversationId: convIdForCancel } = req.body;
+  if (convIdForCancel) {
+    try {
+      await cancelAIReply(convIdForCancel);
+    } catch (err) {
+      console.error("[AI] cancelAIReply failed:", err.message);
+      // don't block the message send
+    }
+  }
   // Get clinicId based on user role
   let clinicId;
   if (me.role === "clinic") {
@@ -410,6 +418,7 @@ export default async function handler(req, res) {
     const findMessage = await Message.findById(newMessage._id)
       .populate("senderId", "name email phone")
       .populate("recipientId", "name email phone")
+      .populate("provider", "name label email phone _ct _ac")
       .populate({
         path: "replyToMessageId",
         select: "content mediaType mediaUrl channel direction", // Fields of the reply message

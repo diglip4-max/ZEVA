@@ -2,6 +2,7 @@ import {
   formatScheduledTime,
   getChannelTitle,
   getFormatedTime,
+  getTokenByPath,
 } from "@/lib/helper";
 import { MessageType } from "@/types/conversations";
 import React, { useState } from "react";
@@ -15,10 +16,68 @@ import {
   FileText,
   File,
   Download,
+  Image,
+  Video,
+  Music,
+  FileArchive,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import axios from "axios";
 import LocationMessage from "./LocationMessage";
+
+const getAttachmentIcon = (mimeType?: string, mediaType?: string) => {
+  const mime = mimeType?.toLowerCase() || "";
+  const type = mediaType?.toLowerCase() || "";
+
+  if (type === "image" || mime.startsWith("image/")) {
+    return <Image size={20} className="text-blue-600" />;
+  }
+  if (type === "video" || mime.startsWith("video/")) {
+    return <Video size={20} className="text-purple-600" />;
+  }
+  if (type === "audio" || mime.startsWith("audio/")) {
+    return <Music size={20} className="text-green-600" />;
+  }
+  if (/pdf|word|msword|officedocument|text|sheet|presentation/i.test(mime)) {
+    return <FileText size={20} className="text-orange-600" />;
+  }
+  if (/zip|rar|tar|7z|archive/i.test(mime)) {
+    return <FileArchive size={20} className="text-pink-600" />;
+  }
+  return <File size={20} className="text-gray-600" />;
+};
+
+const formatFileSize = (fileSize?: string | number) => {
+  if (!fileSize) return "Document";
+  const size = Number(fileSize);
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+};
+
+const getAttachments = (message: MessageType) => {
+  const attachments: Array<{
+    fileName?: string;
+    fileSize?: string;
+    mimeType?: string;
+    mediaUrl?: string;
+    mediaType?: string;
+  }> = [];
+
+  if (message.attachments && message.attachments.length > 0) {
+    attachments.push(...message.attachments);
+  } else if (message.mediaUrl) {
+    attachments.push({
+      fileName: message.mediaUrl.split("/").pop()?.split("?")[0] || "file",
+      fileSize: message.attachments?.[0]?.fileSize,
+      mimeType: message.attachments?.[0]?.mimeType,
+      mediaUrl: message.mediaUrl,
+      mediaType: message.mediaType,
+    });
+  }
+
+  return attachments;
+};
 
 interface IProps {
   message: MessageType;
@@ -31,17 +90,221 @@ const Message: React.FC<IProps> = ({
   onSelectMessage,
   onMessageUpdate,
 }) => {
-  const linkify = (text: string) => {
+  const renderAttachments = () => {
+    const attachments = getAttachments(message);
+    if (attachments.length === 0) return null;
+
+    // Separate attachments by type
+    const imageAttachments = attachments.filter(
+      (a) => a.mediaType === "image" || a.mimeType?.startsWith("image/"),
+    );
+    const videoAttachments = attachments.filter(
+      (a) => a.mediaType === "video" || a.mimeType?.startsWith("video/"),
+    );
+    const audioAttachments = attachments.filter(
+      (a) => a.mediaType === "audio" || a.mimeType?.startsWith("audio/"),
+    );
+    const otherAttachments = attachments.filter(
+      (a) =>
+        !(
+          a.mediaType === "image" ||
+          a.mimeType?.startsWith("image/") ||
+          a.mediaType === "video" ||
+          a.mimeType?.startsWith("video/") ||
+          a.mediaType === "audio" ||
+          a.mimeType?.startsWith("audio/")
+        ),
+    );
+
+    return (
+      <div className="mb-3 space-y-2">
+        {/* Image attachments */}
+        {imageAttachments.length > 0 && (
+          <div className="grid gap-2">
+            {imageAttachments.length === 1 ? (
+              <div className="rounded-lg overflow-hidden">
+                <img
+                  src={imageAttachments[0].mediaUrl}
+                  alt={imageAttachments[0].fileName || "Image"}
+                  className="max-w-full max-h-64 object-cover rounded-lg cursor-pointer hover:opacity-95 transition-opacity"
+                  onClick={() =>
+                    window.open(imageAttachments[0].mediaUrl, "_blank")
+                  }
+                />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {imageAttachments.slice(0, 4).map((attachment, index) => (
+                  <div
+                    key={index}
+                    className="rounded-lg overflow-hidden border border-gray-100"
+                  >
+                    <img
+                      src={attachment.mediaUrl}
+                      alt={attachment.fileName || "Image"}
+                      className="w-full h-32 object-cover cursor-pointer hover:opacity-95 transition-opacity"
+                      onClick={() => window.open(attachment.mediaUrl, "_blank")}
+                    />
+                  </div>
+                ))}
+                {imageAttachments.length > 4 && (
+                  <div
+                    className="relative rounded-lg overflow-hidden h-32 bg-gray-100 flex items-center justify-center cursor-pointer hover:bg-gray-200 transition-colors"
+                    onClick={() =>
+                      window.open(imageAttachments[4].mediaUrl, "_blank")
+                    }
+                  >
+                    <div className="text-2xl font-bold text-gray-700">
+                      +{imageAttachments.length - 4}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Video attachments */}
+        {videoAttachments.length > 0 && (
+          <div className="space-y-2">
+            {videoAttachments.map((attachment, index) => (
+              <div key={index} className="rounded-lg overflow-hidden">
+                <video
+                  controls
+                  className="max-w-full"
+                  src={attachment.mediaUrl}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Audio attachments */}
+        {audioAttachments.length > 0 && (
+          <div className="space-y-2">
+            {audioAttachments.map((attachment, index) => (
+              <div
+                key={index}
+                className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg border border-gray-100"
+              >
+                <div className="p-2 rounded-md bg-gray-100 flex items-center justify-center">
+                  {getAttachmentIcon(attachment.mimeType, attachment.mediaType)}
+                </div>
+                <div className="flex-1">
+                  <audio
+                    controls
+                    className="w-full"
+                    src={attachment.mediaUrl}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Other attachments */}
+        {otherAttachments.length > 0 && (
+          <div className="space-y-2">
+            {otherAttachments.map((attachment, index) => (
+              <a
+                key={index}
+                href={attachment.mediaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center space-x-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-100"
+              >
+                <div className="p-2 rounded-md bg-gray-100 flex items-center justify-center">
+                  {getAttachmentIcon(attachment.mimeType, attachment.mediaType)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-gray-800 truncate">
+                    {attachment.fileName ||
+                      (attachment.mediaUrl || "file")
+                        .split("/")
+                        .pop()
+                        ?.split("?")[0]
+                        ?.slice(0, 60)}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    {formatFileSize(attachment.fileSize)}
+                  </div>
+                </div>
+                <div className="flex-shrink-0 ml-3">
+                  <Download size={16} className="text-gray-500" />
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Function to check if content is HTML
+  const isHtmlContent = (content: string): boolean => {
+    if (!content) return false;
+    const htmlRegex =
+      /<([a-z][a-z0-9]*)\b[^>]*>.*?<\/\1>|<([a-z][a-z0-9]*)\b[^>]*\/?>/i;
+    return htmlRegex.test(content);
+  };
+
+  // Function to linkify only URLs, not HTML
+  const linkifyTextOnly = (text: string) => {
     if (!text) return "";
     const urlRegex = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
     const html = text.replace(urlRegex, (match) => {
       const href = match.startsWith("http") ? match : `http://${match}`;
       return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline hover:text-blue-700">${match}</a>`;
     });
-    return html.replace(/\n/g, "<br />");
+    return html;
   };
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("clinicToken") : null;
+
+  // Function to render message content based on channel and content type
+  const renderMessageContent = () => {
+    const content = message?.content || "";
+
+    // For email channel with HTML content
+    if (message?.channel === "email" && isHtmlContent(content)) {
+      const cleanHtml = DOMPurify.sanitize(content, {
+        ADD_TAGS: ["style", "link", "meta", "head", "body", "html"],
+        ADD_ATTR: ["target", "rel", "class", "id", "style"],
+        FORBID_TAGS: ["script", "iframe", "object", "embed"],
+        FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover"],
+      });
+
+      return (
+        <div className="email-content prose prose-sm max-w-none">
+          <div
+            dangerouslySetInnerHTML={{ __html: cleanHtml }}
+            className="text-gray-800"
+            style={{
+              fontFamily: "Arial, Helvetica, sans-serif",
+              lineHeight: "1.5",
+            }}
+          />
+        </div>
+      );
+    }
+
+    // For non-HTML content or other channels
+    if (message?.metadata?.type !== "location") {
+      const linkedContent = linkifyTextOnly(content);
+      return (
+        <div
+          className="text-sm text-gray-800 leading-relaxed break-words"
+          dangerouslySetInnerHTML={{
+            __html: DOMPurify.sanitize(linkedContent, {
+              ADD_ATTR: ["target", "rel", "class"],
+            }),
+          }}
+        />
+      );
+    }
+
+    return null;
+  };
+
+  const token = getTokenByPath();
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
@@ -78,7 +341,7 @@ const Message: React.FC<IProps> = ({
   };
 
   const handleReactWithEmoji = async (message: MessageType, emoji: string) => {
-    if (isReacting) return; // Prevent multiple clicks
+    if (isReacting) return;
 
     try {
       setIsReacting(true);
@@ -107,7 +370,6 @@ const Message: React.FC<IProps> = ({
           position: "top-right",
         });
 
-        // Update parent component if callback provided
         if (onMessageUpdate) {
           onMessageUpdate(response.data.data);
         }
@@ -122,29 +384,25 @@ const Message: React.FC<IProps> = ({
       setIsReacting(false);
     }
   };
-  // Add emoji display logic
+
   const displayEmojis = () => {
-    // Combine message emojis with temporary selected emoji
     const allEmojis = [...(message.emojis || [])];
     const currentUserId = message?.senderId?._id;
 
     if (selectedEmoji) {
-      // Check if user already reacted
       const userReactionIndex = allEmojis.findIndex(
         (e) => e?.user === currentUserId,
       );
 
       if (userReactionIndex > -1) {
-        // Update existing reaction in display
         allEmojis[userReactionIndex] = {
           ...allEmojis[userReactionIndex],
           emoji: selectedEmoji,
         };
       } else {
-        // Add temporary reaction
         allEmojis.push({
           emoji: selectedEmoji,
-          user: { _id: currentUserId }, // Temporary user object
+          user: { _id: currentUserId },
           lead: {},
           addedAt: new Date().toISOString(),
         });
@@ -154,7 +412,6 @@ const Message: React.FC<IProps> = ({
     return allEmojis;
   };
 
-  // Get grouped emojis for display
   const groupedEmojis = () => {
     const reactions = displayEmojis();
     const grouped: { [key: string]: number } = {};
@@ -168,7 +425,6 @@ const Message: React.FC<IProps> = ({
     return grouped;
   };
 
-  // Render emoji reactions
   const renderEmojiReactions = () => {
     const grouped = groupedEmojis();
     const emojiArray = Object.entries(grouped);
@@ -191,12 +447,10 @@ const Message: React.FC<IProps> = ({
             )}
           </div>
         ))}
-        <span className="text-sm text-gray-600 mt-0.5">
-          {emojiArray?.length > 1 ? emojiArray?.length : ""}
-        </span>
       </div>
     );
   };
+
   const getSenderName = () => {
     const name = message?.senderId?.name || "Customer Support";
     return name?.length > 20 ? name.slice(0, 20) + "..." : name;
@@ -211,6 +465,8 @@ const Message: React.FC<IProps> = ({
   const isOutgoing = message?.direction === "outgoing";
   const channel = message?.channel as keyof typeof channelColors;
   const channelColor = getChannelColor(channel);
+  const isEmailHtml =
+    message?.channel === "email" && isHtmlContent(message?.content || "");
 
   return (
     <div
@@ -221,17 +477,16 @@ const Message: React.FC<IProps> = ({
         <div className="flex items-start space-x-3 max-w-full sm:max-w-[85%]">
           {/* Avatar */}
           <div className="flex-shrink-0">
-            <AvatarComponent
-              name={message?.recipientId?.name}
-              // className="h-10 w-10 ring-2 ring-white shadow-md"
-            />
+            <AvatarComponent name={message?.recipientId?.name} />
           </div>
 
           {/* Message Bubble */}
           <div className="relative group">
             {/* Message Content */}
             <div
-              className={`relative bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-gray-100 max-w-[600px]`}
+              className={`relative bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-gray-100 max-w-[600px] ${
+                isEmailHtml ? "overflow-x-auto" : ""
+              }`}
             >
               {/* Top Bar */}
               <div className="flex items-center justify-between mb-2">
@@ -246,12 +501,15 @@ const Message: React.FC<IProps> = ({
                   <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
                   <span className="text-xs text-gray-500">{formatedTime}</span>
                 </div>
-                <button
-                  onClick={() => openHtmlInPopup(message?.content || "")}
-                  className="p-1.5 hover:bg-gray-100 rounded-full transition-colors duration-200"
-                >
-                  <Eye size={16} className="text-gray-500" />
-                </button>
+                {isEmailHtml && (
+                  <button
+                    onClick={() => openHtmlInPopup(message?.content || "")}
+                    className="p-1.5 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                    title="View as HTML"
+                  >
+                    <Eye size={16} className="text-gray-500" />
+                  </button>
+                )}
               </div>
 
               {/* Reply Preview */}
@@ -290,80 +548,8 @@ const Message: React.FC<IProps> = ({
                 </div>
               )}
 
-              {/* Media Content */}
-              {message?.mediaUrl && (
-                <div className="mb-3 rounded-lg overflow-hidden">
-                  {message.mediaType === "image" ? (
-                    <img
-                      src={message.mediaUrl}
-                      alt="Attachment"
-                      className="max-w-full max-h-64 object-cover rounded-lg cursor-pointer hover:opacity-95 transition-opacity"
-                      onClick={() => window.open(message.mediaUrl, "_blank")}
-                    />
-                  ) : message.mediaType === "video" ? (
-                    <video
-                      controls
-                      className="max-w-full rounded-lg"
-                      src={message.mediaUrl}
-                    />
-                  ) : message.mediaType === "audio" ? (
-                    <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-blue-600 text-sm">🎵</span>
-                      </div>
-                      <span className="text-sm text-gray-600">
-                        Audio message
-                      </span>
-                    </div>
-                  ) : (
-                    <a
-                      href={message.mediaUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center space-x-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-100"
-                    >
-                      <div className="p-2 rounded-md bg-gray-100 text-gray-600 flex items-center justify-center">
-                        {(() => {
-                          const mime =
-                            message?.attachments?.[0]?.mimeType || "";
-                          const isDoc =
-                            /pdf|word|msword|officedocument|text|sheet|presentation/i.test(
-                              mime,
-                            ) ||
-                            /\.pdf$|\.docx?$|\.xlsx?$|\.pptx?$/i.test(
-                              message?.mediaUrl || "",
-                            );
-                          return isDoc ? (
-                            <FileText size={20} />
-                          ) : (
-                            <File size={20} />
-                          );
-                        })()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-gray-800 truncate">
-                          {message.attachments?.[0]?.fileName ||
-                            (message.mediaUrl || "file")
-                              .split("/")
-                              .pop()
-                              ?.split("?")[0]
-                              ?.slice(0, 60)}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          {message.attachments?.[0]?.fileSize
-                            ? `${(
-                                Number(message.attachments[0].fileSize) / 1024
-                              ).toFixed(2)} KB`
-                            : "Document"}
-                        </div>
-                      </div>
-                      <div className="flex-shrink-0 ml-3">
-                        <Download size={16} className="text-gray-500" />
-                      </div>
-                    </a>
-                  )}
-                </div>
-              )}
+              {/* Attachments */}
+              {renderAttachments()}
 
               {/* Email Metadata */}
               {message?.channel === "email" && (
@@ -383,6 +569,7 @@ const Message: React.FC<IProps> = ({
                       </span>
                       <span className="text-gray-600">
                         {/* Add your provider email here */}
+                        {message?.provider?.email}
                       </span>
                     </div>
                     <div className="flex items-center text-sm">
@@ -402,20 +589,8 @@ const Message: React.FC<IProps> = ({
                 </div>
               )}
 
-              {/* Message Text */}
-              {message?.metadata?.type !== "location" && (
-                <div
-                  className="text-sm text-gray-800 leading-relaxed break-words"
-                  dangerouslySetInnerHTML={{
-                    __html: DOMPurify.sanitize(
-                      linkify(message?.content || ""),
-                      {
-                        ADD_ATTR: ["target", "rel", "class"],
-                      },
-                    ),
-                  }}
-                />
-              )}
+              {/* Message Text - Using the new render function */}
+              {renderMessageContent()}
 
               {/* WhatsApp Footer */}
               {message?.footerText && (
@@ -495,13 +670,6 @@ const Message: React.FC<IProps> = ({
             </div>
 
             {/* Reaction Emoji */}
-            {/* {(message?.emoji || selectedEmoji) && (
-              <div className="absolute -bottom-3 left-4 bg-white rounded-full px-2 py-1 shadow-sm border border-gray-200">
-                <span className="text-sm">
-                  {message?.emoji || selectedEmoji}
-                </span>
-              </div>
-            )} */}
             {renderEmojiReactions()}
 
             {/* Reply and Emoji Buttons */}
@@ -567,10 +735,12 @@ const Message: React.FC<IProps> = ({
           <div className="relative group">
             {/* Message Content */}
             <div
-              className={`relative bg-gradient-to-r from-${channelColor}-50 to-white rounded-2xl rounded-tr-sm px-4 py-3 shadow-sm border border-${channelColor}-100 max-w-[600px]`}
+              className={`relative bg-gradient-to-r from-${channelColor}-50 to-white rounded-2xl rounded-tr-sm px-4 py-3 shadow-sm border border-${channelColor}-100 max-w-[600px] ${
+                isEmailHtml ? "overflow-x-auto" : ""
+              }`}
             >
               {/* Top Bar */}
-              <div className="flex items-center mb-2">
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center space-x-2">
                   <span className="text-sm font-semibold text-gray-800">
                     {getSenderName()}
@@ -582,6 +752,15 @@ const Message: React.FC<IProps> = ({
                   <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
                   <span className="text-xs text-gray-500">{formatedTime}</span>
                 </div>
+                {isEmailHtml && (
+                  <button
+                    onClick={() => openHtmlInPopup(message?.content || "")}
+                    className="p-1.5 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                    title="View as HTML"
+                  >
+                    <Eye size={16} className="text-gray-500" />
+                  </button>
+                )}
               </div>
 
               {/* Reply Preview */}
@@ -620,86 +799,14 @@ const Message: React.FC<IProps> = ({
                 </div>
               )}
 
-              {/* Media Content */}
-              {message?.mediaUrl && (
-                <div className="mb-3 rounded-lg overflow-hidden">
-                  {message.mediaType === "image" ? (
-                    <img
-                      src={message.mediaUrl}
-                      alt="Attachment"
-                      className="max-w-full max-h-64 object-cover rounded-lg cursor-pointer hover:opacity-95 transition-opacity"
-                      onClick={() => window.open(message.mediaUrl, "_blank")}
-                    />
-                  ) : message.mediaType === "video" ? (
-                    <video
-                      controls
-                      className="max-w-full rounded-lg"
-                      src={message.mediaUrl}
-                    />
-                  ) : message.mediaType === "audio" ? (
-                    <div className="flex items-center space-x-3 p-3 bg-white rounded-lg border border-gray-200">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-blue-600 text-sm">🎵</span>
-                      </div>
-                      <span className="text-sm text-gray-600">
-                        Audio message
-                      </span>
-                    </div>
-                  ) : (
-                    <a
-                      href={message.mediaUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center space-x-3 p-3 bg-white hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors"
-                    >
-                      <div className="p-2 rounded-md bg-gray-100 text-gray-600 flex items-center justify-center">
-                        {(() => {
-                          const mime =
-                            message?.attachments?.[0]?.mimeType || "";
-                          const isDoc =
-                            /pdf|word|msword|officedocument|text|sheet|presentation/i.test(
-                              mime,
-                            ) ||
-                            /\.pdf$|\.docx?$|\.xlsx?$|\.pptx?$/i.test(
-                              message?.mediaUrl || "",
-                            );
-                          return isDoc ? (
-                            <FileText size={20} />
-                          ) : (
-                            <File size={20} />
-                          );
-                        })()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-gray-800 truncate">
-                          {message.attachments?.[0]?.fileName ||
-                            (message.mediaUrl || "file")
-                              .split("/")
-                              .pop()
-                              ?.split("?")[0]
-                              ?.slice(0, 60)}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          {message.attachments?.[0]?.fileSize
-                            ? `${(
-                                Number(message.attachments[0].fileSize) / 1024
-                              ).toFixed(2)} KB`
-                            : "Document"}
-                        </div>
-                      </div>
-                      <div className="flex-shrink-0 ml-3">
-                        <Download size={16} className="text-gray-500" />
-                      </div>
-                    </a>
-                  )}
-                </div>
-              )}
+              {/* Attachments */}
+              {renderAttachments()}
 
               {/* Email Metadata */}
               {message?.channel === "email" && (
                 <div className="mb-3 p-3 bg-white/80 rounded-lg border border-gray-200">
                   <div className="space-y-1.5">
-                    <div className="flex items-center text-sm">
+                    <div className="flex items-center gap-2 text-sm">
                       <span className="font-medium text-gray-700 w-14">
                         To:
                       </span>
@@ -707,15 +814,16 @@ const Message: React.FC<IProps> = ({
                         {message?.recipientId?.email}
                       </span>
                     </div>
-                    <div className="flex items-center text-sm">
+                    <div className="flex items-center gap-2 text-sm">
                       <span className="font-medium text-gray-700 w-14">
                         From:
                       </span>
                       <span className="text-gray-600">
                         {/* Add your provider email here */}
+                        {message?.provider?.email}
                       </span>
                     </div>
-                    <div className="flex items-center text-sm">
+                    <div className="flex items-center gap-2 text-sm">
                       <span className="font-medium text-gray-700 w-14">
                         Subject:
                       </span>
@@ -732,20 +840,8 @@ const Message: React.FC<IProps> = ({
                 </div>
               )}
 
-              {/* Message Text */}
-              {message?.metadata?.type !== "location" && (
-                <div
-                  className="text-sm text-gray-800 leading-relaxed break-words"
-                  dangerouslySetInnerHTML={{
-                    __html: DOMPurify.sanitize(
-                      linkify(message?.content || ""),
-                      {
-                        ADD_ATTR: ["target", "rel", "class"],
-                      },
-                    ),
-                  }}
-                />
-              )}
+              {/* Message Text - Using the new render function */}
+              {renderMessageContent()}
 
               {/* WhatsApp Footer */}
               {message?.footerText && (
@@ -832,13 +928,6 @@ const Message: React.FC<IProps> = ({
             </div>
 
             {/* Reaction Emoji */}
-            {/* {(message?.emoji || selectedEmoji) && (
-              <div className="absolute -bottom-3 right-4 bg-white rounded-full px-2 py-1 shadow-sm border border-gray-200">
-                <span className="text-sm">
-                  {message?.emoji || selectedEmoji}
-                </span>
-              </div>
-            )} */}
             {renderEmojiReactions()}
 
             {/* Reply and Emoji Buttons */}

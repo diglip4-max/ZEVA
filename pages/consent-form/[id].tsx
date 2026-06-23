@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import axios from "axios";
+import DOMPurify from "dompurify";
 import { Check, Signature, Calendar, User, Trash2, CheckCircle } from "lucide-react";
 import SignatureCanvas from "react-signature-canvas";
 
@@ -14,6 +15,9 @@ interface ConsentFormData {
   version: string;
   enableDigitalSignature: boolean;
   requireNameConfirmation: boolean;
+  fileUrl?: string | null;
+  fileName?: string | null;
+  clinicName?: string | null;
 }
 
 interface PatientData {
@@ -257,240 +261,369 @@ const ConsentFormPage: React.FC = () => {
         <meta name="description" content="Patient consent form" />
       </Head>
 
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
-        <div className="max-w-3xl mx-auto">
-          {/* Header Card */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <h1 className="text-2xl font-bold text-gray-900">{consentForm.formName}</h1>
-                <p className="text-sm text-gray-500 mt-1">Zeva Healthcare Clinic</p>
-                {consentForm.description && (
-                  <p className="text-sm text-gray-600 mt-2">{consentForm.description}</p>
-                )}
-              </div>
-            </div>
-          </div>
+      <div className="min-h-screen bg-gray-100 py-6 px-4 sm:py-10">
+        <div className="max-w-[52rem] mx-auto">
 
-          {/* Patient Information */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <User size={18} className="text-blue-600" />
-              Patient Information
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Full Name</label>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 text-gray-800 font-medium">
-                  {patient 
-                    ? `${patient.firstName} ${patient.lastName}`.trim()
-                    : "Enter your full name below"}
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 text-gray-800 font-medium flex items-center gap-2">
-                  <Calendar size={14} className="text-blue-600" />
-                  {todayDate}
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* ── Document Container ── */}
+          <div className="bg-white shadow-xl border border-gray-200 rounded-sm">
 
-          {/* Treatment Information - This would come from the consent form content */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">Treatment Information</h2>
-            <div className="prose prose-sm text-gray-700 space-y-4">
-              <p>
-                I hereby authorize and consent to the administration of Botulinum Toxin Type A (Botox) 
-                injections to be performed by the medical professionals at Zeva Healthcare Clinic. 
-                I understand that this treatment is intended for cosmetic purposes to reduce the 
-                appearance of facial wrinkles and fine lines.
-              </p>
-              
-              <h3 className="font-semibold text-gray-900 mt-4">Risks and Complications</h3>
-              <p>I have been informed of the possible risks and complications associated with Botox injections, which may include but are not limited to:</p>
-              <ul className="list-disc list-inside space-y-1 ml-2">
-                <li>Temporary bruising, swelling, or redness at injection sites</li>
-                <li>Headache or flu-like symptoms</li>
-                <li>Temporary muscle weakness or drooping in the treated area</li>
-                <li>Allergic reactions (rare)</li>
-                <li>Asymmetry or undesired cosmetic result</li>
-              </ul>
-            </div>
-          </div>
+            {/* ── Top Accent Bar ── */}
+            <div className="h-1.5 bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800" />
 
-          {/* Digital Signature */}
-          {consentForm.enableDigitalSignature && (
-            <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <Signature size={18} className="text-blue-600" />
-                Digital Signature
-              </h2>
-              
-              <div className="border-2 border-blue-300 bg-white rounded-xl overflow-hidden">
-                {/* Show signature image if already signed, otherwise show canvas */}
-                {signatureData && !isEmpty ? (
-                  // Display existing signature as static image
-                  <div className="bg-green-50 p-4">
-                    <img
-                      src={signatureData}
-                      alt="Patient Signature"
-                      className="w-full h-[200px] object-contain border-2 border-green-300 rounded-lg bg-white"
-                    />
-                    <div className="mt-3 flex items-center gap-2 text-green-700">
-                      <CheckCircle size={16} />
-                      <p className="text-sm font-medium">Signature already provided</p>
+            {/* ── Header ── */}
+            <div className="px-8 sm:px-12 pt-8 pb-6 border-b border-gray-200">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight leading-tight">
+                        {consentForm.formName}
+                      </h1>
+                      {consentForm.clinicName && (
+                        <p className="text-sm text-gray-500 font-medium mt-0.5">{consentForm.clinicName}</p>
+                      )}
                     </div>
                   </div>
-                ) : (
-                  // Show signature canvas for new signature
-                  <div className="bg-blue-50 p-4">
-                    <SignatureCanvas
-                      ref={signatureRef}
-                      onBegin={handleSignatureBegin}
-                      onEnd={handleSignatureEnd}
-                      canvasProps={{
-                        width: 600,
-                        height: 200,
-                        className: 'signature-canvas w-full h-[200px] border-2 border-dashed border-blue-300 rounded-lg bg-white',
-                        style: { touchAction: 'none' }
-                      }}
-                    />
-                  </div>
-                )}
-                
-                {/* Status/Action Bar */}
-                {!signatureData || isEmpty ? (
-                  <div className="p-4 flex items-center justify-between bg-gray-50 border-t border-gray-200">
-                    <p className="text-xs text-gray-600">
-                      {isEmpty ? "Sign in the box above" : ""}
-                    </p>
-                    {signatureData && !isEmpty && (
-                      <button
-                        type="button"
-                        onClick={clearSignature}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-all"
-                      >
-                        <Trash2 size={14} />
-                        Clear Signature
-                      </button>
-                    )}
-                  </div>
-                ) : null}
+                </div>
+                <div className="text-right flex-shrink-0 ml-6">
+                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-semibold">Consent Form</p>
+                  <p className="text-xs text-gray-500 mt-1 font-mono">v{consentForm.version}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{consentForm.language}</p>
+                </div>
               </div>
-              <p className="text-xs text-gray-500 mt-2">
-                {signatureData && !isEmpty
-                  ? "This signature has been saved and will be stored in your medical records"
-                  : "Use your mouse or finger to sign above"}
+            </div>
+
+            {/* ── Patient Information Bar ── */}
+            <div className="px-8 sm:px-12 py-4 bg-gray-50 border-b border-gray-200">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-8">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center">
+                    <User size={13} className="text-slate-600" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Patient Name</p>
+                    <p className="text-sm font-semibold text-gray-800">
+                      {patient
+                        ? `${patient.firstName} ${patient.lastName}`.trim()
+                        : "—"}
+                    </p>
+                  </div>
+                </div>
+                <div className="hidden sm:block w-px h-8 bg-gray-300" />
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center">
+                    <Calendar size={13} className="text-slate-600" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Date</p>
+                    <p className="text-sm font-semibold text-gray-800">{todayDate}</p>
+                  </div>
+                </div>
+                {appointmentId && (
+                  <>
+                    <div className="hidden sm:block w-px h-8 bg-gray-300" />
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Appointment</p>
+                      <p className="text-sm font-mono text-gray-600">#{appointmentId.slice(-8)}</p>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* ── Body Content ── */}
+            <div className="px-8 sm:px-12 py-6">
+
+              {/* Description / Treatment Content */}
+              {consentForm.description && (
+                <div className="mb-5">
+                  <div
+                    className="consent-description-content"
+                    dangerouslySetInnerHTML={{
+                      __html: DOMPurify.sanitize(consentForm.description),
+                    }}
+                  />
+
+                  {/* View Consent Document Link */}
+                  {consentForm.fileUrl && (
+                    <div className="mt-4 pt-3 border-t border-dashed border-gray-300">
+                      <a
+                        href={consentForm.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-sm text-slate-700 font-medium hover:text-slate-900 transition-colors group"
+                      >
+                        <span className="w-7 h-7 rounded-md bg-gray-100 border border-gray-200 flex items-center justify-center group-hover:bg-slate-800 group-hover:border-slate-800 transition-all">
+                          <svg className="w-3.5 h-3.5 text-slate-600 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </span>
+                        View Consent Document
+                        {consentForm.fileName && (
+                          <span className="text-xs text-gray-400 font-normal">({consentForm.fileName})</span>
+                        )}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Divider ── */}
+              <div className="border-t border-gray-200 my-5" />
+
+              {/* ── Digital Signature ── */}
+              {consentForm.enableDigitalSignature && (
+                <div className="mb-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Signature size={15} className="text-slate-700" />
+                    <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Digital Signature</h2>
+                  </div>
+
+                  <div className="border border-gray-300 rounded-md overflow-hidden">
+                    {signatureData && !isEmpty ? (
+                      <div className="p-4 bg-gray-50">
+                        <div className="bg-white border border-gray-200 rounded-md p-2.5 mb-2">
+                          <img
+                            src={signatureData}
+                            alt="Patient Signature"
+                            className="w-full h-[120px] object-contain"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1.5 text-emerald-700">
+                          <CheckCircle size={13} />
+                          <p className="text-[11px] font-medium">Signature captured</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4">
+                        <p className="text-[11px] text-gray-400 mb-2 font-medium uppercase tracking-wide">Sign below</p>
+                        <SignatureCanvas
+                          ref={signatureRef}
+                          onBegin={handleSignatureBegin}
+                          onEnd={handleSignatureEnd}
+                          canvasProps={{
+                            width: 600,
+                            height: 140,
+                            className: 'signature-canvas w-full h-[140px] border border-dashed border-gray-300 rounded-md bg-white',
+                            style: { touchAction: 'none' }
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {!signatureData || isEmpty ? (
+                      <div className="px-4 py-2.5 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                        <p className="text-[11px] text-gray-400">Draw your signature using mouse or touch</p>
+                        {signatureData && !isEmpty && (
+                          <button
+                            type="button"
+                            onClick={clearSignature}
+                            className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-red-600 hover:bg-red-50 rounded transition-all"
+                          >
+                            <Trash2 size={12} />
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Divider ── */}
+              <div className="border-t border-gray-200 my-5" />
+
+              {/* ── Patient Acknowledgment ── */}
+              <div className="mb-5">
+                <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide mb-2.5">Patient Acknowledgment</h2>
+
+                <div className="space-y-0 divide-y divide-gray-200 border border-gray-200 rounded-md overflow-hidden">
+                  <label className={`flex items-start gap-3 px-4 py-2.5 cursor-pointer transition-all ${agreedToTerms ? "bg-emerald-50/60" : "bg-white hover:bg-gray-50"}`}>
+                    <input
+                      type="checkbox"
+                      checked={!!agreedToTerms}
+                      onChange={(e) => setAgreedToTerms(e.target.checked)}
+                      className="w-4 h-4 accent-emerald-600 mt-0.5 flex-shrink-0"
+                    />
+                    <span className="text-sm text-gray-700 leading-relaxed">
+                      I confirm that I have read and understood all the information provided about this treatment.
+                    </span>
+                  </label>
+
+                  <label className={`flex items-start gap-3 px-4 py-2.5 cursor-pointer transition-all ${questionsAnswered ? "bg-emerald-50/60" : "bg-white hover:bg-gray-50"}`}>
+                    <input
+                      type="checkbox"
+                      checked={!!questionsAnswered}
+                      onChange={(e) => setQuestionsAnswered(e.target.checked)}
+                      className="w-4 h-4 accent-emerald-600 mt-0.5 flex-shrink-0"
+                    />
+                    <span className="text-sm text-gray-700 leading-relaxed">
+                      I have had the opportunity to ask questions and all my questions have been answered satisfactorily.
+                    </span>
+                  </label>
+
+                  <label className={`flex items-start gap-3 px-4 py-2.5 cursor-pointer transition-all ${understandResults ? "bg-emerald-50/60" : "bg-white hover:bg-gray-50"}`}>
+                    <input
+                      type="checkbox"
+                      checked={!!understandResults}
+                      onChange={(e) => setUnderstandResults(e.target.checked)}
+                      className="w-4 h-4 accent-emerald-600 mt-0.5 flex-shrink-0"
+                    />
+                    <span className="text-sm text-gray-700 leading-relaxed">
+                      I understand that results may vary and are not guaranteed.
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* ── Name Confirmation ── */}
+              {consentForm.requireNameConfirmation && (
+                <div className="mb-5">
+                  <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide mb-2">Name Confirmation</h2>
+                  <p className="text-xs text-gray-500 mb-1.5">Type your full legal name to confirm this consent</p>
+                  <input
+                    type="text"
+                    value={nameConfirmed}
+                    onChange={(e) => setNameConfirmed(e.target.value)}
+                    placeholder={`${patient?.firstName || ""} ${patient?.lastName || ""}`.trim()}
+                    className="w-full border border-gray-300 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent bg-white font-medium text-gray-800"
+                  />
+                  {(signatureData && !isEmpty) && (
+                    <p className="text-xs text-emerald-600 mt-1.5 flex items-center gap-1">
+                      <CheckCircle size={12} />
+                      Name confirmation provided
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ── Footer / Submit ── */}
+            <div className="px-8 sm:px-12 py-4 bg-gray-50 border-t border-gray-200 rounded-b-sm">
+              {/* Important Notice */}
+              <div className="flex items-start gap-2.5 mb-4 px-3.5 py-2.5 bg-amber-50/80 border border-amber-200/70 rounded-md">
+                <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-[11px] text-amber-800 leading-relaxed">
+                  This consent form is a legally binding document. By signing below, you acknowledge that you have read, understood, and agree to all the terms described above. A copy will be stored in your medical records.
+                </p>
+              </div>
+
+              {/* Submit */}
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="w-full flex items-center justify-center gap-2.5 px-6 py-3.5 bg-slate-800 text-white font-semibold text-sm rounded-md hover:bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+              >
+                {submitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Check size={16} />
+                    Submit Consent
+                  </>
+                )}
+              </button>
+
+              <p className="text-center text-[10px] text-gray-400 mt-3">
+                By submitting, you electronically sign this document under applicable law.
               </p>
             </div>
-          )}
 
-          {/* Patient Acknowledgment */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">Patient Acknowledgment</h2>
-            
-            <div className="space-y-3">
-              <label className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${agreedToTerms ? "bg-green-50 border-green-300" : "border-gray-200 hover:bg-gray-50"}`}>
-                <input
-                  type="checkbox"
-                  checked={!!agreedToTerms}
-                  onChange={(e) => setAgreedToTerms(e.target.checked)}
-                  className="w-5 h-5 accent-green-600 mt-0.5"
-                />
-                <span className="text-sm text-gray-700">
-                  I confirm that I have read and understood all the information provided about this treatment
-                </span>
-              </label>
-
-              <label className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${questionsAnswered ? "bg-green-50 border-green-300" : "border-gray-200 hover:bg-gray-50"}`}>
-                <input
-                  type="checkbox"
-                  checked={!!questionsAnswered}
-                  onChange={(e) => setQuestionsAnswered(e.target.checked)}
-                  className="w-5 h-5 accent-green-600 mt-0.5"
-                />
-                <span className="text-sm text-gray-700">
-                  I have had the opportunity to ask questions and all my questions have been answered satisfactorily
-                </span>
-              </label>
-
-              <label className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${understandResults ? "bg-green-50 border-green-300" : "border-gray-200 hover:bg-gray-50"}`}>
-                <input
-                  type="checkbox"
-                  checked={!!understandResults}
-                  onChange={(e) => setUnderstandResults(e.target.checked)}
-                  className="w-5 h-5 accent-green-600 mt-0.5"
-                />
-                <span className="text-sm text-gray-700">
-                  I understand that results may vary and are not guaranteed
-                </span>
-              </label>
-            </div>
           </div>
+          {/* ── End Document Container ── */}
 
-          {/* Name Confirmation */}
-          {consentForm.requireNameConfirmation && (
-            <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">Name Confirmation</h2>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Type your full name to confirm
-              </label>
-              <input
-                type="text"
-                value={nameConfirmed}
-                onChange={(e) => setNameConfirmed(e.target.value)}
-                placeholder={`${patient?.firstName || ""} ${patient?.lastName || ""}`.trim()}
-                className={`w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white`}
-              />
-              {(signatureData && !isEmpty) && (
-                <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
-                  <CheckCircle size={12} />
-                  Name confirmation already provided
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Important Notice */}
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
-            <h3 className="text-sm font-semibold text-amber-900 mb-2">Important Notice:</h3>
-            <p className="text-xs text-amber-800">
-              This consent form will be electronically signed by the patient before their treatment. 
-              A copy will be stored in their medical records and available for download at any time.
-            </p>
-          </div>
-
-          {/* Submit Button */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-green-200"
-            >
-              {submitting ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  Submitting...
-                </>
-              ) : (
-                <>
-                  <Check size={18} />
-                  Submit Consent Form
-                </>
-              )}
-            </button>
-          </div>
         </div>
       </div>
+
+      {/* ── Scoped Styles for Rich Text Content ── */}
+      <style>{`
+        .consent-description-content {
+          color: #1f2937;
+          font-size: 0.75rem;
+          line-height: 1.65;
+          font-family: 'Georgia', 'Times New Roman', serif;
+        }
+        .consent-description-content h1 {
+          font-size: 0.9rem;
+          font-weight: 700;
+          color: #111827;
+          margin-top: 1rem;
+          margin-bottom: 0.3rem;
+          font-family: system-ui, -apple-system, sans-serif;
+          letter-spacing: -0.01em;
+        }
+        .consent-description-content h2 {
+          font-size: 0.825rem;
+          font-weight: 700;
+          color: #111827;
+          margin-top: 0.75rem;
+          margin-bottom: 0.3rem;
+          font-family: system-ui, -apple-system, sans-serif;
+          letter-spacing: -0.01em;
+        }
+        .consent-description-content h3 {
+          font-size: 0.775rem;
+          font-weight: 600;
+          color: #1f2937;
+          margin-top: 0.6rem;
+          margin-bottom: 0.25rem;
+          font-family: system-ui, -apple-system, sans-serif;
+        }
+        .consent-description-content p {
+          margin-top: 0.35rem;
+          margin-bottom: 0.35rem;
+          text-align: justify;
+        }
+        .consent-description-content ul {
+          list-style-type: disc;
+          margin-left: 1.25rem;
+          margin-top: 0.25rem;
+          margin-bottom: 0.25rem;
+        }
+        .consent-description-content ol {
+          list-style-type: decimal;
+          margin-left: 1.25rem;
+          margin-top: 0.25rem;
+          margin-bottom: 0.25rem;
+        }
+        .consent-description-content li {
+          margin-top: 0.15rem;
+          margin-bottom: 0.15rem;
+          color: #374151;
+          padding-left: 0.25rem;
+        }
+        .consent-description-content strong,
+        .consent-description-content b {
+          font-weight: 700;
+          color: #111827;
+        }
+        .consent-description-content em,
+        .consent-description-content i {
+          font-style: italic;
+        }
+        .consent-description-content u {
+          text-decoration: underline;
+          text-underline-offset: 2px;
+        }
+        .consent-description-content blockquote {
+          border-left: 3px solid #9ca3af;
+          padding-left: 1rem;
+          font-style: italic;
+          color: #6b7280;
+          margin-top: 0.75rem;
+          margin-bottom: 0.75rem;
+        }
+      `}</style>
     </>
   );
 };

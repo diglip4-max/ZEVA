@@ -1,6 +1,7 @@
 // pages/api/staff/get-patient-data/[id].js
 import dbConnect from "../../../../lib/database";
 import PatientRegistration from "../../../../models/PatientRegistration";
+import Package from "../../../../models/Package";
 import User from "../../../../models/Users";
 import mongoose from "mongoose";
 import { getAuthorizedStaffUser } from "../../../../server/staff/authHelpers";
@@ -240,19 +241,77 @@ export default async function handler(req, res) {
             // Clear all packages when package is set to No
             invoice.packages = [];
           } else {
-            invoice.packages = packagesArray.map((p) => ({
-              packageId: p.packageId,
-              packageName: p.packageName,
-              packageSoldBy: p.packageSoldBy || user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown',
-              assignedDate: p.assignedDate ? new Date(p.assignedDate) : undefined,
-              validityInMonths: p.validityInMonths || 0,
-              startDate: p.startDate ? new Date(p.startDate) : undefined,
-              endDate: p.endDate ? new Date(p.endDate) : undefined,
-              totalPrice: p.totalPrice || 0,
-              paidAmount: p.paidAmount || 0,
-              paymentStatus: p.paymentStatus || "Unpaid",
-              paymentMethod: p.paymentMethod || "",
-            }));
+            // Build a map of existing package snapshots (keyed by packageId string)
+            // so we never overwrite a previously saved snapshot with empty defaults.
+            const existingSnapshotMap = new Map();
+            (invoice.packages || []).forEach((ep) => {
+              const idStr = String(ep.packageId || '');
+              if (idStr && ep.packageSnapshot) {
+                existingSnapshotMap.set(idStr, ep.packageSnapshot);
+              }
+            });
+
+            // Fetch all Package master records for this clinic in one query,
+            // so we can build snapshots for any new assignments that don't have one yet.
+            const newPkgIds = packagesArray
+              .map((p) => p.packageId)
+              .filter((pid) => pid && !existingSnapshotMap.has(String(pid)));
+            const masterDocs = newPkgIds.length > 0
+              ? await Package.find({ _id: { $in: newPkgIds }, clinicId: invoice.clinicId }).lean()
+              : [];
+            const masterMap = new Map(masterDocs.map((d) => [String(d._id), d]));
+
+            invoice.packages = packagesArray.map((p) => {
+              const pkgIdStr = String(p.packageId || '');
+
+              // Determine the best snapshot: existing DB snapshot first, then build from master
+              let resolvedSnapshot = existingSnapshotMap.get(pkgIdStr);
+
+              if (!resolvedSnapshot || !resolvedSnapshot.name) {
+                // Try to build from master Package doc
+                const master = masterMap.get(pkgIdStr);
+                if (master && master.name) {
+                  resolvedSnapshot = {
+                    name: master.name,
+                    totalPrice: master.totalPrice || 0,
+                    totalSessions: master.totalSessions || 0,
+                    sessionPrice: master.sessionPrice || 0,
+                    validityInMonths: master.validityInMonths || 0,
+                    startDate: master.startDate || null,
+                    endDate: master.endDate || null,
+                    treatments: Array.isArray(master.treatments)
+                      ? master.treatments.map((t) => ({
+                          treatmentName: t.treatmentName || '',
+                          treatmentSlug: t.treatmentSlug || '',
+                          allocatedPrice: t.allocatedPrice || 0,
+                          sessions: t.sessions || 1,
+                          sessionPrice: t.sessionPrice || 0,
+                        }))
+                      : [],
+                    snapshotCreatedAt: new Date(),
+                  };
+                } else if (p.packageSnapshot && p.packageSnapshot.name) {
+                  // Use snapshot passed from client (trusts body over DB when master is gone)
+                  resolvedSnapshot = p.packageSnapshot;
+                }
+              }
+
+              return {
+                packageId: p.packageId,
+                packageName: resolvedSnapshot?.name || p.packageName || '',
+                packageSoldBy: p.packageSoldBy || user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown',
+                assignedDate: p.assignedDate ? new Date(p.assignedDate) : undefined,
+                validityInMonths: p.validityInMonths || 0,
+                startDate: p.startDate ? new Date(p.startDate) : undefined,
+                endDate: p.endDate ? new Date(p.endDate) : undefined,
+                totalPrice: p.totalPrice || 0,
+                paidAmount: p.paidAmount || 0,
+                paymentStatus: p.paymentStatus || 'Unpaid',
+                paymentMethod: p.paymentMethod || '',
+                // Preserve or build snapshot — never discard it once written
+                ...(resolvedSnapshot ? { packageSnapshot: resolvedSnapshot } : {}),
+              };
+            });
           }
         }
 

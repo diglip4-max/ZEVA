@@ -4,8 +4,9 @@ const MedicineLineSchema = new mongoose.Schema(
   {
     medicineName: {
       type: String,
-      required: true,
+      required: false,
       trim: true,
+      default: "",
     },
     dosage: {
       type: String,

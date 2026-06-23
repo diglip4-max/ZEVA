@@ -58,7 +58,8 @@ const ProviderHref = (p: ProviderCard) => {
   }
 };
 
-const DEFAULT_IMG = "/image1.png";
+// Simple SVG placeholder data URL (1:1 aspect ratio, gray background)
+const DEFAULT_IMG = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNDAwIiB2aWV3Qm94PSIwIDAgNDAwIDQwMCI+PHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSI0MDAiIGZpbGw9IiNlNWU3ZWIiLz48dGV4dCB4PSIyMDAiIHk9IjIwMCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjQwIiBmaWxsPSIjOWNhM2FiIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj5QbGFjZWhvbGRlcjwvdGV4dD48L3N2Zz4=";
 
 const TabButton: React.FC<{
   active: boolean;
@@ -79,6 +80,7 @@ const TabButton: React.FC<{
 
 const Card: React.FC<{ p: ProviderCard }> = ({ p }) => {
   const [imgIndex, setImgIndex] = useState(0);
+  const [failedImgs, setFailedImgs] = useState<Set<number>>(new Set());
 
   const badge = p.__isPremium
     ? "Premium"
@@ -92,7 +94,13 @@ const Card: React.FC<{ p: ProviderCard }> = ({ p }) => {
   }, [p.photos, p.image]);
 
   const hasMultipleImages = gallery.length > 1;
-  const currentSrc = normalizeImagePath(gallery[imgIndex]) || DEFAULT_IMG;
+  
+  const getCurrentSrc = () => {
+    if (failedImgs.has(imgIndex)) return DEFAULT_IMG;
+    const src = normalizeImagePath(gallery[imgIndex]);
+    return src || DEFAULT_IMG;
+  };
+  const currentSrc = getCurrentSrc();
 
   const handlePrev = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -106,11 +114,18 @@ const Card: React.FC<{ p: ProviderCard }> = ({ p }) => {
     setImgIndex((prev) => (prev + 1) % gallery.length);
   };
 
+  const handleImgError = (_e: React.SyntheticEvent<HTMLImageElement>) => {
+    if (!failedImgs.has(imgIndex)) {
+      setFailedImgs(prev => new Set([...prev, imgIndex]));
+    }
+  };
+
   return (
     <Link href={ProviderHref(p)} className="group">
       <div className="bg-white rounded-2xl border overflow-hidden hover:shadow-xl transition h-full flex flex-col">
         <div className="relative bg-gray-100 overflow-hidden" style={{ aspectRatio: '4/3' }}>
           <img
+            key={`${p._id}-${imgIndex}-${failedImgs.has(imgIndex) ? 'failed' : 'ok'}`}
             src={currentSrc}
             alt={p.name}
             className="w-full h-full object-cover transition-opacity duration-300"
@@ -120,9 +135,7 @@ const Card: React.FC<{ p: ProviderCard }> = ({ p }) => {
               height: '100%',
               display: 'block'
             }}
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = DEFAULT_IMG;
-            }}
+            onError={handleImgError}
           />
 
           {/* Navigation Buttons */}
