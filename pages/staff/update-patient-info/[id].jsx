@@ -4,7 +4,7 @@ import { Calendar, User, DollarSign, FileText, X, CheckCircle, AlertCircle } fro
 import ClinicLayout from '../../../components/staffLayout';
 import withClinicAuth from '../../../components/withStaffAuth';
 
-const paymentMethods = ["Cash", "Card", "BT", "Tabby", "Tamara"];
+const paymentMethods = ["Cash", "Card", "BT", "Tabby", "Tamara", "Advance Balance", "Insurance Claim", "Pending Claim", "Cashback Wallet", "Package Full Paid"];
 
 // Toast Component
 const Toast = ({ message, type, onClose }) => {

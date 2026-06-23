@@ -31,7 +31,7 @@ const membershipSchema = new mongoose.Schema({
   remainingBalance: { type: Number, default: 0, min: 0 },
 
   // Payment details for this membership purchase
-  paymentMethod: { type: String, enum: ["Cash", "Card", "BT", "Tabby", "Tamara", ""], default: "" },
+  paymentMethod: { type: String, enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Advance Balance", "Insurance Claim", "Pending Claim", "Cashback Wallet", "Package Full Paid", ""], default: "" },
   paidAmount: { type: Number, default: 0, min: 0 },
 
   // Transfer tracking

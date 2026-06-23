@@ -6333,7 +6333,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           <option value="BT">BT</option>
                           <option value="Tabby">Tabby</option>
                           <option value="Tamara">Tamara</option>
-                           <option value="Package Full Paid">package Full Paid</option>
+                          <option value="Advance Balance">Advance Balance</option>
+                          <option value="Insurance Claim">Insurance Claim</option>
+                          <option value="Pending Claim">Pending Claim</option>
+                          <option value="Cashback Wallet">Cashback Wallet</option>
+                          <option value="Package Full Paid">Package Full Paid</option>
                         </select>
                         {errors.paymentMethod && (
                           <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.paymentMethod}</p>
@@ -6488,6 +6492,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                               <option value="BT">BT</option>
                               <option value="Tabby">Tabby</option>
                               <option value="Tamara">Tamara</option>
+                              <option value="Advance Balance">Advance Balance</option>
+                              <option value="Insurance Claim">Insurance Claim</option>
+                              <option value="Pending Claim">Pending Claim</option>
+                              <option value="Cashback Wallet">Cashback Wallet</option>
+                              <option value="Package Full Paid">Package Full Paid</option>
                             </select>
                             <input type="number" step="0.01" min="0" placeholder="Amount"
                               value={mp.amount}
