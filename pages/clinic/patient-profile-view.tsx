@@ -1192,6 +1192,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
    
     // If adding to patient, open payment modal first
     setPkgTotalAmount(packagePrice);
+    setPkgEnteredAmount(packagePrice);
     setPkgPaidAmount(packagePrice);
     setPkgPaymentType("Full");
     setPkgPaymentMethod("Cash");
