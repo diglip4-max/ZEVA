@@ -12,7 +12,10 @@ const AllocatedStockItemSchema = new mongoose.Schema(
       itemId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "StockItem",
-        index: true,
+      },
+      customStockItemId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "CustomStockItem",
       },
       code: {
         type: String,
@@ -178,7 +181,7 @@ const AllocatedStockItemSchema = new mongoose.Schema(
     allocatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true, // Should probably be required
+      required: true,
     },
   },
   {
@@ -198,8 +201,10 @@ const AllocatedStockItemDetailsSchema = new mongoose.Schema(
     purchaseRecord: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "PurchaseRecord",
-      required: true,
-      index: true,
+    },
+    customStockItem: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "CustomStockItem",
     },
     allocatedBy: {
       type: mongoose.Schema.Types.ObjectId,
