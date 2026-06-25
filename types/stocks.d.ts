@@ -189,3 +189,16 @@ export type Supplier = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type PaymentMethodStatus = "active" | "inactive";
+
+export type PaymentMethod = {
+  _id: string;
+  clinicId: string;
+  name: string;
+  uniqueName: string;
+  status: PaymentMethodStatus;
+  createdBy: string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+};
