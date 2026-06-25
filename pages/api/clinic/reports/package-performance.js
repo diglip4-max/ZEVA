@@ -2,6 +2,8 @@ import dbConnect from "../../../../lib/database";
 import { getUserFromReq } from "../../lead-ms/auth";
 import { getClinicIdFromUser, checkClinicPermission } from "../../lead-ms/permissions-helper";
 import Billing from "../../../../models/Billing";
+import Appointment from "../../../../models/Appointment";
+import Service from "../../../../models/Service";
 import mongoose from "mongoose";
 
 export default async function handler(req, res) {
@@ -34,7 +36,7 @@ export default async function handler(req, res) {
     return res.status(403).json({ success: false, message: "You do not have permission to view reports" });
   }
 
-  const { startDate, endDate, limit = "10" } = req.query;
+  const { startDate, endDate, limit = "10", doctorId, departmentId } = req.query;
   const lim = Math.max(1, Math.min(25, parseInt(limit, 10) || 10));
 
   try {
@@ -60,8 +62,50 @@ export default async function handler(req, res) {
       if (Object.keys(match.invoicedDate).length === 0) delete match.invoicedDate;
     }
 
-    const rows = await Billing.aggregate([
+    const pipeline = [
       { $match: match },
+      {
+        $lookup: {
+          from: "appointments",
+          localField: "appointmentId",
+          foreignField: "_id",
+          as: "appointment",
+        },
+      },
+      { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          effectiveDoctorId: {
+            $ifNull: ["$doctorId", "$appointment.doctorId"]
+          }
+        }
+      }
+    ];
+
+    if (doctorId) {
+      pipeline.push({
+        $match: { effectiveDoctorId: new mongoose.Types.ObjectId(String(doctorId)) },
+      });
+    }
+
+    if (departmentId) {
+      pipeline.push(
+        {
+          $lookup: {
+            from: "services",
+            localField: "appointment.serviceId",
+            foreignField: "_id",
+            as: "service",
+          },
+        },
+        { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
+        {
+          $match: { "service.departmentId": new mongoose.Types.ObjectId(String(departmentId)) },
+        }
+      );
+    }
+
+    pipeline.push(
       {
         $group: {
           _id: "$package",
@@ -81,10 +125,58 @@ export default async function handler(req, res) {
         },
       },
       { $sort: { totalRevenue: -1 } },
-      { $limit: lim },
-    ]);
+      { $limit: lim }
+    );
 
-    return res.status(200).json({ success: true, data: rows });
+    const rows = await Billing.aggregate(pipeline);
+
+    // Calculate summary metrics for all matching packages
+    const summaryPipeline = [
+      { $match: match },
+      {
+        $lookup: {
+          from: "appointments",
+          localField: "appointmentId",
+          foreignField: "_id",
+          as: "appointment",
+        },
+      },
+      { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          effectiveDoctorId: {
+            $ifNull: ["$doctorId", "$appointment.doctorId"]
+          },
+        }
+      },
+      ...(doctorId ? [{ $match: { effectiveDoctorId: new mongoose.Types.ObjectId(String(doctorId)) } }] : []),
+      ...(departmentId ? [
+        {
+          $lookup: {
+            from: "services",
+            localField: "appointment.serviceId",
+            foreignField: "_id",
+            as: "service",
+          },
+        },
+        { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
+        {
+          $match: { "service.departmentId": new mongoose.Types.ObjectId(String(departmentId)) },
+        }
+      ] : []),
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: { $ifNull: ["$paid", 0] } },
+          totalBookings: { $sum: 1 },
+        },
+      },
+    ];
+
+    const summaryAgg = await Billing.aggregate(summaryPipeline);
+    const summary = summaryAgg?.[0] || { totalRevenue: 0, totalBookings: 0 };
+
+    return res.status(200).json({ success: true, data: rows, summary });
   } catch (e) {
     console.error("package-performance error:", e);
     return res.status(500).json({ success: false, message: "Failed to fetch package performance" });

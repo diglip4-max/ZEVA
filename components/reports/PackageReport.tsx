@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -7,7 +7,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
- 
+
   AreaChart,
   Area,
   PieChart,
@@ -26,6 +26,18 @@ interface PackageRow {
   totalAppointments: number;
 }
 
+interface Department {
+  _id: string;
+  name: string;
+}
+
+interface Doctor {
+  _id: string;
+  name: string;
+  firstName?: string;
+  lastName?: string;
+}
+
 interface Props {
   startDate: string;
   endDate: string;
@@ -34,42 +46,84 @@ interface Props {
 
 export default function PackageReport({ startDate, endDate, headers }: Props) {
   const [rows, setRows] = useState<PackageRow[]>([]);
+  const [topPackagesSummary, setTopPackagesSummary] = useState<any>(null);
   const [soldRows, setSoldRows] = useState<any[]>([]);
+  const [packagesSoldSummary, setPackagesSoldSummary] = useState<any>(null);
   const [page, setPage] = useState(1);
   const [hasNext, setHasNext] = useState(false);
   const [detail, setDetail] = useState<{ open: boolean; patientId?: string; packageName?: string; data?: any }>(
     { open: false }
   );
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
+  const [selectedDoctor, setSelectedDoctor] = useState<string | null>(null);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
 
   useEffect(() => {
+    fetchDepartments();
+    fetchDoctors();
     fetchTopPackages();
     fetchPackagesSold(1);
-  }, [startDate, endDate]);
+  }, [startDate, endDate, selectedDepartment, selectedDoctor]);
+
+  async function fetchDepartments() {
+    try {
+      const res = await fetch(`/api/clinic/departments?module=clinic_view_doctor`, { headers });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setDepartments(json.departments || []);
+      }
+    } catch (e) {
+      console.error("Error fetching departments:", e);
+    }
+  }
+
+  async function fetchDoctors() {
+    try {
+      const res = await fetch(`/api/clinic/doctors`, { headers });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setDoctors(json.data || []);
+      }
+    } catch (e) {
+      console.error("Error fetching doctors:", e);
+    }
+  }
 
   async function fetchTopPackages() {
-    const qs = new URLSearchParams({ startDate, endDate, limit: "10" }).toString();
+    const params: any = { startDate, endDate, limit: "10" };
+    if (selectedDepartment) params.departmentId = selectedDepartment;
+    if (selectedDoctor) params.doctorId = selectedDoctor;
+    const qs = new URLSearchParams(params).toString();
     const res = await fetch(`/api/clinic/reports/package-performance?${qs}`, {
       headers,
     });
     const json = await res.json();
     if (!res.ok || !json.success) {
       setRows([]);
+      setTopPackagesSummary(null);
       return;
     }
     setRows(json.data || []);
+    setTopPackagesSummary(json.summary || null);
   }
 
   async function fetchPackagesSold(p = 1) {
-    const qs = new URLSearchParams({ startDate, endDate, page: String(p), limit: "20" }).toString();
+    const params: any = { startDate, endDate, page: String(p), limit: "20" };
+    if (selectedDepartment) params.departmentId = selectedDepartment;
+    if (selectedDoctor) params.doctorId = selectedDoctor;
+    const qs = new URLSearchParams(params).toString();
     const res = await fetch(`/api/clinic/reports/packages-sold?${qs}`, { headers });
     const json = await res.json();
     if (!res.ok || !json.success) {
       setSoldRows([]);
+      setPackagesSoldSummary(null);
       setHasNext(false);
       return;
     }
     setSoldRows(json.data || []);
+    setPackagesSoldSummary(json.summary || null);
     setHasNext(Boolean(json.pagination?.hasNext));
     setPage(p);
   }
@@ -85,31 +139,59 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     }
   }
 
+  // Smart currency formatter function - show actual number
+  const formatCurrency = (amount: number): string => {
+    return amount.toLocaleString();
+  };
+
   // Calculate summary metrics
   const metrics = useMemo(() => {
-    const totalPackagesSold = soldRows.length;
-    const totalRevenue = rows.reduce((sum, r) => sum + (r.totalRevenue || 0), 0);
-    const paidRevenue = totalRevenue * 0.78; // Simulated
-    const outstanding = totalRevenue * 0.22; // Simulated
+    const summary = packagesSoldSummary;
+    const totalPackagesSold = summary?.totalPackagesSold ?? soldRows.length;
+    const totalRevenue = topPackagesSummary?.totalRevenue ?? rows.reduce((sum, r) => sum + (r.totalRevenue || 0), 0);
+    
+    // Calculate actual paid amounts from summary if available, else sold rows
+    const totalPaid = summary?.totalPaid ?? soldRows.reduce((sum, r) => sum + (r.totalPaid || 0), 0);
+    const totalPending = summary?.totalPending ?? soldRows.reduce((sum, r) => sum + (r.totalPending || 0), 0);
+    
+    // Calculate payment status counts from summary if available, else sold rows
+    const paidPackages = summary?.paidPackages ?? soldRows.filter(r => (r.totalPending || 0) <= 0).length;
+    const partiallyPaid = summary?.partiallyPaid ?? soldRows.filter(r => (r.totalPending || 0) > 0 && (r.totalPaid || 0) > 0).length;
+    const unpaidPackages = summary?.unpaidPackages ?? soldRows.filter(r => (r.totalPaid || 0) <= 0).length;
+    
+    // Calculate session-based metrics from summary if available, else sold rows
+    const totalSessions = summary?.totalSessions ?? soldRows.reduce((sum, r) => sum + (r.totalSessions || 0), 0);
+    const usedSessions = summary?.totalUsedSessions ?? soldRows.reduce((sum, r) => sum + (r.sessionsUsed || 0), 0);
+    const remainingSessions = Math.max(0, totalSessions - usedSessions);
+    
+    const activePackages = summary?.activePackages ?? soldRows.filter(r => (r.sessionsUsed || 0) > 0 && (r.sessionsUsed || 0) < (r.totalSessions || 1)).length;
+    const completedPackages = summary?.completedPackages ?? soldRows.filter(r => (r.sessionsUsed || 0) >= (r.totalSessions || 1)).length;
+    const unusedPackages = summary?.unusedPackages ?? soldRows.filter(r => (r.sessionsUsed || 0) <= 0).length;
+    
+    // Use real expiration counts from API summary
+    const expiredPackages = summary?.expiredPackages ?? 0;
+    const expiring7Days = summary?.expiring7Days ?? 0;
+    const expiring30Days = summary?.expiring30Days ?? 0;
+    const renewalOpportunities = summary?.renewalOpportunities ?? 0;
     
     return {
       totalPackagesSold,
       totalRevenue,
-      paidRevenue,
-      outstanding,
-      paidPackages: Math.floor(totalPackagesSold * 0.63),
-      partiallyPaid: Math.floor(totalPackagesSold * 0.23),
-      unpaidPackages: Math.floor(totalPackagesSold * 0.14),
-      activePackages: Math.floor(totalPackagesSold * 0.63),
-      completedPackages: Math.floor(totalPackagesSold * 0.31),
-      expiredPackages: Math.floor(totalPackagesSold * 0.07),
-      expiring7Days: Math.floor(totalPackagesSold * 0.03),
-      expiring30Days: Math.floor(totalPackagesSold * 0.08),
-      unusedPackages: Math.floor(totalPackagesSold * 0.05),
-      renewalOpportunities: Math.floor(totalPackagesSold * 0.15),
+      paidRevenue: totalPaid,
+      outstanding: totalPending,
+      paidPackages,
+      partiallyPaid,
+      unpaidPackages,
+      activePackages,
+      completedPackages,
+      expiredPackages,
+      expiring7Days,
+      expiring30Days,
+      unusedPackages,
+      renewalOpportunities,
       avgPackageValue: totalPackagesSold > 0 ? totalRevenue / totalPackagesSold : 0,
     };
-  }, [rows, soldRows]);
+  }, [rows, soldRows, topPackagesSummary, packagesSoldSummary]);
 
   // Mock data for charts (in real app, these would come from APIs)
   const monthlyRevenueData = [
@@ -206,20 +288,20 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
 
   const kpiCards = [
     { label: "Total Packages Sold", value: metrics.totalPackagesSold.toLocaleString(), trend: 14.2, trendUp: true, icon: "📦", subtitle: "All time" },
-    { label: "Total Revenue", value: `SAR ${(metrics.totalRevenue / 1000000).toFixed(2)}M`, trend: 22.8, trendUp: true, icon: "💲", subtitle: "This year" },
-    { label: "Paid Revenue", value: `SAR ${(metrics.paidRevenue / 1000000).toFixed(2)}M`, trend: 18.4, trendUp: true, icon: "✅", subtitle: "Collected" },
-    { label: "Outstanding", value: `SAR ${Math.round(metrics.outstanding / 1000)}K`, trend: 8.2, trendUp: false, icon: "⚠️", subtitle: "Pending collection" },
+    { label: "Total Revenue", value: formatCurrency(metrics.totalRevenue), trend: 22.8, trendUp: true, icon: "💲", subtitle: "This year" },
+    { label: "Paid Revenue", value: formatCurrency(metrics.paidRevenue), trend: 18.4, trendUp: true, icon: "✅", subtitle: "Collected" },
+    { label: "Outstanding", value: formatCurrency(metrics.outstanding), trend: 8.2, trendUp: false, icon: "⚠️", subtitle: "Pending collection" },
     { label: "Paid Packages", value: metrics.paidPackages.toLocaleString(), trend: 11.6, trendUp: true, icon: "✅", subtitle: "Fully settled" },
     { label: "Partially Paid", value: metrics.partiallyPaid.toLocaleString(), trend: 4.1, trendUp: false, icon: "⏳", subtitle: "Partial payment" },
     { label: "Unpaid Packages", value: metrics.unpaidPackages.toLocaleString(), trend: 12.3, trendUp: false, icon: "🚫", subtitle: "No payment made" },
     { label: "Active Packages", value: metrics.activePackages.toLocaleString(), trend: 8.9, trendUp: true, icon: "📈", subtitle: "In progress" },
-    { label: "Completed", value: metrics.completedPackages.toLocaleString(), trend: 31.4, trendUp: true, icon: "✅", subtitle: "Sessions finished" },
+    // { label: "Completed", value: metrics.completedPackages.toLocaleString(), trend: 31.4, trendUp: true, icon: "✅", subtitle: "Sessions finished" },
     { label: "Expired Packages", value: metrics.expiredPackages.toLocaleString(), trend: 5.2, trendUp: false, icon: "⏰", subtitle: "Past expiry date" },
     { label: "Expiring in 7 Days", value: metrics.expiring7Days.toLocaleString(), trend: 42.1, trendUp: true, icon: "⏳", subtitle: "Urgent action needed" },
     { label: "Expiring in 30 Days", value: metrics.expiring30Days.toLocaleString(), trend: 18.7, trendUp: true, icon: "📅", subtitle: "Upcoming expirations" },
-    { label: "Unused Packages", value: metrics.unusedPackages.toLocaleString(), trend: 22.4, trendUp: false, icon: "📦", subtitle: "Zero sessions used" },
+    // { label: "Unused Packages", value: metrics.unusedPackages.toLocaleString(), trend: 22.4, trendUp: false, icon: "📦", subtitle: "Zero sessions used" },
     { label: "Renewal Opportunities", value: metrics.renewalOpportunities.toLocaleString(), trend: 34.2, trendUp: true, icon: "🔄", subtitle: "Ready to renew" },
-    { label: "Avg Package Value", value: `SAR ${Math.round(metrics.avgPackageValue).toLocaleString()}`, trend: 7.3, trendUp: true, icon: "📊", subtitle: "Per package sold" },
+    // { label: "Avg Package Value", value: formatCurrency(metrics.avgPackageValue), trend: 7.3, trendUp: true, icon: "📊", subtitle: "Per package sold" },
   ];
 
   const packageExportSections = useMemo(() => [
@@ -280,28 +362,97 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               <span className="text-xs font-medium text-gray-500">🔽 Filters</span>
             </div>
             <div className="flex flex-wrap gap-2">
-             
-              
-              <button
-                onClick={() => toggleFilter("department")}
-                className={`px-3 py-1.5 border rounded-lg text-sm transition-all ${
-                  activeFilter === "department"
-                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                Department
-              </button>
-              <button
-                onClick={() => toggleFilter("doctor")}
-                className={`px-3 py-1.5 border rounded-lg text-sm transition-all ${
-                  activeFilter === "doctor"
-                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                Doctor
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => toggleFilter("department")}
+                  className={`px-3 py-1.5 border rounded-lg text-sm transition-all ${
+                    activeFilter === "department" || selectedDepartment
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                      : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {selectedDepartment
+                    ? departments.find(d => d._id === selectedDepartment)?.name || "Department"
+                    : "Department"}
+                </button>
+                {activeFilter === "department" && (
+                  <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 w-56 max-h-64 overflow-y-auto">
+                    <div className="p-1.5">
+                      <button
+                        onClick={() => {
+                          setSelectedDepartment(null);
+                          setActiveFilter(null);
+                        }}
+                        className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 rounded-md transition-colors"
+                      >
+                        All Departments
+                      </button>
+                      {departments.map((dept) => (
+                        <button
+                          key={dept._id}
+                          onClick={() => {
+                            setSelectedDepartment(dept._id);
+                            setActiveFilter(null);
+                          }}
+                          className={`w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 rounded-md transition-colors ${
+                            selectedDepartment === dept._id ? "bg-emerald-50 text-emerald-700" : ""
+                          }`}
+                        >
+                          {dept.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="relative">
+                <button
+                  onClick={() => toggleFilter("doctor")}
+                  className={`px-3 py-1.5 border rounded-lg text-sm transition-all ${
+                    activeFilter === "doctor" || selectedDoctor
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                      : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {selectedDoctor
+                    ? (() => {
+                        const doc = doctors.find(d => d._id === selectedDoctor);
+                        return doc?.name || (doc?.firstName && doc?.lastName ? `${doc.firstName} ${doc.lastName}` : "Doctor");
+                      })()
+                    : "Doctor"}
+                </button>
+                {activeFilter === "doctor" && (
+                  <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 w-64 max-h-72 overflow-y-auto">
+                    <div className="p-1.5">
+                      <button
+                        onClick={() => {
+                          setSelectedDoctor(null);
+                          setActiveFilter(null);
+                        }}
+                        className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 rounded-md transition-colors"
+                      >
+                        All Doctors
+                      </button>
+                      {doctors.map((doc) => (
+                        <button
+                          key={doc._id}
+                          onClick={() => {
+                            setSelectedDoctor(doc._id);
+                            setActiveFilter(null);
+                          }}
+                          className={`w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 rounded-md transition-colors ${
+                            selectedDoctor === doc._id ? "bg-emerald-50 text-emerald-700" : ""
+                          }`}
+                        >
+                          {doc.name || (doc.firstName && doc.lastName ? `${doc.firstName} ${doc.lastName}` : "Doctor")}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <button
                 onClick={() => toggleFilter("salesStaff")}
                 className={`px-3 py-1.5 border rounded-lg text-sm transition-all ${
@@ -312,7 +463,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               >
                 Sales Staff
               </button>
-              
+
               <button
                 onClick={() => toggleFilter("paymentStatus")}
                 className={`px-3 py-1.5 border rounded-lg text-sm transition-all ${
@@ -323,6 +474,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               >
                 Payment Status
               </button>
+
               <button
                 onClick={() => toggleFilter("packageStatus")}
                 className={`px-3 py-1.5 border rounded-lg text-sm transition-all ${
@@ -333,6 +485,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               >
                 Package Status
               </button>
+
               <button
                 onClick={() => toggleFilter("expiryStatus")}
                 className={`px-3 py-1.5 border rounded-lg text-sm transition-all ${
@@ -343,19 +496,25 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               >
                 Expiry Status
               </button>
-            
-              {/* <button
-                onClick={() => setActiveFilter(null)}
-                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
-              >
-                Clear
-              </button> */}
+
+              {(selectedDepartment || selectedDoctor) && (
+                <button
+                  onClick={() => {
+                    setSelectedDepartment(null);
+                    setSelectedDoctor(null);
+                    setActiveFilter(null);
+                  }}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  Clear Filters
+                </button>
+              )}
             </div>
           </div>
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mt-6">
           {kpiCards.map((card, index) => (
             <div key={index} className="bg-white rounded-xl shadow-sm p-4 border border-gray-200">
               <div className="flex items-start justify-between">
