@@ -50,6 +50,49 @@ import { getTokenByPath, handleUpload } from "@/lib/helper";
 import useAllocatedItems from "@/hooks/useAllocatedItems";
 import AddStockTransferRequestModal from "@/pages/clinic/stocks/stock-transfer/stock-transfer-requests/_components/AddStockTransferRequestModal";
 
+const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
+
+// Helper function to get user role from token
+const getUserRole = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const isClinicPath = window.location.pathname.startsWith('/clinic/');
+    let tokenKeys;
+    if (isClinicPath) {
+      tokenKeys = ['clinicToken', 'doctorToken', 'agentToken', 'staffToken', 'userToken', 'adminToken'];
+    } else {
+      tokenKeys = ['agentToken', 'doctorToken', 'clinicToken', 'staffToken', 'userToken', 'adminToken'];
+    }
+    
+    for (const key of tokenKeys) {
+      const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const role = payload.role || null;
+          
+          if (role && ['agent', 'doctorStaff', 'doctor', 'clinic', 'staff', 'admin'].includes(role)) {
+            return role;
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error getting user role:', error);
+  }
+  return null;
+};
+
+const maskMobileNumber = (mobile: string) => {
+  if (!mobile || mobile.length < 4) return mobile;
+  const firstTwo = mobile.slice(0, 2);
+  const lastTwo = mobile.slice(-2);
+  const middleLength = mobile.length - 4;
+  return `${firstTwo}${'*'.repeat(middleLength)}${lastTwo}`;
+};
+
 interface AppointmentLite {
   _id: string;
   patientName: string;
@@ -209,6 +252,13 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [error, setError] = useState<string>("");
   const [currency, setCurrency] = useState('INR');
   const [isSpecificClinic, setIsSpecificClinic] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  // Set user role on mount
+  useEffect(() => {
+    const role = getUserRole();
+    setUserRole(role);
+  }, []);
   const [details, setDetails] = useState<AppointmentDetails | null>(null);
   const [report, setReport] = useState<SingleReport | null>(null);
   const [_patientReports, setPatientReports] = useState<
@@ -2528,7 +2578,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         </span>
                         <span className="flex items-center gap-1">
                           <Phone className="w-3 h-3 text-gray-400" />
-                          <span>{details.mobileNumber || ""}</span>
+                          <span>{userRole === "doctorStaff" ? (details.mobileNumber ? maskMobileNumber(details.mobileNumber) : "") : (details.mobileNumber || "")}</span>
                         </span>
                       </div>
                     </div>
