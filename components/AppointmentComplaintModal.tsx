@@ -50,8 +50,6 @@ import { getTokenByPath, handleUpload } from "@/lib/helper";
 import useAllocatedItems from "@/hooks/useAllocatedItems";
 import AddStockTransferRequestModal from "@/pages/clinic/stocks/stock-transfer/stock-transfer-requests/_components/AddStockTransferRequestModal";
 
-const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
-
 // Helper function to get user role from token
 const getUserRole = () => {
   if (typeof window === 'undefined') return null;
