@@ -225,15 +225,15 @@ export const getIncomingGmailBody = (payload) => {
   const extractBodyFromParts = (parts) => {
     if (!parts) return "";
 
-    // First, look for text/plain or text/html in the immediate parts
+    // First, look for text/html or text/plain in the immediate parts
     for (const part of parts) {
-      if (part.mimeType === "text/plain" && part.body?.data) {
+      if (part.mimeType === "text/html" && part.body?.data) {
         return Buffer.from(part.body.data, "base64").toString("utf-8");
       }
     }
 
     for (const part of parts) {
-      if (part.mimeType === "text/html" && part.body?.data) {
+      if (part.mimeType === "text/plain" && part.body?.data) {
         return Buffer.from(part.body.data, "base64").toString("utf-8");
       }
     }

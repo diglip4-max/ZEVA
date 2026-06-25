@@ -50,6 +50,29 @@ function isMembershipExpired(m) {
   return new Date() > expiry;
 }
 
+function getPackageStatus(pkg) {
+  if (!pkg || !pkg.endDate) return 'Active';
+  const endDate = new Date(pkg.endDate);
+  const today = new Date();
+  // Set today to start of day for accurate comparison
+  today.setHours(0, 0, 0, 0);
+  endDate.setHours(0, 0, 0, 0);
+  
+  if (today > endDate) {
+    return 'Expired';
+  }
+  
+  // Check if expiring within 7 days
+  const sevenDaysFromToday = new Date(today);
+  sevenDaysFromToday.setDate(today.getDate() + 7);
+  
+  if (endDate <= sevenDaysFromToday) {
+    return 'Expiring Soon';
+  }
+  
+  return 'Active';
+}
+
 function ServicesSetupPage() {
   // Permission states
   const [permissions, setPermissions] = useState({
@@ -2954,7 +2977,18 @@ function ServicesSetupPage() {
                           <div className="w-10 h-10 rounded-lg bg-teal-600 flex items-center justify-center flex-shrink-0">
                             <Package className="w-5 h-5 text-white" />
                           </div>
-                          <h3 className="text-sm font-bold text-teal-800 truncate flex-1">{pkg.name}</h3>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-bold text-teal-800 truncate">{pkg.name}</h3>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium mt-1 ${
+                              getPackageStatus(pkg) === 'Expired' 
+                                ? 'bg-red-100 text-red-800' 
+                                : getPackageStatus(pkg) === 'Expiring Soon' 
+                                ? 'bg-amber-100 text-amber-800' 
+                                : 'bg-teal-100 text-teal-800'
+                            }`}>
+                              {getPackageStatus(pkg)}
+                            </span>
+                          </div>
                         </div>
                         <div className="flex gap-1 ml-2 flex-shrink-0">
                           {permissions.canUpdate && (

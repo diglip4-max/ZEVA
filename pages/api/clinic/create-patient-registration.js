@@ -869,6 +869,45 @@ export default async function handler(req, res) {
       });
     }
 
+    // Build multiplePayments array: include user-provided payments plus advance, claim, pending, cashback usage
+    const finalMultiPayArr = [
+      ...multiPayArr.map((mp) => ({
+        paymentMethod: mp.paymentMethod,
+        amount: parseFloat(mp.amount) || 0,
+        paidAt: new Date(),
+        paidBy: clinicUser._id,
+        transactionType: "PAYMENT"
+      })),
+      ...(advanceUsedNum > 0 ? [{
+        paymentMethod: "Advance Balance",
+        amount: advanceUsedNum,
+        paidAt: new Date(),
+        paidBy: clinicUser._id,
+        transactionType: "ADVANCE_USAGE"
+      }] : []),
+      ...(claimAmountUsedNum > 0 ? [{
+        paymentMethod: "Insurance Claim",
+        amount: claimAmountUsedNum,
+        paidAt: new Date(),
+        paidBy: clinicUser._id,
+        transactionType: "CLAIM_USAGE"
+      }] : []),
+      ...(pendingUsedNum > 0 ? [{
+        paymentMethod: paymentMethod || "Cash",
+        amount: pendingUsedNum,
+        paidAt: new Date(),
+        paidBy: clinicUser._id,
+        transactionType: "PENDING_CLEARANCE"
+      }] : []),
+      ...(cashbackWalletUsed > 0 ? [{
+        paymentMethod: "Cashback Wallet",
+        amount: cashbackWalletUsed,
+        paidAt: new Date(),
+        paidBy: clinicUser._id,
+        transactionType: "CASHBACK_USAGE"
+      }] : [])
+    ];
+
     // Create billing record
     const billingData = {
       clinicId: clinic._id,
@@ -911,19 +950,13 @@ export default async function handler(req, res) {
       pending: pendingToStore,
       advance: advanceToStore,
       pastAdvance: finalPastAdvance,
-      multiplePayments: multiPayArr.map((mp) => ({
-        paymentMethod: mp.paymentMethod,
-        amount: parseFloat(mp.amount) || 0,
-      })),
+      multiplePayments: finalMultiPayArr,
       paymentHistory: [
         {
           amount: amountNum,
           paid: paidNum,
           pending: finalPending,
-          multiplePayments: multiPayArr.map((mp) => ({
-            paymentMethod: mp.paymentMethod,
-            amount: parseFloat(mp.amount) || 0,
-          })),
+          multiplePayments: finalMultiPayArr,
           status: "Active",
           updatedAt: new Date(),
         },

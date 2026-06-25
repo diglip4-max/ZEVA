@@ -11,7 +11,7 @@ const paymentHistorySchema = new mongoose.Schema({
   paying: { type: Number, default: 0, min: 0 },
   paymentMethod: {
     type: String,
-    enum: ["Cash", "Card", "BT", "Tabby", "Tamara"],
+    enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Advance Balance", "Insurance Claim", "Pending Claim", "Cashback Wallet", "Package Full Paid"],
     required: true,
   },
   status: {

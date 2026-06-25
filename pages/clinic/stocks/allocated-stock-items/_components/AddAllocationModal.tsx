@@ -19,11 +19,34 @@ import { getAuthHeaders } from "@/lib/helper";
 import { PurchaseRecord } from "@/types/stocks";
 import useAgents from "@/hooks/useAgents";
 
-type PurchaseRecordType = "Purchase_Order";
+type SourceType = "Purchase_Order" | "Custom_Stock_Item";
 
 type StockLocation = {
   _id: string;
   location: string;
+  status: string;
+};
+
+type CustomStockItem = {
+  _id: string;
+  name: string;
+  code?: string;
+  description?: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  discount: number;
+  discountType: string;
+  discountAmount: number;
+  netPrice: number;
+  vatAmount: number;
+  vatType: string;
+  vatPercentage: number;
+  netPlusVat: number;
+  freeQuantity: number;
+  freeQuantityExpiryDate?: string;
+  level0?: any;
+  packagingStructure?: any;
   status: string;
 };
 
@@ -53,9 +76,12 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
     {},
   );
 
-  const [selectedType, _setSelectedType] =
-    useState<PurchaseRecordType>("Purchase_Order");
+  const [selectedType, setSelectedType] =
+    useState<SourceType>("Purchase_Order");
   const [records, setRecords] = useState<PurchaseRecord[]>([]);
+  const [customStockItems, setCustomStockItems] = useState<CustomStockItem[]>(
+    [],
+  );
   const [fetchRecordsLoading, setFetchRecordsLoading] =
     useState<boolean>(false);
   const [recordSearch, setRecordSearch] = useState("");
@@ -65,6 +91,10 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
   const [selectedRecord, setSelectedRecord] = useState<PurchaseRecord | null>(
     null,
   );
+  const [selectedCustomStockItemId, setSelectedCustomStockItemId] =
+    useState<string>("");
+  const [selectedCustomStockItem, setSelectedCustomStockItem] =
+    useState<CustomStockItem | null>(null);
 
   const [locations, setLocations] = useState<StockLocation[]>([]);
   const [defaultUserId, setDefaultUserId] = useState<string>("");
@@ -99,7 +129,17 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
     });
   }, [records, recordSearch]);
 
-  const fetchRecords = useCallback(
+  const filteredCustomStockItems = useMemo(() => {
+    const term = recordSearch.trim().toLowerCase();
+    if (!term) return customStockItems;
+    return customStockItems.filter((item) => {
+      const name = item.name.toLowerCase();
+      const code = (item.code || "").toLowerCase();
+      return name.includes(term) || code.includes(term);
+    });
+  }, [customStockItems, recordSearch]);
+
+  const fetchPurchaseRecords = useCallback(
     async (page = 1) => {
       if (!isOpen) return;
       try {
@@ -140,6 +180,38 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
     },
     [headers, selectedType, isOpen, recordSearch],
   );
+
+  const fetchCustomStockItems = useCallback(async () => {
+    if (!isOpen) return;
+    try {
+      setFetchRecordsLoading(true);
+      setError(null);
+      const params = new URLSearchParams({
+        limit: "500",
+      });
+      const res = await axios.get(
+        `/api/stocks/custom-stock-items?${params.toString()}`,
+        { headers },
+      );
+      let list: CustomStockItem[] = res.data?.data || [];
+      list = list.filter((item) => item.status === "New");
+      setCustomStockItems(list);
+    } catch (err: unknown) {
+      const message =
+        typeof err === "object" &&
+        err &&
+        "response" in err &&
+        (err as { response?: { data?: { message?: string } } }).response?.data
+          ?.message
+          ? (err as { response?: { data?: { message?: string } } }).response!
+              .data!.message!
+          : "Failed to fetch custom stock items";
+      setError(message);
+      setCustomStockItems([]);
+    } finally {
+      setFetchRecordsLoading(false);
+    }
+  }, [headers, isOpen]);
 
   const fetchRecordDetail = useCallback(
     async (id: string) => {
@@ -190,9 +262,19 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
-    fetchRecords();
+    if (selectedType === "Purchase_Order") {
+      fetchPurchaseRecords();
+    } else {
+      fetchCustomStockItems();
+    }
     fetchLocations();
-  }, [isOpen, selectedType, fetchRecords, fetchLocations]);
+  }, [
+    isOpen,
+    selectedType,
+    fetchPurchaseRecords,
+    fetchCustomStockItems,
+    fetchLocations,
+  ]);
 
   useEffect(() => {
     const handler = (event: MouseEvent) => {
@@ -210,16 +292,38 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
   }, []);
 
   useEffect(() => {
-    if (selectedRecordId) {
+    if (selectedType === "Purchase_Order" && selectedRecordId) {
       fetchRecordDetail(selectedRecordId);
+    } else if (
+      selectedType === "Custom_Stock_Item" &&
+      selectedCustomStockItemId
+    ) {
+      const item = customStockItems.find(
+        (i) => i._id === selectedCustomStockItemId,
+      );
+      if (item) {
+        setSelectedCustomStockItem(item);
+        setDefaultExpiryDate(new Date().toISOString().split("T")[0]);
+        const q: Record<string, number> = {};
+        q[item._id] = item.quantity;
+        setQuantities(q);
+        setSelectedItemIds([item._id]);
+      }
     } else {
       setSelectedRecord(null);
+      setSelectedCustomStockItem(null);
       setSelectedItemIds([]);
       setQuantities({});
       setAllocations({});
       setQuantityErrors({});
     }
-  }, [selectedRecordId, fetchRecordDetail]);
+  }, [
+    selectedRecordId,
+    selectedCustomStockItemId,
+    fetchRecordDetail,
+    customStockItems,
+    selectedType,
+  ]);
 
   const validateItemQuantity = (
     key: string,
@@ -276,7 +380,9 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
     setSelectedItemIds([]);
     setQuantities({});
     setSelectedRecordId("");
+    setSelectedCustomStockItemId("");
     setSelectedRecord(null);
+    setSelectedCustomStockItem(null);
     setRecordSearch("");
     setAllocations({});
     setQuantityErrors({});
@@ -288,11 +394,22 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
     setAllocations((prev) => {
       const next = { ...prev };
       const list = next[key] ? [...next[key]] : [];
-      const it =
-        selectedRecord?.items?.find((i) => (i._id || i.itemId) === key) || null;
-      const d = it?.expiryDate
-        ? new Date(it.expiryDate).toISOString().split("T")[0]
-        : new Date().toISOString().split("T")[0];
+      let d = new Date().toISOString().split("T")[0];
+      if (selectedType === "Purchase_Order") {
+        const it =
+          selectedRecord?.items?.find((i) => (i._id || i.itemId) === key) ||
+          null;
+        if (it?.expiryDate) {
+          d = new Date(it.expiryDate).toISOString().split("T")[0];
+        }
+      } else if (
+        selectedType === "Custom_Stock_Item" &&
+        selectedCustomStockItem?.freeQuantityExpiryDate
+      ) {
+        d = new Date(selectedCustomStockItem.freeQuantityExpiryDate)
+          .toISOString()
+          .split("T")[0];
+      }
       list.push({ userId: "", qty: 0, locationId: "", expiryDate: d });
       next[key] = list;
       return next;
@@ -364,8 +481,12 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedRecord) {
+    if (selectedType === "Purchase_Order" && !selectedRecord) {
       setError("Select a purchase record");
+      return;
+    }
+    if (selectedType === "Custom_Stock_Item" && !selectedCustomStockItem) {
+      setError("Select a custom stock item");
       return;
     }
     if (selectedItemIds.length === 0) {
@@ -379,19 +500,34 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
       return;
     }
 
-    const exceedItem = selectedItemIds.find((id) => {
-      const item = selectedRecord.items?.find(
-        (it) => (it._id || it.itemId) === id,
-      );
-      const selectedQty = quantities[id] || 0;
-      const maxQty = (item?.quantity || 0) + (item?.freeQuantity || 0);
-      return selectedQty > maxQty;
-    });
-    if (exceedItem) {
-      setError(
-        "Selected quantity exceeds available quantity in purchase order",
-      );
-      return;
+    let maxQty = 0;
+    if (selectedType === "Purchase_Order" && selectedRecord) {
+      const exceedItem = selectedItemIds.find((id) => {
+        const item = selectedRecord.items?.find(
+          (it) => (it._id || it.itemId) === id,
+        );
+        const selectedQty = quantities[id] || 0;
+        maxQty = (item?.quantity || 0) + (item?.freeQuantity || 0);
+        return selectedQty > maxQty;
+      });
+      if (exceedItem) {
+        setError(
+          "Selected quantity exceeds available quantity in purchase order",
+        );
+        return;
+      }
+    } else if (
+      selectedType === "Custom_Stock_Item" &&
+      selectedCustomStockItem
+    ) {
+      const selectedQty = quantities[selectedCustomStockItem._id] || 0;
+      maxQty = selectedCustomStockItem.quantity;
+      if (selectedQty > maxQty) {
+        setError(
+          "Selected quantity exceeds available quantity in custom stock item",
+        );
+        return;
+      }
     }
 
     // Validate split fields and auto-allocate remainder
@@ -430,9 +566,22 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
 
       const allocatedStockItems: AllocatedStockItem[] = [];
       for (const id of selectedItemIds) {
-        const item = selectedRecord.items?.find(
-          (it) => (it._id || it.itemId) === id,
-        );
+        let item;
+        if (selectedType === "Purchase_Order" && selectedRecord) {
+          item = selectedRecord.items?.find(
+            (it) => (it._id || it.itemId) === id,
+          );
+        } else if (
+          selectedType === "Custom_Stock_Item" &&
+          selectedCustomStockItem
+        ) {
+          item = {
+            ...selectedCustomStockItem,
+            customStockItemId: selectedCustomStockItem._id,
+          };
+        }
+        if (!item) continue;
+
         const target = quantities[id] || 0;
         const splits = allocations[id] || [];
         let total = 0;
@@ -457,12 +606,27 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
         }
       }
 
-      const payload = {
+      const payload: any = {
+        sourceType: selectedType,
         allocatedStockItems,
-        purchaseRecord: selectedRecord._id,
-        allocatedBy: selectedRecord?.createdBy?._id || "",
-        notes: `Allocated from ${selectedRecord.orderNo}`,
+        allocatedBy:
+          selectedType === "Purchase_Order"
+            ? selectedRecord?.createdBy?._id || ""
+            : defaultUserId,
+        notes:
+          selectedType === "Purchase_Order"
+            ? `Allocated from ${selectedRecord?.orderNo}`
+            : `Allocated custom stock item`,
       };
+
+      if (selectedType === "Purchase_Order" && selectedRecord) {
+        payload.purchaseRecord = selectedRecord._id;
+      } else if (
+        selectedType === "Custom_Stock_Item" &&
+        selectedCustomStockItem
+      ) {
+        payload.customStockItem = selectedCustomStockItem._id;
+      }
 
       const res = await axios.post(
         `/api/stocks/allocated-stock-items/add`,
@@ -470,8 +634,8 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
         { headers },
       );
 
-      // set records to empty array
       setRecords([]);
+      setCustomStockItems([]);
       onSuccess(res.data);
       resetAndClose();
     } catch (err: unknown) {
@@ -504,7 +668,11 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
                 Allocate Stock Items
               </h2>
               <p className="text-gray-300 text-[10px] sm:text-xs mt-0.5">
-                Move items from Purchase Order into Allocated stock
+                Move items from{" "}
+                {selectedType === "Purchase_Order"
+                  ? "Purchase Order"
+                  : "Custom Stock Item"}{" "}
+                into Allocated stock
               </p>
             </div>
           </div>
@@ -522,32 +690,50 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
           onSubmit={handleSubmit}
           className="flex-1 overflow-y-auto p-4 space-y-4"
         >
-          {/* Source Info - Read-only like in EditGRNModal */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="block text-sm font-bold text-gray-900">
-                Source Type
-              </label>
-              <div className="px-3 py-2.5 text-sm text-gray-600 bg-gray-50 border border-gray-300 rounded-lg">
-                Purchase Order
-              </div>
-            </div>
+          {/* Source Type Selector */}
+
+          <div className="space-y-2">
+            <label className="block text-sm font-bold text-gray-900">
+              Source Type <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={selectedType}
+              onChange={(e) => {
+                setSelectedType(e.target.value as SourceType);
+                setSelectedRecordId("");
+                setSelectedCustomStockItemId("");
+                setRecordSearch("");
+              }}
+              className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all"
+            >
+              <option value="Purchase_Order">Purchase Order</option>
+              <option value="Custom_Stock_Item">Custom Stock Item</option>
+            </select>
           </div>
 
-          {/* Purchase Record Dropdown - Similar to GRN modals */}
+          {/* Source Item Dropdown */}
           <div className="space-y-2 relative" ref={recordDropdownRef}>
             <label className="block text-sm font-bold text-gray-900">
-              Purchase Order <span className="text-red-500">*</span>
+              {selectedType === "Purchase_Order"
+                ? "Purchase Order"
+                : "Custom Stock Item"}{" "}
+              <span className="text-red-500">*</span>
             </label>
             <div
               onClick={() => setIsRecordDropdownOpen(!isRecordDropdownOpen)}
               className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all flex items-center justify-between cursor-pointer bg-white hover:border-gray-400"
             >
               <span className="truncate">
-                {selectedRecordId
-                  ? records.find((r) => r._id === selectedRecordId)?.orderNo ||
-                    "Select PO"
-                  : "Select Purchase Order"}
+                {selectedType === "Purchase_Order"
+                  ? selectedRecordId
+                    ? records.find((r) => r._id === selectedRecordId)
+                        ?.orderNo || "Select PO"
+                    : "Select Purchase Order"
+                  : selectedCustomStockItemId
+                    ? customStockItems.find(
+                        (item) => item._id === selectedCustomStockItemId,
+                      )?.name || "Select Custom Stock Item"
+                    : "Select Custom Stock Item"}
               </span>
               <ChevronDown className="w-4 h-4 text-gray-500" />
             </div>
@@ -559,7 +745,11 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
                       type="text"
-                      placeholder="Search by order number or date..."
+                      placeholder={
+                        selectedType === "Purchase_Order"
+                          ? "Search by order number or date..."
+                          : "Search by name or code..."
+                      }
                       value={recordSearch}
                       onChange={(e) => setRecordSearch(e.target.value)}
                       className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
@@ -572,26 +762,50 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
                   <div className="p-4 text-center text-gray-500 text-sm">
                     Loading...
                   </div>
-                ) : filteredRecords.length === 0 ? (
+                ) : (selectedType === "Purchase_Order"
+                    ? filteredRecords
+                    : filteredCustomStockItems
+                  ).length === 0 ? (
                   <div className="p-4 text-center text-gray-500 text-sm">
-                    No purchase orders found
+                    No{" "}
+                    {selectedType === "Purchase_Order"
+                      ? "purchase orders"
+                      : "custom stock items"}{" "}
+                    found
                   </div>
                 ) : (
                   <ul className="py-1">
-                    {filteredRecords.map((record) => (
+                    {(selectedType === "Purchase_Order"
+                      ? filteredRecords
+                      : filteredCustomStockItems
+                    ).map((item) => (
                       <li
-                        key={record._id}
+                        key={item._id}
                         className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
                         onClick={() => {
-                          setSelectedRecordId(record._id);
+                          if (selectedType === "Purchase_Order") {
+                            setSelectedRecordId(item._id);
+                          } else {
+                            setSelectedCustomStockItemId(item._id);
+                          }
                           setIsRecordDropdownOpen(false);
                           setRecordSearch("");
                         }}
                       >
                         <div className="flex justify-between items-center">
-                          <span className="font-medium">{record.orderNo}</span>
+                          <span className="font-medium">
+                            {selectedType === "Purchase_Order"
+                              ? (item as PurchaseRecord).orderNo
+                              : (item as CustomStockItem).name}
+                          </span>
                           <span className="text-xs text-gray-500">
-                            {new Date(record.date).toLocaleDateString()}
+                            {selectedType === "Purchase_Order"
+                              ? new Date(
+                                  (item as PurchaseRecord).date,
+                                ).toLocaleDateString()
+                              : (item as CustomStockItem).quantity +
+                                " " +
+                                ((item as CustomStockItem).level0?.uom || "")}
                           </span>
                         </div>
                       </li>
@@ -602,311 +816,537 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
             )}
           </div>
 
-          {selectedRecord && (
-            <div className="space-y-4">
-              {/* Default Allocation (Used for remaining quantity) */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="space-y-2">
-                  <label className="block text-sm font-bold text-gray-900">
-                    Default User
-                  </label>
-                  <div className="relative">
+          {(() => {
+            const currentSourceItem =
+              selectedType === "Purchase_Order"
+                ? selectedRecord
+                : selectedCustomStockItem;
+            if (!currentSourceItem) return null;
+            return (
+              <div className="space-y-4">
+                {/* Default Allocation (Used for remaining quantity) */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-gray-900">
+                      Default User
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={defaultUserId}
+                        onChange={(e) => setDefaultUserId(e.target.value)}
+                        className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                      >
+                        <option value="">
+                          {selectedType === "Purchase_Order" &&
+                          selectedRecord?.createdBy?.name
+                            ? `Select user (default: ${selectedRecord.createdBy.name})`
+                            : "Select user"}
+                        </option>
+                        {userOptions.map((u: any) => (
+                          <option key={u._id} value={u._id}>
+                            {u.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-gray-900">
+                      Default Location
+                    </label>
                     <select
-                      value={defaultUserId}
-                      onChange={(e) => setDefaultUserId(e.target.value)}
+                      value={defaultLocationId}
+                      onChange={(e) => setDefaultLocationId(e.target.value)}
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
                     >
-                      <option value="">
-                        {selectedRecord?.createdBy?.name
-                          ? `Select user (default: ${selectedRecord.createdBy.name})`
-                          : "Select user"}
-                      </option>
-                      {userOptions.map((u: any) => (
-                        <option key={u._id} value={u._id}>
-                          {u.name}
+                      <option value="">Select location</option>
+                      {locations.map((l) => (
+                        <option key={l._id} value={l._id}>
+                          {l.location}
                         </option>
                       ))}
                     </select>
                   </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-gray-900">
+                      Default Expiry
+                    </label>
+                    <input
+                      type="date"
+                      value={defaultExpiryDate}
+                      onChange={(e) => setDefaultExpiryDate(e.target.value)}
+                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-bold text-gray-900">
-                    Default Location
-                  </label>
-                  <select
-                    value={defaultLocationId}
-                    onChange={(e) => setDefaultLocationId(e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-                  >
-                    <option value="">Select location</option>
-                    {locations.map((l) => (
-                      <option key={l._id} value={l._id}>
-                        {l.location}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-bold text-gray-900">
-                    Default Expiry
-                  </label>
-                  <input
-                    type="date"
-                    value={defaultExpiryDate}
-                    onChange={(e) => setDefaultExpiryDate(e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-                  />
-                </div>
-              </div>
 
-              {/* Summary Card */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-blue-600" />
-                  <span className="text-sm text-blue-700">
-                    Selected {selectedItemIds.length} item
-                    {selectedItemIds.length !== 1 ? "s" : ""}
-                  </span>
+                {/* Summary Card */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-blue-600" />
+                    <span className="text-sm text-blue-700">
+                      Selected{" "}
+                      {selectedType === "Custom_Stock_Item"
+                        ? 1
+                        : selectedItemIds.length}{" "}
+                      item
+                      {(selectedType === "Custom_Stock_Item"
+                        ? 1
+                        : selectedItemIds.length) !== 1
+                        ? "s"
+                        : ""}
+                    </span>
+                  </div>
+                  <div className="text-sm font-bold text-blue-700">
+                    Total Quantity: {computedQuantity}
+                  </div>
                 </div>
-                <div className="text-sm font-bold text-blue-700">
-                  Total Quantity: {computedQuantity}
-                </div>
-              </div>
 
-              {/* Items Table - Similar to GRN modals */}
-              <div className="border border-gray-200 text-gray-500 rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-800">
-                      <tr>
-                        <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                          <input
-                            type="checkbox"
-                            className="rounded border-gray-300"
-                            checked={
-                              selectedItemIds.length ===
-                              (selectedRecord.items || []).length
-                            }
-                            onChange={() => {
-                              const allKeys = (selectedRecord.items || [])
-                                .map((it) => it._id || it.itemId || "")
-                                .filter(Boolean);
-                              if (selectedItemIds.length === allKeys.length) {
-                                setSelectedItemIds([]);
-                              } else {
-                                setSelectedItemIds(allKeys);
-                              }
-                            }}
-                          />
-                        </th>
-                        <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                          Item
-                        </th>
-                        <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                          Available Qty
-                        </th>
-                        <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                          Allocate Qty
-                        </th>
-                        <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                          Allocations
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 bg-white">
-                      {(selectedRecord.items || []).map((it) => {
-                        const key = it._id || it.itemId || "";
-                        if (!key) return null;
-                        const checked = selectedItemIds.includes(key);
-                        const qty = quantities[key] ?? it.quantity ?? 1;
-                        const maxQty =
-                          (it.quantity || 0) + (it?.freeQuantity || 0);
-                        const splits = allocations[key] || [];
-                        const allocatedSum = getTotalAllocatedForItem(key);
-                        const hasError = quantityErrors[key];
-                        const isOverAllocated = allocatedSum > qty;
+                {/* Items Table - Similar to GRN modals */}
+                <div className="border border-gray-200 text-gray-500 rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-800">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                            {selectedType === "Purchase_Order" && (
+                              <input
+                                type="checkbox"
+                                className="rounded border-gray-300"
+                                checked={
+                                  selectedItemIds.length ===
+                                  (selectedRecord?.items || []).length
+                                }
+                                onChange={() => {
+                                  const allKeys = (selectedRecord?.items || [])
+                                    .map((it) => it._id || it.itemId || "")
+                                    .filter(Boolean);
+                                  if (
+                                    selectedItemIds.length === allKeys.length
+                                  ) {
+                                    setSelectedItemIds([]);
+                                  } else {
+                                    setSelectedItemIds(allKeys);
+                                  }
+                                }}
+                              />
+                            )}
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                            Item
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                            Available Qty
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                            Allocate Qty
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                            Allocations
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 bg-white">
+                        {selectedType === "Purchase_Order"
+                          ? (selectedRecord?.items || []).map((it) => {
+                              const key = it._id || it.itemId || "";
+                              if (!key) return null;
+                              const checked = selectedItemIds.includes(key);
+                              const qty = quantities[key] ?? it.quantity ?? 1;
+                              const maxQty =
+                                (it.quantity || 0) + (it?.freeQuantity || 0);
+                              const splits = allocations[key] || [];
+                              const allocatedSum =
+                                getTotalAllocatedForItem(key);
+                              const hasError = quantityErrors[key];
+                              const isOverAllocated = allocatedSum > qty;
 
-                        return (
-                          <React.Fragment key={key}>
-                            <tr className={checked ? "bg-blue-50/30" : ""}>
-                              <td className="px-3 py-2">
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={() => toggleItem(key)}
-                                  className="rounded border-gray-300"
-                                />
-                              </td>
-                              <td className="px-3 py-2">
-                                <div className="font-medium text-sm text-gray-900">
-                                  {it.code}
-                                </div>
-                                <div className="text-xs text-gray-600">
-                                  {it.name}
-                                </div>
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-600">
-                                {it.quantity + (it?.freeQuantity || 0)}
-                              </td>
-                              <td className="px-3 py-2">
-                                <div className="flex flex-col">
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    max={maxQty}
-                                    value={maxQty}
-                                    onChange={(e) =>
-                                      setItemQty(
-                                        key,
-                                        Number(e.target.value),
-                                        maxQty,
-                                      )
-                                    }
-                                    className={`w-24 px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 ${
-                                      hasError
-                                        ? "border-red-500 bg-red-50"
-                                        : "border-gray-300"
-                                    }`}
-                                    disabled={!checked}
-                                  />
-                                  {hasError && (
-                                    <span className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                                      <AlertCircle className="w-3 h-3" />
-                                      {quantityErrors[key]}
-                                    </span>
-                                  )}
-                                  <div className="text-[10px] text-gray-500 mt-1">
-                                    Allocated: {allocatedSum} / {maxQty}, ({qty}
-                                    -Qty and {it.freeQuantity || 0}-FreeQty)
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-3 py-2">
-                                <div className="space-y-3">
-                                  {splits.map((sp, i) => (
-                                    <div
-                                      key={i}
-                                      className="flex flex-wrap items-center gap-2 p-3 border border-gray-200 rounded-lg bg-gray-50"
-                                    >
-                                      <div className="flex-1 min-w-[200px]">
-                                        <select
-                                          value={sp.userId}
-                                          onChange={(e) =>
-                                            setAllocationField(
-                                              key,
-                                              i,
-                                              "userId",
-                                              e.target.value,
-                                            )
-                                          }
-                                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-                                          disabled={!checked}
-                                        >
-                                          <option value="">Select user</option>
-                                          {userOptions.map((u: any) => (
-                                            <option key={u._id} value={u._id}>
-                                              {u.name}
-                                            </option>
-                                          ))}
-                                        </select>
+                              return (
+                                <React.Fragment key={key}>
+                                  <tr
+                                    className={checked ? "bg-blue-50/30" : ""}
+                                  >
+                                    <td className="px-3 py-2">
+                                      <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        onChange={() => toggleItem(key)}
+                                        className="rounded border-gray-300"
+                                      />
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <div className="font-medium text-sm text-gray-900">
+                                        {it.code}
                                       </div>
-                                      <div className="flex-1 min-w-[200px]">
-                                        <select
-                                          value={sp.locationId}
-                                          onChange={(e) =>
-                                            setAllocationField(
-                                              key,
-                                              i,
-                                              "locationId",
-                                              e.target.value,
-                                            )
-                                          }
-                                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-                                          disabled={!checked}
-                                        >
-                                          <option value="">
-                                            Select location
-                                          </option>
-                                          {locations.map((l) => (
-                                            <option key={l._id} value={l._id}>
-                                              {l.location}
-                                            </option>
-                                          ))}
-                                        </select>
+                                      <div className="text-xs text-gray-600">
+                                        {it.name}
                                       </div>
-                                      <div className="min-w-[160px]">
-                                        <input
-                                          type="date"
-                                          value={sp.expiryDate}
-                                          onChange={(e) =>
-                                            setAllocationField(
-                                              key,
-                                              i,
-                                              "expiryDate",
-                                              e.target.value,
-                                            )
-                                          }
-                                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-                                          disabled={!checked}
-                                        />
-                                      </div>
-                                      <div className="w-24">
+                                    </td>
+                                    <td className="px-3 py-2 text-sm text-gray-600">
+                                      {it.quantity + (it?.freeQuantity || 0)}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <div className="flex flex-col">
                                         <input
                                           type="number"
                                           min={0}
-                                          max={qty}
-                                          value={sp.qty}
+                                          max={maxQty}
+                                          value={qty}
                                           onChange={(e) =>
-                                            setAllocationField(
+                                            setItemQty(
                                               key,
-                                              i,
-                                              "qty",
                                               Number(e.target.value),
                                               maxQty,
                                             )
                                           }
-                                          className={`w-full px-2 py-1.5 text-sm border rounded focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 ${
-                                            isOverAllocated
-                                              ? "border-red-500"
+                                          className={`w-24 px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 ${
+                                            hasError
+                                              ? "border-red-500 bg-red-50"
                                               : "border-gray-300"
                                           }`}
-                                          placeholder="Qty"
                                           disabled={!checked}
                                         />
+                                        {hasError && (
+                                          <span className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                                            <AlertCircle className="w-3 h-3" />
+                                            {quantityErrors[key]}
+                                          </span>
+                                        )}
+                                        <div className="text-[10px] text-gray-500 mt-1">
+                                          Allocated: {allocatedSum} / {maxQty},
+                                          ({qty}
+                                          -Qty and {it.freeQuantity || 0}
+                                          -FreeQty)
+                                        </div>
                                       </div>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          removeAllocationRow(key, i)
-                                        }
-                                        className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700 transition-colors disabled:opacity-50"
-                                        disabled={!checked}
-                                      >
-                                        Remove
-                                      </button>
-                                    </div>
-                                  ))}
-                                  <button
-                                    type="button"
-                                    onClick={() => addAllocationRow(key)}
-                                    className="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors disabled:opacity-50 flex items-center gap-1"
-                                    disabled={!checked}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <div className="space-y-3">
+                                        {splits.map((sp, i) => (
+                                          <div
+                                            key={i}
+                                            className="flex flex-wrap items-center gap-2 p-3 border border-gray-200 rounded-lg bg-gray-50"
+                                          >
+                                            <div className="flex-1 min-w-[200px]">
+                                              <select
+                                                value={sp.userId}
+                                                onChange={(e) =>
+                                                  setAllocationField(
+                                                    key,
+                                                    i,
+                                                    "userId",
+                                                    e.target.value,
+                                                  )
+                                                }
+                                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                                                disabled={!checked}
+                                              >
+                                                <option value="">
+                                                  Select user
+                                                </option>
+                                                {userOptions.map((u: any) => (
+                                                  <option
+                                                    key={u._id}
+                                                    value={u._id}
+                                                  >
+                                                    {u.name}
+                                                  </option>
+                                                ))}
+                                              </select>
+                                            </div>
+                                            <div className="flex-1 min-w-[200px]">
+                                              <select
+                                                value={sp.locationId}
+                                                onChange={(e) =>
+                                                  setAllocationField(
+                                                    key,
+                                                    i,
+                                                    "locationId",
+                                                    e.target.value,
+                                                  )
+                                                }
+                                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                                                disabled={!checked}
+                                              >
+                                                <option value="">
+                                                  Select location
+                                                </option>
+                                                {locations.map((l) => (
+                                                  <option
+                                                    key={l._id}
+                                                    value={l._id}
+                                                  >
+                                                    {l.location}
+                                                  </option>
+                                                ))}
+                                              </select>
+                                            </div>
+                                            <div className="min-w-[160px]">
+                                              <input
+                                                type="date"
+                                                value={sp.expiryDate}
+                                                onChange={(e) =>
+                                                  setAllocationField(
+                                                    key,
+                                                    i,
+                                                    "expiryDate",
+                                                    e.target.value,
+                                                  )
+                                                }
+                                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                                                disabled={!checked}
+                                              />
+                                            </div>
+                                            <div className="w-24">
+                                              <input
+                                                type="number"
+                                                min={0}
+                                                max={qty}
+                                                value={sp.qty}
+                                                onChange={(e) =>
+                                                  setAllocationField(
+                                                    key,
+                                                    i,
+                                                    "qty",
+                                                    Number(e.target.value),
+                                                    maxQty,
+                                                  )
+                                                }
+                                                className={`w-full px-2 py-1.5 text-sm border rounded focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 ${
+                                                  isOverAllocated
+                                                    ? "border-red-500"
+                                                    : "border-gray-300"
+                                                }`}
+                                                placeholder="Qty"
+                                                disabled={!checked}
+                                              />
+                                            </div>
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                removeAllocationRow(key, i)
+                                              }
+                                              className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700 transition-colors disabled:opacity-50"
+                                              disabled={!checked}
+                                            >
+                                              Remove
+                                            </button>
+                                          </div>
+                                        ))}
+                                        <button
+                                          type="button"
+                                          onClick={() => addAllocationRow(key)}
+                                          className="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                          disabled={!checked}
+                                        >
+                                          <PlusCircle className="w-3 h-3" />
+                                          Add Split
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                </React.Fragment>
+                              );
+                            })
+                          : (() => {
+                              if (!selectedCustomStockItem) return null;
+                              const key = selectedCustomStockItem._id;
+                              const checked = selectedItemIds.includes(key);
+                              const qty =
+                                quantities[key] ??
+                                selectedCustomStockItem.quantity ??
+                                1;
+                              const maxQty = selectedCustomStockItem.quantity;
+                              const splits = allocations[key] || [];
+                              const allocatedSum =
+                                getTotalAllocatedForItem(key);
+                              const hasError = quantityErrors[key];
+                              const isOverAllocated = allocatedSum > qty;
+
+                              return (
+                                <React.Fragment key={key}>
+                                  <tr
+                                    className={checked ? "bg-blue-50/30" : ""}
                                   >
-                                    <PlusCircle className="w-3 h-3" />
-                                    Add Split
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          </React.Fragment>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                                    <td className="px-3 py-2" />
+                                    <td className="px-3 py-2">
+                                      <div className="font-medium text-sm text-gray-900">
+                                        {selectedCustomStockItem.code}
+                                      </div>
+                                      <div className="text-xs text-gray-600">
+                                        {selectedCustomStockItem.name}
+                                      </div>
+                                    </td>
+                                    <td className="px-3 py-2 text-sm text-gray-600">
+                                      {selectedCustomStockItem.quantity}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <div className="flex flex-col">
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          max={maxQty}
+                                          value={qty}
+                                          onChange={(e) =>
+                                            setItemQty(
+                                              key,
+                                              Number(e.target.value),
+                                              maxQty,
+                                            )
+                                          }
+                                          className={`w-24 px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 ${
+                                            hasError
+                                              ? "border-red-500 bg-red-50"
+                                              : "border-gray-300"
+                                          }`}
+                                          disabled={!checked}
+                                        />
+                                        {hasError && (
+                                          <span className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                                            <AlertCircle className="w-3 h-3" />
+                                            {quantityErrors[key]}
+                                          </span>
+                                        )}
+                                        <div className="text-[10px] text-gray-500 mt-1">
+                                          Allocated: {allocatedSum} / {maxQty}
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <div className="space-y-3">
+                                        {splits.map((sp, i) => (
+                                          <div
+                                            key={i}
+                                            className="flex flex-wrap items-center gap-2 p-3 border border-gray-200 rounded-lg bg-gray-50"
+                                          >
+                                            <div className="flex-1 min-w-[200px]">
+                                              <select
+                                                value={sp.userId}
+                                                onChange={(e) =>
+                                                  setAllocationField(
+                                                    key,
+                                                    i,
+                                                    "userId",
+                                                    e.target.value,
+                                                  )
+                                                }
+                                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                                                disabled={!checked}
+                                              >
+                                                <option value="">
+                                                  Select user
+                                                </option>
+                                                {userOptions.map((u: any) => (
+                                                  <option
+                                                    key={u._id}
+                                                    value={u._id}
+                                                  >
+                                                    {u.name}
+                                                  </option>
+                                                ))}
+                                              </select>
+                                            </div>
+                                            <div className="flex-1 min-w-[200px]">
+                                              <select
+                                                value={sp.locationId}
+                                                onChange={(e) =>
+                                                  setAllocationField(
+                                                    key,
+                                                    i,
+                                                    "locationId",
+                                                    e.target.value,
+                                                  )
+                                                }
+                                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                                                disabled={!checked}
+                                              >
+                                                <option value="">
+                                                  Select location
+                                                </option>
+                                                {locations.map((l) => (
+                                                  <option
+                                                    key={l._id}
+                                                    value={l._id}
+                                                  >
+                                                    {l.location}
+                                                  </option>
+                                                ))}
+                                              </select>
+                                            </div>
+                                            <div className="min-w-[160px]">
+                                              <input
+                                                type="date"
+                                                value={sp.expiryDate}
+                                                onChange={(e) =>
+                                                  setAllocationField(
+                                                    key,
+                                                    i,
+                                                    "expiryDate",
+                                                    e.target.value,
+                                                  )
+                                                }
+                                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                                                disabled={!checked}
+                                              />
+                                            </div>
+                                            <div className="w-24">
+                                              <input
+                                                type="number"
+                                                min={0}
+                                                max={qty}
+                                                value={sp.qty}
+                                                onChange={(e) =>
+                                                  setAllocationField(
+                                                    key,
+                                                    i,
+                                                    "qty",
+                                                    Number(e.target.value),
+                                                    maxQty,
+                                                  )
+                                                }
+                                                className={`w-full px-2 py-1.5 text-sm border rounded focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 ${
+                                                  isOverAllocated
+                                                    ? "border-red-500"
+                                                    : "border-gray-300"
+                                                }`}
+                                                placeholder="Qty"
+                                                disabled={!checked}
+                                              />
+                                            </div>
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                removeAllocationRow(key, i)
+                                              }
+                                              className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700 transition-colors disabled:opacity-50"
+                                              disabled={!checked}
+                                            >
+                                              Remove
+                                            </button>
+                                          </div>
+                                        ))}
+                                        <button
+                                          type="button"
+                                          onClick={() => addAllocationRow(key)}
+                                          className="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                          disabled={!checked}
+                                        >
+                                          <PlusCircle className="w-3 h-3" />
+                                          Add Split
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                </React.Fragment>
+                              );
+                            })()}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-center gap-2">
@@ -931,7 +1371,9 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
             onClick={handleSubmit}
             disabled={
               submitting ||
-              !selectedRecord ||
+              (selectedType === "Purchase_Order" && !selectedRecord) ||
+              (selectedType === "Custom_Stock_Item" &&
+                !selectedCustomStockItem) ||
               selectedItemIds.length === 0 ||
               computedQuantity === 0 ||
               hasQuantityErrors

@@ -26,7 +26,7 @@ const paymentHistorySchema = new mongoose.Schema(
     pending: { type: Number, required: true, min: 0 },
     paymentMethod: {
       type: String,
-      enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Package Full Paid"],
+      enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Advance Balance", "Insurance Claim", "Pending Claim", "Cashback Wallet", "Package Full Paid"],
     },
     multiplePayments: [multiplePaymentSchema],
     status: {
@@ -247,7 +247,7 @@ const billingSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Package Full Paid"],
+      enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Advance Balance", "Insurance Claim", "Pending Claim", "Cashback Wallet", "Package Full Paid", "Advance"],
       required: false,
     },
     // Multiple payment methods for split payments

@@ -131,16 +131,18 @@ export default async function handler(req, res) {
             item.uom,
             item.quantity,
           );
-          // update allocated item quantitiesByUom
-          allocatedItem.quantitiesByUom = updatedQtyByUom;
-          allocatedItem.status = "Partially_Used";
+          // update allocated item quantitiesByUom using findByIdAndUpdate to bypass schema cache issues
+          let status = "Partially_Used";
           const checkFullyUsed = updatedQtyByUom.every(
             (qty) => qty.quantity === 0,
           );
           if (checkFullyUsed) {
-            allocatedItem.status = "Used";
+            status = "Used";
           }
-          await allocatedItem.save();
+          await AllocatedStockItem.findByIdAndUpdate(itemId, {
+            quantitiesByUom: updatedQtyByUom,
+            status: status
+          }, { new: true });
         }
       }
 
