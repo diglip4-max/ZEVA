@@ -101,7 +101,7 @@ export default async function handler(req, res) {
       requestingEmployee: requestingEmployee || null,
       date: new Date(date),
       notes: notes || "",
-      items,
+      items: items.map((i) => (i.itemId ? i : { ...i, itemId: null })),
       createdBy: me._id,
       status: "New",
     });
