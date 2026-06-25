@@ -706,6 +706,7 @@ const formatPmDate = (d: Date) => {
 // Modern Patient Profile Dashboard Component
 const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permissions }: { patientData: any; onClose: () => void; onPatientUpdated?: (updatedData: any) => void; permissions: any }) => {
   const [activeTab, setActiveTab] = useState('overview');
+  const [isSpecificClinic, setIsSpecificClinic] = useState(false);
   const [showBeforeAfterModal, setShowBeforeAfterModal] = useState(false);
   const [currency, setCurrency] = useState('INR');
   const [appointments, setAppointments] = useState([]);
@@ -1284,26 +1285,32 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     fetchAvailable();
   }, []);
 
-  // Fetch clinic currency preference
+  // Fetch clinic currency preference and check if it's the specific clinic
   useEffect(() => {
-    const fetchClinicCurrency = async () => {
+    const fetchClinicData = async () => {
       try {
         const headers = getAuthHeaders();
         if (!headers) return;
         const res = await axios.get('/api/clinics/myallClinic', { headers });
-        if (res.data.success && res.data.clinic?.currency) {
-          setCurrency(res.data.clinic.currency);
+        if (res.data.success && res.data.clinic) {
+          if (res.data.clinic.currency) {
+            setCurrency(res.data.clinic.currency);
+          }
+          // Check if it's the specific clinic by clinicId or ownerId
+          const isSpecific = 
+            res.data.clinic._id === '6a2fb50be9a7bb7a2aaba72c' || 
+            res.data.clinic.owner === '6a2fb50ae9a7bb7a2aaba728';
+          setIsSpecificClinic(isSpecific);
         }
       } catch (e: any) {
         // Silently ignore 403 permission errors and other failures
         // User may not have permission to access clinic_health_center module
         if (e?.response?.status !== 403) {
-          console.error('Error fetching clinic currency:', e);
+          console.error('Error fetching clinic data:', e);
         }
-        // Default currency will be used if fetch fails
       }
     };
-    fetchClinicCurrency();
+    fetchClinicData();
   }, []);
 
   // Sync editFormData when patientData._id changes (initial load)
@@ -2111,6 +2118,13 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     }
   };
 
+  // Switch active tab to overview if current tab is hidden
+  useEffect(() => {
+    if (isSpecificClinic && (activeTab === 'insurance' || activeTab === 'communication')) {
+      setActiveTab('overview');
+    }
+  }, [isSpecificClinic, activeTab]);
+
   if (!patientData) return null;
 
   const tabs = [
@@ -2119,9 +2133,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     { id: 'billing', label: 'Billing' },
     { id: 'appointments', label: 'Appointments' },
     { id: 'packages-memberships', label: 'Packages & Memberships' },
-    { id: 'insurance', label: 'Insurance' },
+    ...(isSpecificClinic ? [] : [{ id: 'insurance', label: 'Insurance' }]),
     { id: 'media', label: 'Media & Documents' },
-    { id: 'communication', label: 'Communication Log' },
+    ...(isSpecificClinic ? [] : [{ id: 'communication', label: 'Communication Log' }]),
     { id: 'advance', label: 'Advance & Pending Balance' }
   ];
 

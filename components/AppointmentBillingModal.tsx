@@ -256,6 +256,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [finalOfferDiscount, setFinalOfferDiscount] = useState(0);
   const [finalReceptionistDiscount, setFinalReceptionistDiscount] = useState(0);
   const [currency, setCurrency] = useState('INR');
+  const [isSpecificClinic, setIsSpecificClinic] = useState(false);
   const [billingHistory, setBillingHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [billingHistoryFetched, setBillingHistoryFetched] = useState(false);
@@ -646,24 +647,31 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
   }, [isOpen, appointment?._id, generateInvoiceNumber]);
 
-  // Fetch clinic currency preference
+  // Fetch clinic currency preference and check if it's the specific clinic
   useEffect(() => {
-    const fetchClinicCurrency = async () => {
+    const fetchClinicData = async () => {
       try {
         const headers = getAuthHeaders();
         if (!headers.Authorization) return;
         const res = await axios.get('/api/clinics/myallClinic', { headers });
-        if (res.data.success && res.data.clinic?.currency) {
-          setCurrency(res.data.clinic.currency);
+        if (res.data.success && res.data.clinic) {
+          if (res.data.clinic.currency) {
+            setCurrency(res.data.clinic.currency);
+          }
+          // Check if it's the specific clinic by clinic ID or owner ID
+          const isSpecific = 
+            res.data.clinic._id === '6a2fb50be9a7bb7a2aaba72c' || 
+            res.data.clinic.owner === '6a2fb50ae9a7bb7a2aaba728';
+          setIsSpecificClinic(isSpecific);
         }
       } catch (e: any) {
         // Silently ignore 403 permission errors
         if (e?.response?.status !== 403) {
-          console.error('Error fetching clinic currency:', e);
+          console.error('Error fetching clinic data:', e);
         }
       }
     };
-    fetchClinicCurrency();
+    fetchClinicData();
   }, []);
 
   // Fetch treatments and packages
@@ -675,8 +683,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       if (!headers.Authorization) return;
 
       try {
-        // Check if complaint exists for this appointment
-        if (appointment?._id) {
+        // Check if complaint exists for this appointment (skip for specific clinic)
+        if (isSpecificClinic) {
+          // If it's the specific clinic, set complaint exists to true to allow billing without complaint
+          setComplaintExists(true);
+        } else if (appointment?._id) {
           try {
             const complaintsRes = await axios.get("/api/clinic/patient-complaints", {
               headers,
@@ -5091,7 +5102,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                 </div>
               )}
 
-              {complaintExists === false && (
+              {!isSpecificClinic && complaintExists === false && (
                 <div className="bg-orange-50 border-l-2 border-orange-500 rounded p-2 flex items-start gap-2 text-orange-700 shadow-sm animate-in slide-in-from-top-2 fade-in" role="alert">
                   <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 animate-pulse" />
                   <div className="flex-1">
@@ -6802,10 +6813,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                     >
                       Cancel
                     </button>
-                    <button type="submit" disabled={loading || complaintExists === false || (selectedPackage !== null && (selectedPackageRemaining ?? 0) <= 0)}
+                    <button type="submit" disabled={loading || (!isSpecificClinic && complaintExists === false) || (selectedPackage !== null && (selectedPackageRemaining ?? 0) <= 0)}
                       className="px-4 py-2.5 sm:py-2 text-xs font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {loading ? "Creating..." : complaintExists === false ? "Create Complaint First" : (selectedPackage !== null && (selectedPackageRemaining ?? 0) <= 0) ? "No Remaining Sessions" : isAlreadyBilled ? "Create Additional Billing" : "Create Billing"}
+                      {loading ? "Creating..." : (!isSpecificClinic && complaintExists === false) ? "Create Complaint First" : (selectedPackage !== null && (selectedPackageRemaining ?? 0) <= 0) ? "No Remaining Sessions" : isAlreadyBilled ? "Create Additional Billing" : "Create Billing"}
                     </button>
                   </div>
                 </div>

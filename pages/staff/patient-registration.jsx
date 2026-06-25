@@ -186,6 +186,7 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
     emrNumber: "",
     invoicedBy: ""
   });
+  const [isSpecificClinic, setIsSpecificClinic] = useState(false);
   
   // Invoice Number Generation
   const generateInvoiceNumber = useCallback(() => {
@@ -287,6 +288,27 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
       }
     };
     fetchLists();
+  }, []);
+
+  // Fetch clinic data to check if it's the specific clinic
+  useEffect(() => {
+    const headers = getAuthHeaders();
+    if (!headers) return;
+    const fetchClinic = async () => {
+      try {
+        const clinicRes = await fetch("/api/clinics/myallClinic", { headers });
+        const clinicData = await clinicRes.json();
+        if (clinicData.success && clinicData.clinic) {
+          const isSpecific = 
+          clinicData.clinic._id === '6a2fb50be9a7bb7a2aaba72c' || 
+          clinicData.clinic.owner === '6a2fb50ae9a7bb7a2aaba728';
+          setIsSpecificClinic(isSpecific);
+        }
+      } catch {
+        // silent fail
+      }
+    };
+    fetchClinic();
   }, []);
 
   // Auto-generate EMR number when modal opens - via API
@@ -419,21 +441,35 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
 
   const validateForm = useCallback(() => {
     const newErrors = {};
-    const { emrNumber, firstName, lastName, email, mobileNumber, gender, patientType } = formData;
+    const { emrNumber, firstName, lastName, email, mobileNumber, gender, patientType, referredBy } = formData;
     
     if (!emrNumber.trim()) newErrors.emrNumber = "Required";
     else if (usedEMRNumbers.has(emrNumber)) newErrors.emrNumber = "Already exists";
 
-    // Only First Name and Mobile Number are mandatory
-    if (!firstName.trim()) newErrors.firstName = "Required";
-    if (!mobileNumber.trim()) newErrors.mobileNumber = "Required";
-    
-    // Optional fields validation if provided
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = "Invalid email";
+    if (isSpecificClinic) {
+      // Make ALL fields mandatory for specific clinic
+      if (!firstName.trim()) newErrors.firstName = "Required";
+      if (!lastName.trim()) newErrors.lastName = "Required";
+      if (!email.trim()) newErrors.email = "Required";
+      if (!mobileNumber.trim()) newErrors.mobileNumber = "Required";
+      if (!gender.trim()) newErrors.gender = "Required";
+      if (!patientType.trim()) newErrors.patientType = "Required";
+      if (!referredBy || referredBy === "No") newErrors.referredBy = "Required";
+      
+      // Validate email format if provided
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = "Invalid email";
+    } else {
+      // Only First Name and Mobile Number are mandatory for other clinics
+      if (!firstName.trim()) newErrors.firstName = "Required";
+      if (!mobileNumber.trim()) newErrors.mobileNumber = "Required";
+      
+      // Optional fields validation if provided
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = "Invalid email";
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [formData, usedEMRNumbers, isCompact]);
+  }, [formData, usedEMRNumbers, isCompact, isSpecificClinic]);
 
   const router = useRouter();
 
@@ -646,16 +682,21 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
                     {/* Last Name */}
                     <div>
                       <label className={`block text-[10px] mb-1 font-medium text-gray-700`}>
-                        Last Name
+                        Last Name {isSpecificClinic && <span className="text-red-500">*</span>}
                       </label>
                       <input
                         type="text"
                         name="lastName"
                         value={formData.lastName}
                         onChange={handleInputChange}
-                        className={`w-full px-2.5 py-1 text-sm border rounded-md focus:ring-1 focus:ring-teal-600 focus:border-teal-600 border-gray-300`}
+                        className={`w-full px-2.5 py-1 text-sm border rounded-md focus:ring-1 focus:ring-teal-600 focus:border-teal-600 ${errors.lastName ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
                         placeholder="Last name"
                       />
+                      {errors.lastName && (
+                        <p className="text-red-500 text-[9px] mt-1 flex items-center gap-0.5">
+                          <AlertCircle className="w-2.5 h-2.5" />{errors.lastName}
+                        </p>
+                      )}
                     </div>
 
                     {/* Mobile Number with Country Selector */}
@@ -704,7 +745,7 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
                     })().map(field => (
                       <div key={field.name} className="w-full sm:flex-1 sm:min-w-[140px]">
                         <label className={`block text-[10px] mb-0.5 font-medium text-gray-700`}>
-                          {field.label}
+                          {field.label} {isSpecificClinic && <span className="text-red-500">*</span>}
                         </label>
                         {field.name === "referredBy" ? (
                           <select
@@ -734,21 +775,33 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
                             {field.options.filter(opt => opt !== "").map(opt => <option key={opt} value={opt}>{opt}</option>)}
                           </select>
                         ) : null}
+                        {errors[field.name] && (
+                          <p className="text-red-500 text-[9px] mt-1 flex items-center gap-0.5">
+                            <AlertCircle className="w-2.5 h-2.5" />{errors[field.name]}
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>
 
                   {/* Email Field */}
                   <div className="mb-3">
-                    <label className={`block text-[10px] mb-1 font-medium text-gray-700`}>Email (Optional)</label>
+                    <label className={`block text-[10px] mb-1 font-medium text-gray-700`}>
+                      Email {isSpecificClinic ? <span className="text-red-500">*</span> : "(Optional)"}
+                    </label>
                     <input
                       type="email"
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="w-full px-2.5 py-2 text-sm border rounded-md focus:ring-1 focus:ring-teal-600 focus:border-teal-600 text-gray-900 border-gray-300"
+                      className={`w-full px-2.5 py-2 text-sm border rounded-md focus:ring-1 focus:ring-teal-600 focus:border-teal-600 text-gray-900 ${errors.email ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
                       placeholder="patient@email.com"
                     />
+                    {errors.email && (
+                      <p className="text-red-500 text-[9px] mt-1 flex items-center gap-0.5">
+                        <AlertCircle className="w-2.5 h-2.5" />{errors.email}
+                      </p>
+                    )}
                   </div>
 
                   {/* EMR Number Display - Auto-generated */}

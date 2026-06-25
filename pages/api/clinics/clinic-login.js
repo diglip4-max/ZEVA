@@ -112,13 +112,17 @@ export default async function handler(req, res) {
       console.error("Failed to push token to AI backend:", err);
     }
 
-    return res.status(200).json({
+    const responseData = {
       message: "Login successful",
       token,
       user: {
+        _id: user._id.toString(),
         name: user.name,
         email: user.email,
         role: user.role,
+      },
+      clinic: {
+        _id: clinic._id.toString(),
       },
       trial: {
         isExpired: isTrialExpired,
@@ -130,7 +134,11 @@ export default async function handler(req, res) {
           : null,
         isLegacyUser: !clinic.registeredAt, // Flag to indicate legacy user
       },
-    });
+    };
+    
+    console.log("clinic-login API returning:", JSON.stringify(responseData, null, 2));
+    
+    return res.status(200).json(responseData);
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ message: "Internal server error" });
