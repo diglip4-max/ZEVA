@@ -230,18 +230,6 @@ export default async function handler(req, res) {
         .json({ success: false, message: "appointmentId is required" });
     }
 
-    if (
-      temperatureCelsius === undefined ||
-      pulseBpm === undefined ||
-      systolicBp === undefined ||
-      diastolicBp === undefined
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Temperature, pulse, and BP readings are required",
-      });
-    }
-
     try {
       const appointment = await Appointment.findOne({
         _id: appointmentId,
@@ -267,10 +255,10 @@ export default async function handler(req, res) {
         appointmentId,
         patientId: patient._id,
         doctorId: appointment.doctorId,
-        temperatureCelsius: Number(temperatureCelsius),
-        pulseBpm: Number(pulseBpm),
-        systolicBp: Number(systolicBp),
-        diastolicBp: Number(diastolicBp),
+        temperatureCelsius: temperatureCelsius !== undefined && temperatureCelsius !== "" ? Number(temperatureCelsius) : undefined,
+        pulseBpm: pulseBpm !== undefined && pulseBpm !== "" ? Number(pulseBpm) : undefined,
+        systolicBp: systolicBp !== undefined && systolicBp !== "" ? Number(systolicBp) : undefined,
+        diastolicBp: diastolicBp !== undefined && diastolicBp !== "" ? Number(diastolicBp) : undefined,
         heightCm: heightCm ? Number(heightCm) : undefined,
         weightKg: weightKg ? Number(weightKg) : undefined,
         waistCm: waistCm ? Number(waistCm) : undefined,

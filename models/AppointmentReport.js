@@ -25,19 +25,15 @@ const AppointmentReportSchema = new mongoose.Schema(
     },
     temperatureCelsius: {
       type: Number,
-      required: true,
     },
     pulseBpm: {
       type: Number,
-      required: true,
     },
     systolicBp: {
       type: Number,
-      required: true,
     },
     diastolicBp: {
       type: Number,
-      required: true,
     },
     heightCm: {
       type: Number,
