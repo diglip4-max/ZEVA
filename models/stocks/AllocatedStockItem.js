@@ -12,7 +12,6 @@ const AllocatedStockItemSchema = new mongoose.Schema(
       itemId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "StockItem",
-        required: true,
         index: true,
       },
       code: {
@@ -223,6 +222,9 @@ const AllocatedStockItemDetailsSchema = new mongoose.Schema(
 if (mongoose.models.AllocatedStockItem) {
   delete mongoose.models.AllocatedStockItem;
 }
+if (mongoose.modelSchemas && mongoose.modelSchemas.AllocatedStockItem) {
+  delete mongoose.modelSchemas.AllocatedStockItem;
+}
 const AllocatedStockItem = mongoose.model(
   "AllocatedStockItem",
   AllocatedStockItemSchema,
@@ -230,6 +232,9 @@ const AllocatedStockItem = mongoose.model(
 
 if (mongoose.models.AllocatedStockItemDetails) {
   delete mongoose.models.AllocatedStockItemDetails;
+}
+if (mongoose.modelSchemas && mongoose.modelSchemas.AllocatedStockItemDetails) {
+  delete mongoose.modelSchemas.AllocatedStockItemDetails;
 }
 const AllocatedStockItemDetails = mongoose.model(
   "AllocatedStockItemDetails",
