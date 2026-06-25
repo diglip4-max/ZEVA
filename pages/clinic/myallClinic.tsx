@@ -64,7 +64,9 @@ const getStoredToken = () => {
 const isTruthy = (val: unknown) =>
   val === true || val === "true" || String(val ?? "").toLowerCase() === "true";
 
-const findHealthCenterModule = (permissionsList: { module?: string; actions?: any }[]) =>
+const findHealthCenterModule = (
+  permissionsList: { module?: string; actions?: any }[],
+) =>
   permissionsList.find((p) => {
     if (!p?.module) return false;
     const mod = String(p.module).toLowerCase();
@@ -91,8 +93,7 @@ const getUserInfo = (): { role: string | null; id: string | null } => {
   try {
     for (const key of TOKEN_PRIORITY) {
       const token =
-        window.localStorage.getItem(key) ||
-        window.sessionStorage.getItem(key);
+        window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
       if (token) {
         try {
           const base64Url = token.split(".")[1];
@@ -100,10 +101,7 @@ const getUserInfo = (): { role: string | null; id: string | null } => {
           const jsonPayload = decodeURIComponent(
             atob(base64)
               .split("")
-              .map(
-                (c) =>
-                  "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2),
-              )
+              .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
               .join(""),
           );
           const decoded = JSON.parse(jsonPayload);
@@ -249,6 +247,17 @@ function ClinicManagementDashboard(): ReactElement {
   const [reviewsData, setReviewsData] = useState<any>(null);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [customAdded, setCustomAdded] = useState(false);
+  // Payment Method State
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
+  const [paymentMethodModalOpen, setPaymentMethodModalOpen] = useState(false);
+  const [editingPaymentMethod, setEditingPaymentMethod] = useState<any>(null);
+  const [paymentMethodForm, setPaymentMethodForm] = useState({
+    name: "",
+    status: "active",
+  });
+  const [paymentMethodFormLoading, setPaymentMethodFormLoading] =
+    useState(false);
   const [activeTab, setActiveTab] = useState<
     | "General Info"
     | "Contact"
@@ -258,6 +267,7 @@ function ClinicManagementDashboard(): ReactElement {
     | "Branches"
     | "Banks"
     | "Scheduler Link"
+    | "Payment Method"
   >("General Info");
   const [contactForm, setContactForm] = useState({
     phone: "",
@@ -520,7 +530,15 @@ function ClinicManagementDashboard(): ReactElement {
   // Clinic-level (sidebar-permissions) + agent/doctorStaff-level (get-module-permissions)
   useEffect(() => {
     let isMounted = true;
-    const userRole = getUserRoleFromToken() as "clinic" | "staff" | "agent" | "doctor" | "user" | "admin" | "doctorStaff" | null;
+    const userRole = getUserRoleFromToken() as
+      | "clinic"
+      | "staff"
+      | "agent"
+      | "doctor"
+      | "user"
+      | "admin"
+      | "doctorStaff"
+      | null;
     console.log("[myallClinic] Permission useEffect, userRole:", userRole);
     const authToken = getStoredToken();
     console.log("[myallClinic] Stored auth token exists:", !!authToken);
@@ -555,7 +573,7 @@ function ClinicManagementDashboard(): ReactElement {
       doctorToken: !!doctorToken,
       agentToken: !!agentToken,
       staffToken: !!staffToken,
-      userToken: !!userToken
+      userToken: !!userToken,
     });
 
     if (userRole === "admin") {
@@ -573,7 +591,9 @@ function ClinicManagementDashboard(): ReactElement {
     }
 
     if (userRole === "clinic" || userRole === "doctor") {
-      console.log("[myallClinic] User is clinic/doctor, fetching clinic permissions");
+      console.log(
+        "[myallClinic] User is clinic/doctor, fetching clinic permissions",
+      );
       const fetchClinicPermissions = async () => {
         try {
           const clinicAuthToken = clinicToken || doctorToken || authToken;
@@ -599,7 +619,9 @@ function ClinicManagementDashboard(): ReactElement {
               !Array.isArray(res.data.permissions) ||
               res.data.permissions.length === 0
             ) {
-              console.log("[myallClinic] No clinic permissions set, granting full access");
+              console.log(
+                "[myallClinic] No clinic permissions set, granting full access",
+              );
               setPermissions({
                 canRead: true,
                 canCreate: true,
@@ -607,15 +629,25 @@ function ClinicManagementDashboard(): ReactElement {
                 canDelete: true,
               });
             } else {
-              const modulePermission = findHealthCenterModule(res.data.permissions);
-              console.log("[myallClinic] Found module permission:", modulePermission);
+              const modulePermission = findHealthCenterModule(
+                res.data.permissions,
+              );
+              console.log(
+                "[myallClinic] Found module permission:",
+                modulePermission,
+              );
               if (modulePermission) {
-                console.log("[myallClinic] Parsing permission actions:", modulePermission.actions);
+                console.log(
+                  "[myallClinic] Parsing permission actions:",
+                  modulePermission.actions,
+                );
                 setPermissions(
                   parsePermissionActions(modulePermission.actions || {}),
                 );
               } else {
-                console.log("[myallClinic] No module permission found, defaulting to read-only");
+                console.log(
+                  "[myallClinic] No module permission found, defaulting to read-only",
+                );
                 setPermissions({
                   canRead: true,
                   canCreate: false,
@@ -625,7 +657,9 @@ function ClinicManagementDashboard(): ReactElement {
               }
             }
           } else {
-            console.log("[myallClinic] Clinic permissions API failed, granting full access");
+            console.log(
+              "[myallClinic] Clinic permissions API failed, granting full access",
+            );
             setPermissions({
               canRead: true,
               canCreate: true,
@@ -634,7 +668,10 @@ function ClinicManagementDashboard(): ReactElement {
             });
           }
         } catch (err) {
-          console.error("[myallClinic] Error fetching clinic sidebar permissions:", err);
+          console.error(
+            "[myallClinic] Error fetching clinic sidebar permissions:",
+            err,
+          );
           if (isMounted) {
             setPermissions({
               canRead: true,
@@ -668,7 +705,7 @@ function ClinicManagementDashboard(): ReactElement {
       };
     }
 
-    const shouldCheckAgentPermissions = 
+    const shouldCheckAgentPermissions =
       agentToken ||
       staffToken ||
       userToken ||
@@ -676,10 +713,15 @@ function ClinicManagementDashboard(): ReactElement {
       userRole === "doctorStaff" ||
       userRole === "staff";
 
-    console.log("[myallClinic] Should check agent permissions?", shouldCheckAgentPermissions);
+    console.log(
+      "[myallClinic] Should check agent permissions?",
+      shouldCheckAgentPermissions,
+    );
 
     if (shouldCheckAgentPermissions) {
-      console.log("[myallClinic] Calling /api/agent/get-module-permissions for module: clinic_health_center");
+      console.log(
+        "[myallClinic] Calling /api/agent/get-module-permissions for module: clinic_health_center",
+      );
       const fetchAgentPermissions = async () => {
         try {
           let permissionToken = agentStaffToken;
@@ -688,7 +730,10 @@ function ClinicManagementDashboard(): ReactElement {
           } else if (userRole === "doctorStaff" || userRole === "staff") {
             permissionToken = userToken || staffToken || agentStaffToken;
           }
-          console.log("[myallClinic] Using permission token:", !!permissionToken);
+          console.log(
+            "[myallClinic] Using permission token:",
+            !!permissionToken,
+          );
           const res = await axios.get("/api/agent/get-module-permissions", {
             params: { moduleKey: "clinic_health_center" },
             headers: { Authorization: `Bearer ${permissionToken}` },
@@ -699,7 +744,9 @@ function ClinicManagementDashboard(): ReactElement {
             !res.data?.permissions &&
             res.data?.error?.includes("not found in agent permissions")
           ) {
-            console.log("[myallClinic] Module not found in agent permissions, granting full access");
+            console.log(
+              "[myallClinic] Module not found in agent permissions, granting full access",
+            );
             setPermissions({
               canRead: true,
               canCreate: true,
@@ -709,12 +756,17 @@ function ClinicManagementDashboard(): ReactElement {
             return;
           }
           if (res.data?.success && res.data?.permissions) {
-            console.log("[myallClinic] Parsing agent permission actions:", res.data.permissions.actions);
+            console.log(
+              "[myallClinic] Parsing agent permission actions:",
+              res.data.permissions.actions,
+            );
             setPermissions(
               parsePermissionActions(res.data.permissions.actions || {}),
             );
           } else {
-            console.log("[myallClinic] Agent permissions failed, denying access");
+            console.log(
+              "[myallClinic] Agent permissions failed, denying access",
+            );
             setPermissions({
               canRead: false,
               canCreate: false,
@@ -723,7 +775,10 @@ function ClinicManagementDashboard(): ReactElement {
             });
           }
         } catch (err) {
-          console.error("[myallClinic] Error fetching agent health center permissions:", err);
+          console.error(
+            "[myallClinic] Error fetching agent health center permissions:",
+            err,
+          );
           if (isMounted) {
             setPermissions({
               canRead: false,
@@ -756,17 +811,30 @@ function ClinicManagementDashboard(): ReactElement {
   // Auto-switch to an available tab when permissions are loaded
   useEffect(() => {
     if (!permissionsLoaded) return;
-    
+
     // If user can't read the current tab, switch to an available one
-    const readRestrictedTabs = ["General Info", "Contact", "Listing", "Clinic Timing", "Banks", "Scheduler Link"];
-    
+    const readRestrictedTabs = [
+      "General Info",
+      "Contact",
+      "Listing",
+      "Clinic Timing",
+      "Banks",
+      "Scheduler Link",
+      "Payment Method",
+    ];
+
     if (!permissions.canRead && readRestrictedTabs.includes(activeTab)) {
       // Switch to Documents or Branches if available
       if (permissions.canCreate) {
         setActiveTab("Documents");
       }
     }
-  }, [permissionsLoaded, permissions.canRead, permissions.canCreate, activeTab]);
+  }, [
+    permissionsLoaded,
+    permissions.canRead,
+    permissions.canCreate,
+    activeTab,
+  ]);
 
   // Fetch clinics
   useEffect(() => {
@@ -1200,10 +1268,12 @@ function ClinicManagementDashboard(): ReactElement {
         if (error.response?.status !== 403) {
           console.error("Error fetching dashboard stats:", error);
         }
-        
+
         // Handle 403 permission errors gracefully
         if (error.response?.status === 403) {
-          console.warn("Dashboard stats access denied - user lacks clinic_dashboard:read permission");
+          console.warn(
+            "Dashboard stats access denied - user lacks clinic_dashboard:read permission",
+          );
         }
         // Set empty stats to prevent UI errors
         setDashboardStats({
@@ -1267,6 +1337,167 @@ function ClinicManagementDashboard(): ReactElement {
 
     fetchReviews();
   }, [clinics]);
+
+  // Payment Methods API Functions
+  const fetchPaymentMethods = async () => {
+    try {
+      const authHeaders = getAuthHeaders();
+      if (!authHeaders) {
+        toast.error("You are not authenticated");
+        return;
+      }
+
+      setPaymentMethodsLoading(true);
+      const response = await axios.get("/api/payment-method", {
+        headers: authHeaders,
+      });
+
+      if (response.data.success) {
+        setPaymentMethods(response.data.data.paymentMethods);
+      } else {
+        toast.error(response.data.message || "Failed to fetch payment methods");
+      }
+    } catch (error: any) {
+      console.error("Error fetching payment methods:", error);
+      toast.error("Failed to fetch payment methods");
+    } finally {
+      setPaymentMethodsLoading(false);
+    }
+  };
+
+  // Fetch payment methods when Payment Method tab is active
+  useEffect(() => {
+    if (activeTab === "Payment Method" && permissions.canRead) {
+      fetchPaymentMethods();
+    }
+  }, [activeTab, permissions.canRead]);
+
+  const handleAddPaymentMethod = async () => {
+    try {
+      const authHeaders = getAuthHeaders();
+      if (!authHeaders) {
+        toast.error("You are not authenticated");
+        return;
+      }
+
+      setPaymentMethodFormLoading(true);
+      const response = await axios.post(
+        "/api/payment-method",
+        paymentMethodForm,
+        { headers: authHeaders },
+      );
+
+      if (response.data.success) {
+        toast.success(response.data.message);
+        setPaymentMethodModalOpen(false);
+        setPaymentMethodForm({ name: "", status: "active" });
+        fetchPaymentMethods();
+      } else {
+        toast.error(response.data.message || "Failed to add payment method");
+      }
+    } catch (error: any) {
+      console.error("Error adding payment method:", error);
+      toast.error(
+        error.response?.data?.message || "Failed to add payment method",
+      );
+    } finally {
+      setPaymentMethodFormLoading(false);
+    }
+  };
+
+  const handleUpdatePaymentMethod = async () => {
+    if (!editingPaymentMethod) return;
+
+    try {
+      const authHeaders = getAuthHeaders();
+      if (!authHeaders) {
+        toast.error("You are not authenticated");
+        return;
+      }
+
+      setPaymentMethodFormLoading(true);
+      const response = await axios.put(
+        `/api/payment-method/${editingPaymentMethod?._id}`,
+        paymentMethodForm,
+        { headers: authHeaders },
+      );
+
+      if (response.data.success) {
+        toast.success(response.data.message);
+        setPaymentMethodModalOpen(false);
+        setEditingPaymentMethod(null);
+        setPaymentMethodForm({ name: "", status: "active" });
+        fetchPaymentMethods();
+      } else {
+        toast.error(response.data.message || "Failed to update payment method");
+      }
+    } catch (error: any) {
+      console.error("Error updating payment method:", error);
+      toast.error(
+        error.response?.data?.message || "Failed to update payment method",
+      );
+    } finally {
+      setPaymentMethodFormLoading(false);
+    }
+  };
+
+  const handleDeletePaymentMethod = async (paymentMethod: any) => {
+    if (!confirm(`Are you sure you want to delete "${paymentMethod.name}"?`))
+      return;
+
+    try {
+      const authHeaders = getAuthHeaders();
+      if (!authHeaders) {
+        toast.error("You are not authenticated");
+        return;
+      }
+
+      const response = await axios.delete(
+        `/api/payment-method/${paymentMethod._id}`,
+        { headers: authHeaders },
+      );
+
+      if (response.data.success) {
+        toast.success(response.data.message);
+        fetchPaymentMethods();
+      } else {
+        toast.error(response.data.message || "Failed to delete payment method");
+      }
+    } catch (error: any) {
+      console.error("Error deleting payment method:", error);
+      toast.error(
+        error.response?.data?.message || "Failed to delete payment method",
+      );
+    }
+  };
+
+  const handleTogglePaymentMethodStatus = async (paymentMethod: any) => {
+    try {
+      const authHeaders = getAuthHeaders();
+      if (!authHeaders) {
+        toast.error("You are not authenticated");
+        return;
+      }
+
+      const newStatus =
+        paymentMethod.status === "active" ? "inactive" : "active";
+      const response = await axios.put(
+        `/api/payment-method/${paymentMethod._id}`,
+        { status: newStatus },
+        { headers: authHeaders },
+      );
+
+      if (response.data.success) {
+        toast.success("Status updated successfully");
+        fetchPaymentMethods();
+      } else {
+        toast.error(response.data.message || "Failed to update status");
+      }
+    } catch (error: any) {
+      console.error("Error updating payment method status:", error);
+      toast.error("Failed to update status");
+    }
+  };
 
   // Handle input changes
   const handleInputChange = (
@@ -1438,13 +1669,13 @@ function ClinicManagementDashboard(): ReactElement {
         if (out.startsWith("/")) return out;
         return `/uploads/clinic/${out}`;
       };
-      
+
       let existingPhotos = (editForm.photos || [])
         .filter(
           (p: any) => typeof p === "string" && String(p).trim().length > 0,
         )
         .map((p: any) => toRelativeUploadPath(String(p)));
-      
+
       if (logoFile) {
         existingPhotos = existingPhotos.slice(1);
       }
@@ -1455,7 +1686,7 @@ function ClinicManagementDashboard(): ReactElement {
           existingPhotos = [existingPhotos[0], ...existingPhotos.slice(2)];
         }
       }
-      
+
       const existingDocuments = (editForm.documents || [])
         .filter((d: any) => d && typeof d.url === "string" && d.url.length > 0)
         .map((d: any) => ({
@@ -1468,9 +1699,9 @@ function ClinicManagementDashboard(): ReactElement {
       const filesFromEdit = (editForm.photos || []).filter(
         (p: any) => p instanceof File,
       ) as File[];
-      
+
       const mediaFilesToUploadMap = new Map<string, File>();
-      
+
       if (logoFile) {
         const key = `${logoFile.name}-${logoFile.size}-${logoFile.type}`;
         mediaFilesToUploadMap.set(key, logoFile);
@@ -1479,22 +1710,26 @@ function ClinicManagementDashboard(): ReactElement {
         const key = `${coverFile.name}-${coverFile.size}-${coverFile.type}`;
         mediaFilesToUploadMap.set(key, coverFile);
       }
-      
+
       const otherFilesToUploadMap = new Map<string, File>();
-      
+
       [...(selectedFiles || []), ...filesFromEdit].forEach((f) => {
         const key = `${f.name}-${f.size}-${f.type}`;
-        if (!mediaFilesToUploadMap.has(key) && !otherFilesToUploadMap.has(key)) {
+        if (
+          !mediaFilesToUploadMap.has(key) &&
+          !otherFilesToUploadMap.has(key)
+        ) {
           otherFilesToUploadMap.set(key, f);
         }
       });
-      
+
       const mediaFilesToUpload = Array.from(mediaFilesToUploadMap.values());
       const otherFilesToUpload = Array.from(otherFilesToUploadMap.values());
       const documentFilesToUpload = (editForm.documents || [])
         .filter((d: any) => d && d.file instanceof File)
         .map((d: any) => d.file as File);
-      const hasFiles = mediaFilesToUpload.length > 0 || otherFilesToUpload.length > 0;
+      const hasFiles =
+        mediaFilesToUpload.length > 0 || otherFilesToUpload.length > 0;
       const hasDocFiles = documentFilesToUpload.length > 0;
       if (hasFiles || hasDocFiles) {
         const form = new FormData();
@@ -1530,8 +1765,9 @@ function ClinicManagementDashboard(): ReactElement {
           form.append("photos", file);
         });
         // Append new documents with names
-        const newDocuments = (editForm.documents || [])
-          .filter((d: any) => d && d.file instanceof File);
+        const newDocuments = (editForm.documents || []).filter(
+          (d: any) => d && d.file instanceof File,
+        );
         console.log("📄 New documents to upload:", newDocuments);
         newDocuments.forEach((d: any) => {
           form.append("documents", d.file);
@@ -1733,7 +1969,10 @@ function ClinicManagementDashboard(): ReactElement {
                 .filter((p: any) => typeof p === "string" && p.length > 0)
             : [];
         console.log("🔄 Refresh response clinic:", refreshResponse.data.clinic);
-        console.log("📄 Refresh response documents:", refreshResponse.data.clinic.documents);
+        console.log(
+          "📄 Refresh response documents:",
+          refreshResponse.data.clinic.documents,
+        );
         const clinicObj = refreshResponse.data.clinic
           ? {
               ...refreshResponse.data.clinic,
@@ -1959,7 +2198,12 @@ function ClinicManagementDashboard(): ReactElement {
   if (!permissionsLoaded || loading) return <Loader />;
 
   // Only show access denied if user has NO permissions at all
-  if (!permissions.canRead && !permissions.canCreate && !permissions.canUpdate && !permissions.canDelete) {
+  if (
+    !permissions.canRead &&
+    !permissions.canCreate &&
+    !permissions.canUpdate &&
+    !permissions.canDelete
+  ) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
@@ -2060,8 +2304,9 @@ function ClinicManagementDashboard(): ReactElement {
                 "Branches",
                 "Banks",
                 "Scheduler Link",
+                "Payment Method",
               ] as const;
-              
+
               // If user can't read, only show tabs that have create permission
               if (!permissions.canRead) {
                 return allTabs.filter((tab) => {
@@ -2071,7 +2316,7 @@ function ClinicManagementDashboard(): ReactElement {
                   return false;
                 });
               }
-              
+
               // If user can read, show all tabs
               return allTabs;
             })().map((tab) => (
@@ -2251,7 +2496,9 @@ function ClinicManagementDashboard(): ReactElement {
                       <div className="text-sm font-medium text-gray-700 mb-2">
                         Clinic Logo
                       </div>
-                      <label className={`relative block overflow-hidden border-2 border-dashed border-teal-200 rounded-xl p-6 sm:p-5 min-h-[220px] sm:min-h-[240px] text-center transition flex items-center justify-center ${fieldDisabled ? "" : "hover:border-teal-300 hover:bg-teal-50/30"}`}>
+                      <label
+                        className={`relative block overflow-hidden border-2 border-dashed border-teal-200 rounded-xl p-6 sm:p-5 min-h-[220px] sm:min-h-[240px] text-center transition flex items-center justify-center ${fieldDisabled ? "" : "hover:border-teal-300 hover:bg-teal-50/30"}`}
+                      >
                         <input
                           type="file"
                           accept="image/jpeg,image/jpg,image/png"
@@ -2289,7 +2536,9 @@ function ClinicManagementDashboard(): ReactElement {
                       <div className="text-sm font-medium text-gray-700 mb-2">
                         Cover Image
                       </div>
-                      <label className={`relative block overflow-hidden border-2 border-dashed border-teal-200 rounded-xl p-6 sm:p-5 min-h-[220px] sm:min-h-[240px] text-center transition flex items-center justify-center ${fieldDisabled ? "" : "hover:border-teal-300 hover:bg-teal-50/30"}`}>
+                      <label
+                        className={`relative block overflow-hidden border-2 border-dashed border-teal-200 rounded-xl p-6 sm:p-5 min-h-[220px] sm:min-h-[240px] text-center transition flex items-center justify-center ${fieldDisabled ? "" : "hover:border-teal-300 hover:bg-teal-50/30"}`}
+                      >
                         <input
                           type="file"
                           accept="image/jpeg,image/jpg,image/png"
@@ -2424,17 +2673,17 @@ function ClinicManagementDashboard(): ReactElement {
                                       </span>
                                     )}
                                   {permissions.canDelete && (
-                                  <button
-                                    onClick={() =>
-                                      handleRemoveSubTreatment(
-                                        selectedTreatmentIndex as number,
-                                        sIdx,
-                                      )
-                                    }
-                                    className="text-red-500 hover:text-red-700 ml-1"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </button>
+                                    <button
+                                      onClick={() =>
+                                        handleRemoveSubTreatment(
+                                          selectedTreatmentIndex as number,
+                                          sIdx,
+                                        )
+                                      }
+                                      className="text-red-500 hover:text-red-700 ml-1"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
                                   )}
                                 </span>
                               ))}
@@ -2443,217 +2692,222 @@ function ClinicManagementDashboard(): ReactElement {
 
                         {/* Custom Sub-treatment Form */}
                         {permissions.canUpdate && (
-                        <div className="border-t border-gray-200 pt-3 mt-3">
-                          <div className="text-xs font-medium text-teal-700 mb-2">
-                            Add Custom Sub-treatment
-                          </div>
-                          <div className="flex flex-col sm:flex-row gap-2">
-                            <input
-                              type="text"
-                              value={newSubTreatment}
-                              onChange={(e) =>
-                                setNewSubTreatment(e.target.value)
-                              }
-                              className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white text-xs sm:text-sm"
-                              placeholder="Sub-treatment name"
-                              onKeyPress={(e) => {
-                                if (e.key === "Enter") {
-                                  handleAddSubTreatment();
-                                }
-                              }}
-                            />
-                            <div className="flex gap-1.5 sm:gap-2">
+                          <div className="border-t border-gray-200 pt-3 mt-3">
+                            <div className="text-xs font-medium text-teal-700 mb-2">
+                              Add Custom Sub-treatment
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-2">
                               <input
-                                type="number"
-                                value={newSubTreatmentPrice}
+                                type="text"
+                                value={newSubTreatment}
                                 onChange={(e) =>
-                                  setNewSubTreatmentPrice(e.target.value)
+                                  setNewSubTreatment(e.target.value)
                                 }
-                                className="w-20 sm:w-24 px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white text-xs sm:text-sm"
-                                placeholder="Price"
+                                className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white text-xs sm:text-sm"
+                                placeholder="Sub-treatment name"
                                 onKeyPress={(e) => {
                                   if (e.key === "Enter") {
                                     handleAddSubTreatment();
                                   }
                                 }}
                               />
-                              <button
-                                onClick={handleAddSubTreatment}
-                                className={`px-2 sm:px-3 py-1.5 sm:py-2 text-white rounded-lg transition-colors text-xs sm:text-sm flex-shrink-0 flex items-center justify-center gap-1 min-w-[40px] sm:min-w-auto ${
-                                  customAdded
-                                    ? "bg-teal-600"
-                                    : "bg-teal-600 hover:bg-teal-700"
-                                }`}
-                                disabled={
-                                  !newSubTreatment.trim() || customAdded
-                                }
-                              >
-                                {customAdded ? (
-                                  <Check className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
-                                ) : (
-                                  <Plus className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
-                                )}
-                              </button>
+                              <div className="flex gap-1.5 sm:gap-2">
+                                <input
+                                  type="number"
+                                  value={newSubTreatmentPrice}
+                                  onChange={(e) =>
+                                    setNewSubTreatmentPrice(e.target.value)
+                                  }
+                                  className="w-20 sm:w-24 px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white text-xs sm:text-sm"
+                                  placeholder="Price"
+                                  onKeyPress={(e) => {
+                                    if (e.key === "Enter") {
+                                      handleAddSubTreatment();
+                                    }
+                                  }}
+                                />
+                                <button
+                                  onClick={handleAddSubTreatment}
+                                  className={`px-2 sm:px-3 py-1.5 sm:py-2 text-white rounded-lg transition-colors text-xs sm:text-sm flex-shrink-0 flex items-center justify-center gap-1 min-w-[40px] sm:min-w-auto ${
+                                    customAdded
+                                      ? "bg-teal-600"
+                                      : "bg-teal-600 hover:bg-teal-700"
+                                  }`}
+                                  disabled={
+                                    !newSubTreatment.trim() || customAdded
+                                  }
+                                >
+                                  {customAdded ? (
+                                    <Check className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
+                                  ) : (
+                                    <Plus className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
+                                  )}
+                                </button>
+                              </div>
                             </div>
                           </div>
-                        </div>
                         )}
                       </div>
                     )}
                   {/* Add from available treatments */}
                   {permissions.canUpdate && (
-                  <div className="space-y-2 mb-3">
-                    <label className="text-xs font-medium text-teal-700">
-                      Add from list
-                    </label>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <select
-                        value={selectedAvailableTreatmentId}
-                        onChange={(e) => {
-                          const id = e.target.value;
-                          setSelectedAvailableTreatmentId(id);
-                          const t = availableTreatments.find(
-                            (at) => String(at._id) === id,
-                          );
-                          if (t) addTreatmentFromAvailable(t);
-                        }}
-                        className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg bg-white text-sm text-teal-900"
-                      >
-                        <option value="">Select treatment</option>
-                        {availableTreatments.map((t) => (
-                          <option key={t._id} value={t._id}>
-                            {t.name}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        onClick={() => {
-                          const t = availableTreatments.find(
-                            (at) =>
-                              String(at._id) === selectedAvailableTreatmentId,
-                          );
-                          if (t) addTreatmentFromAvailable(t);
-                        }}
-                        className="px-3 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm w-full sm:w-auto"
-                      >
-                        Add
-                      </button>
-                    </div>
-                    {selectedAvailableTreatmentId && (
-                      <div className="mt-2">
-                        <div className="text-xs font-medium text-teal-700 mb-1">
-                          Sub-treatments
-                        </div>
-                        <div className="max-h-56 sm:max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-white pb-1">
-                          {(
-                            availableTreatments.find(
+                    <div className="space-y-2 mb-3">
+                      <label className="text-xs font-medium text-teal-700">
+                        Add from list
+                      </label>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <select
+                          value={selectedAvailableTreatmentId}
+                          onChange={(e) => {
+                            const id = e.target.value;
+                            setSelectedAvailableTreatmentId(id);
+                            const t = availableTreatments.find(
+                              (at) => String(at._id) === id,
+                            );
+                            if (t) addTreatmentFromAvailable(t);
+                          }}
+                          className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg bg-white text-sm text-teal-900"
+                        >
+                          <option value="">Select treatment</option>
+                          {availableTreatments.map((t) => (
+                            <option key={t._id} value={t._id}>
+                              {t.name}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => {
+                            const t = availableTreatments.find(
                               (at) =>
                                 String(at._id) === selectedAvailableTreatmentId,
-                            )?.subcategories || []
-                          ).map((sc, i) => {
-                            const isAdded =
-                              selectedTreatmentIndex !== null &&
-                              editForm.treatments?.[
-                                selectedTreatmentIndex
-                              ]?.subTreatments?.some(
-                                (st: any) => st.name === sc.name,
-                              );
-
-                            // Generate a unique key for this sub-treatment
-                            const subTreatmentKey = `${selectedAvailableTreatmentId}-${sc.name}`;
-
-                            return (
-                              <div
-                                key={i}
-                                className="flex items-center justify-between gap-2 py-1.5"
-                              >
-                                <div className="flex-1 flex items-center gap-2">
-                                  <div className="text-xs text-teal-800 flex-1">
-                                    {sc.name}{" "}
-                                    {typeof sc.price === "number" &&
-                                    sc.price > 0 ? (
-                                      <span className="font-semibold text-teal-900">
-                                        {getCurrencySymbol(clinicCurrency)}
-                                        {sc.price}
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                  <input
-                                    type="number"
-                                    placeholder="Price"
-                                    className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                    defaultValue={
-                                      typeof sc.price === "number" &&
-                                      sc.price > 0
-                                        ? sc.price
-                                        : ""
-                                    }
-                                    disabled={!!isAdded}
-                                    onChange={(e) => {
-                                      const value = e.target.value
-                                        ? parseFloat(e.target.value)
-                                        : 0;
-                                      setCustomSubTreatmentPrices((prev) => ({
-                                        ...prev,
-                                        [subTreatmentKey]: value,
-                                      }));
-                                    }}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter" && !isAdded) {
-                                        e.preventDefault();
-                                        const value = e.currentTarget.value
-                                          ? parseFloat(e.currentTarget.value)
-                                          : 0;
-                                        const subTreatmentWithPrice = {
-                                          ...sc,
-                                          price: value > 0 ? value : undefined,
-                                        };
-                                        addSubTreatmentFromAvailable(
-                                          subTreatmentWithPrice,
-                                          selectedTreatmentIndex,
-                                        );
-                                      }
-                                    }}
-                                  />
-                                </div>
-                                <button
-                                  onClick={() => {
-                                    const customPrice =
-                                      customSubTreatmentPrices[subTreatmentKey];
-                                    const subTreatmentWithPrice = {
-                                      ...sc,
-                                      price:
-                                        customPrice && customPrice > 0
-                                          ? customPrice
-                                          : typeof sc.price === "number" &&
-                                              sc.price > 0
-                                            ? sc.price
-                                            : undefined,
-                                    };
-                                    addSubTreatmentFromAvailable(
-                                      subTreatmentWithPrice,
-                                      selectedTreatmentIndex,
-                                    );
-                                  }}
-                                  disabled={!!isAdded}
-                                  className={`px-2 py-1 text-white text-[11px] rounded transition-colors ${
-                                    isAdded
-                                      ? "bg-teal-600 cursor-default"
-                                      : "bg-gray-900 hover:bg-gray-800"
-                                  }`}
-                                >
-                                  {isAdded ? "Saved" : "Add"}
-                                </button>
-                              </div>
                             );
-                          })}
-                        </div>
-                         <div className="mt-1.5 text-[10px] sm:text-xs text-red-500">
-                          Please click "Save Changes" to save added treatments.
-                        </div>
+                            if (t) addTreatmentFromAvailable(t);
+                          }}
+                          className="px-3 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm w-full sm:w-auto"
+                        >
+                          Add
+                        </button>
                       </div>
-                    )}
-                  </div>
+                      {selectedAvailableTreatmentId && (
+                        <div className="mt-2">
+                          <div className="text-xs font-medium text-teal-700 mb-1">
+                            Sub-treatments
+                          </div>
+                          <div className="max-h-56 sm:max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-white pb-1">
+                            {(
+                              availableTreatments.find(
+                                (at) =>
+                                  String(at._id) ===
+                                  selectedAvailableTreatmentId,
+                              )?.subcategories || []
+                            ).map((sc, i) => {
+                              const isAdded =
+                                selectedTreatmentIndex !== null &&
+                                editForm.treatments?.[
+                                  selectedTreatmentIndex
+                                ]?.subTreatments?.some(
+                                  (st: any) => st.name === sc.name,
+                                );
+
+                              // Generate a unique key for this sub-treatment
+                              const subTreatmentKey = `${selectedAvailableTreatmentId}-${sc.name}`;
+
+                              return (
+                                <div
+                                  key={i}
+                                  className="flex items-center justify-between gap-2 py-1.5"
+                                >
+                                  <div className="flex-1 flex items-center gap-2">
+                                    <div className="text-xs text-teal-800 flex-1">
+                                      {sc.name}{" "}
+                                      {typeof sc.price === "number" &&
+                                      sc.price > 0 ? (
+                                        <span className="font-semibold text-teal-900">
+                                          {getCurrencySymbol(clinicCurrency)}
+                                          {sc.price}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                    <input
+                                      type="number"
+                                      placeholder="Price"
+                                      className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
+                                      defaultValue={
+                                        typeof sc.price === "number" &&
+                                        sc.price > 0
+                                          ? sc.price
+                                          : ""
+                                      }
+                                      disabled={!!isAdded}
+                                      onChange={(e) => {
+                                        const value = e.target.value
+                                          ? parseFloat(e.target.value)
+                                          : 0;
+                                        setCustomSubTreatmentPrices((prev) => ({
+                                          ...prev,
+                                          [subTreatmentKey]: value,
+                                        }));
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter" && !isAdded) {
+                                          e.preventDefault();
+                                          const value = e.currentTarget.value
+                                            ? parseFloat(e.currentTarget.value)
+                                            : 0;
+                                          const subTreatmentWithPrice = {
+                                            ...sc,
+                                            price:
+                                              value > 0 ? value : undefined,
+                                          };
+                                          addSubTreatmentFromAvailable(
+                                            subTreatmentWithPrice,
+                                            selectedTreatmentIndex,
+                                          );
+                                        }
+                                      }}
+                                    />
+                                  </div>
+                                  <button
+                                    onClick={() => {
+                                      const customPrice =
+                                        customSubTreatmentPrices[
+                                          subTreatmentKey
+                                        ];
+                                      const subTreatmentWithPrice = {
+                                        ...sc,
+                                        price:
+                                          customPrice && customPrice > 0
+                                            ? customPrice
+                                            : typeof sc.price === "number" &&
+                                                sc.price > 0
+                                              ? sc.price
+                                              : undefined,
+                                      };
+                                      addSubTreatmentFromAvailable(
+                                        subTreatmentWithPrice,
+                                        selectedTreatmentIndex,
+                                      );
+                                    }}
+                                    disabled={!!isAdded}
+                                    className={`px-2 py-1 text-white text-[11px] rounded transition-colors ${
+                                      isAdded
+                                        ? "bg-teal-600 cursor-default"
+                                        : "bg-gray-900 hover:bg-gray-800"
+                                    }`}
+                                  >
+                                    {isAdded ? "Saved" : "Add"}
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="mt-1.5 text-[10px] sm:text-xs text-red-500">
+                            Please click "Save Changes" to save added
+                            treatments.
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                   {permissions.canUpdate && (
                     <div className="flex gap-1.5 sm:gap-2 mb-3">
@@ -2676,88 +2930,82 @@ function ClinicManagementDashboard(): ReactElement {
                     </div>
                   )}
                   <div className="space-y-3">
-                      {editForm.treatments?.map(
-                        (treatment: any, index: number) => (
-                          <div
-                            key={index}
-                            className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
-                          >
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2 sm:gap-3">
-                              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                                <span className="px-2 sm:px-3 py-1 sm:py-1.5 bg-teal-800 text-white rounded-full text-xs sm:text-sm font-semibold break-words max-w-[200px] sm:max-w-none">
-                                  {treatment.mainTreatment}
-                                </span>
-                                <label className="flex items-center gap-1 text-[10px] sm:text-xs text-teal-700">
-                                  <input
-                                    type="checkbox"
-                                    checked={treatment.enabled !== false}
-                                    disabled={fieldDisabled}
-                                    onChange={(e) =>
-                                      toggleMainTreatment(
-                                        index,
-                                        e.target.checked,
-                                      )
-                                    }
-                                  />
-                                  Show
-                                </label>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {permissions.canDelete && (
+                    {editForm.treatments?.map(
+                      (treatment: any, index: number) => (
+                        <div
+                          key={index}
+                          className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2 sm:gap-3">
+                            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                              <span className="px-2 sm:px-3 py-1 sm:py-1.5 bg-teal-800 text-white rounded-full text-xs sm:text-sm font-semibold break-words max-w-[200px] sm:max-w-none">
+                                {treatment.mainTreatment}
+                              </span>
+                              <label className="flex items-center gap-1 text-[10px] sm:text-xs text-teal-700">
+                                <input
+                                  type="checkbox"
+                                  checked={treatment.enabled !== false}
+                                  disabled={fieldDisabled}
+                                  onChange={(e) =>
+                                    toggleMainTreatment(index, e.target.checked)
+                                  }
+                                />
+                                Show
+                              </label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {permissions.canDelete && (
                                 <button
                                   onClick={() => handleRemoveTreatment(index)}
                                   className="text-red-500 hover:text-red-700 transition-colors p-1.5 sm:p-1"
                                 >
                                   <X className="w-4 h-4 sm:w-4 sm:h-4" />
                                 </button>
-                                )}
-                              </div>
+                              )}
                             </div>
-                            {treatment.subTreatments &&
-                              treatment.subTreatments.length > 0 && (
-                                <div className="flex flex-wrap gap-1 sm:gap-1.5 md:gap-2 mb-3">
-                                  {treatment.subTreatments.map(
-                                    (subTreatment: any, subIndex: number) => (
-                                      <div
-                                        key={subIndex}
-                                        className="inline-flex items-center gap-1 sm:gap-1.5 md:gap-2 px-1.5 sm:px-2 md:px-2.5 py-0.5 sm:py-1 md:py-1 bg-gray-100 text-teal-700 rounded-full text-[10px] sm:text-[11px] md:text-xs border border-gray-200 break-all"
-                                      >
-                                        <span className="font-medium break-words">
-                                          {subTreatment.name}
-                                        </span>
-                                        {typeof subTreatment.price ===
-                                          "number" &&
-                                          subTreatment.price > 0 && (
-                                            <span className="text-teal-800 font-bold whitespace-nowrap">
-                                              {getCurrencySymbol(
-                                                clinicCurrency,
-                                              )}
-                                              {subTreatment.price}
-                                            </span>
-                                          )}
-                                        <label className="flex items-center gap-0.5 sm:gap-1 ml-0.5 sm:ml-1">
-                                          <input
-                                            type="checkbox"
-                                            checked={
-                                              subTreatment.enabled !== false
-                                            }
-                                            onChange={(e) =>
-                                              toggleSubTreatment(
-                                                index,
-                                                subIndex,
-                                                e.target.checked,
-                                              )
-                                            }
-                                            disabled={
-                                              fieldDisabled ||
-                                              treatment.enabled === false
-                                            }
-                                          />
-                                          <span className="hidden sm:inline">
-                                            Show
+                          </div>
+                          {treatment.subTreatments &&
+                            treatment.subTreatments.length > 0 && (
+                              <div className="flex flex-wrap gap-1 sm:gap-1.5 md:gap-2 mb-3">
+                                {treatment.subTreatments.map(
+                                  (subTreatment: any, subIndex: number) => (
+                                    <div
+                                      key={subIndex}
+                                      className="inline-flex items-center gap-1 sm:gap-1.5 md:gap-2 px-1.5 sm:px-2 md:px-2.5 py-0.5 sm:py-1 md:py-1 bg-gray-100 text-teal-700 rounded-full text-[10px] sm:text-[11px] md:text-xs border border-gray-200 break-all"
+                                    >
+                                      <span className="font-medium break-words">
+                                        {subTreatment.name}
+                                      </span>
+                                      {typeof subTreatment.price === "number" &&
+                                        subTreatment.price > 0 && (
+                                          <span className="text-teal-800 font-bold whitespace-nowrap">
+                                            {getCurrencySymbol(clinicCurrency)}
+                                            {subTreatment.price}
                                           </span>
-                                        </label>
-                                        {permissions.canDelete && (
+                                        )}
+                                      <label className="flex items-center gap-0.5 sm:gap-1 ml-0.5 sm:ml-1">
+                                        <input
+                                          type="checkbox"
+                                          checked={
+                                            subTreatment.enabled !== false
+                                          }
+                                          onChange={(e) =>
+                                            toggleSubTreatment(
+                                              index,
+                                              subIndex,
+                                              e.target.checked,
+                                            )
+                                          }
+                                          disabled={
+                                            fieldDisabled ||
+                                            treatment.enabled === false
+                                          }
+                                        />
+                                        <span className="hidden sm:inline">
+                                          Show
+                                        </span>
+                                      </label>
+                                      {permissions.canDelete && (
                                         <button
                                           onClick={() =>
                                             handleRemoveSubTreatment(
@@ -2769,15 +3017,15 @@ function ClinicManagementDashboard(): ReactElement {
                                         >
                                           <X className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                                         </button>
-                                        )}
-                                      </div>
-                                    ),
-                                  )}
-                                </div>
-                              )}
+                                      )}
+                                    </div>
+                                  ),
+                                )}
+                              </div>
+                            )}
 
-                            {/* Add Sub-Treatment Form */}
-                            {permissions.canUpdate && (
+                          {/* Add Sub-Treatment Form */}
+                          {permissions.canUpdate && (
                             <div className="border-t border-gray-200 pt-3 mt-3">
                               <div className="text-xs font-medium text-teal-700 mb-2">
                                 Add Sub-Treatment
@@ -3015,11 +3263,11 @@ function ClinicManagementDashboard(): ReactElement {
                                 </div>
                               </div>
                             </div>
-                            )}
-                          </div>
-                        ),
-                      )}
-                    </div>
+                          )}
+                        </div>
+                      ),
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -3042,7 +3290,9 @@ function ClinicManagementDashboard(): ReactElement {
                         disabled={fieldDisabled}
                         readOnly={fieldDisabled}
                         onChange={(e) => {
-                          const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                          const value = e.target.value
+                            .replace(/[^0-9]/g, "")
+                            .slice(0, 10);
                           setContactForm({
                             ...contactForm,
                             phone: value,
@@ -3061,7 +3311,9 @@ function ClinicManagementDashboard(): ReactElement {
                         disabled={fieldDisabled}
                         readOnly={fieldDisabled}
                         onChange={(e) => {
-                          const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                          const value = e.target.value
+                            .replace(/[^0-9]/g, "")
+                            .slice(0, 10);
                           setContactForm({
                             ...contactForm,
                             whatsapp: value,
@@ -3172,172 +3424,182 @@ function ClinicManagementDashboard(): ReactElement {
                     </p>
                   </div>
                   {permissions.canCreate && (
-                  <label className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all cursor-pointer shadow-sm text-xs sm:text-sm">
-                    <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    <span className="font-medium">Upload New</span>
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept=".pdf,.doc,.docx,.txt,image/jpeg,image/jpg,image/png"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0] || null;
-                        if (f) {
-                          setNewDocFile(f);
-                          setNewDocName(f.name.split(".")[0]);
-                        }
-                      }}
-                    />
-                  </label>
+                    <label className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all cursor-pointer shadow-sm text-xs sm:text-sm">
+                      <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      <span className="font-medium">Upload New</span>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,.doc,.docx,.txt,image/jpeg,image/jpg,image/png"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] || null;
+                          if (f) {
+                            setNewDocFile(f);
+                            setNewDocName(f.name.split(".")[0]);
+                          }
+                        }}
+                      />
+                    </label>
                   )}
                 </div>
 
                 {/* Document Grid - Only show if canRead is true */}
-                {permissions.canRead && editForm.documents && editForm.documents.length > 0 ? (
+                {permissions.canRead &&
+                editForm.documents &&
+                editForm.documents.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
                     {(() => {
-                      console.log("📋 Rendering documents:", editForm.documents);
-                      return (editForm.documents || []).map((doc: any, idx: number) => {
-                      const url = String(doc?.url || "");
-                      const hasUrl = url && url.length > 0;
-                      const isImage = /\.(jpg|jpeg|png)$/i.test(url);
-                      const fileName = doc?.name || `Document ${idx + 1}`;
-                      const fileSize = doc?.file
-                        ? `${(doc.file.size / 1024).toFixed(1)} KB`
-                        : docSizes[idx] || doc.size || "N/A";
-                      const fileType = isImage
-                        ? "Image"
-                        : (
-                            url.split(".").pop() ||
-                            doc.type ||
-                            "PDF"
-                          ).toUpperCase();
-                      const isPending = !hasUrl && doc.file; // New document not yet saved
+                      console.log(
+                        "📋 Rendering documents:",
+                        editForm.documents,
+                      );
+                      return (editForm.documents || []).map(
+                        (doc: any, idx: number) => {
+                          const url = String(doc?.url || "");
+                          const hasUrl = url && url.length > 0;
+                          const isImage = /\.(jpg|jpeg|png)$/i.test(url);
+                          const fileName = doc?.name || `Document ${idx + 1}`;
+                          const fileSize = doc?.file
+                            ? `${(doc.file.size / 1024).toFixed(1)} KB`
+                            : docSizes[idx] || doc.size || "N/A";
+                          const fileType = isImage
+                            ? "Image"
+                            : (
+                                url.split(".").pop() ||
+                                doc.type ||
+                                "PDF"
+                              ).toUpperCase();
+                          const isPending = !hasUrl && doc.file; // New document not yet saved
 
-                      return (
-                        <div
-                          key={idx}
-                          className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-all relative"
-                        >
-                          {/* Status Badge */}
-                          <div className="absolute top-3 right-3">
-                            {isPending ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-orange-100 text-orange-700 rounded-full">
-                                <AlertCircle className="w-3 h-3" />
-                                Pending
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">
-                                <Check className="w-3 h-3" />
-                                Valid
-                              </span>
-                            )}
-                          </div>
+                          return (
+                            <div
+                              key={idx}
+                              className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-all relative"
+                            >
+                              {/* Status Badge */}
+                              <div className="absolute top-3 right-3">
+                                {isPending ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-orange-100 text-orange-700 rounded-full">
+                                    <AlertCircle className="w-3 h-3" />
+                                    Pending
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                                    <Check className="w-3 h-3" />
+                                    Valid
+                                  </span>
+                                )}
+                              </div>
 
-                          {/* Document Icon & Info */}
-                          <div className="flex items-start gap-3 mb-3">
-                            <div className="w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                              {isImage && hasUrl ? (
-                                <img
-                                  src={url}
-                                  alt={fileName}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <FileText className="w-6 h-6 text-teal-600" />
+                              {/* Document Icon & Info */}
+                              <div className="flex items-start gap-3 mb-3">
+                                <div className="w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                  {isImage && hasUrl ? (
+                                    <img
+                                      src={url}
+                                      alt={fileName}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <FileText className="w-6 h-6 text-teal-600" />
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0 pt-0.5">
+                                  <h3 className="text-sm font-semibold text-gray-900 truncate">
+                                    {fileName}
+                                  </h3>
+                                  <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                                    <span>{fileType}</span>
+                                    <span>•</span>
+                                    <span>{fileSize}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Action Buttons */}
+                              <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
+                                {hasUrl ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (isImage) {
+                                          setDocPreview({
+                                            open: true,
+                                            url,
+                                            name: fileName,
+                                            isImage: true,
+                                          });
+                                        } else {
+                                          window.open(
+                                            url,
+                                            "_blank",
+                                            "noopener,noreferrer",
+                                          );
+                                        }
+                                      }}
+                                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-all"
+                                    >
+                                      <Eye className="w-3.5 h-3.5" />
+                                      View
+                                    </button>
+                                    <a
+                                      href={url}
+                                      download
+                                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-all"
+                                    >
+                                      <Download className="w-3.5 h-3.5" />
+                                      Download
+                                    </a>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      type="button"
+                                      disabled
+                                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-400 bg-gray-100 border border-gray-200 rounded-lg cursor-not-allowed opacity-60"
+                                    >
+                                      <Eye className="w-3.5 h-3.5" />
+                                      View
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled
+                                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-400 bg-gray-100 border border-gray-200 rounded-lg cursor-not-allowed opacity-60"
+                                    >
+                                      <Download className="w-3.5 h-3.5" />
+                                      Download
+                                    </button>
+                                  </>
+                                )}
+                                {permissions.canDelete && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleRemoveExistingDocument(idx)
+                                    }
+                                    className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                    title="Delete document"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Save Notice */}
+                              {isPending && (
+                                <div className="mt-3 pt-3 border-t border-gray-100">
+                                  <p className="text-xs text-orange-600 text-center">
+                                    ⚠️ Click "Save Changes" to save this
+                                    document
+                                  </p>
+                                </div>
                               )}
                             </div>
-                            <div className="flex-1 min-w-0 pt-0.5">
-                              <h3 className="text-sm font-semibold text-gray-900 truncate">
-                                {fileName}
-                              </h3>
-                              <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                                <span>{fileType}</span>
-                                <span>•</span>
-                                <span>{fileSize}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
-                            {hasUrl ? (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (isImage) {
-                                      setDocPreview({
-                                        open: true,
-                                        url,
-                                        name: fileName,
-                                        isImage: true,
-                                      });
-                                    } else {
-                                      window.open(
-                                        url,
-                                        "_blank",
-                                        "noopener,noreferrer",
-                                      );
-                                    }
-                                  }}
-                                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-all"
-                                >
-                                  <Eye className="w-3.5 h-3.5" />
-                                  View
-                                </button>
-                                <a
-                                  href={url}
-                                  download
-                                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-all"
-                                >
-                                  <Download className="w-3.5 h-3.5" />
-                                  Download
-                                </a>
-                              </>
-                            ) : (
-                              <>
-                                <button
-                                  type="button"
-                                  disabled
-                                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-400 bg-gray-100 border border-gray-200 rounded-lg cursor-not-allowed opacity-60"
-                                >
-                                  <Eye className="w-3.5 h-3.5" />
-                                  View
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled
-                                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-400 bg-gray-100 border border-gray-200 rounded-lg cursor-not-allowed opacity-60"
-                                >
-                                  <Download className="w-3.5 h-3.5" />
-                                  Download
-                                </button>
-                              </>
-                            )}
-                            {permissions.canDelete && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveExistingDocument(idx)}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                              title="Delete document"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                            )}
-                          </div>
-
-                          {/* Save Notice */}
-                          {isPending && (
-                            <div className="mt-3 pt-3 border-t border-gray-100">
-                              <p className="text-xs text-orange-600 text-center">
-                                ⚠️ Click "Save Changes" to save this document
-                              </p>
-                            </div>
-                          )}
-                        </div>
+                          );
+                        },
                       );
-                    });
-                  })()}
+                    })()}
                   </div>
                 ) : permissions.canRead ? (
                   <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
@@ -3358,129 +3620,130 @@ function ClinicManagementDashboard(): ReactElement {
 
                 {/* Drag & Drop Upload Area */}
                 {permissions.canCreate && (
-                <div
-                  className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-teal-400 hover:bg-teal-50/30 transition-all"
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.currentTarget.classList.add(
-                      "border-teal-500",
-                      "bg-teal-50",
-                    );
-                  }}
-                  onDragLeave={(e) => {
-                    e.currentTarget.classList.remove(
-                      "border-teal-500",
-                      "bg-teal-50",
-                    );
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.currentTarget.classList.remove(
-                      "border-teal-500",
-                      "bg-teal-50",
-                    );
-                    const files = Array.from(e.dataTransfer.files);
-                    if (files.length === 0) return;
-
-                    const file = files[0];
-                    const allowedTypes = [
-                      ".pdf",
-                      ".doc",
-                      ".docx",
-                      ".txt",
-                      ".jpg",
-                      ".jpeg",
-                      ".png",
-                    ];
-                    const fileExt =
-                      "." + file.name.split(".").pop()?.toLowerCase();
-
-                    if (!allowedTypes.includes(fileExt)) {
-                      toast.error(
-                        "Invalid file type. Supported: PDF, DOC, DOCX, TXT, JPG, PNG",
+                  <div
+                    className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-teal-400 hover:bg-teal-50/30 transition-all"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.add(
+                        "border-teal-500",
+                        "bg-teal-50",
                       );
-                      return;
-                    }
+                    }}
+                    onDragLeave={(e) => {
+                      e.currentTarget.classList.remove(
+                        "border-teal-500",
+                        "bg-teal-50",
+                      );
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.remove(
+                        "border-teal-500",
+                        "bg-teal-50",
+                      );
+                      const files = Array.from(e.dataTransfer.files);
+                      if (files.length === 0) return;
 
-                    if (file.size > 5 * 1024 * 1024) {
-                      toast.error("File size exceeds 5MB");
-                      return;
-                    }
+                      const file = files[0];
+                      const allowedTypes = [
+                        ".pdf",
+                        ".doc",
+                        ".docx",
+                        ".txt",
+                        ".jpg",
+                        ".jpeg",
+                        ".png",
+                      ];
+                      const fileExt =
+                        "." + file.name.split(".").pop()?.toLowerCase();
 
-                    setNewDocFile(file);
-                    setNewDocName(file.name.split(".")[0]);
-                  }}
-                >
-                  <div className="max-w-md mx-auto">
-                    <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Upload className="w-8 h-8 text-teal-600" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                      Upload New Document
-                    </h3>
-                    <p className="text-sm text-gray-500 mb-4">
-                      Drag and drop your files here, or click to browse
-                    </p>
-                    <p className="text-xs text-gray-400 mb-4">
-                      Supported formats: PDF, DOC, DOCX, TXT, JPG, PNG (Max 5MB)
-                    </p>
+                      if (!allowedTypes.includes(fileExt)) {
+                        toast.error(
+                          "Invalid file type. Supported: PDF, DOC, DOCX, TXT, JPG, PNG",
+                        );
+                        return;
+                      }
 
-                    {/* Quick Upload Form */}
-                    <div className="flex flex-col sm:flex-row gap-3 max-w-lg mx-auto">
-                      <input
-                        type="text"
-                        placeholder="Document name"
-                        value={newDocName}
-                        onChange={(e) => setNewDocName(e.target.value)}
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
-                      />
-                      <label className="flex-1 relative">
+                      if (file.size > 5 * 1024 * 1024) {
+                        toast.error("File size exceeds 5MB");
+                        return;
+                      }
+
+                      setNewDocFile(file);
+                      setNewDocName(file.name.split(".")[0]);
+                    }}
+                  >
+                    <div className="max-w-md mx-auto">
+                      <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Upload className="w-8 h-8 text-teal-600" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                        Upload New Document
+                      </h3>
+                      <p className="text-sm text-gray-500 mb-4">
+                        Drag and drop your files here, or click to browse
+                      </p>
+                      <p className="text-xs text-gray-400 mb-4">
+                        Supported formats: PDF, DOC, DOCX, TXT, JPG, PNG (Max
+                        5MB)
+                      </p>
+
+                      {/* Quick Upload Form */}
+                      <div className="flex flex-col sm:flex-row gap-3 max-w-lg mx-auto">
                         <input
-                          type="file"
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                          accept=".pdf,.doc,.docx,.txt,image/jpeg,image/jpg,image/png"
-                          onChange={(e) => {
-                            const f = e.target.files?.[0] || null;
-                            setNewDocFile(f);
-                            if (f && !newDocName) {
-                              setNewDocName(f.name.split(".")[0]);
-                            }
-                          }}
+                          type="text"
+                          placeholder="Document name"
+                          value={newDocName}
+                          onChange={(e) => setNewDocName(e.target.value)}
+                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
                         />
-                        <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 text-center hover:bg-gray-50 transition-all flex items-center justify-between">
-                          {newDocFile ? (
-                            <>
-                              <span className="text-teal-700 font-medium truncate">
-                                ✓ {newDocFile.name}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setNewDocFile(null);
-                                }}
-                                className="ml-2 text-gray-500 hover:text-red-500 transition-colors"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </>
-                          ) : (
-                            "Choose File"
-                          )}
-                        </div>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={handleAddDocument}
-                        disabled={!newDocName.trim() || !newDocFile}
-                        className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Add Document
-                      </button>
+                        <label className="flex-1 relative">
+                          <input
+                            type="file"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            accept=".pdf,.doc,.docx,.txt,image/jpeg,image/jpg,image/png"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0] || null;
+                              setNewDocFile(f);
+                              if (f && !newDocName) {
+                                setNewDocName(f.name.split(".")[0]);
+                              }
+                            }}
+                          />
+                          <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 text-center hover:bg-gray-50 transition-all flex items-center justify-between">
+                            {newDocFile ? (
+                              <>
+                                <span className="text-teal-700 font-medium truncate">
+                                  ✓ {newDocFile.name}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setNewDocFile(null);
+                                  }}
+                                  className="ml-2 text-gray-500 hover:text-red-500 transition-colors"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </>
+                            ) : (
+                              "Choose File"
+                            )}
+                          </div>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleAddDocument}
+                          disabled={!newDocName.trim() || !newDocFile}
+                          className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Add Document
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
                 )}
               </div>
             )}
@@ -3611,26 +3874,26 @@ function ClinicManagementDashboard(): ReactElement {
                               </button>
                             )}
                           {permissions.canUpdate && (
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              className="sr-only peer"
-                              disabled={!permissions.canUpdate}
-                              checked={
-                                listingVisibility.showServices as boolean
-                              }
-                              onChange={() => {
-                                setListingVisibility((prev) => ({
-                                  ...prev,
-                                  showServices: !prev.showServices,
-                                }));
-                                toast.success(
-                                  `Services will be ${!listingVisibility.showServices ? "shown" : "hidden"} on marketplace`,
-                                );
-                              }}
-                            />
-                            <div className="w-9 h-5 sm:w-11 sm:h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 sm:after:h-5 sm:after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-                          </label>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                className="sr-only peer"
+                                disabled={!permissions.canUpdate}
+                                checked={
+                                  listingVisibility.showServices as boolean
+                                }
+                                onChange={() => {
+                                  setListingVisibility((prev) => ({
+                                    ...prev,
+                                    showServices: !prev.showServices,
+                                  }));
+                                  toast.success(
+                                    `Services will be ${!listingVisibility.showServices ? "shown" : "hidden"} on marketplace`,
+                                  );
+                                }}
+                              />
+                              <div className="w-9 h-5 sm:w-11 sm:h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 sm:after:h-5 sm:after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                            </label>
                           )}
                         </div>
                       </div>
@@ -3665,46 +3928,47 @@ function ClinicManagementDashboard(): ReactElement {
                                 )}
                                 {/* Master All toggle */}
                                 {permissions.canUpdate && (
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-[11px] text-gray-500 font-medium">
-                                    All
-                                  </span>
-                                  <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      className="sr-only peer"
-                                      disabled={
-                                        listingVisibility.showServices === false
-                                      }
-                                      checked={
-                                        listingVisibility.showServices !==
-                                          false &&
-                                        (editForm.treatments as any[]).every(
-                                          (t: any) => t.enabled !== false,
-                                        )
-                                      }
-                                      onChange={(e) => {
-                                        const allOn = e.target.checked;
-                                        setEditForm((prev: any) => ({
-                                          ...prev,
-                                          treatments: (
-                                            prev.treatments || []
-                                          ).map((t: any) => ({
-                                            ...t,
-                                            enabled: allOn,
-                                            subTreatments: (
-                                              t.subTreatments || []
-                                            ).map((s: any) => ({
-                                              ...s,
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[11px] text-gray-500 font-medium">
+                                      All
+                                    </span>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        className="sr-only peer"
+                                        disabled={
+                                          listingVisibility.showServices ===
+                                          false
+                                        }
+                                        checked={
+                                          listingVisibility.showServices !==
+                                            false &&
+                                          (editForm.treatments as any[]).every(
+                                            (t: any) => t.enabled !== false,
+                                          )
+                                        }
+                                        onChange={(e) => {
+                                          const allOn = e.target.checked;
+                                          setEditForm((prev: any) => ({
+                                            ...prev,
+                                            treatments: (
+                                              prev.treatments || []
+                                            ).map((t: any) => ({
+                                              ...t,
                                               enabled: allOn,
+                                              subTreatments: (
+                                                t.subTreatments || []
+                                              ).map((s: any) => ({
+                                                ...s,
+                                                enabled: allOn,
+                                              })),
                                             })),
-                                          })),
-                                        }));
-                                      }}
-                                    />
-                                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-600"></div>
-                                  </label>
-                                </div>
+                                          }));
+                                        }}
+                                      />
+                                      <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-600"></div>
+                                    </label>
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -3745,40 +4009,40 @@ function ClinicManagementDashboard(): ReactElement {
                                           </div>
                                         </div>
                                         {permissions.canUpdate && (
-                                        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
-                                          <input
-                                            type="checkbox"
-                                            className="sr-only peer"
-                                            disabled={
-                                              listingVisibility.showServices ===
-                                              false
-                                            }
-                                            checked={treatmentOn}
-                                            onChange={(e) => {
-                                              const isOn = e.target.checked;
-                                              setEditForm((prev: any) => {
-                                                const updated = [
-                                                  ...(prev.treatments || []),
-                                                ];
-                                                updated[idx] = {
-                                                  ...updated[idx],
-                                                  enabled: isOn,
-                                                  subTreatments: subs.map(
-                                                    (s: any) => ({
-                                                      ...s,
-                                                      enabled: isOn,
-                                                    }),
-                                                  ),
-                                                };
-                                                return {
-                                                  ...prev,
-                                                  treatments: updated,
-                                                };
-                                              });
-                                            }}
-                                          />
-                                          <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-600"></div>
-                                        </label>
+                                          <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                                            <input
+                                              type="checkbox"
+                                              className="sr-only peer"
+                                              disabled={
+                                                listingVisibility.showServices ===
+                                                false
+                                              }
+                                              checked={treatmentOn}
+                                              onChange={(e) => {
+                                                const isOn = e.target.checked;
+                                                setEditForm((prev: any) => {
+                                                  const updated = [
+                                                    ...(prev.treatments || []),
+                                                  ];
+                                                  updated[idx] = {
+                                                    ...updated[idx],
+                                                    enabled: isOn,
+                                                    subTreatments: subs.map(
+                                                      (s: any) => ({
+                                                        ...s,
+                                                        enabled: isOn,
+                                                      }),
+                                                    ),
+                                                  };
+                                                  return {
+                                                    ...prev,
+                                                    treatments: updated,
+                                                  };
+                                                });
+                                              }}
+                                            />
+                                            <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-600"></div>
+                                          </label>
                                         )}
                                       </div>
 
@@ -3791,45 +4055,49 @@ function ClinicManagementDashboard(): ReactElement {
                                               Sub-treatments
                                             </span>
                                             {permissions.canUpdate && (
-                                            <div className="flex items-center gap-1.5">
-                                              <span className="text-[10px] text-gray-400">
-                                                All
-                                              </span>
-                                              <label className="relative inline-flex items-center cursor-pointer">
-                                                <input
-                                                  type="checkbox"
-                                                  className="sr-only peer"
-                                                  checked={subs.every(
-                                                    (s: any) =>
-                                                      s.enabled !== false,
-                                                  )}
-                                                  onChange={(e) => {
-                                                    const allSubOn =
-                                                      e.target.checked;
-                                                    setEditForm((prev: any) => {
-                                                      const updated = [
-                                                        ...(prev.treatments ||
-                                                          []),
-                                                      ];
-                                                      updated[idx] = {
-                                                        ...updated[idx],
-                                                        subTreatments: subs.map(
-                                                          (s: any) => ({
-                                                            ...s,
-                                                            enabled: allSubOn,
-                                                          }),
-                                                        ),
-                                                      };
-                                                      return {
-                                                        ...prev,
-                                                        treatments: updated,
-                                                      };
-                                                    });
-                                                  }}
-                                                />
-                                                <div className="w-7 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-teal-500"></div>
-                                              </label>
-                                            </div>
+                                              <div className="flex items-center gap-1.5">
+                                                <span className="text-[10px] text-gray-400">
+                                                  All
+                                                </span>
+                                                <label className="relative inline-flex items-center cursor-pointer">
+                                                  <input
+                                                    type="checkbox"
+                                                    className="sr-only peer"
+                                                    checked={subs.every(
+                                                      (s: any) =>
+                                                        s.enabled !== false,
+                                                    )}
+                                                    onChange={(e) => {
+                                                      const allSubOn =
+                                                        e.target.checked;
+                                                      setEditForm(
+                                                        (prev: any) => {
+                                                          const updated = [
+                                                            ...(prev.treatments ||
+                                                              []),
+                                                          ];
+                                                          updated[idx] = {
+                                                            ...updated[idx],
+                                                            subTreatments:
+                                                              subs.map(
+                                                                (s: any) => ({
+                                                                  ...s,
+                                                                  enabled:
+                                                                    allSubOn,
+                                                                }),
+                                                              ),
+                                                          };
+                                                          return {
+                                                            ...prev,
+                                                            treatments: updated,
+                                                          };
+                                                        },
+                                                      );
+                                                    }}
+                                                  />
+                                                  <div className="w-7 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-teal-500"></div>
+                                                </label>
+                                              </div>
                                             )}
                                           </div>
                                           {/* Sub rows */}
@@ -3864,47 +4132,50 @@ function ClinicManagementDashboard(): ReactElement {
                                                       )}
                                                     </div>
                                                     {permissions.canUpdate && (
-                                                    <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-2">
-                                                      <input
-                                                        type="checkbox"
-                                                        className="sr-only peer"
-                                                        checked={subOn}
-                                                        onChange={(e) => {
-                                                          const isSubOn =
-                                                            e.target.checked;
-                                                          setEditForm(
-                                                            (prev: any) => {
-                                                              const updated = [
-                                                                ...(prev.treatments ||
-                                                                  []),
-                                                              ];
-                                                              const updatedSubs =
-                                                                [...subs];
-                                                              updatedSubs[
-                                                                subIdx
-                                                              ] = {
-                                                                ...updatedSubs[
+                                                      <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-2">
+                                                        <input
+                                                          type="checkbox"
+                                                          className="sr-only peer"
+                                                          checked={subOn}
+                                                          onChange={(e) => {
+                                                            const isSubOn =
+                                                              e.target.checked;
+                                                            setEditForm(
+                                                              (prev: any) => {
+                                                                const updated =
+                                                                  [
+                                                                    ...(prev.treatments ||
+                                                                      []),
+                                                                  ];
+                                                                const updatedSubs =
+                                                                  [...subs];
+                                                                updatedSubs[
                                                                   subIdx
-                                                                ],
-                                                                enabled:
-                                                                  isSubOn,
-                                                              };
-                                                              updated[idx] = {
-                                                                ...updated[idx],
-                                                                subTreatments:
-                                                                  updatedSubs,
-                                                              };
-                                                              return {
-                                                                ...prev,
-                                                                treatments:
-                                                                  updated,
-                                                              };
-                                                            },
-                                                          );
-                                                        }}
-                                                      />
-                                                      <div className="w-7 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-teal-500"></div>
-                                                    </label>
+                                                                ] = {
+                                                                  ...updatedSubs[
+                                                                    subIdx
+                                                                  ],
+                                                                  enabled:
+                                                                    isSubOn,
+                                                                };
+                                                                updated[idx] = {
+                                                                  ...updated[
+                                                                    idx
+                                                                  ],
+                                                                  subTreatments:
+                                                                    updatedSubs,
+                                                                };
+                                                                return {
+                                                                  ...prev,
+                                                                  treatments:
+                                                                    updated,
+                                                                };
+                                                              },
+                                                            );
+                                                          }}
+                                                        />
+                                                        <div className="w-7 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-teal-500"></div>
+                                                      </label>
                                                     )}
                                                   </div>
                                                 );
@@ -3959,24 +4230,24 @@ function ClinicManagementDashboard(): ReactElement {
                         </div>
                       </div>
                       {permissions.canUpdate && (
-                      <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          disabled={!permissions.canUpdate}
-                          checked={listingVisibility.showPrices as boolean}
-                          onChange={() => {
-                            setListingVisibility((prev) => ({
-                              ...prev,
-                              showPrices: !prev.showPrices,
-                            }));
-                            toast.success(
-                              `Prices will be ${!listingVisibility.showPrices ? "shown" : "hidden"}`,
-                            );
-                          }}
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-                      </label>
+                        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            disabled={!permissions.canUpdate}
+                            checked={listingVisibility.showPrices as boolean}
+                            onChange={() => {
+                              setListingVisibility((prev) => ({
+                                ...prev,
+                                showPrices: !prev.showPrices,
+                              }));
+                              toast.success(
+                                `Prices will be ${!listingVisibility.showPrices ? "shown" : "hidden"}`,
+                              );
+                            }}
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                        </label>
                       )}
                     </div>
 
@@ -4017,23 +4288,23 @@ function ClinicManagementDashboard(): ReactElement {
                         </div>
                       </div>
                       {permissions.canUpdate && (
-                      <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={listingVisibility.showStaff as boolean}
-                          onChange={() => {
-                            setListingVisibility((prev) => ({
-                              ...prev,
-                              showStaff: !prev.showStaff,
-                            }));
-                            toast.success(
-                              `Staff profiles will be ${!listingVisibility.showStaff ? "shown" : "hidden"}`,
-                            );
-                          }}
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-                      </label>
+                        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={listingVisibility.showStaff as boolean}
+                            onChange={() => {
+                              setListingVisibility((prev) => ({
+                                ...prev,
+                                showStaff: !prev.showStaff,
+                              }));
+                              toast.success(
+                                `Staff profiles will be ${!listingVisibility.showStaff ? "shown" : "hidden"}`,
+                              );
+                            }}
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                        </label>
                       )}
                     </div>
 
@@ -4074,23 +4345,23 @@ function ClinicManagementDashboard(): ReactElement {
                         </div>
                       </div>
                       {permissions.canUpdate && (
-                      <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={listingVisibility.showReviews as boolean}
-                          onChange={() => {
-                            setListingVisibility((prev) => ({
-                              ...prev,
-                              showReviews: !prev.showReviews,
-                            }));
-                            toast.success(
-                              `Reviews will be ${!listingVisibility.showReviews ? "shown" : "hidden"}`,
-                            );
-                          }}
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-                      </label>
+                        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={listingVisibility.showReviews as boolean}
+                            onChange={() => {
+                              setListingVisibility((prev) => ({
+                                ...prev,
+                                showReviews: !prev.showReviews,
+                              }));
+                              toast.success(
+                                `Reviews will be ${!listingVisibility.showReviews ? "shown" : "hidden"}`,
+                              );
+                            }}
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                        </label>
                       )}
                     </div>
 
@@ -4131,25 +4402,25 @@ function ClinicManagementDashboard(): ReactElement {
                         </div>
                       </div>
                       {permissions.canUpdate && (
-                      <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={
-                            listingVisibility.enableOnlineBooking as boolean
-                          }
-                          onChange={() => {
-                            setListingVisibility((prev) => ({
-                              ...prev,
-                              enableOnlineBooking: !prev.enableOnlineBooking,
-                            }));
-                            toast.success(
-                              `Online booking ${!listingVisibility.enableOnlineBooking ? "enabled" : "disabled"}`,
-                            );
-                          }}
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-                      </label>
+                        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={
+                              listingVisibility.enableOnlineBooking as boolean
+                            }
+                            onChange={() => {
+                              setListingVisibility((prev) => ({
+                                ...prev,
+                                enableOnlineBooking: !prev.enableOnlineBooking,
+                              }));
+                              toast.success(
+                                `Online booking ${!listingVisibility.enableOnlineBooking ? "enabled" : "disabled"}`,
+                              );
+                            }}
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                        </label>
                       )}
                     </div>
 
@@ -4190,20 +4461,22 @@ function ClinicManagementDashboard(): ReactElement {
                         </div>
                       </div>
                       {permissions.canUpdate && (
-                      <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={listingVisibility.featuredListing as boolean}
-                          onChange={() => {
-                            setListingVisibility((prev) => ({
-                              ...prev,
-                              featuredListing: !prev.featuredListing,
-                            }));
-                          }}
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-                      </label>
+                        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={
+                              listingVisibility.featuredListing as boolean
+                            }
+                            onChange={() => {
+                              setListingVisibility((prev) => ({
+                                ...prev,
+                                featuredListing: !prev.featuredListing,
+                              }));
+                            }}
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                        </label>
                       )}
                     </div>
                   </div>
@@ -4228,227 +4501,6 @@ function ClinicManagementDashboard(): ReactElement {
                     </p>
                   </div>
                   {permissions.canCreate && (
-                  <button
-                    onClick={() =>
-                      setBranchModal({
-                        open: true,
-                        mode: "add",
-                        name: "",
-                        address: "",
-                        phone: "",
-                        email: "",
-                      })
-                    }
-                    className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-xs sm:text-sm font-medium shadow-sm flex items-center gap-1.5 sm:gap-2 whitespace-nowrap"
-                  >
-                    <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    <span>Add New Branch</span>
-                  </button>
-                  )}
-                </div>
-
-                {/* Branch Cards - Only show if canRead is true */}
-                {permissions.canRead && (
-                <div className="space-y-4 mb-6">
-                  {/* Main Branch - Primary (from form) */}
-                  <div className="bg-white border-2 border-teal-200 rounded-xl p-5 shadow-sm relative">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <h3 className="text-lg font-bold text-gray-900">
-                          {editForm.name || "Main Clinic"}
-                        </h3>
-                        <span className="px-3 py-1 bg-teal-100 text-teal-800 text-xs font-semibold rounded-full">
-                          Primary
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {permissions.canUpdate && (
-                        <button
-                          onClick={() =>
-                            setBranchModal({
-                              open: true,
-                              mode: "edit",
-                              targetId: "primary",
-                              name: String(editForm.name || ""),
-                              address: String(editForm.address || ""),
-                              phone: contactForm.phone || "",
-                              email: contactForm.email || "",
-                            })
-                          }
-                          className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        )}
-                        {permissions.canDelete && (
-                        <button
-                          disabled
-                          className="p-2 text-red-400 bg-gray-100 rounded-lg cursor-not-allowed"
-                          title="Cannot delete primary branch"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                        )}
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="flex items-start gap-2">
-                          <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-xs font-medium text-gray-500">
-                              Address
-                            </p>
-                            <p className="text-sm text-gray-900">
-                              {editForm.address || "Not set"}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <svg
-                            className="w-5 h-5 text-gray-400 mt-0.5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                            />
-                          </svg>
-                          <div>
-                            <p className="text-xs font-medium text-gray-500">
-                              Phone
-                            </p>
-                            <p className="text-sm text-gray-900">
-                              {contactForm.phone || "Not set"}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <svg
-                            className="w-5 h-5 text-gray-400 mt-0.5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                            />
-                          </svg>
-                          <div>
-                            <p className="text-xs font-medium text-gray-500">
-                              Email
-                            </p>
-                            <p className="text-sm text-gray-900">
-                              {contactForm.email || "Not set"}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 pt-3 border-t border-gray-100"></div>
-                    </div>
-                  </div>
-                  {/* Other branches */}
-                  {branches
-                    .filter((b) => !b.primary)
-                    .map((b) => (
-                      <div
-                        key={b.id}
-                        className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm relative"
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <h3 className="text-lg font-bold text-gray-900">
-                              {b.name}
-                            </h3>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {permissions.canUpdate && (
-                            <button
-                              onClick={() =>
-                                setBranchModal({
-                                  open: true,
-                                  mode: "edit",
-                                  targetId: b.id,
-                                  name: b.name,
-                                  address: b.address,
-                                  phone: b.phone || "",
-                                  email: b.email || "",
-                                })
-                              }
-                              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
-                            >
-                              <Edit3 className="w-4 h-4" />
-                            </button>
-                            )}
-                            {permissions.canDelete && (
-                            <button
-                              onClick={() =>
-                                setBranches((prev) =>
-                                  prev.filter((x) => x.id !== b.id),
-                                )
-                              }
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                              title="Delete branch"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                            )}
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div className="flex items-start gap-2">
-                            <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
-                            <div>
-                              <p className="text-xs font-medium text-gray-500">
-                                Address
-                              </p>
-                              <p className="text-sm text-gray-900">
-                                {b.address || "Not set"}
-                              </p>
-                            </div>
-                          </div>
-                          <div>
-                            <p className="text-xs font-medium text-gray-500">
-                              Phone
-                            </p>
-                            <p className="text-sm text-gray-900">
-                              {b.phone || "Not set"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs font-medium text-gray-500">
-                              Email
-                            </p>
-                            <p className="text-sm text-gray-900">
-                              {b.email || "Not set"}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-                )}
-
-                {/* Add Another Branch */}
-                {permissions.canCreate && (
-                <div className="border-2 mt-6 sm:mt-9 border-dashed border-gray-300 rounded-xl p-4 sm:p-8 text-center hover:border-teal-400 hover:bg-teal-50/30 transition-all">
-                  <div className="max-w-md mx-auto">
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                      <Plus className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
-                    </div>
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1.5 sm:mb-2">
-                      Add Another Branch
-                    </h3>
-                    <p className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">
-                      Expand your clinic network by adding a new location
-                    </p>
                     <button
                       onClick={() =>
                         setBranchModal({
@@ -4460,12 +4512,233 @@ function ClinicManagementDashboard(): ReactElement {
                           email: "",
                         })
                       }
-                      className="px-4 sm:px-6 py-1.5 sm:py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-xs sm:text-sm font-medium whitespace-nowrap"
+                      className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-xs sm:text-sm font-medium shadow-sm flex items-center gap-1.5 sm:gap-2 whitespace-nowrap"
                     >
-                      Create New Branch
+                      <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      <span>Add New Branch</span>
                     </button>
-                  </div>
+                  )}
                 </div>
+
+                {/* Branch Cards - Only show if canRead is true */}
+                {permissions.canRead && (
+                  <div className="space-y-4 mb-6">
+                    {/* Main Branch - Primary (from form) */}
+                    <div className="bg-white border-2 border-teal-200 rounded-xl p-5 shadow-sm relative">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <h3 className="text-lg font-bold text-gray-900">
+                            {editForm.name || "Main Clinic"}
+                          </h3>
+                          <span className="px-3 py-1 bg-teal-100 text-teal-800 text-xs font-semibold rounded-full">
+                            Primary
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {permissions.canUpdate && (
+                            <button
+                              onClick={() =>
+                                setBranchModal({
+                                  open: true,
+                                  mode: "edit",
+                                  targetId: "primary",
+                                  name: String(editForm.name || ""),
+                                  address: String(editForm.address || ""),
+                                  phone: contactForm.phone || "",
+                                  email: contactForm.email || "",
+                                })
+                              }
+                              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                          )}
+                          {permissions.canDelete && (
+                            <button
+                              disabled
+                              className="p-2 text-red-400 bg-gray-100 rounded-lg cursor-not-allowed"
+                              title="Cannot delete primary branch"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="flex items-start gap-2">
+                            <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
+                            <div>
+                              <p className="text-xs font-medium text-gray-500">
+                                Address
+                              </p>
+                              <p className="text-sm text-gray-900">
+                                {editForm.address || "Not set"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <svg
+                              className="w-5 h-5 text-gray-400 mt-0.5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                              />
+                            </svg>
+                            <div>
+                              <p className="text-xs font-medium text-gray-500">
+                                Phone
+                              </p>
+                              <p className="text-sm text-gray-900">
+                                {contactForm.phone || "Not set"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <svg
+                              className="w-5 h-5 text-gray-400 mt-0.5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                              />
+                            </svg>
+                            <div>
+                              <p className="text-xs font-medium text-gray-500">
+                                Email
+                              </p>
+                              <p className="text-sm text-gray-900">
+                                {contactForm.email || "Not set"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 pt-3 border-t border-gray-100"></div>
+                      </div>
+                    </div>
+                    {/* Other branches */}
+                    {branches
+                      .filter((b) => !b.primary)
+                      .map((b) => (
+                        <div
+                          key={b.id}
+                          className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm relative"
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <h3 className="text-lg font-bold text-gray-900">
+                                {b.name}
+                              </h3>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {permissions.canUpdate && (
+                                <button
+                                  onClick={() =>
+                                    setBranchModal({
+                                      open: true,
+                                      mode: "edit",
+                                      targetId: b.id,
+                                      name: b.name,
+                                      address: b.address,
+                                      phone: b.phone || "",
+                                      email: b.email || "",
+                                    })
+                                  }
+                                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+                              )}
+                              {permissions.canDelete && (
+                                <button
+                                  onClick={() =>
+                                    setBranches((prev) =>
+                                      prev.filter((x) => x.id !== b.id),
+                                    )
+                                  }
+                                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                  title="Delete branch"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="flex items-start gap-2">
+                              <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
+                              <div>
+                                <p className="text-xs font-medium text-gray-500">
+                                  Address
+                                </p>
+                                <p className="text-sm text-gray-900">
+                                  {b.address || "Not set"}
+                                </p>
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium text-gray-500">
+                                Phone
+                              </p>
+                              <p className="text-sm text-gray-900">
+                                {b.phone || "Not set"}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium text-gray-500">
+                                Email
+                              </p>
+                              <p className="text-sm text-gray-900">
+                                {b.email || "Not set"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+
+                {/* Add Another Branch */}
+                {permissions.canCreate && (
+                  <div className="border-2 mt-6 sm:mt-9 border-dashed border-gray-300 rounded-xl p-4 sm:p-8 text-center hover:border-teal-400 hover:bg-teal-50/30 transition-all">
+                    <div className="max-w-md mx-auto">
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                        <Plus className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
+                      </div>
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1.5 sm:mb-2">
+                        Add Another Branch
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">
+                        Expand your clinic network by adding a new location
+                      </p>
+                      <button
+                        onClick={() =>
+                          setBranchModal({
+                            open: true,
+                            mode: "add",
+                            name: "",
+                            address: "",
+                            phone: "",
+                            email: "",
+                          })
+                        }
+                        className="px-4 sm:px-6 py-1.5 sm:py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-xs sm:text-sm font-medium whitespace-nowrap"
+                      >
+                        Create New Branch
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -4787,6 +5060,275 @@ function ClinicManagementDashboard(): ReactElement {
               </div>
             )}
 
+            {/* Payment Method */}
+            {permissions.canRead && activeTab === "Payment Method" && (
+              <div className="w-full space-y-5">
+                {/* Header */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center">
+                      <DollarSign className="w-5 h-5 text-teal-700" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">
+                        Payment Methods
+                      </h2>
+                      <p className="text-sm text-gray-500">
+                        Manage your clinic's payment methods
+                      </p>
+                    </div>
+                  </div>
+                  {permissions.canCreate && (
+                    <button
+                      onClick={() => {
+                        setEditingPaymentMethod(null);
+                        setPaymentMethodForm({ name: "", status: "active" });
+                        setPaymentMethodModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Payment Method
+                    </button>
+                  )}
+                </div>
+
+                {/* Content Card */}
+                <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                  {paymentMethodsLoading ? (
+                    <div className="p-8 flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+                    </div>
+                  ) : paymentMethods.length === 0 ? (
+                    <div className="p-8 text-center">
+                      <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                        <DollarSign className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-1">
+                        No payment methods yet
+                      </h3>
+                      <p className="text-sm text-gray-500 mb-4">
+                        Start by adding your first payment method
+                      </p>
+                      {permissions.canCreate && (
+                        <button
+                          onClick={() => {
+                            setEditingPaymentMethod(null);
+                            setPaymentMethodForm({
+                              name: "",
+                              status: "active",
+                            });
+                            setPaymentMethodModalOpen(true);
+                          }}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Add Payment Method
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-200">
+                      {paymentMethods.map((paymentMethod: any) => (
+                        <div
+                          key={paymentMethod._id}
+                          className="p-4 flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center">
+                              <DollarSign className="w-5 h-5 text-teal-600" />
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-gray-900">
+                                {paymentMethod.name}
+                              </h4>
+                              <p className="text-sm text-gray-500">
+                                Created on{" "}
+                                {new Date(
+                                  paymentMethod.createdAt,
+                                ).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            {/* Status Toggle */}
+                            {permissions.canUpdate && (
+                              <button
+                                onClick={() =>
+                                  handleTogglePaymentMethodStatus(paymentMethod)
+                                }
+                                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 ${
+                                  paymentMethod.status === "active"
+                                    ? "bg-teal-600"
+                                    : "bg-gray-200"
+                                }`}
+                              >
+                                <span
+                                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                    paymentMethod.status === "active"
+                                      ? "translate-x-5"
+                                      : "translate-x-0"
+                                  }`}
+                                />
+                              </button>
+                            )}
+                            {/* Status Label */}
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                paymentMethod.status === "active"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              {paymentMethod.status.charAt(0).toUpperCase() +
+                                paymentMethod.status.slice(1)}
+                            </span>
+                            {/* Actions */}
+                            <div className="flex items-center gap-2">
+                              {permissions.canUpdate &&
+                                paymentMethod.isEditable && (
+                                  <button
+                                    onClick={() => {
+                                      setEditingPaymentMethod(paymentMethod);
+                                      setPaymentMethodForm({
+                                        name: paymentMethod.name,
+                                        status: paymentMethod.status,
+                                      });
+                                      setPaymentMethodModalOpen(true);
+                                    }}
+                                    className="p-2 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
+                                  >
+                                    <Edit3 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              {permissions.canDelete &&
+                                paymentMethod.isDeleteable && (
+                                  <button
+                                    onClick={() =>
+                                      handleDeletePaymentMethod(paymentMethod)
+                                    }
+                                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Add/Edit Modal */}
+                {paymentMethodModalOpen && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
+                      <div className="p-6">
+                        <div className="flex items-center justify-between mb-6">
+                          <h3 className="text-lg font-bold text-gray-900">
+                            {editingPaymentMethod
+                              ? "Edit Payment Method"
+                              : "Add Payment Method"}
+                          </h3>
+                          <button
+                            onClick={() => {
+                              setPaymentMethodModalOpen(false);
+                              setEditingPaymentMethod(null);
+                              setPaymentMethodForm({
+                                name: "",
+                                status: "active",
+                              });
+                            }}
+                            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </div>
+                        <div className="space-y-4">
+                          {/* Name */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Name
+                            </label>
+                            <input
+                              type="text"
+                              value={paymentMethodForm.name}
+                              onChange={(e) =>
+                                setPaymentMethodForm((prev) => ({
+                                  ...prev,
+                                  name: e.target.value,
+                                }))
+                              }
+                              className="w-full px-3 py-2 text-gray-500 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                              placeholder="e.g., Cash, Credit Card"
+                            />
+                          </div>
+                          {/* Status */}
+                          {editingPaymentMethod && (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Status
+                              </label>
+                              <select
+                                value={paymentMethodForm.status}
+                                onChange={(e) =>
+                                  setPaymentMethodForm((prev) => ({
+                                    ...prev,
+                                    status: e.target.value as
+                                      | "active"
+                                      | "inactive",
+                                  }))
+                                }
+                                className="w-full px-3 py-2 text-gray-500 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                              >
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-end gap-3 mt-6">
+                          <button
+                            onClick={() => {
+                              setPaymentMethodModalOpen(false);
+                              setEditingPaymentMethod(null);
+                              setPaymentMethodForm({
+                                name: "",
+                                status: "active",
+                              });
+                            }}
+                            className="px-4 py-2 text-gray-700 hover:text-gray-900 text-sm font-medium"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={
+                              editingPaymentMethod
+                                ? handleUpdatePaymentMethod
+                                : handleAddPaymentMethod
+                            }
+                            disabled={
+                              paymentMethodFormLoading ||
+                              !paymentMethodForm.name.trim()
+                            }
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                          >
+                            {paymentMethodFormLoading ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            ) : (
+                              <Save className="w-4 h-4" />
+                            )}
+                            {editingPaymentMethod ? "Update" : "Add"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Clinic Timing */}
             {activeTab === "Clinic Timing" && (
               <div className="w-full">
@@ -4805,53 +5347,55 @@ function ClinicManagementDashboard(): ReactElement {
                         </p>
                       </div>
                       {permissions.canUpdate && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const baseTime = timing[0];
-                          // Validate Monday timings before applying
-                          if (
-                            baseTime.open &&
-                            (!baseTime.opening || !baseTime.closing)
-                          ) {
-                            toast.error(
-                              "Monday must have opening and closing times",
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const baseTime = timing[0];
+                            // Validate Monday timings before applying
+                            if (
+                              baseTime.open &&
+                              (!baseTime.opening || !baseTime.closing)
+                            ) {
+                              toast.error(
+                                "Monday must have opening and closing times",
+                              );
+                              return;
+                            }
+                            setTiming((prev) =>
+                              prev.map((t, idx) =>
+                                idx === 0
+                                  ? t
+                                  : {
+                                      ...t,
+                                      open: baseTime.open,
+                                      opening: baseTime.opening,
+                                      closing: baseTime.closing,
+                                      breakStart: baseTime.breakStart,
+                                      breakEnd: baseTime.breakEnd,
+                                    },
+                              ),
                             );
-                            return;
-                          }
-                          setTiming((prev) =>
-                            prev.map((t, idx) =>
-                              idx === 0
-                                ? t
-                                : {
-                                    ...t,
-                                    open: baseTime.open,
-                                    opening: baseTime.opening,
-                                    closing: baseTime.closing,
-                                    breakStart: baseTime.breakStart,
-                                    breakEnd: baseTime.breakEnd,
-                                  },
-                            ),
-                          );
-                          toast.success("Monday schedule applied to all days");
-                        }}
-                        className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-sm font-medium shadow-sm flex items-center gap-2 whitespace-nowrap"
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
+                            toast.success(
+                              "Monday schedule applied to all days",
+                            );
+                          }}
+                          className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-sm font-medium shadow-sm flex items-center gap-2 whitespace-nowrap"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                          />
-                        </svg>
-                        Apply Monday to All
-                      </button>
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
+                          </svg>
+                          Apply Monday to All
+                        </button>
                       )}
                     </div>
                   </div>
@@ -5478,13 +6022,26 @@ function ClinicManagementDashboard(): ReactElement {
           <div className="w-full">
             {/* Show permission denied message if no permissions at all (only for agent/doctorStaff, not clinic/doctor) */}
             {(() => {
-              const userRole = getUserRole() as "clinic" | "staff" | "agent" | "doctor" | "user" | "admin" | "doctorStaff" | null;
+              const userRole = getUserRole() as
+                | "clinic"
+                | "staff"
+                | "agent"
+                | "doctor"
+                | "user"
+                | "admin"
+                | "doctorStaff"
+                | null;
               // Clinic and doctor roles always have access - don't show access denied
               if (userRole === "clinic" || userRole === "doctor") {
                 return null;
               }
               // For other roles, check if they have ANY permission
-              if (!permissions.canRead && !permissions.canCreate && !permissions.canUpdate && !permissions.canDelete) {
+              if (
+                !permissions.canRead &&
+                !permissions.canCreate &&
+                !permissions.canUpdate &&
+                !permissions.canDelete
+              ) {
                 return (
                   <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
                     <div className="text-center max-w-md mx-auto">
@@ -5508,7 +6065,15 @@ function ClinicManagementDashboard(): ReactElement {
               return null;
             })()}
             {(() => {
-              const userRole = getUserRole() as "clinic" | "staff" | "agent" | "doctor" | "user" | "admin" | "doctorStaff" | null;
+              const userRole = getUserRole() as
+                | "clinic"
+                | "staff"
+                | "agent"
+                | "doctor"
+                | "user"
+                | "admin"
+                | "doctorStaff"
+                | null;
               // If clinic/doctor role, always show content (they have full access)
               if (userRole === "clinic" || userRole === "doctor") {
                 // Show clinics or empty state

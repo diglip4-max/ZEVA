@@ -133,16 +133,19 @@ const EditCustomStockItemModal: React.FC<EditCustomStockItemModalProps> = ({
       packagingStructure: {
         level1: {
           ...prev.packagingStructure.level1,
-          price: prev.level0.price
-            ? prev.level0.price / prev.packagingStructure.level1.quantity
-            : 0,
+          price:
+            prev.level0.price && prev.packagingStructure.level1.quantity > 0
+              ? prev.level0.price / prev.packagingStructure.level1.quantity
+              : 0,
         },
         level2: {
           ...prev.packagingStructure.level2,
-          price: prev.packagingStructure.level1.price
-            ? prev.packagingStructure.level1.price /
-              prev.packagingStructure.level2.quantity
-            : 0,
+          price:
+            prev.packagingStructure.level1.price &&
+            prev.packagingStructure.level2.quantity > 0
+              ? prev.packagingStructure.level1.price /
+                prev.packagingStructure.level2.quantity
+              : 0,
         },
       },
     }));
@@ -190,21 +193,7 @@ const EditCustomStockItemModal: React.FC<EditCustomStockItemModalProps> = ({
           ? {
               level0: {
                 ...prev.level0,
-                price:
-                  prev.quantity > 0
-                    ? (parseFloat(value) || 0) / prev.quantity
-                    : 0,
-              },
-            }
-          : {}),
-        ...(name === "quantity"
-          ? {
-              level0: {
-                ...prev.level0,
-                price:
-                  (parseFloat(value) || 0) > 0
-                    ? prev.unitPrice / (parseFloat(value) || 0)
-                    : 0,
+                price: parseFloat(value) || 0,
               },
             }
           : {}),
@@ -258,7 +247,10 @@ const EditCustomStockItemModal: React.FC<EditCustomStockItemModalProps> = ({
         level1: {
           ...prev.packagingStructure.level1,
           quantity,
-          price: prev.level0.price ? prev.level0.price / quantity : 0,
+          price:
+            prev.level0.price && quantity > 0
+              ? prev.level0.price / quantity
+              : 0,
         },
       },
     }));
@@ -266,19 +258,23 @@ const EditCustomStockItemModal: React.FC<EditCustomStockItemModalProps> = ({
 
   // Handle level2 multiplier/quantity change
   const handleLevel2QuantityChange = (quantity: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      packagingStructure: {
-        ...prev.packagingStructure,
-        level2: {
-          ...prev.packagingStructure.level2,
-          quantity,
-          price: prev.packagingStructure.level1.price
-            ? prev.packagingStructure.level1.price / quantity
-            : 0,
+    setFormData((prev) => {
+      const level1Price =
+        prev.level0.price && prev.packagingStructure.level1.quantity > 0
+          ? prev.level0.price / prev.packagingStructure.level1.quantity
+          : 0;
+      return {
+        ...prev,
+        packagingStructure: {
+          ...prev.packagingStructure,
+          level2: {
+            ...prev.packagingStructure.level2,
+            quantity,
+            price: level1Price && quantity > 0 ? level1Price / quantity : 0,
+          },
         },
-      },
-    }));
+      };
+    });
   };
 
   useEffect(() => {
@@ -308,9 +304,10 @@ const EditCustomStockItemModal: React.FC<EditCustomStockItemModalProps> = ({
               .toISOString()
               .split("T")[0]
           : "",
-        level0: itemData.level0 || {
-          price: 0,
-          uom: "",
+        level0: {
+          ...(itemData.level0 || {}),
+          price: itemData.unitPrice || 0,
+          uom: itemData.uom || "",
         },
         packagingStructure: itemData.packagingStructure || {
           level1: {
